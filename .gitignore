@@ -9,3 +9,4 @@ rs_game_framework.iml
 rs_game_framework.iws
 .idea
 .vscode
+**/target

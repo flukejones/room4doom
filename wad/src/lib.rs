@@ -123,7 +123,6 @@ impl WadFile {
 
     pub fn read_directories(&mut self) {
         let header = self.read_header(0);
-        dbg!("{}", &header);
         self.wad_dirs.reserve_exact(header.dir_count as usize);
 
         for i in 0..(header.dir_count) {
@@ -138,7 +137,7 @@ mod tests {
     use crate::WadFile;
     #[test]
     fn load_wad() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
         dbg!(&wad);
         assert!(wad.wad_len > 0);
@@ -146,7 +145,7 @@ mod tests {
 
     #[test]
     fn read_two_bytes() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
         let x1 = wad.read_2_bytes(0);
         dbg!(&x1);
@@ -156,7 +155,7 @@ mod tests {
 
     #[test]
     fn read_four_bytes() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
         let x = wad.read_4_bytes(0);
         dbg!(&x);
@@ -169,7 +168,7 @@ mod tests {
 
     #[test]
     fn read_header() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
 
         let header = wad.read_header(0);
@@ -178,7 +177,7 @@ mod tests {
 
     #[test]
     fn read_single_dir() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
 
         let header = wad.read_header(0);
@@ -188,7 +187,7 @@ mod tests {
 
     #[test]
     fn read_all_dirs() {
-        let mut wad = WadFile::new("../doom.wad");
+        let mut wad = WadFile::new("../doom1.wad");
         wad.load();
         wad.read_directories();
 
