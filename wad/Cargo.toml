@@ -8,9 +8,14 @@ license = "MPL-2.0"
 [dependencies]
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "~0.3"
 
 [[bench]]
-name = "benchmarks"
+name = "load_wads"
 harness = false
-path = "benches/bench.rs"
+path = "benches/wad_loading.rs"
+
+[[bench]]
+name = "load_map"
+harness = false
+path = "benches/parse_map.rs"

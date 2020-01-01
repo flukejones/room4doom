@@ -1,0 +1,13 @@
+[package]
+name = "game"
+version = "0.1.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[[bin]]
+name = "diirdoom"
+path = "src/main.rs"
+
+[dependencies]
+gumdrop = "~0.7"

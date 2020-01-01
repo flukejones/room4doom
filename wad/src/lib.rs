@@ -7,4 +7,4 @@ pub mod map;
 pub mod wad;
 
 /// Bring only the WAD structs down to root level
-pub use wad::*;
+pub use crate::wad::*;
