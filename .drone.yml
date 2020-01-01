@@ -1,0 +1,21 @@
+kind: pipeline
+name: default
+
+steps:
+- name: test
+  image: rust:stable
+  commands:
+  - cargo check --verbose --all
+  - cargo test --verbose --all
+
+- name: rustfmt
+  image: rust:stable
+  commands:
+  - rustup component add rustfmt
+  - cargo fmt --all -- --check
+
+- name: clippy
+  image: rust:stable
+  commands:
+  - rustup component add clippy
+  - cargo clippy --all
