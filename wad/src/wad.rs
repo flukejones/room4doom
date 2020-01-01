@@ -4,6 +4,10 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::{fmt, str};
 
+/// Used as an index to find a specific lump, typically combined
+/// with an offset for example: find the index for lump named "E1M1"
+/// in `self.wad_dirs` then combine this index with a `LumpIndex`
+/// variant to get a specific lump.
 enum LumpIndex {
     /// Position and angle for all monster, powerup and spawn location
     Things = 1,
@@ -79,6 +83,8 @@ impl fmt::Debug for WadDirectory {
     }
 }
 
+/// "Where's All (the) Data": contains the WAD in memory, plus an array of directories
+/// telling us where each data lump starts
 pub struct Wad {
     wad_file_path: PathBuf,
     /// The WAD as an array of bytes read in to memory
@@ -102,24 +108,26 @@ impl Wad {
     where
         A: Into<PathBuf>,
     {
-        Wad {
+        let mut wad = Wad {
             wad_file_path: file_path.into(),
             wad_data: Vec::new(),
             wad_dirs: Vec::new(),
-        }
-    }
+        };
 
-    pub fn load(&mut self) {
-        let mut file = File::open(&self.wad_file_path)
-            .expect(&format!("Could not open {:?}", &self.wad_file_path));
+        let mut file = File::open(&wad.wad_file_path)
+            .expect(&format!("Could not open {:?}", &wad.wad_file_path));
+
         let file_len = file.metadata().unwrap().len();
-        self.wad_data.reserve_exact(file_len as usize);
+        wad.wad_data.reserve_exact(file_len as usize);
         let wad_len = file
-            .read_to_end(&mut self.wad_data)
-            .expect(&format!("Could not read {:?}", &self.wad_file_path));
+            .read_to_end(&mut wad.wad_data)
+            .expect(&format!("Could not read {:?}", &wad.wad_file_path));
+
         if wad_len != file_len as usize {
             panic!("Did not read complete WAD")
         }
+
+        wad
     }
 
     fn read_2_bytes(&self, offset: usize) -> u16 {
@@ -250,14 +258,12 @@ mod tests {
     #[test]
     fn load_wad() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
         assert_eq!(wad.wad_data.len(), 4225460);
     }
 
     #[test]
     fn read_two_bytes() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
         let x1 = wad.read_2_bytes(0);
         dbg!(&x1);
         let x2 = wad.read_2_bytes(2);
@@ -267,7 +273,6 @@ mod tests {
     #[test]
     fn read_four_bytes() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
         let x = wad.read_4_bytes(0);
         dbg!(&x);
 
@@ -280,7 +285,6 @@ mod tests {
     #[test]
     fn read_header() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
 
         let header = wad.read_header(0);
         dbg!(&header);
@@ -289,7 +293,6 @@ mod tests {
     #[test]
     fn read_single_dir() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
 
         let header = wad.read_header(0);
         let dir = wad.read_dir_data((header.dir_offset) as usize);
@@ -299,7 +302,6 @@ mod tests {
     #[test]
     fn read_all_dirs() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
         wad.read_directories();
 
         for i in 6..18 {
@@ -313,45 +315,11 @@ mod tests {
     #[test]
     fn find_e1m1() {
         let mut wad = Wad::new("../doom1.wad");
-        wad.load();
         wad.read_directories();
 
         assert_eq!(wad.wad_dirs[6].lump_name, "E1M1");
 
         let i = wad.find_lump_index("E1M1");
         assert_eq!(wad.wad_dirs[i].lump_name, "E1M1");
-    }
-
-    #[test]
-    fn load_e1m1_vertexes() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.load();
-        wad.read_directories();
-
-        let mut map = map::Map::new("E1M1".to_owned());
-        let index = wad.find_lump_index(map.get_name());
-        wad.read_map_vertexes(index, &mut map);
-
-        assert_eq!(map.get_vertexes()[0].x(), 1088);
-        assert_eq!(map.get_vertexes()[0].y(), -3680);
-    }
-
-    #[test]
-    fn load_e1m1_linedefs() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.load();
-        wad.read_directories();
-
-        let mut map = map::Map::new("E1M1".to_owned());
-        let index = wad.find_lump_index(map.get_name());
-        wad.read_map_linedefs(index, &mut map);
-
-        let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex(), 0);
-        assert_eq!(linedefs[0].end_vertex(), 1);
-        assert_eq!(linedefs[2].start_vertex(), 3);
-        assert_eq!(linedefs[2].end_vertex(), 0);
-        assert_eq!(linedefs[2].front_sidedef(), 2);
-        assert_eq!(linedefs[2].back_sidedef(), 65535);
     }
 }

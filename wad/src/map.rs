@@ -127,3 +127,40 @@ impl Map {
         &self.linedefs
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::map;
+    use crate::wad::Wad;
+
+    #[test]
+    fn load_e1m1_vertexes() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        let index = wad.find_lump_index(map.get_name());
+        wad.read_map_vertexes(index, &mut map);
+
+        assert_eq!(map.get_vertexes()[0].x(), 1088);
+        assert_eq!(map.get_vertexes()[0].y(), -3680);
+    }
+
+    #[test]
+    fn load_e1m1_linedefs() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        let index = wad.find_lump_index(map.get_name());
+        wad.read_map_linedefs(index, &mut map);
+
+        let linedefs = map.get_linedefs();
+        assert_eq!(linedefs[0].start_vertex(), 0);
+        assert_eq!(linedefs[0].end_vertex(), 1);
+        assert_eq!(linedefs[2].start_vertex(), 3);
+        assert_eq!(linedefs[2].end_vertex(), 0);
+        assert_eq!(linedefs[2].front_sidedef(), 2);
+        assert_eq!(linedefs[2].back_sidedef(), 65535);
+    }
+}
