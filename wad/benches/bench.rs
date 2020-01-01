@@ -1,5 +1,5 @@
 use criterion::*;
-use wad::WadFile;
+use wad::wad::WadFile;
 
 fn bench_doom1(b: &mut Bencher, _i: &u32) {
     b.iter(|| {
