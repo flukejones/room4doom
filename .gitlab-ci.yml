@@ -1,5 +1,11 @@
 image: rust:1.40
 
+.rust_cache: &rust_cache
+  cache:
+    paths:
+      - .cargo/
+      - target/
+
 stages:
     - test
     - rustfmt
@@ -7,14 +13,17 @@ stages:
     - deploy
 
 test:
+  <<: *rust_cache
   script:
     - cargo check --verbose --all
     - cargo test --verbose --all
 rustfmt:
+  <<: *rust_cache
   script:
     - rustup component add rustfmt
     - cargo fmt --all -- --check
 clippy:
+  <<: *rust_cache
   script:
     - rustup component add clippy
     - cargo clippy --all
