@@ -1,4 +1,4 @@
-image: rustdocker/rust:stable
+image: rust:1.40
 
 stages:
     - test
@@ -20,7 +20,7 @@ clippy:
     - cargo clippy --all
 
 pages:
-  image: rustdocker/rust:stable
+  image: rust:1.40
   stage: deploy
   only:
     - master
