@@ -121,8 +121,6 @@ impl WadFile {
 
     pub fn read_dir_data(&self, offset: usize) -> WadDirectory {
         let mut n = [0; 8]; // length is 8 slots total
-
-        // exclusive of 8
         for i in 0..8 {
             n[i] = self.wad_data[offset + 8 + i]
         }
@@ -148,10 +146,10 @@ impl WadFile {
     }
 
     pub fn read_vertex_data(&self, offset: usize) -> Vertex {
-        Vertex {
-            x_pos: self.read_2_bytes(offset) as i16,
-            y_pos: self.read_2_bytes(offset + 2) as i16,
-        }
+        Vertex::new(
+            self.read_2_bytes(offset) as i16,
+            self.read_2_bytes(offset + 2) as i16,
+        )
     }
 
     pub fn find_map_index(&self, name: &str) -> usize {
@@ -183,15 +181,15 @@ impl WadFile {
     }
 
     pub fn read_map_linedef(&self, offset: usize) -> LineDef {
-        LineDef {
-            start_vertex: self.read_2_bytes(offset) as i16,
-            end_vertex: self.read_2_bytes(offset + 2) as i16,
-            flags: self.read_2_bytes(offset + 4),
-            line_type: self.read_2_bytes(offset + 6),
-            sector_tag: self.read_2_bytes(offset + 8),
-            front_sidedef: self.read_2_bytes(offset + 10),
-            back_sidedef: self.read_2_bytes(offset + 12),
-        }
+        LineDef::new(
+            self.read_2_bytes(offset) as i16,
+            self.read_2_bytes(offset + 2) as i16,
+            self.read_2_bytes(offset + 4),
+            self.read_2_bytes(offset + 6),
+            self.read_2_bytes(offset + 8),
+            self.read_2_bytes(offset + 10),
+            self.read_2_bytes(offset + 12),
+        )
     }
 
     pub fn read_map_linedefs(&self, mut index: usize, map: &mut Map) {
@@ -307,8 +305,8 @@ mod tests {
         let index = wad.find_map_index(map.get_name());
         wad.read_map_vertexes(index, &mut map);
 
-        assert_eq!(map.get_vertexes()[0].x_pos, 1088);
-        assert_eq!(map.get_vertexes()[0].y_pos, -3680);
+        assert_eq!(map.get_vertexes()[0].x(), 1088);
+        assert_eq!(map.get_vertexes()[0].y(), -3680);
     }
 
     #[test]
@@ -321,11 +319,12 @@ mod tests {
         let index = wad.find_map_index(map.get_name());
         wad.read_map_linedefs(index, &mut map);
 
-        assert_eq!(map.linedefs[0].start_vertex, 0);
-        assert_eq!(map.linedefs[0].end_vertex, 1);
-        assert_eq!(map.linedefs[2].start_vertex, 3);
-        assert_eq!(map.linedefs[2].end_vertex, 0);
-        assert_eq!(map.linedefs[2].front_sidedef, 2);
-        assert_eq!(map.linedefs[2].back_sidedef, 65535);
+        let linedefs = map.get_linedefs();
+        assert_eq!(linedefs[0].start_vertex(), 0);
+        assert_eq!(linedefs[0].end_vertex(), 1);
+        assert_eq!(linedefs[2].start_vertex(), 3);
+        assert_eq!(linedefs[2].end_vertex(), 0);
+        assert_eq!(linedefs[2].front_sidedef(), 2);
+        assert_eq!(linedefs[2].back_sidedef(), 65535);
     }
 }
