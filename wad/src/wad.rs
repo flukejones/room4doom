@@ -1,4 +1,4 @@
-use crate::map::{Map, Vertex};
+use crate::map::{LineDef, Map, Vertex};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -94,8 +94,8 @@ impl WadFile {
         }
     }
 
-    pub fn read_2_bytes(&self, offset: usize) -> i16 {
-        (self.wad_data[offset + 1] as i16) << 8 | (self.wad_data[offset] as i16)
+    pub fn read_2_bytes(&self, offset: usize) -> u16 {
+        (self.wad_data[offset + 1] as u16) << 8 | (self.wad_data[offset] as u16)
     }
 
     pub fn read_4_bytes(&self, offset: usize) -> u32 {
@@ -149,8 +149,8 @@ impl WadFile {
 
     pub fn read_vertex_data(&self, offset: usize) -> Vertex {
         Vertex {
-            x_pos: self.read_2_bytes(offset),
-            y_pos: self.read_2_bytes(offset + 2),
+            x_pos: self.read_2_bytes(offset) as i16,
+            y_pos: self.read_2_bytes(offset + 2) as i16,
         }
     }
 
@@ -163,8 +163,7 @@ impl WadFile {
         panic!("Index not found for lump name: {}", name);
     }
 
-    pub fn read_map_vertex(&self, map: &mut Map) {
-        let mut index = self.find_map_index(map.get_name());
+    pub fn read_map_vertexes(&self, mut index: usize, map: &mut Map) {
         index += LumpIndex::Vertexes as usize;
 
         if self.wad_dirs[index].lump_name != "VERTEXES" {
@@ -180,6 +179,39 @@ impl WadFile {
         for i in 0..vertex_count {
             let v = self.read_vertex_data((self.wad_dirs[index].lump_offset + i * 4) as usize);
             map.add_vertex(v);
+        }
+    }
+
+    pub fn read_map_linedef(&self, offset: usize) -> LineDef {
+        LineDef {
+            start_vertex: self.read_2_bytes(offset) as i16,
+            end_vertex: self.read_2_bytes(offset + 2) as i16,
+            flags: self.read_2_bytes(offset + 4),
+            line_type: self.read_2_bytes(offset + 6),
+            sector_tag: self.read_2_bytes(offset + 8),
+            front_sidedef: self.read_2_bytes(offset + 10),
+            back_sidedef: self.read_2_bytes(offset + 12),
+        }
+    }
+
+    pub fn read_map_linedefs(&self, mut index: usize, map: &mut Map) {
+        index += LumpIndex::LineDefs as usize;
+
+        if self.wad_dirs[index].lump_name != "LINEDEFS" {
+            panic!(
+                "Invalid vertex lump index: {}, {}",
+                index, self.wad_dirs[index].lump_name
+            )
+        }
+
+        let linedef_byte_size = std::mem::size_of::<LineDef>() as u32;
+        let linedef_count = self.wad_dirs[index].lump_size / linedef_byte_size;
+
+        for i in 0..linedef_count {
+            let linedef = self.read_map_linedef(
+                (self.wad_dirs[index].lump_offset + i * linedef_byte_size) as usize,
+            );
+            map.add_linedef(linedef);
         }
     }
 }
@@ -266,15 +298,34 @@ mod tests {
     }
 
     #[test]
-    fn find_e1m1_test() {
+    fn load_e1m1_vertexes() {
         let mut wad = WadFile::new("../doom1.wad");
         wad.load();
         wad.read_directories();
 
         let mut map = map::Map::new("E1M1".to_owned());
-        wad.read_map_vertex(&mut map);
+        let index = wad.find_map_index(map.get_name());
+        wad.read_map_vertexes(index, &mut map);
 
         assert_eq!(map.get_vertexes()[0].x_pos, 1088);
         assert_eq!(map.get_vertexes()[0].y_pos, -3680);
+    }
+
+    #[test]
+    fn load_e1m1_linedefs() {
+        let mut wad = WadFile::new("../doom1.wad");
+        wad.load();
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        let index = wad.find_map_index(map.get_name());
+        wad.read_map_linedefs(index, &mut map);
+
+        assert_eq!(map.linedefs[0].start_vertex, 0);
+        assert_eq!(map.linedefs[0].end_vertex, 1);
+        assert_eq!(map.linedefs[2].start_vertex, 3);
+        assert_eq!(map.linedefs[2].end_vertex, 0);
+        assert_eq!(map.linedefs[2].front_sidedef, 2);
+        assert_eq!(map.linedefs[2].back_sidedef, 65535);
     }
 }

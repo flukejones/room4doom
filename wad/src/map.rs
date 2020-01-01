@@ -16,21 +16,21 @@ pub struct Vertex {
     pub x_pos: i16,
     pub y_pos: i16,
 }
-
+#[derive(Debug)]
 pub struct LineDef {
-    start_vertex: u16,
-    end_vertex: u16,
-    flags: u16, //TODO: enum?
-    line_type: u16,
-    sector_tag: u16,
-    front_sidedef: u16, //0xFFFF means there is no sidedef
-    back_sidedef: u16,  //0xFFFF means there is no sidedef
+    pub start_vertex: i16,
+    pub end_vertex: i16,
+    pub flags: u16, //TODO: enum?
+    pub line_type: u16,
+    pub sector_tag: u16,
+    pub front_sidedef: u16, //0xFFFF means there is no sidedef
+    pub back_sidedef: u16,  //0xFFFF means there is no sidedef
 }
 
 pub struct Map {
-    name: String,
-    vertexes: Vec<Vertex>,
-    linedefs: Vec<LineDef>,
+    pub name: String,
+    pub vertexes: Vec<Vertex>,
+    pub linedefs: Vec<LineDef>,
 }
 
 impl Map {
