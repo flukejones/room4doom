@@ -6,7 +6,6 @@ use gumdrop::{Options, ParsingStyle};
 use sdl2;
 use std::env;
 use std::time::Instant;
-use wad;
 
 #[derive(Default, Debug, Options)]
 pub struct GameOptions {

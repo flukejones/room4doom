@@ -46,8 +46,9 @@ impl Game {
 
         let input = Input::new(events);
 
-        let mut wad = Wad::new(options.iwad);
+        let wad = Wad::new(options.iwad);
         let mut map = Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
 
         Game {
             input,

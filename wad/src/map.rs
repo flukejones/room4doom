@@ -92,10 +92,73 @@ impl LineDef {
     }
 }
 
+#[derive(Debug)]
+pub struct Sector {
+    floor_height: i16,
+    ceil_height: i16,
+    floor_tex: String,
+    ceil_tex: String,
+    light_level: u16,
+    typ: u16,
+    tag: u16,
+}
+
+impl Sector {
+    pub fn new(
+        floor_height: i16,
+        ceil_height: i16,
+        floor_tex: String,
+        ceil_tex: String,
+        light_level: u16,
+        typ: u16,
+        tag: u16,
+    ) -> Sector {
+        Sector {
+            floor_height,
+            ceil_height,
+            floor_tex,
+            ceil_tex,
+            light_level,
+            typ,
+            tag,
+        }
+    }
+
+    pub fn floor_height(&self) -> i16 {
+        self.floor_height
+    }
+
+    pub fn ceil_height(&self) -> i16 {
+        self.ceil_height
+    }
+
+    pub fn floor_tex(&self) -> &str {
+        &self.floor_tex
+    }
+
+    pub fn ceil_tex(&self) -> &str {
+        &self.ceil_tex
+    }
+
+    pub fn light_level(&self) -> u16 {
+        self.light_level
+    }
+
+    pub fn typ(&self) -> u16 {
+        self.typ
+    }
+
+    pub fn tag(&self) -> u16 {
+        self.tag
+    }
+}
+
+#[derive(Debug)]
 pub struct Map {
     name: String,
     vertexes: Vec<Vertex>,
     linedefs: Vec<LineDef>,
+    sectors: Vec<Sector>,
 }
 
 impl Map {
@@ -104,6 +167,7 @@ impl Map {
             name,
             vertexes: Vec::new(),
             linedefs: Vec::new(),
+            sectors: Vec::new(),
         }
     }
 
@@ -126,6 +190,14 @@ impl Map {
     pub fn get_linedefs(&self) -> &[LineDef] {
         &self.linedefs
     }
+
+    pub fn add_sector(&mut self, l: Sector) {
+        self.sectors.push(l);
+    }
+
+    pub fn get_sectors(&self) -> &[Sector] {
+        &self.sectors
+    }
 }
 
 #[cfg(test)]
@@ -134,26 +206,18 @@ mod tests {
     use crate::wad::Wad;
 
     #[test]
-    fn load_e1m1_vertexes() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
-
-        let mut map = map::Map::new("E1M1".to_owned());
-        let index = wad.find_lump_index(map.get_name());
-        wad.read_map_vertexes(index, &mut map);
-
-        assert_eq!(map.get_vertexes()[0].x(), 1088);
-        assert_eq!(map.get_vertexes()[0].y(), -3680);
-    }
-
-    #[test]
     fn load_e1m1_linedefs() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = map::Map::new("E1M1".to_owned());
-        let index = wad.find_lump_index(map.get_name());
-        wad.read_map_linedefs(index, &mut map);
+        wad.load_map(&mut map);
+
+        let vertexes = map.get_vertexes();
+        assert_eq!(vertexes[0].x(), 1088);
+        assert_eq!(vertexes[0].y(), -3680);
+        assert_eq!(vertexes[466].x(), 2912);
+        assert_eq!(vertexes[466].y(), -4848);
 
         let linedefs = map.get_linedefs();
         assert_eq!(linedefs[0].start_vertex(), 0);
@@ -162,5 +226,26 @@ mod tests {
         assert_eq!(linedefs[2].end_vertex(), 0);
         assert_eq!(linedefs[2].front_sidedef(), 2);
         assert_eq!(linedefs[2].back_sidedef(), 65535);
+        assert_eq!(linedefs[474].start_vertex(), 384);
+        assert_eq!(linedefs[474].end_vertex(), 348);
+        assert_eq!(linedefs[474].flags(), 1);
+        assert_eq!(linedefs[474].front_sidedef(), 647);
+        assert_eq!(linedefs[474].back_sidedef(), 65535);
+
+        let sectors = map.get_sectors();
+        assert_eq!(sectors[0].floor_height(), 0);
+        assert_eq!(sectors[0].ceil_height(), 72);
+        assert_eq!(sectors[0].floor_tex(), "FLOOR4_8");
+        assert_eq!(sectors[0].ceil_tex(), "CEIL3_5");
+        assert_eq!(sectors[0].light_level(), 160);
+        assert_eq!(sectors[0].typ(), 0);
+        assert_eq!(sectors[0].tag(), 0);
+        assert_eq!(sectors[84].floor_height(), -24);
+        assert_eq!(sectors[84].ceil_height(), 48);
+        assert_eq!(sectors[84].floor_tex(), "FLOOR5_2");
+        assert_eq!(sectors[84].ceil_tex(), "CEIL3_5");
+        assert_eq!(sectors[84].light_level(), 255);
+        assert_eq!(sectors[84].typ(), 0);
+        assert_eq!(sectors[84].tag(), 0);
     }
 }

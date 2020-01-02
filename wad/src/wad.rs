@@ -1,4 +1,4 @@
-use crate::map::{LineDef, Map, Vertex};
+use crate::map::{LineDef, Map, Sector, Vertex};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -142,7 +142,7 @@ impl Wad {
     }
 
     fn read_header(&self, offset: usize) -> WadHeader {
-        let mut t = [0; 4];
+        let mut t = [0u8; 4];
         t[0] = self.wad_data[offset];
         t[1] = self.wad_data[offset + 1];
         t[2] = self.wad_data[offset + 2];
@@ -156,7 +156,7 @@ impl Wad {
     }
 
     fn read_dir_data(&self, offset: usize) -> WadDirectory {
-        let mut n = [0; 8]; // length is 8 slots total
+        let mut n = [0u8; 8]; // length is 8 slots total
         for i in 0..8 {
             n[i] = self.wad_data[offset + 8 + i]
         }
@@ -181,13 +181,6 @@ impl Wad {
         }
     }
 
-    fn read_vertex(&self, offset: usize) -> Vertex {
-        Vertex::new(
-            self.read_2_bytes(offset) as i16,
-            self.read_2_bytes(offset + 2) as i16,
-        )
-    }
-
     pub fn find_lump_index(&self, name: &str) -> usize {
         for (i, dir) in self.wad_dirs.iter().enumerate() {
             if &dir.lump_name == name {
@@ -197,7 +190,7 @@ impl Wad {
         panic!("Index not found for lump name: {}", name);
     }
 
-    pub fn read_map_vertexes(&self, mut index: usize, map: &mut Map) {
+    fn read_map_vertexes(&self, mut index: usize, map: &mut Map) {
         index += LumpIndex::Vertexes as usize;
 
         if self.wad_dirs[index].lump_name != "VERTEXES" {
@@ -211,24 +204,15 @@ impl Wad {
         let vertex_count = self.wad_dirs[index].lump_size / 4; // u32 == 4 bytes
 
         for i in 0..vertex_count {
-            let v = self.read_vertex((self.wad_dirs[index].lump_offset + i * 4) as usize);
-            map.add_vertex(v);
+            let offset = (self.wad_dirs[index].lump_offset + i * 4) as usize;
+            map.add_vertex(Vertex::new(
+                self.read_2_bytes(offset) as i16,
+                self.read_2_bytes(offset + 2) as i16,
+            ));
         }
     }
 
-    fn read_map_linedef(&self, offset: usize) -> LineDef {
-        LineDef::new(
-            self.read_2_bytes(offset) as i16,
-            self.read_2_bytes(offset + 2) as i16,
-            self.read_2_bytes(offset + 4),
-            self.read_2_bytes(offset + 6),
-            self.read_2_bytes(offset + 8),
-            self.read_2_bytes(offset + 10),
-            self.read_2_bytes(offset + 12),
-        )
-    }
-
-    pub fn read_map_linedefs(&self, mut index: usize, map: &mut Map) {
+    fn read_map_linedefs(&self, mut index: usize, map: &mut Map) {
         index += LumpIndex::LineDefs as usize;
 
         if self.wad_dirs[index].lump_name != "LINEDEFS" {
@@ -242,11 +226,70 @@ impl Wad {
         let linedef_count = self.wad_dirs[index].lump_size / linedef_byte_size;
 
         for i in 0..linedef_count {
-            let linedef = self.read_map_linedef(
-                (self.wad_dirs[index].lump_offset + i * linedef_byte_size) as usize,
-            );
-            map.add_linedef(linedef);
+            let offset = (self.wad_dirs[index].lump_offset + i * linedef_byte_size) as usize;
+            map.add_linedef(LineDef::new(
+                self.read_2_bytes(offset) as i16,
+                self.read_2_bytes(offset + 2) as i16,
+                self.read_2_bytes(offset + 4),
+                self.read_2_bytes(offset + 6),
+                self.read_2_bytes(offset + 8),
+                self.read_2_bytes(offset + 10),
+                self.read_2_bytes(offset + 12),
+            ));
         }
+    }
+
+    fn read_map_sectors(&self, mut index: usize, map: &mut Map) {
+        index += LumpIndex::Sectors as usize;
+
+        if self.wad_dirs[index].lump_name != "SECTORS" {
+            panic!(
+                "Invalid sector lump index: {}, {}",
+                index, self.wad_dirs[index].lump_name
+            )
+        }
+
+        let sector_byte_size = 26; // this will never change size
+        let sector_count = self.wad_dirs[index].lump_size / sector_byte_size;
+
+        for i in 0..sector_count {
+            let offset = (self.wad_dirs[index].lump_offset + i * sector_byte_size) as usize;
+
+            let mut floor_tex = [0u8; 8];
+            for i in 0..8 {
+                floor_tex[i] = self.wad_data[offset + i + 4]
+            }
+
+            let mut ceil_tex = [0u8; 8];
+            for i in 0..8 {
+                ceil_tex[i] = self.wad_data[offset + i + 12]
+            }
+
+            map.add_sector(Sector::new(
+                self.read_2_bytes(offset) as i16,
+                self.read_2_bytes(offset + 2) as i16,
+                str::from_utf8(&floor_tex)
+                    .expect("Invalid floor tex name")
+                    .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                    .to_owned(),
+                str::from_utf8(&ceil_tex)
+                    .expect("Invalid ceiling tex name")
+                    .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                    .to_owned(),
+                self.read_2_bytes(offset + 20),
+                self.read_2_bytes(offset + 22),
+                self.read_2_bytes(offset + 24),
+            ))
+        }
+    }
+
+    pub fn load_map(&self, mut map: &mut Map) {
+        let i = self.find_lump_index("E1M1");
+        self.read_map_vertexes(i, &mut map);
+        self.read_map_linedefs(i, &mut map);
+        self.read_map_sectors(i, &mut map);
+        // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
+        // storing in map struct
     }
 }
 
@@ -263,7 +306,7 @@ mod tests {
 
     #[test]
     fn read_two_bytes() {
-        let mut wad = Wad::new("../doom1.wad");
+        let wad = Wad::new("../doom1.wad");
         let x1 = wad.read_2_bytes(0);
         dbg!(&x1);
         let x2 = wad.read_2_bytes(2);
@@ -272,7 +315,7 @@ mod tests {
 
     #[test]
     fn read_four_bytes() {
-        let mut wad = Wad::new("../doom1.wad");
+        let wad = Wad::new("../doom1.wad");
         let x = wad.read_4_bytes(0);
         dbg!(&x);
 
@@ -284,7 +327,7 @@ mod tests {
 
     #[test]
     fn read_header() {
-        let mut wad = Wad::new("../doom1.wad");
+        let wad = Wad::new("../doom1.wad");
 
         let header = wad.read_header(0);
         dbg!(&header);
@@ -292,7 +335,7 @@ mod tests {
 
     #[test]
     fn read_single_dir() {
-        let mut wad = Wad::new("../doom1.wad");
+        let wad = Wad::new("../doom1.wad");
 
         let header = wad.read_header(0);
         let dir = wad.read_dir_data((header.dir_offset) as usize);
