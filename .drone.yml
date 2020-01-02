@@ -6,17 +6,19 @@ steps:
 - name: test
   image: rust:1.40
   commands:
-  - cargo check --verbose --all
-  - cargo test --verbose --all
+    - apt update
+    - apt install -y libsdl2-dev libsdl2-gfx-dev
+    - cargo check --verbose --all
+    - cargo test --verbose --all
 
 - name: rustfmt
   image: rust:1.40
   commands:
-  - rustup component add rustfmt
-  - cargo fmt --all -- --check
+    - rustup component add rustfmt
+    - cargo fmt --all -- --check
 
 - name: clippy
   image: rust:1.40
   commands:
-  - rustup component add clippy
-  - cargo clippy --all
+    - rustup component add clippy
+    - cargo clippy --all

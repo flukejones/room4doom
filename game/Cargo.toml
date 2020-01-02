@@ -11,5 +11,13 @@ path = "src/main.rs"
 
 [dependencies]
 gumdrop = "~0.7"
-sdl2 = "0.32.2"
+wad = { path = "../wad"}
+
+[dependencies.sdl2]
+version = "0.32"
+default-features = false
+features = ["gfx"]
+
+[dev-dependencies]
+gumdrop = "~0.7"
 wad = { path = "../wad"}

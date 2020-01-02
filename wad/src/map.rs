@@ -254,6 +254,15 @@ impl SideDef {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct MapExtents {
+    pub min_x: i16,
+    pub max_x: i16,
+    pub min_y: i16,
+    pub max_y: i16,
+    pub automap_scale: i16,
+}
+
 #[derive(Debug)]
 pub struct Map {
     name: String,
@@ -261,6 +270,7 @@ pub struct Map {
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
+    extents: MapExtents,
 }
 
 impl Map {
@@ -271,6 +281,7 @@ impl Map {
             linedefs: Vec::new(),
             sectors: Vec::new(),
             sidedefs: Vec::new(),
+            extents: MapExtents::default(),
         }
     }
 
@@ -279,6 +290,18 @@ impl Map {
     }
 
     pub fn add_vertex(&mut self, v: Vertex) {
+        if self.extents.min_x > v.x_pos {
+            self.extents.min_x = v.x_pos;
+        } else if self.extents.max_x < v.x_pos {
+            self.extents.max_x = v.x_pos;
+        }
+
+        if self.extents.min_y > v.y_pos {
+            self.extents.min_y = v.y_pos;
+        } else if self.extents.max_y < v.y_pos {
+            self.extents.max_y = v.y_pos;
+        }
+
         self.vertexes.push(v);
     }
 
@@ -308,6 +331,10 @@ impl Map {
 
     pub fn get_sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
+    }
+
+    pub fn get_extents(&self) -> &MapExtents {
+        &self.extents
     }
 }
 

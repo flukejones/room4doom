@@ -1,5 +1,6 @@
 use crate::input::Input;
 use crate::GameOptions;
+use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
@@ -12,7 +13,7 @@ pub struct Game {
     running: bool,
     _state_changing: bool,
     _wad: Wad,
-    _map: Map,
+    map: Map,
 }
 
 impl Game {
@@ -45,7 +46,8 @@ impl Game {
 
         let input = Input::new(events);
 
-        let wad = Wad::new(options.iwad);
+        let mut wad = Wad::new(options.iwad);
+        wad.read_directories();
         let mut map = Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
 
@@ -55,7 +57,7 @@ impl Game {
             running: true,
             _state_changing: false,
             _wad: wad,
-            _map: map,
+            map: map,
         }
     }
 
@@ -94,11 +96,40 @@ impl Game {
     pub fn render(&mut self, dt: f64) {
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
+        self.draw_automap();
         self.canvas.present();
     }
 
     /// Called by the main loop
     pub fn running(&self) -> bool {
         self.running
+    }
+
+    pub fn draw_automap(&mut self) {
+        let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
+        let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
+        // clear background to black
+        self.canvas.set_draw_color(black);
+        self.canvas.clear();
+
+        let x_shift = -self.map.get_extents().min_x;
+        let y_shift = -self.map.get_extents().min_y;
+        let scr_height = self.canvas.viewport().height() as i16;
+
+        for linedef in self.map.get_linedefs() {
+            let vertexes = self.map.get_vertexes();
+            let start = &vertexes[linedef.start_vertex() as usize];
+            let end = &vertexes[linedef.end_vertex() as usize];
+            self.canvas
+                .thick_line(
+                    (start.x() + x_shift) / 4,
+                    scr_height - (start.y() + y_shift) / 4,
+                    (end.x() + x_shift) / 4,
+                    scr_height - (end.y() + y_shift) / 4,
+                    1,
+                    red,
+                )
+                .unwrap();
+        }
     }
 }
