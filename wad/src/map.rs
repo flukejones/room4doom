@@ -206,7 +206,7 @@ mod tests {
     use crate::wad::Wad;
 
     #[test]
-    fn load_e1m1_linedefs() {
+    fn load_e1m1() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 

@@ -8,6 +8,7 @@ use std::{fmt, str};
 /// with an offset for example: find the index for lump named "E1M1"
 /// in `self.wad_dirs` then combine this index with a `LumpIndex`
 /// variant to get a specific lump.
+#[allow(dead_code)]
 enum LumpIndex {
     /// Position and angle for all monster, powerup and spawn location
     Things = 1,
@@ -40,6 +41,24 @@ enum LumpIndex {
     /// detection
     Blockmap,
     Count,
+}
+
+impl LumpIndex {
+    fn to_string(&self) -> String {
+        match self {
+            LumpIndex::Things => "THINGS".to_string(),
+            LumpIndex::LineDefs => "LINEDEFS".to_string(),
+            LumpIndex::SideDefs => "SIDEDEFS".to_string(),
+            LumpIndex::Vertexes => "VERTEXES".to_string(),
+            LumpIndex::Segs => "SEGS".to_string(),
+            LumpIndex::SubSectors => "SSECTORS".to_string(),
+            LumpIndex::Nodes => "NODES".to_string(),
+            LumpIndex::Sectors => "SECTORS".to_string(),
+            LumpIndex::Reject => "REJECT".to_string(),
+            LumpIndex::Blockmap => "BLOCKMAP".to_string(),
+            LumpIndex::Count => "COUNT".to_string(),
+        }
+    }
 }
 
 /// Header which tells us the WAD type and where the data is
@@ -190,71 +209,69 @@ impl Wad {
         panic!("Index not found for lump name: {}", name);
     }
 
-    fn read_map_vertexes(&self, mut index: usize, map: &mut Map) {
-        index += LumpIndex::Vertexes as usize;
+    fn read_map_lump<F>(
+        &self,
+        mut index: usize,
+        lump_type: LumpIndex,
+        data_size: u32,
+        mut map: &mut Map,
+        func: F,
+    ) where
+        F: Fn(usize, &mut Map),
+    {
+        let name: String = lump_type.to_string();
+        index += lump_type as usize;
 
-        if self.wad_dirs[index].lump_name != "VERTEXES" {
+        if self.wad_dirs[index].lump_name != name {
             panic!(
-                "Invalid vertex lump index: {}, {}",
-                index, self.wad_dirs[index].lump_name
+                "Invalid {} lump index: {}, found {}",
+                name, index, self.wad_dirs[index].lump_name
             )
         }
 
-        // Rust sizes can differ to C/C++, we know the Vertex data is two i16 so just use this
-        let vertex_count = self.wad_dirs[index].lump_size / 4; // u32 == 4 bytes
+        let data_count = self.wad_dirs[index].lump_size / data_size;
 
-        for i in 0..vertex_count {
-            let offset = (self.wad_dirs[index].lump_offset + i * 4) as usize;
-            map.add_vertex(Vertex::new(
-                self.read_2_bytes(offset) as i16,
-                self.read_2_bytes(offset + 2) as i16,
-            ));
+        for i in 0..data_count {
+            let offset = (self.wad_dirs[index].lump_offset + i * data_size) as usize;
+            func(offset, &mut map);
         }
     }
 
-    fn read_map_linedefs(&self, mut index: usize, map: &mut Map) {
-        index += LumpIndex::LineDefs as usize;
-
-        if self.wad_dirs[index].lump_name != "LINEDEFS" {
-            panic!(
-                "Invalid vertex lump index: {}, {}",
-                index, self.wad_dirs[index].lump_name
-            )
-        }
-
-        let linedef_byte_size = std::mem::size_of::<LineDef>() as u32;
-        let linedef_count = self.wad_dirs[index].lump_size / linedef_byte_size;
-
-        for i in 0..linedef_count {
-            let offset = (self.wad_dirs[index].lump_offset + i * linedef_byte_size) as usize;
-            map.add_linedef(LineDef::new(
-                self.read_2_bytes(offset) as i16,
-                self.read_2_bytes(offset + 2) as i16,
-                self.read_2_bytes(offset + 4),
-                self.read_2_bytes(offset + 6),
-                self.read_2_bytes(offset + 8),
-                self.read_2_bytes(offset + 10),
-                self.read_2_bytes(offset + 12),
-            ));
-        }
-    }
-
-    fn read_map_sectors(&self, mut index: usize, map: &mut Map) {
-        index += LumpIndex::Sectors as usize;
-
-        if self.wad_dirs[index].lump_name != "SECTORS" {
-            panic!(
-                "Invalid sector lump index: {}, {}",
-                index, self.wad_dirs[index].lump_name
-            )
-        }
-
-        let sector_byte_size = 26; // this will never change size
-        let sector_count = self.wad_dirs[index].lump_size / sector_byte_size;
-
-        for i in 0..sector_count {
-            let offset = (self.wad_dirs[index].lump_offset + i * sector_byte_size) as usize;
-
+    pub fn load_map(&self, mut map: &mut Map) {
+        let index = self.find_lump_index("E1M1");
+        // Vertexes
+        self.read_map_lump(
+            index,
+            LumpIndex::Vertexes,
+            std::mem::size_of::<u32>() as u32,
+            &mut map,
+            |offset, map| {
+                map.add_vertex(Vertex::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                ));
+            },
+        );
+        //LineDefs
+        self.read_map_lump(
+            index,
+            LumpIndex::LineDefs,
+            std::mem::size_of::<LineDef>() as u32,
+            &mut map,
+            |offset, map| {
+                map.add_linedef(LineDef::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                    self.read_2_bytes(offset + 4),
+                    self.read_2_bytes(offset + 6),
+                    self.read_2_bytes(offset + 8),
+                    self.read_2_bytes(offset + 10),
+                    self.read_2_bytes(offset + 12),
+                ));
+            },
+        );
+        // Sectors
+        self.read_map_lump(index, LumpIndex::Sectors, 26, &mut map, |offset, map| {
             let mut floor_tex = [0u8; 8];
             for i in 0..8 {
                 floor_tex[i] = self.wad_data[offset + i + 4]
@@ -279,15 +296,8 @@ impl Wad {
                 self.read_2_bytes(offset + 20),
                 self.read_2_bytes(offset + 22),
                 self.read_2_bytes(offset + 24),
-            ))
-        }
-    }
-
-    pub fn load_map(&self, mut map: &mut Map) {
-        let i = self.find_lump_index("E1M1");
-        self.read_map_vertexes(i, &mut map);
-        self.read_map_linedefs(i, &mut map);
-        self.read_map_sectors(i, &mut map);
+            ));
+        })
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in map struct
     }

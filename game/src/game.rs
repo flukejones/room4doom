@@ -1,6 +1,5 @@
 use crate::input::Input;
 use crate::GameOptions;
-use sdl2::keyboard::Scancode;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
@@ -11,9 +10,9 @@ pub struct Game {
     input: Input,
     canvas: Canvas<Window>,
     running: bool,
-    state_changing: bool,
-    wad: Wad,
-    map: Map,
+    _state_changing: bool,
+    _wad: Wad,
+    _map: Map,
 }
 
 impl Game {
@@ -54,9 +53,9 @@ impl Game {
             input,
             canvas,
             running: true,
-            state_changing: false,
-            wad,
-            map,
+            _state_changing: false,
+            _wad: wad,
+            _map: map,
         }
     }
 
@@ -78,11 +77,11 @@ impl Game {
     pub fn handle_events(&mut self) {
         self.input.update();
 
-        if self.input.get_key(Scancode::Escape) {
-        } else if self.input.get_key(Scancode::Return) {
-        } else if !self.input.get_key(Scancode::Escape) && !self.input.get_key(Scancode::Return) {
-            self.state_changing = false;
-        }
+        //        if self.input.get_key(Scancode::Escape) {
+        //        } else if self.input.get_key(Scancode::Return) {
+        //        } else if !self.input.get_key(Scancode::Escape) && !self.input.get_key(Scancode::Return) {
+        //            self.state_changing = false;
+        //        }
     }
 
     /// `render` calls the `states.render()` method with a time-step for state renders
