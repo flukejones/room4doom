@@ -1,4 +1,4 @@
-use crate::map::{LineDef, Map, Sector, Vertex};
+use crate::map::{LineDef, Map, Sector, SideDef, Vertex};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -272,32 +272,27 @@ impl Wad {
         );
         // Sectors
         self.read_map_lump(index, LumpIndex::Sectors, 26, &mut map, |offset, map| {
-            let mut floor_tex = [0u8; 8];
-            for i in 0..8 {
-                floor_tex[i] = self.wad_data[offset + i + 4]
-            }
-
-            let mut ceil_tex = [0u8; 8];
-            for i in 0..8 {
-                ceil_tex[i] = self.wad_data[offset + i + 12]
-            }
-
             map.add_sector(Sector::new(
                 self.read_2_bytes(offset) as i16,
                 self.read_2_bytes(offset + 2) as i16,
-                str::from_utf8(&floor_tex)
-                    .expect("Invalid floor tex name")
-                    .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
-                    .to_owned(),
-                str::from_utf8(&ceil_tex)
-                    .expect("Invalid ceiling tex name")
-                    .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
-                    .to_owned(),
+                &self.wad_data[offset + 4..offset + 12],
+                &self.wad_data[offset + 12..offset + 20],
                 self.read_2_bytes(offset + 20),
                 self.read_2_bytes(offset + 22),
                 self.read_2_bytes(offset + 24),
             ));
-        })
+        });
+        // Sidedefs
+        self.read_map_lump(index, LumpIndex::SideDefs, 30, &mut map, |offset, map| {
+            map.add_sidedef(SideDef::new(
+                self.read_2_bytes(offset) as i16,
+                self.read_2_bytes(offset + 2) as i16,
+                &self.wad_data[offset + 4..offset + 12],
+                &self.wad_data[offset + 12..offset + 20],
+                &self.wad_data[offset + 20..offset + 28],
+                self.read_2_bytes(offset + 28),
+            ));
+        });
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in map struct
     }

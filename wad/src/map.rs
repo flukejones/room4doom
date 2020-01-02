@@ -1,10 +1,12 @@
+use std::str;
+
 // TODO: Why power of two?
 pub enum LineDefFlags {
     Blocking = 0,
     BlockMonsters = 1,
     TwoSided = 2,
-    DontPegTop = 4,
-    DontPegBottom = 8,
+    UnpegTop = 4,
+    UnpegBottom = 8,
     Secret = 16,
     SoundBlock = 32,
     DontDraw = 64,
@@ -107,17 +109,35 @@ impl Sector {
     pub fn new(
         floor_height: i16,
         ceil_height: i16,
-        floor_tex: String,
-        ceil_tex: String,
+        floor_tex: &[u8],
+        ceil_tex: &[u8],
         light_level: u16,
         typ: u16,
         tag: u16,
     ) -> Sector {
+        if floor_tex.len() != 8 {
+            panic!(
+                "sector floor_tex name incorrect length, expected 8, got {}",
+                floor_tex.len()
+            )
+        }
+        if ceil_tex.len() != 8 {
+            panic!(
+                "sector ceil_tex name incorrect length, expected 8, got {}",
+                ceil_tex.len()
+            )
+        }
         Sector {
             floor_height,
             ceil_height,
-            floor_tex,
-            ceil_tex,
+            floor_tex: str::from_utf8(floor_tex)
+                .expect("Invalid floor tex name")
+                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .to_owned(),
+            ceil_tex: str::from_utf8(ceil_tex)
+                .expect("Invalid ceiling tex name")
+                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .to_owned(),
             light_level,
             typ,
             tag,
@@ -154,11 +174,93 @@ impl Sector {
 }
 
 #[derive(Debug)]
+pub struct SideDef {
+    x_offset: i16,
+    y_offset: i16,
+    upper_tex: String,
+    lower_tex: String,
+    middle_tex: String,
+    sector_id: u16,
+}
+
+impl SideDef {
+    pub fn new(
+        x_offset: i16,
+        y_offset: i16,
+        upper_tex: &[u8],
+        lower_tex: &[u8],
+        middle_tex: &[u8],
+        sector_id: u16,
+    ) -> SideDef {
+        if upper_tex.len() != 8 {
+            panic!(
+                "sidedef upper_tex name incorrect length, expected 8, got {}",
+                upper_tex.len()
+            )
+        }
+        if lower_tex.len() != 8 {
+            panic!(
+                "sidedef lower_tex name incorrect length, expected 8, got {}",
+                lower_tex.len()
+            )
+        }
+        if middle_tex.len() != 8 {
+            panic!(
+                "sidedef middle_tex name incorrect length, expected 8, got {}",
+                middle_tex.len()
+            )
+        }
+        SideDef {
+            x_offset,
+            y_offset,
+            upper_tex: str::from_utf8(upper_tex)
+                .expect("Invalid upper_tex name")
+                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .to_owned(),
+            lower_tex: str::from_utf8(lower_tex)
+                .expect("Invalid lower_tex name")
+                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .to_owned(),
+            middle_tex: str::from_utf8(middle_tex)
+                .expect("Invalid middle_tex name")
+                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .to_owned(),
+            sector_id,
+        }
+    }
+
+    pub fn x_offset(&self) -> i16 {
+        self.x_offset
+    }
+
+    pub fn y_offset(&self) -> i16 {
+        self.y_offset
+    }
+
+    pub fn upper_tex(&self) -> &str {
+        &self.upper_tex
+    }
+
+    pub fn lower_tex(&self) -> &str {
+        &self.lower_tex
+    }
+
+    pub fn middle_tex(&self) -> &str {
+        &self.middle_tex
+    }
+
+    pub fn sector_id(&self) -> u16 {
+        self.sector_id
+    }
+}
+
+#[derive(Debug)]
 pub struct Map {
     name: String,
     vertexes: Vec<Vertex>,
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
+    sidedefs: Vec<SideDef>,
 }
 
 impl Map {
@@ -168,6 +270,7 @@ impl Map {
             vertexes: Vec::new(),
             linedefs: Vec::new(),
             sectors: Vec::new(),
+            sidedefs: Vec::new(),
         }
     }
 
@@ -191,12 +294,20 @@ impl Map {
         &self.linedefs
     }
 
-    pub fn add_sector(&mut self, l: Sector) {
-        self.sectors.push(l);
+    pub fn add_sector(&mut self, s: Sector) {
+        self.sectors.push(s);
     }
 
     pub fn get_sectors(&self) -> &[Sector] {
         &self.sectors
+    }
+
+    pub fn add_sidedef(&mut self, s: SideDef) {
+        self.sidedefs.push(s);
+    }
+
+    pub fn get_sidedefs(&self) -> &[SideDef] {
+        &self.sidedefs
     }
 }
 
@@ -247,5 +358,19 @@ mod tests {
         assert_eq!(sectors[84].light_level(), 255);
         assert_eq!(sectors[84].typ(), 0);
         assert_eq!(sectors[84].tag(), 0);
+
+        let sidedefs = map.get_sidedefs();
+        assert_eq!(sidedefs[0].x_offset(), 0);
+        assert_eq!(sidedefs[0].y_offset(), 0);
+        assert_eq!(sidedefs[0].middle_tex(), "DOOR3");
+        assert_eq!(sidedefs[0].sector_id(), 40);
+        assert_eq!(sidedefs[9].x_offset(), 0);
+        assert_eq!(sidedefs[9].y_offset(), 48);
+        assert_eq!(sidedefs[9].middle_tex(), "BROWN1");
+        assert_eq!(sidedefs[9].sector_id(), 38);
+        assert_eq!(sidedefs[647].x_offset(), 4);
+        assert_eq!(sidedefs[647].y_offset(), 0);
+        assert_eq!(sidedefs[647].middle_tex(), "SUPPORT2");
+        assert_eq!(sidedefs[647].sector_id(), 70);
     }
 }
