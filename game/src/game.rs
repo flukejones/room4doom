@@ -105,6 +105,7 @@ impl Game {
         self.running
     }
 
+    /// This is really just a test function
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
         let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
