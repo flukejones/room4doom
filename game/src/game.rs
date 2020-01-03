@@ -4,7 +4,7 @@ use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use wad::map::Map;
+use wad::map::{LineDefFlags, Map};
 use wad::Wad;
 
 pub struct Game {
@@ -108,6 +108,7 @@ impl Game {
     /// This is really just a test function
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
+        let grey = sdl2::pixels::Color::RGBA(100, 100, 100, 255);
         let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
         // clear background to black
         self.canvas.set_draw_color(black);
@@ -121,6 +122,11 @@ impl Game {
             let vertexes = self.map.get_vertexes();
             let start = &vertexes[linedef.start_vertex as usize];
             let end = &vertexes[linedef.end_vertex as usize];
+            let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
+                red
+            } else {
+                grey
+            };
             self.canvas
                 .thick_line(
                     (start.x + x_shift) / 4,
@@ -128,7 +134,7 @@ impl Game {
                     (end.x + x_shift) / 4,
                     scr_height - (end.y + y_shift) / 4,
                     1,
-                    red,
+                    draw_colour,
                 )
                 .unwrap();
         }

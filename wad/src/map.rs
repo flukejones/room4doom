@@ -103,7 +103,7 @@ impl LineDef {
 /// Any change in floor or ceiling height or texture requires a
 /// new sector (and therefore separating linedefs and sidedefs).
 ///
-/// Each sector's record is 26 bytes
+/// Each `Sector` record is 26 bytes
 #[derive(Debug)]
 pub struct Sector {
     floor_height: i16,
@@ -166,6 +166,8 @@ impl Sector {
 
 /// A sidedef is a definition of what wall texture(s) to draw along a
 /// `LineDef`, and a group of sidedefs outline the space of a `Sector`
+///
+/// Each `SideDef` record is 30 bytes
 #[derive(Debug)]
 pub struct SideDef {
     x_offset: i16,

@@ -36,7 +36,7 @@ pages:
   only:
     - master
   script:
-    - cargo doc --document-private-items
+    - cargo doc --document-private-items --no-deps --workspace
     - rm -rf public
     - mkdir public
     - cp -R target/doc/* public
