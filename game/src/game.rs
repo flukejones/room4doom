@@ -119,14 +119,14 @@ impl Game {
 
         for linedef in self.map.get_linedefs() {
             let vertexes = self.map.get_vertexes();
-            let start = &vertexes[linedef.start_vertex() as usize];
-            let end = &vertexes[linedef.end_vertex() as usize];
+            let start = &vertexes[linedef.start_vertex as usize];
+            let end = &vertexes[linedef.end_vertex as usize];
             self.canvas
                 .thick_line(
-                    (start.x() + x_shift) / 4,
-                    scr_height - (start.y() + y_shift) / 4,
-                    (end.x() + x_shift) / 4,
-                    scr_height - (end.y() + y_shift) / 4,
+                    (start.x + x_shift) / 4,
+                    scr_height - (start.y + y_shift) / 4,
+                    (end.x + x_shift) / 4,
+                    scr_height - (end.y + y_shift) / 4,
                     1,
                     red,
                 )

@@ -1,6 +1,6 @@
 use std::str;
 
-// TODO: Why power of two?
+/// The flags control some attributes of the line
 pub enum LineDefFlags {
     /// Players and monsters cannot cross this line. Note that
     /// if there is no sector on the other side, they can't go through the line
@@ -44,33 +44,36 @@ pub enum LineDefFlags {
 
 #[derive(Debug)]
 pub struct Vertex {
-    x_pos: i16,
-    y_pos: i16,
+    pub x: i16,
+    pub y: i16,
 }
 
 impl Vertex {
     pub fn new(x: i16, y: i16) -> Vertex {
-        Vertex { x_pos: x, y_pos: y }
-    }
-
-    pub fn x(&self) -> i16 {
-        self.x_pos
-    }
-
-    pub fn y(&self) -> i16 {
-        self.y_pos
+        Vertex { x: x, y: y }
     }
 }
 
+/// Each linedef represents a line from one of the VERTEXES to another,
+/// and each linedef's record is 14 bytes, and is made up of 7 16-bit
+/// fields
 #[derive(Debug)]
 pub struct LineDef {
-    start_vertex: i16,
-    end_vertex: i16,
-    flags: u16,
-    line_type: u16,
-    sector_tag: u16,
-    front_sidedef: u16, //0xFFFF means there is no sidedef
-    back_sidedef: u16,  //0xFFFF means there is no sidedef
+    /// The line starts from this point
+    pub start_vertex: i16,
+    /// The line ends at this point
+    pub end_vertex: i16,
+    /// The line attributes, see `LineDefFlags`
+    pub flags: u16,
+    pub line_type: u16,
+    /// This is a number which ties this line's effect type
+    /// to all SECTORS that have the same tag number (in their last
+    /// field)
+    pub sector_tag: u16,
+    /// Index number of the front `SideDef` for this line
+    pub front_sidedef: u16, //0xFFFF means there is no sidedef
+    /// Index number of the back `SideDef` for this line
+    pub back_sidedef: u16, //0xFFFF means there is no sidedef
 }
 
 impl LineDef {
@@ -93,44 +96,31 @@ impl LineDef {
             back_sidedef,
         }
     }
-
-    pub fn start_vertex(&self) -> i16 {
-        self.start_vertex
-    }
-
-    pub fn end_vertex(&self) -> i16 {
-        self.end_vertex
-    }
-
-    pub fn flags(&self) -> u16 {
-        self.flags
-    }
-
-    pub fn line_type(&self) -> u16 {
-        self.line_type
-    }
-
-    pub fn sector_tag(&self) -> u16 {
-        self.sector_tag
-    }
-
-    pub fn front_sidedef(&self) -> u16 {
-        self.front_sidedef
-    }
-
-    pub fn back_sidedef(&self) -> u16 {
-        self.back_sidedef
-    }
 }
 
+/// A `Sector` is a horizontal (east-west and north-south) area of the map
+/// where a floor height and ceiling height is defined.
+/// Any change in floor or ceiling height or texture requires a
+/// new sector (and therefore separating linedefs and sidedefs).
+///
+/// Each sector's record is 26 bytes
 #[derive(Debug)]
 pub struct Sector {
     floor_height: i16,
     ceil_height: i16,
+    /// Floor texture name
     floor_tex: String,
+    /// Ceiling texture name
     ceil_tex: String,
+    /// Light level from 0-255. There are actually only 32 brightnesses
+    /// possible so blocks of 8 are the same bright
     light_level: u16,
+    /// This determines some area-effects called special sectors
     typ: u16,
+    /// a "tag" number corresponding to LINEDEF(s) with the same tag
+    /// number. When that linedef is activated, something will usually
+    /// happen to this sector - its floor will rise, the lights will
+    /// go out, etc
     tag: u16,
 }
 
@@ -172,43 +162,21 @@ impl Sector {
             tag,
         }
     }
-
-    pub fn floor_height(&self) -> i16 {
-        self.floor_height
-    }
-
-    pub fn ceil_height(&self) -> i16 {
-        self.ceil_height
-    }
-
-    pub fn floor_tex(&self) -> &str {
-        &self.floor_tex
-    }
-
-    pub fn ceil_tex(&self) -> &str {
-        &self.ceil_tex
-    }
-
-    pub fn light_level(&self) -> u16 {
-        self.light_level
-    }
-
-    pub fn typ(&self) -> u16 {
-        self.typ
-    }
-
-    pub fn tag(&self) -> u16 {
-        self.tag
-    }
 }
 
+/// A sidedef is a definition of what wall texture(s) to draw along a
+/// `LineDef`, and a group of sidedefs outline the space of a `Sector`
 #[derive(Debug)]
 pub struct SideDef {
     x_offset: i16,
     y_offset: i16,
+    /// Name of upper texture used for example in the upper of a window
     upper_tex: String,
+    /// Name of lower texture used for example in the front of a step
     lower_tex: String,
+    /// The regular part of a wall
     middle_tex: String,
+    /// Sector that this sidedef faces or helps to surround
     sector_id: u16,
 }
 
@@ -257,30 +225,6 @@ impl SideDef {
             sector_id,
         }
     }
-
-    pub fn x_offset(&self) -> i16 {
-        self.x_offset
-    }
-
-    pub fn y_offset(&self) -> i16 {
-        self.y_offset
-    }
-
-    pub fn upper_tex(&self) -> &str {
-        &self.upper_tex
-    }
-
-    pub fn lower_tex(&self) -> &str {
-        &self.lower_tex
-    }
-
-    pub fn middle_tex(&self) -> &str {
-        &self.middle_tex
-    }
-
-    pub fn sector_id(&self) -> u16 {
-        self.sector_id
-    }
 }
 
 #[derive(Debug, Default)]
@@ -319,16 +263,16 @@ impl Map {
     }
 
     pub fn add_vertex(&mut self, v: Vertex) {
-        if self.extents.min_x > v.x_pos {
-            self.extents.min_x = v.x_pos;
-        } else if self.extents.max_x < v.x_pos {
-            self.extents.max_x = v.x_pos;
+        if self.extents.min_x > v.x {
+            self.extents.min_x = v.x;
+        } else if self.extents.max_x < v.x {
+            self.extents.max_x = v.x;
         }
 
-        if self.extents.min_y > v.y_pos {
-            self.extents.min_y = v.y_pos;
-        } else if self.extents.max_y < v.y_pos {
-            self.extents.max_y = v.y_pos;
+        if self.extents.min_y > v.y {
+            self.extents.min_y = v.y;
+        } else if self.extents.max_y < v.y {
+            self.extents.max_y = v.y;
         }
 
         self.vertexes.push(v);
@@ -416,60 +360,60 @@ mod tests {
         wad.load_map(&mut map);
 
         let vertexes = map.get_vertexes();
-        assert_eq!(vertexes[0].x(), 1088);
-        assert_eq!(vertexes[0].y(), -3680);
-        assert_eq!(vertexes[466].x(), 2912);
-        assert_eq!(vertexes[466].y(), -4848);
+        assert_eq!(vertexes[0].x, 1088);
+        assert_eq!(vertexes[0].y, -3680);
+        assert_eq!(vertexes[466].x, 2912);
+        assert_eq!(vertexes[466].y, -4848);
 
         let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex(), 0);
-        assert_eq!(linedefs[0].end_vertex(), 1);
-        assert_eq!(linedefs[2].start_vertex(), 3);
-        assert_eq!(linedefs[2].end_vertex(), 0);
-        assert_eq!(linedefs[2].front_sidedef(), 2);
-        assert_eq!(linedefs[2].back_sidedef(), 65535);
-        assert_eq!(linedefs[474].start_vertex(), 384);
-        assert_eq!(linedefs[474].end_vertex(), 348);
-        assert_eq!(linedefs[474].flags(), 1);
-        assert_eq!(linedefs[474].front_sidedef(), 647);
-        assert_eq!(linedefs[474].back_sidedef(), 65535);
+        assert_eq!(linedefs[0].start_vertex, 0);
+        assert_eq!(linedefs[0].end_vertex, 1);
+        assert_eq!(linedefs[2].start_vertex, 3);
+        assert_eq!(linedefs[2].end_vertex, 0);
+        assert_eq!(linedefs[2].front_sidedef, 2);
+        assert_eq!(linedefs[2].back_sidedef, 65535);
+        assert_eq!(linedefs[474].start_vertex, 384);
+        assert_eq!(linedefs[474].end_vertex, 348);
+        assert_eq!(linedefs[474].flags, 1);
+        assert_eq!(linedefs[474].front_sidedef, 647);
+        assert_eq!(linedefs[474].back_sidedef, 65535);
 
         // Flag check
-        assert_eq!(linedefs[26].flags(), 29);
+        assert_eq!(linedefs[26].flags, 29);
         let compare = LineDefFlags::Blocking as u16
             | LineDefFlags::TwoSided as u16
             | LineDefFlags::UnpegTop as u16
             | LineDefFlags::UnpegBottom as u16;
-        assert_eq!(linedefs[26].flags(), compare);
+        assert_eq!(linedefs[26].flags, compare);
 
         let sectors = map.get_sectors();
-        assert_eq!(sectors[0].floor_height(), 0);
-        assert_eq!(sectors[0].ceil_height(), 72);
-        assert_eq!(sectors[0].floor_tex(), "FLOOR4_8");
-        assert_eq!(sectors[0].ceil_tex(), "CEIL3_5");
-        assert_eq!(sectors[0].light_level(), 160);
-        assert_eq!(sectors[0].typ(), 0);
-        assert_eq!(sectors[0].tag(), 0);
-        assert_eq!(sectors[84].floor_height(), -24);
-        assert_eq!(sectors[84].ceil_height(), 48);
-        assert_eq!(sectors[84].floor_tex(), "FLOOR5_2");
-        assert_eq!(sectors[84].ceil_tex(), "CEIL3_5");
-        assert_eq!(sectors[84].light_level(), 255);
-        assert_eq!(sectors[84].typ(), 0);
-        assert_eq!(sectors[84].tag(), 0);
+        assert_eq!(sectors[0].floor_height, 0);
+        assert_eq!(sectors[0].ceil_height, 72);
+        assert_eq!(sectors[0].floor_tex, "FLOOR4_8");
+        assert_eq!(sectors[0].ceil_tex, "CEIL3_5");
+        assert_eq!(sectors[0].light_level, 160);
+        assert_eq!(sectors[0].typ, 0);
+        assert_eq!(sectors[0].tag, 0);
+        assert_eq!(sectors[84].floor_height, -24);
+        assert_eq!(sectors[84].ceil_height, 48);
+        assert_eq!(sectors[84].floor_tex, "FLOOR5_2");
+        assert_eq!(sectors[84].ceil_tex, "CEIL3_5");
+        assert_eq!(sectors[84].light_level, 255);
+        assert_eq!(sectors[84].typ, 0);
+        assert_eq!(sectors[84].tag, 0);
 
         let sidedefs = map.get_sidedefs();
-        assert_eq!(sidedefs[0].x_offset(), 0);
-        assert_eq!(sidedefs[0].y_offset(), 0);
-        assert_eq!(sidedefs[0].middle_tex(), "DOOR3");
-        assert_eq!(sidedefs[0].sector_id(), 40);
-        assert_eq!(sidedefs[9].x_offset(), 0);
-        assert_eq!(sidedefs[9].y_offset(), 48);
-        assert_eq!(sidedefs[9].middle_tex(), "BROWN1");
-        assert_eq!(sidedefs[9].sector_id(), 38);
-        assert_eq!(sidedefs[647].x_offset(), 4);
-        assert_eq!(sidedefs[647].y_offset(), 0);
-        assert_eq!(sidedefs[647].middle_tex(), "SUPPORT2");
-        assert_eq!(sidedefs[647].sector_id(), 70);
+        assert_eq!(sidedefs[0].x_offset, 0);
+        assert_eq!(sidedefs[0].y_offset, 0);
+        assert_eq!(sidedefs[0].middle_tex, "DOOR3");
+        assert_eq!(sidedefs[0].sector_id, 40);
+        assert_eq!(sidedefs[9].x_offset, 0);
+        assert_eq!(sidedefs[9].y_offset, 48);
+        assert_eq!(sidedefs[9].middle_tex, "BROWN1");
+        assert_eq!(sidedefs[9].sector_id, 38);
+        assert_eq!(sidedefs[647].x_offset, 4);
+        assert_eq!(sidedefs[647].y_offset, 0);
+        assert_eq!(sidedefs[647].middle_tex, "SUPPORT2");
+        assert_eq!(sidedefs[647].sector_id, 70);
     }
 }
