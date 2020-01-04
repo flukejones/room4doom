@@ -114,8 +114,8 @@ impl Game {
         self.canvas.set_draw_color(black);
         self.canvas.clear();
 
-        let x_shift = -self.map.get_extents().min_x;
-        let y_shift = -self.map.get_extents().min_y;
+        let x_shift = -self.map.get_extents().min_vertex.x;
+        let y_shift = -self.map.get_extents().min_vertex.y;
         let scr_height = self.canvas.viewport().height() as i16;
 
         for linedef in self.map.get_linedefs() {

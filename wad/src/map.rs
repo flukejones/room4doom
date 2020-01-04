@@ -42,7 +42,7 @@ pub enum LineDefFlags {
     Draw = 1 << 8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Vertex {
     pub x: i16,
     pub y: i16,
@@ -229,12 +229,12 @@ impl SideDef {
     }
 }
 
+/// The smallest vector and the largest vertex, combined make up a
+/// rectangle enclosing the map area
 #[derive(Debug, Default)]
 pub struct MapExtents {
-    pub min_x: i16,
-    pub max_x: i16,
-    pub min_y: i16,
-    pub max_y: i16,
+    pub min_vertex: Vertex,
+    pub max_vertex: Vertex,
     pub automap_scale: i16,
 }
 
@@ -265,16 +265,16 @@ impl Map {
     }
 
     pub fn add_vertex(&mut self, v: Vertex) {
-        if self.extents.min_x > v.x {
-            self.extents.min_x = v.x;
-        } else if self.extents.max_x < v.x {
-            self.extents.max_x = v.x;
+        if self.extents.min_vertex.x > v.x {
+            self.extents.min_vertex.x = v.x;
+        } else if self.extents.max_vertex.x < v.x {
+            self.extents.max_vertex.x = v.x;
         }
 
-        if self.extents.min_y > v.y {
-            self.extents.min_y = v.y;
-        } else if self.extents.max_y < v.y {
-            self.extents.max_y = v.y;
+        if self.extents.min_vertex.y > v.y {
+            self.extents.min_vertex.y = v.y;
+        } else if self.extents.max_vertex.y < v.y {
+            self.extents.max_vertex.y = v.y;
         }
 
         self.vertexes.push(v);
