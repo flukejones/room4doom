@@ -1,6 +1,7 @@
-use crate::map::{LineDef, Map, Sector, SideDef, Vertex};
+use crate::map::{LineDef, Map, Sector, Segment, SideDef, SubSector, Vertex};
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::Sub;
 use std::path::PathBuf;
 use std::{fmt, str};
 
@@ -260,8 +261,8 @@ impl Wad {
             &mut map,
             |offset, map| {
                 map.add_linedef(LineDef::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
+                    self.read_2_bytes(offset),
+                    self.read_2_bytes(offset + 2),
                     self.read_2_bytes(offset + 4),
                     self.read_2_bytes(offset + 6),
                     self.read_2_bytes(offset + 8),
@@ -295,6 +296,25 @@ impl Wad {
         });
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in map struct
+
+        // SEGS
+        self.read_map_lump(index, LumpIndex::Segs, 12, &mut map, |offset, map| {
+            map.add_segment(Segment::new(
+                self.read_2_bytes(offset),
+                self.read_2_bytes(offset + 2),
+                self.read_2_bytes(offset + 4),
+                self.read_2_bytes(offset + 6),
+                self.read_2_bytes(offset + 8),
+                self.read_2_bytes(offset + 10),
+            ));
+        });
+        // SSECTORS
+        self.read_map_lump(index, LumpIndex::SubSectors, 4, &mut map, |offset, map| {
+            map.add_subsector(SubSector::new(
+                self.read_2_bytes(offset),
+                self.read_2_bytes(offset + 2),
+            ));
+        });
     }
 }
 

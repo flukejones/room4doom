@@ -51,6 +51,15 @@ impl Game {
         let mut map = Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
 
+        // options.width.unwrap_or(320) as i16 / options.height.unwrap_or(200) as i16
+        let map_width = map.get_extents().max_vertex.x - map.get_extents().min_vertex.x;
+        let map_height = map.get_extents().max_vertex.y - map.get_extents().min_vertex.y;
+        if map_height > map_width {
+            map.set_scale(map_height / options.height.unwrap_or(200) as i16);
+        } else {
+            map.set_scale(map_width / options.width.unwrap_or(200) as i16);
+        }
+
         Game {
             input,
             canvas,
@@ -114,8 +123,9 @@ impl Game {
         self.canvas.set_draw_color(black);
         self.canvas.clear();
 
-        let x_shift = -self.map.get_extents().min_vertex.x;
-        let y_shift = -self.map.get_extents().min_vertex.y;
+        let scale = self.map.get_extents().automap_scale;
+        let x_shift = -(self.map.get_extents().min_vertex.x - scale);
+        let y_shift = -(self.map.get_extents().min_vertex.y - scale);
         let scr_height = self.canvas.viewport().height() as i16;
 
         for linedef in self.map.get_linedefs() {
@@ -129,10 +139,10 @@ impl Game {
             };
             self.canvas
                 .thick_line(
-                    (start.x + x_shift) / 4,
-                    scr_height - (start.y + y_shift) / 4,
-                    (end.x + x_shift) / 4,
-                    scr_height - (end.y + y_shift) / 4,
+                    (start.x + x_shift) / scale,
+                    scr_height - (start.y + y_shift) / scale,
+                    (end.x + x_shift) / scale,
+                    scr_height - (end.y + y_shift) / scale,
                     1,
                     draw_colour,
                 )

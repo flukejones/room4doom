@@ -1,4 +1,17 @@
+use std::ops::Sub;
 use std::str;
+
+// TODO: Structures, in WAD order
+//  - [ ] Thing
+//  - [X] LineDef
+//  - [X] SideDef
+//  - [X] Vertex
+//  - [X] Segment   (SEGS)
+//  - [X] SubSector (SSECTORS)
+//  - [ ] Node
+//  - [X] Sector
+//  - [ ] Reject
+//  - [ ] Blockmap
 
 /// The flags control some attributes of the line
 pub enum LineDefFlags {
@@ -60,9 +73,9 @@ impl Vertex {
 #[derive(Debug)]
 pub struct LineDef {
     /// The line starts from this point
-    pub start_vertex: i16,
+    pub start_vertex: u16,
     /// The line ends at this point
-    pub end_vertex: i16,
+    pub end_vertex: u16,
     /// The line attributes, see `LineDefFlags`
     pub flags: u16,
     pub line_type: u16,
@@ -78,8 +91,8 @@ pub struct LineDef {
 
 impl LineDef {
     pub fn new(
-        start_vertex: i16,
-        end_vertex: i16,
+        start_vertex: u16,
+        end_vertex: u16,
         flags: u16,
         line_type: u16,
         sector_tag: u16,
@@ -94,6 +107,70 @@ impl LineDef {
             sector_tag,
             front_sidedef,
             back_sidedef,
+        }
+    }
+}
+
+/// The Segments (SEGS) are in a sequential order determined by the `SubSector`
+/// (SSECTOR), which are part of the NODES recursive tree
+///
+/// Each `Segment` record is 12 bytes
+#[derive(Debug)]
+pub struct Segment {
+    /// The line starts from this point
+    start_vertex: u16,
+    /// The line ends at this point
+    end_vertex: u16,
+    /// Binary Angle Measurement
+    angle: u16,
+    /// The Linedef this segment travels along
+    linedef_id: u16,
+    direction: u16,
+    /// Offset distance along the linedef (from `start_vertex`) to the start
+    /// of this `Segment`
+    ///
+    /// For diagonal `Segment` offset can be found with:
+    /// ```
+    /// DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)
+    /// ```
+    offset: u16,
+}
+
+impl Segment {
+    pub fn new(
+        start_vertex: u16,
+        end_vertex: u16,
+        angle: u16,
+        linedef_id: u16,
+        direction: u16,
+        offset: u16,
+    ) -> Segment {
+        Segment {
+            start_vertex,
+            end_vertex,
+            angle,
+            linedef_id,
+            direction,
+            offset,
+        }
+    }
+}
+
+/// A `SubSector` divides up all the SECTORS into convex polygons. They are then
+/// referenced through the NODES resources. There will be (number of nodes) + 1.
+///
+/// Each `SubSector` record is 4 bytes
+#[derive(Debug)]
+pub struct SubSector {
+    seg_count: u16,
+    start_seg: u16,
+}
+
+impl SubSector {
+    pub fn new(seg_count: u16, start_seg: u16) -> SubSector {
+        SubSector {
+            seg_count,
+            start_seg,
         }
     }
 }
@@ -238,6 +315,12 @@ pub struct MapExtents {
     pub automap_scale: i16,
 }
 
+/// A `Map` contains everything required for building the actual level the
+/// player will see in-game, such as the data to build a map, the textures used,
+/// `Things`, `Sounds` and others.
+///
+/// `nodes`, `subsectors`, and `segments` are what get used most to render the
+/// basic map
 #[derive(Debug)]
 pub struct Map {
     name: String,
@@ -245,6 +328,8 @@ pub struct Map {
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
+    subsectors: Vec<SubSector>,
+    segments: Vec<Segment>,
     extents: MapExtents,
 }
 
@@ -256,6 +341,8 @@ impl Map {
             linedefs: Vec::new(),
             sectors: Vec::new(),
             sidedefs: Vec::new(),
+            subsectors: Vec::new(),
+            segments: Vec::new(),
             extents: MapExtents::default(),
         }
     }
@@ -308,8 +395,28 @@ impl Map {
         &self.sidedefs
     }
 
+    pub fn add_subsector(&mut self, s: SubSector) {
+        self.subsectors.push(s);
+    }
+
+    pub fn get_subsectors(&self) -> &[SubSector] {
+        &self.subsectors
+    }
+
+    pub fn add_segment(&mut self, s: Segment) {
+        self.segments.push(s);
+    }
+
+    pub fn get_segments(&self) -> &[Segment] {
+        &self.segments
+    }
+
     pub fn get_extents(&self) -> &MapExtents {
         &self.extents
+    }
+
+    pub fn set_scale(&mut self, scale: i16) {
+        self.extents.automap_scale = scale
     }
 }
 
@@ -417,5 +524,27 @@ mod tests {
         assert_eq!(sidedefs[647].y_offset, 0);
         assert_eq!(sidedefs[647].middle_tex, "SUPPORT2");
         assert_eq!(sidedefs[647].sector_id, 70);
+
+        let segments = map.get_segments();
+        assert_eq!(segments[0].start_vertex, 123);
+        assert_eq!(segments[0].end_vertex, 124);
+        assert_eq!(segments[0].angle, 16384);
+        assert_eq!(segments[0].linedef_id, 152);
+        assert_eq!(segments[0].direction, 0);
+        assert_eq!(segments[0].offset, 0);
+        assert_eq!(segments[731].start_vertex, 261);
+        assert_eq!(segments[731].end_vertex, 262);
+        assert_eq!(segments[731].angle, 32768);
+        assert_eq!(segments[731].linedef_id, 333);
+        assert_eq!(segments[731].direction, 1);
+        assert_eq!(segments[731].offset, 0);
+
+        let subsectors = map.get_subsectors();
+        assert_eq!(subsectors[0].seg_count, 4);
+        assert_eq!(subsectors[0].start_seg, 0);
+        assert_eq!(subsectors[124].seg_count, 3);
+        assert_eq!(subsectors[124].start_seg, 376);
+        assert_eq!(subsectors[236].seg_count, 4);
+        assert_eq!(subsectors[236].start_seg, 728);
     }
 }
