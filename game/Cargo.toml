@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 gumdrop = "~0.7"
+rand = "*"
 wad = { path = "../wad"}
 
 [dependencies.sdl2]

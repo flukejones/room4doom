@@ -287,16 +287,31 @@ impl Wad {
                 )
             }),
         );
+        // Sectors
+        map.set_sectors(
+            self.read_lump_to_vec(index, LumpIndex::Sectors, 26, |offset| {
+                Sector::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                    &self.wad_data[offset + 4..offset + 12],
+                    &self.wad_data[offset + 12..offset + 20],
+                    self.read_2_bytes(offset + 20),
+                    self.read_2_bytes(offset + 22),
+                    self.read_2_bytes(offset + 24),
+                )
+            }),
+        );
         // Sidedefs
         map.set_sidedefs(
             self.read_lump_to_vec(index, LumpIndex::SideDefs, 30, |offset| {
+                let sector = &map.get_sectors()[self.read_2_bytes(offset + 28) as usize];
                 SideDef::new(
                     self.read_2_bytes(offset) as i16,
                     self.read_2_bytes(offset + 2) as i16,
                     &self.wad_data[offset + 4..offset + 12],
                     &self.wad_data[offset + 12..offset + 20],
                     &self.wad_data[offset + 20..offset + 28],
-                    self.read_2_bytes(offset + 28),
+                    DPtr::new(sector),
                 )
             }),
         );
@@ -325,20 +340,6 @@ impl Wad {
                 )
             }),
         );
-        // Sectors
-        map.set_sectors(
-            self.read_lump_to_vec(index, LumpIndex::Sectors, 26, |offset| {
-                Sector::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
-                    &self.wad_data[offset + 4..offset + 12],
-                    &self.wad_data[offset + 12..offset + 20],
-                    self.read_2_bytes(offset + 20),
-                    self.read_2_bytes(offset + 22),
-                    self.read_2_bytes(offset + 24),
-                )
-            }),
-        );
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in map struct
         //
@@ -346,11 +347,12 @@ impl Wad {
         map.set_segments(self.read_lump_to_vec(index, LumpIndex::Segs, 12, |offset| {
             let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
             let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
+            let linedef = &map.get_linedefs()[self.read_2_bytes(offset + 6) as usize];
             Segment::new(
                 DPtr::new(start_vertex),
                 DPtr::new(end_vertex),
                 self.read_2_bytes(offset + 4),
-                self.read_2_bytes(offset + 6),
+                DPtr::new(linedef),
                 self.read_2_bytes(offset + 8),
                 self.read_2_bytes(offset + 10),
             )
@@ -361,8 +363,7 @@ impl Wad {
             LumpIndex::SubSectors,
             4,
             |offset| unsafe {
-                let seg = &map.get_segments()[self.read_2_bytes(offset + 2) as usize];
-                SubSector::new(self.read_2_bytes(offset), DPtr::new(seg))
+                SubSector::new(self.read_2_bytes(offset), self.read_2_bytes(offset + 2))
             },
         ));
     }

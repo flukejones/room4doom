@@ -147,7 +147,7 @@ pub struct Segment {
     /// Binary Angle Measurement
     pub angle: u16,
     /// The Linedef this segment travels along
-    pub linedef_id: u16,
+    pub linedef: DPtr<LineDef>,
     pub direction: u16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
@@ -162,7 +162,7 @@ impl Segment {
         start_vertex: DPtr<Vertex>,
         end_vertex: DPtr<Vertex>,
         angle: u16,
-        linedef_id: u16,
+        linedef: DPtr<LineDef>,
         direction: u16,
         offset: u16,
     ) -> Segment {
@@ -170,7 +170,7 @@ impl Segment {
             start_vertex,
             end_vertex,
             angle,
-            linedef_id,
+            linedef,
             direction,
             offset,
         }
@@ -186,11 +186,11 @@ pub struct SubSector {
     /// How many `Segment`s line this `SubSector`
     pub seg_count: u16,
     /// The `Segment` to start with
-    pub start_seg: DPtr<Segment>,
+    pub start_seg: u16,
 }
 
 impl SubSector {
-    pub fn new(seg_count: u16, start_seg: DPtr<Segment>) -> SubSector {
+    pub fn new(seg_count: u16, start_seg: u16) -> SubSector {
         SubSector {
             seg_count,
             start_seg,
@@ -279,7 +279,7 @@ pub struct SideDef {
     /// The regular part of a wall
     pub middle_tex: String,
     /// Sector that this sidedef faces or helps to surround
-    pub sector_id: u16,
+    pub sector: DPtr<Sector>,
 }
 
 impl SideDef {
@@ -289,7 +289,7 @@ impl SideDef {
         upper_tex: &[u8],
         lower_tex: &[u8],
         middle_tex: &[u8],
-        sector_id: u16,
+        sector: DPtr<Sector>,
     ) -> SideDef {
         if upper_tex.len() != 8 {
             panic!(
@@ -324,7 +324,7 @@ impl SideDef {
                 .expect("Invalid middle_tex name")
                 .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
                 .to_owned(),
-            sector_id,
+            sector,
         }
     }
 }

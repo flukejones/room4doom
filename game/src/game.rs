@@ -1,5 +1,6 @@
 use crate::input::Input;
 use crate::GameOptions;
+use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -60,6 +61,7 @@ impl Game {
         } else {
             map.set_scale(map_width / options.width.unwrap_or(200) as i16);
         }
+        map.set_scale(4);
 
         Game {
             input,
@@ -67,7 +69,7 @@ impl Game {
             running: true,
             _state_changing: false,
             _wad: wad,
-            map: map,
+            map,
         }
     }
 
@@ -130,7 +132,6 @@ impl Game {
         let scr_height = self.canvas.viewport().height() as i16;
 
         for linedef in self.map.get_linedefs() {
-            let vertexes = self.map.get_vertexes();
             let start = linedef.start_vertex.get();
             let end = linedef.end_vertex.get();
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
@@ -148,6 +149,33 @@ impl Game {
                     draw_colour,
                 )
                 .unwrap();
+        }
+
+        let mut rng = rand::thread_rng();
+        let segs = self.map.get_segments();
+        for subsect in self.map.get_subsectors() {
+            let count = subsect.seg_count;
+            let mut x_a: Vec<i16> = Vec::new();
+            let mut y_a: Vec<i16> = Vec::new();
+            for i in subsect.start_seg..subsect.start_seg + count {
+                if let Some(seg) = segs.get(i as usize) {
+                    let start = seg.start_vertex.get();
+                    let end = seg.end_vertex.get();
+                    x_a.push((start.x + x_shift) / scale);
+                    y_a.push(scr_height - (start.y + y_shift) / scale);
+                    x_a.push((end.x + x_shift) / scale);
+                    y_a.push(scr_height - (end.y + y_shift) / scale);
+                }
+            }
+            if x_a.len() >= 3 {
+                let red = sdl2::pixels::Color::RGBA(
+                    rng.gen_range(0, 255),
+                    rng.gen_range(0, 255),
+                    rng.gen_range(0, 255),
+                    255,
+                );
+                self.canvas.filled_polygon(&x_a, &y_a, red).unwrap();
+            }
         }
     }
 }
