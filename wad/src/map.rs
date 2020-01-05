@@ -1,4 +1,6 @@
+use std::marker::PhantomData;
 use std::ops::Sub;
+use std::ptr;
 use std::str;
 
 // TODO: Structures, in WAD order
@@ -12,6 +14,28 @@ use std::str;
 //  - [X] Sector
 //  - [ ] Reject
 //  - [ ] Blockmap
+
+// TODO: A `Thing` type will need to be mapped against an enum
+#[derive(Debug)]
+pub struct Thing {
+    pos_x: i16,
+    pos_y: i16,
+    angle: u16,
+    typ: u16,
+    flags: u16,
+}
+
+impl Thing {
+    pub fn new(pos_x: i16, pos_y: i16, angle: u16, typ: u16, flags: u16) -> Thing {
+        Thing {
+            pos_x,
+            pos_y,
+            angle,
+            typ,
+            flags,
+        }
+    }
+}
 
 /// The flags control some attributes of the line
 pub enum LineDefFlags {
@@ -63,7 +87,7 @@ pub struct Vertex {
 
 impl Vertex {
     pub fn new(x: i16, y: i16) -> Vertex {
-        Vertex { x: x, y: y }
+        Vertex { x, y }
     }
 }
 
@@ -118,9 +142,9 @@ impl LineDef {
 #[derive(Debug)]
 pub struct Segment {
     /// The line starts from this point
-    start_vertex: u16,
+    start_vertex: ptr::NonNull<Vertex>,
     /// The line ends at this point
-    end_vertex: u16,
+    end_vertex: ptr::NonNull<Vertex>,
     /// Binary Angle Measurement
     angle: u16,
     /// The Linedef this segment travels along
@@ -130,16 +154,14 @@ pub struct Segment {
     /// of this `Segment`
     ///
     /// For diagonal `Segment` offset can be found with:
-    /// ```
-    /// DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)
-    /// ```
+    /// `DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)`
     offset: u16,
 }
 
 impl Segment {
     pub fn new(
-        start_vertex: u16,
-        end_vertex: u16,
+        start_vertex: ptr::NonNull<Vertex>,
+        end_vertex: ptr::NonNull<Vertex>,
         angle: u16,
         linedef_id: u16,
         direction: u16,
@@ -162,7 +184,9 @@ impl Segment {
 /// Each `SubSector` record is 4 bytes
 #[derive(Debug)]
 pub struct SubSector {
+    /// How many `Segment`s line this `SubSector`
     seg_count: u16,
+    /// The `Segment` to start with
     start_seg: u16,
 }
 
@@ -324,6 +348,7 @@ pub struct MapExtents {
 #[derive(Debug)]
 pub struct Map {
     name: String,
+    things: Vec<Thing>,
     vertexes: Vec<Vertex>,
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
@@ -337,6 +362,7 @@ impl Map {
     pub fn new(name: String) -> Map {
         Map {
             name,
+            things: Vec::new(),
             vertexes: Vec::new(),
             linedefs: Vec::new(),
             sectors: Vec::new(),
@@ -349,6 +375,14 @@ impl Map {
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+
+    pub fn add_thing(&mut self, v: Thing) {
+        self.things.push(v);
+    }
+
+    pub fn get_things(&self) -> &[Thing] {
+        &self.things
     }
 
     pub fn add_vertex(&mut self, v: Vertex) {
@@ -468,6 +502,18 @@ mod tests {
         let mut map = map::Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
 
+        let things = map.get_things();
+        assert_eq!(things[0].pos_x, 1056);
+        assert_eq!(things[0].pos_y, -3616);
+        assert_eq!(things[0].angle, 90);
+        assert_eq!(things[0].typ, 1);
+        assert_eq!(things[0].flags, 7);
+        assert_eq!(things[137].pos_x, 3648);
+        assert_eq!(things[137].pos_y, -3840);
+        assert_eq!(things[137].angle, 0);
+        assert_eq!(things[137].typ, 2015);
+        assert_eq!(things[137].flags, 7);
+
         let vertexes = map.get_vertexes();
         assert_eq!(vertexes[0].x, 1088);
         assert_eq!(vertexes[0].y, -3680);
@@ -526,14 +572,18 @@ mod tests {
         assert_eq!(sidedefs[647].sector_id, 70);
 
         let segments = map.get_segments();
-        assert_eq!(segments[0].start_vertex, 123);
-        assert_eq!(segments[0].end_vertex, 124);
+        unsafe {
+            assert_eq!(segments[0].start_vertex.as_ref().x, 1552);
+            assert_eq!(segments[0].end_vertex.as_ref().x, 1552);
+        }
         assert_eq!(segments[0].angle, 16384);
         assert_eq!(segments[0].linedef_id, 152);
         assert_eq!(segments[0].direction, 0);
         assert_eq!(segments[0].offset, 0);
-        assert_eq!(segments[731].start_vertex, 261);
-        assert_eq!(segments[731].end_vertex, 262);
+        unsafe {
+            assert_eq!(segments[731].start_vertex.as_ref().x, 3040);
+            assert_eq!(segments[731].end_vertex.as_ref().x, 2976);
+        }
         assert_eq!(segments[731].angle, 32768);
         assert_eq!(segments[731].linedef_id, 333);
         assert_eq!(segments[731].direction, 1);

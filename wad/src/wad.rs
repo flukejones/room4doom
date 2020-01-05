@@ -1,8 +1,9 @@
-use crate::map::{LineDef, Map, Sector, Segment, SideDef, SubSector, Vertex};
+use crate::map::{LineDef, Map, Sector, Segment, SideDef, SubSector, Thing, Vertex};
 use std::fs::File;
 use std::io::prelude::*;
 use std::ops::Sub;
 use std::path::PathBuf;
+use std::ptr::NonNull;
 use std::{fmt, str};
 
 /// Used as an index to find a specific lump, typically combined
@@ -238,8 +239,18 @@ impl Wad {
         }
     }
 
-    pub fn load_map(&self, mut map: &mut Map) {
+    pub fn load_map<'m>(&self, mut map: &'m mut Map) {
         let index = self.find_lump_index("E1M1");
+        // THINGS
+        self.read_map_lump(index, LumpIndex::Things, 10, &mut map, |offset, map| {
+            map.add_thing(Thing::new(
+                self.read_2_bytes(offset) as i16,
+                self.read_2_bytes(offset + 2) as i16,
+                self.read_2_bytes(offset + 4),
+                self.read_2_bytes(offset + 6),
+                self.read_2_bytes(offset + 8),
+            ));
+        });
         // Vertexes
         self.read_map_lump(
             index,
@@ -300,8 +311,8 @@ impl Wad {
         // SEGS
         self.read_map_lump(index, LumpIndex::Segs, 12, &mut map, |offset, map| {
             map.add_segment(Segment::new(
-                self.read_2_bytes(offset),
-                self.read_2_bytes(offset + 2),
+                NonNull::from(&map.get_vertexes()[self.read_2_bytes(offset) as usize]),
+                NonNull::from(&map.get_vertexes()[self.read_2_bytes(offset + 2) as usize]),
                 self.read_2_bytes(offset + 4),
                 self.read_2_bytes(offset + 6),
                 self.read_2_bytes(offset + 8),
