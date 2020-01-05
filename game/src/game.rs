@@ -7,16 +7,16 @@ use sdl2::Sdl;
 use wad::map::{LineDefFlags, Map};
 use wad::Wad;
 
-pub struct Game<'g> {
+pub struct Game {
     input: Input,
     canvas: Canvas<Window>,
     running: bool,
     _state_changing: bool,
     _wad: Wad,
-    map: Map<'g>,
+    map: Map,
 }
 
-impl<'g> Game<'g> {
+impl Game {
     /// On `Game` object creation, initialize all the game subsystems where possible
     ///
     /// Ideally full error checking will be done in by system.
@@ -130,8 +130,8 @@ impl<'g> Game<'g> {
 
         for linedef in self.map.get_linedefs() {
             let vertexes = self.map.get_vertexes();
-            let start = linedef.start_vertex;
-            let end = linedef.end_vertex;
+            let start = linedef.start_vertex.get();
+            let end = linedef.end_vertex.get();
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
                 red
             } else {

@@ -1,4 +1,4 @@
-use crate::map::{LineDef, Map, Sector, Segment, SideDef, SubSector, Thing, Vertex};
+use crate::map::{DPtr, LineDef, Map, Sector, Segment, SideDef, SubSector, Thing, Vertex};
 use std::fs::File;
 use std::intrinsics::transmute;
 use std::io::prelude::*;
@@ -287,20 +287,19 @@ impl Wad {
                 let back_sidedef = {
                     let index = self.read_2_bytes(offset + 12) as usize;
                     if index < 65535 {
-                        let s = &map.get_sidedefs()[index];
-                        unsafe { Some(transmute::<&SideDef, &'static SideDef>(s)) }
+                        Some(DPtr::new(&map.get_sidedefs()[index]))
                     } else {
                         None
                     }
                 };
                 unsafe {
                     LineDef::new(
-                        transmute::<&Vertex, &'static Vertex>(start_vertex),
-                        transmute::<&Vertex, &'static Vertex>(end_vertex),
+                        DPtr::new(start_vertex),
+                        DPtr::new(end_vertex),
                         self.read_2_bytes(offset + 4),
                         self.read_2_bytes(offset + 6),
                         self.read_2_bytes(offset + 8),
-                        transmute::<&SideDef, &'static SideDef>(front_sidedef),
+                        DPtr::new(front_sidedef),
                         back_sidedef,
                     )
                 }
@@ -329,8 +328,8 @@ impl Wad {
             let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
             unsafe {
                 Segment::new(
-                    transmute::<&Vertex, &'static Vertex>(start_vertex),
-                    transmute::<&Vertex, &'static Vertex>(end_vertex),
+                    DPtr::new(start_vertex),
+                    DPtr::new(end_vertex),
                     self.read_2_bytes(offset + 4),
                     self.read_2_bytes(offset + 6),
                     self.read_2_bytes(offset + 8),
@@ -345,10 +344,7 @@ impl Wad {
             4,
             |offset| unsafe {
                 let seg = &map.get_segments()[self.read_2_bytes(offset + 2) as usize];
-                SubSector::new(
-                    self.read_2_bytes(offset),
-                    transmute::<&Segment, &'static Segment>(seg),
-                )
+                SubSector::new(self.read_2_bytes(offset), DPtr::new(seg))
             },
         ));
     }
