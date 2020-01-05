@@ -7,6 +7,8 @@ use std::str;
 pub struct MapExtents {
     pub min_vertex: Vertex,
     pub max_vertex: Vertex,
+    pub width: i16,
+    pub height: i16,
     pub automap_scale: i16,
 }
 
@@ -61,6 +63,13 @@ impl Map {
     }
 
     pub fn set_extents(&mut self) {
+        // set the min/max to first vertex so we have a baseline
+        // that isn't 0 causing comparison issues, eg; if it's 0,
+        // then a min vertex of -3542 won't be set since it's negative
+        self.extents.min_vertex.x = self.vertexes[0].x;
+        self.extents.min_vertex.y = self.vertexes[0].y;
+        self.extents.max_vertex.x = self.vertexes[0].x;
+        self.extents.max_vertex.y = self.vertexes[0].y;
         for v in &self.vertexes {
             if self.extents.min_vertex.x > v.x {
                 self.extents.min_vertex.x = v.x;
@@ -74,6 +83,8 @@ impl Map {
                 self.extents.max_vertex.y = v.y;
             }
         }
+        self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
+        self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
     }
 
     pub fn get_vertexes(&self) -> &[Vertex] {

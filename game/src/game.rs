@@ -54,14 +54,15 @@ impl Game {
         wad.load_map(&mut map);
 
         // options.width.unwrap_or(320) as i16 / options.height.unwrap_or(200) as i16
-        let map_width = map.get_extents().max_vertex.x - map.get_extents().min_vertex.x;
-        let map_height = map.get_extents().max_vertex.y - map.get_extents().min_vertex.y;
-        if map_height > map_width {
-            map.set_scale(map_height / options.height.unwrap_or(200) as i16);
+        let map_width = map.get_extents().width;
+        let map_height = map.get_extents().height;
+        let scr_height = options.height.unwrap_or(200);
+        let scr_width = options.width.unwrap_or(320);
+        if scr_height > scr_width {
+            map.set_scale(map_height / scr_width as i16);
         } else {
-            map.set_scale(map_width / options.width.unwrap_or(200) as i16);
+            map.set_scale(map_width / scr_height as i16);
         }
-        map.set_scale(4);
 
         Game {
             input,
@@ -127,9 +128,14 @@ impl Game {
         self.canvas.clear();
 
         let scale = self.map.get_extents().automap_scale;
-        let x_shift = -(self.map.get_extents().min_vertex.x - scale);
-        let y_shift = -(self.map.get_extents().min_vertex.y - scale);
         let scr_height = self.canvas.viewport().height() as i16;
+        let scr_width = self.canvas.viewport().width() as i16;
+
+        let x_pad = (scr_width * scale - self.map.get_extents().width) / 2;
+        let y_pad = (scr_height * scale - self.map.get_extents().height) / 2;
+
+        let x_shift = -(self.map.get_extents().min_vertex.x) + x_pad;
+        let y_shift = -(self.map.get_extents().min_vertex.y) + y_pad;
 
         for linedef in self.map.get_linedefs() {
             let start = linedef.start_vertex.get();
@@ -161,20 +167,39 @@ impl Game {
                 if let Some(seg) = segs.get(i as usize) {
                     let start = seg.start_vertex.get();
                     let end = seg.end_vertex.get();
-                    x_a.push((start.x + x_shift) / scale);
-                    y_a.push(scr_height - (start.y + y_shift) / scale);
-                    x_a.push((end.x + x_shift) / scale);
-                    y_a.push(scr_height - (end.y + y_shift) / scale);
+                    let draw_colour = sdl2::pixels::Color::RGBA(
+                        rng.gen_range(0, 255),
+                        rng.gen_range(0, 255),
+                        rng.gen_range(0, 255),
+                        255,
+                    );
+                    //self.canvas
+                    //    .thick_line(
+                    //        (start.x + x_shift) / scale,
+                    //        scr_height - (start.y + y_shift) / scale,
+                    //        (end.x + x_shift) / scale,
+                    //        scr_height - (end.y + y_shift) / scale,
+                    //        1,
+                    //        draw_colour,
+                    //    )
+                    //    .unwrap();
+                    self.canvas
+                        .filled_circle(
+                            (start.x + x_shift) / scale,
+                            scr_height - (start.y + y_shift) / scale,
+                            2,
+                            red,
+                        )
+                        .unwrap();
+                    self.canvas
+                        .filled_circle(
+                            (end.x + x_shift) / scale,
+                            scr_height - (end.y + y_shift) / scale,
+                            2,
+                            red,
+                        )
+                        .unwrap();
                 }
-            }
-            if x_a.len() >= 3 {
-                let red = sdl2::pixels::Color::RGBA(
-                    rng.gen_range(0, 255),
-                    rng.gen_range(0, 255),
-                    rng.gen_range(0, 255),
-                    255,
-                );
-                self.canvas.filled_polygon(&x_a, &y_a, red).unwrap();
             }
         }
     }
