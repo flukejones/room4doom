@@ -1,5 +1,6 @@
 use crate::map::{LineDef, Map, Sector, Segment, SideDef, SubSector, Thing, Vertex};
 use std::fs::File;
+use std::intrinsics::transmute;
 use std::io::prelude::*;
 use std::ops::Sub;
 use std::path::PathBuf;
@@ -211,15 +212,15 @@ impl Wad {
         panic!("Index not found for lump name: {}", name);
     }
 
-    fn read_map_lump<F>(
+    fn read_lump_to_vec<F, T>(
         &self,
         mut index: usize,
         lump_type: LumpIndex,
         data_size: u32,
-        mut map: &mut Map,
         func: F,
-    ) where
-        F: Fn(usize, &mut Map),
+    ) -> Vec<T>
+    where
+        F: Fn(usize) -> T,
     {
         let name: String = lump_type.to_string();
         index += lump_type as usize;
@@ -233,99 +234,123 @@ impl Wad {
 
         let data_count = self.wad_dirs[index].lump_size / data_size;
 
+        let mut v: Vec<T> = Vec::new();
         for i in 0..data_count {
             let offset = (self.wad_dirs[index].lump_offset + i * data_size) as usize;
-            func(offset, &mut map);
+            v.push(func(offset));
         }
+        v
     }
 
     pub fn load_map<'m>(&self, mut map: &'m mut Map) {
         let index = self.find_lump_index("E1M1");
         // THINGS
-        self.read_map_lump(index, LumpIndex::Things, 10, &mut map, |offset, map| {
-            map.add_thing(Thing::new(
-                self.read_2_bytes(offset) as i16,
-                self.read_2_bytes(offset + 2) as i16,
-                self.read_2_bytes(offset + 4),
-                self.read_2_bytes(offset + 6),
-                self.read_2_bytes(offset + 8),
-            ));
-        });
-        // Vertexes
-        self.read_map_lump(
-            index,
-            LumpIndex::Vertexes,
-            std::mem::size_of::<u32>() as u32,
-            &mut map,
-            |offset, map| {
-                map.add_vertex(Vertex::new(
+        map.set_things(
+            self.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {
+                Thing::new(
                     self.read_2_bytes(offset) as i16,
                     self.read_2_bytes(offset + 2) as i16,
-                ));
-            },
+                    self.read_2_bytes(offset + 4),
+                    self.read_2_bytes(offset + 6),
+                    self.read_2_bytes(offset + 8),
+                )
+            }),
+        );
+        // Vertexes
+        map.set_vertexes(
+            self.read_lump_to_vec(index, LumpIndex::Vertexes, 4, |offset| {
+                Vertex::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                )
+            }),
+        );
+        // Sidedefs
+        map.set_sidedefs(
+            self.read_lump_to_vec(index, LumpIndex::SideDefs, 30, |offset| {
+                SideDef::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                    &self.wad_data[offset + 4..offset + 12],
+                    &self.wad_data[offset + 12..offset + 20],
+                    &self.wad_data[offset + 20..offset + 28],
+                    self.read_2_bytes(offset + 28),
+                )
+            }),
         );
         //LineDefs
-        self.read_map_lump(
-            index,
-            LumpIndex::LineDefs,
-            std::mem::size_of::<LineDef>() as u32,
-            &mut map,
-            |offset, map| {
-                map.add_linedef(LineDef::new(
-                    self.read_2_bytes(offset),
-                    self.read_2_bytes(offset + 2),
+        map.set_linedefs(
+            self.read_lump_to_vec(index, LumpIndex::LineDefs, 14, |offset| {
+                let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
+                let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
+                let front_sidedef = &map.get_sidedefs()[self.read_2_bytes(offset + 10) as usize];
+                let back_sidedef = {
+                    let index = self.read_2_bytes(offset + 12) as usize;
+                    if index < 65535 {
+                        let s = &map.get_sidedefs()[index];
+                        unsafe { Some(transmute::<&SideDef, &'static SideDef>(s)) }
+                    } else {
+                        None
+                    }
+                };
+                unsafe {
+                    LineDef::new(
+                        transmute::<&Vertex, &'static Vertex>(start_vertex),
+                        transmute::<&Vertex, &'static Vertex>(end_vertex),
+                        self.read_2_bytes(offset + 4),
+                        self.read_2_bytes(offset + 6),
+                        self.read_2_bytes(offset + 8),
+                        transmute::<&SideDef, &'static SideDef>(front_sidedef),
+                        back_sidedef,
+                    )
+                }
+            }),
+        );
+        // Sectors
+        map.set_sectors(
+            self.read_lump_to_vec(index, LumpIndex::Sectors, 26, |offset| {
+                Sector::new(
+                    self.read_2_bytes(offset) as i16,
+                    self.read_2_bytes(offset + 2) as i16,
+                    &self.wad_data[offset + 4..offset + 12],
+                    &self.wad_data[offset + 12..offset + 20],
+                    self.read_2_bytes(offset + 20),
+                    self.read_2_bytes(offset + 22),
+                    self.read_2_bytes(offset + 24),
+                )
+            }),
+        );
+        // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
+        // storing in map struct
+        //
+        // SEGS
+        map.set_segments(self.read_lump_to_vec(index, LumpIndex::Segs, 12, |offset| {
+            let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
+            let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
+            unsafe {
+                Segment::new(
+                    transmute::<&Vertex, &'static Vertex>(start_vertex),
+                    transmute::<&Vertex, &'static Vertex>(end_vertex),
                     self.read_2_bytes(offset + 4),
                     self.read_2_bytes(offset + 6),
                     self.read_2_bytes(offset + 8),
                     self.read_2_bytes(offset + 10),
-                    self.read_2_bytes(offset + 12),
-                ));
-            },
-        );
-        // Sectors
-        self.read_map_lump(index, LumpIndex::Sectors, 26, &mut map, |offset, map| {
-            map.add_sector(Sector::new(
-                self.read_2_bytes(offset) as i16,
-                self.read_2_bytes(offset + 2) as i16,
-                &self.wad_data[offset + 4..offset + 12],
-                &self.wad_data[offset + 12..offset + 20],
-                self.read_2_bytes(offset + 20),
-                self.read_2_bytes(offset + 22),
-                self.read_2_bytes(offset + 24),
-            ));
-        });
-        // Sidedefs
-        self.read_map_lump(index, LumpIndex::SideDefs, 30, &mut map, |offset, map| {
-            map.add_sidedef(SideDef::new(
-                self.read_2_bytes(offset) as i16,
-                self.read_2_bytes(offset + 2) as i16,
-                &self.wad_data[offset + 4..offset + 12],
-                &self.wad_data[offset + 12..offset + 20],
-                &self.wad_data[offset + 20..offset + 28],
-                self.read_2_bytes(offset + 28),
-            ));
-        });
-        // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
-        // storing in map struct
-
-        // SEGS
-        self.read_map_lump(index, LumpIndex::Segs, 12, &mut map, |offset, map| {
-            map.add_segment(Segment::new(
-                NonNull::from(&map.get_vertexes()[self.read_2_bytes(offset) as usize]),
-                NonNull::from(&map.get_vertexes()[self.read_2_bytes(offset + 2) as usize]),
-                self.read_2_bytes(offset + 4),
-                self.read_2_bytes(offset + 6),
-                self.read_2_bytes(offset + 8),
-                self.read_2_bytes(offset + 10),
-            ));
-        });
+                )
+            }
+        }));
         // SSECTORS
-        self.read_map_lump(index, LumpIndex::SubSectors, 4, &mut map, |offset, map| {
-            map.add_subsector(SubSector::new(
-                self.read_2_bytes(offset),
-                self.read_2_bytes(offset + 2),
-            ));
-        });
+        map.set_subsectors(self.read_lump_to_vec(
+            index,
+            LumpIndex::SubSectors,
+            4,
+            |offset| unsafe {
+                let seg = &map.get_segments()[self.read_2_bytes(offset + 2) as usize];
+                SubSector::new(
+                    self.read_2_bytes(offset),
+                    transmute::<&Segment, &'static Segment>(seg),
+                )
+            },
+        ));
     }
 }
 

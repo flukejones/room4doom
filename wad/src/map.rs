@@ -95,11 +95,11 @@ impl Vertex {
 /// and each linedef's record is 14 bytes, and is made up of 7 16-bit
 /// fields
 #[derive(Debug)]
-pub struct LineDef {
+pub struct LineDef<'l> {
     /// The line starts from this point
-    pub start_vertex: u16,
+    pub start_vertex: &'l Vertex,
     /// The line ends at this point
-    pub end_vertex: u16,
+    pub end_vertex: &'l Vertex,
     /// The line attributes, see `LineDefFlags`
     pub flags: u16,
     pub line_type: u16,
@@ -108,21 +108,21 @@ pub struct LineDef {
     /// field)
     pub sector_tag: u16,
     /// Index number of the front `SideDef` for this line
-    pub front_sidedef: u16, //0xFFFF means there is no sidedef
+    pub front_sidedef: &'l SideDef, //0xFFFF means there is no sidedef
     /// Index number of the back `SideDef` for this line
-    pub back_sidedef: u16, //0xFFFF means there is no sidedef
+    pub back_sidedef: Option<&'l SideDef>, //0xFFFF means there is no sidedef
 }
 
-impl LineDef {
+impl<'l> LineDef<'l> {
     pub fn new(
-        start_vertex: u16,
-        end_vertex: u16,
+        start_vertex: &'l Vertex,
+        end_vertex: &'l Vertex,
         flags: u16,
         line_type: u16,
         sector_tag: u16,
-        front_sidedef: u16,
-        back_sidedef: u16,
-    ) -> LineDef {
+        front_sidedef: &'l SideDef,
+        back_sidedef: Option<&'l SideDef>,
+    ) -> LineDef<'l> {
         LineDef {
             start_vertex,
             end_vertex,
@@ -140,11 +140,11 @@ impl LineDef {
 ///
 /// Each `Segment` record is 12 bytes
 #[derive(Debug)]
-pub struct Segment {
+pub struct Segment<'s> {
     /// The line starts from this point
-    start_vertex: ptr::NonNull<Vertex>,
+    start_vertex: &'s Vertex,
     /// The line ends at this point
-    end_vertex: ptr::NonNull<Vertex>,
+    end_vertex: &'s Vertex,
     /// Binary Angle Measurement
     angle: u16,
     /// The Linedef this segment travels along
@@ -158,15 +158,15 @@ pub struct Segment {
     offset: u16,
 }
 
-impl Segment {
+impl<'s> Segment<'s> {
     pub fn new(
-        start_vertex: ptr::NonNull<Vertex>,
-        end_vertex: ptr::NonNull<Vertex>,
+        start_vertex: &'s Vertex,
+        end_vertex: &'s Vertex,
         angle: u16,
         linedef_id: u16,
         direction: u16,
         offset: u16,
-    ) -> Segment {
+    ) -> Segment<'s> {
         Segment {
             start_vertex,
             end_vertex,
@@ -183,15 +183,15 @@ impl Segment {
 ///
 /// Each `SubSector` record is 4 bytes
 #[derive(Debug)]
-pub struct SubSector {
+pub struct SubSector<'s> {
     /// How many `Segment`s line this `SubSector`
     seg_count: u16,
     /// The `Segment` to start with
-    start_seg: u16,
+    start_seg: &'s Segment<'s>,
 }
 
-impl SubSector {
-    pub fn new(seg_count: u16, start_seg: u16) -> SubSector {
+impl<'s> SubSector<'s> {
+    pub fn new(seg_count: u16, start_seg: &'s Segment) -> SubSector<'s> {
         SubSector {
             seg_count,
             start_seg,
@@ -346,20 +346,20 @@ pub struct MapExtents {
 /// `nodes`, `subsectors`, and `segments` are what get used most to render the
 /// basic map
 #[derive(Debug)]
-pub struct Map {
+pub struct Map<'m> {
     name: String,
     things: Vec<Thing>,
     vertexes: Vec<Vertex>,
-    linedefs: Vec<LineDef>,
+    linedefs: Vec<LineDef<'m>>,
     sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
-    subsectors: Vec<SubSector>,
-    segments: Vec<Segment>,
+    subsectors: Vec<SubSector<'m>>,
+    segments: Vec<Segment<'m>>,
     extents: MapExtents,
 }
 
-impl Map {
-    pub fn new(name: String) -> Map {
+impl<'m> Map<'m> {
+    pub fn new(name: String) -> Map<'m> {
         Map {
             name,
             things: Vec::new(),
@@ -377,72 +377,78 @@ impl Map {
         &self.name
     }
 
-    pub fn add_thing(&mut self, v: Thing) {
-        self.things.push(v);
-    }
-
     pub fn get_things(&self) -> &[Thing] {
         &self.things
     }
 
-    pub fn add_vertex(&mut self, v: Vertex) {
-        if self.extents.min_vertex.x > v.x {
-            self.extents.min_vertex.x = v.x;
-        } else if self.extents.max_vertex.x < v.x {
-            self.extents.max_vertex.x = v.x;
-        }
+    pub fn set_things(&mut self, t: Vec<Thing>) {
+        dbg!(&t.len());
+        self.things = t;
+    }
 
-        if self.extents.min_vertex.y > v.y {
-            self.extents.min_vertex.y = v.y;
-        } else if self.extents.max_vertex.y < v.y {
-            self.extents.max_vertex.y = v.y;
-        }
+    pub fn set_extents(&mut self) {
+        for v in &self.vertexes {
+            if self.extents.min_vertex.x > v.x {
+                self.extents.min_vertex.x = v.x;
+            } else if self.extents.max_vertex.x < v.x {
+                self.extents.max_vertex.x = v.x;
+            }
 
-        self.vertexes.push(v);
+            if self.extents.min_vertex.y > v.y {
+                self.extents.min_vertex.y = v.y;
+            } else if self.extents.max_vertex.y < v.y {
+                self.extents.max_vertex.y = v.y;
+            }
+        }
     }
 
     pub fn get_vertexes(&self) -> &[Vertex] {
         &self.vertexes
     }
 
-    pub fn add_linedef(&mut self, l: LineDef) {
-        self.linedefs.push(l);
+    pub fn set_vertexes(&mut self, v: Vec<Vertex>) {
+        self.vertexes = v;
+        self.set_extents();
     }
 
     pub fn get_linedefs(&self) -> &[LineDef] {
         &self.linedefs
     }
 
-    pub fn add_sector(&mut self, s: Sector) {
-        self.sectors.push(s);
+    pub fn set_linedefs(&mut self, l: Vec<LineDef<'m>>) {
+        self.linedefs = l;
     }
 
     pub fn get_sectors(&self) -> &[Sector] {
         &self.sectors
     }
 
-    pub fn add_sidedef(&mut self, s: SideDef) {
-        self.sidedefs.push(s);
+    pub fn set_sectors(&mut self, s: Vec<Sector>) {
+        self.sectors = s;
     }
 
     pub fn get_sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }
 
-    pub fn add_subsector(&mut self, s: SubSector) {
-        self.subsectors.push(s);
+    pub fn set_sidedefs(&mut self, s: Vec<SideDef>) {
+        self.sidedefs = s;
     }
 
     pub fn get_subsectors(&self) -> &[SubSector] {
         &self.subsectors
     }
 
-    pub fn add_segment(&mut self, s: Segment) {
-        self.segments.push(s);
+    pub fn set_subsectors(&mut self, s: Vec<SubSector<'m>>) {
+        self.subsectors = s;
     }
 
     pub fn get_segments(&self) -> &[Segment] {
         &self.segments
+    }
+
+    pub fn set_segments(&mut self, s: Vec<Segment<'m>>) {
+        self.segments = s;
     }
 
     pub fn get_extents(&self) -> &MapExtents {
@@ -521,17 +527,18 @@ mod tests {
         assert_eq!(vertexes[466].y, -4848);
 
         let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex, 0);
-        assert_eq!(linedefs[0].end_vertex, 1);
-        assert_eq!(linedefs[2].start_vertex, 3);
-        assert_eq!(linedefs[2].end_vertex, 0);
-        assert_eq!(linedefs[2].front_sidedef, 2);
-        assert_eq!(linedefs[2].back_sidedef, 65535);
-        assert_eq!(linedefs[474].start_vertex, 384);
-        assert_eq!(linedefs[474].end_vertex, 348);
+        assert_eq!(linedefs[0].start_vertex.x, 1088);
+        assert_eq!(linedefs[0].end_vertex.x, 1024);
+        assert_eq!(linedefs[2].start_vertex.x, 1088);
+        assert_eq!(linedefs[2].end_vertex.x, 1088);
+        assert_eq!(linedefs[2].front_sidedef.sector_id, 40);
+        assert!(linedefs[2].back_sidedef.is_none());
+        assert_eq!(linedefs[474].start_vertex.x, 3536);
+        assert_eq!(linedefs[474].end_vertex.x, 3520);
         assert_eq!(linedefs[474].flags, 1);
-        assert_eq!(linedefs[474].front_sidedef, 647);
-        assert_eq!(linedefs[474].back_sidedef, 65535);
+        assert_eq!(linedefs[474].front_sidedef.sector_id, 70);
+        assert!(linedefs[474].back_sidedef.is_none());
+        assert!(linedefs[466].back_sidedef.is_some());
 
         // Flag check
         assert_eq!(linedefs[26].flags, 29);
@@ -572,18 +579,15 @@ mod tests {
         assert_eq!(sidedefs[647].sector_id, 70);
 
         let segments = map.get_segments();
-        unsafe {
-            assert_eq!(segments[0].start_vertex.as_ref().x, 1552);
-            assert_eq!(segments[0].end_vertex.as_ref().x, 1552);
-        }
+        assert_eq!(segments[0].start_vertex.x, 1552);
+        assert_eq!(segments[0].end_vertex.x, 1552);
         assert_eq!(segments[0].angle, 16384);
         assert_eq!(segments[0].linedef_id, 152);
         assert_eq!(segments[0].direction, 0);
         assert_eq!(segments[0].offset, 0);
-        unsafe {
-            assert_eq!(segments[731].start_vertex.as_ref().x, 3040);
-            assert_eq!(segments[731].end_vertex.as_ref().x, 2976);
-        }
+        assert_eq!(segments[731].start_vertex.x, 3040);
+        assert_eq!(segments[731].end_vertex.x, 2976);
+
         assert_eq!(segments[731].angle, 32768);
         assert_eq!(segments[731].linedef_id, 333);
         assert_eq!(segments[731].direction, 1);
@@ -591,10 +595,10 @@ mod tests {
 
         let subsectors = map.get_subsectors();
         assert_eq!(subsectors[0].seg_count, 4);
-        assert_eq!(subsectors[0].start_seg, 0);
+        assert_eq!(subsectors[0].start_seg.start_vertex.x, 1552);
         assert_eq!(subsectors[124].seg_count, 3);
-        assert_eq!(subsectors[124].start_seg, 376);
+        assert_eq!(subsectors[124].start_seg.start_vertex.x, 472);
         assert_eq!(subsectors[236].seg_count, 4);
-        assert_eq!(subsectors[236].start_seg, 728);
+        assert_eq!(subsectors[236].start_seg.start_vertex.x, 3040);
     }
 }
