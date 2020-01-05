@@ -6,5 +6,7 @@ pub mod map;
 /// The WAD structure and parser
 pub mod wad;
 
+pub mod lumps;
+
 /// Bring only the WAD structs down to root level
 pub use crate::wad::*;

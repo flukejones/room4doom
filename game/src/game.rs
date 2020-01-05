@@ -4,7 +4,8 @@ use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use wad::map::{LineDefFlags, Map};
+use wad::lumps::LineDefFlags;
+use wad::map::Map;
 use wad::Wad;
 
 pub struct Game {

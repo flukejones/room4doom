@@ -1,11 +1,33 @@
-use crate::map::{DPtr, LineDef, Map, Sector, Segment, SideDef, SubSector, Thing, Vertex};
+use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
+use crate::map::Map;
 use std::fs::File;
-use std::intrinsics::transmute;
 use std::io::prelude::*;
-use std::ops::Sub;
 use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::{fmt, str};
+
+/// Functions purely as a safe fn wrapper around a `NonNull` because we know that
+/// the Map structure is not going to change under us
+#[derive(Debug)]
+pub struct DPtr<T> {
+    p: NonNull<T>,
+}
+
+impl<T> DPtr<T> {
+    pub fn new(t: &T) -> DPtr<T> {
+        DPtr {
+            p: NonNull::from(t),
+        }
+    }
+
+    pub fn get(&self) -> &T {
+        unsafe { &self.p.as_ref() }
+    }
+
+    //    pub fn get_mut(&mut self) -> &mut T {
+    //        unsafe { self.p.as_mut() }
+    //    }
+}
 
 /// Used as an index to find a specific lump, typically combined
 /// with an offset for example: find the index for lump named "E1M1"
@@ -292,17 +314,15 @@ impl Wad {
                         None
                     }
                 };
-                unsafe {
-                    LineDef::new(
-                        DPtr::new(start_vertex),
-                        DPtr::new(end_vertex),
-                        self.read_2_bytes(offset + 4),
-                        self.read_2_bytes(offset + 6),
-                        self.read_2_bytes(offset + 8),
-                        DPtr::new(front_sidedef),
-                        back_sidedef,
-                    )
-                }
+                LineDef::new(
+                    DPtr::new(start_vertex),
+                    DPtr::new(end_vertex),
+                    self.read_2_bytes(offset + 4),
+                    self.read_2_bytes(offset + 6),
+                    self.read_2_bytes(offset + 8),
+                    DPtr::new(front_sidedef),
+                    back_sidedef,
+                )
             }),
         );
         // Sectors
@@ -326,16 +346,14 @@ impl Wad {
         map.set_segments(self.read_lump_to_vec(index, LumpIndex::Segs, 12, |offset| {
             let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
             let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
-            unsafe {
-                Segment::new(
-                    DPtr::new(start_vertex),
-                    DPtr::new(end_vertex),
-                    self.read_2_bytes(offset + 4),
-                    self.read_2_bytes(offset + 6),
-                    self.read_2_bytes(offset + 8),
-                    self.read_2_bytes(offset + 10),
-                )
-            }
+            Segment::new(
+                DPtr::new(start_vertex),
+                DPtr::new(end_vertex),
+                self.read_2_bytes(offset + 4),
+                self.read_2_bytes(offset + 6),
+                self.read_2_bytes(offset + 8),
+                self.read_2_bytes(offset + 10),
+            )
         }));
         // SSECTORS
         map.set_subsectors(self.read_lump_to_vec(
