@@ -11,24 +11,34 @@
 //  - [ ] Blockmap
 
 use crate::DPtr;
-use std::ptr::NonNull;
 use std::str;
 
+/// A `Thing` describes only the position, type, and angle + spawn flags
+///
+/// The data in the WAD lump is structured as follows:
+///
+/// | Field Size | Data Type | Content    |
+/// |------------|-----------|------------|
+/// |  0x00-0x01 |    i16    | X Position |
+/// |  0x02-0x03 |    i16    | Y Position |
+/// |  0x04-0x05 |    u16    | Angle      |
+/// |  0x06-0x07 |    u16    | Type       |
+/// |  0x08-0x09 |    u16    | Flags      |
+///
+/// Each `Thing` record is 10 bytes
 // TODO: A `Thing` type will need to be mapped against an enum
 #[derive(Debug)]
 pub struct Thing {
-    pub pos_x: i16,
-    pub pos_y: i16,
+    pub pos: Vertex,
     pub angle: u16,
     pub typ: u16,
     pub flags: u16,
 }
 
 impl Thing {
-    pub fn new(pos_x: i16, pos_y: i16, angle: u16, typ: u16, flags: u16) -> Thing {
+    pub fn new(pos: Vertex, angle: u16, typ: u16, flags: u16) -> Thing {
         Thing {
-            pos_x,
-            pos_y,
+            pos,
             angle,
             typ,
             flags,
@@ -36,48 +46,15 @@ impl Thing {
     }
 }
 
-/// The flags control some attributes of the line
-pub enum LineDefFlags {
-    /// Players and monsters cannot cross this line. Note that
-    /// if there is no sector on the other side, they can't go through the line
-    /// anyway, regardless of the flags
-    Blocking = 1,
-    /// Monsters cannot cross this line
-    BlockMonsters = 1 << 1,
-    /// The linedef's two sidedefs can have "-" as a texture,
-    /// which in this case means "transparent". If this flag is not set, the
-    /// sidedefs can't be transparent. A side effect of this flag is that if
-    /// it is set, then gunfire (pistol, shotgun, chaingun) can go through it
-    TwoSided = 1 << 2,
-    /// The upper texture is pasted onto the wall from
-    /// the top down instead of from the bottom up like usual.
-    /// The effect is if a wall moves down, it looks like the
-    /// texture is stationary and is appended to as the wall moves
-    UnpegTop = 1 << 3,
-    /// Lower and middle textures are drawn from the
-    /// bottom up, instead of from the top down like usual
-    /// The effect is if a wall moves up, it looks like the
-    /// texture is stationary and is appended to as the wall moves
-    UnpegBottom = 1 << 4,
-    /// On the automap, this line appears in red like a normal
-    /// solid wall that has nothing on the other side. This is useful in
-    /// protecting secret doors and such. Note that if the sector on the other
-    /// side of this "secret" line has its floor height HIGHER than the sector
-    /// on the facing side of the secret line, then the map will show the lines
-    /// beyond and thus give up the secret
-    Secret = 1 << 5,
-    /// For purposes of monsters hearing sounds and thus
-    /// becoming alerted. Every time a player fires a weapon, the "sound" of
-    /// it travels from sector to sector, alerting all non-deaf monsters in
-    /// each new sector. This flag blocks sound traveling out of this sector
-    /// through this line to adjacent sector
-    BlockSound = 1 << 6,
-    /// Not on AutoMap
-    DontDraw = 1 << 7,
-    /// Already on AutoMap
-    Draw = 1 << 8,
-}
-
+/// A `Vertex` is the basic struct used for any type of coordinate
+/// in the game
+///
+/// The data in the WAD lump is structured as follows:
+///
+/// | Field Size | Data Type | Content      |
+/// |------------|-----------|--------------|
+/// |  0x00-0x01 |    i16    | X Coordinate |
+/// |  0x02-0x03 |    i16    | Y Coordinate |
 #[derive(Debug, Default)]
 pub struct Vertex {
     pub x: i16,
@@ -90,8 +67,21 @@ impl Vertex {
     }
 }
 
-/// Each linedef represents a line from one of the VERTEXES to another,
-/// and each linedef's record is 14 bytes, and is made up of 7 16-bit
+/// Each linedef represents a line from one of the VERTEXES to another.
+///
+/// The data in the WAD lump is structured as follows:
+///
+///| Field Size | Data Type      | Content                                   |
+///|------------|----------------|-------------------------------------------|
+///|  0x00-0x01 | Unsigned short | Start vertex                              |
+///|  0x02-0x03 | Unsigned short | End vertex                                |
+///|  0x04-0x05 | Unsigned short | Flags (details below)                     |
+///|  0x06-0x07 | Unsigned short | Line type / Action                        |
+///|  0x08-0x09 | Unsigned short | Sector tag                                |
+///|  0x10-0x11 | Unsigned short | Front sidedef ( 0xFFFF side not present ) |
+///|  0x12-0x13 | Unsigned short | Back sidedef  ( 0xFFFF side not present ) |
+///
+/// Each linedef's record is 14 bytes, and is made up of 7 16-bit
 /// fields
 #[derive(Debug)]
 pub struct LineDef {
@@ -137,6 +127,17 @@ impl LineDef {
 /// The Segments (SEGS) are in a sequential order determined by the `SubSector`
 /// (SSECTOR), which are part of the NODES recursive tree
 ///
+/// The data in the WAD lump is structured as follows:
+///
+/// | Field Size | Data Type | Content                              |
+/// |------------|-----------|--------------------------------------|
+/// |  0x00-0x01 |    u16    | Index to vertex the line starts from |
+/// |  0x02-0x03 |    u16    | Index to vertex the line ends with   |
+/// |  0x04-0x05 |    u16    | Angle                                |
+/// |  0x06-0x07 |    u16    | Index to the linedef this seg travels along|
+/// |  0x08-0x09 |    u16    | Direction                            |
+/// |  0x10-0x11 |    u16    | Offset: this is the distance along the linedef this seg starts at |
+///
 /// Each `Segment` record is 12 bytes
 #[derive(Debug)]
 pub struct Segment {
@@ -179,6 +180,13 @@ impl Segment {
 
 /// A `SubSector` divides up all the SECTORS into convex polygons. They are then
 /// referenced through the NODES resources. There will be (number of nodes) + 1.
+///
+/// The data in the WAD lump is structured as follows:
+///
+/// | Field Size | Data Type | Content                            |
+/// |------------|-----------|------------------------------------|
+/// |  0x00-0x01 |    u16    | How many segments line this sector |
+/// |  0x02-0x03 |    u16    | Index to the starting segment      |
 ///
 /// Each `SubSector` record is 4 bytes
 #[derive(Debug)]

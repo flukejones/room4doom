@@ -1,5 +1,6 @@
 use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
 use crate::map::Map;
+use crate::nodes::Node;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -87,6 +88,15 @@ impl LumpIndex {
 }
 
 /// Header which tells us the WAD type and where the data is
+///
+/// The header structure in the WAD is as follows:
+///
+/// | Field Size | Data Type    | Content                                              |
+/// |------------|--------------|------------------------------------------------------|
+/// | 0x00-0x03  | 4 ASCII char | *Must* be an ASCII string (either "IWAD" or "PWAD")  |
+/// | 0x04-0x07  | unsigned int | The number entries in the directory                  |
+/// | 0x08-0x0b  | unsigned int | Offset in bytes to the directory in the WAD file     |
+///
 struct WadHeader {
     /// Will be either `IWAD` for game, or `PWAD` for patch
     wad_type: [u8; 4],
@@ -109,6 +119,15 @@ impl fmt::Debug for WadHeader {
 }
 
 /// Contains the details for a lump of data: where it starts, the size of it, and the name
+///
+/// The directory structure in the WAD is as follows:
+///
+/// | Field Size | Data Type    | Content                                                    |
+/// |------------|--------------|------------------------------------------------------------|
+/// | 0x00-0x03  | unsigned int | Offset value to the start of the lump data in the WAD file |
+/// | 0x04-0x07  | unsigned int | The size of the lump in bytes                              |
+/// | 0x08-0x0f  | 8 ASCII char | ASCII holding the name of the lump                         |
+///
 struct WadDirectory {
     /// The offset in bytes where the lump data starts
     lump_offset: u32,
@@ -264,14 +283,16 @@ impl Wad {
         v
     }
 
-    pub fn load_map<'m>(&self, mut map: &'m mut Map) {
+    pub fn load_map<'m>(&self, map: &'m mut Map) {
         let index = self.find_lump_index(map.get_name());
         // THINGS
         map.set_things(
             self.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {
                 Thing::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
+                    Vertex::new(
+                        self.read_2_bytes(offset) as i16,
+                        self.read_2_bytes(offset + 2) as i16,
+                    ),
                     self.read_2_bytes(offset + 4),
                     self.read_2_bytes(offset + 6),
                     self.read_2_bytes(offset + 8),
@@ -358,14 +379,45 @@ impl Wad {
             )
         }));
         // SSECTORS
-        map.set_subsectors(self.read_lump_to_vec(
-            index,
-            LumpIndex::SubSectors,
-            4,
-            |offset| unsafe {
+        map.set_subsectors(
+            self.read_lump_to_vec(index, LumpIndex::SubSectors, 4, |offset| {
                 SubSector::new(self.read_2_bytes(offset), self.read_2_bytes(offset + 2))
-            },
-        ));
+            }),
+        );
+
+        // NODES
+        map.set_nodes(
+            self.read_lump_to_vec(index, LumpIndex::Nodes, 28, |offset| {
+                Node::new(
+                    Vertex::new(
+                        self.read_2_bytes(offset) as i16,
+                        self.read_2_bytes(offset + 2) as i16,
+                    ),
+                    Vertex::new(
+                        self.read_2_bytes(offset + 4) as i16,
+                        self.read_2_bytes(offset + 6) as i16,
+                    ),
+                    Vertex::new(
+                        self.read_2_bytes(offset + 12) as i16, // top
+                        self.read_2_bytes(offset + 8) as i16,  // left
+                    ),
+                    Vertex::new(
+                        self.read_2_bytes(offset + 14) as i16, // bottom
+                        self.read_2_bytes(offset + 10) as i16, // right
+                    ),
+                    Vertex::new(
+                        self.read_2_bytes(offset + 20) as i16,
+                        self.read_2_bytes(offset + 16) as i16,
+                    ),
+                    Vertex::new(
+                        self.read_2_bytes(offset + 22) as i16,
+                        self.read_2_bytes(offset + 18) as i16,
+                    ),
+                    self.read_2_bytes(offset + 24),
+                    self.read_2_bytes(offset + 26),
+                )
+            }),
+        );
     }
 }
 

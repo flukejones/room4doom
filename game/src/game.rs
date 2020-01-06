@@ -1,12 +1,14 @@
+use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
 use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use wad::lumps::LineDefFlags;
+use wad::lumps::Vertex;
 use wad::map::Map;
 use wad::Wad;
 
@@ -61,10 +63,11 @@ impl Game {
         let scr_height = options.height.unwrap_or(200);
         let scr_width = options.width.unwrap_or(320);
         if scr_height > scr_width {
-            map.set_scale(map_height / scr_width as i16);
+            map.set_scale(map_height.abs() / scr_width as i16);
         } else {
-            map.set_scale(map_width / scr_height as i16);
+            map.set_scale(map_width.abs() / scr_height as i16);
         }
+        dbg!(map.get_extents().automap_scale);
 
         let mut rng = rand::thread_rng();
         let mut colours = Vec::new();
@@ -132,6 +135,22 @@ impl Game {
         self.running
     }
 
+    fn vertex_to_screen(&self, v: &Vertex) -> (i16, i16) {
+        let scale = self.map.get_extents().automap_scale;
+        let scr_height = self.canvas.viewport().height() as i16;
+        let scr_width = self.canvas.viewport().width() as i16;
+
+        let x_pad = (scr_width * scale - self.map.get_extents().width) / 2;
+        let y_pad = (scr_height * scale - self.map.get_extents().height) / 2;
+
+        let x_shift = -(self.map.get_extents().min_vertex.x) + x_pad;
+        let y_shift = -(self.map.get_extents().min_vertex.y) + y_pad;
+        (
+            ((v.x + x_shift) / scale),
+            (scr_height - (v.y + y_shift) / scale),
+        )
+    }
+
     /// This is really just a test function
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
@@ -142,44 +161,23 @@ impl Game {
         self.canvas.set_draw_color(black);
         self.canvas.clear();
 
-        let scale = self.map.get_extents().automap_scale;
-        let scr_height = self.canvas.viewport().height() as i16;
-        let scr_width = self.canvas.viewport().width() as i16;
-
-        let x_pad = (scr_width * scale - self.map.get_extents().width) / 2;
-        let y_pad = (scr_height * scale - self.map.get_extents().height) / 2;
-
-        let x_shift = -(self.map.get_extents().min_vertex.x) + x_pad;
-        let y_shift = -(self.map.get_extents().min_vertex.y) + y_pad;
-
         for linedef in self.map.get_linedefs() {
-            let start = linedef.start_vertex.get();
-            let end = linedef.end_vertex.get();
+            let start = self.vertex_to_screen(linedef.start_vertex.get());
+            let end = self.vertex_to_screen(linedef.end_vertex.get());
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
                 red
             } else {
                 grey
             };
             self.canvas
-                .thick_line(
-                    (start.x + x_shift) / scale,
-                    scr_height - (start.y + y_shift) / scale,
-                    (end.x + x_shift) / scale,
-                    scr_height - (end.y + y_shift) / scale,
-                    1,
-                    draw_colour,
-                )
+                .thick_line(start.0, start.1, end.0, end.1, 1, draw_colour)
                 .unwrap();
         }
 
         for (i, thing) in self.map.get_things().iter().enumerate() {
+            let v = self.vertex_to_screen(&thing.pos);
             self.canvas
-                .filled_circle(
-                    (thing.pos_x + x_shift) / scale,
-                    scr_height - (thing.pos_y + y_shift) / scale,
-                    1,
-                    self.colours[i],
-                )
+                .filled_circle(v.0, v.1, 1, self.colours[i])
                 .unwrap();
         }
 
@@ -190,36 +188,62 @@ impl Game {
             let mut y_a: Vec<i16> = Vec::new();
             for s in subsect.start_seg..subsect.start_seg + count {
                 if let Some(seg) = segs.get(s as usize) {
-                    let start = seg.start_vertex.get();
-                    let end = seg.end_vertex.get();
+                    let start = self.vertex_to_screen(seg.start_vertex.get());
+                    let end = self.vertex_to_screen(seg.end_vertex.get());
                     self.canvas
-                        .thick_line(
-                            (start.x + x_shift) / scale,
-                            scr_height - (start.y + y_shift) / scale,
-                            (end.x + x_shift) / scale,
-                            scr_height - (end.y + y_shift) / scale,
-                            1,
-                            self.colours[i as usize],
-                        )
+                        .thick_line(start.0, start.1, end.0, end.1, 1, self.colours[i as usize])
                         .unwrap();
                     self.canvas
-                        .filled_circle(
-                            (start.x + x_shift) / scale,
-                            scr_height - (start.y + y_shift) / scale,
-                            3,
-                            self.colours[i as usize],
-                        )
+                        .filled_circle(start.0, start.1, 3, self.colours[i as usize])
                         .unwrap();
                     self.canvas
-                        .filled_circle(
-                            (end.x + x_shift) / scale,
-                            scr_height - (end.y + y_shift) / scale,
-                            2,
-                            self.colours[i as usize],
-                        )
+                        .filled_circle(end.0, end.1, 2, self.colours[i as usize])
                         .unwrap();
                 }
             }
+        }
+
+        // Show root node boxes and splitter
+        let node = &self.map.get_nodes()[self.map.get_nodes().len() - 1];
+        let split_start = self.vertex_to_screen(&node.split_start);
+        let right_box_start = self.vertex_to_screen(&node.right_box_start);
+        let right_box_end = self.vertex_to_screen(&node.right_box_end);
+        let left_box_start = self.vertex_to_screen(&node.left_box_start);
+        let left_box_end = self.vertex_to_screen(&node.left_box_end);
+
+        self.canvas
+            .rectangle(
+                right_box_start.0,
+                right_box_start.1,
+                right_box_end.0,
+                right_box_end.1,
+                grn,
+            )
+            .unwrap();
+        self.canvas
+            .rectangle(
+                left_box_start.0,
+                left_box_start.1,
+                left_box_end.0,
+                left_box_end.1,
+                red,
+            )
+            .unwrap();
+
+        let scr_height = self.canvas.viewport().height() as i16;
+        for node in self.map.get_nodes() {
+            let split_start = self.vertex_to_screen(&node.split_start);
+            self.canvas
+                .thick_line(
+                    split_start.0,
+                    split_start.1,
+                    split_start.0 + &node.split_change.x / self.map.get_extents().automap_scale,
+                    (split_start.1
+                        + -(&node.split_change.y / self.map.get_extents().automap_scale)),
+                    3,
+                    sdl2::pixels::Color::RGBA(255, 255, 255, 255),
+                )
+                .unwrap();
         }
     }
 }

@@ -1,4 +1,5 @@
 use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
+use crate::nodes::Node;
 use std::str;
 
 /// The smallest vector and the largest vertex, combined make up a
@@ -33,6 +34,7 @@ pub struct Map {
     subsectors: Vec<SubSector>,
     segments: Vec<Segment>,
     extents: MapExtents,
+    nodes: Vec<Node>,
 }
 
 impl Map {
@@ -47,6 +49,7 @@ impl Map {
             subsectors: Vec::new(),
             segments: Vec::new(),
             extents: MapExtents::default(),
+            nodes: Vec::new(),
         }
     }
 
@@ -91,8 +94,8 @@ impl Map {
         &self.vertexes
     }
 
-    pub fn set_vertexes(&mut self, v: Vec<Vertex>) {
-        self.vertexes = v;
+    pub fn set_vertexes(&mut self, vertexes: Vec<Vertex>) {
+        self.vertexes = vertexes;
         self.set_extents();
     }
 
@@ -100,40 +103,40 @@ impl Map {
         &self.linedefs
     }
 
-    pub fn set_linedefs(&mut self, l: Vec<LineDef>) {
-        self.linedefs = l;
+    pub fn set_linedefs(&mut self, linedefs: Vec<LineDef>) {
+        self.linedefs = linedefs;
     }
 
     pub fn get_sectors(&self) -> &[Sector] {
         &self.sectors
     }
 
-    pub fn set_sectors(&mut self, s: Vec<Sector>) {
-        self.sectors = s;
+    pub fn set_sectors(&mut self, sectors: Vec<Sector>) {
+        self.sectors = sectors;
     }
 
     pub fn get_sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }
 
-    pub fn set_sidedefs(&mut self, s: Vec<SideDef>) {
-        self.sidedefs = s;
+    pub fn set_sidedefs(&mut self, sidedefs: Vec<SideDef>) {
+        self.sidedefs = sidedefs;
     }
 
     pub fn get_subsectors(&self) -> &[SubSector] {
         &self.subsectors
     }
 
-    pub fn set_subsectors(&mut self, s: Vec<SubSector>) {
-        self.subsectors = s;
+    pub fn set_subsectors(&mut self, subsectors: Vec<SubSector>) {
+        self.subsectors = subsectors;
     }
 
     pub fn get_segments(&self) -> &[Segment] {
         &self.segments
     }
 
-    pub fn set_segments(&mut self, s: Vec<Segment>) {
-        self.segments = s;
+    pub fn set_segments(&mut self, segments: Vec<Segment>) {
+        self.segments = segments;
     }
 
     pub fn get_extents(&self) -> &MapExtents {
@@ -142,6 +145,14 @@ impl Map {
 
     pub fn set_scale(&mut self, scale: i16) {
         self.extents.automap_scale = scale
+    }
+
+    pub fn get_nodes(&self) -> &[Node] {
+        &self.nodes
+    }
+
+    pub fn set_nodes(&mut self, nodes: Vec<Node>) {
+        self.nodes = nodes;
     }
 }
 
@@ -152,40 +163,6 @@ mod tests {
     use crate::wad::Wad;
 
     #[test]
-    fn check_flags_enum() {
-        let flag = 28; // upper and lower unpegged, twosided
-        println!("Blocking, two-sided, unpeg top and bottom\n{:#018b}", 29);
-        println!("Flag: Blocking\n{:#018b}", LineDefFlags::Blocking as u16);
-        println!(
-            "Flag: Block Monsters\n{:#018b}",
-            LineDefFlags::BlockMonsters as u16
-        );
-        println!("Flag: Two-sided\n{:#018b}", LineDefFlags::TwoSided as u16);
-        println!("Flag: Unpeg upper\n{:#018b}", LineDefFlags::UnpegTop as u16);
-        println!(
-            "Flag: Unpeg lower\n{:#018b}",
-            LineDefFlags::UnpegBottom as u16
-        );
-        println!("Flag: Secret\n{:#018b}", LineDefFlags::Secret as u16);
-        println!(
-            "Flag: Block sound\n{:#018b}",
-            LineDefFlags::BlockSound as u16
-        );
-        println!(
-            "Flag: Not on AutoMap yet\n{:#018b}",
-            LineDefFlags::DontDraw as u16
-        );
-        println!(
-            "Flag: Already on AutoMap\n{:#018b}",
-            LineDefFlags::Draw as u16
-        );
-        let compare = LineDefFlags::TwoSided as u16
-            | LineDefFlags::UnpegTop as u16
-            | LineDefFlags::UnpegBottom as u16;
-        assert_eq!(compare, flag);
-    }
-
-    #[test]
     fn load_e1m1() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
@@ -194,13 +171,13 @@ mod tests {
         wad.load_map(&mut map);
 
         let things = map.get_things();
-        assert_eq!(things[0].pos_x, 1056);
-        assert_eq!(things[0].pos_y, -3616);
+        assert_eq!(things[0].pos.x, 1056);
+        assert_eq!(things[0].pos.y, -3616);
         assert_eq!(things[0].angle, 90);
         assert_eq!(things[0].typ, 1);
         assert_eq!(things[0].flags, 7);
-        assert_eq!(things[137].pos_x, 3648);
-        assert_eq!(things[137].pos_y, -3840);
+        assert_eq!(things[137].pos.x, 3648);
+        assert_eq!(things[137].pos.y, -3840);
         assert_eq!(things[137].angle, 0);
         assert_eq!(things[137].typ, 2015);
         assert_eq!(things[137].flags, 7);
@@ -233,11 +210,6 @@ mod tests {
 
         // Flag check
         assert_eq!(linedefs[26].flags, 29);
-        let compare = LineDefFlags::Blocking as u16
-            | LineDefFlags::TwoSided as u16
-            | LineDefFlags::UnpegTop as u16
-            | LineDefFlags::UnpegBottom as u16;
-        assert_eq!(linedefs[26].flags, compare);
 
         let sectors = map.get_sectors();
         assert_eq!(sectors[0].floor_height, 0);

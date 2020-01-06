@@ -1,6 +1,7 @@
 #![allow(clippy::pedantic)]
 #![allow(clippy::new_without_default)]
 
+mod flags;
 mod game;
 mod input;
 
