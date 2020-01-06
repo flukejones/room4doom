@@ -265,7 +265,7 @@ impl Wad {
     }
 
     pub fn load_map<'m>(&self, mut map: &'m mut Map) {
-        let index = self.find_lump_index("E1M1");
+        let index = self.find_lump_index(map.get_name());
         // THINGS
         map.set_things(
             self.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {

@@ -20,6 +20,8 @@ pub struct GameOptions {
     pub width: Option<u32>,
     #[options(help = "resolution height in pixels")]
     pub height: Option<u32>,
+    #[options(help = "map to load")]
+    pub map: Option<String>,
     #[options(help = "waesgr")]
     pub fullscreen: Option<bool>,
 }

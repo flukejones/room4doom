@@ -2,6 +2,7 @@ use crate::input::Input;
 use crate::GameOptions;
 use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
@@ -16,6 +17,7 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
+    colours: Vec<Color>,
 }
 
 impl Game {
@@ -50,7 +52,7 @@ impl Game {
 
         let mut wad = Wad::new(options.iwad);
         wad.read_directories();
-        let mut map = Map::new("E1M1".to_owned());
+        let mut map = Map::new(options.map.unwrap_or("E1M1".to_owned()));
         wad.load_map(&mut map);
 
         // options.width.unwrap_or(320) as i16 / options.height.unwrap_or(200) as i16
@@ -64,6 +66,17 @@ impl Game {
             map.set_scale(map_width / scr_height as i16);
         }
 
+        let mut rng = rand::thread_rng();
+        let mut colours = Vec::new();
+        for _ in 0..1024 {
+            colours.push(sdl2::pixels::Color::RGBA(
+                rng.gen_range(50, 255),
+                rng.gen_range(50, 255),
+                rng.gen_range(50, 255),
+                255,
+            ));
+        }
+
         Game {
             input,
             canvas,
@@ -71,6 +84,7 @@ impl Game {
             _state_changing: false,
             _wad: wad,
             map,
+            colours,
         }
     }
 
@@ -121,6 +135,7 @@ impl Game {
     /// This is really just a test function
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
+        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
         let grey = sdl2::pixels::Color::RGBA(100, 100, 100, 255);
         let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
         // clear background to black
@@ -157,38 +172,42 @@ impl Game {
                 .unwrap();
         }
 
-        let mut rng = rand::thread_rng();
+        for (i, thing) in self.map.get_things().iter().enumerate() {
+            self.canvas
+                .filled_circle(
+                    (thing.pos_x + x_shift) / scale,
+                    scr_height - (thing.pos_y + y_shift) / scale,
+                    1,
+                    self.colours[i],
+                )
+                .unwrap();
+        }
+
         let segs = self.map.get_segments();
-        for subsect in self.map.get_subsectors() {
+        for (i, subsect) in self.map.get_subsectors().iter().enumerate() {
             let count = subsect.seg_count;
             let mut x_a: Vec<i16> = Vec::new();
             let mut y_a: Vec<i16> = Vec::new();
-            for i in subsect.start_seg..subsect.start_seg + count {
-                if let Some(seg) = segs.get(i as usize) {
+            for s in subsect.start_seg..subsect.start_seg + count {
+                if let Some(seg) = segs.get(s as usize) {
                     let start = seg.start_vertex.get();
                     let end = seg.end_vertex.get();
-                    let draw_colour = sdl2::pixels::Color::RGBA(
-                        rng.gen_range(0, 255),
-                        rng.gen_range(0, 255),
-                        rng.gen_range(0, 255),
-                        255,
-                    );
-                    //self.canvas
-                    //    .thick_line(
-                    //        (start.x + x_shift) / scale,
-                    //        scr_height - (start.y + y_shift) / scale,
-                    //        (end.x + x_shift) / scale,
-                    //        scr_height - (end.y + y_shift) / scale,
-                    //        1,
-                    //        draw_colour,
-                    //    )
-                    //    .unwrap();
+                    self.canvas
+                        .thick_line(
+                            (start.x + x_shift) / scale,
+                            scr_height - (start.y + y_shift) / scale,
+                            (end.x + x_shift) / scale,
+                            scr_height - (end.y + y_shift) / scale,
+                            1,
+                            self.colours[i as usize],
+                        )
+                        .unwrap();
                     self.canvas
                         .filled_circle(
                             (start.x + x_shift) / scale,
                             scr_height - (start.y + y_shift) / scale,
-                            2,
-                            red,
+                            3,
+                            self.colours[i as usize],
                         )
                         .unwrap();
                     self.canvas
@@ -196,7 +215,7 @@ impl Game {
                             (end.x + x_shift) / scale,
                             scr_height - (end.y + y_shift) / scale,
                             2,
-                            red,
+                            self.colours[i as usize],
                         )
                         .unwrap();
                 }
