@@ -1,7 +1,9 @@
 use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
+use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
@@ -17,6 +19,7 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
+    colours: Vec<Color>,
 }
 
 impl Game {
@@ -65,6 +68,17 @@ impl Game {
             map.set_scale(map_width / scr_width * 1.4);
         }
 
+        let mut rng = rand::thread_rng();
+        let mut colours = Vec::new();
+        for _ in 0..512 {
+            colours.push(sdl2::pixels::Color::RGBA(
+                rng.gen_range(50, 255),
+                rng.gen_range(50, 255),
+                rng.gen_range(50, 255),
+                255,
+            ));
+        }
+
         Game {
             input,
             canvas,
@@ -72,6 +86,7 @@ impl Game {
             _state_changing: false,
             _wad: wad,
             map,
+            colours,
         }
     }
 
@@ -139,7 +154,8 @@ impl Game {
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
         let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
-        let yel = sdl2::pixels::Color::RGBA(255, 255, 100, 255);
+        let yel = sdl2::pixels::Color::RGBA(255, 255, 50, 255);
+        let blu = sdl2::pixels::Color::RGBA(100, 255, 255, 255);
         let grey = sdl2::pixels::Color::RGBA(100, 100, 100, 255);
         let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
         // clear background to black
@@ -151,6 +167,10 @@ impl Game {
             let end = self.vertex_to_screen(linedef.end_vertex.get());
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
                 red
+            } else if linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
+                blu
+            } else if linedef.line_type != 0 {
+                yel
             } else {
                 grey
             };
@@ -188,7 +208,7 @@ impl Game {
                         end.0,
                         end.1,
                         3,
-                        sdl2::pixels::Color::RGBA(42, 255, 42, 255),
+                        self.colours[(i - subsect.start_seg) as usize],
                     )
                     .unwrap();
             }
@@ -196,10 +216,8 @@ impl Game {
         }
 
         let node = &nodes[node_id as usize];
-        let right_box_start = self.vertex_to_screen(&node.right_box_start);
-        let right_box_end = self.vertex_to_screen(&node.right_box_end);
-        let left_box_start = self.vertex_to_screen(&node.left_box_start);
-        let left_box_end = self.vertex_to_screen(&node.left_box_end);
+        let right_box_start = self.vertex_to_screen(&node.bounding_boxes[0][0]);
+        let right_box_end = self.vertex_to_screen(&node.bounding_boxes[0][1]);
 
         self.canvas
             .rectangle(
@@ -211,16 +229,11 @@ impl Game {
             )
             .unwrap();
 
-        let dx = (v.x - nodes[node_id as usize].split_start.x) as i32;
-        let dy = (v.y - nodes[node_id as usize].split_start.y) as i32;
+        let side = node.point_on_side(&v);
+        self.draw_sector_search(&v, node.child_index[side], nodes);
 
-        if (dx * nodes[node_id as usize].split_change.y as i32)
-            - (dy * nodes[node_id as usize].split_change.x as i32)
-            <= 0
-        {
-            self.draw_sector_search(&v, nodes[node_id as usize].left_child_id, nodes);
-        } else {
-            self.draw_sector_search(&v, nodes[node_id as usize].right_child_id, nodes);
+        if node.point_in_bounds(&v, side ^ 1) {
+            self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
     }
 }

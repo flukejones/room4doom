@@ -44,6 +44,11 @@ pub enum LineDefFlags {
 fn check_flags_enum() {
     let flag = 28; // upper and lower unpegged, twosided
     println!("Blocking, two-sided, unpeg top and bottom\n{:#018b}", 29);
+    println!(
+        "Twosided Masked\n{:#018b}",
+        29 & LineDefFlags::TwoSided as u16
+    );
+    dbg!(29 & LineDefFlags::TwoSided as u16 == LineDefFlags::TwoSided as u16);
     println!("Flag: Blocking\n{:#018b}", LineDefFlags::Blocking as u16);
     println!(
         "Flag: Block Monsters\n{:#018b}",

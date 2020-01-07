@@ -41,24 +41,24 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 /// # wad.load_map(&mut map);
 /// let nodes = map.get_nodes();
 /// // Test if it is a child node or a leaf node
-/// if nodes[2].right_child_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+/// if nodes[2].child_index[0] & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
 ///     // It's a leaf node, so it's a subsector index
-///     let ssect_index = nodes[2].right_child_id ^ IS_SSECTOR_MASK;
+///     let ssect_index = nodes[2].child_index[0] ^ IS_SSECTOR_MASK;
 ///     panic!("The right child of this node should be an index to another node")
 /// } else {
 ///     // It's a child node and is the index to another node in the tree
-///     let node_index = nodes[2].right_child_id;
+///     let node_index = nodes[2].child_index[0];
 ///     assert_eq!(node_index, 1);
 /// }
 ///
 /// // Both sides function the same
 /// // The left child of this node is an index to a SubSector
-/// if nodes[2].left_child_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+/// if nodes[2].child_index[1] & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
 ///     // It's a leaf node
-///     let ssect_index = nodes[2].left_child_id ^ IS_SSECTOR_MASK;
+///     let ssect_index = nodes[2].child_index[1] ^ IS_SSECTOR_MASK;
 ///     assert_eq!(ssect_index, 4);
 /// } else {
-///     let node_index = nodes[2].left_child_id;
+///     let node_index = nodes[2].child_index[1];
 ///     panic!("The left child of node 3 should be an index to a SubSector")
 /// }
 ///
@@ -91,13 +91,13 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 ///
 ///     let dx = (v.x - nodes[node_id as usize].split_start.x) as i32;
 ///     let dy = (v.y - nodes[node_id as usize].split_start.y) as i32;
-///     if (dx * nodes[node_id as usize].split_change.y as i32)
-///         - (dy * nodes[node_id as usize].split_change.x as i32) <= 0 {
+///     if (dx * nodes[node_id as usize].split_delta.y as i32)
+///         - (dy * nodes[node_id as usize].split_delta.x as i32) <= 0 {
 ///         println!("BRANCH LEFT");
-///         return find_subsector(&v, nodes[node_id as usize].left_child_id, nodes);
+///         return find_subsector(&v, nodes[node_id as usize].child_index[1], nodes);
 ///     } else {
 ///         println!("BRANCH RIGHT");
-///         return find_subsector(&v, nodes[node_id as usize].right_child_id, nodes);
+///         return find_subsector(&v, nodes[node_id as usize].child_index[0], nodes);
 ///     }
 ///     None
 /// }
@@ -112,25 +112,23 @@ pub struct Node {
     /// Where the line used for splitting the map starts
     pub split_start: Vertex,
     /// Where the line used for splitting the map ends
-    pub split_change: Vertex,
-    /// Coordinates of the top-left vertex
-    pub right_box_start: Vertex,
-    /// Coordinates of the bottom-right vertex
-    pub right_box_end: Vertex,
-    /// Coordinates of the top-left vertex
-    pub left_box_start: Vertex,
-    /// Coordinates of the bottom-right vertex
-    pub left_box_end: Vertex,
-    /// Index number of the right child node (in order of WAD data)
-    pub right_child_id: u16,
-    /// Index number of the left child node (in order of WAD data)
-    pub left_child_id: u16,
+    pub split_delta: Vertex,
+    /// Coordinates of the bounding boxes:
+    /// - [0][0] == right box, top-left
+    /// - [0][1] == right box, bottom-right
+    /// - [1][0] == left box, top-left
+    /// - [1][1] == left box, bottom-right
+    pub bounding_boxes: [[Vertex; 2]; 2],
+    /// The node children. Doom uses a cleaver trick where if one node is selected
+    /// then the other can also be checked with the same/minimal code by inverting
+    /// the last bit
+    pub child_index: [u16; 2],
 }
 
 impl Node {
     pub fn new(
         split_start: Vertex,
-        split_change: Vertex,
+        split_delta: Vertex,
         right_box_start: Vertex,
         right_box_end: Vertex,
         left_box_start: Vertex,
@@ -140,14 +138,48 @@ impl Node {
     ) -> Node {
         Node {
             split_start,
-            split_change,
-            right_box_start,
-            right_box_end,
-            left_box_start,
-            left_box_end,
-            right_child_id,
-            left_child_id,
+            split_delta,
+            bounding_boxes: [
+                [right_box_start, right_box_end],
+                [left_box_start, left_box_end],
+            ],
+            child_index: [right_child_id, left_child_id],
         }
+    }
+
+    /// Transliteration of R_PointOnSide from Chocolate Doom
+    pub fn point_on_side(&self, v: &Vertex) -> usize {
+        // if horizontal
+        if self.split_delta.x == 0 && v.x == self.split_start.x {
+            return (self.split_delta.y > 0) as usize;
+        }
+        // if vertical
+        if self.split_delta.y == 0 && v.y == self.split_start.y {
+            return (self.split_delta.x > 0) as usize;
+        }
+
+        let dx = (v.x - self.split_start.x) as i32;
+        let dy = (v.y - self.split_start.y) as i32;
+
+        if (dx * self.split_delta.y as i32) - (dy * self.split_delta.x as i32) <= 0 {
+            return 1;
+        }
+
+        // cross product check
+
+        0
+    }
+
+    /// 0 == right, 1 == left
+    pub fn point_in_bounds(&self, v: &Vertex, side: usize) -> bool {
+        if v.x > self.bounding_boxes[side][0].x
+            && v.x < self.bounding_boxes[side][1].x
+            && v.y > self.bounding_boxes[side][0].y
+            && v.y < self.bounding_boxes[side][1].y
+        {
+            return true;
+        }
+        false
     }
 }
 
@@ -169,41 +201,41 @@ mod tests {
         let nodes = map.get_nodes();
         assert_eq!(nodes[0].split_start.x, 1552);
         assert_eq!(nodes[0].split_start.y, -2432);
-        assert_eq!(nodes[0].split_change.x, 112);
-        assert_eq!(nodes[0].split_change.y, 0);
+        assert_eq!(nodes[0].split_delta.x, 112);
+        assert_eq!(nodes[0].split_delta.y, 0);
 
-        assert_eq!(nodes[0].right_box_start.x, 1552); //top
-        assert_eq!(nodes[0].right_box_start.y, -2432); //bottom
+        assert_eq!(nodes[0].bounding_boxes[0][0].x, 1552); //top
+        assert_eq!(nodes[0].bounding_boxes[0][0].y, -2432); //bottom
 
-        assert_eq!(nodes[0].left_box_start.x, 1600);
-        assert_eq!(nodes[0].left_box_start.y, -2048);
+        assert_eq!(nodes[0].bounding_boxes[1][0].x, 1600);
+        assert_eq!(nodes[0].bounding_boxes[1][0].y, -2048);
 
-        assert_eq!(nodes[0].right_child_id, 32768);
-        assert_eq!(nodes[0].left_child_id, 32769);
+        assert_eq!(nodes[0].child_index[0], 32768);
+        assert_eq!(nodes[0].child_index[1], 32769);
         assert_eq!(IS_SSECTOR_MASK, 0x8000);
 
         println!("{:#018b}", IS_SSECTOR_MASK);
 
-        println!("00: {:#018b}", nodes[0].right_child_id);
-        dbg!(nodes[0].right_child_id & IS_SSECTOR_MASK);
-        println!("00: {:#018b}", nodes[0].left_child_id);
-        dbg!(nodes[0].left_child_id & IS_SSECTOR_MASK);
+        println!("00: {:#018b}", nodes[0].child_index[0]);
+        dbg!(nodes[0].child_index[0] & IS_SSECTOR_MASK);
+        println!("00: {:#018b}", nodes[0].child_index[1]);
+        dbg!(nodes[0].child_index[1] & IS_SSECTOR_MASK);
 
-        println!("01: {:#018b}", nodes[1].right_child_id);
-        dbg!(nodes[1].right_child_id & IS_SSECTOR_MASK);
-        println!("01: {:#018b}", nodes[1].left_child_id);
-        dbg!(nodes[1].left_child_id & IS_SSECTOR_MASK);
+        println!("01: {:#018b}", nodes[1].child_index[0]);
+        dbg!(nodes[1].child_index[0] & IS_SSECTOR_MASK);
+        println!("01: {:#018b}", nodes[1].child_index[1]);
+        dbg!(nodes[1].child_index[1] & IS_SSECTOR_MASK);
 
-        println!("02: {:#018b}", nodes[2].right_child_id);
-        dbg!(nodes[2].right_child_id);
-        println!("02: {:#018b}", nodes[2].left_child_id);
-        dbg!(nodes[2].left_child_id & IS_SSECTOR_MASK);
-        dbg!(nodes[2].left_child_id ^ IS_SSECTOR_MASK);
+        println!("02: {:#018b}", nodes[2].child_index[0]);
+        dbg!(nodes[2].child_index[0]);
+        println!("02: {:#018b}", nodes[2].child_index[1]);
+        dbg!(nodes[2].child_index[1] & IS_SSECTOR_MASK);
+        dbg!(nodes[2].child_index[1] ^ IS_SSECTOR_MASK);
 
-        println!("03: {:#018b}", nodes[3].right_child_id);
-        dbg!(nodes[3].right_child_id);
-        println!("03: {:#018b}", nodes[3].left_child_id);
-        dbg!(nodes[3].left_child_id);
+        println!("03: {:#018b}", nodes[3].child_index[0]);
+        dbg!(nodes[3].child_index[0]);
+        println!("03: {:#018b}", nodes[3].child_index[1]);
+        dbg!(nodes[3].child_index[1]);
     }
 
     #[test]

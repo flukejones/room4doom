@@ -162,17 +162,13 @@ impl Map {
             return Some(node_id ^ IS_SSECTOR_MASK);
         }
 
-        let dx = (v.x - nodes[node_id as usize].split_start.x) as i32;
-        let dy = (v.y - nodes[node_id as usize].split_start.y) as i32;
-        if (dx * nodes[node_id as usize].split_change.y as i32)
-            - (dy * nodes[node_id as usize].split_change.x as i32)
-            <= 0
-        {
-            return self.find_subsector(&v, nodes[node_id as usize].left_child_id, nodes);
-        } else {
-            return self.find_subsector(&v, nodes[node_id as usize].right_child_id, nodes);
+        let node = &nodes[node_id as usize];
+        let side = node.point_on_side(&v);
+
+        if node.point_in_bounds(&v, side ^ 1) {
+            return self.find_subsector(&v, node.child_index[side ^ 1], nodes);
         }
-        None
+        return self.find_subsector(&v, node.child_index[side], nodes);
     }
 }
 
@@ -201,6 +197,13 @@ mod tests {
         assert_eq!(things[137].angle, 0);
         assert_eq!(things[137].typ, 2015);
         assert_eq!(things[137].flags, 7);
+
+        assert_eq!(things[0].angle, 90);
+        assert_eq!(things[9].angle, 135);
+        assert_eq!(things[14].angle, 0);
+        assert_eq!(things[16].angle, 90);
+        assert_eq!(things[17].angle, 180);
+        assert_eq!(things[83].angle, 270);
     }
 
     #[test]
@@ -219,6 +222,56 @@ mod tests {
     }
 
     #[test]
+    fn check_e1m1_lump_pointers() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
+        let linedefs = map.get_linedefs();
+
+        // Check links
+        // LINEDEF->VERTEX
+        assert_eq!(linedefs[2].start_vertex.get().x, 1088);
+        assert_eq!(linedefs[2].end_vertex.get().x, 1088);
+        // LINEDEF->SIDEDEF
+        assert_eq!(linedefs[2].front_sidedef.get().middle_tex, "LITE3");
+        // LINEDEF->SIDEDEF->SECTOR
+        assert_eq!(
+            linedefs[2].front_sidedef.get().sector.get().floor_tex,
+            "FLOOR4_8"
+        );
+        // LINEDEF->SIDEDEF->SECTOR
+        assert_eq!(linedefs[2].front_sidedef.get().sector.get().ceil_height, 72);
+
+        let segments = map.get_segments();
+        // SEGMENT->VERTEX
+        assert_eq!(segments[0].start_vertex.get().x, 1552);
+        assert_eq!(segments[0].end_vertex.get().x, 1552);
+        // SEGMENT->LINEDEF->SIDEDEF->SECTOR
+        // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
+        assert_eq!(
+            segments[0]
+                .linedef
+                .get()
+                .front_sidedef
+                .get()
+                .sector
+                .get()
+                .ceil_tex,
+            "CEIL3_5"
+        );
+        // SEGMENT->LINEDEF->SIDEDEF
+        assert_eq!(
+            segments[0].linedef.get().front_sidedef.get().upper_tex,
+            "BIGDOOR2"
+        );
+
+        let sides = map.get_sidedefs();
+        assert_eq!(sides[211].sector.get().ceil_tex, "TLITE6_4");
+    }
+
+    #[test]
     fn check_e1m1_linedefs() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
@@ -230,16 +283,9 @@ mod tests {
         assert_eq!(linedefs[0].end_vertex.get().x, 1024);
         assert_eq!(linedefs[2].start_vertex.get().x, 1088);
         assert_eq!(linedefs[2].end_vertex.get().x, 1088);
-        assert_eq!(
-            linedefs[2].front_sidedef.get().sector.get().floor_tex,
-            "FLOOR4_8"
-        );
+
         assert_eq!(linedefs[474].start_vertex.get().x, 3536);
         assert_eq!(linedefs[474].end_vertex.get().x, 3520);
-        assert_eq!(
-            linedefs[474].front_sidedef.get().sector.get().floor_tex,
-            "FLOOR4_8"
-        );
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
