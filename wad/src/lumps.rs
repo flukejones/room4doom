@@ -5,11 +5,12 @@
 //  - [X] Vertex
 //  - [X] Segment   (SEGS)
 //  - [X] SubSector (SSECTORS)
-//  - [ ] Node
+//  - [X] Node
 //  - [X] Sector
 //  - [ ] Reject
 //  - [ ] Blockmap
 
+pub use crate::nodes::{Node, IS_SSECTOR_MASK};
 use crate::DPtr;
 use std::str;
 

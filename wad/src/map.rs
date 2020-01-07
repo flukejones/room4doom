@@ -1,5 +1,5 @@
 use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
-use crate::nodes::Node;
+use crate::lumps::{Node, IS_SSECTOR_MASK};
 use std::str;
 
 /// The smallest vector and the largest vertex, combined make up a
@@ -8,9 +8,9 @@ use std::str;
 pub struct MapExtents {
     pub min_vertex: Vertex,
     pub max_vertex: Vertex,
-    pub width: i16,
-    pub height: i16,
-    pub automap_scale: i16,
+    pub width: f32,
+    pub height: f32,
+    pub automap_scale: f32,
 }
 
 /// A `Map` contains everything required for building the actual level the
@@ -86,8 +86,8 @@ impl Map {
                 self.extents.max_vertex.y = v.y;
             }
         }
-        self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
-        self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
+        self.extents.width = (self.extents.max_vertex.x - self.extents.min_vertex.x) as f32;
+        self.extents.height = (self.extents.max_vertex.y - self.extents.min_vertex.y) as f32;
     }
 
     pub fn get_vertexes(&self) -> &[Vertex] {
@@ -143,7 +143,7 @@ impl Map {
         &self.extents
     }
 
-    pub fn set_scale(&mut self, scale: i16) {
+    pub fn set_scale(&mut self, scale: f32) {
         self.extents.automap_scale = scale
     }
 
@@ -154,6 +154,26 @@ impl Map {
     pub fn set_nodes(&mut self, nodes: Vec<Node>) {
         self.nodes = nodes;
     }
+
+    pub fn find_subsector(&self, v: &Vertex, node_id: u16, nodes: &[Node]) -> Option<u16> {
+        // Test if it is a child node or a leaf node
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            // It's a leaf node and is the index to a subsector
+            return Some(node_id ^ IS_SSECTOR_MASK);
+        }
+
+        let dx = (v.x - nodes[node_id as usize].split_start.x) as i32;
+        let dy = (v.y - nodes[node_id as usize].split_start.y) as i32;
+        if (dx * nodes[node_id as usize].split_change.y as i32)
+            - (dy * nodes[node_id as usize].split_change.x as i32)
+            <= 0
+        {
+            return self.find_subsector(&v, nodes[node_id as usize].left_child_id, nodes);
+        } else {
+            return self.find_subsector(&v, nodes[node_id as usize].right_child_id, nodes);
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -163,7 +183,7 @@ mod tests {
     use crate::wad::Wad;
 
     #[test]
-    fn load_e1m1() {
+    fn check_e1m1_things() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
@@ -181,13 +201,30 @@ mod tests {
         assert_eq!(things[137].angle, 0);
         assert_eq!(things[137].typ, 2015);
         assert_eq!(things[137].flags, 7);
+    }
+
+    #[test]
+    fn check_e1m1_vertexes() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
 
         let vertexes = map.get_vertexes();
         assert_eq!(vertexes[0].x, 1088);
         assert_eq!(vertexes[0].y, -3680);
         assert_eq!(vertexes[466].x, 2912);
         assert_eq!(vertexes[466].y, -4848);
+    }
 
+    #[test]
+    fn check_e1m1_linedefs() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
         let linedefs = map.get_linedefs();
         assert_eq!(linedefs[0].start_vertex.get().x, 1088);
         assert_eq!(linedefs[0].end_vertex.get().x, 1024);
@@ -210,6 +247,15 @@ mod tests {
 
         // Flag check
         assert_eq!(linedefs[26].flags, 29);
+    }
+
+    #[test]
+    fn check_e1m1_sectors() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
 
         let sectors = map.get_sectors();
         assert_eq!(sectors[0].floor_height, 0);
@@ -226,6 +272,15 @@ mod tests {
         assert_eq!(sectors[84].light_level, 255);
         assert_eq!(sectors[84].typ, 0);
         assert_eq!(sectors[84].tag, 0);
+    }
+
+    #[test]
+    fn check_e1m1_sidedefs() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
 
         let sidedefs = map.get_sidedefs();
         assert_eq!(sidedefs[0].x_offset, 0);
@@ -240,6 +295,15 @@ mod tests {
         assert_eq!(sidedefs[647].y_offset, 0);
         assert_eq!(sidedefs[647].middle_tex, "SUPPORT2");
         assert_eq!(sidedefs[647].sector.get().floor_tex, "FLOOR4_8");
+    }
+
+    #[test]
+    fn check_e1m1_segments() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
+
+        let mut map = map::Map::new("E1M1".to_owned());
+        wad.load_map(&mut map);
 
         let segments = map.get_segments();
         assert_eq!(segments[0].start_vertex.get().x, 1552);

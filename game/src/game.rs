@@ -1,15 +1,13 @@
 use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
-use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
 use wad::lumps::Vertex;
 use wad::map::Map;
+use wad::nodes::{Node, IS_SSECTOR_MASK};
 use wad::Wad;
 
 pub struct Game {
@@ -19,7 +17,6 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
-    colours: Vec<Color>,
 }
 
 impl Game {
@@ -58,26 +55,14 @@ impl Game {
         wad.load_map(&mut map);
 
         // options.width.unwrap_or(320) as i16 / options.height.unwrap_or(200) as i16
-        let map_width = map.get_extents().width;
-        let map_height = map.get_extents().height;
-        let scr_height = options.height.unwrap_or(200);
-        let scr_width = options.width.unwrap_or(320);
-        if scr_height > scr_width {
-            map.set_scale(map_height.abs() / scr_width as i16);
+        let map_width = map.get_extents().width as f32;
+        let map_height = map.get_extents().height as f32;
+        let scr_height = options.height.unwrap_or(200) as f32;
+        let scr_width = options.width.unwrap_or(320) as f32;
+        if map_height > map_width {
+            map.set_scale(map_height / scr_height * 1.1);
         } else {
-            map.set_scale(map_width.abs() / scr_height as i16);
-        }
-        dbg!(map.get_extents().automap_scale);
-
-        let mut rng = rand::thread_rng();
-        let mut colours = Vec::new();
-        for _ in 0..1024 {
-            colours.push(sdl2::pixels::Color::RGBA(
-                rng.gen_range(50, 255),
-                rng.gen_range(50, 255),
-                rng.gen_range(50, 255),
-                255,
-            ));
+            map.set_scale(map_width / scr_width * 1.4);
         }
 
         Game {
@@ -87,7 +72,6 @@ impl Game {
             _state_changing: false,
             _wad: wad,
             map,
-            colours,
         }
     }
 
@@ -137,24 +121,25 @@ impl Game {
 
     fn vertex_to_screen(&self, v: &Vertex) -> (i16, i16) {
         let scale = self.map.get_extents().automap_scale;
-        let scr_height = self.canvas.viewport().height() as i16;
-        let scr_width = self.canvas.viewport().width() as i16;
+        let scr_height = self.canvas.viewport().height() as f32;
+        let scr_width = self.canvas.viewport().width() as f32;
 
-        let x_pad = (scr_width * scale - self.map.get_extents().width) / 2;
-        let y_pad = (scr_height * scale - self.map.get_extents().height) / 2;
+        let x_pad = (scr_width * scale - self.map.get_extents().width) / 2.0;
+        let y_pad = (scr_height * scale - self.map.get_extents().height) / 2.0;
 
-        let x_shift = -(self.map.get_extents().min_vertex.x) + x_pad;
-        let y_shift = -(self.map.get_extents().min_vertex.y) + y_pad;
+        let x_shift = -(self.map.get_extents().min_vertex.x) as f32 + x_pad;
+        let y_shift = -(self.map.get_extents().min_vertex.y) as f32 + y_pad;
         (
-            ((v.x + x_shift) / scale),
-            (scr_height - (v.y + y_shift) / scale),
+            ((v.x as f32 + x_shift) / scale) as i16,
+            (scr_height - (v.y as f32 + y_shift) / scale) as i16,
         )
     }
 
-    /// This is really just a test function
+    /// Testing function
     pub fn draw_automap(&mut self) {
         let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
         let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
+        let yel = sdl2::pixels::Color::RGBA(255, 255, 100, 255);
         let grey = sdl2::pixels::Color::RGBA(100, 100, 100, 255);
         let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
         // clear background to black
@@ -174,38 +159,43 @@ impl Game {
                 .unwrap();
         }
 
-        for (i, thing) in self.map.get_things().iter().enumerate() {
-            let v = self.vertex_to_screen(&thing.pos);
-            self.canvas
-                .filled_circle(v.0, v.1, 1, self.colours[i])
-                .unwrap();
-        }
+        let player = &self.map.get_things()[0].pos;
+        let nodes = self.map.get_nodes();
+        self.draw_sector_search(player, (nodes.len() - 1) as u16, nodes);
 
-        let segs = self.map.get_segments();
-        for (i, subsect) in self.map.get_subsectors().iter().enumerate() {
-            let count = subsect.seg_count;
-            let mut x_a: Vec<i16> = Vec::new();
-            let mut y_a: Vec<i16> = Vec::new();
-            for s in subsect.start_seg..subsect.start_seg + count {
-                if let Some(seg) = segs.get(s as usize) {
-                    let start = self.vertex_to_screen(seg.start_vertex.get());
-                    let end = self.vertex_to_screen(seg.end_vertex.get());
-                    self.canvas
-                        .thick_line(start.0, start.1, end.0, end.1, 1, self.colours[i as usize])
-                        .unwrap();
-                    self.canvas
-                        .filled_circle(start.0, start.1, 3, self.colours[i as usize])
-                        .unwrap();
-                    self.canvas
-                        .filled_circle(end.0, end.1, 2, self.colours[i as usize])
-                        .unwrap();
-                }
+        let player = self.vertex_to_screen(player);
+        self.canvas
+            .filled_circle(player.0, player.1, 3, yel)
+            .unwrap();
+    }
+
+    /// Testing function. Mostly trying out different ways to present information from the BSP
+    fn draw_sector_search(&self, v: &Vertex, node_id: u16, nodes: &[Node]) {
+        let draw_seg = |sect_id: u16| {};
+
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            // It's a leaf node and is the index to a subsector
+            let subsect = &self.map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
+            let segs = self.map.get_segments();
+
+            for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
+                let start = self.vertex_to_screen(&segs[i as usize].start_vertex.get());
+                let end = self.vertex_to_screen(&segs[i as usize].end_vertex.get());
+                self.canvas
+                    .thick_line(
+                        start.0,
+                        start.1,
+                        end.0,
+                        end.1,
+                        3,
+                        sdl2::pixels::Color::RGBA(42, 255, 42, 255),
+                    )
+                    .unwrap();
             }
+            return;
         }
 
-        // Show root node boxes and splitter
-        let node = &self.map.get_nodes()[self.map.get_nodes().len() - 1];
-        let split_start = self.vertex_to_screen(&node.split_start);
+        let node = &nodes[node_id as usize];
         let right_box_start = self.vertex_to_screen(&node.right_box_start);
         let right_box_end = self.vertex_to_screen(&node.right_box_end);
         let left_box_start = self.vertex_to_screen(&node.left_box_start);
@@ -217,33 +207,32 @@ impl Game {
                 right_box_start.1,
                 right_box_end.0,
                 right_box_end.1,
-                grn,
-            )
-            .unwrap();
-        self.canvas
-            .rectangle(
-                left_box_start.0,
-                left_box_start.1,
-                left_box_end.0,
-                left_box_end.1,
-                red,
+                sdl2::pixels::Color::RGBA(42, 100, 42, 255),
             )
             .unwrap();
 
-        let scr_height = self.canvas.viewport().height() as i16;
-        for node in self.map.get_nodes() {
-            let split_start = self.vertex_to_screen(&node.split_start);
-            self.canvas
-                .thick_line(
-                    split_start.0,
-                    split_start.1,
-                    split_start.0 + &node.split_change.x / self.map.get_extents().automap_scale,
-                    (split_start.1
-                        + -(&node.split_change.y / self.map.get_extents().automap_scale)),
-                    3,
-                    sdl2::pixels::Color::RGBA(255, 255, 255, 255),
-                )
-                .unwrap();
+        let dx = (v.x - nodes[node_id as usize].split_start.x) as i32;
+        let dy = (v.y - nodes[node_id as usize].split_start.y) as i32;
+
+        if (dx * nodes[node_id as usize].split_change.y as i32)
+            - (dy * nodes[node_id as usize].split_change.x as i32)
+            <= 0
+        {
+            self.draw_sector_search(&v, nodes[node_id as usize].left_child_id, nodes);
+        } else {
+            self.draw_sector_search(&v, nodes[node_id as usize].right_child_id, nodes);
         }
     }
 }
+
+/*
+NOTES:
+0. This is a shortcut only. We need to use viewport angle and bounds box to
+   determine if walls are in scope
+   if v.x.abs() > nodes[node_id as usize].right_box_start.x.abs()
+                && v.x.abs() < nodes[node_id as usize].right_box_end.x.abs()
+                && v.y.abs() > nodes[node_id as usize].right_box_start.y.abs()
+                && v.y.abs() < nodes[node_id as usize].right_box_end.y.abs()
+1. get angle from player position to bounding box extents
+2. check clip list against viewport angle - angle of point
+*/
