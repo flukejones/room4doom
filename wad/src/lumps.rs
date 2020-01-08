@@ -134,9 +134,9 @@ impl LineDef {
 /// |------------|-----------|--------------------------------------|
 /// |  0x00-0x01 |    u16    | Index to vertex the line starts from |
 /// |  0x02-0x03 |    u16    | Index to vertex the line ends with   |
-/// |  0x04-0x05 |    u16    | Angle                                |
+/// |  0x04-0x05 |    u16    | Angle in Binary Angle Measurement (BAMS) |
 /// |  0x06-0x07 |    u16    | Index to the linedef this seg travels along|
-/// |  0x08-0x09 |    u16    | Direction                            |
+/// |  0x08-0x09 |    u16    | Direction along line. 0 == SEG is on the right and follows the line, 1 == SEG travels in opposite direction |
 /// |  0x10-0x11 |    u16    | Offset: this is the distance along the linedef this seg starts at |
 ///
 /// Each `Segment` record is 12 bytes
@@ -147,7 +147,9 @@ pub struct Segment {
     /// The line ends at this point
     pub end_vertex: DPtr<Vertex>,
     /// Binary Angle Measurement
-    pub angle: u16,
+    ///
+    /// Degrees(0-360) = angle * 0.005493164
+    pub angle: f32,
     /// The Linedef this segment travels along
     pub linedef: DPtr<LineDef>,
     pub direction: u16,
@@ -163,7 +165,7 @@ impl Segment {
     pub fn new(
         start_vertex: DPtr<Vertex>,
         end_vertex: DPtr<Vertex>,
-        angle: u16,
+        angle: f32,
         linedef: DPtr<LineDef>,
         direction: u16,
         offset: u16,
@@ -176,6 +178,10 @@ impl Segment {
             direction,
             offset,
         }
+    }
+
+    pub fn angle_to_degree(&self) -> f32 {
+        self.angle * 0.005493164
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::lumps::Vertex;
+use std::f32::consts::PI;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -161,13 +162,10 @@ impl Node {
         let dx = (v.x - self.split_start.x) as i32;
         let dy = (v.y - self.split_start.y) as i32;
 
-        if (dx * self.split_delta.y as i32) - (dy * self.split_delta.x as i32) <= 0 {
-            return 1;
+        if (dx * self.split_delta.y as i32) > (dy * self.split_delta.x as i32) {
+            return 0;
         }
-
-        // cross product check
-
-        0
+        1
     }
 
     /// 0 == right, 1 == left
@@ -177,6 +175,36 @@ impl Node {
             && v.y > self.bounding_boxes[side][0].y
             && v.y < self.bounding_boxes[side][1].y
         {
+            return true;
+        }
+        false
+    }
+
+    pub fn bb_extents_in_fov(&self, point: &Vertex, point_angle: f32, side: usize) -> bool {
+        //pv.y().atan2(pv.x());
+        let ang45 = 40.0 * PI / 180.0;
+
+        let top_left_angle = ((self.bounding_boxes[side][0].y - point.y) as f32)
+            .atan2((self.bounding_boxes[side][0].x - point.x) as f32);
+        if top_left_angle > point_angle - ang45 && top_left_angle < point_angle + ang45 {
+            return true;
+        }
+
+        let top_right_angle = ((self.bounding_boxes[side][0].y - point.y) as f32)
+            .atan2((self.bounding_boxes[side][1].x - point.x) as f32);
+        if top_right_angle > point_angle - ang45 && top_right_angle < point_angle + ang45 {
+            return true;
+        }
+
+        let bottom_right_angle = ((self.bounding_boxes[side][1].y - point.y) as f32)
+            .atan2((self.bounding_boxes[side][1].x - point.x) as f32);
+        if bottom_right_angle > point_angle - ang45 && bottom_right_angle < point_angle + ang45 {
+            return true;
+        }
+
+        let bottom_left_angle = ((self.bounding_boxes[side][1].y - point.y) as f32)
+            .atan2((self.bounding_boxes[side][0].x - point.x) as f32);
+        if bottom_left_angle > point_angle - ang45 && bottom_left_angle < point_angle + ang45 {
             return true;
         }
         false

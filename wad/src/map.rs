@@ -356,7 +356,7 @@ mod tests {
         assert_eq!(segments[0].end_vertex.get().x, 1552);
         assert_eq!(segments[731].start_vertex.get().x, 3040);
         assert_eq!(segments[731].end_vertex.get().x, 2976);
-        assert_eq!(segments[0].angle, 16384);
+        assert_eq!(segments[0].angle, 16384.0);
         assert_eq!(
             segments[0].linedef.get().front_sidedef.get().upper_tex,
             "BIGDOOR2"
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(segments[0].direction, 0);
         assert_eq!(segments[0].offset, 0);
 
-        assert_eq!(segments[731].angle, 32768);
+        assert_eq!(segments[731].angle, 32768.0);
         assert_eq!(
             segments[731].linedef.get().front_sidedef.get().upper_tex,
             "STARTAN1"

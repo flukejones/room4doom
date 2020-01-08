@@ -372,7 +372,7 @@ impl Wad {
             Segment::new(
                 DPtr::new(start_vertex),
                 DPtr::new(end_vertex),
-                self.read_2_bytes(offset + 4),
+                self.read_2_bytes(offset + 4) as f32,
                 DPtr::new(linedef),
                 self.read_2_bytes(offset + 8),
                 self.read_2_bytes(offset + 10),

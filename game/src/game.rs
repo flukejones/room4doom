@@ -7,7 +7,8 @@ use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use wad::lumps::Vertex;
+use std::f32::consts::PI;
+use wad::lumps::{Segment, Vertex};
 use wad::map::Map;
 use wad::nodes::{Node, IS_SSECTOR_MASK};
 use wad::Wad;
@@ -19,7 +20,6 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
-    colours: Vec<Color>,
 }
 
 impl Game {
@@ -68,17 +68,6 @@ impl Game {
             map.set_scale(map_width / scr_width * 1.4);
         }
 
-        let mut rng = rand::thread_rng();
-        let mut colours = Vec::new();
-        for _ in 0..512 {
-            colours.push(sdl2::pixels::Color::RGBA(
-                rng.gen_range(50, 255),
-                rng.gen_range(50, 255),
-                rng.gen_range(50, 255),
-                255,
-            ));
-        }
-
         Game {
             input,
             canvas,
@@ -86,7 +75,6 @@ impl Game {
             _state_changing: false,
             _wad: wad,
             map,
-            colours,
         }
     }
 
@@ -179,13 +167,58 @@ impl Game {
                 .unwrap();
         }
 
-        let player = &self.map.get_things()[0].pos;
-        let nodes = self.map.get_nodes();
-        self.draw_sector_search(player, (nodes.len() - 1) as u16, nodes);
+        let player = &self.map.get_things()[0];
+        // get the player direction unit vector
+        let (py, px) = (player.angle as f32).sin_cos();
 
-        let player = self.vertex_to_screen(player);
+        let nodes = self.map.get_nodes();
+        self.draw_sector_search(&player.pos, (nodes.len() - 1) as u16, nodes);
+
+        let player = self.vertex_to_screen(&player.pos);
         self.canvas
             .filled_circle(player.0, player.1, 3, yel)
+            .unwrap();
+
+        self.canvas
+            .thick_line(
+                player.0,
+                player.1,
+                player.0 + (px.ceil() * 25.0) as i16,
+                player.1 - (py.ceil() * 25.0) as i16,
+                1,
+                red,
+            )
+            .unwrap();
+    }
+
+    /// Testing function
+    fn draw_line(&self, seg: &Segment) {
+        let player = &self.map.get_things()[0].pos;
+
+        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
+        let grey = sdl2::pixels::Color::RGBA(120, 120, 120, 255);
+
+        // lines have direction, which means the angle can tell us if
+        // the seg is back facing
+        // TODO: make this a func (R_PointToAngle is relative to the player always)
+        let angle1 = ((seg.start_vertex.get().x - player.y) as f32)
+            .atan2((seg.start_vertex.get().x - player.x) as f32);
+        let angle2 = ((seg.end_vertex.get().x - player.y) as f32)
+            .atan2((seg.end_vertex.get().x - player.x) as f32);
+
+        if (angle1 - angle2).is_sign_negative() {
+            let start = self.vertex_to_screen(seg.start_vertex.get());
+            let end = self.vertex_to_screen(seg.end_vertex.get());
+            self.canvas
+                .thick_line(start.0, start.1, end.0, end.1, 3, grey)
+                .unwrap();
+            return;
+        }
+
+        let start = self.vertex_to_screen(seg.start_vertex.get());
+        let end = self.vertex_to_screen(seg.end_vertex.get());
+        self.canvas
+            .thick_line(start.0, start.1, end.0, end.1, 3, grn)
             .unwrap();
     }
 
@@ -199,18 +232,7 @@ impl Game {
             let segs = self.map.get_segments();
 
             for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
-                let start = self.vertex_to_screen(&segs[i as usize].start_vertex.get());
-                let end = self.vertex_to_screen(&segs[i as usize].end_vertex.get());
-                self.canvas
-                    .thick_line(
-                        start.0,
-                        start.1,
-                        end.0,
-                        end.1,
-                        3,
-                        self.colours[(i - subsect.start_seg) as usize],
-                    )
-                    .unwrap();
+                self.draw_line(&segs[i as usize]);
             }
             return;
         }
@@ -235,17 +257,19 @@ impl Game {
         if node.point_in_bounds(&v, side ^ 1) {
             self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
+
+        if node.bb_extents_in_fov(
+            &v,
+            self.map.get_things()[0].angle as f32 * PI / 180.0,
+            side ^ 1,
+        ) {
+            self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
+        }
     }
 }
 
 /*
 NOTES:
-0. This is a shortcut only. We need to use viewport angle and bounds box to
-   determine if walls are in scope
-   if v.x.abs() > nodes[node_id as usize].right_box_start.x.abs()
-                && v.x.abs() < nodes[node_id as usize].right_box_end.x.abs()
-                && v.y.abs() > nodes[node_id as usize].right_box_start.y.abs()
-                && v.y.abs() < nodes[node_id as usize].right_box_end.y.abs()
 1. get angle from player position to bounding box extents
 2. check clip list against viewport angle - angle of point
 */

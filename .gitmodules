@@ -1,0 +1,3 @@
+[submodule "vec2d"]
+	path = vec2d
+	url = git@git.ljones.dev:luke/vec2d.git
