@@ -254,15 +254,13 @@ impl Game {
         let side = node.point_on_side(&v);
         self.draw_sector_search(&v, node.child_index[side], nodes);
 
+        // shortcut if player is in the bounding box
         if node.point_in_bounds(&v, side ^ 1) {
             self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
 
-        if node.bb_extents_in_fov(
-            &v,
-            self.map.get_things()[0].angle as f32 * PI / 180.0,
-            side ^ 1,
-        ) {
+        // check if each corner of the BB is in the FOV
+        if node.bb_extents_in_fov(&v, 90.0 * PI / 180.0, side ^ 1) {
             self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
     }

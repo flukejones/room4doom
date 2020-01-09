@@ -181,32 +181,56 @@ impl Node {
     }
 
     pub fn bb_extents_in_fov(&self, point: &Vertex, point_angle: f32, side: usize) -> bool {
-        //pv.y().atan2(pv.x());
-        let ang45 = 40.0 * PI / 180.0;
+        let ang40 = 45.0 * PI / 180.0;
+        let ang90 = 90.0 * PI / 180.0;
 
-        let top_left_angle = ((self.bounding_boxes[side][0].y - point.y) as f32)
-            .atan2((self.bounding_boxes[side][0].x - point.x) as f32);
-        if top_left_angle > point_angle - ang45 && top_left_angle < point_angle + ang45 {
+        // Make sure range is in 2*PI
+        let radian_range = |rad: f32| -> f32 {
+            if rad < 0.0 {
+                return rad + 2.0 * PI;
+            } else if rad >= 2.0 * PI {
+                return rad - 2.0 * PI;
+            }
+            rad
+        };
+        let point_angle = radian_range(point_angle + ang40);
+
+        let top_left_angle = radian_range(
+            ((self.bounding_boxes[side][0].y - point.y) as f32)
+                .atan2((self.bounding_boxes[side][0].x - point.x) as f32)
+                + ang40,
+        ) - point_angle;
+        if top_left_angle.abs() <= ang40 {
             return true;
         }
 
-        let top_right_angle = ((self.bounding_boxes[side][0].y - point.y) as f32)
-            .atan2((self.bounding_boxes[side][1].x - point.x) as f32);
-        if top_right_angle > point_angle - ang45 && top_right_angle < point_angle + ang45 {
+        let top_right_angle = radian_range(
+            ((self.bounding_boxes[side][0].y - point.y) as f32)
+                .atan2((self.bounding_boxes[side][1].x - point.x) as f32)
+                + ang40,
+        ) - point_angle;
+        if top_right_angle.abs() <= ang40 {
             return true;
         }
 
-        let bottom_right_angle = ((self.bounding_boxes[side][1].y - point.y) as f32)
-            .atan2((self.bounding_boxes[side][1].x - point.x) as f32);
-        if bottom_right_angle > point_angle - ang45 && bottom_right_angle < point_angle + ang45 {
+        let bottom_right_angle = radian_range(
+            ((self.bounding_boxes[side][1].y - point.y) as f32)
+                .atan2((self.bounding_boxes[side][1].x - point.x) as f32)
+                + ang40,
+        ) - point_angle;
+        if bottom_right_angle.abs() <= ang40 {
             return true;
         }
 
-        let bottom_left_angle = ((self.bounding_boxes[side][1].y - point.y) as f32)
-            .atan2((self.bounding_boxes[side][0].x - point.x) as f32);
-        if bottom_left_angle > point_angle - ang45 && bottom_left_angle < point_angle + ang45 {
+        let bottom_left_angle = radian_range(
+            ((self.bounding_boxes[side][1].y - point.y) as f32)
+                .atan2((self.bounding_boxes[side][0].x - point.x) as f32)
+                + ang40,
+        ) - point_angle;
+        if bottom_left_angle.abs() <= ang40 {
             return true;
         }
+
         false
     }
 }
