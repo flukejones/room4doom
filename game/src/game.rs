@@ -1,13 +1,14 @@
+use crate::entities::Player;
 use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
-use rand::prelude::*;
 use sdl2::gfx::primitives::DrawRenderer;
-use sdl2::pixels::Color;
+use sdl2::keyboard::Scancode;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
 use std::f32::consts::PI;
+use vec2d::{degree_range, radian_range};
 use wad::lumps::{Segment, Vertex};
 use wad::map::Map;
 use wad::nodes::{Node, IS_SSECTOR_MASK};
@@ -20,6 +21,7 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
+    player: Player,
 }
 
 impl Game {
@@ -68,6 +70,9 @@ impl Game {
             map.set_scale(map_width / scr_width * 1.4);
         }
 
+        let player_thing = &map.get_things()[0];
+        let player = Player::new(player_thing.pos.clone(), player_thing.angle * PI / 180.0);
+
         Game {
             input,
             canvas,
@@ -75,12 +80,37 @@ impl Game {
             _state_changing: false,
             _wad: wad,
             map,
+            player,
         }
     }
 
     /// Called by the main loop
     pub fn update(&mut self, time: f64) {
         self.running = !self.input.get_quit();
+
+        if self.input.get_key(Scancode::Escape) {
+            self.running = false;
+        }
+
+        if self.input.get_key(Scancode::Left) {
+            self.player.set_r(radian_range(self.player.rot() + 0.01));
+        }
+
+        if self.input.get_key(Scancode::Right) {
+            self.player.set_r(radian_range(self.player.rot() - 0.01));
+        }
+
+        if self.input.get_key(Scancode::Up) {
+            let heading = self.player.rot().sin_cos();
+            self.player.set_x(self.player.pos().x + heading.1 * 3.0);
+            self.player.set_y(self.player.pos().y + heading.0 * 3.0);
+        }
+
+        if self.input.get_key(Scancode::Down) {
+            let heading = self.player.rot().sin_cos();
+            self.player.set_x(self.player.pos().x - heading.1 * 3.0);
+            self.player.set_y(self.player.pos().y - heading.0 * 3.0);
+        }
     }
 
     /// `handle_events` updates the current events and inputs plus changes `states`
@@ -96,7 +126,7 @@ impl Game {
     pub fn handle_events(&mut self) {
         self.input.update();
 
-        //        if self.input.get_key(Scancode::Escape) {
+        if self.input.get_key(Scancode::Escape) {}
         //        } else if self.input.get_key(Scancode::Return) {
         //        } else if !self.input.get_key(Scancode::Escape) && !self.input.get_key(Scancode::Return) {
         //            self.state_changing = false;
@@ -167,14 +197,13 @@ impl Game {
                 .unwrap();
         }
 
-        let player = &self.map.get_things()[0];
         // get the player direction unit vector
-        let (py, px) = (player.angle as f32).sin_cos();
+        let (py, px) = &self.player.rot().sin_cos();
 
         let nodes = self.map.get_nodes();
-        self.draw_sector_search(&player.pos, (nodes.len() - 1) as u16, nodes);
+        self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
 
-        let player = self.vertex_to_screen(&player.pos);
+        let player = self.vertex_to_screen(&self.player.pos());
         self.canvas
             .filled_circle(player.0, player.1, 3, yel)
             .unwrap();
@@ -183,10 +212,10 @@ impl Game {
             .thick_line(
                 player.0,
                 player.1,
-                player.0 + (px.ceil() * 25.0) as i16,
-                player.1 - (py.ceil() * 25.0) as i16,
-                1,
-                red,
+                player.0 + (px * 25.0) as i16,
+                player.1 - (py * 25.0) as i16,
+                2,
+                yel,
             )
             .unwrap();
     }
@@ -224,14 +253,13 @@ impl Game {
 
     /// Testing function. Mostly trying out different ways to present information from the BSP
     fn draw_sector_search(&self, v: &Vertex, node_id: u16, nodes: &[Node]) {
-        let draw_seg = |sect_id: u16| {};
-
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
             let subsect = &self.map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             let segs = self.map.get_segments();
 
             for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
+                let seg = &segs[i as usize];
                 self.draw_line(&segs[i as usize]);
             }
             return;
@@ -260,14 +288,8 @@ impl Game {
         }
 
         // check if each corner of the BB is in the FOV
-        if node.bb_extents_in_fov(&v, 90.0 * PI / 180.0, side ^ 1) {
+        if node.bb_extents_in_fov(&v, self.player.rot(), side ^ 1) {
             self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
     }
 }
-
-/*
-NOTES:
-1. get angle from player position to bounding box extents
-2. check clip list against viewport angle - angle of point
-*/

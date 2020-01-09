@@ -1,5 +1,6 @@
 #![allow(clippy::new_without_default)]
 
+mod entities;
 mod flags;
 mod game;
 mod input;

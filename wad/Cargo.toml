@@ -6,6 +6,7 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
+vec2d = { path = "../vec2d" }
 
 [dev-dependencies]
 criterion = "~0.3"

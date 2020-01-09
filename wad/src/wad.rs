@@ -290,10 +290,10 @@ impl Wad {
             self.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {
                 Thing::new(
                     Vertex::new(
-                        self.read_2_bytes(offset) as i16,
-                        self.read_2_bytes(offset + 2) as i16,
+                        self.read_2_bytes(offset) as i16 as f32,
+                        self.read_2_bytes(offset + 2) as i16 as f32,
                     ),
-                    self.read_2_bytes(offset + 4),
+                    self.read_2_bytes(offset + 4) as u16 as f32,
                     self.read_2_bytes(offset + 6),
                     self.read_2_bytes(offset + 8),
                 )
@@ -303,8 +303,8 @@ impl Wad {
         map.set_vertexes(
             self.read_lump_to_vec(index, LumpIndex::Vertexes, 4, |offset| {
                 Vertex::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
+                    self.read_2_bytes(offset) as i16 as f32,
+                    self.read_2_bytes(offset + 2) as i16 as f32,
                 )
             }),
         );
@@ -390,28 +390,28 @@ impl Wad {
             self.read_lump_to_vec(index, LumpIndex::Nodes, 28, |offset| {
                 Node::new(
                     Vertex::new(
-                        self.read_2_bytes(offset) as i16,
-                        self.read_2_bytes(offset + 2) as i16,
+                        self.read_2_bytes(offset) as i16 as f32,
+                        self.read_2_bytes(offset + 2) as i16 as f32,
                     ),
                     Vertex::new(
-                        self.read_2_bytes(offset + 4) as i16,
-                        self.read_2_bytes(offset + 6) as i16,
+                        self.read_2_bytes(offset + 4) as i16 as f32,
+                        self.read_2_bytes(offset + 6) as i16 as f32,
                     ),
                     Vertex::new(
-                        self.read_2_bytes(offset + 12) as i16, // top
-                        self.read_2_bytes(offset + 8) as i16,  // left
+                        self.read_2_bytes(offset + 12) as i16 as f32, // top
+                        self.read_2_bytes(offset + 8) as i16 as f32,  // left
                     ),
                     Vertex::new(
-                        self.read_2_bytes(offset + 14) as i16, // bottom
-                        self.read_2_bytes(offset + 10) as i16, // right
+                        self.read_2_bytes(offset + 14) as i16 as f32, // bottom
+                        self.read_2_bytes(offset + 10) as i16 as f32, // right
                     ),
                     Vertex::new(
-                        self.read_2_bytes(offset + 20) as i16,
-                        self.read_2_bytes(offset + 16) as i16,
+                        self.read_2_bytes(offset + 20) as i16 as f32,
+                        self.read_2_bytes(offset + 16) as i16 as f32,
                     ),
                     Vertex::new(
-                        self.read_2_bytes(offset + 22) as i16,
-                        self.read_2_bytes(offset + 18) as i16,
+                        self.read_2_bytes(offset + 22) as i16 as f32,
+                        self.read_2_bytes(offset + 18) as i16 as f32,
                     ),
                     self.read_2_bytes(offset + 24),
                     self.read_2_bytes(offset + 26),
@@ -423,12 +423,11 @@ impl Wad {
 
 #[cfg(test)]
 mod tests {
-    use crate::map;
     use crate::wad::Wad;
 
     #[test]
     fn load_wad() {
-        let mut wad = Wad::new("../doom1.wad");
+        let wad = Wad::new("../doom1.wad");
         assert_eq!(wad.wad_data.len(), 4225460);
     }
 

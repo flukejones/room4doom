@@ -13,6 +13,9 @@
 pub use crate::nodes::{Node, IS_SSECTOR_MASK};
 use crate::DPtr;
 use std::str;
+use vec2d::Vec2d;
+
+pub type Vertex = Vec2d<f32>;
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///
@@ -31,17 +34,17 @@ use std::str;
 #[derive(Debug)]
 pub struct Thing {
     pub pos: Vertex,
-    pub angle: u16,
-    pub typ: u16,
+    pub angle: f32,
+    pub kind: u16,
     pub flags: u16,
 }
 
 impl Thing {
-    pub fn new(pos: Vertex, angle: u16, typ: u16, flags: u16) -> Thing {
+    pub fn new(pos: Vertex, angle: f32, kind: u16, flags: u16) -> Thing {
         Thing {
             pos,
             angle,
-            typ,
+            kind,
             flags,
         }
     }
@@ -56,16 +59,11 @@ impl Thing {
 /// |------------|-----------|--------------|
 /// |  0x00-0x01 |    i16    | X Coordinate |
 /// |  0x02-0x03 |    i16    | Y Coordinate |
-#[derive(Debug, Default)]
-pub struct Vertex {
-    pub x: i16,
-    pub y: i16,
-}
-
-impl Vertex {
-    pub fn new(x: i16, y: i16) -> Vertex {
-        Vertex { x, y }
-    }
+// TODO: Use the Vec2d module
+#[derive(Debug, Default, Clone)]
+struct WVertex {
+    x: f32,
+    y: f32,
 }
 
 /// Each linedef represents a line from one of the VERTEXES to another.
@@ -231,7 +229,7 @@ pub struct Sector {
     /// possible so blocks of 8 are the same bright
     pub light_level: u16,
     /// This determines some area-effects called special sectors
-    pub typ: u16,
+    pub kind: u16,
     /// a "tag" number corresponding to LINEDEF(s) with the same tag
     /// number. When that linedef is activated, something will usually
     /// happen to this sector - its floor will rise, the lights will
@@ -246,7 +244,7 @@ impl Sector {
         floor_tex: &[u8],
         ceil_tex: &[u8],
         light_level: u16,
-        typ: u16,
+        kind: u16,
         tag: u16,
     ) -> Sector {
         if floor_tex.len() != 8 {
@@ -273,7 +271,7 @@ impl Sector {
                 .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
                 .to_owned(),
             light_level,
-            typ,
+            kind,
             tag,
         }
     }

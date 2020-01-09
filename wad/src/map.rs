@@ -174,7 +174,6 @@ impl Map {
 
 #[cfg(test)]
 mod tests {
-    use crate::lumps::*;
     use crate::map;
     use crate::wad::Wad;
 
@@ -187,23 +186,23 @@ mod tests {
         wad.load_map(&mut map);
 
         let things = map.get_things();
-        assert_eq!(things[0].pos.x, 1056);
-        assert_eq!(things[0].pos.y, -3616);
-        assert_eq!(things[0].angle, 90);
-        assert_eq!(things[0].typ, 1);
+        assert_eq!(things[0].pos.x, 1056.0);
+        assert_eq!(things[0].pos.y, -3616.0);
+        assert_eq!(things[0].angle, 90.0);
+        assert_eq!(things[0].kind, 1);
         assert_eq!(things[0].flags, 7);
-        assert_eq!(things[137].pos.x, 3648);
-        assert_eq!(things[137].pos.y, -3840);
-        assert_eq!(things[137].angle, 0);
-        assert_eq!(things[137].typ, 2015);
+        assert_eq!(things[137].pos.x, 3648.0);
+        assert_eq!(things[137].pos.y, -3840.0);
+        assert_eq!(things[137].angle, 0.0);
+        assert_eq!(things[137].kind, 2015);
         assert_eq!(things[137].flags, 7);
 
-        assert_eq!(things[0].angle, 90);
-        assert_eq!(things[9].angle, 135);
-        assert_eq!(things[14].angle, 0);
-        assert_eq!(things[16].angle, 90);
-        assert_eq!(things[17].angle, 180);
-        assert_eq!(things[83].angle, 270);
+        assert_eq!(things[0].angle, 90.0);
+        assert_eq!(things[9].angle, 135.0);
+        assert_eq!(things[14].angle, 0.0);
+        assert_eq!(things[16].angle, 90.0);
+        assert_eq!(things[17].angle, 180.0);
+        assert_eq!(things[83].angle, 270.0);
     }
 
     #[test]
@@ -215,10 +214,10 @@ mod tests {
         wad.load_map(&mut map);
 
         let vertexes = map.get_vertexes();
-        assert_eq!(vertexes[0].x, 1088);
-        assert_eq!(vertexes[0].y, -3680);
-        assert_eq!(vertexes[466].x, 2912);
-        assert_eq!(vertexes[466].y, -4848);
+        assert_eq!(vertexes[0].x, 1088.0);
+        assert_eq!(vertexes[0].y, -3680.0);
+        assert_eq!(vertexes[466].x, 2912.0);
+        assert_eq!(vertexes[466].y, -4848.0);
     }
 
     #[test]
@@ -232,8 +231,8 @@ mod tests {
 
         // Check links
         // LINEDEF->VERTEX
-        assert_eq!(linedefs[2].start_vertex.get().x, 1088);
-        assert_eq!(linedefs[2].end_vertex.get().x, 1088);
+        assert_eq!(linedefs[2].start_vertex.get().x, 1088.0);
+        assert_eq!(linedefs[2].end_vertex.get().x, 1088.0);
         // LINEDEF->SIDEDEF
         assert_eq!(linedefs[2].front_sidedef.get().middle_tex, "LITE3");
         // LINEDEF->SIDEDEF->SECTOR
@@ -246,8 +245,8 @@ mod tests {
 
         let segments = map.get_segments();
         // SEGMENT->VERTEX
-        assert_eq!(segments[0].start_vertex.get().x, 1552);
-        assert_eq!(segments[0].end_vertex.get().x, 1552);
+        assert_eq!(segments[0].start_vertex.get().x, 1552.0);
+        assert_eq!(segments[0].end_vertex.get().x, 1552.0);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
         // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
         assert_eq!(
@@ -279,13 +278,13 @@ mod tests {
         let mut map = map::Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
         let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex.get().x, 1088);
-        assert_eq!(linedefs[0].end_vertex.get().x, 1024);
-        assert_eq!(linedefs[2].start_vertex.get().x, 1088);
-        assert_eq!(linedefs[2].end_vertex.get().x, 1088);
+        assert_eq!(linedefs[0].start_vertex.get().x, 1088.0);
+        assert_eq!(linedefs[0].end_vertex.get().x, 1024.0);
+        assert_eq!(linedefs[2].start_vertex.get().x, 1088.0);
+        assert_eq!(linedefs[2].end_vertex.get().x, 1088.0);
 
-        assert_eq!(linedefs[474].start_vertex.get().x, 3536);
-        assert_eq!(linedefs[474].end_vertex.get().x, 3520);
+        assert_eq!(linedefs[474].start_vertex.get().x, 3536.0);
+        assert_eq!(linedefs[474].end_vertex.get().x, 3520.0);
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
@@ -309,14 +308,14 @@ mod tests {
         assert_eq!(sectors[0].floor_tex, "FLOOR4_8");
         assert_eq!(sectors[0].ceil_tex, "CEIL3_5");
         assert_eq!(sectors[0].light_level, 160);
-        assert_eq!(sectors[0].typ, 0);
+        assert_eq!(sectors[0].kind, 0);
         assert_eq!(sectors[0].tag, 0);
         assert_eq!(sectors[84].floor_height, -24);
         assert_eq!(sectors[84].ceil_height, 48);
         assert_eq!(sectors[84].floor_tex, "FLOOR5_2");
         assert_eq!(sectors[84].ceil_tex, "CEIL3_5");
         assert_eq!(sectors[84].light_level, 255);
-        assert_eq!(sectors[84].typ, 0);
+        assert_eq!(sectors[84].kind, 0);
         assert_eq!(sectors[84].tag, 0);
     }
 
@@ -352,10 +351,10 @@ mod tests {
         wad.load_map(&mut map);
 
         let segments = map.get_segments();
-        assert_eq!(segments[0].start_vertex.get().x, 1552);
-        assert_eq!(segments[0].end_vertex.get().x, 1552);
-        assert_eq!(segments[731].start_vertex.get().x, 3040);
-        assert_eq!(segments[731].end_vertex.get().x, 2976);
+        assert_eq!(segments[0].start_vertex.get().x, 1552.0);
+        assert_eq!(segments[0].end_vertex.get().x, 1552.0);
+        assert_eq!(segments[731].start_vertex.get().x, 3040.0);
+        assert_eq!(segments[731].end_vertex.get().x, 2976.0);
         assert_eq!(segments[0].angle, 16384.0);
         assert_eq!(
             segments[0].linedef.get().front_sidedef.get().upper_tex,

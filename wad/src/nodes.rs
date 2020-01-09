@@ -1,5 +1,6 @@
 use crate::lumps::Vertex;
 use std::f32::consts::PI;
+use vec2d::radian_range;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -78,7 +79,7 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 /// # wad.load_map(&mut map);
 ///
 /// // These are the coordinates for Player 1 in the WAD
-/// let player = Vertex::new(1056, -3616);
+/// let player = Vertex::new(1056.0, -3616.0);
 /// let nodes = map.get_nodes();
 ///
 /// fn find_subsector(v: &Vertex, node_id: u16, nodes: &[Node]) -> Option<u16> {
@@ -120,7 +121,7 @@ pub struct Node {
     /// - [1][0] == left box, top-left
     /// - [1][1] == left box, bottom-right
     pub bounding_boxes: [[Vertex; 2]; 2],
-    /// The node children. Doom uses a cleaver trick where if one node is selected
+    /// The node children. Doom uses a clever trick where if one node is selected
     /// then the other can also be checked with the same/minimal code by inverting
     /// the last bit
     pub child_index: [u16; 2],
@@ -150,14 +151,14 @@ impl Node {
 
     /// Transliteration of R_PointOnSide from Chocolate Doom
     pub fn point_on_side(&self, v: &Vertex) -> usize {
-        // if horizontal
-        if self.split_delta.x == 0 && v.x == self.split_start.x {
-            return (self.split_delta.y > 0) as usize;
-        }
-        // if vertical
-        if self.split_delta.y == 0 && v.y == self.split_start.y {
-            return (self.split_delta.x > 0) as usize;
-        }
+        // // if horizontal
+        // if self.split_delta.x == 0 && v.x == self.split_start.x {
+        //     return (self.split_delta.y > 0) as usize;
+        // }
+        // // if vertical
+        // if self.split_delta.y == 0 && v.y == self.split_start.y {
+        //     return (self.split_delta.x > 0) as usize;
+        // }
 
         let dx = (v.x - self.split_start.x) as i32;
         let dy = (v.y - self.split_start.y) as i32;
@@ -180,57 +181,100 @@ impl Node {
         false
     }
 
-    pub fn bb_extents_in_fov(&self, point: &Vertex, point_angle: f32, side: usize) -> bool {
-        let ang40 = 45.0 * PI / 180.0;
-        let ang90 = 90.0 * PI / 180.0;
+    pub fn bb_extents_in_fov(&self, point: &Vertex, mut point_angle: f32, side: usize) -> bool {
+        let fov = 45.0;
+        let orig_angle = point_angle;
+        let top_left = &self.bounding_boxes[side][0];
+        let bottom_right = &self.bounding_boxes[side][1];
+        // Super broadphase: check if we are in a BB
+        if point.x() >= top_left.x
+            && point.x() <= bottom_right.x
+            && point.y() >= top_left.y
+            && point.y() <= bottom_right.y
+        {
+            return true;
+        }
 
-        // Make sure range is in 2*PI
-        let radian_range = |rad: f32| -> f32 {
-            if rad < 0.0 {
-                return rad + 2.0 * PI;
-            } else if rad >= 2.0 * PI {
-                return rad - 2.0 * PI;
-            }
-            rad
+        // if the player is at 310+ make sure they are shifted
+        // this is done so that the angles compared are never across
+        // the 0deg-360deg boundary; always within a positive range
+        let ang_limit = fov * PI / 180.0;
+        let half_pi = PI / 2.0;
+        //
+        let shift = if (point_angle - PI).is_sign_negative() {
+            half_pi
+        } else if point_angle + PI > 2.0 * PI {
+            -half_pi
+        } else {
+            0.0
         };
-        let point_angle = radian_range(point_angle + ang40);
+        // shift the origin if required
+        point_angle += shift;
 
-        let top_left_angle = radian_range(
-            ((self.bounding_boxes[side][0].y - point.y) as f32)
-                .atan2((self.bounding_boxes[side][0].x - point.x) as f32)
-                + ang40,
-        ) - point_angle;
-        if top_left_angle.abs() <= ang40 {
-            return true;
+        // Secondary broad phase check if each corner is in fov angle
+        for x in [top_left.x, bottom_right.x].iter() {
+            for y in [top_left.y, bottom_right.y].iter() {
+                // TODO: How much does the atan2 op cost really?
+                let angle = radian_range((y - point.y()).atan2(x - point.x) + shift) - point_angle;
+                if angle.abs() <= ang_limit {
+                    return true;
+                }
+            }
         }
 
-        let top_right_angle = radian_range(
-            ((self.bounding_boxes[side][0].y - point.y) as f32)
-                .atan2((self.bounding_boxes[side][1].x - point.x) as f32)
-                + ang40,
-        ) - point_angle;
-        if top_right_angle.abs() <= ang40 {
-            return true;
+        // Fine phase, check if a ray intersects any box line made from diagonals from corner
+        // to corner. This will often catch cases where we want to see what's in a BB, but the FOV
+        // is passing through the box with extents on outside of FOV
+        let top_right = Vertex::new(bottom_right.x, top_left.y);
+        let bottom_left = Vertex::new(top_left.x, bottom_right.y);
+
+        // Start from FOV edges to catch the FOV passing through a BB case early
+        for i in (0..=fov as u32).rev().step_by(5) {
+            let ang_limit = i as f32 * PI / 180.0;
+            let left_fov = radian_range(orig_angle + ang_limit);
+            let right_fov = radian_range(orig_angle - ang_limit);
+            //
+            if Node::ray_line_intersect(point, left_fov, top_left, bottom_right) {
+                return true;
+            }
+            if Node::ray_line_intersect(point, right_fov, top_left, bottom_right) {
+                return true;
+            }
+
+            if Node::ray_line_intersect(point, left_fov, &bottom_left, &top_right) {
+                return true;
+            }
+            if Node::ray_line_intersect(point, right_fov, &bottom_left, &top_right) {
+                return true;
+            }
         }
 
-        let bottom_right_angle = radian_range(
-            ((self.bounding_boxes[side][1].y - point.y) as f32)
-                .atan2((self.bounding_boxes[side][1].x - point.x) as f32)
-                + ang40,
-        ) - point_angle;
-        if bottom_right_angle.abs() <= ang40 {
-            return true;
+        false
+    }
+
+    /// TEST
+    // TODO: Move this in to a general util module
+    pub fn ray_line_intersect(
+        origin: &Vertex,
+        direction: f32,
+        point1: &Vertex,
+        point2: &Vertex,
+    ) -> bool {
+        let direction = Vertex::unit_vector(direction);
+        let v1 = origin - point1;
+        let v2 = point2 - point1;
+        let v3 = Vertex::new(-direction.y(), direction.x());
+
+        let dot = v2 * v3;
+        if dot.abs() < 0.000001 {
+            return false;
         }
 
-        let bottom_left_angle = radian_range(
-            ((self.bounding_boxes[side][1].y - point.y) as f32)
-                .atan2((self.bounding_boxes[side][0].x - point.x) as f32)
-                + ang40,
-        ) - point_angle;
-        if bottom_left_angle.abs() <= ang40 {
+        let t1 = dot / v2.cross(v1);
+        let t2 = (v1 * v3) / dot;
+        if t1 >= 0.0 && t2 >= 0.0 && t2 <= 1.0 {
             return true;
         }
-
         false
     }
 }
@@ -251,16 +295,16 @@ mod tests {
         wad.load_map(&mut map);
 
         let nodes = map.get_nodes();
-        assert_eq!(nodes[0].split_start.x, 1552);
-        assert_eq!(nodes[0].split_start.y, -2432);
-        assert_eq!(nodes[0].split_delta.x, 112);
-        assert_eq!(nodes[0].split_delta.y, 0);
+        assert_eq!(nodes[0].split_start.x, 1552.0);
+        assert_eq!(nodes[0].split_start.y, -2432.0);
+        assert_eq!(nodes[0].split_delta.x, 112.0);
+        assert_eq!(nodes[0].split_delta.y, 0.0);
 
-        assert_eq!(nodes[0].bounding_boxes[0][0].x, 1552); //top
-        assert_eq!(nodes[0].bounding_boxes[0][0].y, -2432); //bottom
+        assert_eq!(nodes[0].bounding_boxes[0][0].x, 1552.0); //top
+        assert_eq!(nodes[0].bounding_boxes[0][0].y, -2432.0); //bottom
 
-        assert_eq!(nodes[0].bounding_boxes[1][0].x, 1600);
-        assert_eq!(nodes[0].bounding_boxes[1][0].y, -2048);
+        assert_eq!(nodes[0].bounding_boxes[1][0].x, 1600.0);
+        assert_eq!(nodes[0].bounding_boxes[1][0].y, -2048.0);
 
         assert_eq!(nodes[0].child_index[0], 32768);
         assert_eq!(nodes[0].child_index[1], 32769);
@@ -298,7 +342,7 @@ mod tests {
         let mut map = map::Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
 
-        let player = Vertex::new(1056, -3616);
+        let player = Vertex::new(1056.0, -3616.0);
         let nodes = map.get_nodes();
         let subsector_id = map.find_subsector(&player, (nodes.len() - 1) as u16, nodes);
         assert_eq!(subsector_id, Some(103));
