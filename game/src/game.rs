@@ -7,8 +7,8 @@ use sdl2::keyboard::Scancode;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use std::f32::consts::PI;
-use vec2d::radian_range;
+use std::f32::consts::{FRAC_PI_4, PI};
+use vec2d::{radian_range, Vec2d};
 use wad::map::Map;
 use wad::nodes::{Node, IS_SSECTOR_MASK};
 use wad::Wad;
@@ -102,14 +102,14 @@ impl Game {
 
         if self.input.get_key(Scancode::Up) {
             let heading = self.player.rot().sin_cos();
-            self.player.set_x(self.player.pos().x + heading.1 * 3.0);
-            self.player.set_y(self.player.pos().y + heading.0 * 3.0);
+            self.player.set_x(self.player.pos().x + heading.1 * 2.0);
+            self.player.set_y(self.player.pos().y + heading.0 * 2.0);
         }
 
         if self.input.get_key(Scancode::Down) {
             let heading = self.player.rot().sin_cos();
-            self.player.set_x(self.player.pos().x - heading.1 * 3.0);
-            self.player.set_y(self.player.pos().y - heading.0 * 3.0);
+            self.player.set_x(self.player.pos().x - heading.1 * 2.0);
+            self.player.set_y(self.player.pos().y - heading.0 * 2.0);
         }
     }
 
@@ -197,9 +197,6 @@ impl Game {
                 .unwrap();
         }
 
-        // get the player direction unit vector
-        let (py, px) = &self.player.rot().sin_cos();
-
         let nodes = self.map.get_nodes();
         self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
 
@@ -208,6 +205,9 @@ impl Game {
             .filled_circle(player.0, player.1, 3, yel)
             .unwrap();
 
+        let (py, px) = self.player.rot().sin_cos();
+        let (lpy, lpx) = (self.player.rot() + PI / 4.0).sin_cos();
+        let (rpy, rpx) = (self.player.rot() - PI / 4.0).sin_cos();
         self.canvas
             .thick_line(
                 player.0,
@@ -218,16 +218,89 @@ impl Game {
                 yel,
             )
             .unwrap();
+        self.canvas
+            .thick_line(
+                player.0,
+                player.1,
+                player.0 + (lpx * 500.0) as i16,
+                player.1 - (lpy * 500.0) as i16,
+                2,
+                yel,
+            )
+            .unwrap();
+        self.canvas
+            .thick_line(
+                player.0,
+                player.1,
+                player.0 + (rpx * 500.0) as i16,
+                player.1 - (rpy * 500.0) as i16,
+                2,
+                yel,
+            )
+            .unwrap();
     }
 
     /// Testing function
     fn draw_line(&self, seg: &Segment) {
-        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
+        let player = self.player.pos();
+        let point_angle = self.player.rot();
+        let start = seg.linedef.get().start_vertex.get();
+        let end = seg.linedef.get().end_vertex.get();
+        let screen_start = self.vertex_to_screen(seg.start_vertex.get());
+        let screen_end = self.vertex_to_screen(seg.end_vertex.get());
 
-        let start = self.vertex_to_screen(seg.start_vertex.get());
-        let end = self.vertex_to_screen(seg.end_vertex.get());
+        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
+        let yel = sdl2::pixels::Color::RGBA(60, 180, 60, 255);
+        let blu = sdl2::pixels::Color::RGBA(255, 255, 255, 255);
+        let grey = sdl2::pixels::Color::RGBA(120, 120, 120, 255);
+        let dgrey = sdl2::pixels::Color::RGBA(70, 70, 130, 255);
+        let mut draw_colour = grn;
+
+        let flags = seg.linedef.get().flags;
+        if flags & LineDefFlags::TwoSided as u16 == 0 {
+            draw_colour = yel;
+        }
+
+        if seg.linedef.get().flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
+            draw_colour = blu;
+        }
+
+        // Does seg face player? (from any direction including behind
+        // Does not account for segs behind player
+        let d = (end.y() - start.y()) * (player.x() - start.x())
+            - (end.x() - start.x()) * (player.y() - start.y());
+        if d <= 0.0 {
+            self.canvas
+                .thick_line(
+                    screen_start.0,
+                    screen_start.1,
+                    screen_end.0,
+                    screen_end.1,
+                    3,
+                    dgrey,
+                )
+                .unwrap();
+            return;
+        }
+
+        // need square_magnitude and compare with player pos + player moved forward
+        let midpoint = (start + end) / 2.0;
+        let unit = Vec2d::<f32>::unit_vector(point_angle) * 2.0;
+        let d1 = player.square_magnitude_to(&midpoint);
+        let d2 = (unit + player).square_magnitude_to(&midpoint);
+        if d2 > d1 {
+            return;
+        }
+
         self.canvas
-            .thick_line(start.0, start.1, end.0, end.1, 3, grn)
+            .thick_line(
+                screen_start.0,
+                screen_start.1,
+                screen_end.0,
+                screen_end.1,
+                3,
+                draw_colour,
+            )
             .unwrap();
     }
 

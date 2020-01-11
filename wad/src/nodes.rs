@@ -202,21 +202,25 @@ impl Node {
         let ang_limit = fov * PI / 180.0;
         let half_pi = PI / 2.0;
         //
-        let shift = if (point_angle - half_pi).is_sign_negative() {
+        let shift = if (point_angle - PI).is_sign_negative() {
             half_pi
-        } else if point_angle + half_pi > PI {
+        } else if point_angle + PI > 2.0 * PI {
             -half_pi
         } else {
             0.0
         };
         // shift the origin if required
-        point_angle += shift;
+        point_angle = radian_range(point_angle + shift);
 
         // Secondary broad phase check if each corner is in fov angle
         for x in [top_left.x, bottom_right.x].iter() {
             for y in [top_left.y, bottom_right.y].iter() {
                 // TODO: How much does the atan2 op cost really?
-                let angle = radian_range((y - point.y()).atan2(x - point.x) + shift) - point_angle;
+                let mut angle = (y - point.y()).atan2(x - point.x);
+                if angle < 0.0 {
+                    angle += PI * 2.0;
+                }
+                angle = radian_range(angle + shift) - point_angle;
                 if angle.abs() <= ang_limit {
                     return true;
                 }
@@ -273,16 +277,16 @@ mod tests {
         wad.load_map(&mut map);
 
         let nodes = map.get_nodes();
-        assert_eq!(nodes[0].split_start.x, 1552.0);
-        assert_eq!(nodes[0].split_start.y, -2432.0);
-        assert_eq!(nodes[0].split_delta.x, 112.0);
-        assert_eq!(nodes[0].split_delta.y, 0.0);
+        assert_eq!(nodes[0].split_start.x as i32, 1552);
+        assert_eq!(nodes[0].split_start.y as i32, -2432);
+        assert_eq!(nodes[0].split_delta.x as i32, 112);
+        assert_eq!(nodes[0].split_delta.y as i32, 0);
 
-        assert_eq!(nodes[0].bounding_boxes[0][0].x, 1552.0); //top
-        assert_eq!(nodes[0].bounding_boxes[0][0].y, -2432.0); //bottom
+        assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //top
+        assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //bottom
 
-        assert_eq!(nodes[0].bounding_boxes[1][0].x, 1600.0);
-        assert_eq!(nodes[0].bounding_boxes[1][0].y, -2048.0);
+        assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
+        assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
 
         assert_eq!(nodes[0].child_index[0], 32768);
         assert_eq!(nodes[0].child_index[1], 32769);
