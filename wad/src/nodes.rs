@@ -1,6 +1,5 @@
-use crate::lumps::Vertex;
+use crate::{radian_range, Vertex};
 use std::f32::consts::PI;
-use vec2d::radian_range;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -70,8 +69,8 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 ///
 /// Find the subsector a player is in
 /// ```
-/// # use wad::{Wad, map, nodes::IS_SSECTOR_MASK};
-/// # use wad::lumps::{Vertex, SubSector};
+/// # use wad::{Wad, map, nodes::IS_SSECTOR_MASK, Vertex};
+/// # use wad::lumps::SubSector;
 /// # use wad::nodes::Node;
 /// # let mut wad = Wad::new("../doom1.wad");
 /// # wad.read_directories();
@@ -169,6 +168,8 @@ impl Node {
         1
     }
 
+    /// Useful for finding the subsector that a Point is located in
+    ///
     /// 0 == right, 1 == left
     pub fn point_in_bounds(&self, v: &Vertex, side: usize) -> bool {
         if v.x > self.bounding_boxes[side][0].x
@@ -201,9 +202,9 @@ impl Node {
         let ang_limit = fov * PI / 180.0;
         let half_pi = PI / 2.0;
         //
-        let shift = if (point_angle - PI).is_sign_negative() {
+        let shift = if (point_angle - half_pi).is_sign_negative() {
             half_pi
-        } else if point_angle + PI > 2.0 * PI {
+        } else if point_angle + half_pi > PI {
             -half_pi
         } else {
             0.0
@@ -229,62 +230,39 @@ impl Node {
         let bottom_left = Vertex::new(top_left.x, bottom_right.y);
 
         // Start from FOV edges to catch the FOV passing through a BB case early
+        // In reality this hardly ever fires for BB
         for i in (0..=fov as u32).rev().step_by(5) {
             let ang_limit = i as f32 * PI / 180.0;
             let left_fov = radian_range(orig_angle + ang_limit);
             let right_fov = radian_range(orig_angle - ang_limit);
             //
-            if Node::ray_line_intersect(point, left_fov, top_left, bottom_right) {
-                return true;
-            }
-            if Node::ray_line_intersect(point, right_fov, top_left, bottom_right) {
+            if Vertex::ray_to_line_intersect(point, left_fov, top_left, bottom_right).is_some() {
                 return true;
             }
 
-            if Node::ray_line_intersect(point, left_fov, &bottom_left, &top_right) {
+            if Vertex::ray_to_line_intersect(point, right_fov, top_left, bottom_right).is_some() {
                 return true;
             }
-            if Node::ray_line_intersect(point, right_fov, &bottom_left, &top_right) {
+
+            if Vertex::ray_to_line_intersect(point, left_fov, &bottom_left, &top_right).is_some() {
+                return true;
+            }
+
+            if Vertex::ray_to_line_intersect(point, right_fov, &bottom_left, &top_right).is_some() {
                 return true;
             }
         }
 
-        false
-    }
-
-    /// TEST
-    // TODO: Move this in to a general util module
-    pub fn ray_line_intersect(
-        origin: &Vertex,
-        direction: f32,
-        point1: &Vertex,
-        point2: &Vertex,
-    ) -> bool {
-        let direction = Vertex::unit_vector(direction);
-        let v1 = origin - point1;
-        let v2 = point2 - point1;
-        let v3 = Vertex::new(-direction.y(), direction.x());
-
-        let dot = v2 * v3;
-        if dot.abs() < 0.000001 {
-            return false;
-        }
-
-        let t1 = dot / v2.cross(v1);
-        let t2 = (v1 * v3) / dot;
-        if t1 >= 0.0 && t2 >= 0.0 && t2 <= 1.0 {
-            return true;
-        }
         false
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::lumps::*;
     use crate::map;
     use crate::nodes::IS_SSECTOR_MASK;
     use crate::wad::Wad;
+    use crate::Vertex;
 
     #[test]
     fn check_nodes_of_e1m1() {
@@ -344,15 +322,11 @@ mod tests {
 
         let player = Vertex::new(1056.0, -3616.0);
         let nodes = map.get_nodes();
-        let subsector_id = map.find_subsector(&player, (nodes.len() - 1) as u16, nodes);
-        assert_eq!(subsector_id, Some(103));
-        assert_eq!(
-            &map.get_subsectors()[subsector_id.unwrap() as usize].seg_count,
-            &5
-        );
-        assert_eq!(
-            &map.get_subsectors()[subsector_id.unwrap() as usize].start_seg,
-            &305
-        );
+        let subsector = map
+            .find_subsector(&player, (nodes.len() - 1) as u16, nodes)
+            .unwrap();
+        //assert_eq!(subsector_id, Some(103));
+        assert_eq!(subsector.seg_count, 5);
+        assert_eq!(subsector.start_seg, 305);
     }
 }

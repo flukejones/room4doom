@@ -1,5 +1,4 @@
-use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
-use crate::lumps::{Node, IS_SSECTOR_MASK};
+use crate::{lumps::*, Vertex};
 use std::str;
 
 /// The smallest vector and the largest vertex, combined make up a
@@ -155,20 +154,28 @@ impl Map {
         self.nodes = nodes;
     }
 
-    pub fn find_subsector(&self, v: &Vertex, node_id: u16, nodes: &[Node]) -> Option<u16> {
+    pub fn find_subsector(
+        &self,
+        point: &Vertex,
+        node_id: u16,
+        nodes: &[Node],
+    ) -> Option<&SubSector> {
         // Test if it is a child node or a leaf node
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
-            return Some(node_id ^ IS_SSECTOR_MASK);
+            return Some(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
         }
 
         let node = &nodes[node_id as usize];
-        let side = node.point_on_side(&v);
+        let side = node.point_on_side(&point);
 
-        if node.point_in_bounds(&v, side ^ 1) {
-            return self.find_subsector(&v, node.child_index[side ^ 1], nodes);
+        if let Some(res) = self.find_subsector(&point, node.child_index[side], nodes) {
+            return Some(res);
         }
-        return self.find_subsector(&v, node.child_index[side], nodes);
+        if node.point_in_bounds(&point, side ^ 1) {
+            return self.find_subsector(&point, node.child_index[side ^ 1], nodes);
+        }
+        None
     }
 }
 

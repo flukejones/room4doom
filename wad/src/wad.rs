@@ -1,6 +1,9 @@
-use crate::lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing, Vertex};
 use crate::map::Map;
 use crate::nodes::Node;
+use crate::{
+    lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing},
+    Vertex,
+};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;

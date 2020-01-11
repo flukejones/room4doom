@@ -1,4 +1,4 @@
-use wad::lumps::Vertex;
+use wad::Vertex;
 
 pub struct Player {
     pos: Vertex,

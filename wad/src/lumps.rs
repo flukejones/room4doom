@@ -12,10 +12,8 @@
 
 pub use crate::nodes::{Node, IS_SSECTOR_MASK};
 use crate::DPtr;
+use crate::Vertex;
 use std::str;
-use vec2d::Vec2d;
-
-pub type Vertex = Vec2d<f32>;
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///

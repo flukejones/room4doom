@@ -8,11 +8,11 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
 use std::f32::consts::PI;
-use vec2d::{degree_range, radian_range};
-use wad::lumps::{Segment, Vertex};
+use vec2d::radian_range;
 use wad::map::Map;
 use wad::nodes::{Node, IS_SSECTOR_MASK};
 use wad::Wad;
+use wad::{lumps::Segment, Vertex};
 
 pub struct Game {
     input: Input,
@@ -222,27 +222,7 @@ impl Game {
 
     /// Testing function
     fn draw_line(&self, seg: &Segment) {
-        let player = &self.map.get_things()[0].pos;
-
         let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
-        let grey = sdl2::pixels::Color::RGBA(120, 120, 120, 255);
-
-        // lines have direction, which means the angle can tell us if
-        // the seg is back facing
-        // TODO: make this a func (R_PointToAngle is relative to the player always)
-        let angle1 = ((seg.start_vertex.get().x - player.y) as f32)
-            .atan2((seg.start_vertex.get().x - player.x) as f32);
-        let angle2 = ((seg.end_vertex.get().x - player.y) as f32)
-            .atan2((seg.end_vertex.get().x - player.x) as f32);
-
-        if (angle1 - angle2).is_sign_negative() {
-            let start = self.vertex_to_screen(seg.start_vertex.get());
-            let end = self.vertex_to_screen(seg.end_vertex.get());
-            self.canvas
-                .thick_line(start.0, start.1, end.0, end.1, 3, grey)
-                .unwrap();
-            return;
-        }
 
         let start = self.vertex_to_screen(seg.start_vertex.get());
         let end = self.vertex_to_screen(seg.end_vertex.get());
@@ -260,7 +240,7 @@ impl Game {
 
             for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
                 let seg = &segs[i as usize];
-                self.draw_line(&segs[i as usize]);
+                self.draw_line(seg);
             }
             return;
         }
@@ -282,12 +262,8 @@ impl Game {
         let side = node.point_on_side(&v);
         self.draw_sector_search(&v, node.child_index[side], nodes);
 
-        // shortcut if player is in the bounding box
-        if node.point_in_bounds(&v, side ^ 1) {
-            self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
-        }
-
         // check if each corner of the BB is in the FOV
+        //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(&v, self.player.rot(), side ^ 1) {
             self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
