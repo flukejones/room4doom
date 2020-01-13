@@ -16,6 +16,22 @@ use crate::Vertex;
 use std::f32::EPSILON;
 use std::str;
 
+#[derive(Debug)]
+pub struct Object {
+    pub xy: Vertex,
+    pub z: f32,
+    pub rotation: f32,
+}
+impl Object {
+    pub fn new(xy: Vertex, z: f32, direction: f32) -> Object {
+        Object {
+            xy,
+            z,
+            rotation: direction,
+        }
+    }
+}
+
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///
 /// The data in the WAD lump is structured as follows:
@@ -183,8 +199,8 @@ impl Segment {
 
     /// True if the right side of the segment faces the point
     pub fn is_facing_point(&self, point: &Vertex) -> bool {
-        let start = self.start_vertex.get();
-        let end = self.end_vertex.get();
+        let start = &self.start_vertex;
+        let end = &self.end_vertex;
 
         let d = (end.y() - start.y()) * (start.x() - point.x())
             - (end.x() - start.x()) * (start.y() - point.y());
@@ -208,6 +224,7 @@ impl Segment {
 /// Each `SubSector` record is 4 bytes
 #[derive(Debug)]
 pub struct SubSector {
+    pub sector: DPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
     pub seg_count: u16,
     /// The `Segment` to start with
@@ -215,8 +232,9 @@ pub struct SubSector {
 }
 
 impl SubSector {
-    pub fn new(seg_count: u16, start_seg: u16) -> SubSector {
+    pub fn new(sector: DPtr<Sector>, seg_count: u16, start_seg: u16) -> SubSector {
         SubSector {
+            sector,
             seg_count,
             start_seg,
         }

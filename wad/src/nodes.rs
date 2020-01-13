@@ -1,5 +1,6 @@
+use crate::lumps::Object;
 use crate::{radian_range, Vertex};
-use std::f32::consts::{FRAC_2_PI, PI};
+use std::f32::consts::PI;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -130,20 +131,14 @@ impl Node {
     pub fn new(
         split_start: Vertex,
         split_delta: Vertex,
-        right_box_start: Vertex,
-        right_box_end: Vertex,
-        left_box_start: Vertex,
-        left_box_end: Vertex,
+        bounding_boxes: [[Vertex; 2]; 2],
         right_child_id: u16,
         left_child_id: u16,
     ) -> Node {
         Node {
             split_start,
             split_delta,
-            bounding_boxes: [
-                [right_box_start, right_box_end],
-                [left_box_start, left_box_end],
-            ],
+            bounding_boxes,
             child_index: [right_child_id, left_child_id],
         }
     }
@@ -159,8 +154,8 @@ impl Node {
             return (self.split_delta.x > 0.0) as usize;
         }
 
-        let dx = (v.x - self.split_start.x);
-        let dy = (v.y - self.split_start.y);
+        let dx = v.x - self.split_start.x;
+        let dy = v.y - self.split_start.y;
 
         if (dx * self.split_delta.y) > (dy * self.split_delta.x) {
             return 0;
@@ -183,27 +178,21 @@ impl Node {
     }
 
     /// half_fov must be in radians
-    pub fn bb_extents_in_fov(
-        &self,
-        origin_v: &Vertex,
-        mut origin_ang: f32,
-        half_fov: f32,
-        side: usize,
-    ) -> bool {
-        let original_angle = origin_ang;
+    pub fn bb_extents_in_fov(&self, object: &Object, half_fov: f32, side: usize) -> bool {
+        let mut origin_ang = object.rotation;
 
         let top_left = &self.bounding_boxes[side][0];
         let bottom_right = &self.bounding_boxes[side][1];
 
         // Super broadphase: check if we are in a BB
-        if self.point_in_bounds(origin_v, side) {
+        if self.point_in_bounds(&object.xy, side) {
             return true;
         }
 
         // Make sure we never compare across the 360->0 range
-        let shift = if (origin_ang - PI).is_sign_negative() {
+        let shift = if (object.rotation - PI).is_sign_negative() {
             half_fov * 2.0
-        } else if origin_ang + PI > PI * 2.0 {
+        } else if object.rotation + PI > PI * 2.0 {
             -(half_fov * 2.0)
         } else {
             0.0
@@ -213,7 +202,7 @@ impl Node {
         // Secondary broad phase check if each corner is in fov angle
         for x in [top_left.x, bottom_right.x].iter() {
             for y in [top_left.y, bottom_right.y].iter() {
-                let mut v_angle = (y - origin_v.y()).atan2(x - origin_v.x);
+                let mut v_angle = (y - object.xy.y()).atan2(x - object.xy.x);
                 if v_angle < 0.0 {
                     v_angle += PI * 2.0;
                 }
@@ -224,14 +213,14 @@ impl Node {
             }
         }
         // This will often catch edge cases
-        self.ray_from_point_intersect(origin_v, original_angle, half_fov, side)
+        self.ray_from_point_intersect(&object.xy, object.rotation, half_fov, side)
         //false
     }
 
     pub fn ray_from_point_intersect(
         &self,
         origin_v: &Vertex,
-        mut origin_ang: f32,
+        origin_ang: f32,
         half_fov: f32,
         side: usize,
     ) -> bool {
@@ -247,8 +236,8 @@ impl Node {
         // Start from FOV edges to catch the FOV passing through a BB case early
         // In reality this hardly ever fires for BB
         for i in (0..=steps as u32).rev().step_by(step_size) {
-            let left_fov = origin_ang + half_fov;
-            let right_fov = origin_ang - half_fov;
+            let left_fov = origin_ang + i as f32 * 180.0 / PI;
+            let right_fov = origin_ang - i as f32 * 180.0 / PI;
             // We don't need the result from this, just need to know if it's "None"
             if Vertex::ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right).is_some() {
                 return true;

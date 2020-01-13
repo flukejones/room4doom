@@ -2,14 +2,6 @@ use criterion::*;
 use wad::map::Map;
 use wad::wad::Wad;
 
-fn bench_find_e1m1(b: &mut Bencher, _i: &u32) {
-    let mut wad = Wad::new("../doom1.wad");
-    wad.read_directories();
-    b.iter(|| {
-        let _index = wad.find_lump_index("E1M1");
-    });
-}
-
 fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
     let mut wad = Wad::new("../doom1.wad");
     wad.read_directories();

@@ -6,6 +6,7 @@ use crate::{
 };
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::{fmt, str};
@@ -24,13 +25,17 @@ impl<T> DPtr<T> {
         }
     }
 
-    pub fn get(&self) -> &T {
-        unsafe { &self.p.as_ref() }
+    pub fn clone(&self) -> DPtr<T> {
+        DPtr { p: self.p.clone() }
     }
+}
 
-    //    pub fn get_mut(&mut self) -> &mut T {
-    //        unsafe { self.p.as_mut() }
-    //    }
+impl<T> Deref for DPtr<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.p.as_ref() }
+    }
 }
 
 /// Used as an index to find a specific lump, typically combined
@@ -384,7 +389,13 @@ impl Wad {
         // SSECTORS
         map.set_subsectors(
             self.read_lump_to_vec(index, LumpIndex::SubSectors, 4, |offset| {
-                SubSector::new(self.read_2_bytes(offset), self.read_2_bytes(offset + 2))
+                let start_seg = self.read_2_bytes(offset + 2);
+                let sector = map.get_segments()[start_seg as usize]
+                    .linedef
+                    .front_sidedef
+                    .sector
+                    .clone();
+                SubSector::new(sector, self.read_2_bytes(offset), start_seg)
             }),
         );
 
@@ -400,22 +411,28 @@ impl Wad {
                         self.read_2_bytes(offset + 4) as i16 as f32,
                         self.read_2_bytes(offset + 6) as i16 as f32,
                     ),
-                    Vertex::new(
-                        self.read_2_bytes(offset + 12) as i16 as f32, // top
-                        self.read_2_bytes(offset + 8) as i16 as f32,  // left
-                    ),
-                    Vertex::new(
-                        self.read_2_bytes(offset + 14) as i16 as f32, // bottom
-                        self.read_2_bytes(offset + 10) as i16 as f32, // right
-                    ),
-                    Vertex::new(
-                        self.read_2_bytes(offset + 20) as i16 as f32,
-                        self.read_2_bytes(offset + 16) as i16 as f32,
-                    ),
-                    Vertex::new(
-                        self.read_2_bytes(offset + 22) as i16 as f32,
-                        self.read_2_bytes(offset + 18) as i16 as f32,
-                    ),
+                    [
+                        [
+                            Vertex::new(
+                                self.read_2_bytes(offset + 12) as i16 as f32, // top
+                                self.read_2_bytes(offset + 8) as i16 as f32,  // left
+                            ),
+                            Vertex::new(
+                                self.read_2_bytes(offset + 14) as i16 as f32, // bottom
+                                self.read_2_bytes(offset + 10) as i16 as f32, // right
+                            ),
+                        ],
+                        [
+                            Vertex::new(
+                                self.read_2_bytes(offset + 20) as i16 as f32,
+                                self.read_2_bytes(offset + 16) as i16 as f32,
+                            ),
+                            Vertex::new(
+                                self.read_2_bytes(offset + 22) as i16 as f32,
+                                self.read_2_bytes(offset + 18) as i16 as f32,
+                            ),
+                        ],
+                    ],
                     self.read_2_bytes(offset + 24),
                     self.read_2_bytes(offset + 26),
                 )

@@ -1,4 +1,3 @@
-use crate::entities::Player;
 use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
@@ -7,10 +6,10 @@ use sdl2::keyboard::Scancode;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::Sdl;
-use std::f32::consts::{FRAC_PI_4, PI};
-use vec2d::{radian_range, Vec2d};
+use std::f32::consts::PI;
+use vec2d::radian_range;
+use wad::lumps::Object;
 use wad::map::Map;
-use wad::nodes::{Node, IS_SSECTOR_MASK};
 use wad::Wad;
 use wad::{lumps::Segment, Vertex};
 
@@ -21,7 +20,7 @@ pub struct Game {
     _state_changing: bool,
     _wad: Wad,
     map: Map,
-    player: Player,
+    player: Object,
 }
 
 impl Game {
@@ -71,7 +70,14 @@ impl Game {
         }
 
         let player_thing = &map.get_things()[0];
-        let player = Player::new(player_thing.pos.clone(), player_thing.angle * PI / 180.0);
+        let mut player = Object::new(
+            player_thing.pos.clone(),
+            0.0,
+            player_thing.angle * PI / 180.0,
+        );
+
+        player.z = 32.0;
+        dbg!(&player);
 
         Game {
             input,
@@ -93,23 +99,23 @@ impl Game {
         }
 
         if self.input.get_key(Scancode::Left) {
-            self.player.set_r(radian_range(self.player.rot() + 0.01));
+            self.player.rotation = radian_range(self.player.rotation + 0.01);
         }
 
         if self.input.get_key(Scancode::Right) {
-            self.player.set_r(radian_range(self.player.rot() - 0.01));
+            self.player.rotation = radian_range(self.player.rotation - 0.01);
         }
 
         if self.input.get_key(Scancode::Up) {
-            let heading = self.player.rot().sin_cos();
-            self.player.set_x(self.player.pos().x + heading.1 * 2.0);
-            self.player.set_y(self.player.pos().y + heading.0 * 2.0);
+            let heading = self.player.rotation.sin_cos();
+            self.player.xy.x += heading.1 * 2.0;
+            self.player.xy.y += heading.0 * 2.0;
         }
 
         if self.input.get_key(Scancode::Down) {
-            let heading = self.player.rot().sin_cos();
-            self.player.set_x(self.player.pos().x - heading.1 * 2.0);
-            self.player.set_y(self.player.pos().y - heading.0 * 2.0);
+            let heading = self.player.rotation.sin_cos();
+            self.player.xy.x -= heading.1 * 2.0;
+            self.player.xy.y -= heading.0 * 2.0;
         }
     }
 
@@ -143,6 +149,13 @@ impl Game {
     pub fn render(&mut self, dt: f64) {
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
+        let nodes = self.map.get_nodes();
+        let player_subsect = self
+            .map
+            .find_subsector(&self.player.xy, (nodes.len() - 1) as u16)
+            .unwrap();
+        self.player.z = player_subsect.sector.floor_height as f32;
+
         self.draw_automap();
         self.canvas.present();
     }
@@ -177,10 +190,10 @@ impl Game {
         self.canvas.clear();
 
         for linedef in self.map.get_linedefs() {
-            let start = self.vertex_to_screen(linedef.start_vertex.get());
-            let end = self.vertex_to_screen(linedef.end_vertex.get());
+            let start = self.vertex_to_screen(&linedef.start_vertex);
+            let end = self.vertex_to_screen(&linedef.end_vertex);
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
-                sdl2::pixels::Color::RGBA(255, 100, 100, 255)
+                sdl2::pixels::Color::RGBA(160, 70, 70, 255)
             } else if linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
                 sdl2::pixels::Color::RGBA(100, 255, 255, 255)
             } else if linedef.line_type != 0 {
@@ -189,28 +202,24 @@ impl Game {
                 sdl2::pixels::Color::RGBA(148, 148, 148, 255)
             };
             self.canvas
-                .thick_line(start.0, start.1, end.0, end.1, 1, draw_colour)
+                .thick_line(start.0, start.1, end.0, end.1, 2, draw_colour)
                 .unwrap();
         }
 
         let nodes = self.map.get_nodes();
         //self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
         let mut segs = Vec::new();
-        self.map.list_segs_facing_point(
-            &self.player.pos(),
-            self.player.rot(),
-            (nodes.len() - 1) as u16,
-            &mut segs,
-        );
+        self.map
+            .list_segs_facing_point(&self.player, (nodes.len() - 1) as u16, &mut segs);
         for seg in segs {
             self.draw_line(seg);
         }
 
-        let player = self.vertex_to_screen(&self.player.pos());
+        let player = self.vertex_to_screen(&self.player.xy);
 
-        let (py, px) = self.player.rot().sin_cos();
-        let (lpy, lpx) = (self.player.rot() + PI / 4.0).sin_cos();
-        let (rpy, rpx) = (self.player.rot() - PI / 4.0).sin_cos();
+        let (py, px) = self.player.rotation.sin_cos();
+        let (lpy, lpx) = (self.player.rotation + PI / 4.0).sin_cos();
+        let (rpy, rpx) = (self.player.rotation - PI / 4.0).sin_cos();
         self.canvas
             .thick_line(
                 player.0,
@@ -245,19 +254,67 @@ impl Game {
 
     /// Testing function
     fn draw_line(&self, seg: &Segment) {
-        let player = self.player.pos();
-        let screen_start = self.vertex_to_screen(seg.start_vertex.get());
-        let screen_end = self.vertex_to_screen(seg.end_vertex.get());
+        let alpha = 255;
+        let screen_start = self.vertex_to_screen(&seg.start_vertex);
+        let screen_end = self.vertex_to_screen(&seg.end_vertex);
 
-        let mut draw_colour = sdl2::pixels::Color::RGBA(0, 160, 0, 125);
+        let mut draw_colour = sdl2::pixels::Color::RGBA(0, 0, 160, alpha);
 
-        let flags = seg.linedef.get().flags;
+        let flags = seg.linedef.flags;
         if flags & LineDefFlags::TwoSided as u16 == 0 {
-            draw_colour = sdl2::pixels::Color::RGBA(0, 255, 0, 105);
+            draw_colour = sdl2::pixels::Color::RGBA(255, 50, 50, alpha);
         }
 
-        if seg.linedef.get().flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
-            draw_colour = sdl2::pixels::Color::RGBA(100, 255, 255, 255);
+        if seg.linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
+            draw_colour = sdl2::pixels::Color::RGBA(100, 100, 255, alpha);
+        }
+
+        // Testing stuff
+        if let Some(back_sector) = &seg.linedef.back_sidedef {
+            let front_sector = &seg.linedef.front_sidedef.sector;
+            let back_sector = &back_sector.sector;
+
+            // Doors. Block view
+            if back_sector.ceil_height <= front_sector.floor_height
+                || back_sector.floor_height >= front_sector.ceil_height
+            {
+                draw_colour = sdl2::pixels::Color::RGBA(255, 255, 120, alpha);
+                self.canvas
+                    .thick_line(
+                        screen_start.0,
+                        screen_start.1,
+                        screen_end.0,
+                        screen_end.1,
+                        2,
+                        draw_colour,
+                    )
+                    .unwrap();
+                return;
+            }
+
+            // Windows usually, but also changes in heights from sectors eg: steps
+            if back_sector.ceil_height != front_sector.ceil_height
+                || back_sector.floor_height != front_sector.floor_height
+            {
+                draw_colour = sdl2::pixels::Color::RGBA(255, 170, 170, alpha);
+            }
+
+            // Reject empty lines used for triggers and special events.
+            // Identical floor and ceiling on both sides, identical light levels
+            // on both sides, and no middle texture.
+            if back_sector.ceil_tex == front_sector.ceil_tex
+                && back_sector.floor_tex == front_sector.floor_tex
+                && back_sector.light_level == front_sector.light_level
+                && seg.linedef.front_sidedef.middle_tex.is_empty()
+            {
+                return;
+            }
+        }
+
+        // Identify which lines surround the planes that would be drawn
+        let sector = &seg.linedef.front_sidedef.sector;
+        if sector.floor_height < self.player.z as i16 && sector.ceil_height > self.player.z as i16 {
+            draw_colour = sdl2::pixels::Color::RGBA(255, 255, 255, alpha);
         }
 
         // Because linedefs may have multiple segs in both directions we'll mask out some
