@@ -1,5 +1,7 @@
 use crate::{lumps::*, Vertex};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 use std::str;
+use vec2d::Vec2d;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the map area
@@ -34,6 +36,8 @@ pub struct Map {
     segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
+    fov: f32,
+    half_fov: f32,
 }
 
 impl Map {
@@ -49,6 +53,8 @@ impl Map {
             segments: Vec::new(),
             extents: MapExtents::default(),
             nodes: Vec::new(),
+            fov: FRAC_PI_2,
+            half_fov: FRAC_PI_4,
         }
     }
 
@@ -177,6 +183,48 @@ impl Map {
         }
         None
     }
+
+    pub fn list_segs_facing_point<'a>(
+        &'a self,
+        point: &Vertex,
+        angle: f32,
+        node_id: u16,
+        seg_list: &mut Vec<&'a Segment>,
+    ) {
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            // It's a leaf node and is the index to a subsector
+            let subsect = &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
+            let segs = self.get_segments();
+
+            for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
+                let seg = &segs[i as usize];
+                if seg.is_facing_point(point) {
+                    let unit = Vec2d::<f32>::unit_vector(angle) * 2.0;
+                    // Will usually be left of point
+                    let d1 = point.square_magnitude_to(seg.start_vertex.get());
+                    let d2 = (point - unit).square_magnitude_to(seg.start_vertex.get());
+                    // also capture right of point
+                    let d3 = point.square_magnitude_to(seg.end_vertex.get());
+                    let d4 = (point - unit).square_magnitude_to(seg.end_vertex.get());
+                    if d2 > d1 || d3 < d4 {
+                        seg_list.push(seg);
+                    }
+                }
+            }
+            return;
+        }
+
+        let node = &self.nodes[node_id as usize];
+
+        let side = node.point_on_side(&point);
+        self.list_segs_facing_point(&point, angle, node.child_index[side], seg_list);
+
+        // check if each corner of the BB is in the FOV
+        //if node.point_in_bounds(&v, side ^ 1) {
+        if node.bb_extents_in_fov(&point, angle, self.half_fov, side ^ 1) {
+            self.list_segs_facing_point(&point, angle, node.child_index[side ^ 1], seg_list);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -193,23 +241,23 @@ mod tests {
         wad.load_map(&mut map);
 
         let things = map.get_things();
-        assert_eq!(things[0].pos.x, 1056.0);
-        assert_eq!(things[0].pos.y, -3616.0);
-        assert_eq!(things[0].angle, 90.0);
+        assert_eq!(things[0].pos.x as i32, 1056);
+        assert_eq!(things[0].pos.y as i32, -3616);
+        assert_eq!(things[0].angle as i32, 90);
         assert_eq!(things[0].kind, 1);
         assert_eq!(things[0].flags, 7);
-        assert_eq!(things[137].pos.x, 3648.0);
-        assert_eq!(things[137].pos.y, -3840.0);
-        assert_eq!(things[137].angle, 0.0);
+        assert_eq!(things[137].pos.x as i32, 3648);
+        assert_eq!(things[137].pos.y as i32, -3840);
+        assert_eq!(things[137].angle as i32, 0);
         assert_eq!(things[137].kind, 2015);
         assert_eq!(things[137].flags, 7);
 
-        assert_eq!(things[0].angle, 90.0);
-        assert_eq!(things[9].angle, 135.0);
-        assert_eq!(things[14].angle, 0.0);
-        assert_eq!(things[16].angle, 90.0);
-        assert_eq!(things[17].angle, 180.0);
-        assert_eq!(things[83].angle, 270.0);
+        assert_eq!(things[0].angle as i32, 90);
+        assert_eq!(things[9].angle as i32, 135);
+        assert_eq!(things[14].angle as i32, 0);
+        assert_eq!(things[16].angle as i32, 90);
+        assert_eq!(things[17].angle as i32, 180);
+        assert_eq!(things[83].angle as i32, 270);
     }
 
     #[test]
@@ -221,10 +269,10 @@ mod tests {
         wad.load_map(&mut map);
 
         let vertexes = map.get_vertexes();
-        assert_eq!(vertexes[0].x, 1088.0);
-        assert_eq!(vertexes[0].y, -3680.0);
-        assert_eq!(vertexes[466].x, 2912.0);
-        assert_eq!(vertexes[466].y, -4848.0);
+        assert_eq!(vertexes[0].x as i32, 1088);
+        assert_eq!(vertexes[0].y as i32, -3680);
+        assert_eq!(vertexes[466].x as i32, 2912);
+        assert_eq!(vertexes[466].y as i32, -4848);
     }
 
     #[test]
@@ -238,8 +286,8 @@ mod tests {
 
         // Check links
         // LINEDEF->VERTEX
-        assert_eq!(linedefs[2].start_vertex.get().x, 1088.0);
-        assert_eq!(linedefs[2].end_vertex.get().x, 1088.0);
+        assert_eq!(linedefs[2].start_vertex.get().x as i32, 1088);
+        assert_eq!(linedefs[2].end_vertex.get().x as i32, 1088);
         // LINEDEF->SIDEDEF
         assert_eq!(linedefs[2].front_sidedef.get().middle_tex, "LITE3");
         // LINEDEF->SIDEDEF->SECTOR
@@ -252,8 +300,8 @@ mod tests {
 
         let segments = map.get_segments();
         // SEGMENT->VERTEX
-        assert_eq!(segments[0].start_vertex.get().x, 1552.0);
-        assert_eq!(segments[0].end_vertex.get().x, 1552.0);
+        assert_eq!(segments[0].start_vertex.get().x as i32, 1552);
+        assert_eq!(segments[0].end_vertex.get().x as i32, 1552);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
         // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
         assert_eq!(
@@ -285,13 +333,13 @@ mod tests {
         let mut map = map::Map::new("E1M1".to_owned());
         wad.load_map(&mut map);
         let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex.get().x, 1088.0);
-        assert_eq!(linedefs[0].end_vertex.get().x, 1024.0);
-        assert_eq!(linedefs[2].start_vertex.get().x, 1088.0);
-        assert_eq!(linedefs[2].end_vertex.get().x, 1088.0);
+        assert_eq!(linedefs[0].start_vertex.get().x as i32, 1088);
+        assert_eq!(linedefs[0].end_vertex.get().x as i32, 1024);
+        assert_eq!(linedefs[2].start_vertex.get().x as i32, 1088);
+        assert_eq!(linedefs[2].end_vertex.get().x as i32, 1088);
 
-        assert_eq!(linedefs[474].start_vertex.get().x, 3536.0);
-        assert_eq!(linedefs[474].end_vertex.get().x, 3520.0);
+        assert_eq!(linedefs[474].start_vertex.get().x as i32, 3536);
+        assert_eq!(linedefs[474].end_vertex.get().x as i32, 3520);
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
@@ -358,10 +406,10 @@ mod tests {
         wad.load_map(&mut map);
 
         let segments = map.get_segments();
-        assert_eq!(segments[0].start_vertex.get().x, 1552.0);
-        assert_eq!(segments[0].end_vertex.get().x, 1552.0);
-        assert_eq!(segments[731].start_vertex.get().x, 3040.0);
-        assert_eq!(segments[731].end_vertex.get().x, 2976.0);
+        assert_eq!(segments[0].start_vertex.get().x as i32, 1552);
+        assert_eq!(segments[0].end_vertex.get().x as i32, 1552);
+        assert_eq!(segments[731].start_vertex.get().x as i32, 3040);
+        assert_eq!(segments[731].end_vertex.get().x as i32, 2976);
         assert_eq!(segments[0].angle, 16384.0);
         assert_eq!(
             segments[0].linedef.get().front_sidedef.get().upper_tex,
@@ -382,8 +430,8 @@ mod tests {
         assert_eq!(subsectors[0].seg_count, 4);
         assert_eq!(subsectors[124].seg_count, 3);
         assert_eq!(subsectors[236].seg_count, 4);
-        //assert_eq!(subsectors[0].start_seg.get().start_vertex.get().x, 1552);
-        //assert_eq!(subsectors[124].start_seg.get().start_vertex.get().x, 472);
-        //assert_eq!(subsectors[236].start_seg.get().start_vertex.get().x, 3040);
+        //assert_eq!(subsectors[0].start_seg.get().start_vertex.get().x as i32, 1552);
+        //assert_eq!(subsectors[124].start_seg.get().start_vertex.get().x as i32, 472);
+        //assert_eq!(subsectors[236].start_seg.get().start_vertex.get().x as i32, 3040);
     }
 }

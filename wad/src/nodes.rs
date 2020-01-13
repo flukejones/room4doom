@@ -1,5 +1,5 @@
 use crate::{radian_range, Vertex};
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_2_PI, PI};
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -150,19 +150,19 @@ impl Node {
 
     /// Transliteration of R_PointOnSide from Chocolate Doom
     pub fn point_on_side(&self, v: &Vertex) -> usize {
-        // // if horizontal
-        // if self.split_delta.x == 0 && v.x == self.split_start.x {
-        //     return (self.split_delta.y > 0) as usize;
-        // }
-        // // if vertical
-        // if self.split_delta.y == 0 && v.y == self.split_start.y {
-        //     return (self.split_delta.x > 0) as usize;
-        // }
+        // if horizontal
+        if self.split_delta.x as u32 == 0 && v.x as u32 == self.split_start.x as u32 {
+            return (self.split_delta.y > 0.0) as usize;
+        }
+        // if vertical
+        if self.split_delta.y as u32 == 0 && v.y as u32 == self.split_start.y as u32 {
+            return (self.split_delta.x > 0.0) as usize;
+        }
 
-        let dx = (v.x - self.split_start.x) as i32;
-        let dy = (v.y - self.split_start.y) as i32;
+        let dx = (v.x - self.split_start.x);
+        let dy = (v.y - self.split_start.y);
 
-        if (dx * self.split_delta.y as i32) > (dy * self.split_delta.x as i32) {
+        if (dx * self.split_delta.y) > (dy * self.split_delta.x) {
             return 0;
         }
         1
@@ -182,81 +182,94 @@ impl Node {
         false
     }
 
-    pub fn bb_extents_in_fov(&self, point: &Vertex, mut point_angle: f32, side: usize) -> bool {
-        let fov = 45.0;
-        let orig_angle = point_angle;
+    /// half_fov must be in radians
+    pub fn bb_extents_in_fov(
+        &self,
+        origin_v: &Vertex,
+        mut origin_ang: f32,
+        half_fov: f32,
+        side: usize,
+    ) -> bool {
+        let original_angle = origin_ang;
+
         let top_left = &self.bounding_boxes[side][0];
         let bottom_right = &self.bounding_boxes[side][1];
+
         // Super broadphase: check if we are in a BB
-        if point.x() >= top_left.x
-            && point.x() <= bottom_right.x
-            && point.y() >= top_left.y
-            && point.y() <= bottom_right.y
-        {
+        if self.point_in_bounds(origin_v, side) {
             return true;
         }
 
-        // if the player is at 310+ make sure they are shifted
-        // this is done so that the angles compared are never across
-        // the 0deg-360deg boundary; always within a positive range
-        let ang_limit = fov * PI / 180.0;
-        let half_pi = PI / 2.0;
-        //
-        let shift = if (point_angle - PI).is_sign_negative() {
-            half_pi
-        } else if point_angle + PI > 2.0 * PI {
-            -half_pi
+        // Make sure we never compare across the 360->0 range
+        let shift = if (origin_ang - PI).is_sign_negative() {
+            half_fov * 2.0
+        } else if origin_ang + PI > PI * 2.0 {
+            -(half_fov * 2.0)
         } else {
             0.0
         };
-        // shift the origin if required
-        point_angle = radian_range(point_angle + shift);
+        origin_ang = radian_range(origin_ang + shift);
 
         // Secondary broad phase check if each corner is in fov angle
         for x in [top_left.x, bottom_right.x].iter() {
             for y in [top_left.y, bottom_right.y].iter() {
-                // TODO: How much does the atan2 op cost really?
-                let mut angle = (y - point.y()).atan2(x - point.x);
-                if angle < 0.0 {
-                    angle += PI * 2.0;
+                let mut v_angle = (y - origin_v.y()).atan2(x - origin_v.x);
+                if v_angle < 0.0 {
+                    v_angle += PI * 2.0;
                 }
-                angle = radian_range(angle + shift) - point_angle;
-                if angle.abs() <= ang_limit {
+                v_angle = radian_range(v_angle + shift) - origin_ang;
+                if v_angle.abs() <= half_fov {
                     return true;
                 }
             }
         }
+        // This will often catch edge cases
+        self.ray_from_point_intersect(origin_v, original_angle, half_fov, side)
+        //false
+    }
 
+    pub fn ray_from_point_intersect(
+        &self,
+        origin_v: &Vertex,
+        mut origin_ang: f32,
+        half_fov: f32,
+        side: usize,
+    ) -> bool {
+        let steps = half_fov / 180.0 * PI;
+        let step_size = 15;
+        let top_left = &self.bounding_boxes[side][0];
+        let bottom_right = &self.bounding_boxes[side][1];
         // Fine phase, check if a ray intersects any box line made from diagonals from corner
         // to corner. This will often catch cases where we want to see what's in a BB, but the FOV
         // is passing through the box with extents on outside of FOV
         let top_right = Vertex::new(bottom_right.x, top_left.y);
         let bottom_left = Vertex::new(top_left.x, bottom_right.y);
-
         // Start from FOV edges to catch the FOV passing through a BB case early
         // In reality this hardly ever fires for BB
-        for i in (0..=fov as u32).rev().step_by(5) {
-            let ang_limit = i as f32 * PI / 180.0;
-            let left_fov = radian_range(orig_angle + ang_limit);
-            let right_fov = radian_range(orig_angle - ang_limit);
-            //
-            if Vertex::ray_to_line_intersect(point, left_fov, top_left, bottom_right).is_some() {
+        for i in (0..=steps as u32).rev().step_by(step_size) {
+            let left_fov = origin_ang + half_fov;
+            let right_fov = origin_ang - half_fov;
+            // We don't need the result from this, just need to know if it's "None"
+            if Vertex::ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right).is_some() {
                 return true;
             }
 
-            if Vertex::ray_to_line_intersect(point, right_fov, top_left, bottom_right).is_some() {
+            if Vertex::ray_to_line_intersect(origin_v, right_fov, top_left, bottom_right).is_some()
+            {
                 return true;
             }
 
-            if Vertex::ray_to_line_intersect(point, left_fov, &bottom_left, &top_right).is_some() {
+            if Vertex::ray_to_line_intersect(origin_v, left_fov, &bottom_left, &top_right).is_some()
+            {
                 return true;
             }
 
-            if Vertex::ray_to_line_intersect(point, right_fov, &bottom_left, &top_right).is_some() {
+            if Vertex::ray_to_line_intersect(origin_v, right_fov, &bottom_left, &top_right)
+                .is_some()
+            {
                 return true;
             }
         }
-
         false
     }
 }

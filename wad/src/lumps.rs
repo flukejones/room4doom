@@ -13,6 +13,7 @@
 pub use crate::nodes::{Node, IS_SSECTOR_MASK};
 use crate::DPtr;
 use crate::Vertex;
+use std::f32::EPSILON;
 use std::str;
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
@@ -178,6 +179,19 @@ impl Segment {
 
     pub fn angle_to_degree(&self) -> f32 {
         self.angle * 0.005493164
+    }
+
+    /// True if the right side of the segment faces the point
+    pub fn is_facing_point(&self, point: &Vertex) -> bool {
+        let start = self.start_vertex.get();
+        let end = self.end_vertex.get();
+
+        let d = (end.y() - start.y()) * (start.x() - point.x())
+            - (end.x() - start.x()) * (start.y() - point.y());
+        if d <= EPSILON {
+            return true;
+        }
+        false
     }
 }
 

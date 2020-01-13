@@ -170,27 +170,23 @@ impl Game {
 
     /// Testing function
     pub fn draw_automap(&mut self) {
-        let red = sdl2::pixels::Color::RGBA(255, 100, 100, 255);
-        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
         let yel = sdl2::pixels::Color::RGBA(255, 255, 50, 255);
-        let blu = sdl2::pixels::Color::RGBA(100, 255, 255, 255);
-        let grey = sdl2::pixels::Color::RGBA(100, 100, 100, 255);
-        let black = sdl2::pixels::Color::RGBA(0, 0, 0, 255);
         // clear background to black
-        self.canvas.set_draw_color(black);
+        self.canvas
+            .set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
         self.canvas.clear();
 
         for linedef in self.map.get_linedefs() {
             let start = self.vertex_to_screen(linedef.start_vertex.get());
             let end = self.vertex_to_screen(linedef.end_vertex.get());
             let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
-                red
+                sdl2::pixels::Color::RGBA(255, 100, 100, 255)
             } else if linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
-                blu
+                sdl2::pixels::Color::RGBA(100, 255, 255, 255)
             } else if linedef.line_type != 0 {
                 yel
             } else {
-                grey
+                sdl2::pixels::Color::RGBA(148, 148, 148, 255)
             };
             self.canvas
                 .thick_line(start.0, start.1, end.0, end.1, 1, draw_colour)
@@ -198,12 +194,19 @@ impl Game {
         }
 
         let nodes = self.map.get_nodes();
-        self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
+        //self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
+        let mut segs = Vec::new();
+        self.map.list_segs_facing_point(
+            &self.player.pos(),
+            self.player.rot(),
+            (nodes.len() - 1) as u16,
+            &mut segs,
+        );
+        for seg in segs {
+            self.draw_line(seg);
+        }
 
         let player = self.vertex_to_screen(&self.player.pos());
-        self.canvas
-            .filled_circle(player.0, player.1, 3, yel)
-            .unwrap();
 
         let (py, px) = self.player.rot().sin_cos();
         let (lpy, lpx) = (self.player.rot() + PI / 4.0).sin_cos();
@@ -243,33 +246,23 @@ impl Game {
     /// Testing function
     fn draw_line(&self, seg: &Segment) {
         let player = self.player.pos();
-        let point_angle = self.player.rot();
-        let start = seg.linedef.get().start_vertex.get();
-        let end = seg.linedef.get().end_vertex.get();
         let screen_start = self.vertex_to_screen(seg.start_vertex.get());
         let screen_end = self.vertex_to_screen(seg.end_vertex.get());
 
-        let grn = sdl2::pixels::Color::RGBA(100, 255, 100, 255);
-        let yel = sdl2::pixels::Color::RGBA(60, 180, 60, 255);
-        let blu = sdl2::pixels::Color::RGBA(255, 255, 255, 255);
-        let grey = sdl2::pixels::Color::RGBA(120, 120, 120, 255);
-        let dgrey = sdl2::pixels::Color::RGBA(70, 70, 130, 255);
-        let mut draw_colour = grn;
+        let mut draw_colour = sdl2::pixels::Color::RGBA(0, 160, 0, 125);
 
         let flags = seg.linedef.get().flags;
         if flags & LineDefFlags::TwoSided as u16 == 0 {
-            draw_colour = yel;
+            draw_colour = sdl2::pixels::Color::RGBA(0, 255, 0, 105);
         }
 
         if seg.linedef.get().flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
-            draw_colour = blu;
+            draw_colour = sdl2::pixels::Color::RGBA(100, 255, 255, 255);
         }
 
-        // Does seg face player? (from any direction including behind
-        // Does not account for segs behind player
-        let d = (end.y() - start.y()) * (player.x() - start.x())
-            - (end.x() - start.x()) * (player.y() - start.y());
-        if d <= 0.0 {
+        // Because linedefs may have multiple segs in both directions we'll mask out some
+        // just for the sake of drawing
+        if seg.direction == 0 {
             self.canvas
                 .thick_line(
                     screen_start.0,
@@ -277,68 +270,9 @@ impl Game {
                     screen_end.0,
                     screen_end.1,
                     3,
-                    dgrey,
+                    draw_colour,
                 )
                 .unwrap();
-            return;
-        }
-
-        // need square_magnitude and compare with player pos + player moved forward
-        let midpoint = (start + end) / 2.0;
-        let unit = Vec2d::<f32>::unit_vector(point_angle) * 2.0;
-        let d1 = player.square_magnitude_to(&midpoint);
-        let d2 = (unit + player).square_magnitude_to(&midpoint);
-        if d2 > d1 {
-            return;
-        }
-
-        self.canvas
-            .thick_line(
-                screen_start.0,
-                screen_start.1,
-                screen_end.0,
-                screen_end.1,
-                3,
-                draw_colour,
-            )
-            .unwrap();
-    }
-
-    /// Testing function. Mostly trying out different ways to present information from the BSP
-    fn draw_sector_search(&self, v: &Vertex, node_id: u16, nodes: &[Node]) {
-        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            // It's a leaf node and is the index to a subsector
-            let subsect = &self.map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
-            let segs = self.map.get_segments();
-
-            for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
-                let seg = &segs[i as usize];
-                self.draw_line(seg);
-            }
-            return;
-        }
-
-        let node = &nodes[node_id as usize];
-        let right_box_start = self.vertex_to_screen(&node.bounding_boxes[0][0]);
-        let right_box_end = self.vertex_to_screen(&node.bounding_boxes[0][1]);
-
-        self.canvas
-            .rectangle(
-                right_box_start.0,
-                right_box_start.1,
-                right_box_end.0,
-                right_box_end.1,
-                sdl2::pixels::Color::RGBA(42, 100, 42, 255),
-            )
-            .unwrap();
-
-        let side = node.point_on_side(&v);
-        self.draw_sector_search(&v, node.child_index[side], nodes);
-
-        // check if each corner of the BB is in the FOV
-        //if node.point_in_bounds(&v, side ^ 1) {
-        if node.bb_extents_in_fov(&v, self.player.rot(), side ^ 1) {
-            self.draw_sector_search(&v, node.child_index[side ^ 1], nodes);
         }
     }
 }
