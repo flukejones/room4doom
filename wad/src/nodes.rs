@@ -329,7 +329,7 @@ mod tests {
         let player = Vertex::new(1056.0, -3616.0);
         let nodes = map.get_nodes();
         let subsector = map
-            .find_subsector(&player, (nodes.len() - 1) as u16, nodes)
+            .find_subsector(&player, (nodes.len() - 1) as u16)
             .unwrap();
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);

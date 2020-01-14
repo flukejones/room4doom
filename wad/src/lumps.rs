@@ -21,13 +21,15 @@ pub struct Object {
     pub xy: Vertex,
     pub z: f32,
     pub rotation: f32,
+    pub sector: DPtr<Sector>,
 }
 impl Object {
-    pub fn new(xy: Vertex, z: f32, direction: f32) -> Object {
+    pub fn new(xy: Vertex, z: f32, rotation: f32, sector: DPtr<Sector>) -> Object {
         Object {
             xy,
             z,
-            rotation: direction,
+            rotation,
+            sector,
         }
     }
 }

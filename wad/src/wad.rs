@@ -13,7 +13,6 @@ use std::{fmt, str};
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
-#[derive(Debug)]
 pub struct DPtr<T> {
     p: NonNull<T>,
 }
@@ -35,6 +34,12 @@ impl<T> Deref for DPtr<T> {
 
     fn deref(&self) -> &Self::Target {
         unsafe { self.p.as_ref() }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
     }
 }
 

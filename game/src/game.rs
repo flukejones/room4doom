@@ -70,13 +70,18 @@ impl Game {
         }
 
         let player_thing = &map.get_things()[0];
-        let mut player = Object::new(
+        let nodes = map.get_nodes();
+        let player_subsect = map
+            .find_subsector(&player_thing.pos, (nodes.len() - 1) as u16)
+            .unwrap();
+
+        let player = Object::new(
             player_thing.pos.clone(),
-            0.0,
+            player_subsect.sector.floor_height as f32,
             player_thing.angle * PI / 180.0,
+            player_subsect.sector.clone(),
         );
 
-        player.z = 32.0;
         dbg!(&player);
 
         Game {
@@ -155,6 +160,7 @@ impl Game {
             .find_subsector(&self.player.xy, (nodes.len() - 1) as u16)
             .unwrap();
         self.player.z = player_subsect.sector.floor_height as f32;
+        self.player.sector = player_subsect.sector.clone();
 
         self.draw_automap();
         self.canvas.present();
@@ -313,7 +319,8 @@ impl Game {
 
         // Identify which lines surround the planes that would be drawn
         let sector = &seg.linedef.front_sidedef.sector;
-        if sector.floor_height < self.player.z as i16 && sector.ceil_height > self.player.z as i16 {
+        if sector.floor_height <= self.player.z as i16 && sector.ceil_height > self.player.z as i16
+        {
             draw_colour = sdl2::pixels::Color::RGBA(255, 255, 255, alpha);
         }
 
