@@ -31,6 +31,11 @@
 //!             └───────── └────────────────────┘
 //! ```
 
+pub use glam::*;
+
+/// Bring only the WAD structs down to root level
+pub use crate::wad::*;
+
 /// The WAD structure and parser
 pub mod wad;
 
@@ -43,9 +48,4 @@ pub mod lumps;
 
 pub mod nodes;
 
-/// Bring only the WAD structs down to root level
-pub use crate::wad::*;
-
-pub use vec2d::*;
-
-pub type Vertex = Vec2d<f32>;
+pub type Vertex = Vec2;

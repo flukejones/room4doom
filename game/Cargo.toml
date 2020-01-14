@@ -15,7 +15,7 @@ gumdrop = "~0.7"
 rand = "*"
 gamelib = { path = "../gamelib" }
 wad = { path = "../wad" }
-vec2d = { path = "../vec2d" }
+utils = { path = "../utils" }
 
 [dependencies.sdl2]
 version = "0.32"

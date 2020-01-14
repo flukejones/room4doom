@@ -1,16 +1,17 @@
+use std::collections::hash_set::HashSet;
+
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode as Sc;
 use sdl2::mouse::MouseButton as Mb;
 use sdl2::EventPump;
-use std::collections::hash_set::HashSet;
 
 /// Fetch all input
 pub struct Input {
-    pump: EventPump,
-    key_state: HashSet<Sc>,
+    pump:        EventPump,
+    key_state:   HashSet<Sc>,
     mouse_state: HashSet<Mb>,
-    mouse_pos: (i32, i32),
-    quit: bool,
+    mouse_pos:   (i32, i32),
+    quit:        bool,
 }
 
 impl Input {
@@ -38,10 +39,18 @@ impl Input {
         if let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown { .. } => {
-                    self.key_state = self.pump.keyboard_state().pressed_scancodes().collect();
+                    self.key_state = self
+                        .pump
+                        .keyboard_state()
+                        .pressed_scancodes()
+                        .collect();
                 }
                 Event::KeyUp { .. } => {
-                    self.key_state = self.pump.keyboard_state().pressed_scancodes().collect();
+                    self.key_state = self
+                        .pump
+                        .keyboard_state()
+                        .pressed_scancodes()
+                        .collect();
                 }
 
                 Event::MouseButtonDown { mouse_btn, .. } => {

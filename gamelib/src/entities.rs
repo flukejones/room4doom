@@ -18,14 +18,6 @@ impl Player {
         self.rot
     }
 
-    pub fn set_x(&mut self, x: f32) {
-        self.pos.x = x
-    }
-
-    pub fn set_y(&mut self, y: f32) {
-        self.pos.y = y
-    }
-
     pub fn set_r(&mut self, r: f32) {
         self.rot = r
     }

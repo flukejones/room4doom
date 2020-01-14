@@ -1,31 +1,37 @@
-use crate::input::Input;
-use crate::GameOptions;
-use gamelib::{flags::LineDefFlags, map::Map};
-use sdl2::{
-    gfx::primitives::DrawRenderer, keyboard::Scancode, render::Canvas, video::Window, EventPump,
-};
 use std::f32::consts::PI;
-use vec2d::radian_range;
+
+use sdl2::{
+    gfx::primitives::DrawRenderer, keyboard::Scancode, render::Canvas,
+    video::Window,
+};
+
+use gamelib::{flags::LineDefFlags, map::Map};
+use utils::radian_range;
 use wad::{lumps::Object, lumps::Segment, Vertex, Wad};
 
-pub struct Game {
-    input: Input,
-    canvas: Canvas<Window>,
-    running: bool,
+use crate::input::Input;
+use crate::{GameOptions, FP};
+
+pub struct Game<'c> {
+    input:           &'c mut Input,
+    canvas:          &'c mut Canvas<Window>,
+    running:         bool,
     _state_changing: bool,
-    _wad: Wad,
-    map: Map,
-    player: Object,
+    _wad:            Wad,
+    map:             Map,
+    player:          Object,
 }
 
-impl Game {
+impl<'c> Game<'c> {
     /// On `Game` object creation, initialize all the game subsystems where possible
     ///
     /// Ideally full error checking will be done in by system.
     ///
-    pub fn new(canvas: Canvas<Window>, events: EventPump, options: GameOptions) -> Game {
-        let input = Input::new(events);
-
+    pub fn new(
+        canvas: &'c mut Canvas<Window>,
+        input: &'c mut Input,
+        options: GameOptions,
+    ) -> Game<'c> {
         let mut wad = Wad::new(options.iwad);
         wad.read_directories();
         let mut map = Map::new(options.map.unwrap_or("E1M1".to_owned()));
@@ -69,31 +75,37 @@ impl Game {
     }
 
     /// Called by the main loop
-    pub fn update(&mut self, time: f64) {
-        self.running = !self.input.get_quit();
-
-        if self.input.get_key(Scancode::Escape) {
-            self.running = false;
-        }
-
+    pub fn update(&mut self, time: FP) {
+        let rot_amnt = 0.11 * time;
+        let mv_amnt = 25.0 * time;
         if self.input.get_key(Scancode::Left) {
-            self.player.rotation = radian_range(self.player.rotation + 0.01);
+            self.player.rotation =
+                radian_range(self.player.rotation + rot_amnt);
         }
 
         if self.input.get_key(Scancode::Right) {
-            self.player.rotation = radian_range(self.player.rotation - 0.01);
+            self.player.rotation =
+                radian_range(self.player.rotation - rot_amnt);
         }
 
         if self.input.get_key(Scancode::Up) {
             let heading = self.player.rotation.sin_cos();
-            self.player.xy.x += heading.1 * 2.0;
-            self.player.xy.y += heading.0 * 2.0;
+            self.player
+                .xy
+                .set_x(self.player.xy.x() + heading.1 * mv_amnt);
+            self.player
+                .xy
+                .set_y(self.player.xy.y() + heading.0 * mv_amnt);
         }
 
         if self.input.get_key(Scancode::Down) {
             let heading = self.player.rotation.sin_cos();
-            self.player.xy.x -= heading.1 * 2.0;
-            self.player.xy.y -= heading.0 * 2.0;
+            self.player
+                .xy
+                .set_x(self.player.xy.x() - heading.1 * mv_amnt);
+            self.player
+                .xy
+                .set_y(self.player.xy.y() - heading.0 * mv_amnt);
         }
     }
 
@@ -109,12 +121,11 @@ impl Game {
     ///
     pub fn handle_events(&mut self) {
         self.input.update();
+        self.running = !self.input.get_quit();
 
-        if self.input.get_key(Scancode::Escape) {}
-        //        } else if self.input.get_key(Scancode::Return) {
-        //        } else if !self.input.get_key(Scancode::Escape) && !self.input.get_key(Scancode::Return) {
-        //            self.state_changing = false;
-        //        }
+        if self.input.get_key(Scancode::Escape) {
+            self.running = false;
+        }
     }
 
     /// `render` calls the `states.render()` method with a time-step for state renders
@@ -124,7 +135,7 @@ impl Game {
     /// from which the game states (or menu) will use to render objects at the correct
     /// point in time.
     ///
-    pub fn render(&mut self, dt: f64) {
+    pub fn render(&mut self, dt: FP) {
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
         let nodes = self.map.get_nodes();
@@ -152,11 +163,11 @@ impl Game {
         let x_pad = (scr_width * scale - self.map.get_extents().width) / 2.0;
         let y_pad = (scr_height * scale - self.map.get_extents().height) / 2.0;
 
-        let x_shift = -(self.map.get_extents().min_vertex.x) as f32 + x_pad;
-        let y_shift = -(self.map.get_extents().min_vertex.y) as f32 + y_pad;
+        let x_shift = -self.map.get_extents().min_vertex.x() + x_pad;
+        let y_shift = -self.map.get_extents().min_vertex.y() + y_pad;
         (
-            ((v.x as f32 + x_shift) / scale) as i16,
-            (scr_height - (v.y as f32 + y_shift) / scale) as i16,
+            ((v.x() + x_shift) / scale) as i16,
+            (scr_height - (v.y() + y_shift) / scale) as i16,
         )
     }
 
@@ -171,15 +182,18 @@ impl Game {
         for linedef in self.map.get_linedefs() {
             let start = self.vertex_to_screen(&linedef.start_vertex);
             let end = self.vertex_to_screen(&linedef.end_vertex);
-            let draw_colour = if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
-                sdl2::pixels::Color::RGBA(160, 70, 70, 255)
-            } else if linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
-                sdl2::pixels::Color::RGBA(100, 255, 255, 255)
-            } else if linedef.line_type != 0 {
-                yel
-            } else {
-                sdl2::pixels::Color::RGBA(148, 148, 148, 255)
-            };
+            let draw_colour =
+                if linedef.flags & LineDefFlags::TwoSided as u16 == 0 {
+                    sdl2::pixels::Color::RGBA(160, 70, 70, 255)
+                } else if linedef.flags & LineDefFlags::Secret as u16
+                    == LineDefFlags::Secret as u16
+                {
+                    sdl2::pixels::Color::RGBA(100, 255, 255, 255)
+                } else if linedef.line_type != 0 {
+                    yel
+                } else {
+                    sdl2::pixels::Color::RGBA(148, 148, 148, 255)
+                };
             self.canvas
                 .thick_line(start.0, start.1, end.0, end.1, 2, draw_colour)
                 .unwrap();
@@ -188,8 +202,11 @@ impl Game {
         let nodes = self.map.get_nodes();
         //self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
         let mut segs = Vec::new();
-        self.map
-            .list_segs_facing_point(&self.player, (nodes.len() - 1) as u16, &mut segs);
+        self.map.list_segs_facing_point(
+            &self.player,
+            (nodes.len() - 1) as u16,
+            &mut segs,
+        );
         for seg in segs {
             self.draw_line(seg);
         }
@@ -244,7 +261,9 @@ impl Game {
             draw_colour = sdl2::pixels::Color::RGBA(255, 50, 50, alpha);
         }
 
-        if seg.linedef.flags & LineDefFlags::Secret as u16 == LineDefFlags::Secret as u16 {
+        if seg.linedef.flags & LineDefFlags::Secret as u16
+            == LineDefFlags::Secret as u16
+        {
             draw_colour = sdl2::pixels::Color::RGBA(100, 100, 255, alpha);
         }
 
@@ -292,7 +311,8 @@ impl Game {
 
         // Identify which lines surround the planes that would be drawn
         let sector = &seg.linedef.front_sidedef.sector;
-        if sector.floor_height <= self.player.z as i16 && sector.ceil_height > self.player.z as i16
+        if sector.floor_height <= self.player.z as i16
+            && sector.ceil_height > self.player.z as i16
         {
             draw_colour = sdl2::pixels::Color::RGBA(255, 255, 255, alpha);
         }

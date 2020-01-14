@@ -1,54 +1,59 @@
 #![allow(clippy::new_without_default)]
-mod game;
-mod input;
 
-use crate::game::Game;
-use gumdrop::{Options, ParsingStyle};
-use sdl2;
-use sdl2::video::Window;
 use std::env;
 use std::time::Instant;
+
+use gumdrop::{Options, ParsingStyle};
+use sdl2;
+use sdl2::{render::Canvas, video::Window};
+
+use crate::{game::Game, input::Input};
+
+mod game;
+mod input;
 
 #[derive(Default, Debug, Options)]
 pub struct GameOptions {
     #[options(help = "path to game WAD", required)]
-    pub iwad: String,
+    pub iwad:       String,
     #[options(help = "path to patch WAD")]
-    pub pwad: Option<String>,
+    pub pwad:       Option<String>,
     #[options(help = "resolution width in pixels")]
-    pub width: Option<u32>,
+    pub width:      Option<u32>,
     #[options(help = "resolution height in pixels")]
-    pub height: Option<u32>,
+    pub height:     Option<u32>,
     #[options(help = "map to load")]
-    pub map: Option<String>,
+    pub map:        Option<String>,
     #[options(help = "waesgr")]
     pub fullscreen: Option<bool>,
 }
 
-type FP = f64;
+type FP = f32;
 const MS_PER_UPDATE: FP = 4.0;
 
 #[derive(Debug)]
 pub struct TimeStep {
-    last_time: Instant,
-    delta_time: FP,
+    last_time:   Instant,
+    delta_time:  FP,
     frame_count: u32,
-    frame_time: FP,
+    frame_time:  FP,
 }
 
 impl TimeStep {
     pub fn new() -> TimeStep {
         TimeStep {
-            last_time: Instant::now(),
-            delta_time: 0.0,
+            last_time:   Instant::now(),
+            delta_time:  0.0,
             frame_count: 0,
-            frame_time: 0.0,
+            frame_time:  0.0,
         }
     }
 
     pub fn delta(&mut self) -> FP {
         let current_time = Instant::now();
-        let delta = current_time.duration_since(self.last_time).as_micros() as FP * 0.001;
+        let delta = current_time.duration_since(self.last_time).as_micros()
+            as FP
+            * 0.001;
         self.last_time = current_time;
         self.delta_time = delta;
         delta
@@ -68,11 +73,14 @@ impl TimeStep {
         None
     }
 }
+
 /// The main `game` crate should take care of only a few things:
 ///
+/// - WAD/PWAD loading
 /// - SDL system init (window, sound)
 /// - Input
 /// - Commandline arg parsing
+/// - Base settings such as window/fullscreen
 ///
 /// And anything else not directly related to levels, sprites, textures, game logic etc
 fn main() {
@@ -82,35 +90,38 @@ fn main() {
     let video_ctx = sdl_ctx.video().unwrap();
     // Create a window
     let window: Window;
+    let mut canvas: Canvas<Window>;
 
     let events = sdl_ctx.event_pump().unwrap();
+    let mut input = Input::new(events);
 
-    let mut game = match GameOptions::parse_args(&args[1..], ParsingStyle::AllOptions) {
-        Ok(opts) => {
-            println!("{:?}", opts);
-            window = video_ctx
-                .window(
-                    "DIIRDOOM",
-                    opts.width.unwrap_or(320),
-                    opts.height.unwrap_or(200),
-                )
-                .position_centered()
-                .opengl()
-                .build()
-                .unwrap();
-            let canvas = window
-                .into_canvas()
-                .accelerated()
-                .present_vsync()
-                .build()
-                .unwrap();
+    let mut game =
+        match GameOptions::parse_args(&args[1..], ParsingStyle::AllOptions) {
+            Ok(opts) => {
+                println!("{:?}", opts);
+                window = video_ctx
+                    .window(
+                        "DIIRDOOM",
+                        opts.width.unwrap_or(320),
+                        opts.height.unwrap_or(200),
+                    )
+                    .position_centered()
+                    .opengl()
+                    .build()
+                    .unwrap();
+                canvas = window
+                    .into_canvas()
+                    .accelerated()
+                    .present_vsync()
+                    .build()
+                    .unwrap();
 
-            Game::new(canvas, events, opts)
-        }
-        Err(err) => {
-            panic!("\n{}\n{}", err, GameOptions::usage());
-        }
-    };
+                Game::new(&mut canvas, &mut input, opts)
+            }
+            Err(err) => {
+                panic!("\n{}\n{}", err, GameOptions::usage());
+            }
+        };
 
     let mut timestep = TimeStep::new();
     let mut lag = 0.0;

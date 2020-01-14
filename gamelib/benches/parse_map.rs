@@ -1,5 +1,6 @@
 use criterion::*;
-use diirdlib::map::Map;
+
+use gamelib::map::Map;
 use wad::wad::Wad;
 
 fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {

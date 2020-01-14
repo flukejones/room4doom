@@ -1,14 +1,15 @@
-use crate::nodes::Node;
-use crate::{
-    lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing},
-    Vertex,
-};
 use std::fs::File;
 use std::io::prelude::*;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::{fmt, str};
+
+use crate::nodes::Node;
+use crate::{
+    lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing},
+    Vertex,
+};
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
@@ -111,9 +112,9 @@ impl LumpIndex {
 ///
 pub struct WadHeader {
     /// Will be either `IWAD` for game, or `PWAD` for patch
-    wad_type: [u8; 4],
+    wad_type:   [u8; 4],
     /// The count of "lumps" of data
-    dir_count: u32,
+    dir_count:  u32,
     /// Offset in bytes that the lump data starts at
     dir_offset: u32,
 }
@@ -144,9 +145,9 @@ pub struct WadDirectory {
     /// The offset in bytes where the lump data starts
     lump_offset: u32,
     /// The size in bytes of the lump referenced
-    lump_size: u32,
+    lump_size:   u32,
     /// Name for the lump data
-    lump_name: String,
+    lump_name:   String,
 }
 impl fmt::Debug for WadDirectory {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -163,9 +164,9 @@ impl fmt::Debug for WadDirectory {
 pub struct Wad {
     pub wad_file_path: PathBuf,
     /// The WAD as an array of bytes read in to memory
-    pub wad_data: Vec<u8>,
+    pub wad_data:      Vec<u8>,
     /// Tells us where each lump of data is
-    pub wad_dirs: Vec<WadDirectory>,
+    pub wad_dirs:      Vec<WadDirectory>,
 }
 
 impl fmt::Debug for Wad {
@@ -181,12 +182,11 @@ impl fmt::Debug for Wad {
 impl Wad {
     pub fn new<A>(file_path: A) -> Wad
     where
-        A: Into<PathBuf>,
-    {
+        A: Into<PathBuf>, {
         let mut wad = Wad {
             wad_file_path: file_path.into(),
-            wad_data: Vec::new(),
-            wad_dirs: Vec::new(),
+            wad_data:      Vec::new(),
+            wad_dirs:      Vec::new(),
         };
 
         let mut file = File::open(&wad.wad_file_path)
@@ -224,8 +224,8 @@ impl Wad {
         t[3] = self.wad_data[offset + 3];
 
         WadHeader {
-            wad_type: t,
-            dir_count: self.read_4_bytes(offset + 4),
+            wad_type:   t,
+            dir_count:  self.read_4_bytes(offset + 4),
             dir_offset: self.read_4_bytes(offset + 8),
         }
     }
@@ -238,8 +238,8 @@ impl Wad {
 
         WadDirectory {
             lump_offset: self.read_4_bytes(offset),
-            lump_size: self.read_4_bytes(offset + 4),
-            lump_name: str::from_utf8(&n)
+            lump_size:   self.read_4_bytes(offset + 4),
+            lump_name:   str::from_utf8(&n)
                 .expect("Invalid lump name")
                 .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
                 .to_owned(),
@@ -273,8 +273,7 @@ impl Wad {
         func: F,
     ) -> Vec<T>
     where
-        F: Fn(usize) -> T,
-    {
+        F: Fn(usize) -> T, {
         let name: String = lump_type.to_string();
         index += lump_type as usize;
 
@@ -289,7 +288,8 @@ impl Wad {
 
         let mut v: Vec<T> = Vec::new();
         for i in 0..data_count {
-            let offset = (self.wad_dirs[index].lump_offset + i * data_size) as usize;
+            let offset =
+                (self.wad_dirs[index].lump_offset + i * data_size) as usize;
             v.push(func(offset));
         }
         v
@@ -321,7 +321,8 @@ mod tests {
         let x = wad.read_4_bytes(0);
         dbg!(&x);
 
-        let y = (wad.read_2_bytes(2) as u32) << 16 | (wad.read_2_bytes(0) as u32);
+        let y =
+            (wad.read_2_bytes(2) as u32) << 16 | (wad.read_2_bytes(0) as u32);
         dbg!(&y);
 
         assert_eq!(x, y);

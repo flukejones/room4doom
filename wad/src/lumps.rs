@@ -10,21 +10,28 @@
 //  - [ ] Reject
 //  - [ ] Blockmap
 
-pub use crate::nodes::{Node, IS_SSECTOR_MASK};
-use crate::DPtr;
-use crate::Vertex;
 use std::f32::EPSILON;
 use std::str;
 
+pub use crate::nodes::{Node, IS_SSECTOR_MASK};
+use crate::DPtr;
+use crate::Vertex;
+
 #[derive(Debug)]
 pub struct Object {
-    pub xy: Vertex,
-    pub z: f32,
+    pub xy:       Vertex,
+    pub z:        f32,
     pub rotation: f32,
-    pub sector: DPtr<Sector>,
+    pub sector:   DPtr<Sector>,
 }
+
 impl Object {
-    pub fn new(xy: Vertex, z: f32, rotation: f32, sector: DPtr<Sector>) -> Object {
+    pub fn new(
+        xy: Vertex,
+        z: f32,
+        rotation: f32,
+        sector: DPtr<Sector>,
+    ) -> Object {
         Object {
             xy,
             z,
@@ -50,9 +57,9 @@ impl Object {
 // TODO: A `Thing` type will need to be mapped against an enum
 #[derive(Debug)]
 pub struct Thing {
-    pub pos: Vertex,
+    pub pos:   Vertex,
     pub angle: f32,
-    pub kind: u16,
+    pub kind:  u16,
     pub flags: u16,
 }
 
@@ -102,20 +109,21 @@ struct WVertex {
 #[derive(Debug)]
 pub struct LineDef {
     /// The line starts from this point
-    pub start_vertex: DPtr<Vertex>,
+    pub start_vertex:  DPtr<Vertex>,
     /// The line ends at this point
-    pub end_vertex: DPtr<Vertex>,
+    pub end_vertex:    DPtr<Vertex>,
     /// The line attributes, see `LineDefFlags`
-    pub flags: u16,
-    pub line_type: u16,
+    pub flags:         u16,
+    pub line_type:     u16,
     /// This is a number which ties this line's effect type
     /// to all SECTORS that have the same tag number (in their last
     /// field)
-    pub sector_tag: u16,
+    pub sector_tag:    u16,
     /// Index number of the front `SideDef` for this line
-    pub front_sidedef: DPtr<SideDef>, //0xFFFF means there is no sidedef
+    pub front_sidedef: DPtr<SideDef>,
+    //0xFFFF means there is no sidedef
     /// Index number of the back `SideDef` for this line
-    pub back_sidedef: Option<DPtr<SideDef>>, //0xFFFF means there is no sidedef
+    pub back_sidedef:  Option<DPtr<SideDef>>, //0xFFFF means there is no sidedef
 }
 
 impl LineDef {
@@ -160,20 +168,20 @@ pub struct Segment {
     /// The line starts from this point
     pub start_vertex: DPtr<Vertex>,
     /// The line ends at this point
-    pub end_vertex: DPtr<Vertex>,
+    pub end_vertex:   DPtr<Vertex>,
     /// Binary Angle Measurement
     ///
     /// Degrees(0-360) = angle * 0.005493164
-    pub angle: f32,
+    pub angle:        f32,
     /// The Linedef this segment travels along
-    pub linedef: DPtr<LineDef>,
-    pub direction: u16,
+    pub linedef:      DPtr<LineDef>,
+    pub direction:    u16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
     ///
     /// For diagonal `Segment` offset can be found with:
     /// `DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)`
-    pub offset: u16,
+    pub offset:       u16,
 }
 
 impl Segment {
@@ -226,7 +234,7 @@ impl Segment {
 /// Each `SubSector` record is 4 bytes
 #[derive(Debug)]
 pub struct SubSector {
-    pub sector: DPtr<Sector>,
+    pub sector:    DPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
     pub seg_count: u16,
     /// The `Segment` to start with
@@ -234,7 +242,11 @@ pub struct SubSector {
 }
 
 impl SubSector {
-    pub fn new(sector: DPtr<Sector>, seg_count: u16, start_seg: u16) -> SubSector {
+    pub fn new(
+        sector: DPtr<Sector>,
+        seg_count: u16,
+        start_seg: u16,
+    ) -> SubSector {
         SubSector {
             sector,
             seg_count,
@@ -252,21 +264,21 @@ impl SubSector {
 #[derive(Debug)]
 pub struct Sector {
     pub floor_height: i16,
-    pub ceil_height: i16,
+    pub ceil_height:  i16,
     /// Floor texture name
-    pub floor_tex: String,
+    pub floor_tex:    String,
     /// Ceiling texture name
-    pub ceil_tex: String,
+    pub ceil_tex:     String,
     /// Light level from 0-255. There are actually only 32 brightnesses
     /// possible so blocks of 8 are the same bright
-    pub light_level: u16,
+    pub light_level:  u16,
     /// This determines some area-effects called special sectors
-    pub kind: u16,
+    pub kind:         u16,
     /// a "tag" number corresponding to LINEDEF(s) with the same tag
     /// number. When that linedef is activated, something will usually
     /// happen to this sector - its floor will rise, the lights will
     /// go out, etc
-    pub tag: u16,
+    pub tag:          u16,
 }
 
 impl Sector {
@@ -315,16 +327,16 @@ impl Sector {
 /// Each `SideDef` record is 30 bytes
 #[derive(Debug)]
 pub struct SideDef {
-    pub x_offset: i16,
-    pub y_offset: i16,
+    pub x_offset:   i16,
+    pub y_offset:   i16,
     /// Name of upper texture used for example in the upper of a window
-    pub upper_tex: String,
+    pub upper_tex:  String,
     /// Name of lower texture used for example in the front of a step
-    pub lower_tex: String,
+    pub lower_tex:  String,
     /// The regular part of a wall
     pub middle_tex: String,
     /// Sector that this sidedef faces or helps to surround
-    pub sector: DPtr<Sector>,
+    pub sector:     DPtr<Sector>,
 }
 
 impl SideDef {

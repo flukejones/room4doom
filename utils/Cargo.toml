@@ -1,5 +1,5 @@
 [package]
-name = "gamelib"
+name = "utils"
 version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2018"
@@ -7,14 +7,4 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-utils = { path = "../utils" }
-wad = { path = "../wad" }
 glam = "0.8.5"
-
-[dev-dependencies]
-criterion = "~0.3"
-
-[[bench]]
-name = "load_map"
-harness = false
-path = "benches/parse_map.rs"
