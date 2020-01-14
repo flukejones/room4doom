@@ -1,13 +1,11 @@
 #![allow(clippy::new_without_default)]
-
-mod entities;
-mod flags;
 mod game;
 mod input;
 
 use crate::game::Game;
 use gumdrop::{Options, ParsingStyle};
 use sdl2;
+use sdl2::video::Window;
 use std::env;
 use std::time::Instant;
 
@@ -60,6 +58,7 @@ impl TimeStep {
         self.frame_count += 1;
         self.frame_time += self.delta_time;
         let tmp;
+        // per second
         if self.frame_time >= 1000.0 {
             tmp = self.frame_count;
             self.frame_count = 0;
@@ -69,15 +68,44 @@ impl TimeStep {
         None
     }
 }
-
+/// The main `game` crate should take care of only a few things:
+///
+/// - SDL system init (window, sound)
+/// - Input
+/// - Commandline arg parsing
+///
+/// And anything else not directly related to levels, sprites, textures, game logic etc
 fn main() {
     let args: Vec<String> = env::args().collect();
     // An SDL context is needed before we can procceed
-    let mut sdl_ctx = sdl2::init().unwrap();
+    let sdl_ctx = sdl2::init().unwrap();
+    let video_ctx = sdl_ctx.video().unwrap();
+    // Create a window
+    let window: Window;
+
+    let events = sdl_ctx.event_pump().unwrap();
+
     let mut game = match GameOptions::parse_args(&args[1..], ParsingStyle::AllOptions) {
         Ok(opts) => {
             println!("{:?}", opts);
-            Game::new(&mut sdl_ctx, opts)
+            window = video_ctx
+                .window(
+                    "DIIRDOOM",
+                    opts.width.unwrap_or(320),
+                    opts.height.unwrap_or(200),
+                )
+                .position_centered()
+                .opengl()
+                .build()
+                .unwrap();
+            let canvas = window
+                .into_canvas()
+                .accelerated()
+                .present_vsync()
+                .build()
+                .unwrap();
+
+            Game::new(canvas, events, opts)
         }
         Err(err) => {
             panic!("\n{}\n{}", err, GameOptions::usage());

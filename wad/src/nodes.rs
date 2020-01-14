@@ -263,76 +263,75 @@ impl Node {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::map;
-    use crate::nodes::IS_SSECTOR_MASK;
-    use crate::wad::Wad;
-    use crate::Vertex;
+// #[cfg(test)]
+// mod tests {
+//     use crate::nodes::IS_SSECTOR_MASK;
+//     use crate::wad::Wad;
+//     use crate::Vertex;
 
-    #[test]
-    fn check_nodes_of_e1m1() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
+//     #[test]
+//     fn check_nodes_of_e1m1() {
+//         let mut wad = Wad::new("../doom1.wad");
+//         wad.read_directories();
 
-        let mut map = map::Map::new("E1M1".to_owned());
-        wad.load_map(&mut map);
+//         let mut map = map::Map::new("E1M1".to_owned());
+//         wad.load_map(&mut map);
 
-        let nodes = map.get_nodes();
-        assert_eq!(nodes[0].split_start.x as i32, 1552);
-        assert_eq!(nodes[0].split_start.y as i32, -2432);
-        assert_eq!(nodes[0].split_delta.x as i32, 112);
-        assert_eq!(nodes[0].split_delta.y as i32, 0);
+//         let nodes = map.get_nodes();
+//         assert_eq!(nodes[0].split_start.x as i32, 1552);
+//         assert_eq!(nodes[0].split_start.y as i32, -2432);
+//         assert_eq!(nodes[0].split_delta.x as i32, 112);
+//         assert_eq!(nodes[0].split_delta.y as i32, 0);
 
-        assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //top
-        assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //bottom
+//         assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //top
+//         assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //bottom
 
-        assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
-        assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
+//         assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
+//         assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
 
-        assert_eq!(nodes[0].child_index[0], 32768);
-        assert_eq!(nodes[0].child_index[1], 32769);
-        assert_eq!(IS_SSECTOR_MASK, 0x8000);
+//         assert_eq!(nodes[0].child_index[0], 32768);
+//         assert_eq!(nodes[0].child_index[1], 32769);
+//         assert_eq!(IS_SSECTOR_MASK, 0x8000);
 
-        println!("{:#018b}", IS_SSECTOR_MASK);
+//         println!("{:#018b}", IS_SSECTOR_MASK);
 
-        println!("00: {:#018b}", nodes[0].child_index[0]);
-        dbg!(nodes[0].child_index[0] & IS_SSECTOR_MASK);
-        println!("00: {:#018b}", nodes[0].child_index[1]);
-        dbg!(nodes[0].child_index[1] & IS_SSECTOR_MASK);
+//         println!("00: {:#018b}", nodes[0].child_index[0]);
+//         dbg!(nodes[0].child_index[0] & IS_SSECTOR_MASK);
+//         println!("00: {:#018b}", nodes[0].child_index[1]);
+//         dbg!(nodes[0].child_index[1] & IS_SSECTOR_MASK);
 
-        println!("01: {:#018b}", nodes[1].child_index[0]);
-        dbg!(nodes[1].child_index[0] & IS_SSECTOR_MASK);
-        println!("01: {:#018b}", nodes[1].child_index[1]);
-        dbg!(nodes[1].child_index[1] & IS_SSECTOR_MASK);
+//         println!("01: {:#018b}", nodes[1].child_index[0]);
+//         dbg!(nodes[1].child_index[0] & IS_SSECTOR_MASK);
+//         println!("01: {:#018b}", nodes[1].child_index[1]);
+//         dbg!(nodes[1].child_index[1] & IS_SSECTOR_MASK);
 
-        println!("02: {:#018b}", nodes[2].child_index[0]);
-        dbg!(nodes[2].child_index[0]);
-        println!("02: {:#018b}", nodes[2].child_index[1]);
-        dbg!(nodes[2].child_index[1] & IS_SSECTOR_MASK);
-        dbg!(nodes[2].child_index[1] ^ IS_SSECTOR_MASK);
+//         println!("02: {:#018b}", nodes[2].child_index[0]);
+//         dbg!(nodes[2].child_index[0]);
+//         println!("02: {:#018b}", nodes[2].child_index[1]);
+//         dbg!(nodes[2].child_index[1] & IS_SSECTOR_MASK);
+//         dbg!(nodes[2].child_index[1] ^ IS_SSECTOR_MASK);
 
-        println!("03: {:#018b}", nodes[3].child_index[0]);
-        dbg!(nodes[3].child_index[0]);
-        println!("03: {:#018b}", nodes[3].child_index[1]);
-        dbg!(nodes[3].child_index[1]);
-    }
+//         println!("03: {:#018b}", nodes[3].child_index[0]);
+//         dbg!(nodes[3].child_index[0]);
+//         println!("03: {:#018b}", nodes[3].child_index[1]);
+//         dbg!(nodes[3].child_index[1]);
+//     }
 
-    #[test]
-    fn find_vertex_using_bsptree() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
+//     #[test]
+//     fn find_vertex_using_bsptree() {
+//         let mut wad = Wad::new("../doom1.wad");
+//         wad.read_directories();
 
-        let mut map = map::Map::new("E1M1".to_owned());
-        wad.load_map(&mut map);
+//         let mut map = map::Map::new("E1M1".to_owned());
+//         wad.load_map(&mut map);
 
-        let player = Vertex::new(1056.0, -3616.0);
-        let nodes = map.get_nodes();
-        let subsector = map
-            .find_subsector(&player, (nodes.len() - 1) as u16)
-            .unwrap();
-        //assert_eq!(subsector_id, Some(103));
-        assert_eq!(subsector.seg_count, 5);
-        assert_eq!(subsector.start_seg, 305);
-    }
-}
+//         let player = Vertex::new(1056.0, -3616.0);
+//         let nodes = map.get_nodes();
+//         let subsector = map
+//             .find_subsector(&player, (nodes.len() - 1) as u16)
+//             .unwrap();
+//         //assert_eq!(subsector_id, Some(103));
+//         assert_eq!(subsector.seg_count, 5);
+//         assert_eq!(subsector.start_seg, 305);
+//     }
+// }

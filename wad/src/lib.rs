@@ -31,9 +31,6 @@
 //!             └───────── └────────────────────┘
 //! ```
 
-/// Data structures for a map, such as vertexes, lines, nodes
-pub mod map;
-
 /// The WAD structure and parser
 pub mod wad;
 

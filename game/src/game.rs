@@ -1,17 +1,12 @@
-use crate::flags::LineDefFlags;
 use crate::input::Input;
 use crate::GameOptions;
-use sdl2::gfx::primitives::DrawRenderer;
-use sdl2::keyboard::Scancode;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
-use sdl2::Sdl;
+use gamelib::{flags::LineDefFlags, map::Map};
+use sdl2::{
+    gfx::primitives::DrawRenderer, keyboard::Scancode, render::Canvas, video::Window, EventPump,
+};
 use std::f32::consts::PI;
 use vec2d::radian_range;
-use wad::lumps::Object;
-use wad::map::Map;
-use wad::Wad;
-use wad::{lumps::Segment, Vertex};
+use wad::{lumps::Object, lumps::Segment, Vertex, Wad};
 
 pub struct Game {
     input: Input,
@@ -28,35 +23,13 @@ impl Game {
     ///
     /// Ideally full error checking will be done in by system.
     ///
-    pub fn new(sdl_ctx: &mut Sdl, options: GameOptions) -> Game {
-        let video_ctx = sdl_ctx.video().unwrap();
-        // Create a window
-        let window: Window = video_ctx
-            .window(
-                "Game Framework",
-                options.width.unwrap_or(320),
-                options.height.unwrap_or(200),
-            )
-            .position_centered()
-            .opengl()
-            .build()
-            .unwrap();
-
-        let canvas = window
-            .into_canvas()
-            .accelerated()
-            .present_vsync()
-            .build()
-            .unwrap();
-
-        let events = sdl_ctx.event_pump().unwrap();
-
+    pub fn new(canvas: Canvas<Window>, events: EventPump, options: GameOptions) -> Game {
         let input = Input::new(events);
 
         let mut wad = Wad::new(options.iwad);
         wad.read_directories();
         let mut map = Map::new(options.map.unwrap_or("E1M1".to_owned()));
-        wad.load_map(&mut map);
+        map.load(&wad);
 
         // options.width.unwrap_or(320) as i16 / options.height.unwrap_or(200) as i16
         let map_width = map.get_extents().width as f32;

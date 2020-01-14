@@ -1,4 +1,3 @@
-use crate::map::Map;
 use crate::nodes::Node;
 use crate::{
     lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing},
@@ -48,7 +47,7 @@ impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
 /// in `self.wad_dirs` then combine this index with a `LumpIndex`
 /// variant to get a specific lump.
 #[allow(dead_code)]
-enum LumpIndex {
+pub enum LumpIndex {
     /// Position and angle for all monster, powerup and spawn location
     Things = 1,
     /// An array of lines referencing two vertices (Two vertexes are connected
@@ -110,7 +109,7 @@ impl LumpIndex {
 /// | 0x04-0x07  | unsigned int | The number entries in the directory                  |
 /// | 0x08-0x0b  | unsigned int | Offset in bytes to the directory in the WAD file     |
 ///
-struct WadHeader {
+pub struct WadHeader {
     /// Will be either `IWAD` for game, or `PWAD` for patch
     wad_type: [u8; 4],
     /// The count of "lumps" of data
@@ -141,7 +140,7 @@ impl fmt::Debug for WadHeader {
 /// | 0x04-0x07  | unsigned int | The size of the lump in bytes                              |
 /// | 0x08-0x0f  | 8 ASCII char | ASCII holding the name of the lump                         |
 ///
-struct WadDirectory {
+pub struct WadDirectory {
     /// The offset in bytes where the lump data starts
     lump_offset: u32,
     /// The size in bytes of the lump referenced
@@ -162,11 +161,11 @@ impl fmt::Debug for WadDirectory {
 /// "Where's All (the) Data": contains the WAD in memory, plus an array of directories
 /// telling us where each data lump starts
 pub struct Wad {
-    wad_file_path: PathBuf,
+    pub wad_file_path: PathBuf,
     /// The WAD as an array of bytes read in to memory
-    wad_data: Vec<u8>,
+    pub wad_data: Vec<u8>,
     /// Tells us where each lump of data is
-    wad_dirs: Vec<WadDirectory>,
+    pub wad_dirs: Vec<WadDirectory>,
 }
 
 impl fmt::Debug for Wad {
@@ -206,18 +205,18 @@ impl Wad {
         wad
     }
 
-    fn read_2_bytes(&self, offset: usize) -> u16 {
+    pub fn read_2_bytes(&self, offset: usize) -> u16 {
         (self.wad_data[offset + 1] as u16) << 8 | (self.wad_data[offset] as u16)
     }
 
-    fn read_4_bytes(&self, offset: usize) -> u32 {
+    pub fn read_4_bytes(&self, offset: usize) -> u32 {
         (self.wad_data[offset + 3] as u32) << 24
             | (self.wad_data[offset + 2] as u32) << 16
             | (self.wad_data[offset + 1] as u32) << 8
             | (self.wad_data[offset] as u32)
     }
 
-    fn read_header(&self, offset: usize) -> WadHeader {
+    pub fn read_header(&self, offset: usize) -> WadHeader {
         let mut t = [0u8; 4];
         t[0] = self.wad_data[offset];
         t[1] = self.wad_data[offset + 1];
@@ -231,7 +230,7 @@ impl Wad {
         }
     }
 
-    fn read_dir_data(&self, offset: usize) -> WadDirectory {
+    pub fn read_dir_data(&self, offset: usize) -> WadDirectory {
         let mut n = [0u8; 8]; // length is 8 slots total
         for i in 0..8 {
             n[i] = self.wad_data[offset + 8 + i]
@@ -266,7 +265,7 @@ impl Wad {
         panic!("Index not found for lump name: {}", name);
     }
 
-    fn read_lump_to_vec<F, T>(
+    pub fn read_lump_to_vec<F, T>(
         &self,
         mut index: usize,
         lump_type: LumpIndex,
@@ -294,155 +293,6 @@ impl Wad {
             v.push(func(offset));
         }
         v
-    }
-
-    pub fn load_map<'m>(&self, map: &'m mut Map) {
-        let index = self.find_lump_index(map.get_name());
-        // THINGS
-        map.set_things(
-            self.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {
-                Thing::new(
-                    Vertex::new(
-                        self.read_2_bytes(offset) as i16 as f32,
-                        self.read_2_bytes(offset + 2) as i16 as f32,
-                    ),
-                    self.read_2_bytes(offset + 4) as u16 as f32,
-                    self.read_2_bytes(offset + 6),
-                    self.read_2_bytes(offset + 8),
-                )
-            }),
-        );
-        // Vertexes
-        map.set_vertexes(
-            self.read_lump_to_vec(index, LumpIndex::Vertexes, 4, |offset| {
-                Vertex::new(
-                    self.read_2_bytes(offset) as i16 as f32,
-                    self.read_2_bytes(offset + 2) as i16 as f32,
-                )
-            }),
-        );
-        // Sectors
-        map.set_sectors(
-            self.read_lump_to_vec(index, LumpIndex::Sectors, 26, |offset| {
-                Sector::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
-                    &self.wad_data[offset + 4..offset + 12],
-                    &self.wad_data[offset + 12..offset + 20],
-                    self.read_2_bytes(offset + 20),
-                    self.read_2_bytes(offset + 22),
-                    self.read_2_bytes(offset + 24),
-                )
-            }),
-        );
-        // Sidedefs
-        map.set_sidedefs(
-            self.read_lump_to_vec(index, LumpIndex::SideDefs, 30, |offset| {
-                let sector = &map.get_sectors()[self.read_2_bytes(offset + 28) as usize];
-                SideDef::new(
-                    self.read_2_bytes(offset) as i16,
-                    self.read_2_bytes(offset + 2) as i16,
-                    &self.wad_data[offset + 4..offset + 12],
-                    &self.wad_data[offset + 12..offset + 20],
-                    &self.wad_data[offset + 20..offset + 28],
-                    DPtr::new(sector),
-                )
-            }),
-        );
-        //LineDefs
-        map.set_linedefs(
-            self.read_lump_to_vec(index, LumpIndex::LineDefs, 14, |offset| {
-                let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
-                let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
-                let front_sidedef = &map.get_sidedefs()[self.read_2_bytes(offset + 10) as usize];
-                let back_sidedef = {
-                    let index = self.read_2_bytes(offset + 12) as usize;
-                    if index < 65535 {
-                        Some(DPtr::new(&map.get_sidedefs()[index]))
-                    } else {
-                        None
-                    }
-                };
-                LineDef::new(
-                    DPtr::new(start_vertex),
-                    DPtr::new(end_vertex),
-                    self.read_2_bytes(offset + 4),
-                    self.read_2_bytes(offset + 6),
-                    self.read_2_bytes(offset + 8),
-                    DPtr::new(front_sidedef),
-                    back_sidedef,
-                )
-            }),
-        );
-        // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
-        // storing in map struct
-        //
-        // SEGS
-        map.set_segments(self.read_lump_to_vec(index, LumpIndex::Segs, 12, |offset| {
-            let start_vertex = &map.get_vertexes()[self.read_2_bytes(offset) as usize];
-            let end_vertex = &map.get_vertexes()[self.read_2_bytes(offset + 2) as usize];
-            let linedef = &map.get_linedefs()[self.read_2_bytes(offset + 6) as usize];
-            Segment::new(
-                DPtr::new(start_vertex),
-                DPtr::new(end_vertex),
-                self.read_2_bytes(offset + 4) as f32,
-                DPtr::new(linedef),
-                self.read_2_bytes(offset + 8),
-                self.read_2_bytes(offset + 10),
-            )
-        }));
-        // SSECTORS
-        map.set_subsectors(
-            self.read_lump_to_vec(index, LumpIndex::SubSectors, 4, |offset| {
-                let start_seg = self.read_2_bytes(offset + 2);
-                let sector = map.get_segments()[start_seg as usize]
-                    .linedef
-                    .front_sidedef
-                    .sector
-                    .clone();
-                SubSector::new(sector, self.read_2_bytes(offset), start_seg)
-            }),
-        );
-
-        // NODES
-        map.set_nodes(
-            self.read_lump_to_vec(index, LumpIndex::Nodes, 28, |offset| {
-                Node::new(
-                    Vertex::new(
-                        self.read_2_bytes(offset) as i16 as f32,
-                        self.read_2_bytes(offset + 2) as i16 as f32,
-                    ),
-                    Vertex::new(
-                        self.read_2_bytes(offset + 4) as i16 as f32,
-                        self.read_2_bytes(offset + 6) as i16 as f32,
-                    ),
-                    [
-                        [
-                            Vertex::new(
-                                self.read_2_bytes(offset + 12) as i16 as f32, // top
-                                self.read_2_bytes(offset + 8) as i16 as f32,  // left
-                            ),
-                            Vertex::new(
-                                self.read_2_bytes(offset + 14) as i16 as f32, // bottom
-                                self.read_2_bytes(offset + 10) as i16 as f32, // right
-                            ),
-                        ],
-                        [
-                            Vertex::new(
-                                self.read_2_bytes(offset + 20) as i16 as f32,
-                                self.read_2_bytes(offset + 16) as i16 as f32,
-                            ),
-                            Vertex::new(
-                                self.read_2_bytes(offset + 22) as i16 as f32,
-                                self.read_2_bytes(offset + 18) as i16 as f32,
-                            ),
-                        ],
-                    ],
-                    self.read_2_bytes(offset + 24),
-                    self.read_2_bytes(offset + 26),
-                )
-            }),
-        );
     }
 }
 

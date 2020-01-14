@@ -1,5 +1,5 @@
 [package]
-name = "game"
+name = "diirdoom"
 version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2018"
@@ -10,17 +10,14 @@ name = "diirdoom"
 path = "src/main.rs"
 
 [dependencies]
-vec2d = { path = "../vec2d" }
 glam = "0.8.5"
 gumdrop = "~0.7"
 rand = "*"
+gamelib = { path = "../gamelib" }
 wad = { path = "../wad" }
+vec2d = { path = "../vec2d" }
 
 [dependencies.sdl2]
 version = "0.32"
 default-features = false
 features = ["gfx"]
-
-[dev-dependencies]
-gumdrop = "~0.7"
-wad = { path = "../wad" }

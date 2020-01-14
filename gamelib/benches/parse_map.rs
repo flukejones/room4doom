@@ -1,5 +1,5 @@
 use criterion::*;
-use wad::map::Map;
+use diirdlib::map::Map;
 use wad::wad::Wad;
 
 fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
@@ -7,7 +7,7 @@ fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
     wad.read_directories();
     let mut map = Map::new("E1M1".to_owned());
     b.iter(|| {
-        wad.load_map(&mut map);
+        map.load(&wad);
     });
 }
 
@@ -16,7 +16,7 @@ fn bench_load_e1m7(b: &mut Bencher, _i: &u32) {
     wad.read_directories();
     let mut map = Map::new("E1M7".to_owned());
     b.iter(|| {
-        wad.load_map(&mut map);
+        map.load(&wad);
     });
 }
 

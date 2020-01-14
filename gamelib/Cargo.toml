@@ -1,17 +1,19 @@
 [package]
-name = "wad"
+name = "gamelib"
 version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2018"
-license = "MPL-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+wad = { path = "../wad" }
 vec2d = { path = "../vec2d" }
 
 [dev-dependencies]
 criterion = "~0.3"
 
 [[bench]]
-name = "load_wads"
+name = "load_map"
 harness = false
-path = "benches/wad_loading.rs"
+path = "benches/parse_map.rs"
