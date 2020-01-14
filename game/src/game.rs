@@ -199,14 +199,9 @@ impl<'c> Game<'c> {
                 .unwrap();
         }
 
-        let nodes = self.map.get_nodes();
-        //self.draw_sector_search(&self.player.pos(), (nodes.len() - 1) as u16, nodes);
         let mut segs = Vec::new();
-        self.map.list_segs_facing_point(
-            &self.player,
-            (nodes.len() - 1) as u16,
-            &mut segs,
-        );
+        self.map
+            .draw_bsp(&self.player, self.map.start_node(), &mut segs);
         for seg in segs {
             self.draw_line(seg);
         }
@@ -271,23 +266,14 @@ impl<'c> Game<'c> {
         if let Some(back_sector) = &seg.linedef.back_sidedef {
             let front_sector = &seg.linedef.front_sidedef.sector;
             let back_sector = &back_sector.sector;
+            let mut draw = false;
 
             // Doors. Block view
             if back_sector.ceil_height <= front_sector.floor_height
                 || back_sector.floor_height >= front_sector.ceil_height
             {
                 draw_colour = sdl2::pixels::Color::RGBA(255, 255, 120, alpha);
-                self.canvas
-                    .thick_line(
-                        screen_start.0,
-                        screen_start.1,
-                        screen_end.0,
-                        screen_end.1,
-                        2,
-                        draw_colour,
-                    )
-                    .unwrap();
-                return;
+                draw = true;
             }
 
             // Windows usually, but also changes in heights from sectors eg: steps
@@ -295,6 +281,7 @@ impl<'c> Game<'c> {
                 || back_sector.floor_height != front_sector.floor_height
             {
                 draw_colour = sdl2::pixels::Color::RGBA(255, 170, 170, alpha);
+                draw = true;
             }
 
             // Reject empty lines used for triggers and special events.
@@ -307,9 +294,24 @@ impl<'c> Game<'c> {
             {
                 return;
             }
+
+            if draw {
+                self.canvas
+                    .thick_line(
+                        screen_start.0,
+                        screen_start.1,
+                        screen_end.0,
+                        screen_end.1,
+                        2,
+                        draw_colour,
+                    )
+                    .unwrap();
+                return;
+            }
         }
 
         // Identify which lines surround the planes that would be drawn
+        // White: meaning sector floor and ceiling are within the player view
         let sector = &seg.linedef.front_sidedef.sector;
         if sector.floor_height <= self.player.z as i16
             && sector.ceil_height > self.player.z as i16

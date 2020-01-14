@@ -116,6 +116,7 @@ pub struct Map {
     segments:   Vec<Segment>,
     extents:    MapExtents,
     nodes:      Vec<Node>,
+    start_node: u16,
     fov:        f32,
     half_fov:   f32,
 }
@@ -133,6 +134,7 @@ impl Map {
             segments: Vec::new(),
             extents: MapExtents::default(),
             nodes: Vec::new(),
+            start_node: 0,
             fov: FRAC_PI_2,
             half_fov: FRAC_PI_4,
         }
@@ -146,11 +148,6 @@ impl Map {
     #[inline]
     pub fn get_things(&self) -> &[Thing] {
         &self.things
-    }
-
-    #[inline]
-    pub fn set_things(&mut self, t: Vec<Thing>) {
-        self.things = t;
     }
 
     #[inline]
@@ -224,6 +221,11 @@ impl Map {
     #[inline]
     pub fn get_nodes(&self) -> &[Node] {
         &self.nodes
+    }
+
+    #[inline]
+    pub fn start_node(&self) -> u16 {
+        self.start_node
     }
 
     pub fn load<'m>(&mut self, wad: &Wad) {
@@ -374,6 +376,7 @@ impl Map {
                     wad.read_2_bytes(offset + 26),
                 )
             });
+        self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
     }
 
@@ -427,7 +430,7 @@ impl Map {
         seg_list.push(seg);
     }
 
-    pub fn list_segs_facing_point<'a>(
+    pub fn draw_bsp<'a>(
         &'a self,
         object: &Object,
         node_id: u16,
@@ -450,16 +453,12 @@ impl Map {
         let node = &self.nodes[node_id as usize];
 
         let side = node.point_on_side(&object.xy);
-        self.list_segs_facing_point(object, node.child_index[side], seg_list);
+        self.draw_bsp(object, node.child_index[side], seg_list);
 
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(object, self.half_fov, side ^ 1) {
-            self.list_segs_facing_point(
-                object,
-                node.child_index[side ^ 1],
-                seg_list,
-            );
+            self.draw_bsp(object, node.child_index[side ^ 1], seg_list);
         }
     }
 }
