@@ -10,36 +10,12 @@
 //  - [ ] Reject
 //  - [ ] Blockmap
 
-use std::f32::EPSILON;
+use std::f32::{consts::PI, EPSILON};
 use std::str;
 
 pub use crate::nodes::{Node, IS_SSECTOR_MASK};
 use crate::DPtr;
 use crate::Vertex;
-
-#[derive(Debug)]
-pub struct Object {
-    pub xy:       Vertex,
-    pub z:        f32,
-    pub rotation: f32,
-    pub sector:   DPtr<Sector>,
-}
-
-impl Object {
-    pub fn new(
-        xy: Vertex,
-        z: f32,
-        rotation: f32,
-        sector: DPtr<Sector>,
-    ) -> Object {
-        Object {
-            xy,
-            z,
-            rotation,
-            sector,
-        }
-    }
-}
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///
@@ -83,7 +59,6 @@ impl Thing {
 /// |------------|-----------|--------------|
 /// |  0x00-0x01 |    i16    | X Coordinate |
 /// |  0x02-0x03 |    i16    | Y Coordinate |
-// TODO: Use the Vec2d module
 #[derive(Debug, Default, Clone)]
 struct WVertex {
     x: f32,
@@ -106,7 +81,12 @@ struct WVertex {
 ///
 /// Each linedef's record is 14 bytes, and is made up of 7 16-bit
 /// fields
-#[derive(Debug)]
+///
+/// A Linedef will always have at least one side. This first side is referred to
+/// as either front or right. If you imagine a linedef starting from the bottom
+/// of the screen travelling upwards then the right side of this line is the first
+/// valid side (and is the front).
+#[derive(Debug, Clone)]
 pub struct LineDef {
     /// The line starts from this point
     pub start_vertex:  DPtr<Vertex>,
@@ -119,11 +99,11 @@ pub struct LineDef {
     /// to all SECTORS that have the same tag number (in their last
     /// field)
     pub sector_tag:    u16,
-    /// Index number of the front `SideDef` for this line
+    /// Pointer to the front (right) `SideDef` for this line
     pub front_sidedef: DPtr<SideDef>,
-    //0xFFFF means there is no sidedef
-    /// Index number of the back `SideDef` for this line
-    pub back_sidedef:  Option<DPtr<SideDef>>, //0xFFFF means there is no sidedef
+    /// Pointer to the (left) `SideDef` for this line
+    /// If the parsed value == `0xFFFF` means there is no sidedef
+    pub back_sidedef:  Option<DPtr<SideDef>>,
 }
 
 impl LineDef {
@@ -163,7 +143,7 @@ impl LineDef {
 /// |  0x10-0x11 |    u16    | Offset: this is the distance along the linedef this seg starts at |
 ///
 /// Each `Segment` record is 12 bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Segment {
     /// The line starts from this point
     pub start_vertex: DPtr<Vertex>,
@@ -175,6 +155,11 @@ pub struct Segment {
     pub angle:        f32,
     /// The Linedef this segment travels along
     pub linedef:      DPtr<LineDef>,
+    /// Doom source assumes that a sidedef is guaranteed. If there's not a
+    /// linedef.back then there is definitely a front and this is used.
+    /// Segs will never have a side/direction that is not 0 or 1
+    pub sidedef:      DPtr<SideDef>,
+    /// The `side`, 0 = front/right, 1 = back/left
     pub direction:    u16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
@@ -190,6 +175,7 @@ impl Segment {
         end_vertex: DPtr<Vertex>,
         angle: f32,
         linedef: DPtr<LineDef>,
+        sidedef: DPtr<SideDef>,
         direction: u16,
         offset: u16,
     ) -> Segment {
@@ -198,13 +184,18 @@ impl Segment {
             end_vertex,
             angle,
             linedef,
+            sidedef,
             direction,
             offset,
         }
     }
 
-    pub fn angle_to_degree(&self) -> f32 {
-        self.angle * 0.005493164
+    pub fn angle_degree(&self) -> f32 {
+        self.angle
+    }
+
+    pub fn angle_rads(&self) -> f32 {
+        self.angle * PI / 180.0
     }
 
     /// True if the right side of the segment faces the point
@@ -232,7 +223,7 @@ impl Segment {
 /// |  0x02-0x03 |    u16    | Index to the starting segment      |
 ///
 /// Each `SubSector` record is 4 bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubSector {
     pub sector:    DPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
@@ -261,7 +252,7 @@ impl SubSector {
 /// new sector (and therefore separating linedefs and sidedefs).
 ///
 /// Each `Sector` record is 26 bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sector {
     pub floor_height: i16,
     pub ceil_height:  i16,
@@ -308,11 +299,11 @@ impl Sector {
             ceil_height,
             floor_tex: str::from_utf8(floor_tex)
                 .expect("Invalid floor tex name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             ceil_tex: str::from_utf8(ceil_tex)
                 .expect("Invalid ceiling tex name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             light_level,
             kind,
@@ -325,7 +316,7 @@ impl Sector {
 /// `LineDef`, and a group of sidedefs outline the space of a `Sector`
 ///
 /// Each `SideDef` record is 30 bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SideDef {
     pub x_offset:   i16,
     pub y_offset:   i16,

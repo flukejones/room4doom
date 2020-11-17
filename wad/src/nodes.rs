@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
+use glam::Vec2;
 use utils::*;
 
-use crate::lumps::Object;
 use crate::Vertex;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
@@ -33,7 +33,7 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 /// | 0x16-0x17  | Left (Back)  box right               | Second corner of back box (X coordinate)         |
 /// | 0x18-0x19  | Right (Front) child index            | Index of the front child + sub-sector indicator  |
 /// | 0x1A-0x1B  | Left (Back)  child index             | Index of the back child + sub-sector indicator   |
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     /// Where the line used for splitting the map starts
     pub split_start:    Vertex,
@@ -67,25 +67,14 @@ impl Node {
         }
     }
 
-    /// Transliteration of R_PointOnSide from Chocolate Doom
+    /// R_PointOnSide
+    ///
+    /// Determine with cross-product which side of a splitting line the point is on
     pub fn point_on_side(&self, v: &Vertex) -> usize {
-        // if horizontal
-        if self.split_delta.x() as u32 == 0
-            && v.x() as u32 == self.split_start.x() as u32
-        {
-            return (self.split_delta.y() > 0.0) as usize;
-        }
-        // if vertical
-        if self.split_delta.y() as u32 == 0
-            && v.y() as u32 == self.split_start.y() as u32
-        {
-            return (self.split_delta.x() > 0.0) as usize;
-        }
-
         let dx = v.x() - self.split_start.x();
         let dy = v.y() - self.split_start.y();
 
-        if (dx * self.split_delta.y()) > (dy * self.split_delta.x()) {
+        if (self.split_delta.y() * dx) > (dy * self.split_delta.x()) {
             return 0;
         }
         1
@@ -97,8 +86,8 @@ impl Node {
     pub fn point_in_bounds(&self, v: &Vertex, side: usize) -> bool {
         if v.x() > self.bounding_boxes[side][0].x()
             && v.x() < self.bounding_boxes[side][1].x()
-            && v.y() > self.bounding_boxes[side][0].y()
-            && v.y() < self.bounding_boxes[side][1].y()
+            && v.y() < self.bounding_boxes[side][0].y()
+            && v.y() > self.bounding_boxes[side][1].y()
         {
             return true;
         }
@@ -106,64 +95,62 @@ impl Node {
     }
 
     /// half_fov must be in radians
+    /// R_CheckBBox
+    ///
+    /// TODO: solidsegs list
     pub fn bb_extents_in_fov(
         &self,
-        object: &Object,
+        vec: &Vec2,
+        angle_rads: f32,
         half_fov: f32,
         side: usize,
     ) -> bool {
-        let mut origin_ang = object.rotation;
+        let mut origin_ang = angle_rads;
 
         let top_left = &self.bounding_boxes[side][0];
         let bottom_right = &self.bounding_boxes[side][1];
 
-        // Super broadphase: check if we are in a BB
-        if self.point_in_bounds(&object.xy, side) {
+        // Super broadphase: check if we are in a BB, this will be true for each
+        // progressively smaller BB (as the BSP splits down)
+        if self.point_in_bounds(&vec, side) {
             return true;
         }
 
         // Make sure we never compare across the 360->0 range
-        let shift = if (object.rotation - PI).is_sign_negative() {
-            half_fov * 2.0
-        } else if object.rotation + PI > PI * 2.0 {
-            -(half_fov * 2.0)
+        let shift = if (angle_rads - half_fov).is_sign_negative() {
+            half_fov
+        } else if angle_rads + half_fov > PI * 2.0 {
+            -half_fov
         } else {
             0.0
         };
-        origin_ang = radian_range(origin_ang + shift);
+        //origin_ang = radian_range(origin_ang + shift);
+        origin_ang = origin_ang + shift;
 
         // Secondary broad phase check if each corner is in fov angle
         for x in [top_left.x(), bottom_right.x()].iter() {
             for y in [top_left.y(), bottom_right.y()].iter() {
-                let mut v_angle = (y - object.xy.y()).atan2(x - object.xy.x());
-                if v_angle < 0.0 {
-                    v_angle += PI * 2.0;
-                }
-                v_angle = radian_range(v_angle + shift) - origin_ang;
-                if v_angle.abs() <= half_fov {
+                // generate angle from object position to bb corner
+                let mut v_angle = (y - vec.y()).atan2(x - vec.x());
+                v_angle = (origin_ang - radian_range(v_angle + shift)).abs();
+                if v_angle <= half_fov {
                     return true;
                 }
             }
         }
-        // This will often catch edge cases
-        self.ray_from_point_intersect(
-            &object.xy,
-            object.rotation,
-            half_fov,
-            side,
-        )
-        //false
+
+        // Fine phase, raycasting
+        self.ray_from_point_intersect(&vec, angle_rads, side)
     }
 
     pub fn ray_from_point_intersect(
         &self,
         origin_v: &Vertex,
         origin_ang: f32,
-        half_fov: f32,
         side: usize,
     ) -> bool {
-        let steps = half_fov / 180.0 * PI;
-        let step_size = 15;
+        let steps = 90.0; //half_fov * (180.0 / PI); // convert fov to degrees
+        let step_size = 5; //steps as usize / 1;
         let top_left = &self.bounding_boxes[side][0];
         let bottom_right = &self.bounding_boxes[side][1];
         // Fine phase, check if a ray intersects any box line made from diagonals from corner
@@ -174,8 +161,9 @@ impl Node {
         // Start from FOV edges to catch the FOV passing through a BB case early
         // In reality this hardly ever fires for BB
         for i in (0..=steps as u32).rev().step_by(step_size) {
-            let left_fov = origin_ang + i as f32 * 180.0 / PI;
-            let right_fov = origin_ang - i as f32 * 180.0 / PI;
+            // From center outwards
+            let left_fov = origin_ang + (i as f32 * PI / 180.0); // convert the step to rads
+            let right_fov = origin_ang - (i as f32 * PI / 180.0);
             // We don't need the result from this, just need to know if it's "None"
             if ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right)
                 .is_some()
@@ -185,9 +173,9 @@ impl Node {
 
             if ray_to_line_intersect(
                 origin_v,
-                right_fov,
-                top_left,
-                bottom_right,
+                left_fov,
+                &bottom_left,
+                &top_right,
             )
             .is_some()
             {
@@ -196,9 +184,9 @@ impl Node {
 
             if ray_to_line_intersect(
                 origin_v,
-                left_fov,
-                &bottom_left,
-                &top_right,
+                right_fov,
+                top_left,
+                bottom_right,
             )
             .is_some()
             {
@@ -223,6 +211,7 @@ impl Node {
 // #[cfg(test)]
 // mod tests {
 //     use crate::nodes::IS_SSECTOR_MASK;
+//     use gamelib::map::Map;
 //     use crate::wad::Wad;
 //     use crate::Vertex;
 
@@ -231,8 +220,8 @@ impl Node {
 //         let mut wad = Wad::new("../doom1.wad");
 //         wad.read_directories();
 
-//         let mut map = map::Map::new("E1M1".to_owned());
-//         wad.load_map(&mut map);
+//         let mut map = Map::new("E1M1".to_owned());
+//         map.load(&wad);
 
 //         let nodes = map.get_nodes();
 //         assert_eq!(nodes[0].split_start.x() as i32, 1552);
@@ -279,8 +268,8 @@ impl Node {
 //         let mut wad = Wad::new("../doom1.wad");
 //         wad.read_directories();
 
-//         let mut map = map::Map::new("E1M1".to_owned());
-//         wad.load_map(&mut map);
+//         let mut map = Map::new("E1M1".to_owned());
+//         map.load(&wad);
 
 //         let player = Vertex::new(1056.0, -3616.0);
 //         let nodes = map.get_nodes();

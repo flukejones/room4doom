@@ -11,6 +11,7 @@ utils = { path = "../utils" }
 
 [dev-dependencies]
 criterion = "~0.3"
+gamelib = { path = "../gamelib" }
 
 [[bench]]
 name = "load_wads"
