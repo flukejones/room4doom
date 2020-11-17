@@ -1,4 +1,4 @@
-image: rust:1.40
+image: rust:1.47
 
 .rust_cache: &rust_cache
   cache:
@@ -19,11 +19,13 @@ test:
     - apt install -y libsdl2-dev libsdl2-gfx-dev
     - cargo check --verbose --all
     - cargo test --verbose --all
-rustfmt:
-  <<: *rust_cache
-  script:
-    - rustup component add rustfmt
-    - cargo fmt --all -- --check
+
+#rustfmt:
+#  <<: *rust_cache
+#  script:
+#    - rustup component add rustfmt
+#    - cargo fmt --all -- --check
+
 clippy:
   <<: *rust_cache
   script:
@@ -31,7 +33,7 @@ clippy:
     - cargo clippy --all
 
 pages:
-  image: rust:1.40
+  image: rust:1.47
   stage: deploy
   only:
     - master

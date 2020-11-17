@@ -1,18 +1,13 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::{fmt, str};
 
-use crate::nodes::Node;
-use crate::{
-    lumps::{LineDef, Sector, Segment, SideDef, SubSector, Thing},
-    Vertex,
-};
-
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
+#[derive(Clone)]
 pub struct DPtr<T> {
     p: NonNull<T>,
 }
@@ -34,6 +29,12 @@ impl<T> Deref for DPtr<T> {
 
     fn deref(&self) -> &Self::Target {
         unsafe { self.p.as_ref() }
+    }
+}
+
+impl<T> DerefMut for DPtr<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.p.as_mut() }
     }
 }
 

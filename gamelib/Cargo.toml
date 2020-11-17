@@ -11,6 +11,11 @@ utils = { path = "../utils" }
 wad = { path = "../wad" }
 glam = "0.8.5"
 
+[dependencies.sdl2]
+version = "0.34.3"
+default-features = false
+features = ["gfx"]
+
 [dev-dependencies]
 criterion = "~0.3"
 
