@@ -95,7 +95,7 @@ impl Node {
     }
 
     /// half_fov must be in radians
-    /// R_CheckBBox
+    /// R_CheckBBox - r_bsp
     ///
     /// TODO: solidsegs list
     pub fn bb_extents_in_fov(
