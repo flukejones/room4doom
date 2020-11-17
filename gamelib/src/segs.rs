@@ -20,7 +20,7 @@ impl Bsp {
         canvas: &mut Canvas<Surface>,
     ) {
         if start >= 320 || start > stop {
-            //println!("Bad R_RenderWallRange: {} to {}", start, stop);
+            println!("Bad R_RenderWallRange: {} to {}", start, stop);
             return;
         }
 
@@ -67,10 +67,19 @@ impl Bsp {
         let mut floor_start = 100.0 - (floor as f32 * scale1);
 
         let alpha = 255;
-        let z = (z - seg.sidedef.sector.floor_height) as u8;
-        let c = 100 - (ceil - floor) as u8 / 2;
+       
+        // testing lighting
+        let mut lightnum = seg.linedef.front_sidedef.sector.light_level as u8 >> 4 ;
+        if seg.start_vertex.y() == seg.end_vertex.y() {
+            lightnum -= 10;
+        } else if seg.start_vertex.x() == seg.end_vertex.x() {
+            lightnum += 10;
+        }
+
+        let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;
+
         let colour =
-            sdl2::pixels::Color::RGBA(255 - z, 200 - c, 200 - c, alpha);
+            sdl2::pixels::Color::RGBA(150 + lightnum - z as u8, 50 + lightnum, 50 + lightnum, alpha);
 
         // 130
         let mut curr = start;
