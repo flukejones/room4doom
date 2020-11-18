@@ -1,13 +1,13 @@
 use wad::Vertex;
 
-pub struct Player {
+pub struct Stuff {
     pos: Vertex,
     rot: f32,
 }
 
-impl Player {
-    pub fn new(pos: Vertex, rot: f32) -> Player {
-        Player { pos, rot }
+impl Stuff {
+    pub fn new(pos: Vertex, rot: f32) -> Self {
+        Self { pos, rot }
     }
 
     pub fn pos(&self) -> &Vertex {
