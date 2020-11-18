@@ -6,6 +6,7 @@ use wad::{
     DPtr, Vertex,
 };
 
+use crate::info::STATESJ;
 use crate::{
     angle::Angle, bsp::Bsp, doom_def::Card, info::MapObjectInfo,
     local::ONCEILINGZ,
@@ -153,7 +154,7 @@ pub struct MapObject {
     tics:   i32,
     /// state tic counter
     state:  State,
-    flags:  i32,
+    flags:  u32,
     health: i32,
 
     /// Movement direction, movement generation (zig-zagging).
@@ -214,7 +215,7 @@ impl MapObject {
         let x = mthing.pos.x();
         let y = mthing.pos.y();
         let z = ONFLOORZ as f32;
-        let mobj = MapObject::p_spawn_map_object(
+        let mut mobj = MapObject::p_spawn_map_object(
             x,
             y,
             z,
@@ -224,8 +225,8 @@ impl MapObject {
 
         // set color translations for player sprites
         if mthing.kind > 1 {
-            mobj.flags |=
-                (mthing.kind - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
+            mobj.flags = mobj.flags as u32
+                | (mthing.kind - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
         }
 
         mobj.angle = Angle::new(FRAC_PI_4 * (mthing.angle / 45.0));
@@ -273,7 +274,7 @@ impl MapObject {
         // mobjinfo_t*	info;
 
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
-        let info = MOBJINFO[kind.clone() as usize].clone();
+        let info = MOBJINFO[kind as usize].clone();
 
         // if (gameskill != sk_nightmare)
         //     mobj->reactiontime = info->reactiontime;
@@ -281,7 +282,7 @@ impl MapObject {
         // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let st: State = states[info.spawnstate];
+        let st: State = STATESJ[info.spawnstate as usize];
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =

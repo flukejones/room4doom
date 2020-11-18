@@ -1,3 +1,4 @@
+use crate::local::ActionF;
 use crate::map_object::MapObjectFlag;
 use crate::sounds::SfxEnum;
 
@@ -1124,7 +1125,7 @@ pub enum StateNum {
     NUMSTATES,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum MapObjectType {
     MT_PLAYER,
@@ -1348,17 +1349,59 @@ impl MapObjectInfo {
     }
 }
 
-#[derive(Debug)]
 pub struct State {
+    /// Sprite to use
     pub sprite:     SpriteNum,
+    /// The frame within this sprite to show for the state
     pub frame:      i32,
+    /// How many tics this state takes. On nightmare it is shifted >> 1
     pub tics:       i32,
     // void (*action) (): i32,
-    //actionf_t action: i32,
+    /// An action callback to run on this state
+    action:         ActionF,
+    /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
+    /// Don't know, Doom seems to set all to zero
     pub misc1:      i32,
+    /// Don't know, Doom seems to set all to zero
     pub misc2:      i32,
 }
+
+impl State {
+    pub fn new(
+        sprite: SpriteNum,
+        frame: i32,
+        tics: i32,
+        action: ActionF,
+        next_state: StateNum,
+        misc1: i32,
+        misc2: i32,
+    ) -> Self {
+        Self {
+            sprite,
+            frame,
+            tics,
+            action,
+            next_state,
+            misc1,
+            misc2,
+        }
+    }
+}
+
+//pub const STATESJ: [State; NUM_CATEGORIES] = [
+/// The States are an immutable set of predefined parameters, which
+pub const STATESJ: [State; 1] = [
+    State::new(
+        SpriteNum::SPR_TROO,
+        0,
+        -1,
+        ActionF::actionf_v,
+        StateNum::S_NULL,
+        0,
+        0,
+    ), // S_NULL
+];
 
 const FRACBITS: i32 = 16;
 const FRACUNIT: f32 = (1 << FRACBITS) as f32;
