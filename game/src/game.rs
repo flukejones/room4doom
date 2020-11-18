@@ -19,13 +19,26 @@ pub struct Game<'c> {
     _wad:            Wad,
     map:             Bsp,
     player:          Player,
+    deathmatch: i32,  // only if started as net death
 }
+
+//
+// G_InitPlayer
+// Called at the start.
+// Called by the game initialization functions.
+//
+// void G_InitPlayer(int player)
+// {
+//     // clear everything else to defaults
+//     G_PlayerReborn(player);
+// }
 
 impl<'c> Game<'c> {
     /// On `Game` object creation, initialize all the game subsystems where possible
     ///
     /// Ideally full error checking will be done in by system.
     ///
+    // TODO: G_DoLoadLevel? G_BuildTiccmd?
     pub fn new(
         canvas: &'c mut Canvas<Window>,
         input: &'c mut Input,
@@ -37,13 +50,13 @@ impl<'c> Game<'c> {
         map.load(&wad);
 
         let player_thing = &map.get_things()[0];
-        let player_subsect = map.find_subsector(&player_thing.pos).unwrap();
+        let player_subsect = map.point_in_subsector(&player_thing.pos).unwrap();
 
         let player = Player::new(
             player_thing.pos.clone(),
-            player_subsect.sector.floor_height as f32 + 41.0,
+            player_subsect.sector.floor_height as f32 + VIEWHEIGHT,
             Angle::new(player_thing.angle * PI / 180.0),
-            DPtr::new(player_subsect),
+            player_subsect,
         );
 
         dbg!(&player);
@@ -56,6 +69,7 @@ impl<'c> Game<'c> {
             _wad: wad,
             map,
             player,
+            deathmatch: 0,
         }
     }
 
@@ -123,8 +137,8 @@ impl<'c> Game<'c> {
 
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
-        let player_subsect = self.map.find_subsector(&self.player.xy).unwrap();
-        self.player.z = player_subsect.sector.floor_height as f32 + 41.0;
+        let player_subsect = self.map.point_in_subsector(&self.player.xy).unwrap();
+        self.player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
         self.player.sub_sector = DPtr::new(player_subsect);
 
         let surface = Surface::new(320, 200, PixelFormatEnum::RGB555).unwrap();

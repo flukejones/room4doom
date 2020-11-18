@@ -132,6 +132,8 @@ pub struct Bsp {
     /// index in to self.solidsegs
     new_end:    usize,
     rw_angle1:  Angle,
+    // wall upper/lower heights
+    
 }
 
 impl Bsp {
@@ -418,7 +420,7 @@ impl Bsp {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn find_subsector(&self, point: &Vertex) -> Option<&SubSector> {
+    pub fn point_in_subsector(&self, point: &Vertex) -> Option<DPtr<SubSector>> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -430,7 +432,7 @@ impl Bsp {
         }
 
         return Some(
-            &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize],
+            DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]),
         );
     }
 
@@ -1104,7 +1106,7 @@ mod tests {
 
         // The actual location of THING0
         let player = Vertex::new(1056.0, -3616.0);
-        let subsector = map.find_subsector(&player).unwrap();
+        let subsector = map.point_in_subsector(&player).unwrap();
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);
         assert_eq!(subsector.start_seg, 305);

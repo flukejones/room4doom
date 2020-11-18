@@ -61,7 +61,7 @@ pub static CLASSIC_DOOM_SCREEN_XTO_VIEW: [f32; 321] = [
     315.527344, 315.351562, 315.175781, 314.956055,
 ];
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Angle(f32);
 
 impl Angle {
