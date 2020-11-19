@@ -1,4 +1,5 @@
 /// Identifiers for all sfx in game.
+#[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone)]
 pub enum SfxEnum {
     sfx_None,

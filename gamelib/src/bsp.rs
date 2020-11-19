@@ -117,6 +117,8 @@ pub struct MapExtents {
 #[derive(Debug)]
 pub struct Bsp {
     name:       String,
+    /// Things will be linked to/from each other in many ways, which means this array may
+    /// never be resized or it will invalidate references and pointers
     things:     Vec<Thing>,
     vertexes:   Vec<Vertex>,
     linedefs:   Vec<LineDef>,
@@ -133,7 +135,6 @@ pub struct Bsp {
     new_end:    usize,
     rw_angle1:  Angle,
     // wall upper/lower heights
-    
 }
 
 impl Bsp {
@@ -420,7 +421,10 @@ impl Bsp {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn point_in_subsector(&self, point: &Vertex) -> Option<DPtr<SubSector>> {
+    pub fn point_in_subsector(
+        &self,
+        point: &Vertex,
+    ) -> Option<DPtr<SubSector>> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -431,9 +435,9 @@ impl Bsp {
             node_id = node.child_index[side];
         }
 
-        return Some(
-            DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]),
-        );
+        return Some(DPtr::new(
+            &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize],
+        ));
     }
 
     /// R_AddLine - r_bsp

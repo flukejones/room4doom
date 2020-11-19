@@ -14,6 +14,7 @@ pub mod map_object;
 pub mod player;
 pub mod segs;
 pub mod sounds;
+pub mod thinker;
 
 /// R_PointToDist
 fn point_to_dist(x: f32, y: f32, object: &Player) -> f32 {
