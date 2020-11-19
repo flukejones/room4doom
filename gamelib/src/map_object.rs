@@ -1,15 +1,17 @@
-use std::f32::consts::FRAC_PI_4;
+use std::{f32::consts::FRAC_PI_4, ptr::NonNull};
 
 use glam::Vec2;
 use wad::{
     lumps::{SubSector, Thing},
-    DPtr, Vertex,
+    DPtr,
 };
 
 use crate::info::STATESJ;
+use crate::local::test_action;
+use crate::thinker::Thinker;
 use crate::{
-    angle::Angle, bsp::Bsp, doom_def::Card, info::MapObjectInfo,
-    local::ONCEILINGZ,
+    angle::Angle, bsp::Bsp, info::MapObjectInfo, local::ONCEILINGZ,
+    thinker::ActionF,
 };
 use crate::{
     info::{MapObjectType, SpriteNum, State, MOBJINFO},
@@ -106,12 +108,12 @@ pub enum MapObjectFlag {
 }
 
 #[derive(Debug)]
-pub struct MapObject {
+pub struct MapObject<'p> {
     // List: thinker links.
-    // thinker_t		thinker;
+    pub thinker: Option<NonNull<Thinker<'p>>>,
     /// Info for drawing: position.
-    xy: Vec2,
-    z:  f32,
+    xy:          Vec2,
+    z:           f32,
 
     // More list: links in sector (if needed)
     // struct mobj_s*	snext;
@@ -153,7 +155,9 @@ pub struct MapObject {
 
     tics:   i32,
     /// state tic counter
-    state:  State,
+    // TODO: probably only needs to be an index to the array
+    //  using the enum as the indexer
+    state:  &'p State,
     flags:  u32,
     health: i32,
 
@@ -176,7 +180,7 @@ pub struct MapObject {
 
     // Additional info record for player avatars only.
     // Only valid if type == MT_PLAYER
-    // struct player_s*	player;
+    player:   Option<*mut Player<'p>>,
     /// Player number last looked for.
     lastlook: i32,
 
@@ -186,14 +190,18 @@ pub struct MapObject {
     // struct mobj_s*	tracer;
 }
 
-impl MapObject {
+impl<'p> MapObject<'p> {
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged
     ///  between levels.
     ///
     /// Called in game.c
-    pub fn p_spawn_player(mthing: &Thing, bsp: &Bsp) {
+    pub fn p_spawn_player<'b>(
+        mthing: &Thing,
+        bsp: &'b Bsp,
+        players: &'b mut [Player<'b>],
+    ) {
         // players is a globally accessible thingy
         //p = &players[mthing.type-1];
 
@@ -202,11 +210,12 @@ impl MapObject {
         }
 
         // not playing?
-        if !playeringame[mthing.kind - 1] {
-            return;
-        }
+        // Network thing
+        // if !playeringame[mthing.kind - 1] {
+        //     return;
+        // }
 
-        let mut p: Player = &players[mthing.kind - 1];
+        let mut p = &mut players[mthing.kind as usize - 1];
 
         // if p.playerstate == PlayerState::PstReborn {
         //     G_PlayerReborn(mthing.kind - 1);
@@ -215,10 +224,12 @@ impl MapObject {
         let x = mthing.pos.x();
         let y = mthing.pos.y();
         let z = ONFLOORZ as f32;
+        // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
+        // the Player object owns this.
         let mut mobj = MapObject::p_spawn_map_object(
             x,
             y,
-            z,
+            z as i32,
             MapObjectType::MT_PLAYER,
             bsp,
         );
@@ -226,14 +237,16 @@ impl MapObject {
         // set color translations for player sprites
         if mthing.kind > 1 {
             mobj.flags = mobj.flags as u32
-                | (mthing.kind - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
+                | (mthing.kind as u32 - 1)
+                    << MapObjectFlag::MF_TRANSSHIFT as u8;
         }
 
         mobj.angle = Angle::new(FRAC_PI_4 * (mthing.angle / 45.0));
-        mobj.player = p;
         mobj.health = p.health;
 
-        p.mo = mobj;
+        mobj.player = Some(p as *mut Player); // TODO: needs to be a pointer
+
+        p.mo = Some(mobj); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
         p.playerstate = PlayerState::PstLive;
         p.refire = 0;
         p.message = None;
@@ -282,7 +295,7 @@ impl MapObject {
         // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let st: State = STATESJ[info.spawnstate as usize];
+        let st: &State = &STATESJ[info.spawnstate as usize];
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
@@ -294,7 +307,7 @@ impl MapObject {
         if z == ONFLOORZ {
             z = floorz;
         } else if z == ONCEILINGZ {
-            z = ceilingz - info.height;
+            z = ceilingz - info.height as i32;
         }
 
         // mobj->thinker.function.acp1 = (actionf_p1)P_MobjThinker;
@@ -302,6 +315,8 @@ impl MapObject {
         // P_AddThinker(&mobj->thinker);
 
         MapObject {
+            thinker:      None, // TODO: change after thinker container added
+            player:       None,
             xy:           Vec2::new(x, y),
             z:            z as f32,
             angle:        Angle::new(0.0),
@@ -321,6 +336,8 @@ impl MapObject {
             health:       info.spawnhealth,
             info:         info,
             tics:         st.tics,
+            // TODO: this may or may not need a clone instead. But because the
+            //  containing array is const and there is no `mut` it should be fine
             state:        st,
             movedir:      0,
             movecount:    0,

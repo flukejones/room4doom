@@ -1,8 +1,11 @@
-use crate::local::ActionF;
+use crate::local::test_action;
 use crate::map_object::MapObjectFlag;
 use crate::sounds::SfxEnum;
+use crate::thinker::ActionF;
+use std::fmt;
+use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum SpriteNum {
     SPR_TROO,
@@ -1296,7 +1299,7 @@ pub struct MapObjectInfo {
 }
 
 impl MapObjectInfo {
-    fn new(
+    pub const fn new(
         doomednum: i32,
         spawnstate: StateNum,
         spawnhealth: i32,
@@ -1349,6 +1352,7 @@ impl MapObjectInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct State {
     /// Sprite to use
     pub sprite:     SpriteNum,
@@ -1368,7 +1372,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(
+    pub const fn new(
         sprite: SpriteNum,
         frame: i32,
         tics: i32,
@@ -1389,6 +1393,14 @@ impl State {
     }
 }
 
+impl fmt::Debug for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("State")
+            .field("sprite", &self.sprite)
+            .finish()
+    }
+}
+
 //pub const STATESJ: [State; NUM_CATEGORIES] = [
 /// The States are an immutable set of predefined parameters, which
 pub const STATESJ: [State; 1] = [
@@ -1396,7 +1408,7 @@ pub const STATESJ: [State; 1] = [
         SpriteNum::SPR_TROO,
         0,
         -1,
-        ActionF::actionf_v,
+        ActionF::acp1(&test_action),
         StateNum::S_NULL,
         0,
         0,

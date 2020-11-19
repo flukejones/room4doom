@@ -5,11 +5,12 @@ use sdl2::{
     surface::Surface, video::Window,
 };
 
-use gamelib::{angle::Angle, bsp::Bsp, player::Player};
+use gamelib::{angle::Angle, bsp::Bsp, map_object::MapObject, player::Player};
 use wad::{DPtr, Wad};
 
 use crate::input::Input;
 use crate::{GameOptions, FP};
+use gamelib::local::VIEWHEIGHT;
 
 pub struct Game<'c> {
     input:           &'c mut Input,
@@ -18,8 +19,9 @@ pub struct Game<'c> {
     _state_changing: bool,
     _wad:            Wad,
     map:             Bsp,
-    player:          Player,
-    deathmatch: i32,  // only if started as net death
+    player:          Player<'c>,
+    players:         [Player<'c>; 1],
+    deathmatch:      i32, // only if started as net death
 }
 
 //
@@ -52,11 +54,26 @@ impl<'c> Game<'c> {
         let player_thing = &map.get_things()[0];
         let player_subsect = map.point_in_subsector(&player_thing.pos).unwrap();
 
+        let mut players = [Player::new(
+            player_thing.pos.clone(),
+            map.point_in_subsector(&player_thing.pos)
+                .unwrap()
+                .sector
+                .floor_height as f32
+                + VIEWHEIGHT as f32,
+            Angle::new(player_thing.angle * PI / 180.0),
+            map.point_in_subsector(&player_thing.pos).unwrap(),
+            None,
+        )];
+
+        //MapObject::p_spawn_player(player_thing, &map, &mut players);
+
         let player = Player::new(
             player_thing.pos.clone(),
-            player_subsect.sector.floor_height as f32 + VIEWHEIGHT,
+            player_subsect.sector.floor_height as f32 + VIEWHEIGHT as f32,
             Angle::new(player_thing.angle * PI / 180.0),
             player_subsect,
+            None,
         );
 
         dbg!(&player);
@@ -69,6 +86,7 @@ impl<'c> Game<'c> {
             _wad: wad,
             map,
             player,
+            players,
             deathmatch: 0,
         }
     }
@@ -137,9 +155,10 @@ impl<'c> Game<'c> {
 
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
-        let player_subsect = self.map.point_in_subsector(&self.player.xy).unwrap();
+        let player_subsect =
+            self.map.point_in_subsector(&self.player.xy).unwrap();
         self.player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
-        self.player.sub_sector = DPtr::new(player_subsect);
+        self.player.sub_sector = player_subsect; //DPtr::new(player_subsect);
 
         let surface = Surface::new(320, 200, PixelFormatEnum::RGB555).unwrap();
         let mut canvas = surface.into_canvas().unwrap();

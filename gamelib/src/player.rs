@@ -95,7 +95,7 @@ pub struct Player<'p> {
     pub rotation:   Angle,
     pub sub_sector: DPtr<SubSector>,
 
-    pub mo:          MapObject,
+    pub mo:          Option<MapObject<'p>>,
     pub playerstate: PlayerState,
 
     /// Determine POV,
@@ -133,8 +133,8 @@ pub struct Player<'p> {
     maxammo:     [i32; AmmoType::NUMAMMO as usize],
 
     /// True if button down last tic.
-    attackdown: i32,
-    usedown:    i32,
+    attackdown: bool,
+    usedown:    bool,
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
@@ -176,17 +176,70 @@ pub struct Player<'p> {
 }
 
 impl<'p> Player<'p> {
-    pub fn new(
+    pub const fn new(
         xy: Vertex,
         z: f32,
         rotation: Angle,
         sub_sector: DPtr<SubSector>,
+        mo: Option<MapObject<'p>>, // TODO: should be a pointer
     ) -> Player<'p> {
         Player {
             xy,
             viewz: z,
             rotation,
             sub_sector,
+            mo,
+
+            viewheight: 41.0,
+            deltaviewheight: 41.0,
+            bob: 3.0,
+            health: 100,
+            armorpoints: 0,
+            armortype: 0,
+            ammo: [0; AmmoType::NUMAMMO as usize],
+            maxammo: [0; AmmoType::NUMAMMO as usize],
+            powers: [0; PowerType::NUMPOWERS as usize],
+            cards: [false; Card::NUMCARDS as usize],
+            backpack: false,
+            attackdown: false,
+            usedown: false,
+            cheats: 0,
+            refire: 0,
+
+            killcount: 0,
+            itemcount: 0,
+            secretcount: 0,
+
+            message: None,
+            damagecount: 0,
+            bonuscount: 0,
+
+            colormap: 0,
+            didsecret: false,
+            extralight: 0,
+            fixedcolormap: 0,
+
+            frags: [0; 4],
+            readyweapon: WeaponType::wp_pistol,
+            pendingweapon: WeaponType::NUMWEAPONS,
+            weaponowned: [0; WeaponType::NUMWEAPONS as usize],
+
+            playerstate: PlayerState::PstReborn,
+
+            psprites: [
+                PspDef {
+                    state: None,
+                    tics:  1,
+                    sx:    0.0,
+                    sy:    0.0,
+                },
+                PspDef {
+                    state: None,
+                    tics:  1,
+                    sx:    0.0,
+                    sy:    0.0,
+                },
+            ],
         }
     }
     // TODO: needs p_pspr.c, p_inter.c

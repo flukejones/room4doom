@@ -115,10 +115,9 @@ pub enum PowerType {
 //  how many seconds till expiration,
 //  assuming TICRATE is 35 ticks/second.
 //
-pub  enum PowerDuration
-{
-    INVULNTICS	= (30*TICRATE) as isize,
-    INVISTICS	= (61*TICRATE) as isize, // TODO: fix back to 60
-    INFRATICS	= (120*TICRATE) as isize,
-    IRONTICS	= (60*TICRATE) as isize,
+pub enum PowerDuration {
+    INVULNTICS = (30 * TICRATE) as isize,
+    INVISTICS = (61 * TICRATE) as isize, // TODO: fix back to 60
+    INFRATICS = (120 * TICRATE) as isize,
+    IRONTICS = (60 * TICRATE) as isize,
 }
