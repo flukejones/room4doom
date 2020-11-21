@@ -71,19 +71,11 @@ impl Input {
         }
     }
 
-    pub fn get_key(&self, s: Sc) -> bool {
-        self.key_state.contains(&s)
-    }
+    pub fn get_key(&self, s: Sc) -> bool { self.key_state.contains(&s) }
 
-    pub fn get_mbtn(&self, m: Mb) -> bool {
-        self.mouse_state.contains(&m)
-    }
+    pub fn get_mbtn(&self, m: Mb) -> bool { self.mouse_state.contains(&m) }
 
-    pub fn get_mpos(&self) -> (i32, i32) {
-        self.mouse_pos
-    }
+    pub fn get_mpos(&self) -> (i32, i32) { self.mouse_pos }
 
-    pub fn get_quit(&self) -> bool {
-        self.quit
-    }
+    pub fn get_quit(&self) -> bool { self.quit }
 }

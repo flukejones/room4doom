@@ -1,4 +1,3 @@
-use crate::info::State;
 use crate::map_object::MapObject;
 use std::fmt;
 use std::ptr::null_mut;
@@ -23,9 +22,9 @@ use std::ptr::null_mut;
 ///  different functions
 #[derive(Debug)]
 pub struct Thinker<'t> {
-    prev:  *mut Thinker<'t>,
-    next:  *mut Thinker<'t>,
-    obj:   ObjectBase<'t>,
+    prev:     *mut Thinker<'t>,
+    next:     *mut Thinker<'t>,
+    obj:      ObjectBase<'t>,
     /// The `Thinker` function to run, this function typically also runs a `State`
     /// function on the Object. The `State` function may then require access to
     /// the `Thinker` to change/remove the thinker funciton.
@@ -39,7 +38,7 @@ impl<'t> Thinker<'t> {
             prev: null_mut(),
             next: null_mut(),
             obj,
-            function: ActionF::acv,
+            function: ActionF::Acv,
         }
     }
 
@@ -79,17 +78,17 @@ impl<'t> Drop for Thinker<'t> {
 /// could be done, but it introduces overhead at runtime.
 #[derive(Clone)]
 pub enum ActionF {
-    acv,
+    Acv,
     // NULL thinker, used to tell the thinker runner to remove the thinker from list
-    acp1(*const dyn Fn(&mut ObjectBase)),
+    Acp1(*const dyn Fn(&mut ObjectBase)),
     // Called in the MapObject state setter
-    acp2(*const dyn Fn(&mut ObjectBase, &mut ObjectBase)), // P_SetPsprite runs this
+    Acp2(*const dyn Fn(&mut ObjectBase, &mut ObjectBase)), // P_SetPsprite runs this
 }
 
 impl ActionF {
     pub fn do_action1(&mut self, object: &mut ObjectBase) {
         match self {
-            ActionF::acp1(f) => unsafe { (**f)(object) },
+            ActionF::Acp1(f) => unsafe { (**f)(object) },
             _ => {}
         }
     }
@@ -100,7 +99,7 @@ impl ActionF {
         object2: &mut ObjectBase,
     ) {
         match self {
-            ActionF::acp2(f) => unsafe { (**f)(object1, object2) },
+            ActionF::Acp2(f) => unsafe { (**f)(object1, object2) },
             _ => {}
         }
     }

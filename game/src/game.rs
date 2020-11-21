@@ -54,7 +54,7 @@ impl<'c> Game<'c> {
         let player_thing = &map.get_things()[0];
         let player_subsect = map.point_in_subsector(&player_thing.pos).unwrap();
 
-        let mut players = [Player::new(
+        let players = [Player::new(
             player_thing.pos.clone(),
             map.point_in_subsector(&player_thing.pos)
                 .unwrap()
@@ -176,7 +176,5 @@ impl<'c> Game<'c> {
     }
 
     /// Called by the main loop
-    pub fn running(&self) -> bool {
-        self.running
-    }
+    pub fn running(&self) -> bool { self.running }
 }
