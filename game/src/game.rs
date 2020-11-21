@@ -5,12 +5,14 @@ use sdl2::{
     surface::Surface, video::Window,
 };
 
-use gamelib::{angle::Angle, bsp::Bsp, map_object::MapObject, player::Player};
+use gamelib::{
+    angle::Angle, p_map_object::MapObject, player::Player, r_bsp::Bsp,
+};
 use wad::{DPtr, Wad};
 
 use crate::input::Input;
 use crate::{GameOptions, FP};
-use gamelib::local::VIEWHEIGHT;
+use gamelib::p_local::VIEWHEIGHT;
 
 pub struct Game<'c> {
     input:           &'c mut Input,

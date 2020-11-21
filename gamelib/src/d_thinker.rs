@@ -1,6 +1,11 @@
-use crate::map_object::MapObject;
+use crate::p_map_object::MapObject;
+use crate::p_player_sprite::PspDef;
+use crate::player::Player;
 use std::fmt;
 use std::ptr::null_mut;
+
+// TODO: Split thinkers and things in to MapObject, Lights, Movers, Player,
+//  where Movers contains all level structure changing things like doors/platforms
 
 /// Thinkers *must* be contained in a structure that has **stable** memory locations.
 /// In Doom this is managed by Doom's custom allocator, where each location in memory
@@ -20,20 +25,24 @@ use std::ptr::null_mut;
 ///
 ///  State should live in MapObject. State.action and Think.function are two
 ///  different functions
+///
+/// The LinkedList style serves to give the Objects a way to find the next/prev of
+/// its neighbours and more, without having to pass in a ref to the Thinker container
 #[derive(Debug)]
-pub struct Thinker<'t> {
-    prev:     *mut Thinker<'t>,
-    next:     *mut Thinker<'t>,
-    obj:      ObjectBase<'t>,
+pub struct Thinker<'t, T: 't> {
+    pub prev:     *mut Thinker<'t, T>,
+    pub next:     *mut Thinker<'t, T>,
+    pub obj:      T,
     /// The `Thinker` function to run, this function typically also runs a `State`
     /// function on the Object. The `State` function may then require access to
     /// the `Thinker` to change/remove the thinker funciton.
-    // TODO: maybe make this take the Thinker as arg
-    function: ActionF,
+    // TODO: maybe make this take the Thinker as arg. Easily done if the Thinker then contains
+    //  only one struct type for things
+    pub function: ActionF,
 }
 
-impl<'t> Thinker<'t> {
-    pub fn new(obj: ObjectBase<'t>) -> Thinker<'t> {
+impl<'t, T> Thinker<'t, T> {
+    pub fn new(obj: T) -> Thinker<'t, T> {
         Thinker {
             prev: null_mut(),
             next: null_mut(),
@@ -62,7 +71,7 @@ impl<'t> Thinker<'t> {
     }
 }
 
-impl<'t> Drop for Thinker<'t> {
+impl<'t> Drop for Thinker<'t, T> {
     fn drop(&mut self) {
         // if this thinker has links in both directions then the thinkers at those
         // ends must be linked to this thinker, so we need to unlink those from
@@ -79,25 +88,37 @@ impl<'t> Drop for Thinker<'t> {
 #[derive(Clone)]
 pub enum ActionF {
     Acv,
-    // NULL thinker, used to tell the thinker runner to remove the thinker from list
+    /// NULL thinker, used to tell the thinker runner to remove the thinker from list
     Acp1(*const dyn Fn(&mut ObjectBase)),
-    // Called in the MapObject state setter
-    Acp2(*const dyn Fn(&mut ObjectBase, &mut ObjectBase)), // P_SetPsprite runs this
+    /// Called in the MapObject state setter
+    Acp2(*const dyn Fn(&mut ObjectBase, &mut PspDef)), // P_SetPsprite runs this
+    // TODO: Could do something like
+    //  - MabObject(*const dyn Fn(&mut MapObject)),
+    //  - Player(*const dyn Fn(&mut Player, &mut PspDef)),
+    //  etc. Thinker would need to be separated and specialied to the 3 different map
+    //  things (light/mover/thing). Full list is:
+    //  - ceiling_t
+    //  - vldoor_t
+    //  - floormove_t
+    //  - plat_t
+    //  - fireflicker_t
+    //  - lightflash_t
+    //  - strobe_t
+    //  - glow_t
+    //  - mobj_t
+    /// No action, used in place of Acp1(&null)
+    None,
 }
 
 impl ActionF {
-    pub fn do_action1(&mut self, object: &mut ObjectBase) {
+    pub fn do_action1(&self, object: &mut ObjectBase) {
         match self {
             ActionF::Acp1(f) => unsafe { (**f)(object) },
             _ => {}
         }
     }
 
-    pub fn do_action2(
-        &mut self,
-        object1: &mut ObjectBase,
-        object2: &mut ObjectBase,
-    ) {
+    pub fn do_action2(&self, object1: &mut ObjectBase, object2: &mut PspDef) {
         match self {
             ActionF::Acp2(f) => unsafe { (**f)(object1, object2) },
             _ => {}
@@ -133,19 +154,34 @@ impl fmt::Debug for ActionF {
 #[derive(Debug)]
 pub enum ObjectBase<'m> {
     MapObject(MapObject<'m>),
+    Player(Player<'m>),
 }
 
 impl<'m> ObjectBase<'m> {
-    fn get_map_obj(&self) -> Option<&'m MapObject> {
+    pub fn get_map_obj(&self) -> Option<&'m MapObject> {
         match self {
             ObjectBase::MapObject(m) => Some(&m),
             _ => None,
         }
     }
 
-    fn get_mut_map_obj(&mut self) -> Option<&'m mut MapObject> {
+    pub fn get_mut_map_obj(&mut self) -> Option<&'m mut MapObject> {
         match self {
             ObjectBase::MapObject(ref mut m) => Some(m),
+            _ => None,
+        }
+    }
+
+    pub fn get_player(&self) -> Option<&'m Player> {
+        match self {
+            ObjectBase::Player(m) => Some(&m),
+            _ => None,
+        }
+    }
+
+    pub fn get_mut_player(&mut self) -> Option<&'m mut Player> {
+        match self {
+            ObjectBase::Player(ref mut m) => Some(m),
             _ => None,
         }
     }
