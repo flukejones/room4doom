@@ -3,41 +3,41 @@ pub enum LineDefFlags {
     /// Players and monsters cannot cross this line. Note that
     /// if there is no sector on the other side, they can't go through the line
     /// anyway, regardless of the flags
-    Blocking = 1,
+    Blocking      = 1,
     /// Monsters cannot cross this line
     BlockMonsters = 1 << 1,
     /// The linedef's two sidedefs can have "-" as a texture,
     /// which in this case means "transparent". If this flag is not set, the
     /// sidedefs can't be transparent. A side effect of this flag is that if
     /// it is set, then gunfire (pistol, shotgun, chaingun) can go through it
-    TwoSided = 1 << 2,
+    TwoSided      = 1 << 2,
     /// The upper texture is pasted onto the wall from
     /// the top down instead of from the bottom up like usual.
     /// The effect is if a wall moves down, it looks like the
     /// texture is stationary and is appended to as the wall moves
-    UnpegTop = 1 << 3,
+    UnpegTop      = 1 << 3,
     /// Lower and middle textures are drawn from the
     /// bottom up, instead of from the top down like usual
     /// The effect is if a wall moves up, it looks like the
     /// texture is stationary and is appended to as the wall moves
-    UnpegBottom = 1 << 4,
+    UnpegBottom   = 1 << 4,
     /// On the automap, this line appears in red like a normal
     /// solid wall that has nothing on the other side. This is useful in
     /// protecting secret doors and such. Note that if the sector on the other
     /// side of this "secret" line has its floor height HIGHER than the sector
     /// on the facing side of the secret line, then the map will show the lines
     /// beyond and thus give up the secret
-    Secret = 1 << 5,
+    Secret        = 1 << 5,
     /// For purposes of monsters hearing sounds and thus
     /// becoming alerted. Every time a player fires a weapon, the "sound" of
     /// it travels from sector to sector, alerting all non-deaf monsters in
     /// each new sector. This flag blocks sound traveling out of this sector
     /// through this line to adjacent sector
-    BlockSound = 1 << 6,
+    BlockSound    = 1 << 6,
     /// Not on AutoMap
-    DontDraw = 1 << 7,
+    DontDraw      = 1 << 7,
     /// Already on AutoMap
-    Draw = 1 << 8,
+    Draw          = 1 << 8,
 }
 
 #[test]

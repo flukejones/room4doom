@@ -190,13 +190,9 @@ impl Segment {
         }
     }
 
-    pub fn angle_degree(&self) -> f32 {
-        self.angle
-    }
+    pub fn angle_degree(&self) -> f32 { self.angle }
 
-    pub fn angle_rads(&self) -> f32 {
-        self.angle * PI / 180.0
-    }
+    pub fn angle_rads(&self) -> f32 { self.angle * PI / 180.0 }
 
     /// True if the right side of the segment faces the point
     pub fn is_facing_point(&self, point: &Vertex) -> bool {

@@ -80,43 +80,29 @@ impl Angle {
         }
     }
 
-    pub fn as_degrees(&self) -> i32 {
-        (self.0 * 180.0 / PI) as i32
-    }
+    pub fn as_degrees(&self) -> i32 { (self.0 * 180.0 / PI) as i32 }
 
-    pub fn rad(&self) -> f32 {
-        self.0
-    }
+    pub fn rad(&self) -> f32 { self.0 }
 
-    pub fn sin(&self) -> f32 {
-        self.0.sin()
-    }
+    pub fn sin(&self) -> f32 { self.0.sin() }
 
-    pub fn sin_cos(&self) -> (f32, f32) {
-        self.0.sin_cos()
-    }
+    pub fn sin_cos(&self) -> (f32, f32) { self.0.sin_cos() }
 
-    pub fn tan(&self) -> f32 {
-        self.0.tan()
-    }
+    pub fn tan(&self) -> f32 { self.0.tan() }
 }
 
 impl Add for Angle {
     type Output = Angle;
 
     #[inline]
-    fn add(self, other: Angle) -> Angle {
-        Angle::new(self.0 + other.0)
-    }
+    fn add(self, other: Angle) -> Angle { Angle::new(self.0 + other.0) }
 }
 
 impl Add<f32> for Angle {
     type Output = Angle;
 
     #[inline]
-    fn add(self, other: f32) -> Angle {
-        Angle::new(self.0 + other)
-    }
+    fn add(self, other: f32) -> Angle { Angle::new(self.0 + other) }
 }
 
 // impl Add<i32> for Angle {
@@ -158,18 +144,14 @@ impl Mul for Angle {
     type Output = Angle;
 
     #[inline]
-    fn mul(self, other: Angle) -> Angle {
-        Angle::new(self.0 * other.0)
-    }
+    fn mul(self, other: Angle) -> Angle { Angle::new(self.0 * other.0) }
 }
 
 impl Mul<f32> for Angle {
     type Output = Angle;
 
     #[inline]
-    fn mul(self, other: f32) -> Angle {
-        Angle::new(self.0 * other)
-    }
+    fn mul(self, other: f32) -> Angle { Angle::new(self.0 * other) }
 }
 
 // impl Mul<i32> for Angle {
@@ -211,18 +193,14 @@ impl Sub for Angle {
     type Output = Angle;
 
     #[inline]
-    fn sub(self, other: Angle) -> Angle {
-        Angle::new(self.0 - other.0)
-    }
+    fn sub(self, other: Angle) -> Angle { Angle::new(self.0 - other.0) }
 }
 
 impl Sub<f32> for Angle {
     type Output = Angle;
 
     #[inline]
-    fn sub(self, other: f32) -> Angle {
-        Angle::new(self.0 - other)
-    }
+    fn sub(self, other: f32) -> Angle { Angle::new(self.0 - other) }
 }
 
 // impl Sub<i32> for Angle {
@@ -264,18 +242,14 @@ impl Div for Angle {
     type Output = Angle;
 
     #[inline]
-    fn div(self, other: Angle) -> Angle {
-        Angle::new(self.0 / other.0)
-    }
+    fn div(self, other: Angle) -> Angle { Angle::new(self.0 / other.0) }
 }
 
 impl Div<f32> for Angle {
     type Output = Angle;
 
     #[inline]
-    fn div(self, other: f32) -> Angle {
-        Angle::new(self.0 / other)
-    }
+    fn div(self, other: f32) -> Angle { Angle::new(self.0 / other) }
 }
 
 // impl Div<i32> for Angle {
@@ -316,7 +290,5 @@ impl DivAssign<f32> for Angle {
 impl Neg for Angle {
     type Output = Self;
 
-    fn neg(self) -> Self::Output {
-        Angle(-self.0)
-    }
+    fn neg(self) -> Self::Output { Angle(-self.0) }
 }

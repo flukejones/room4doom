@@ -1,8 +1,13 @@
 use sdl2::{gfx::primitives::DrawRenderer, render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, PI};
-use wad::{lumps::Segment};
+use wad::lumps::Segment;
 
-use crate::{angle::{Angle, CLASSIC_DOOM_SCREEN_XTO_VIEW}, bsp::Bsp, player::Player, point_to_dist, scale};
+use crate::{
+    angle::{Angle, CLASSIC_DOOM_SCREEN_XTO_VIEW},
+    bsp::Bsp,
+    player::Player,
+    point_to_dist, scale,
+};
 
 impl Bsp {
     /// R_StoreWallRange - r_segs (required in r_bsp)
@@ -50,13 +55,12 @@ impl Bsp {
             + CLASSIC_DOOM_SCREEN_XTO_VIEW[stop as usize] * PI / 180.0;
         let scale2 = scale(visangle, rw_normalangle, rw_distance, view_angle);
 
-
         // testing draws
         let rw_scalestep = (scale2 - scale1) / (stop - start) as f32;
         let z = object.viewz as i16;
 
         // calculate texture boundaries
-	    //  and decide if floor / ceiling marks are needed
+        //  and decide if floor / ceiling marks are needed
         let worldtop = seg.sidedef.sector.ceil_height - z;
         let worldbottom = seg.sidedef.sector.floor_height - z;
 
@@ -70,9 +74,10 @@ impl Bsp {
         let mut bottomfrac = 100.0 - (worldbottom as f32 * scale1);
 
         let alpha = 255;
-       
+
         // testing lighting
-        let mut lightnum = seg.linedef.front_sidedef.sector.light_level as u8 >> 4 ;
+        let mut lightnum =
+            seg.linedef.front_sidedef.sector.light_level as u8 >> 4;
         if seg.start_vertex.y() == seg.end_vertex.y() {
             lightnum -= 10;
         } else if seg.start_vertex.x() == seg.end_vertex.x() {
@@ -81,8 +86,12 @@ impl Bsp {
 
         let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;
 
-        let colour =
-            sdl2::pixels::Color::RGBA(150 + lightnum - z as u8, 50 + lightnum, 50 + lightnum, alpha);
+        let colour = sdl2::pixels::Color::RGBA(
+            150 + lightnum - z as u8,
+            50 + lightnum,
+            50 + lightnum,
+            alpha,
+        );
 
         // R_RenderSegLoop
         let mut curr = start;

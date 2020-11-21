@@ -1,10 +1,10 @@
 use wad::{lumps::SubSector, DPtr, Vertex};
 
+use crate::info::states::State;
 use crate::map_object::MapObject;
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
-    info::State,
 };
 
 /// Overlay psprites are scaled shapes
@@ -46,9 +46,9 @@ pub enum PlayerState {
 #[derive(Debug)]
 enum Cheat {
     /// No clipping, walk through barriers.
-    CfNoclip = 1,
+    CfNoclip     = 1,
     /// No damage, no health loss.
-    CfGodmode = 2,
+    CfGodmode    = 2,
     /// Not really a cheat, just a debug aid.
     CfNomomentum = 4,
 }

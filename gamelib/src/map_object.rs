@@ -6,7 +6,8 @@ use wad::{
     DPtr,
 };
 
-use crate::info::STATESJ;
+use crate::info::mapobject::MOBJINFO;
+use crate::info::states::{State, STATESJ};
 use crate::local::test_action;
 use crate::thinker::Thinker;
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
     thinker::ActionF,
 };
 use crate::{
-    info::{MapObjectType, SpriteNum, State, MOBJINFO},
+    info::{MapObjectType, SpriteNum},
     local::{ONFLOORZ, VIEWHEIGHT},
     player::{Player, PlayerState},
 };
@@ -23,20 +24,20 @@ use crate::{
 #[allow(non_camel_case_types)]
 pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
-    MF_SPECIAL = 1,
+    MF_SPECIAL      = 1,
     /// Blocks.
-    MF_SOLID = 2,
+    MF_SOLID        = 2,
     /// Can be hit.
-    MF_SHOOTABLE = 4,
+    MF_SHOOTABLE    = 4,
     /// Don't use the sector links (invisible but touchable).
-    MF_NOSECTOR = 8,
+    MF_NOSECTOR     = 8,
     /// Don't use the blocklinks (inert but displayable)
-    MF_NOBLOCKMAP = 16,
+    MF_NOBLOCKMAP   = 16,
 
     /// Not to be activated by sound, deaf monster.
-    MF_AMBUSH = 32,
+    MF_AMBUSH       = 32,
     /// Will try to attack right back.
-    MF_JUSTHIT = 64,
+    MF_JUSTHIT      = 64,
     /// Will take at least one step before attacking.
     MF_JUSTATTACKED = 128,
     /// On level spawning (initial position),
@@ -45,147 +46,133 @@ pub enum MapObjectFlag {
     /// Don't apply gravity (every tic),
     ///  that is, object will float, keeping current height
     ///  or changing it actively.
-    MF_NOGRAVITY = 512,
+    MF_NOGRAVITY    = 512,
 
     /// Movement flags.
     /// This allows jumps from high places.
-    MF_DROPOFF = 0x400,
+    MF_DROPOFF      = 0x400,
     /// For players, will pick up items.
-    MF_PICKUP = 0x800,
+    MF_PICKUP       = 0x800,
     /// Player cheat. ???
-    MF_NOCLIP = 0x1000,
+    MF_NOCLIP       = 0x1000,
     /// Player: keep info about sliding along walls.
-    MF_SLIDE = 0x2000,
+    MF_SLIDE        = 0x2000,
     /// Allow moves to any height, no gravity.
     /// For active floaters, e.g. cacodemons, pain elementals.
-    MF_FLOAT = 0x4000,
+    MF_FLOAT        = 0x4000,
     /// Don't cross lines
     ///   ??? or look at heights on teleport.
-    MF_TELEPORT = 0x8000,
+    MF_TELEPORT     = 0x8000,
     /// Don't hit same species, explode on block.
     /// Player missiles as well as fireballs of various kinds.
-    MF_MISSILE = 0x10000,
+    MF_MISSILE      = 0x10000,
     /// Dropped by a demon, not level spawned.
     /// E.g. ammo clips dropped by dying former humans.
-    MF_DROPPED = 0x20000,
+    MF_DROPPED      = 0x20000,
     /// Use fuzzy draw (shadow demons or spectres),
     ///  temporary player invisibility powerup.
-    MF_SHADOW = 0x40000,
+    MF_SHADOW       = 0x40000,
     /// Flag: don't bleed when shot (use puff),
     ///  barrels and shootable furniture shall not bleed.
-    MF_NOBLOOD = 0x80000,
+    MF_NOBLOOD      = 0x80000,
     /// Don't stop moving halfway off a step,
     ///  that is, have dead bodies slide down all the way.
-    MF_CORPSE = 0x100000,
+    MF_CORPSE       = 0x100000,
     /// Floating to a height for a move, ???
     ///  don't auto float to target's height.
-    MF_INFLOAT = 0x200000,
+    MF_INFLOAT      = 0x200000,
 
     /// On kill, count this enemy object
     ///  towards intermission kill total.
     /// Happy gathering.
-    MF_COUNTKILL = 0x400000,
+    MF_COUNTKILL    = 0x400000,
 
     /// On picking up, count this item object
     ///  towards intermission item total.
-    MF_COUNTITEM = 0x800000,
+    MF_COUNTITEM    = 0x800000,
 
     /// Special handling: skull in flight.
     /// Neither a cacodemon nor a missile.
-    MF_SKULLFLY = 0x1000000,
+    MF_SKULLFLY     = 0x1000000,
 
     /// Don't spawn this object
     ///  in death match mode (e.g. key cards).
-    MF_NOTDMATCH = 0x2000000,
+    MF_NOTDMATCH    = 0x2000000,
 
     /// Player sprites in multiplayer modes are modified
     ///  using an internal color lookup table for re-indexing.
     /// If 0x4 0x8 or 0xc,
     ///  use a translation table for player colormaps
-    MF_TRANSLATION = 0xc000000,
+    MF_TRANSLATION  = 0xc000000,
     /// Hmm ???.
-    MF_TRANSSHIFT = 26,
+    MF_TRANSSHIFT   = 26,
 }
 
 #[derive(Debug)]
 pub struct MapObject<'p> {
     // List: thinker links.
-    pub thinker: Option<NonNull<Thinker<'p>>>,
+    pub thinker:  Option<NonNull<Thinker<'p>>>,
     /// Info for drawing: position.
-    xy:          Vec2,
-    z:           f32,
-
+    xy:           Vec2,
+    z:            f32,
     // More list: links in sector (if needed)
     // struct mobj_s*	snext;
     // struct mobj_s*	sprev;
-
     // More drawing info: to determine current sprite.
     /// orientation
-    angle:  Angle,
+    angle:        Angle,
     /// used to find patch_t and flip value
-    sprite: SpriteNum,
+    sprite:       SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
-    frame:  i32,
-
+    frame:        i32,
     // Interaction info, by BLOCKMAP.
     // Links in blocks (if needed).
     // struct mobj_s*	bnext;
     // struct mobj_s*	bprev;
-    sub_sector: DPtr<SubSector>,
-
+    sub_sector:   DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
-    floorz:   f32,
-    ceilingz: f32,
-
+    floorz:       f32,
+    ceilingz:     f32,
     /// For movement checking.
-    radius: f32,
-    height: f32,
-
+    radius:       f32,
+    height:       f32,
     /// Momentums, used to update position.
-    momx: f32,
-    momy: f32,
-    momz: f32,
-
+    momx:         f32,
+    momy:         f32,
+    momz:         f32,
     /// If == validcount, already checked.
-    validcount: i32,
-
-    kind: MapObjectType,
+    validcount:   i32,
+    kind:         MapObjectType,
     /// &mobjinfo[mobj.type]
-    info: MapObjectInfo,
-
-    tics:   i32,
+    info:         MapObjectInfo,
+    tics:         i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    state:  &'p State,
-    flags:  u32,
-    health: i32,
-
+    state:        &'p State,
+    flags:        u32,
+    health:       i32,
     /// Movement direction, movement generation (zig-zagging).
     /// 0-7
-    movedir:   i32,
+    movedir:      i32,
     /// when 0, select a new dir
-    movecount: i32,
-
+    movecount:    i32,
     // Thing being chased/attacked (or NULL),
     // also the originator for missiles.
     // struct mobj_s*	target;
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     reactiontime: i32,
-
     /// If >0, the target will be chased
     /// no matter what (even if shot)
-    threshold: i32,
-
+    threshold:    i32,
     // Additional info record for player avatars only.
     // Only valid if type == MT_PLAYER
-    player:   Option<*mut Player<'p>>,
+    player:       Option<*mut Player<'p>>,
     /// Player number last looked for.
-    lastlook: i32,
-
+    lastlook:     i32,
     /// For nightmare respawn.
-    spawn_point: Option<Thing>,
+    spawn_point:  Option<Thing>,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
 }
@@ -282,10 +269,6 @@ impl<'p> MapObject<'p> {
         kind: MapObjectType,
         bsp: &Bsp,
     ) -> MapObject {
-        // mobj_t*	mobj;
-        // state_t*	st;
-        // mobjinfo_t*	info;
-
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
 
@@ -295,7 +278,7 @@ impl<'p> MapObject<'p> {
         // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let st: &State = &STATESJ[info.spawnstate as usize];
+        let state: &State = &STATESJ[info.spawnstate as usize];
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
@@ -315,36 +298,36 @@ impl<'p> MapObject<'p> {
         // P_AddThinker(&mobj->thinker);
 
         MapObject {
-            thinker:      None, // TODO: change after thinker container added
-            player:       None,
-            xy:           Vec2::new(x, y),
-            z:            z as f32,
-            angle:        Angle::new(0.0),
-            sprite:       st.sprite,
-            frame:        st.frame,
-            sub_sector:   sub_sector,
-            floorz:       floorz as f32,
-            ceilingz:     ceilingz as f32,
-            radius:       info.radius,
-            height:       info.height,
-            momx:         0.0,
-            momy:         0.0,
-            momz:         0.0,
-            validcount:   0,
-            kind:         kind,
-            flags:        info.flags,
-            health:       info.spawnhealth,
-            info:         info,
-            tics:         st.tics,
+            thinker: None, // TODO: change after thinker container added
+            player: None,
+            xy: Vec2::new(x, y),
+            z: z as f32,
+            angle: Angle::new(0.0),
+            sprite: state.sprite,
+            frame: state.frame,
+            sub_sector: sub_sector,
+            floorz: floorz as f32,
+            ceilingz: ceilingz as f32,
+            radius: info.radius,
+            height: info.height,
+            momx: 0.0,
+            momy: 0.0,
+            momz: 0.0,
+            validcount: 0,
+            flags: info.flags,
+            health: info.spawnhealth,
+            tics: state.tics,
             // TODO: this may or may not need a clone instead. But because the
             //  containing array is const and there is no `mut` it should be fine
-            state:        st,
-            movedir:      0,
-            movecount:    0,
+            movedir: 0,
+            movecount: 0,
             reactiontime: info.reactiontime,
-            threshold:    0,
-            lastlook:     2,
-            spawn_point:  None,
+            threshold: 0,
+            lastlook: 2,
+            spawn_point: None,
+            state,
+            info,
+            kind,
         }
     }
 }

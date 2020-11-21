@@ -159,14 +159,10 @@ impl Bsp {
     }
 
     #[inline]
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
+    pub fn get_name(&self) -> &str { &self.name }
 
     #[inline]
-    pub fn get_things(&self) -> &[Thing] {
-        &self.things
-    }
+    pub fn get_things(&self) -> &[Thing] { &self.things }
 
     #[inline]
     pub fn set_extents(&mut self) {
@@ -197,34 +193,22 @@ impl Bsp {
     }
 
     #[inline]
-    pub fn get_vertexes(&self) -> &[Vertex] {
-        &self.vertexes
-    }
+    pub fn get_vertexes(&self) -> &[Vertex] { &self.vertexes }
 
     #[inline]
-    pub fn get_linedefs(&self) -> &[LineDef] {
-        &self.linedefs
-    }
+    pub fn get_linedefs(&self) -> &[LineDef] { &self.linedefs }
 
     #[inline]
-    pub fn get_sectors(&self) -> &[Sector] {
-        &self.sectors
-    }
+    pub fn get_sectors(&self) -> &[Sector] { &self.sectors }
 
     #[inline]
-    pub fn get_sidedefs(&self) -> &[SideDef] {
-        &self.sidedefs
-    }
+    pub fn get_sidedefs(&self) -> &[SideDef] { &self.sidedefs }
 
     #[inline]
-    pub fn get_subsectors(&self) -> &[SubSector] {
-        &self.subsectors
-    }
+    pub fn get_subsectors(&self) -> &[SubSector] { &self.subsectors }
 
     #[inline]
-    pub fn get_segments(&self) -> &[Segment] {
-        &self.segments
-    }
+    pub fn get_segments(&self) -> &[Segment] { &self.segments }
 
     fn set_scale(&mut self) {
         let map_width = self.extents.width as f32;
@@ -238,24 +222,16 @@ impl Bsp {
     }
 
     #[inline]
-    pub fn get_nodes(&self) -> &[Node] {
-        &self.nodes
-    }
+    pub fn get_nodes(&self) -> &[Node] { &self.nodes }
 
     #[inline]
-    pub fn start_node(&self) -> u16 {
-        self.start_node
-    }
+    pub fn start_node(&self) -> u16 { self.start_node }
 
     #[inline]
-    pub fn get_rw_angle1(&self) -> Angle {
-        self.rw_angle1
-    }
+    pub fn get_rw_angle1(&self) -> Angle { self.rw_angle1 }
 
     #[inline]
-    pub fn get_map_extents(&self) -> &MapExtents {
-        &self.extents
-    }
+    pub fn get_map_extents(&self) -> &MapExtents { &self.extents }
 
     pub fn load<'m>(&mut self, wad: &Wad) {
         let index = wad.find_lump_index(self.get_name());
