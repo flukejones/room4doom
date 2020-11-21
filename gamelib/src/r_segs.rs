@@ -4,9 +4,10 @@ use wad::lumps::Segment;
 
 use crate::{
     angle::{Angle, CLASSIC_DOOM_SCREEN_XTO_VIEW},
-    bsp::Bsp,
     player::Player,
-    point_to_dist, scale,
+    point_to_dist,
+    r_bsp::Bsp,
+    scale,
 };
 
 impl Bsp {

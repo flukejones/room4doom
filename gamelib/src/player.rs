@@ -1,7 +1,8 @@
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::info::states::State;
-use crate::map_object::MapObject;
+use crate::d_thinker::Thinker;
+use crate::p_map_object::MapObject;
+use crate::p_player_sprite::PspDef;
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
@@ -18,17 +19,6 @@ pub enum PsprNum {
     ps_weapon,
     ps_flash,
     NUMPSPRITES,
-}
-
-/// From P_PSPR
-#[derive(Debug)]
-#[allow(non_camel_case_types)]
-pub struct PspDef {
-    /// a NULL state means not active
-    state: Option<State>,
-    tics:  i32,
-    sx:    f32,
-    sy:    f32,
 }
 
 //// Player states.
@@ -53,8 +43,9 @@ enum Cheat {
     CfNomomentum = 4,
 }
 
-// INTERMISSION
-// Structure passed e.g. to WI_Start(wb)
+/// INTERMISSION
+/// Structure passed e.g. to WI_Start(wb)
+#[derive(Debug, Default)]
 pub struct WBPlayerStruct {
     /// whether the player is in game
     pub inn:     bool,
@@ -68,6 +59,8 @@ pub struct WBPlayerStruct {
     pub score:   i32,
 }
 
+/// parms for world map / intermission
+#[derive(Debug, Default)]
 pub struct WBStartStruct {
     /// episode # (0-2)
     pub epsd:      i32,
@@ -87,15 +80,21 @@ pub struct WBStartStruct {
     pub plyr:      [WBPlayerStruct; MAXPLAYERS as usize],
 }
 
+const NUM_POWERS: usize = PowerType::NUMPOWERS as usize;
+const NUM_CARDS: usize = Card::NUMCARDS as usize;
+const NUM_WEAPONS: usize = WeaponType::NUMWEAPONS as usize;
+const NUM_AMMO: usize = AmmoType::NUMAMMO as usize;
+const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
+
 /// player_t
 #[derive(Debug)]
-pub struct Player<'p> {
+pub struct Player {
     // TODO: move these to mapobject
     pub xy:         Vertex,
     pub rotation:   Angle,
-    pub sub_sector: DPtr<SubSector>,
+    pub sub_sector: Option<DPtr<SubSector>>,
 
-    pub mo:          Option<MapObject<'p>>,
+    pub mo:          Option<Thinker<MapObject>>,
     pub playerstate: PlayerState,
 
     /// Determine POV,
@@ -117,8 +116,8 @@ pub struct Player<'p> {
     pub armortype:   i32,
 
     /// Power ups. invinc and invis are tic counters.
-    pub powers:   [i32; PowerType::NUMPOWERS as usize],
-    pub cards:    [bool; Card::NUMCARDS as usize],
+    pub powers:   [i32; NUM_POWERS],
+    pub cards:    [bool; NUM_CARDS],
     pub backpack: bool,
 
     /// Frags, kills of other players.
@@ -128,9 +127,9 @@ pub struct Player<'p> {
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
 
-    weaponowned: [i32; WeaponType::NUMWEAPONS as usize],
-    ammo:        [i32; AmmoType::NUMAMMO as usize],
-    maxammo:     [i32; AmmoType::NUMAMMO as usize],
+    weaponowned: [i32; NUM_WEAPONS],
+    ammo:        [i32; NUM_AMMO],
+    maxammo:     [i32; NUM_AMMO],
 
     /// True if button down last tic.
     attackdown: bool,
@@ -149,7 +148,7 @@ pub struct Player<'p> {
     secretcount: i32,
 
     /// Hint messages.
-    pub message: Option<&'p str>,
+    pub message: Option<String>,
 
     /// For screen flashing (red or bright).
     pub damagecount: i32,
@@ -169,20 +168,26 @@ pub struct Player<'p> {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef; PsprNum::NUMPSPRITES as usize],
+    psprites: [PspDef; NUM_SPRITES],
 
     /// True if secret level has been done.
     didsecret: bool,
 }
 
-impl<'p> Player<'p> {
+impl Default for Player {
+    fn default() -> Self {
+        Player::new(Vertex::new(0.0, 0.0), 0.0, Angle::new(0.0), None, None)
+    }
+}
+
+impl Player {
     pub const fn new(
         xy: Vertex,
         z: f32,
         rotation: Angle,
-        sub_sector: DPtr<SubSector>,
-        mo: Option<MapObject<'p>>, // TODO: should be a pointer
-    ) -> Player<'p> {
+        sub_sector: Option<DPtr<SubSector>>,
+        mo: Option<Thinker<MapObject>>, // TODO: should be a pointer
+    ) -> Player {
         Player {
             xy,
             viewz: z,
@@ -196,10 +201,10 @@ impl<'p> Player<'p> {
             health: 100,
             armorpoints: 0,
             armortype: 0,
-            ammo: [0; AmmoType::NUMAMMO as usize],
-            maxammo: [0; AmmoType::NUMAMMO as usize],
-            powers: [0; PowerType::NUMPOWERS as usize],
-            cards: [false; Card::NUMCARDS as usize],
+            ammo: [0; NUM_AMMO],
+            maxammo: [0; NUM_AMMO],
+            powers: [0; NUM_POWERS],
+            cards: [false; NUM_CARDS],
             backpack: false,
             attackdown: false,
             usedown: false,
@@ -222,7 +227,7 @@ impl<'p> Player<'p> {
             frags: [0; 4],
             readyweapon: WeaponType::wp_pistol,
             pendingweapon: WeaponType::NUMWEAPONS,
-            weaponowned: [0; WeaponType::NUMWEAPONS as usize],
+            weaponowned: [0; NUM_WEAPONS],
 
             playerstate: PlayerState::PstReborn,
 

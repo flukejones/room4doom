@@ -1,7 +1,7 @@
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 use crate::sounds::SfxEnum;
 
-pub mod mapobject;
+pub mod map_object_info;
 pub mod states;
 
 #[derive(Debug, Copy, Clone)]

@@ -43,7 +43,7 @@ pub struct MapExtents {
 /// Test if a node is an index to another node in the tree or is an index to a `SubSector`
 /// ```
 /// # use wad::{Wad, nodes::IS_SSECTOR_MASK};
-/// # use gamelib::bsp::Bsp;
+/// # use gamelib::r_bsp::Bsp;
 /// # let mut wad = Wad::new("../doom1.wad");
 /// # wad.read_directories();
 /// # let mut map = Bsp::new("E1M1".to_owned());
@@ -78,7 +78,7 @@ pub struct MapExtents {
 /// Find the subsector a player is in
 /// ```
 /// # use wad::{Wad, nodes::{Node, IS_SSECTOR_MASK}, Vertex};
-/// # use gamelib::bsp::Bsp;
+/// # use gamelib::r_bsp::Bsp;
 /// # let mut wad = Wad::new("../doom1.wad");
 /// # wad.read_directories();
 /// # let mut map = Bsp::new("E1M1".to_owned());
@@ -831,10 +831,16 @@ pub fn vertex_angle_to_object(vertex: &Vec2, object: &Player) -> Angle {
     // }
 }
 
+pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+    let x = point1.x() - point2.x();
+    let y = point1.y() - point2.y();
+    Angle::new(y.atan2(x))
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::bsp;
-    use crate::bsp::IS_SSECTOR_MASK;
+    use crate::r_bsp;
+    use crate::r_bsp::IS_SSECTOR_MASK;
     use wad::{Vertex, Wad};
 
     #[test]
@@ -842,7 +848,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let things = map.get_things();
@@ -870,7 +876,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let vertexes = map.get_vertexes();
@@ -885,7 +891,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
         let linedefs = map.get_linedefs();
 
@@ -922,7 +928,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
         let linedefs = map.get_linedefs();
         assert_eq!(linedefs[0].start_vertex.x() as i32, 1088);
@@ -946,7 +952,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let sectors = map.get_sectors();
@@ -971,7 +977,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let sidedefs = map.get_sidedefs();
@@ -994,7 +1000,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let segments = map.get_segments();
@@ -1026,7 +1032,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         let nodes = map.get_nodes();
@@ -1081,7 +1087,7 @@ mod tests {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut map = bsp::Bsp::new("E1M1".to_owned());
+        let mut map = r_bsp::Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
         // The actual location of THING0

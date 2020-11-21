@@ -1,5 +1,5 @@
 use crate::info::{MapObjectInfo, MapObjectType, StateNum, FRACUNIT};
-use crate::map_object::MapObjectFlag;
+use crate::p_map_object::MapObjectFlag;
 use crate::sounds::SfxEnum;
 
 /// This variable exists only to help create the mobs array

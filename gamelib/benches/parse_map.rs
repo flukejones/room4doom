@@ -1,6 +1,6 @@
 use criterion::*;
 
-use gamelib::bsp::Bsp;
+use gamelib::r_bsp::Bsp;
 use wad::wad::Wad;
 
 fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
