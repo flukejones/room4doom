@@ -5,10 +5,8 @@ use sdl2::{
     surface::Surface, video::Window,
 };
 
-use gamelib::{
-    angle::Angle, p_map_object::MapObject, player::Player, r_bsp::Bsp,
-};
-use wad::{DPtr, Wad};
+use gamelib::{angle::Angle, player::Player, r_bsp::Bsp};
+use wad::Wad;
 
 use crate::input::Input;
 use crate::{GameOptions, FP};

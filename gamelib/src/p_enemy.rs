@@ -279,14 +279,16 @@ pub fn a_fall<'t>(actor: &'t mut ObjectBase<'t>) {
 
 pub fn a_explode<'t>(actor: &'t mut ObjectBase<'t>) {
     if let Some(actor) = actor.get_mut_map_obj() {
-        if let Some(target) = actor.target {
-            p_radius_attack(actor, actor.target.as_mut().unwrap(), 128.0);
+        if let Some(mut target) = actor.target {
+            // just casually breaking lifetimes
+            let target = unsafe { target.as_mut() };
+            p_radius_attack(actor, target, 128.0);
         }
     }
 }
 
 pub fn a_xscream<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
+    if let Some(_actor) = actor.get_mut_map_obj() {
         unimplemented!()
     }
     // if (actor->info->painsound)

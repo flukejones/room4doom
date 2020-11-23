@@ -165,9 +165,9 @@ impl<'m> ObjectBase<'m> {
         }
     }
 
-    pub fn get_mut_map_obj(&mut self) -> Option<&'m mut MapObject> {
+    pub fn get_mut_map_obj(&mut self) -> Option<&mut MapObject<'m>> {
         match self {
-            ObjectBase::MapObject(ref mut m) => Some(m),
+            ObjectBase::MapObject(m) => Some(m),
             _ => None,
         }
     }
@@ -181,7 +181,7 @@ impl<'m> ObjectBase<'m> {
 
     pub fn get_mut_player(&mut self) -> Option<&'m mut Player> {
         match self {
-            ObjectBase::Player(ref mut m) => Some(m),
+            ObjectBase::Player(m) => Some(m),
             _ => None,
         }
     }

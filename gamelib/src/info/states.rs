@@ -1,7 +1,5 @@
-use crate::d_thinker::ActionF;
+use crate::{d_thinker::ActionF, p_enemy::a_pain, p_player_sprite::a_punch};
 use crate::info::{SpriteNum, StateNum};
-use crate::p_enemy::*;
-use crate::p_player_sprite::*;
 use std::fmt;
 
 #[derive(Clone)]
@@ -57,6 +55,38 @@ const NUM_STATES: usize = StateNum::NUMSTATES as usize;
 
 //pub const STATESJ: [State; NUM_CATEGORIES] = [
 /// The States are an immutable set of predefined parameters, which
+
+pub const STATESJ: [State; 3] = [
+    State::new(
+        SpriteNum::SPR_TROO,
+        0,
+        -1,
+        ActionF::None,
+        StateNum::S_NULL,
+        0,
+        0,
+    ), 
+    State::new(
+        SpriteNum::SPR_PUNG,
+        2,
+        4,
+        ActionF::Acp2(&a_punch),
+        StateNum::S_PUNCH3,
+        0,
+        0,
+    ),
+    State::new(
+        SpriteNum::SPR_PLAY,
+        6,
+        4,
+        ActionF::Acp1(&a_pain),
+        StateNum::S_PLAY,
+        0,
+        0,
+    ),
+];
+
+/*
 pub const STATESJ: [State; NUM_STATES] = [
     State::new(
         SpriteNum::SPR_TROO,
@@ -8762,3 +8792,4 @@ pub const STATESJ: [State; NUM_STATES] = [
         0,
     ), // S_TECH2LAMP4
 ];
+*/

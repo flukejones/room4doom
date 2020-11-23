@@ -174,6 +174,18 @@ pub struct Player<'p> {
     didsecret: bool,
 }
 
+impl<'p> Default for Player<'p> {
+    fn default() -> Self {
+        Player::new(
+            Vertex::new(0.0, 0.0),
+            0.0,
+            Angle::new(0.0),
+            None,
+            None,
+        )
+    }
+}
+
 impl<'p> Player<'p> {
     pub const fn new(
         xy: Vertex,

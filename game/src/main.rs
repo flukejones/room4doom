@@ -87,8 +87,8 @@ fn main() {
                 window = video_ctx
                     .window(
                         "DIIRDOOM",
-                        game_options.width.unwrap_or(320),
-                        game_options.height.unwrap_or(200),
+                        game_options.width,
+                        game_options.height,
                     )
                     .position_centered()
                     .opengl()

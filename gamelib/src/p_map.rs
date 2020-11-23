@@ -1,6 +1,5 @@
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::MapObject;
-use std::ptr::NonNull;
 
 ///	Movement, collision handling.
 ///	Shooting and aiming.
@@ -8,7 +7,7 @@ use std::ptr::NonNull;
 /// Source is the creature that caused the explosion at spot.
 pub fn p_radius_attack(
     spot: &mut MapObject,
-    source: &mut NonNull<MapObject>,
+    source: &mut MapObject,
     damage: f32,
 ) {
     let dist = damage + MAXRADIUS;

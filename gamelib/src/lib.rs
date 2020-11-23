@@ -1,15 +1,14 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
-use crate::p_local::VIEWHEIGHT;
 use crate::p_map_object::MapObject;
 use crate::r_bsp::Bsp;
 use angle::Angle;
 use d_main::{GameOptions, Skill};
 use doom_def::*;
 use player::{Player, WBStartStruct};
-use sdl2::render::Canvas;
 use sdl2::surface::Surface;
-use wad::{Vertex, Wad};
+use sdl2::{render::Canvas, video::Window};
+use wad::Wad;
 
 pub mod angle;
 pub mod d_main;
@@ -81,7 +80,7 @@ impl<'c> Game<'c> {
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = match options.start_skill {
             d_main::Skill::Nightmare => true,
-            _ => false
+            _ => false,
         };
 
         let mut wad = Wad::new(options.iwad);
@@ -90,13 +89,10 @@ impl<'c> Game<'c> {
         // map.load(&wad);
 
         let players = [
-            Player::new(
-                Vertex::new(0.0, 0.0),
-                0.0,
-                Angle::new(0.0),
-                None,
-                None,
-            ); MAXPLAYERS
+            Player::default(),
+            Player::default(),
+            Player::default(),
+            Player::default(),
         ];
 
         //MapObject::p_spawn_player(player_thing, &map, &mut players);
@@ -109,22 +105,22 @@ impl<'c> Game<'c> {
             map_objects: Vec::with_capacity(200),
 
             deathmatch: 0,
-            netgame:    false,
-            turbodetected:  [false; MAXPLAYERS],
-            old_game_state:   GameState::GS_LEVEL,
-            game_action:      GameAction::ga_nothing,
-            game_state:       GameState::GS_LEVEL,
-            game_skill:       options.start_skill,
+            netgame: false,
+            turbodetected: [false; MAXPLAYERS],
+            old_game_state: GameState::GS_LEVEL,
+            game_action: GameAction::ga_nothing,
+            game_state: GameState::GS_LEVEL,
+            game_skill: options.start_skill,
             respawn_monsters,
-            game_episode:     options.start_episode,
-            game_map:         options.start_map,
+            game_episode: options.start_episode,
+            game_map: options.start_map,
             time_limit: None,
             consoleplayer: 0,
             displayplayer: 0,
             levelstarttic: 0,
-            totalkills:    0,
-            totalitems:    0,
-            totalsecret:   0,
+            totalkills: 0,
+            totalitems: 0,
+            totalsecret: 0,
             wminfo: WBStartStruct::default(),
         }
     }
@@ -157,30 +153,34 @@ impl<'c> Game<'c> {
     /// D_Display
     // TODO: Move one level up to d_main
     pub fn d_display(&mut self, canvas: &mut Canvas<Surface>) {
-        let map = self.map.as_ref().unwrap();
+        let map = self.map.as_mut().unwrap();
         let player = &mut self.players[self.displayplayer];
         map.clear_clip_segs();
 
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
-        let player_subsect =
-            map.point_in_subsector(&player.xy).unwrap();
+        let player_subsect = map.point_in_subsector(&player.xy).unwrap();
         player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
         player.sub_sector = Some(player_subsect); //DPtr::new(player_subsect);
 
         canvas.clear();
-        map
-            .draw_bsp(player, map.start_node(), canvas);
+        map.draw_bsp(player, map.start_node(), canvas);
     }
 
     // TODO: Move one level up to d_main
-    fn i_finish_update(&self, canvas: &mut Canvas<Surface>) {
+    fn i_finish_update(
+        &self,
+        mut canvas: Canvas<Surface>,
+        window: &mut Canvas<Window>,
+    ) {
+        canvas.present();
+
         let texture_creator = canvas.texture_creator();
         let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
 
-        canvas.copy(&t, None, None).unwrap();
+        window.copy(&t, None, None).unwrap();
         //self.draw_automap();
-        canvas.present();
+        window.present();
     }
 }
 

@@ -352,8 +352,8 @@ pub fn p_set_mobj_state<'p>(
     loop {
         match state {
             StateNum::S_NULL => {
-                if let Some(obj) = obj.get_mut_map_obj() {
-                    obj.state = &STATESJ[state as usize]; //(state_t *)S_NULL;
+                if let Some(mobj) = obj.get_mut_map_obj() {
+                    mobj.state = &STATESJ[state as usize]; //(state_t *)S_NULL;
                                                           //  P_RemoveMobj(mobj);
                 }
                 return false;
@@ -365,11 +365,11 @@ pub fn p_set_mobj_state<'p>(
                 // Call action functions when the state is set
                 st.action.do_action1(obj);
 
-                if let Some(obj) = obj.get_mut_map_obj() {
-                    obj.state = st;
-                    obj.tics = st.tics;
-                    obj.sprite = st.sprite;
-                    obj.frame = st.frame;
+                if let Some(mobj) = obj.get_mut_map_obj() {
+                    mobj.state = st;
+                    mobj.tics = st.tics;
+                    mobj.sprite = st.sprite;
+                    mobj.frame = st.frame;
                 }
 
                 state = st.next_state;
