@@ -71,7 +71,7 @@ impl<'t, T> Thinker<'t, T> {
     }
 }
 
-impl<'t> Drop for Thinker<'t, T> {
+impl<'t, T> Drop for Thinker<'t, T> {
     fn drop(&mut self) {
         // if this thinker has links in both directions then the thinkers at those
         // ends must be linked to this thinker, so we need to unlink those from

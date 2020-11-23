@@ -8,7 +8,7 @@ pub static DOOM_VERSION: u8 = 109;
 pub static DOOM_191_VERSION: u8 = 111;
 
 /// The maximum number of players, multiplayer/networking.
-pub const MAXPLAYERS: u8 = 4;
+pub const MAXPLAYERS: usize = 4;
 
 /// The current state of the game: whether we are
 /// playing, gazing at the intermission screen,

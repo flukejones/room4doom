@@ -33,6 +33,114 @@ pub fn a_refire<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
     }
 }
 
+pub fn a_weaponready<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_lower<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_raise<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_firepistol<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_fireshotgun<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_fireshotgun2<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_firecgun<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_fireplasma<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_firemissile<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_firebfg<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_bfgsound<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_gunflash<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_punch<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_checkreload<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_openshotgun2<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_loadshotgun2<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_closeshotgun2<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
+pub fn a_saw<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
+    if let Some(actor) = actor.get_mut_player() {
+        unimplemented!()
+    }
+}
+
 pub fn a_light0<'t>(actor: &'t mut ObjectBase<'t>, _pspr: &mut PspDef) {
     if let Some(actor) = actor.get_mut_player() {
         actor.extralight = 0;

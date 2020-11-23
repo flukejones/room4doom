@@ -284,3 +284,11 @@ pub fn a_explode<'t>(actor: &'t mut ObjectBase<'t>) {
         }
     }
 }
+
+pub fn a_xscream<'t>(actor: &'t mut ObjectBase<'t>) {
+    if let Some(actor) = actor.get_mut_map_obj() {
+        unimplemented!()
+    }
+    // if (actor->info->painsound)
+    // S_StartSound(actor, actor->info->painsound);
+}

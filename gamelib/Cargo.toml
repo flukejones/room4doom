@@ -10,6 +10,7 @@ edition = "2018"
 utils = { path = "../utils" }
 wad = { path = "../wad" }
 glam = "0.8.5"
+gumdrop = "~0.7"
 
 [dependencies.sdl2]
 version = "0.34.3"

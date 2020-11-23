@@ -1,7 +1,6 @@
 use wad::{lumps::SubSector, DPtr, Vertex};
 
 use crate::d_thinker::Thinker;
-use crate::info::states::State;
 use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
 use crate::{
@@ -44,8 +43,9 @@ enum Cheat {
     CfNomomentum = 4,
 }
 
-// INTERMISSION
-// Structure passed e.g. to WI_Start(wb)
+/// INTERMISSION
+/// Structure passed e.g. to WI_Start(wb)
+#[derive(Debug, Default)]
 pub struct WBPlayerStruct {
     /// whether the player is in game
     pub inn:     bool,
@@ -59,6 +59,8 @@ pub struct WBPlayerStruct {
     pub score:   i32,
 }
 
+/// parms for world map / intermission
+#[derive(Debug, Default)]
 pub struct WBStartStruct {
     /// episode # (0-2)
     pub epsd:      i32,
@@ -90,7 +92,7 @@ pub struct Player<'p> {
     // TODO: move these to mapobject
     pub xy:         Vertex,
     pub rotation:   Angle,
-    pub sub_sector: DPtr<SubSector>,
+    pub sub_sector: Option<DPtr<SubSector>>,
 
     pub mo:          Option<Thinker<'p, MapObject<'p>>>,
     pub playerstate: PlayerState,
@@ -177,8 +179,8 @@ impl<'p> Player<'p> {
         xy: Vertex,
         z: f32,
         rotation: Angle,
-        sub_sector: DPtr<SubSector>,
-        mo: Option<MapObject<'p>>, // TODO: should be a pointer
+        sub_sector: Option<DPtr<SubSector>>,
+        mo:  Option<Thinker<'p, MapObject<'p>>>, // TODO: should be a pointer
     ) -> Player<'p> {
         Player {
             xy,

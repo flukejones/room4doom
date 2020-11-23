@@ -192,9 +192,6 @@ impl<'p> MapObject<'p> {
         bsp: &'b Bsp,
         players: &'b mut [Player<'b>],
     ) {
-        // players is a globally accessible thingy
-        //p = &players[mthing.type-1];
-
         if mthing.kind == 0 {
             return;
         }
@@ -207,22 +204,23 @@ impl<'p> MapObject<'p> {
 
         let mut player = &mut players[mthing.kind as usize - 1];
 
-        // if p.playerstate == PlayerState::PstReborn {
-        //     G_PlayerReborn(mthing.kind - 1);
-        // }
+        if player.playerstate == PlayerState::PstReborn {
+            // TODO: G_PlayerReborn(mthing.kind - 1);
+        }
 
         let x = mthing.pos.x();
         let y = mthing.pos.y();
         let z = ONFLOORZ as f32;
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
         // the Player object owns this.
-        let mut mobj = MapObject::p_spawn_map_object(
+        let mut thinker = MapObject::p_spawn_map_object(
             x,
             y,
             z as i32,
             MapObjectType::MT_PLAYER,
             bsp,
         );
+        let mut mobj = &mut thinker.obj;
 
         // set color translations for player sprites
         if mthing.kind > 1 {
@@ -236,7 +234,7 @@ impl<'p> MapObject<'p> {
 
         mobj.player = Some(player as *mut Player); // TODO: needs to be a pointer
 
-        player.mo = Some(mobj); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
+        player.mo = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
         player.playerstate = PlayerState::PstLive;
         player.refire = 0;
         player.message = None;

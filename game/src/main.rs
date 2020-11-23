@@ -8,25 +8,10 @@ use sdl2;
 use sdl2::{render::Canvas, video::Window};
 
 use crate::{game::Game, input::Input};
+use gamelib::d_main::GameOptions;
 
 mod game;
 mod input;
-
-#[derive(Default, Debug, Options)]
-pub struct GameOptions {
-    #[options(help = "path to game WAD", required)]
-    pub iwad:       String,
-    #[options(help = "path to patch WAD")]
-    pub pwad:       Option<String>,
-    #[options(help = "resolution width in pixels")]
-    pub width:      Option<u32>,
-    #[options(help = "resolution height in pixels")]
-    pub height:     Option<u32>,
-    #[options(help = "map to load")]
-    pub map:        Option<String>,
-    #[options(help = "waesgr")]
-    pub fullscreen: Option<bool>,
-}
 
 type FP = f32;
 const MS_PER_UPDATE: FP = 4.0;
@@ -97,13 +82,13 @@ fn main() {
 
     let mut game =
         match GameOptions::parse_args(&args[1..], ParsingStyle::AllOptions) {
-            Ok(opts) => {
-                println!("{:?}", opts);
+            Ok(game_options) => {
+                println!("{:?}", game_options);
                 window = video_ctx
                     .window(
                         "DIIRDOOM",
-                        opts.width.unwrap_or(320),
-                        opts.height.unwrap_or(200),
+                        game_options.width.unwrap_or(320),
+                        game_options.height.unwrap_or(200),
                     )
                     .position_centered()
                     .opengl()
@@ -116,7 +101,7 @@ fn main() {
                     .build()
                     .unwrap();
 
-                Game::new(&mut canvas, &mut input, opts)
+                Game::new(&mut canvas, &mut input, game_options)
             }
             Err(err) => {
                 panic!("\n{}\n{}", err, GameOptions::usage());
