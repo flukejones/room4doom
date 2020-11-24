@@ -176,13 +176,7 @@ pub struct Player<'p> {
 
 impl<'p> Default for Player<'p> {
     fn default() -> Self {
-        Player::new(
-            Vertex::new(0.0, 0.0),
-            0.0,
-            Angle::new(0.0),
-            None,
-            None,
-        )
+        Player::new(Vertex::new(0.0, 0.0), 0.0, Angle::new(0.0), None, None)
     }
 }
 
@@ -192,7 +186,7 @@ impl<'p> Player<'p> {
         z: f32,
         rotation: Angle,
         sub_sector: Option<DPtr<SubSector>>,
-        mo:  Option<Thinker<'p, MapObject<'p>>>, // TODO: should be a pointer
+        mo: Option<Thinker<'p, MapObject<'p>>>, // TODO: should be a pointer
     ) -> Player<'p> {
         Player {
             xy,

@@ -117,7 +117,11 @@ impl<'p> ActionF<'p> {
         }
     }
 
-    pub fn do_action2(&self, object1: &'p mut ObjectBase<'p>, object2: &mut PspDef) {
+    pub fn do_action2(
+        &self,
+        object1: &'p mut ObjectBase<'p>,
+        object2: &mut PspDef,
+    ) {
         match self {
             ActionF::Acp2(f) => unsafe { (**f)(object1, object2) },
             _ => {}
@@ -129,12 +133,9 @@ impl<'p> Clone for ActionF<'p> {
     fn clone(&self) -> Self {
         match self {
             ActionF::Acv => ActionF::Acv,
-            ActionF::Acp1(a) => {
-                let d = unsafe { (*a) as *const (dyn for<'r, 's> Fn(&'r mut ObjectBase<'s>)) };
-                ActionF::Acp1(d)
-            },
+            ActionF::Acp1(a) => ActionF::Acp1((*a).clone()),
             ActionF::Acp2(a) => ActionF::Acp2((*a).clone()),
-            ActionF::None => ActionF::None
+            ActionF::None => ActionF::None,
         }
     }
 }

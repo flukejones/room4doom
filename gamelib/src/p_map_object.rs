@@ -6,19 +6,21 @@ use wad::{
     DPtr,
 };
 
-use crate::d_thinker::{ActionF, ObjectBase, Thinker};
 use crate::info::map_object_info::MOBJINFO;
-use crate::info::states::{State, STATESJ};
+use crate::info::states::State;
 use crate::info::StateNum;
 use crate::{
     angle::Angle, info::MapObjectInfo, p_local::ONCEILINGZ, r_bsp::Bsp,
+};
+use crate::{
+    d_thinker::{ActionF, ObjectBase, Thinker},
+    info::states::get_state,
 };
 use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
     player::{Player, PlayerState},
 };
-use std::ptr::null_mut;
 
 pub static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 
@@ -281,7 +283,7 @@ impl<'p> MapObject<'p> {
         // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let state: State<'p> = STATESJ[info.spawnstate as usize].clone();
+        let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
@@ -353,26 +355,25 @@ pub fn p_set_mobj_state<'p>(
         match state {
             StateNum::S_NULL => {
                 if let Some(mobj) = obj.get_mut_map_obj() {
-                    mobj.state = &STATESJ[state as usize]; //(state_t *)S_NULL;
-                                                          //  P_RemoveMobj(mobj);
+                    mobj.state = get_state(state as usize); //(state_t *)S_NULL;
+                                                            //  P_RemoveMobj(mobj);
                 }
                 return false;
             }
             _ => {
-                let st: &State = &STATESJ[state as usize];
+                let st = get_state(state as usize);
+                state = st.next_state;
 
                 // Modified handling.
                 // Call action functions when the state is set
                 st.action.do_action1(obj);
 
                 if let Some(mobj) = obj.get_mut_map_obj() {
-                    mobj.state = st;
                     mobj.tics = st.tics;
                     mobj.sprite = st.sprite;
                     mobj.frame = st.frame;
+                    mobj.state = st;
                 }
-
-                state = st.next_state;
             }
         }
 

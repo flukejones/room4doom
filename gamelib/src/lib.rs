@@ -17,6 +17,7 @@ pub mod doom_def;
 pub mod entities;
 pub mod flags;
 pub mod info;
+pub mod input;
 pub mod p_enemy;
 pub mod p_local;
 pub mod p_map;
@@ -27,11 +28,14 @@ pub mod player;
 pub mod r_bsp;
 pub mod r_segs;
 pub mod sounds;
+pub mod timestep;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game<'c> {
-    _wad:        Wad,
-    map:         Option<Bsp>,
+    _wad:    Wad,
+    map:     Option<Bsp>,
+    running: bool,
+
     map_objects: Vec<MapObject<'c>>,
 
     // Game locals
@@ -43,7 +47,7 @@ pub struct Game<'c> {
     /// Tracks which players are currently active, set by d_net.c loop
     player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
-    players:        [Player<'c>; MAXPLAYERS],
+    pub players:    [Player<'c>; MAXPLAYERS],
     /// ?
     turbodetected:  [bool; MAXPLAYERS],
 
@@ -84,9 +88,9 @@ impl<'c> Game<'c> {
         };
 
         let mut wad = Wad::new(options.iwad);
-        // wad.read_directories();
-        // let mut map = Bsp::new(options.map.unwrap_or("E1M1".to_owned()));
-        // map.load(&wad);
+        wad.read_directories();
+        let mut map = Bsp::new("E1M1".to_owned());
+        map.load(&wad);
 
         let players = [
             Player::default(),
@@ -99,7 +103,9 @@ impl<'c> Game<'c> {
 
         Game {
             _wad: wad,
-            map: None,
+            map: Some(map),
+            running: true,
+
             players,
             player_in_game: [false; 4],
             map_objects: Vec::with_capacity(200),
@@ -124,6 +130,10 @@ impl<'c> Game<'c> {
             wminfo: WBStartStruct::default(),
         }
     }
+
+    pub fn running(&self) -> bool { self.running }
+
+    pub fn set_running(&mut self, run: bool) { self.running = run; }
 
     // D_RunFrame is the main loop, calls many functions:
     //  - Screen wipe maybe
@@ -168,14 +178,14 @@ impl<'c> Game<'c> {
     }
 
     // TODO: Move one level up to d_main
-    fn i_finish_update(
+    pub fn i_finish_update(
         &self,
-        mut canvas: Canvas<Surface>,
+        canvas: Canvas<Surface>,
         window: &mut Canvas<Window>,
     ) {
-        canvas.present();
+        //canvas.present();
 
-        let texture_creator = canvas.texture_creator();
+        let texture_creator = window.texture_creator();
         let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
 
         window.copy(&t, None, None).unwrap();
