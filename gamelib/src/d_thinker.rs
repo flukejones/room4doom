@@ -38,7 +38,7 @@ pub struct Thinker<'t, T: 't> {
     /// the `Thinker` to change/remove the thinker funciton.
     // TODO: maybe make this take the Thinker as arg. Easily done if the Thinker then contains
     //  only one struct type for things
-    pub function: ActionF,
+    pub function: ActionF<'t>,
 }
 
 impl<'t, T> Thinker<'t, T> {
@@ -85,13 +85,12 @@ impl<'t, T> Drop for Thinker<'t, T> {
 /// Similar to `actionf_t` in d_think.h. `ObjectBase` is required because we need to wrap the
 /// various different args *because* unlike C we can't rely on function arg casts. Use of `Any`
 /// could be done, but it introduces overhead at runtime.
-#[derive(Clone)]
-pub enum ActionF {
+pub enum ActionF<'p> {
     Acv,
     /// NULL thinker, used to tell the thinker runner to remove the thinker from list
     Acp1(*const dyn Fn(&mut ObjectBase)),
     /// Called in the MapObject state setter
-    Acp2(*const dyn Fn(&mut ObjectBase, &mut PspDef)), // P_SetPsprite runs this
+    Acp2(*const dyn Fn(&'p mut ObjectBase<'p>, &mut PspDef)), // P_SetPsprite runs this
     // TODO: Could do something like
     //  - MabObject(*const dyn Fn(&mut MapObject)),
     //  - Player(*const dyn Fn(&mut Player, &mut PspDef)),
@@ -110,7 +109,7 @@ pub enum ActionF {
     None,
 }
 
-impl ActionF {
+impl<'p> ActionF<'p> {
     pub fn do_action1(&self, object: &mut ObjectBase) {
         match self {
             ActionF::Acp1(f) => unsafe { (**f)(object) },
@@ -118,7 +117,7 @@ impl ActionF {
         }
     }
 
-    pub fn do_action2(&self, object1: &mut ObjectBase, object2: &mut PspDef) {
+    pub fn do_action2(&self, object1: &'p mut ObjectBase<'p>, object2: &mut PspDef) {
         match self {
             ActionF::Acp2(f) => unsafe { (**f)(object1, object2) },
             _ => {}
@@ -126,7 +125,21 @@ impl ActionF {
     }
 }
 
-impl fmt::Debug for ActionF {
+impl<'p> Clone for ActionF<'p> {
+    fn clone(&self) -> Self {
+        match self {
+            ActionF::Acv => ActionF::Acv,
+            ActionF::Acp1(a) => {
+                let d = unsafe { (*a) as *const (dyn for<'r, 's> Fn(&'r mut ObjectBase<'s>)) };
+                ActionF::Acp1(d)
+            },
+            ActionF::Acp2(a) => ActionF::Acp2((*a).clone()),
+            ActionF::None => ActionF::None
+        }
+    }
+}
+
+impl<'p> fmt::Debug for ActionF<'p> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Action").finish()
     }

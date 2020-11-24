@@ -168,7 +168,7 @@ pub struct Player<'p> {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef; NUM_SPRITES],
+    psprites: [PspDef<'p>; NUM_SPRITES],
 
     /// True if secret level has been done.
     didsecret: bool,

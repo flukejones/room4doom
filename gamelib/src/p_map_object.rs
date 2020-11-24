@@ -152,7 +152,7 @@ pub struct MapObject<'p> {
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    state:            &'p State,
+    state:            State<'p>,
     pub flags:        u32,
     pub health:       i32,
     /// Movement direction, movement generation (zig-zagging).
@@ -270,7 +270,7 @@ impl<'p> MapObject<'p> {
         y: f32,
         mut z: i32,
         kind: MapObjectType,
-        bsp: &Bsp,
+        bsp: &'p Bsp,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
@@ -281,7 +281,7 @@ impl<'p> MapObject<'p> {
         // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let state: &State = &STATESJ[info.spawnstate as usize];
+        let state: State<'p> = STATESJ[info.spawnstate as usize].clone();
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
@@ -296,7 +296,7 @@ impl<'p> MapObject<'p> {
             z = ceilingz - info.height as i32;
         }
 
-        let mut obj = MapObject {
+        let mut obj: MapObject<'p> = MapObject {
             // The thinker should be non-zero and requires to be added to the linked list
             thinker: None, // TODO: change after thinker container added
             player: None,

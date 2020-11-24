@@ -1,9 +1,8 @@
-use crate::{d_thinker::ActionF, p_enemy::a_pain, p_player_sprite::a_punch};
 use crate::info::{SpriteNum, StateNum};
+use crate::{d_thinker::ActionF, p_enemy::a_pain, p_player_sprite::a_punch};
 use std::fmt;
 
-#[derive(Clone)]
-pub struct State {
+pub struct State<'p> {
     /// Sprite to use
     pub sprite:     SpriteNum,
     /// The frame within this sprite to show for the state
@@ -12,7 +11,7 @@ pub struct State {
     pub tics:       i32,
     // void (*action) (): i32,
     /// An action callback to run on this state
-    pub action:     ActionF,
+    pub action:     ActionF<'p>,
     /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
     /// Don't know, Doom seems to set all to zero
@@ -21,12 +20,12 @@ pub struct State {
     pub misc2:      i32,
 }
 
-impl State {
+impl<'p> State<'p> {
     pub const fn new(
         sprite: SpriteNum,
         frame: i32,
         tics: i32,
-        action: ActionF,
+        action: ActionF<'p>,
         next_state: StateNum,
         misc1: i32,
         misc2: i32,
@@ -43,7 +42,21 @@ impl State {
     }
 }
 
-impl fmt::Debug for State {
+impl<'p> Clone for State<'p> {
+    fn clone(&self) -> Self {
+        State::new(
+            self.sprite,
+            self.frame,
+            self.tics,
+            self.action.clone(),
+            self.next_state,
+            self.misc1,
+            self.misc2,
+        )
+    }
+}
+
+impl<'p> fmt::Debug for State<'p> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("State")
             .field("sprite", &self.sprite)
@@ -65,7 +78,7 @@ pub const STATESJ: [State; 3] = [
         StateNum::S_NULL,
         0,
         0,
-    ), 
+    ),
     State::new(
         SpriteNum::SPR_PUNG,
         2,

@@ -259,7 +259,7 @@ pub fn a_scream<'t>(actor: &'t mut ObjectBase<'t>) {
     // S_StartSound(actor, sound);
 }
 
-pub fn a_pain<'t>(actor: &'t mut ObjectBase<'t>) {
+pub fn a_pain<'t, 'r>(actor: &'r mut ObjectBase<'t>) {
     if let Some(actor) = actor.get_mut_map_obj() {
         unimplemented!()
     }

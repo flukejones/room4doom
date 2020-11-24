@@ -4,9 +4,9 @@ use crate::info::states::State;
 /// From P_PSPR
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
-pub struct PspDef {
+pub struct PspDef<'p> {
     /// a NULL state means not active
-    pub state: Option<State>,
+    pub state: Option<State<'p>>,
     pub tics:  i32,
     pub sx:    f32,
     pub sy:    f32,
