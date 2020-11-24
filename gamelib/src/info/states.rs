@@ -1,8 +1,8 @@
 use crate::info::{SpriteNum, StateNum};
-use crate::{d_thinker::ActionF, p_enemy::a_pain, p_player_sprite::a_punch};
+use crate::{d_thinker::ActionFunc, p_enemy::a_pain, p_player_sprite::a_punch};
 use std::fmt;
 
-pub struct State<'p> {
+pub struct State {
     /// Sprite to use
     pub sprite:     SpriteNum,
     /// The frame within this sprite to show for the state
@@ -11,7 +11,7 @@ pub struct State<'p> {
     pub tics:       i32,
     // void (*action) (): i32,
     /// An action callback to run on this state
-    pub action:     ActionF<'p>,
+    pub action:     ActionFunc,
     /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
     /// Don't know, Doom seems to set all to zero
@@ -20,12 +20,12 @@ pub struct State<'p> {
     pub misc2:      i32,
 }
 
-impl<'p> State<'p> {
+impl State {
     pub const fn new(
         sprite: SpriteNum,
         frame: i32,
         tics: i32,
-        action: ActionF<'p>,
+        action: ActionFunc,
         next_state: StateNum,
         misc1: i32,
         misc2: i32,
@@ -42,7 +42,7 @@ impl<'p> State<'p> {
     }
 }
 
-impl<'p> Clone for State<'p> {
+impl Clone for State {
     fn clone(&self) -> Self {
         State::new(
             self.sprite,
@@ -56,7 +56,7 @@ impl<'p> Clone for State<'p> {
     }
 }
 
-impl<'p> fmt::Debug for State<'p> {
+impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("State")
             .field("sprite", &self.sprite)
@@ -65,7 +65,7 @@ impl<'p> fmt::Debug for State<'p> {
 }
 
 //pub const STATESJ: [State; NUM_CATEGORIES] = [
-pub fn get_state<'p>(index: usize) -> State<'p> {
+pub fn get_state(index: usize) -> State {
     /*let states = [
         State::new(
             SpriteNum::SPR_TROO,
@@ -8778,7 +8778,7 @@ pub fn get_state<'p>(index: usize) -> State<'p> {
             SpriteNum::SPR_TROO,
             0,
             -1,
-            ActionF::None,
+            ActionFunc::None,
             StateNum::S_NULL,
             0,
             0,
@@ -8787,7 +8787,7 @@ pub fn get_state<'p>(index: usize) -> State<'p> {
             SpriteNum::SPR_PUNG,
             2,
             4,
-            ActionF::Acp2(&a_punch),
+            ActionFunc::Player(&a_punch),
             StateNum::S_PUNCH3,
             0,
             0,
@@ -8796,7 +8796,7 @@ pub fn get_state<'p>(index: usize) -> State<'p> {
             SpriteNum::SPR_PLAY,
             6,
             4,
-            ActionF::Acp1(&a_pain),
+            ActionFunc::MapObject(&a_pain),
             StateNum::S_PLAY,
             0,
             0,
@@ -8808,7 +8808,7 @@ pub fn get_state<'p>(index: usize) -> State<'p> {
             SpriteNum::SPR_TROO,
             0,
             -1,
-            ActionF::None,
+            ActionFunc::None,
             StateNum::S_NULL,
             0,
             0,

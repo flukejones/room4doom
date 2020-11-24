@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_4, ptr::NonNull};
+use std::{f32::consts::FRAC_PI_4, f32::consts::PI, ptr::NonNull};
 
 use glam::Vec2;
 use wad::{
@@ -6,14 +6,14 @@ use wad::{
     DPtr,
 };
 
-use crate::info::map_object_info::MOBJINFO;
 use crate::info::states::State;
 use crate::info::StateNum;
 use crate::{
     angle::Angle, info::MapObjectInfo, p_local::ONCEILINGZ, r_bsp::Bsp,
 };
+use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
-    d_thinker::{ActionF, ObjectBase, Thinker},
+    d_thinker::{ActionFunc, Thinker},
     info::states::get_state,
 };
 use crate::{
@@ -113,10 +113,10 @@ pub enum MapObjectFlag {
 }
 
 #[derive(Debug)]
-pub struct MapObject<'p> {
+pub struct MapObject {
     /// Direct link to the `Thinker` that owns this `MapObject`. Required as
     /// functions on a `MapObject` may need to change the thinker function
-    pub thinker:      Option<NonNull<Thinker<'p, ObjectBase<'p>>>>,
+    pub thinker:      Option<NonNull<Thinker<MapObject>>>,
     /// Info for drawing: position.
     pub xy:           Vec2,
     pub z:            f32,
@@ -154,7 +154,7 @@ pub struct MapObject<'p> {
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    state:            State<'p>,
+    state:            State,
     pub flags:        u32,
     pub health:       i32,
     /// Movement direction, movement generation (zig-zagging).
@@ -164,7 +164,7 @@ pub struct MapObject<'p> {
     movecount:        i32,
     // Thing being chased/attacked (or NULL),
     // also the originator for missiles.
-    pub target:       Option<NonNull<MapObject<'p>>>,
+    pub target:       Option<NonNull<MapObject>>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     pub reactiontime: i32,
@@ -173,7 +173,7 @@ pub struct MapObject<'p> {
     pub threshold:    i32,
     // Additional info record for player avatars only.
     // Only valid if type == MT_PLAYER
-    player:           Option<*mut Player<'p>>,
+    player:           Option<*mut Player>,
     /// Player number last looked for.
     lastlook:         i32,
     /// For nightmare respawn.
@@ -182,7 +182,66 @@ pub struct MapObject<'p> {
     // struct mobj_s*	tracer;
 }
 
-impl<'p> MapObject<'p> {
+impl Think for MapObject {
+    // TODO: P_MobjThinker
+    fn think(&mut self) {
+        // This is the P_MobjThinker commented out
+        // momentum movement
+        // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
+        // {
+        //     P_XYMovement(mobj);
+
+        //     // FIXME: decent NOP/NULL/Nil function pointer please.
+        //     if (mobj->thinker.function.acv == (actionf_v)(-1))
+        //         return; // mobj was removed
+        // }
+        // if ((mobj->z != mobj->floorz) || mobj->momz)
+        // {
+        //     P_ZMovement(mobj);
+
+        //     // FIXME: decent NOP/NULL/Nil function pointer please.
+        //     if (mobj->thinker.function.acv == (actionf_v)(-1))
+        //         return; // mobj was removed
+        // }
+
+        // cycle through states,
+        // calling action functions at transitions
+        if self.tics != -1 {
+            self.tics -= 1;
+
+            // you can cycle through multiple states in a tic
+            if self.tics > 0 {
+                if !p_set_mobj_state(self, self.state.next_state) {
+                    return;
+                }
+            } // freed itself
+        }
+        // else
+        // {
+        //     // check for nightmare respawn
+        //     if (!(mobj->flags & MF_COUNTKILL))
+        //         return;
+
+        //     if (!respawnmonsters)
+        //         return;
+
+        //     mobj->movecount++;
+
+        //     if (mobj->movecount < 12 * TICRATE)
+        //         return;
+
+        //     if (leveltime & 31)
+        //         return;
+
+        //     if (P_Random() > 4)
+        //         return;
+
+        //     P_NightmareRespawn(mobj);
+        // }
+    }
+}
+
+impl MapObject {
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged
@@ -192,7 +251,7 @@ impl<'p> MapObject<'p> {
     pub fn p_spawn_player<'b>(
         mthing: &Thing,
         bsp: &'b Bsp,
-        players: &'b mut [Player<'b>],
+        players: &'b mut [Player],
     ) {
         if mthing.kind == 0 {
             return;
@@ -204,6 +263,7 @@ impl<'p> MapObject<'p> {
         //     return;
         // }
 
+        dbg!(mthing.kind as usize - 1);
         let mut player = &mut players[mthing.kind as usize - 1];
 
         if player.playerstate == PlayerState::PstReborn {
@@ -246,6 +306,12 @@ impl<'p> MapObject<'p> {
         player.fixedcolormap = 0;
         player.viewheight = VIEWHEIGHT as f32;
 
+        // Temporary. Need to change update code to use the mobj after doing ticcmd
+        player.xy.set_x(x);
+        player.xy.set_y(y);
+        dbg!(mthing.angle);
+        player.rotation = Angle::new(mthing.angle * PI / 180.0);
+
         // // setup gun psprite
         // P_SetupPsprites(p);
 
@@ -272,7 +338,7 @@ impl<'p> MapObject<'p> {
         y: f32,
         mut z: i32,
         kind: MapObjectType,
-        bsp: &'p Bsp,
+        bsp: &Bsp,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
@@ -298,7 +364,7 @@ impl<'p> MapObject<'p> {
             z = ceilingz - info.height as i32;
         }
 
-        let mut obj: MapObject<'p> = MapObject {
+        let obj: MapObject = MapObject {
             // The thinker should be non-zero and requires to be added to the linked list
             thinker: None, // TODO: change after thinker container added
             player: None,
@@ -334,7 +400,7 @@ impl<'p> MapObject<'p> {
         };
 
         let mut thinker = Thinker::new(obj);
-        thinker.function = ActionF::Acv; //P_MobjThinker
+        thinker.function = ActionFunc::None; //P_MobjThinker
 
         // P_AddThinker(&mobj->thinker);
 
@@ -345,19 +411,14 @@ impl<'p> MapObject<'p> {
 /// P_SetMobjState
 // TODO: Needs to be a standalone function so it can operate on ObjectBase and call the ActionF
 //  . Can't wrap since ObjectBase must own the inner
-pub fn p_set_mobj_state<'p>(
-    obj: &'p mut ObjectBase<'p>,
-    mut state: StateNum,
-) -> bool {
+pub fn p_set_mobj_state(mobj: &mut MapObject, mut state: StateNum) -> bool {
     let mut cycle_counter = 0;
 
     loop {
         match state {
             StateNum::S_NULL => {
-                if let Some(mobj) = obj.get_mut_map_obj() {
-                    mobj.state = get_state(state as usize); //(state_t *)S_NULL;
-                                                            //  P_RemoveMobj(mobj);
-                }
+                mobj.state = get_state(state as usize); //(state_t *)S_NULL;
+                                                        //  P_RemoveMobj(mobj);
                 return false;
             }
             _ => {
@@ -366,14 +427,13 @@ pub fn p_set_mobj_state<'p>(
 
                 // Modified handling.
                 // Call action functions when the state is set
-                st.action.do_action1(obj);
+                let func = mobj.state.action.mobj_func();
+                unsafe { (*func)(mobj) }
 
-                if let Some(mobj) = obj.get_mut_map_obj() {
-                    mobj.tics = st.tics;
-                    mobj.sprite = st.sprite;
-                    mobj.frame = st.frame;
-                    mobj.state = st;
-                }
+                mobj.tics = st.tics;
+                mobj.sprite = st.sprite;
+                mobj.frame = st.frame;
+                mobj.state = st;
             }
         }
 
@@ -382,10 +442,8 @@ pub fn p_set_mobj_state<'p>(
             println!("P_SetMobjState: Infinite state cycle detected!");
         }
 
-        if let Some(obj) = obj.get_mut_map_obj() {
-            if obj.tics <= 0 {
-                break;
-            }
+        if mobj.tics <= 0 {
+            break;
         }
     }
 

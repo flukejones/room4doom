@@ -88,13 +88,13 @@ const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 
 /// player_t
 #[derive(Debug)]
-pub struct Player<'p> {
+pub struct Player {
     // TODO: move these to mapobject
     pub xy:         Vertex,
     pub rotation:   Angle,
     pub sub_sector: Option<DPtr<SubSector>>,
 
-    pub mo:          Option<Thinker<'p, MapObject<'p>>>,
+    pub mo:          Option<Thinker<MapObject>>,
     pub playerstate: PlayerState,
 
     /// Determine POV,
@@ -148,7 +148,7 @@ pub struct Player<'p> {
     secretcount: i32,
 
     /// Hint messages.
-    pub message: Option<&'p str>,
+    pub message: Option<String>,
 
     /// For screen flashing (red or bright).
     pub damagecount: i32,
@@ -168,26 +168,26 @@ pub struct Player<'p> {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef<'p>; NUM_SPRITES],
+    psprites: [PspDef; NUM_SPRITES],
 
     /// True if secret level has been done.
     didsecret: bool,
 }
 
-impl<'p> Default for Player<'p> {
+impl Default for Player {
     fn default() -> Self {
         Player::new(Vertex::new(0.0, 0.0), 0.0, Angle::new(0.0), None, None)
     }
 }
 
-impl<'p> Player<'p> {
+impl Player {
     pub const fn new(
         xy: Vertex,
         z: f32,
         rotation: Angle,
         sub_sector: Option<DPtr<SubSector>>,
-        mo: Option<Thinker<'p, MapObject<'p>>>, // TODO: should be a pointer
-    ) -> Player<'p> {
+        mo: Option<Thinker<MapObject>>, // TODO: should be a pointer
+    ) -> Player {
         Player {
             xy,
             viewz: z,

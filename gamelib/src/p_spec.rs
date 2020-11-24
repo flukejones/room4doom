@@ -7,17 +7,16 @@ use std::ptr::NonNull;
 use wad::lumps::Sector;
 
 // P_LIGHTS
-//
-pub struct Fire_Flicker<'p> {
-    pub thinker:   Option<NonNull<Thinker<'p, Fire_Flicker<'p>>>>,
+pub struct FireFlicker {
+    pub thinker:   Option<NonNull<Thinker<FireFlicker>>>,
     pub sector:    NonNull<Sector>,
     pub count:     i32,
     pub max_light: i32,
     pub min_light: i32,
 }
 
-pub struct Light_Flash<'p> {
-    pub thinker:   Option<NonNull<Thinker<'p, Light_Flash<'p>>>>,
+pub struct LightFlash {
+    pub thinker:   Option<NonNull<Thinker<LightFlash>>>,
     pub sector:    NonNull<Sector>,
     pub count:     i32,
     pub max_light: i32,
@@ -26,8 +25,8 @@ pub struct Light_Flash<'p> {
     pub min_time:  i32,
 }
 
-pub struct Strobe<'p> {
-    pub thinker:     Option<NonNull<Thinker<'p, Strobe<'p>>>>,
+pub struct Strobe {
+    pub thinker:     Option<NonNull<Thinker<Strobe>>>,
     pub sector:      NonNull<Sector>,
     pub count:       i32,
     pub min_light:   i32,
@@ -36,8 +35,8 @@ pub struct Strobe<'p> {
     pub bright_time: i32,
 }
 
-pub struct Glow<'p> {
-    pub thinker:   Option<NonNull<Thinker<'p, Glow<'p>>>>,
+pub struct Glow {
+    pub thinker:   Option<NonNull<Thinker<Glow>>>,
     pub sector:    NonNull<Sector>,
     pub min_light: i32,
     pub max_light: i32,
@@ -45,7 +44,6 @@ pub struct Glow<'p> {
 }
 
 // P_PLATS
-//
 pub enum PlatEnum {
     up,
     down,
@@ -61,8 +59,8 @@ pub enum PlatType {
     blazeDWUS,
 }
 
-struct Platform<'p> {
-    pub thinker:    Option<NonNull<Thinker<'p, Platform<'p>>>>,
+pub struct Platform {
+    pub thinker:    Option<NonNull<Thinker<Platform>>>,
     pub sector:     NonNull<Sector>,
     pub speed:      f32,
     pub low:        f32,
@@ -110,8 +108,8 @@ pub enum StairEnum {
     turbo16,
 }
 
-pub struct FloorMove<'p> {
-    pub thinker:         Option<NonNull<Thinker<'p, FloorMove<'p>>>>,
+pub struct FloorMove {
+    pub thinker:         Option<NonNull<Thinker<FloorMove>>>,
     pub sector:          NonNull<Sector>,
     kind:                FloorEnum,
     pub speed:           f32,
@@ -133,8 +131,8 @@ pub enum CeilingKind {
     silentCrushAndRaise,
 }
 
-pub struct CeilingMove<'p> {
-    pub thinker:      Option<NonNull<Thinker<'p, FloorMove<'p>>>>,
+pub struct CeilingMove {
+    pub thinker:      Option<NonNull<Thinker<FloorMove>>>,
     pub sector:       NonNull<Sector>,
     pub kind:         CeilingKind,
     pub bottomheight: f32,

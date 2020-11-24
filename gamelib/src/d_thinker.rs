@@ -1,8 +1,8 @@
-use crate::p_map_object::MapObject;
-use crate::p_player_sprite::PspDef;
-use crate::player::Player;
-use std::fmt;
+use crate::{
+    p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player,
+};
 use std::ptr::null_mut;
+use std::{any::Any, fmt};
 
 // TODO: Split thinkers and things in to MapObject, Lights, Movers, Player,
 //  where Movers contains all level structure changing things like doors/platforms
@@ -29,25 +29,25 @@ use std::ptr::null_mut;
 /// The LinkedList style serves to give the Objects a way to find the next/prev of
 /// its neighbours and more, without having to pass in a ref to the Thinker container
 #[derive(Debug)]
-pub struct Thinker<'t, T: 't> {
-    pub prev:     *mut Thinker<'t, T>,
-    pub next:     *mut Thinker<'t, T>,
+pub struct Thinker<T: Any> {
+    pub prev:     *mut Thinker<T>,
+    pub next:     *mut Thinker<T>,
     pub obj:      T,
     /// The `Thinker` function to run, this function typically also runs a `State`
     /// function on the Object. The `State` function may then require access to
     /// the `Thinker` to change/remove the thinker funciton.
     // TODO: maybe make this take the Thinker as arg. Easily done if the Thinker then contains
     //  only one struct type for things
-    pub function: ActionF<'t>,
+    pub function: ActionFunc,
 }
 
-impl<'t, T> Thinker<'t, T> {
-    pub fn new(obj: T) -> Thinker<'t, T> {
+impl<T: Any> Thinker<T> {
+    pub fn new(obj: T) -> Thinker<T> {
         Thinker {
             prev: null_mut(),
             next: null_mut(),
             obj,
-            function: ActionF::Acv,
+            function: ActionFunc::None,
         }
     }
 
@@ -71,7 +71,7 @@ impl<'t, T> Thinker<'t, T> {
     }
 }
 
-impl<'t, T> Drop for Thinker<'t, T> {
+impl<T: Any> Drop for Thinker<T> {
     fn drop(&mut self) {
         // if this thinker has links in both directions then the thinkers at those
         // ends must be linked to this thinker, so we need to unlink those from
@@ -85,118 +85,96 @@ impl<'t, T> Drop for Thinker<'t, T> {
 /// Similar to `actionf_t` in d_think.h. `ObjectBase` is required because we need to wrap the
 /// various different args *because* unlike C we can't rely on function arg casts. Use of `Any`
 /// could be done, but it introduces overhead at runtime.
-pub enum ActionF<'p> {
-    Acv,
+#[derive(Clone)]
+pub enum ActionFunc {
     /// NULL thinker, used to tell the thinker runner to remove the thinker from list
-    Acp1(*const dyn Fn(&mut ObjectBase)),
-    /// Called in the MapObject state setter
-    Acp2(*const dyn Fn(&'p mut ObjectBase<'p>, &mut PspDef)), // P_SetPsprite runs this
-    // TODO: Could do something like
-    //  - MabObject(*const dyn Fn(&mut MapObject)),
-    //  - Player(*const dyn Fn(&mut Player, &mut PspDef)),
-    //  etc. Thinker would need to be separated and specialied to the 3 different map
-    //  things (light/mover/thing). Full list is:
-    //  - ceiling_t
-    //  - vldoor_t
-    //  - floormove_t
-    //  - plat_t
-    //  - fireflicker_t
-    //  - lightflash_t
-    //  - strobe_t
-    //  - glow_t
-    //  - mobj_t
-    /// No action, used in place of Acp1(&null)
     None,
+    /// Called in the Thinker runner and State
+    MapObject(*const dyn Fn(&mut MapObject)),
+    /// Called in the Thinker runner and State
+    Player(*const dyn Fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
+    // Lights
+    FireFlicker(*const dyn Fn(&mut FireFlicker)),
+    LightFlash(*const dyn Fn(&mut LightFlash)),
+    Strobe(*const dyn Fn(&mut Strobe)),
+    Glow(*const dyn Fn(&mut Glow)),
+    // Map movers
+    Platform(*const dyn Fn(&mut Platform)),
+    Floor(*const dyn Fn(&mut FloorMove)),
+    Ceiling(*const dyn Fn(&mut CeilingMove)),
 }
 
-impl<'p> ActionF<'p> {
-    pub fn do_action1(&self, object: &mut ObjectBase) {
+impl ActionFunc {
+    pub fn mobj_func(&self) -> *const dyn Fn(&mut MapObject) {
         match self {
-            ActionF::Acp1(f) => unsafe { (**f)(object) },
-            _ => {}
+            ActionFunc::MapObject(f) => *f,
+            _ => panic!("Incorrect object for function"),
         }
     }
 
-    pub fn do_action2(
-        &self,
-        object1: &'p mut ObjectBase<'p>,
-        object2: &mut PspDef,
-    ) {
+    pub fn player_func(&self) -> *const dyn Fn(&mut Player, &mut PspDef) {
         match self {
-            ActionF::Acp2(f) => unsafe { (**f)(object1, object2) },
-            _ => {}
+            ActionFunc::Player(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn fire_flicker_func(&self) -> *const dyn Fn(&mut FireFlicker) {
+        match self {
+            ActionFunc::FireFlicker(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn light_flash_func(&self) -> *const dyn Fn(&mut LightFlash) {
+        match self {
+            ActionFunc::LightFlash(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn strobe_func(&self) -> *const dyn Fn(&mut Strobe) {
+        match self {
+            ActionFunc::Strobe(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn glow_func(&self) -> *const dyn Fn(&mut Glow) {
+        match self {
+            ActionFunc::Glow(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn platform_func(&self) -> *const dyn Fn(&mut Platform) {
+        match self {
+            ActionFunc::Platform(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn floor_func(&self) -> *const dyn Fn(&mut FloorMove) {
+        match self {
+            ActionFunc::Floor(f) => *f,
+            _ => panic!("Incorrect object for function"),
+        }
+    }
+
+    pub fn ceiling_func(&self) -> *const dyn Fn(&mut CeilingMove) {
+        match self {
+            ActionFunc::Ceiling(f) => *f,
+            _ => panic!("Incorrect object for function"),
         }
     }
 }
 
-impl<'p> Clone for ActionF<'p> {
-    fn clone(&self) -> Self {
-        match self {
-            ActionF::Acv => ActionF::Acv,
-            ActionF::Acp1(a) => ActionF::Acp1((*a).clone()),
-            ActionF::Acp2(a) => ActionF::Acp2((*a).clone()),
-            ActionF::None => ActionF::None,
-        }
-    }
-}
-
-impl<'p> fmt::Debug for ActionF<'p> {
+impl fmt::Debug for ActionFunc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Action").finish()
     }
 }
 
-/// Container of all possible map object types.
-///
-/// **Moving segs/sectors**
-/// - ceiling_t
-/// - vldoor_t
-/// - floormove_t
-/// - plat_t
-///
-/// **Level lights**
-/// - fireflicker_t
-/// - lightflash_t
-/// - strobe_t
-/// - glow_t
-///
-/// **Items like Health, Ammo, Lamps, corpses, demons, player etc**
-/// - mobj_t (MapObject)
-///
-/// All of these object types have an associated thinker function, `ceiling_t` uses a
-/// thinker function `T_MoveCeiling()`
-#[derive(Debug)]
-pub enum ObjectBase<'m> {
-    MapObject(MapObject<'m>),
-    Player(Player<'m>),
-}
-
-impl<'m> ObjectBase<'m> {
-    pub fn get_map_obj(&self) -> Option<&'m MapObject> {
-        match self {
-            ObjectBase::MapObject(m) => Some(&m),
-            _ => None,
-        }
-    }
-
-    pub fn get_mut_map_obj(&mut self) -> Option<&mut MapObject<'m>> {
-        match self {
-            ObjectBase::MapObject(m) => Some(m),
-            _ => None,
-        }
-    }
-
-    pub fn get_player(&self) -> Option<&'m Player> {
-        match self {
-            ObjectBase::Player(m) => Some(&m),
-            _ => None,
-        }
-    }
-
-    pub fn get_mut_player(&mut self) -> Option<&'m mut Player> {
-        match self {
-            ObjectBase::Player(m) => Some(m),
-            _ => None,
-        }
-    }
+pub trait Think {
+    fn think(&mut self);
 }

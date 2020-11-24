@@ -1,9 +1,10 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
+use std::{f32::consts::{FRAC_PI_2, FRAC_PI_4}};
 
 use crate::p_map_object::MapObject;
 use crate::r_bsp::Bsp;
 use angle::Angle;
 use d_main::{GameOptions, Skill};
+use d_thinker::Thinker;
 use doom_def::*;
 use player::{Player, WBStartStruct};
 use sdl2::surface::Surface;
@@ -31,12 +32,12 @@ pub mod sounds;
 pub mod timestep;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
-pub struct Game<'c> {
+pub struct Game {
     _wad:    Wad,
     map:     Option<Bsp>,
     running: bool,
 
-    map_objects: Vec<MapObject<'c>>,
+    think_mobj: Vec<Thinker<MapObject>>,
 
     // Game locals
     /// only if started as net death
@@ -47,7 +48,7 @@ pub struct Game<'c> {
     /// Tracks which players are currently active, set by d_net.c loop
     player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
-    pub players:    [Player<'c>; MAXPLAYERS],
+    pub players:    [Player; MAXPLAYERS],
     /// ?
     turbodetected:  [bool; MAXPLAYERS],
 
@@ -79,8 +80,8 @@ pub struct Game<'c> {
     wminfo: WBStartStruct,
 }
 
-impl<'c> Game<'c> {
-    pub fn new(options: GameOptions) -> Game<'c> {
+impl Game {
+    pub fn new(options: GameOptions) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = match options.start_skill {
             d_main::Skill::Nightmare => true,
@@ -92,14 +93,15 @@ impl<'c> Game<'c> {
         let mut map = Bsp::new("E1M1".to_owned());
         map.load(&wad);
 
-        let players = [
+        let mut players = [
             Player::default(),
             Player::default(),
             Player::default(),
             Player::default(),
         ];
 
-        //MapObject::p_spawn_player(player_thing, &map, &mut players);
+        let player_thing = &map.get_things()[0];
+        MapObject::p_spawn_player(player_thing, &map, &mut players);
 
         Game {
             _wad: wad,
@@ -108,7 +110,7 @@ impl<'c> Game<'c> {
 
             players,
             player_in_game: [false; 4],
-            map_objects: Vec::with_capacity(200),
+            think_mobj: Vec::with_capacity(200),
 
             deathmatch: 0,
             netgame: false,

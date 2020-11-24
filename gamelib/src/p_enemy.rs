@@ -1,56 +1,47 @@
-use crate::d_thinker::ObjectBase;
-use crate::p_map::p_radius_attack;
 use crate::p_map_object::MapObjectFlag;
 use crate::r_bsp::point_to_angle_2;
+use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 
 /// A_FaceTarget
-pub fn a_facetarget<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        if actor.target.is_none() {
-            return;
-        }
+pub fn a_facetarget<'t>(actor: &'t mut MapObject) {
+    actor.flags &= !(MapObjectFlag::MF_AMBUSH as u32);
 
-        actor.flags &= !(MapObjectFlag::MF_AMBUSH as u32);
+    unsafe {
+        let angle =
+            point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
+        actor.angle = angle;
 
-        unsafe {
-            let angle =
-                point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
-            actor.angle = angle;
-
-            if actor.target.unwrap().as_mut().flags
-                & MapObjectFlag::MF_SHADOW as u32
-                == MapObjectFlag::MF_SHADOW as u32
-            {
-                // TODO: actor.angle += P_SubRandom() << 21;
-            }
+        if actor.target.unwrap().as_mut().flags
+            & MapObjectFlag::MF_SHADOW as u32
+            == MapObjectFlag::MF_SHADOW as u32
+        {
+            // TODO: actor.angle += P_SubRandom() << 21;
         }
     }
 }
 
 /// Actor has a melee attack,
 /// so it tries to close as fast as possible
-pub fn a_chase<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        if actor.reactiontime > 0 {
-            actor.reactiontime -= 1;
-        }
-
-        // modify target threshold
-        if actor.threshold > 0 {
-            if
-            // TODO: gameversion > exe_doom_1_2 &&
-            actor.target.is_none()
-                || (actor.target.is_some()
-                    && unsafe { actor.target.unwrap().as_ref().health <= 0 })
-            {
-                actor.threshold = 0;
-            } else {
-                actor.threshold -= 1;
-            }
-        }
-
-        unimplemented!()
+pub fn a_chase<'t>(actor: &'t mut MapObject) {
+    if actor.reactiontime > 0 {
+        actor.reactiontime -= 1;
     }
+
+    // modify target threshold
+    if actor.threshold > 0 {
+        if
+        // TODO: gameversion > exe_doom_1_2 &&
+        actor.target.is_none()
+            || (actor.target.is_some()
+                && unsafe { actor.target.unwrap().as_ref().health <= 0 })
+        {
+            actor.threshold = 0;
+        } else {
+            actor.threshold -= 1;
+        }
+    }
+
+    unimplemented!()
     //
 
     //
@@ -134,10 +125,8 @@ pub fn a_chase<'t>(actor: &'t mut ObjectBase<'t>) {
 }
 
 /// Stay in state until a player is sighted.
-pub fn a_look<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        unimplemented!()
-    }
+pub fn a_look<'t>(actor: &'t mut MapObject) {
+    unimplemented!()
     // mobj_t *targ;
     //
     // actor->threshold = 0; // any shot will wake up
@@ -195,10 +184,8 @@ pub fn a_look<'t>(actor: &'t mut ObjectBase<'t>) {
     // P_SetMobjState(actor, actor->info->seestate);
 }
 
-pub fn a_fire<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        unimplemented!()
-    }
+pub fn a_fire<'t>(actor: &'t mut MapObject) {
+    unimplemented!()
     // mobj_t *dest;
     // mobj_t *target;
     // unsigned an;
@@ -222,10 +209,8 @@ pub fn a_fire<'t>(actor: &'t mut ObjectBase<'t>) {
     // P_SetThingPosition(actor);
 }
 
-pub fn a_scream<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        unimplemented!()
-    }
+pub fn a_scream<'t>(actor: &'t mut MapObject) {
+    unimplemented!()
     // int sound;
     //
     // switch (actor->info->deathsound)
@@ -259,38 +244,30 @@ pub fn a_scream<'t>(actor: &'t mut ObjectBase<'t>) {
     // S_StartSound(actor, sound);
 }
 
-pub fn a_pain<'t, 'r>(actor: &'r mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        unimplemented!()
-    }
+pub fn a_pain<'t>(actor: &'t mut MapObject) {
+    unimplemented!()
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
 
-pub fn a_fall<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        // actor is on ground, it can be walked over
-        actor.flags &= !(MapObjectFlag::MF_SOLID as u32);
+pub fn a_fall<'t>(actor: &'t mut MapObject) {
+    // actor is on ground, it can be walked over
+    actor.flags &= !(MapObjectFlag::MF_SOLID as u32);
 
-        // So change this if corpse objects
-        // are meant to be obstacles.
+    // So change this if corpse objects
+    // are meant to be obstacles.
+}
+
+pub fn a_explode<'t>(actor: &'t mut MapObject) {
+    if let Some(mut target) = actor.target {
+        // just casually breaking lifetimes
+        let target = unsafe { target.as_mut() };
+        p_radius_attack(actor, target, 128.0);
     }
 }
 
-pub fn a_explode<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(actor) = actor.get_mut_map_obj() {
-        if let Some(mut target) = actor.target {
-            // just casually breaking lifetimes
-            let target = unsafe { target.as_mut() };
-            p_radius_attack(actor, target, 128.0);
-        }
-    }
-}
-
-pub fn a_xscream<'t>(actor: &'t mut ObjectBase<'t>) {
-    if let Some(_actor) = actor.get_mut_map_obj() {
-        unimplemented!()
-    }
+pub fn a_xscream<'t>(actor: &'t mut MapObject) {
+    unimplemented!()
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }

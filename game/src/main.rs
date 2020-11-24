@@ -20,7 +20,7 @@ fn main() {
         .opengl()
         .build()
         .unwrap();
-        
+
     let canvas = window
         .into_canvas()
         .accelerated()
