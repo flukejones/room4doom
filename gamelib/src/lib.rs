@@ -4,7 +4,7 @@ use crate::p_map_object::MapObject;
 use crate::r_bsp::Bsp;
 use angle::Angle;
 use d_main::{GameOptions, Skill};
-use d_thinker::Thinker;
+use d_thinker::{Think, Thinker};
 use doom_def::*;
 use player::{Player, WBStartStruct};
 use sdl2::surface::Surface;
@@ -30,6 +30,7 @@ pub mod r_bsp;
 pub mod r_segs;
 pub mod sounds;
 pub mod timestep;
+pub mod p_lights;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
