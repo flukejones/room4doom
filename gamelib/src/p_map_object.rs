@@ -184,7 +184,7 @@ pub struct MapObject {
 
 impl Think for MapObject {
     // TODO: P_MobjThinker
-    fn think(&mut self) {
+    fn think(&mut self) -> bool {
         // This is the P_MobjThinker commented out
         // momentum movement
         // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
@@ -212,7 +212,7 @@ impl Think for MapObject {
             // you can cycle through multiple states in a tic
             if self.tics > 0 {
                 if !p_set_mobj_state(self, self.state.next_state) {
-                    return;
+                    return true;
                 }
             } // freed itself
         }
@@ -238,6 +238,7 @@ impl Think for MapObject {
 
         //     P_NightmareRespawn(mobj);
         // }
+        false
     }
 }
 

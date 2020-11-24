@@ -27,9 +27,10 @@ use std::{any::Any, fmt};
 ///  different functions
 ///
 /// The LinkedList style serves to give the Objects a way to find the next/prev of
-/// its neighbours and more, without having to pass in a ref to the Thinker container
+/// its neighbours and more, without having to pass in a ref to the Thinker container,
+/// or iterate over possible blank spots in memory.
 #[derive(Debug)]
-pub struct Thinker<T: Any> {
+pub struct Thinker<T: Any + Think> {
     pub prev:     *mut Thinker<T>,
     pub next:     *mut Thinker<T>,
     pub obj:      T,
@@ -41,7 +42,7 @@ pub struct Thinker<T: Any> {
     pub function: ActionFunc,
 }
 
-impl<T: Any> Thinker<T> {
+impl<T: Any + Think> Thinker<T> {
     pub fn new(obj: T) -> Thinker<T> {
         Thinker {
             prev: null_mut(),
@@ -69,15 +70,27 @@ impl<T: Any> Thinker<T> {
             }
         }
     }
+
+    /// If returns true then the thinker + objects should be removed
+    pub fn think(&mut self) -> bool {
+        self.obj.think()
+        // let func = self.state.action.mobj_func();
+        // unsafe { (*func)(self) }
+    }
 }
 
-impl<T: Any> Drop for Thinker<T> {
+impl<T: Any + Think> Drop for Thinker<T> {
     fn drop(&mut self) {
         // if this thinker has links in both directions then the thinkers at those
         // ends must be linked to this thinker, so we need to unlink those from
         // this thinker, and link them together
         self.unlink();
     }
+}
+
+pub trait Think {
+    /// impl of this trait should return true *if* the thinker + object are to be removed
+    fn think(&mut self) -> bool;
 }
 
 /// Enum of function callbacks
@@ -173,8 +186,4 @@ impl fmt::Debug for ActionFunc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Action").finish()
     }
-}
-
-pub trait Think {
-    fn think(&mut self);
 }

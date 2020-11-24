@@ -1,8 +1,8 @@
+use crate::d_thinker::Thinker;
 ///	Implements special effects:
 ///	Texture animation, height or lighting changes according to adjacent sectors,
 /// respective utility functions, etc.
-use crate::angle::Angle;
-use crate::d_thinker::Thinker;
+use crate::{angle::Angle, d_thinker::Think};
 use std::ptr::NonNull;
 use wad::lumps::Sector;
 
