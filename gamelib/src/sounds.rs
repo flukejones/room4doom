@@ -1,6 +1,6 @@
 /// Identifiers for all sfx in game.
 #[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SfxEnum {
     sfx_None,
     sfx_pistol,

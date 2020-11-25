@@ -95,8 +95,8 @@ pub fn d_doom_loop(
     mut input: Input,
     mut canvas: Canvas<Window>,
 ) {
-    game.player_in_game[0] = true; // TODO: temporary
     let mut timestep = TimeStep::new();
+    game.load();
 
     'running: loop {
         if !game.running() {
@@ -124,9 +124,9 @@ pub fn d_display(
     game.render_player_view(&mut canvas);
 
     // // menus go directly to the screen
-    // M_Drawer();	 // menu is drawn even on top of everything
+    // TODO: M_Drawer();	 // menu is drawn even on top of everything
     // net update does i/o and buildcmds...
-    // NetUpdate(); // send out any new accumulation
+    // TODO: NetUpdate(); // send out any new accumulation
 
     // consume the canvas
     i_finish_update(canvas, window);
@@ -144,61 +144,28 @@ pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>) {
 }
 
 fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
-
     // TODO: net.c starts here
     input.update(); // D_ProcessEvents
 
     let console_player = game.consoleplayer;
     // net update does i/o and buildcmds...
-    // NetUpdate(); // send out any new accumulation
+    // TODO: NetUpdate(); // send out any new accumulation
 
     // temporary block
     game.set_running(!input.get_quit());
 
-    // Network code would update each player slot with incoming TicCmds...
+    // TODO: Network code would update each player slot with incoming TicCmds...
     let cmd = input.tic_events.build_tic_cmd(&input.config);
     game.netcmds[console_player][0] = cmd;
 
-    let tic_events = input.tic_events.clone(); // TODO: Remove when player thinker done
-
-    if tic_events.is_kb_pressed(Scancode::Escape) {
+    // Special key check
+    if input.tic_events.is_kb_pressed(Scancode::Escape) {
         game.set_running(false);
     }
 
     // Build tics here?
-    timestep.run_this(|time| {
-        let time = time * 0.005;
-        // TODO: temorary block, remove when tics and player thinker done
-        let rot_amnt = 0.15 * time;
-        let mv_amnt = 50.0 * time;
-        if tic_events.is_kb_pressed(Scancode::Left) {
-            game.players[console_player].rotation += rot_amnt;
-        }
-
-        if tic_events.is_kb_pressed(Scancode::Right) {
-            game.players[console_player].rotation -= rot_amnt;
-        }
-
-        // if tic_events.is_kb_pressed(Scancode::Up) {
-        //     let heading = game.players[console_player].rotation.sin_cos();
-        //     game.players[console_player].xy.set_x(
-        //         game.players[console_player].xy.x() + heading.1 * mv_amnt,
-        //     );
-        //     game.players[console_player].xy.set_y(
-        //         game.players[console_player].xy.y() + heading.0 * mv_amnt,
-        //     );
-        // }
-
-        // if tic_events.is_kb_pressed(Scancode::Down) {
-        //     let heading = game.players[console_player].rotation.sin_cos();
-        //     game.players[console_player].xy.set_x(
-        //         game.players[console_player].xy.x() - heading.1 * mv_amnt,
-        //     );
-        //     game.players[console_player].xy.set_y(
-        //         game.players[console_player].xy.y() - heading.0 * mv_amnt,
-        //     );
-        // }
-
+    // TODO: Doom-like timesteps
+    timestep.run_this(|_| {
         // G_Ticker
         game.ticker();
     });

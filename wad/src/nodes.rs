@@ -242,25 +242,16 @@ impl Node {
 //         println!("{:#018b}", IS_SSECTOR_MASK);
 
 //         println!("00: {:#018b}", nodes[0].child_index[0]);
-//         dbg!(nodes[0].child_index[0] & IS_SSECTOR_MASK);
 //         println!("00: {:#018b}", nodes[0].child_index[1]);
-//         dbg!(nodes[0].child_index[1] & IS_SSECTOR_MASK);
 
 //         println!("01: {:#018b}", nodes[1].child_index[0]);
-//         dbg!(nodes[1].child_index[0] & IS_SSECTOR_MASK);
 //         println!("01: {:#018b}", nodes[1].child_index[1]);
-//         dbg!(nodes[1].child_index[1] & IS_SSECTOR_MASK);
 
 //         println!("02: {:#018b}", nodes[2].child_index[0]);
-//         dbg!(nodes[2].child_index[0]);
 //         println!("02: {:#018b}", nodes[2].child_index[1]);
-//         dbg!(nodes[2].child_index[1] & IS_SSECTOR_MASK);
-//         dbg!(nodes[2].child_index[1] ^ IS_SSECTOR_MASK);
 
 //         println!("03: {:#018b}", nodes[3].child_index[0]);
-//         dbg!(nodes[3].child_index[0]);
 //         println!("03: {:#018b}", nodes[3].child_index[1]);
-//         dbg!(nodes[3].child_index[1]);
 //     }
 
 //     #[test]

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-const MS_PER_UPDATE:f32 = 4.0;
+const MS_PER_UPDATE:f32 = 28.0;
 
 #[derive(Debug)]
 pub struct TimeStep {

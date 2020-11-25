@@ -1,11 +1,20 @@
+use std::f32::consts::FRAC_PI_2;
+
+use glam::Vec2;
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::{d_thinker::{Think, Thinker}, tic_cmd::TicCmd};
-use crate::p_map_object::MapObject;
-use crate::p_player_sprite::PspDef;
+use crate::{Level, p_player_sprite::PspDef};
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
+};
+use crate::{
+    d_thinker::{Think, Thinker},
+    tic_cmd::TicCmd,
+};
+use crate::{
+    info::SpriteNum, map_data::MapData, p_local::bam_to_radian,
+    p_local::fixed_to_float, p_map::MobjCtrl, p_map_object::MapObject,
 };
 
 /// Overlay psprites are scaled shapes
@@ -96,7 +105,7 @@ pub struct Player {
 
     pub mo:          Option<Thinker<MapObject>>,
     pub playerstate: PlayerState,
-    pub cmd: TicCmd,
+    pub cmd:         TicCmd,
 
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
@@ -251,25 +260,54 @@ impl Player {
     }
     // TODO: needs p_pspr.c, p_inter.c
 
-    fn thrust(&mut self) {
-        let mv = self.cmd.forwardmove as f32 * 0.05;
-        let x =  mv as f32 * self.rotation.cos();
-        let y =  mv as f32 * self.rotation.sin();
+    fn thrust(&mut self, angle: Angle, mv: i32) {
+        // mv is in a fixed float format, we need to convert it
+        // TODO: make some of this constant later
+        let mv = fixed_to_float(mv);
+        let x = mv as f32 * angle.cos();
+        let y = mv as f32 * angle.sin();
+        let mxy = Vec2::new(x, y);
 
-        self.xy.set_x(self.xy.x() + x);
-        self.xy.set_y(self.xy.y() + y);
-        //self.mo.unwrap().
+        if let Some(ref mut thinker) = self.mo {
+            thinker.obj.momxy += mxy;
+        }
     }
 
     fn move_player(&mut self) {
-       dbg!(&self.cmd);
-       self.thrust();
+        // TODO: Fix adjustments after fixing the tic timestep
+        if self.cmd.angleturn != 0 {
+            let a = bam_to_radian((self.cmd.angleturn as u32) << 16);
+            self.rotation += a;
+        }
+
+        if self.cmd.forwardmove != 0 {
+            self.thrust(self.rotation, self.cmd.forwardmove as i32 * 2048);
+        }
+
+        if self.cmd.sidemove != 0 {
+            self.thrust(
+                self.rotation - FRAC_PI_2,
+                self.cmd.sidemove as i32 * 2048,
+            );
+        }
+
+        if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
+            if let Some(ref thinker) = self.mo {
+                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
+                {
+                    //P_SetMobjState (player->mo, S_PLAY_RUN1);
+                }
+            }
+        }
     }
 }
 
 impl Think for Player {
-    fn think(&mut self) -> bool {
+    fn think(&mut self, level: &mut Level) -> bool {
         self.move_player();
+        if let Some(ref mut mo) = self.mo {
+            mo.think(level); // Player own the thinker, so make it think here
+        }
         false
     }
 }

@@ -6,10 +6,10 @@ use wad::{
     DPtr,
 };
 
-use crate::info::states::State;
-use crate::info::StateNum;
+use crate::{Level, info::StateNum};
 use crate::{
-    angle::Angle, info::MapObjectInfo, p_local::ONCEILINGZ, r_bsp::Bsp,
+    angle::Angle, info::MapObjectInfo, p_local::FRACUNIT_DIV4,
+    p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
@@ -17,12 +17,19 @@ use crate::{
     info::states::get_state,
 };
 use crate::{
+    info::states::State, map_data::MapData, p_local::p_random,
+    sounds::SfxEnum,
+};
+use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
     player::{Player, PlayerState},
 };
 
-pub static MOBJ_CYCLE_LIMIT: u32 = 1000000;
+static MOBJ_CYCLE_LIMIT: u32 = 1000000;
+pub static MAXMOVE: f32 = 30.0;
+pub static STOPSPEED: f32 = 0.0625;
+pub static FRICTION: f32 = 0.90625;
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -134,7 +141,7 @@ pub struct MapObject {
     sprite:           SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame:            i32,
-    sub_sector:       DPtr<SubSector>,
+    subsector:        DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
     floorz:           f32,
     ceilingz:         f32,
@@ -142,9 +149,8 @@ pub struct MapObject {
     radius:           f32,
     height:           f32,
     /// Momentums, used to update position.
-    momx:             f32,
-    momy:             f32,
-    momz:             f32,
+    pub momxy:        Vec2,
+    pub momz:         f32,
     /// If == validcount, already checked.
     validcount:       i32,
     kind:             MapObjectType,
@@ -154,7 +160,7 @@ pub struct MapObject {
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    state:            State,
+    pub state:        State,
     pub flags:        u32,
     pub health:       i32,
     /// Movement direction, movement generation (zig-zagging).
@@ -173,7 +179,7 @@ pub struct MapObject {
     pub threshold:    i32,
     // Additional info record for player avatars only.
     // Only valid if type == MT_PLAYER
-    player:           Option<*mut Player>,
+    player:           Option<NonNull<Player>>,
     /// Player number last looked for.
     lastlook:         i32,
     /// For nightmare respawn.
@@ -184,17 +190,23 @@ pub struct MapObject {
 
 impl Think for MapObject {
     // TODO: P_MobjThinker
-    fn think(&mut self) -> bool {
+    fn think(&mut self, level: &mut Level) -> bool {
         // This is the P_MobjThinker commented out
         // momentum movement
         // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
         // {
-        //     P_XYMovement(mobj);
+        if self.momxy.x() != 0.0
+            || self.momxy.y() != 0.0
+            || MapObjectFlag::MF_SKULLFLY as u32 != 0
+        {
+            self.p_xy_movement(level);
+        }
 
         //     // FIXME: decent NOP/NULL/Nil function pointer please.
         //     if (mobj->thinker.function.acv == (actionf_v)(-1))
         //         return; // mobj was removed
         // }
+
         // if ((mobj->z != mobj->floorz) || mobj->momz)
         // {
         //     P_ZMovement(mobj);
@@ -211,7 +223,7 @@ impl Think for MapObject {
 
             // you can cycle through multiple states in a tic
             if self.tics > 0 {
-                if !p_set_mobj_state(self, self.state.next_state) {
+                if !self.p_set_mobj_state(self.state.next_state) {
                     return true;
                 }
             } // freed itself
@@ -243,6 +255,160 @@ impl Think for MapObject {
 }
 
 impl MapObject {
+    /// P_ExplodeMissile
+    fn p_explode_missile(&mut self) {
+        self.momxy = Vec2::default();
+        self.z = 0.0;
+        self.p_set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
+
+        self.tics -= (p_random() & 3) as i32;
+
+        if self.tics < 1 {
+            self.tics = 1;
+        }
+
+        self.flags &= !(MapObjectFlag::MF_MISSILE as u32);
+
+        if self.info.deathsound != SfxEnum::sfx_None {
+            // TODO: S_StartSound (mo, mo->info->deathsound);
+        }
+    }
+
+    pub fn p_xy_movement(&mut self, level: &mut Level) {
+        if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
+            if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
+                self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
+                self.momxy = Vec2::default();
+                self.z = 0.0;
+                self.p_set_mobj_state(self.info.spawnstate);
+            }
+            return;
+        }
+
+        if self.momxy.x() > MAXMOVE {
+            self.momxy.set_x(MAXMOVE);
+        } else if self.momxy.x() < -MAXMOVE {
+            self.momxy.set_x(-MAXMOVE);
+        }
+
+        if self.momxy.y() > MAXMOVE {
+            self.momxy.set_y(MAXMOVE);
+        } else if self.momxy.y() < -MAXMOVE {
+            self.momxy.set_y(-MAXMOVE);
+        }
+
+        let mut ptryx;
+        let mut ptryy;
+        let mut xmove = self.momxy.x();
+        let mut ymove = self.momxy.y();
+
+        loop {
+            if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
+                ptryx = self.xy.x() + xmove / 2.0;
+                ptryy = self.xy.y() + ymove / 2.0;
+                xmove /= 2.0;
+                ymove /= 2.0;
+            } else {
+                ptryx = self.xy.x() + xmove;
+                ptryy = self.xy.y() + ymove;
+                xmove = 0.0;
+                ymove = 0.0;
+            }
+
+            // TODO: if (!P_TryMove(mo, ptryx, ptryy))
+
+            if xmove as i32 == 0 || ymove as i32 == 0 {
+                break;
+            }
+        }
+
+        if !level.mobj_ctrl.p_try_move(ptryx, ptryy) {
+            // blocked move
+            if self.player.is_some() {
+                // try to slide along it
+                level.mobj_ctrl.p_slide_move();
+            } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                // TODO: explode a missile
+                // if (ceilingline &&
+                //     ceilingline->backsector &&
+                //     ceilingline->backsector->ceilingpic == skyflatnum)
+                // {
+                //     // Hack to prevent missiles exploding
+                //     // against the sky.
+                //     // Does not handle sky floors.
+                //     P_RemoveMobj(mo);
+                //     return;
+                // }
+                self.p_explode_missile();
+            } else {
+                self.momxy = Vec2::default();
+            }
+        }
+
+        // slow down
+
+        if self.flags
+            & (MapObjectFlag::MF_MISSILE as u32
+                | MapObjectFlag::MF_SKULLFLY as u32)
+            != 0
+        {
+            return; // no friction for missiles ever
+        }
+
+        if self.z > self.floorz {
+            return; // no friction when airborne
+        }
+
+        if self.flags & MapObjectFlag::MF_CORPSE as u32 != 0 {
+            // do not stop sliding
+            //  if halfway off a step with some momentum
+            if self.momxy.x() > FRACUNIT_DIV4
+                || self.momxy.x() < -FRACUNIT_DIV4
+                || self.momxy.y() > FRACUNIT_DIV4
+                || self.momxy.y() < -FRACUNIT_DIV4
+            {
+                if self.floorz as i16 != self.subsector.sector.floor_height {
+                    return;
+                }
+            }
+        }
+
+        if self.momxy.x() > -STOPSPEED
+            && self.momxy.x() < STOPSPEED
+            && self.momxy.y() > -STOPSPEED
+            && self.momxy.y() < STOPSPEED
+        {
+            if self.player.is_none() {
+                self.momxy = Vec2::default();
+                return;
+            } else if let Some(player) = self.player {
+                if unsafe {
+                    player.as_ref().cmd.forwardmove == 0
+                        && player.as_ref().cmd.sidemove == 0
+                } {
+                    // if in a walking frame, stop moving
+                    // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
+                    // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
+                    //     self.p_set_mobj_state(StateNum::S_PLAY);
+                    // }
+                    self.momxy = Vec2::default();
+                    return;
+                }
+            }
+        }
+
+        // TODO: temporary block for player move only, remove when mobj moves done
+        if let Some(mut player) = self.player {
+            unsafe {
+                self.momxy *= FRICTION;
+                player.as_mut().xy += self.momxy;
+                return;
+            }
+        }
+        self.momxy *= FRICTION;
+        self.xy += self.momxy;
+    }
+
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged
@@ -251,7 +417,7 @@ impl MapObject {
     /// Called in game.c
     pub fn p_spawn_player<'b>(
         mthing: &Thing,
-        bsp: &'b Bsp,
+        map: &'b MapData,
         players: &'b mut [Player],
     ) {
         if mthing.kind == 0 {
@@ -264,7 +430,6 @@ impl MapObject {
         //     return;
         // }
 
-        dbg!(mthing.kind as usize - 1);
         let mut player = &mut players[mthing.kind as usize - 1];
 
         if player.playerstate == PlayerState::PstReborn {
@@ -281,7 +446,7 @@ impl MapObject {
             y,
             z as i32,
             MapObjectType::MT_PLAYER,
-            bsp,
+            map,
         );
         let mut mobj = &mut thinker.obj;
 
@@ -294,8 +459,6 @@ impl MapObject {
 
         mobj.angle = Angle::new(FRAC_PI_4 * (mthing.angle / 45.0));
         mobj.health = player.health;
-
-        mobj.player = Some(player as *mut Player); // TODO: needs to be a pointer
 
         player.mo = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
         player.playerstate = PlayerState::PstLive;
@@ -310,8 +473,14 @@ impl MapObject {
         // Temporary. Need to change update code to use the mobj after doing ticcmd
         player.xy.set_x(x);
         player.xy.set_y(y);
-        dbg!(mthing.angle);
         player.rotation = Angle::new(mthing.angle * PI / 180.0);
+
+        let player_ptr =
+            unsafe { NonNull::new_unchecked(player as *mut Player) };
+
+        if let Some(ref mut think) = player.mo {
+            think.obj.player = Some(player_ptr);
+        }
 
         // // setup gun psprite
         // P_SetupPsprites(p);
@@ -339,7 +508,7 @@ impl MapObject {
         y: f32,
         mut z: i32,
         kind: MapObjectType,
-        bsp: &Bsp,
+        map: &MapData,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
@@ -354,7 +523,7 @@ impl MapObject {
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
-            bsp.point_in_subsector(&Vec2::new(x, y)).unwrap();
+            map.point_in_subsector(&Vec2::new(x, y)).unwrap();
 
         let floorz = sub_sector.sector.floor_height as i32;
         let ceilingz = sub_sector.sector.ceil_height as i32;
@@ -378,8 +547,7 @@ impl MapObject {
             ceilingz: ceilingz as f32,
             radius: info.radius,
             height: info.height,
-            momx: 0.0,
-            momy: 0.0,
+            momxy: Vec2::default(),
             momz: 0.0,
             validcount: 0,
             flags: info.flags,
@@ -394,7 +562,7 @@ impl MapObject {
             lastlook: 2,
             spawn_point: None,
             target: None,
-            sub_sector,
+            subsector: sub_sector,
             state,
             info,
             kind,
@@ -407,46 +575,66 @@ impl MapObject {
 
         thinker
     }
+
+    /// P_SetMobjState
+    pub fn p_set_mobj_state(&mut self, mut state: StateNum) -> bool {
+        let mut cycle_counter = 0;
+
+        loop {
+            match state {
+                StateNum::S_NULL => {
+                    self.state = get_state(state as usize); //(state_t *)S_NULL;
+                                                            //  P_RemoveMobj(mobj);
+                    return false;
+                }
+                _ => {
+                    let st = get_state(state as usize);
+                    state = st.next_state;
+
+                    // Modified handling.
+                    // Call action functions when the state is set
+                    let func = self.state.action.mobj_func();
+                    unsafe { (*func)(self) }
+
+                    self.tics = st.tics;
+                    self.sprite = st.sprite;
+                    self.frame = st.frame;
+                    self.state = st;
+                }
+            }
+
+            cycle_counter += 1;
+            if cycle_counter > MOBJ_CYCLE_LIMIT {
+                println!("P_SetMobjState: Infinite state cycle detected!");
+            }
+
+            if self.tics <= 0 {
+                break;
+            }
+        }
+
+        return true;
+    }
 }
 
-/// P_SetMobjState
-// TODO: Needs to be a standalone function so it can operate on ObjectBase and call the ActionF
-//  . Can't wrap since ObjectBase must own the inner
-pub fn p_set_mobj_state(mobj: &mut MapObject, mut state: StateNum) -> bool {
-    let mut cycle_counter = 0;
+#[cfg(test)]
+mod tests {
+    use super::MapObject;
+    use crate::{map_data::MapData, player::Player};
+    use wad::Wad;
 
-    loop {
-        match state {
-            StateNum::S_NULL => {
-                mobj.state = get_state(state as usize); //(state_t *)S_NULL;
-                                                        //  P_RemoveMobj(mobj);
-                return false;
-            }
-            _ => {
-                let st = get_state(state as usize);
-                state = st.next_state;
+    #[test]
+    fn load_player() {
+        let mut wad = Wad::new("../doom1.wad");
+        wad.read_directories();
 
-                // Modified handling.
-                // Call action functions when the state is set
-                let func = mobj.state.action.mobj_func();
-                unsafe { (*func)(mobj) }
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
 
-                mobj.tics = st.tics;
-                mobj.sprite = st.sprite;
-                mobj.frame = st.frame;
-                mobj.state = st;
-            }
-        }
+        let mthing = map.get_things()[0].clone();
 
-        cycle_counter += 1;
-        if cycle_counter > MOBJ_CYCLE_LIMIT {
-            println!("P_SetMobjState: Infinite state cycle detected!");
-        }
+        let mut players = [Player::default()];
 
-        if mobj.tics <= 0 {
-            break;
-        }
+        MapObject::p_spawn_player(&mthing, &map, &mut players);
     }
-
-    return true;
 }

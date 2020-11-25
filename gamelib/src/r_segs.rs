@@ -6,11 +6,11 @@ use crate::{
     angle::{Angle, CLASSIC_DOOM_SCREEN_XTO_VIEW},
     player::Player,
     point_to_dist,
-    r_bsp::Bsp,
+    r_bsp::BspCtrl,
     scale,
 };
 
-impl Bsp {
+impl BspCtrl {
     /// R_StoreWallRange - r_segs (required in r_bsp)
     pub fn store_wall_range(
         &self,

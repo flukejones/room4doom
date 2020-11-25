@@ -80,10 +80,10 @@ impl InputEvents {
             }
         } else {
             if self.is_kb_pressed(cfg.key_right) {
-                cmd.angleturn += ANGLETURN[turn_speed];
+                cmd.angleturn -= ANGLETURN[turn_speed];
             }
             if self.is_kb_pressed(cfg.key_left) {
-                cmd.angleturn -= ANGLETURN[turn_speed];
+                cmd.angleturn += ANGLETURN[turn_speed];
             }
         }
 
@@ -143,8 +143,8 @@ impl InputEvents {
         else if side < -MAXPLMOVE{
             side = -MAXPLMOVE;}
 
-        cmd.forwardmove += forward as u8;
-        cmd.sidemove += side as u8;
+        cmd.forwardmove += forward as i8;
+        cmd.sidemove += side as i8;
 
         // TODO: special buttons
         // if (sendpause)
@@ -172,7 +172,8 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new(pump: EventPump) -> Input {
+    pub fn new(mut pump: EventPump) -> Input {
+        pump.pump_events();
         Input {
             pump,
             tic_events: InputEvents::default(),

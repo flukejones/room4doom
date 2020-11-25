@@ -31,7 +31,7 @@ use crate::Vertex;
 ///
 /// Each `Thing` record is 10 bytes
 // TODO: A `Thing` type will need to be mapped against an enum
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Thing {
     pub pos:   Vertex,
     pub angle: f32,
