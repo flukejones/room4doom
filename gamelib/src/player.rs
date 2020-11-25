@@ -1,6 +1,6 @@
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::d_thinker::Thinker;
+use crate::{d_thinker::{Think, Thinker}, tic_cmd::TicCmd};
 use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
 use crate::{
@@ -96,6 +96,7 @@ pub struct Player {
 
     pub mo:          Option<Thinker<MapObject>>,
     pub playerstate: PlayerState,
+    pub cmd: TicCmd,
 
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
@@ -230,6 +231,7 @@ impl Player {
             weaponowned: [0; NUM_WEAPONS],
 
             playerstate: PlayerState::PstReborn,
+            cmd: TicCmd::new(),
 
             psprites: [
                 PspDef {
@@ -248,4 +250,26 @@ impl Player {
         }
     }
     // TODO: needs p_pspr.c, p_inter.c
+
+    fn thrust(&mut self) {
+        let mv = self.cmd.forwardmove as f32 * 0.05;
+        let x =  mv as f32 * self.rotation.cos();
+        let y =  mv as f32 * self.rotation.sin();
+
+        self.xy.set_x(self.xy.x() + x);
+        self.xy.set_y(self.xy.y() + y);
+        //self.mo.unwrap().
+    }
+
+    fn move_player(&mut self) {
+       dbg!(&self.cmd);
+       self.thrust();
+    }
+}
+
+impl Think for Player {
+    fn think(&mut self) -> bool {
+        self.move_player();
+        false
+    }
 }

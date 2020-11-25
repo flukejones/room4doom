@@ -86,6 +86,8 @@ impl Angle {
 
     pub fn sin(&self) -> f32 { self.0.sin() }
 
+    pub fn cos(&self) -> f32 { self.0.cos() }
+
     pub fn sin_cos(&self) -> (f32, f32) { self.0.sin_cos() }
 
     pub fn tan(&self) -> f32 { self.0.tan() }

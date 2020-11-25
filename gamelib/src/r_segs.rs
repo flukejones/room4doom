@@ -80,9 +80,13 @@ impl Bsp {
         let mut lightnum =
             seg.linedef.front_sidedef.sector.light_level as u8 >> 4;
         if seg.start_vertex.y() == seg.end_vertex.y() {
-            lightnum -= 10;
+            if lightnum > 5 {
+                lightnum -= 5;
+            }
         } else if seg.start_vertex.x() == seg.end_vertex.x() {
-            lightnum += 10;
+            if lightnum < 249 {
+                lightnum += 5;
+            }
         }
 
         let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;

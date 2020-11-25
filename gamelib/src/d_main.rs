@@ -8,8 +8,6 @@ use sdl2::{
 
 use crate::{input::Input, timestep::TimeStep, Game};
 
-const MS_PER_UPDATE: f32 = 4.0;
-
 #[derive(Debug)]
 pub enum DoomArgError {
     InvalidSkill(String),
@@ -97,105 +95,111 @@ pub fn d_doom_loop(
     mut input: Input,
     mut canvas: Canvas<Window>,
 ) {
+    game.player_in_game[0] = true; // TODO: temporary
     let mut timestep = TimeStep::new();
-    let mut lag = 0.0;
 
     'running: loop {
         if !game.running() {
             break 'running;
         }
-        // temporary block
-        input.update();
-        game.set_running(!input.get_quit());
-        if input.get_key(Scancode::Escape) {
-            game.set_running(false);
-        }
 
-        lag += timestep.delta();
-
-        while lag >= MS_PER_UPDATE {
-            let time = MS_PER_UPDATE * 0.01;
-            // temorary block
-            let rot_amnt = 0.15 * time;
-            let mv_amnt = 50.0 * time;
-            if input.get_key(Scancode::Left) {
-                game.players[0].rotation += rot_amnt;
-            }
-
-            if input.get_key(Scancode::Right) {
-                game.players[0].rotation -= rot_amnt;
-            }
-
-            if input.get_key(Scancode::Up) {
-                let heading = game.players[0].rotation.sin_cos();
-                game.players[0]
-                    .xy
-                    .set_x(game.players[0].xy.x() + heading.1 * mv_amnt);
-                game.players[0]
-                    .xy
-                    .set_y(game.players[0].xy.y() + heading.0 * mv_amnt);
-            }
-
-            if input.get_key(Scancode::Down) {
-                let heading = game.players[0].rotation.sin_cos();
-                game.players[0]
-                    .xy
-                    .set_x(game.players[0].xy.x() - heading.1 * mv_amnt);
-                game.players[0]
-                    .xy
-                    .set_y(game.players[0].xy.y() - heading.0 * mv_amnt);
-            }
-
-            lag -= MS_PER_UPDATE;
-        }
-
+        try_run_tics(&mut game, &mut input, &mut timestep);
+        // TODO: S_UpdateSounds(players[consoleplayer].mo); // move positional sounds
         let surface = Surface::new(320, 200, PixelFormatEnum::RGB555).unwrap();
-        let mut drawer = surface.into_canvas().unwrap();
-        game.d_display(&mut drawer);
-        // consume the canvas
-        game.i_finish_update(drawer, &mut canvas);
+        let drawer = surface.into_canvas().unwrap();
+        // inputs are outside of tic loop?
+        d_display(&mut game, &mut input, drawer, &mut canvas);
     }
 }
 
-fn d_run_frame(mut game: Game, mut input: Input, mut canvas: Canvas<Window>) {
-    // if (wipe)
-    // {
-    //     do
-    //     {
-    //         nowtime = I_GetTime();
-    //         tics = nowtime - wipestart;
-    //         I_Sleep(1);
-    //     } while (tics <= 0);
+/// D_Display
+/// Does a bunch of stuff in Doom...
+pub fn d_display(
+    game: &mut Game,
+    input: &mut Input,
+    mut canvas: Canvas<Surface>,
+    window: &mut Canvas<Window>,
+) {
+    //if (gamestate == GS_LEVEL && !automapactive && gametic)
+    game.render_player_view(&mut canvas);
 
-    //     wipestart = nowtime;
-    //     wipe = !wipe_ScreenWipe(wipe_Melt, 0, 0, SCREENWIDTH, SCREENHEIGHT, tics);
-    //     I_UpdateNoBlit();
-    //     M_Drawer();       // menu is drawn even on top of wipes
-    //     I_FinishUpdate(); // page flip or blit buffer
-    //     return;
-    // }
+    // // menus go directly to the screen
+    // M_Drawer();	 // menu is drawn even on top of everything
+    // net update does i/o and buildcmds...
+    // NetUpdate(); // send out any new accumulation
 
-    // // frame syncronous IO operations
-    // I_StartFrame();
+    // consume the canvas
+    i_finish_update(canvas, window);
+}
 
-    // TryRunTics(); // will run at least one tic
+/// Page-flip or blit to screen
+pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>) {
+    //canvas.present();
 
-    // S_UpdateSounds(players[consoleplayer].mo); // move positional sounds
+    let texture_creator = window.texture_creator();
+    let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
 
-    // // Update display, next frame, with current state if no profiling is on
-    // if (screenvisible && !nodrawers)
-    // {
-    //     if ((wipe = D_Display()))
-    //     {
-    //         // start wipe on this frame
-    //         wipe_EndScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
+    window.copy(&t, None, None).unwrap();
+    window.present();
+}
 
-    //         wipestart = I_GetTime() - 1;
-    //     }
-    //     else
-    //     {
-    //         // normal update
-    //         I_FinishUpdate(); // page flip or blit buffer
-    //     }
-    // }
+fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
+
+    // TODO: net.c starts here
+    input.update(); // D_ProcessEvents
+
+    let console_player = game.consoleplayer;
+    // net update does i/o and buildcmds...
+    // NetUpdate(); // send out any new accumulation
+
+    // temporary block
+    game.set_running(!input.get_quit());
+
+    // Network code would update each player slot with incoming TicCmds...
+    let cmd = input.tic_events.build_tic_cmd(&input.config);
+    game.netcmds[console_player][0] = cmd;
+
+    let tic_events = input.tic_events.clone(); // TODO: Remove when player thinker done
+
+    if tic_events.is_kb_pressed(Scancode::Escape) {
+        game.set_running(false);
+    }
+
+    // Build tics here?
+    timestep.run_this(|time| {
+        let time = time * 0.005;
+        // TODO: temorary block, remove when tics and player thinker done
+        let rot_amnt = 0.15 * time;
+        let mv_amnt = 50.0 * time;
+        if tic_events.is_kb_pressed(Scancode::Left) {
+            game.players[console_player].rotation += rot_amnt;
+        }
+
+        if tic_events.is_kb_pressed(Scancode::Right) {
+            game.players[console_player].rotation -= rot_amnt;
+        }
+
+        // if tic_events.is_kb_pressed(Scancode::Up) {
+        //     let heading = game.players[console_player].rotation.sin_cos();
+        //     game.players[console_player].xy.set_x(
+        //         game.players[console_player].xy.x() + heading.1 * mv_amnt,
+        //     );
+        //     game.players[console_player].xy.set_y(
+        //         game.players[console_player].xy.y() + heading.0 * mv_amnt,
+        //     );
+        // }
+
+        // if tic_events.is_kb_pressed(Scancode::Down) {
+        //     let heading = game.players[console_player].rotation.sin_cos();
+        //     game.players[console_player].xy.set_x(
+        //         game.players[console_player].xy.x() - heading.1 * mv_amnt,
+        //     );
+        //     game.players[console_player].xy.set_y(
+        //         game.players[console_player].xy.y() - heading.0 * mv_amnt,
+        //     );
+        // }
+
+        // G_Ticker
+        game.ticker();
+    });
 }

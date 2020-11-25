@@ -1,14 +1,15 @@
-use std::{f32::consts::{FRAC_PI_2, FRAC_PI_4}};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use crate::p_map_object::MapObject;
 use crate::r_bsp::Bsp;
 use angle::Angle;
 use d_main::{GameOptions, Skill};
-use d_thinker::{Think, Thinker};
+use d_thinker::Thinker;
 use doom_def::*;
 use player::{Player, WBStartStruct};
+use sdl2::render::Canvas;
 use sdl2::surface::Surface;
-use sdl2::{render::Canvas, video::Window};
+use tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use wad::Wad;
 
 pub mod angle;
@@ -20,6 +21,7 @@ pub mod flags;
 pub mod info;
 pub mod input;
 pub mod p_enemy;
+pub mod p_lights;
 pub mod p_local;
 pub mod p_map;
 pub mod p_map_object;
@@ -29,8 +31,8 @@ pub mod player;
 pub mod r_bsp;
 pub mod r_segs;
 pub mod sounds;
+pub mod tic_cmd;
 pub mod timestep;
-pub mod p_lights;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
@@ -79,6 +81,11 @@ pub struct Game {
     totalsecret:   i32,
 
     wminfo: WBStartStruct,
+
+    /// d_net.c
+    netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
+    /// d_net.c
+    localcmds: [TicCmd; BACKUPTICS],
 }
 
 impl Game {
@@ -131,6 +138,9 @@ impl Game {
             totalitems: 0,
             totalsecret: 0,
             wminfo: WBStartStruct::default(),
+
+            netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
+            localcmds: [TicCmd::new(); BACKUPTICS],
         }
     }
 
@@ -138,34 +148,121 @@ impl Game {
 
     pub fn set_running(&mut self, run: bool) { self.running = run; }
 
-    // D_RunFrame is the main loop, calls many functions:
-    //  - Screen wipe maybe
-    //    + I_UpdateNoBlit // update framebuffer
-    //    + M_Drawer       // menu
-    //    + I_FinishUpdate // page flip or blit buffer
-    //  - I_StartFrame     // frame sync?
-    //  - TryRunTics
-    //    + Runs callback to RunTic
-    //      - G_Ticker
-    //        + P_Ticker
-    //          - P_RunThinkers
-    //        + WI_Ticker  // screen wipe
-    //  - S_UpdateSounds
-    //  - D_Display then:
-    //    + screen wipe or
-    //    + I_FinishUpdate // page flip or blit buffer
-    // D_DoomLoop
-    //
-    // D_Display
-    //
+    /// G_Ticker
+    pub fn ticker(&mut self) {
+        // // do player reborns if needed
+        // for (i = 0; i < MAXPLAYERS; i++)
+        // if (playeringame[i] && players[i].playerstate == PST_REBORN)
+        //     G_DoReborn(i);
 
-    pub fn do_tic(&mut self) {
-        //
+        // // do things to change the game state
+        // while (gameaction != ga_nothing)
+        // {
+        //     switch (gameaction)
+        //     {
+        //     case ga_loadlevel:
+        //         G_DoLoadLevel();
+        //         break;
+        //     case ga_newgame:
+        //         G_DoNewGame();
+        //         break;
+        //     case ga_loadgame:
+        //         G_DoLoadGame();
+        //         break;
+        //     case ga_savegame:
+        //         G_DoSaveGame();
+        //         break;
+        //     case ga_playdemo:
+        //         G_DoPlayDemo();
+        //         break;
+        //     case ga_completed:
+        //         G_DoCompleted();
+        //         break;
+        //     case ga_victory:
+        //         F_StartFinale();
+        //         break;
+        //     case ga_worlddone:
+        //         G_DoWorldDone();
+        //         break;
+        //     case ga_screenshot:
+        //         M_ScreenShot();
+        //         gameaction = ga_nothing;
+        //         break;
+        //     case ga_nothing:
+        //         break;
+        //     }
+        // }
+
+        // get commands, check consistancy,
+        // and build new consistancy check
+        // buf = (gametic / ticdup) % BACKUPTICS;
+
+        // Checks ticcmd consistency and turbo cheat
+        for i in 0..MAXPLAYERS {
+            if self.player_in_game[i] {
+                // sets the players cmd for this tic
+                self.players[i].cmd = self.netcmds[i][0];
+                // memcpy(cmd, &netcmds[i][buf], sizeof(ticcmd_t));
+                let cmd = &self.players[i].cmd;
+
+                // if (demoplayback)
+                //     G_ReadDemoTiccmd(cmd);
+                // if (demorecording)
+                //     G_WriteDemoTiccmd(cmd);
+
+                // TODO: Netgame stuff here
+            }
+        }
+
+        // check for special buttons
+        for i in 0..MAXPLAYERS {
+            if self.player_in_game[i] {
+                if self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_special > 0
+                {
+                    let mask = self.players[i].cmd.buttons
+                        & TIC_CMD_BUTTONS.bt_specialmask;
+                    if mask == TIC_CMD_BUTTONS.bt_specialmask {
+                        //     paused ^= 1;
+                        //     if (paused)
+                        //         S_PauseSound();
+                        //     else
+                        //         S_ResumeSound();
+                        //     break;
+                    } else if mask == TIC_CMD_BUTTONS.bts_savegame {
+                        //     if (!savedescription[0])
+                        //         strcpy(savedescription, "NET GAME");
+                        //     savegameslot =
+                        //         (players[i].cmd.buttons & BTS_SAVEMASK) >> BTS_SAVESHIFT;
+                        //     gameaction = ga_savegame;
+                        //     break;
+                    }
+                }
+            }
+        }
+
+        match self.game_state {
+            GameState::GS_LEVEL => {
+                // P_Ticker(); // player movements, run thinkers etc
+                d_thinker::ticker(self);
+                // ST_Ticker();
+                // AM_Ticker();
+                // HU_Ticker();
+            }
+            GameState::GS_INTERMISSION => {
+                //WI_Ticker();
+            }
+            GameState::GS_FINALE => {
+                // F_Ticker();
+            }
+            GameState::GS_DEMOSCREEN => {
+                // D_PageTicker();
+            }
+        }
     }
 
     /// D_Display
-    // TODO: Move one level up to d_main
-    pub fn d_display(&mut self, canvas: &mut Canvas<Surface>) {
+    // TODO: Move
+    pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
         let map = self.map.as_mut().unwrap();
         let player = &mut self.players[self.displayplayer];
         map.clear_clip_segs();
@@ -178,22 +275,6 @@ impl Game {
 
         canvas.clear();
         map.draw_bsp(player, map.start_node(), canvas);
-    }
-
-    // TODO: Move one level up to d_main
-    pub fn i_finish_update(
-        &self,
-        canvas: Canvas<Surface>,
-        window: &mut Canvas<Window>,
-    ) {
-        //canvas.present();
-
-        let texture_creator = window.texture_creator();
-        let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
-
-        window.copy(&t, None, None).unwrap();
-        //self.draw_automap();
-        window.present();
     }
 }
 
