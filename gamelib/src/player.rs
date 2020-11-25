@@ -1,11 +1,16 @@
+use std::{f32::consts::FRAC_PI_2, f64::consts::FRAC_PI_6, f32::consts::PI};
+
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::{d_thinker::{Think, Thinker}, tic_cmd::TicCmd};
-use crate::p_map_object::MapObject;
+use crate::{p_map_object::MapObject, info::SpriteNum};
 use crate::p_player_sprite::PspDef;
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
+};
+use crate::{
+    d_thinker::{Think, Thinker},
+    tic_cmd::TicCmd,
 };
 
 /// Overlay psprites are scaled shapes
@@ -96,7 +101,7 @@ pub struct Player {
 
     pub mo:          Option<Thinker<MapObject>>,
     pub playerstate: PlayerState,
-    pub cmd: TicCmd,
+    pub cmd:         TicCmd,
 
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
@@ -251,10 +256,9 @@ impl Player {
     }
     // TODO: needs p_pspr.c, p_inter.c
 
-    fn thrust(&mut self) {
-        let mv = self.cmd.forwardmove as f32 * 0.05;
-        let x =  mv as f32 * self.rotation.cos();
-        let y =  mv as f32 * self.rotation.sin();
+    fn thrust(&mut self, angle: Angle, mv: f32) {
+        let x = mv as f32 * angle.cos();
+        let y = mv as f32 * angle.sin();
 
         self.xy.set_x(self.xy.x() + x);
         self.xy.set_y(self.xy.y() + y);
@@ -262,8 +266,31 @@ impl Player {
     }
 
     fn move_player(&mut self) {
-       dbg!(&self.cmd);
-       self.thrust();
+        // angle<< 16) as f32 * 8.38190317e-8 for Degrees
+        // TODO: Fix adjustments after fixing the tic timestep
+        if self.cmd.angleturn != 0 {
+            let a = ((self.cmd.angleturn as i32) << 16) as f32 * 8.38190317e-8;
+            self.rotation += a * PI / 180.0;
+        }
+
+        if self.cmd.forwardmove != 0 {
+            self.thrust(self.rotation, (self.cmd.forwardmove as i32 * 2048) as f32 * 0.00005);
+        }
+
+        if self.cmd.sidemove != 0 {
+            self.thrust(
+                self.rotation - FRAC_PI_2,
+                self.cmd.sidemove as f32,
+            );
+        }
+
+        if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
+            if let Some(ref thinker) = self.mo {
+                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
+                    //P_SetMobjState (player->mo, S_PLAY_RUN1);
+                }
+            }
+        }
     }
 }
 

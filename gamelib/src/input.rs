@@ -60,6 +60,7 @@ impl InputEvents {
 
         if turn_left || turn_right {
             self.turn_held += 1;
+            dbg!( self.turn_held);
         } else {
             self.turn_held = 0;
         }
@@ -80,10 +81,10 @@ impl InputEvents {
             }
         } else {
             if self.is_kb_pressed(cfg.key_right) {
-                cmd.angleturn += ANGLETURN[turn_speed];
+                cmd.angleturn -= ANGLETURN[turn_speed];
             }
             if self.is_kb_pressed(cfg.key_left) {
-                cmd.angleturn -= ANGLETURN[turn_speed];
+                cmd.angleturn += ANGLETURN[turn_speed];
             }
         }
 
@@ -143,8 +144,8 @@ impl InputEvents {
         else if side < -MAXPLMOVE{
             side = -MAXPLMOVE;}
 
-        cmd.forwardmove += forward as u8;
-        cmd.sidemove += side as u8;
+        cmd.forwardmove += forward as i8;
+        cmd.sidemove += side as i8;
 
         // TODO: special buttons
         // if (sendpause)

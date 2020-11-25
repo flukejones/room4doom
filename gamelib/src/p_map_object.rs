@@ -154,7 +154,7 @@ pub struct MapObject {
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    state:            State,
+    pub state:            State,
     pub flags:        u32,
     pub health:       i32,
     /// Movement direction, movement generation (zig-zagging).

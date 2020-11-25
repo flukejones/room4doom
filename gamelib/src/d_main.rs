@@ -171,13 +171,13 @@ fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
         // TODO: temorary block, remove when tics and player thinker done
         let rot_amnt = 0.15 * time;
         let mv_amnt = 50.0 * time;
-        if tic_events.is_kb_pressed(Scancode::Left) {
-            game.players[console_player].rotation += rot_amnt;
-        }
+        // if tic_events.is_kb_pressed(Scancode::Left) {
+        //     game.players[console_player].rotation += rot_amnt;
+        // }
 
-        if tic_events.is_kb_pressed(Scancode::Right) {
-            game.players[console_player].rotation -= rot_amnt;
-        }
+        // if tic_events.is_kb_pressed(Scancode::Right) {
+        //     game.players[console_player].rotation -= rot_amnt;
+        // }
 
         // if tic_events.is_kb_pressed(Scancode::Up) {
         //     let heading = game.players[console_player].rotation.sin_cos();
