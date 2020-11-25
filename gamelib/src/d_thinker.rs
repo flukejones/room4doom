@@ -1,6 +1,4 @@
-use crate::{
-    p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player,
-};
+use crate::{Game, p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player};
 use std::ptr::null_mut;
 use std::{any::Any, fmt};
 
@@ -91,6 +89,22 @@ impl<T: Any + Think> Drop for Thinker<T> {
 pub trait Think {
     /// impl of this trait should return true *if* the thinker + object are to be removed
     fn think(&mut self) -> bool;
+}
+
+pub fn ticker(game: &mut Game) {
+    // if game.players[game.consoleplayer].viewz as i32 != 1 {
+    //     return;
+    // }
+
+    for (i,player) in game.players.iter_mut().enumerate() {
+        if game.player_in_game[i] {
+            player.think();
+        }
+    }
+
+    // P_RunThinkers ();
+    // P_UpdateSpecials ();
+    // P_RespawnSpecials ();
 }
 
 /// Enum of function callbacks
