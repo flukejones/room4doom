@@ -2,11 +2,13 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use crate::p_map_object::MapObject;
-use crate::r_bsp::Bsp;
+use crate::r_bsp::BspCtrl;
 use angle::Angle;
 use d_main::{GameOptions, Skill};
 use d_thinker::Thinker;
 use doom_def::*;
+use map_data::MapData;
+use p_map::MobjCtrl;
 use player::{Player, WBStartStruct};
 use sdl2::render::Canvas;
 use sdl2::surface::Surface;
@@ -21,6 +23,7 @@ pub mod entities;
 pub mod flags;
 pub mod info;
 pub mod input;
+pub mod map_data;
 pub mod p_enemy;
 pub mod p_lights;
 pub mod p_local;
@@ -35,14 +38,30 @@ pub mod sounds;
 pub mod tic_cmd;
 pub mod timestep;
 
+pub struct Level {
+    pub map_data:  MapData,
+    pub bsp_ctrl:  BspCtrl,
+    pub mobj_ctrl: MobjCtrl,
+    pub thinkers:  Vec<Thinker<MapObject>>,
+}
+impl Level {
+    fn new(map_data: MapData) -> Self {
+        Level {
+            map_data,
+            bsp_ctrl: BspCtrl::default(),
+            mobj_ctrl: MobjCtrl::default(),
+            thinkers: Vec::with_capacity(200),
+        }
+    }
+}
+
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
-    wad:    Wad,
-    map:     Option<Bsp>,
-    running: bool,
+    /// Contains the full wad file
+    wad_data: Wad,
+    level:    Option<Level>,
 
-    think_mobj: Vec<Thinker<MapObject>>,
-
+    running:    bool,
     // Game locals
     /// only if started as net death
     deathmatch: i32,
@@ -84,7 +103,7 @@ pub struct Game {
     wminfo: WBStartStruct,
 
     /// d_net.c
-    netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
+    netcmds:   [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
     localcmds: [TicCmd; BACKUPTICS],
 }
@@ -99,10 +118,11 @@ impl Game {
 
         let mut wad = Wad::new(options.iwad);
         wad.read_directories();
-        
+
         Game {
-            wad: wad,
-            map: None,
+            wad_data: wad,
+            level: None,
+
             running: true,
 
             players: [
@@ -112,7 +132,6 @@ impl Game {
                 Player::default(),
             ],
             player_in_game: [false; 4],
-            think_mobj: Vec::with_capacity(200),
 
             deathmatch: 0,
             netgame: false,
@@ -139,14 +158,17 @@ impl Game {
     }
 
     pub fn load(&mut self) {
-        dbg!(&mut self.players[0] as *mut Player);
-        let mut map = Bsp::new("E1M1".to_owned());
-        map.load(&self.wad);
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&self.wad_data);
 
         let player_thing = map.get_things()[0].clone();
-        self.map = Some(map);
+        self.level = Some(Level::new(map));
 
-        MapObject::p_spawn_player(&player_thing, &self.map.as_ref().unwrap(), &mut self.players);
+        MapObject::p_spawn_player(
+            &player_thing,
+            &self.level.as_ref().unwrap().map_data,
+            &mut self.players,
+        );
         self.player_in_game[0] = true;
     }
 
@@ -269,21 +291,22 @@ impl Game {
     /// D_Display
     // TODO: Move
     pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
-        let map = self.map.as_mut().unwrap();
+        if let Some(ref mut level) = self.level {
+            let map = &level.map_data;
 
-        let player = &mut self.players[self.consoleplayer];
-        //dbg!(&player.mo.as_ref().unwrap().obj.momxy);
-        //dbg!(player.xy);
+            let player = &mut self.players[self.consoleplayer];
 
-        map.clear_clip_segs();
-        // The state machine will handle which state renders to the surface
-        //self.states.render(dt, &mut self.canvas);
-        let player_subsect = map.point_in_subsector(&player.xy).unwrap();
-        player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
-        player.sub_sector = Some(player_subsect); //DPtr::new(player_subsect);
+            level.bsp_ctrl.clear_clip_segs();
+            // The state machine will handle which state renders to the surface
+            //self.states.render(dt, &mut self.canvas);
+            let player_subsect = map.point_in_subsector(&player.xy).unwrap();
+            player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
+            player.sub_sector = Some(player_subsect); //DPtr::new(player_subsect);
 
-        canvas.clear();
-        map.draw_bsp(player, map.start_node(), canvas);
+            canvas.clear();
+            level.bsp_ctrl
+                .draw_bsp(&map, player, map.start_node(), canvas);
+        }
     }
 }
 

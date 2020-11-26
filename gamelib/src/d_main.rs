@@ -6,7 +6,7 @@ use sdl2::{
     surface::Surface, video::Window,
 };
 
-use crate::{Game, input::Input, player::Player, timestep::TimeStep};
+use crate::{input::Input, timestep::TimeStep, Game};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -144,7 +144,6 @@ pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>) {
 }
 
 fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
-
     // TODO: net.c starts here
     input.update(); // D_ProcessEvents
 

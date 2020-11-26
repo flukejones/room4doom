@@ -1,10 +1,9 @@
-use std::{f32::consts::FRAC_PI_2, f64::consts::FRAC_PI_6, f32::consts::PI};
+use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::{info::SpriteNum, p_local::fixed_to_float, p_map_object::MapObject, p_local::bam_to_radian};
-use crate::p_player_sprite::PspDef;
+use crate::{Level, p_player_sprite::PspDef};
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
@@ -12,6 +11,10 @@ use crate::{
 use crate::{
     d_thinker::{Think, Thinker},
     tic_cmd::TicCmd,
+};
+use crate::{
+    info::SpriteNum, map_data::MapData, p_local::bam_to_radian,
+    p_local::fixed_to_float, p_map::MobjCtrl, p_map_object::MapObject,
 };
 
 /// Overlay psprites are scaled shapes
@@ -263,7 +266,7 @@ impl Player {
         let mv = fixed_to_float(mv);
         let x = mv as f32 * angle.cos();
         let y = mv as f32 * angle.sin();
-        let mxy = Vec2::new(x,y);
+        let mxy = Vec2::new(x, y);
 
         if let Some(ref mut thinker) = self.mo {
             thinker.obj.momxy += mxy;
@@ -284,13 +287,14 @@ impl Player {
         if self.cmd.sidemove != 0 {
             self.thrust(
                 self.rotation - FRAC_PI_2,
-                self.cmd.sidemove  as i32 * 2048,
+                self.cmd.sidemove as i32 * 2048,
             );
         }
 
         if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
             if let Some(ref thinker) = self.mo {
-                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
+                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
+                {
                     //P_SetMobjState (player->mo, S_PLAY_RUN1);
                 }
             }
@@ -299,10 +303,10 @@ impl Player {
 }
 
 impl Think for Player {
-    fn think(&mut self) -> bool {
+    fn think(&mut self, level: &mut Level) -> bool {
         self.move_player();
         if let Some(ref mut mo) = self.mo {
-            mo.think(); // Player own the thinker, so make it think here
+            mo.think(level); // Player own the thinker, so make it think here
         }
         false
     }

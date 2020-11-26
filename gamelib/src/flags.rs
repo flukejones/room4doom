@@ -48,7 +48,6 @@ fn check_flags_enum() {
         "Twosided Masked\n{:#018b}",
         29 & LineDefFlags::TwoSided as u16
     );
-    dbg!(29 & LineDefFlags::TwoSided as u16 == LineDefFlags::TwoSided as u16);
     println!("Flag: Blocking\n{:#018b}", LineDefFlags::Blocking as u16);
     println!(
         "Flag: Block Monsters\n{:#018b}",

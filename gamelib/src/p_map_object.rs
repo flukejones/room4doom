@@ -6,16 +6,19 @@ use wad::{
     DPtr,
 };
 
-use crate::info::states::State;
-use crate::info::StateNum;
+use crate::{Level, info::StateNum};
 use crate::{
     angle::Angle, info::MapObjectInfo, p_local::FRACUNIT_DIV4,
-    p_local::ONCEILINGZ, r_bsp::Bsp,
+    p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
     d_thinker::{ActionFunc, Thinker},
     info::states::get_state,
+};
+use crate::{
+    info::states::State, map_data::MapData, p_local::p_random,
+    sounds::SfxEnum,
 };
 use crate::{
     info::{MapObjectType, SpriteNum},
@@ -187,7 +190,7 @@ pub struct MapObject {
 
 impl Think for MapObject {
     // TODO: P_MobjThinker
-    fn think(&mut self) -> bool {
+    fn think(&mut self, level: &mut Level) -> bool {
         // This is the P_MobjThinker commented out
         // momentum movement
         // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
@@ -196,7 +199,7 @@ impl Think for MapObject {
             || self.momxy.y() != 0.0
             || MapObjectFlag::MF_SKULLFLY as u32 != 0
         {
-            self.p_xy_movement();
+            self.p_xy_movement(level);
         }
 
         //     // FIXME: decent NOP/NULL/Nil function pointer please.
@@ -252,27 +255,26 @@ impl Think for MapObject {
 }
 
 impl MapObject {
-    /// P_TryMove // map function
-    fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
-        // P_CheckPosition // map function
-        // P_UnsetThingPosition // map function
-        // P_SetThingPosition // map function
-        // P_CrossSpecialLine
-        //unimplemented!();
-        false
-    }
-
-    /// P_SlideMove
-    fn p_slide_move(&mut self) {
-        //unimplemented!();
-    }
-
     /// P_ExplodeMissile
     fn p_explode_missile(&mut self) {
-        //unimplemented!();
+        self.momxy = Vec2::default();
+        self.z = 0.0;
+        self.p_set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
+
+        self.tics -= (p_random() & 3) as i32;
+
+        if self.tics < 1 {
+            self.tics = 1;
+        }
+
+        self.flags &= !(MapObjectFlag::MF_MISSILE as u32);
+
+        if self.info.deathsound != SfxEnum::sfx_None {
+            // TODO: S_StartSound (mo, mo->info->deathsound);
+        }
     }
 
-    pub fn p_xy_movement(&mut self) {
+    pub fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
@@ -320,11 +322,11 @@ impl MapObject {
             }
         }
 
-        if !self.p_try_move(ptryx, ptryy) {
+        if !level.mobj_ctrl.p_try_move(ptryx, ptryy) {
             // blocked move
             if self.player.is_some() {
                 // try to slide along it
-                self.p_slide_move();
+                level.mobj_ctrl.p_slide_move();
             } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
                 // TODO: explode a missile
                 // if (ceilingline &&
@@ -415,7 +417,7 @@ impl MapObject {
     /// Called in game.c
     pub fn p_spawn_player<'b>(
         mthing: &Thing,
-        bsp: &'b Bsp,
+        map: &'b MapData,
         players: &'b mut [Player],
     ) {
         if mthing.kind == 0 {
@@ -444,7 +446,7 @@ impl MapObject {
             y,
             z as i32,
             MapObjectType::MT_PLAYER,
-            bsp,
+            map,
         );
         let mut mobj = &mut thinker.obj;
 
@@ -473,13 +475,11 @@ impl MapObject {
         player.xy.set_y(y);
         player.rotation = Angle::new(mthing.angle * PI / 180.0);
 
-        dbg!(player as *mut Player);
         let player_ptr =
             unsafe { NonNull::new_unchecked(player as *mut Player) };
 
         if let Some(ref mut think) = player.mo {
             think.obj.player = Some(player_ptr);
-            dbg!(&think.obj.player);
         }
 
         // // setup gun psprite
@@ -508,7 +508,7 @@ impl MapObject {
         y: f32,
         mut z: i32,
         kind: MapObjectType,
-        bsp: &Bsp,
+        map: &MapData,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
@@ -523,7 +523,7 @@ impl MapObject {
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
-            bsp.point_in_subsector(&Vec2::new(x, y)).unwrap();
+            map.point_in_subsector(&Vec2::new(x, y)).unwrap();
 
         let floorz = sub_sector.sector.floor_height as i32;
         let ceilingz = sub_sector.sector.ceil_height as i32;
@@ -619,22 +619,22 @@ impl MapObject {
 
 #[cfg(test)]
 mod tests {
-    use wad::Wad;
-    use crate::{r_bsp::Bsp, player::Player};
     use super::MapObject;
+    use crate::{map_data::MapData, player::Player};
+    use wad::Wad;
 
     #[test]
     fn load_player() {
         let mut wad = Wad::new("../doom1.wad");
         wad.read_directories();
 
-        let mut bsp = Bsp::new("E1M1".to_owned());
-        bsp.load(&wad);
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
 
-        let mthing = bsp.get_things()[0].clone();
+        let mthing = map.get_things()[0].clone();
 
         let mut players = [Player::default()];
 
-        MapObject::p_spawn_player(&mthing, &bsp, &mut players);
+        MapObject::p_spawn_player(&mthing, &map, &mut players);
     }
 }
