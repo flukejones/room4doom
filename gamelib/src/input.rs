@@ -60,7 +60,6 @@ impl InputEvents {
 
         if turn_left || turn_right {
             self.turn_held += 1;
-            dbg!( self.turn_held);
         } else {
             self.turn_held = 0;
         }
@@ -173,7 +172,8 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new(pump: EventPump) -> Input {
+    pub fn new(mut pump: EventPump) -> Input {
+        pump.pump_events();
         Input {
             pump,
             tic_events: InputEvents::default(),

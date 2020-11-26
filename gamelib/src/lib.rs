@@ -1,3 +1,4 @@
+#![feature(const_fn_floating_point_arithmetic)]
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use crate::p_map_object::MapObject;
@@ -36,7 +37,7 @@ pub mod timestep;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
-    _wad:    Wad,
+    wad:    Wad,
     map:     Option<Bsp>,
     running: bool,
 
@@ -98,25 +99,18 @@ impl Game {
 
         let mut wad = Wad::new(options.iwad);
         wad.read_directories();
-        let mut map = Bsp::new("E1M1".to_owned());
-        map.load(&wad);
-
-        let mut players = [
-            Player::default(),
-            Player::default(),
-            Player::default(),
-            Player::default(),
-        ];
-
-        let player_thing = &map.get_things()[0];
-        MapObject::p_spawn_player(player_thing, &map, &mut players);
-
+        
         Game {
-            _wad: wad,
-            map: Some(map),
+            wad: wad,
+            map: None,
             running: true,
 
-            players,
+            players: [
+                Player::default(),
+                Player::default(),
+                Player::default(),
+                Player::default(),
+            ],
             player_in_game: [false; 4],
             think_mobj: Vec::with_capacity(200),
 
@@ -142,6 +136,18 @@ impl Game {
             netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
             localcmds: [TicCmd::new(); BACKUPTICS],
         }
+    }
+
+    pub fn load(&mut self) {
+        dbg!(&mut self.players[0] as *mut Player);
+        let mut map = Bsp::new("E1M1".to_owned());
+        map.load(&self.wad);
+
+        let player_thing = map.get_things()[0].clone();
+        self.map = Some(map);
+
+        MapObject::p_spawn_player(&player_thing, &self.map.as_ref().unwrap(), &mut self.players);
+        self.player_in_game[0] = true;
     }
 
     pub fn running(&self) -> bool { self.running }
@@ -264,9 +270,12 @@ impl Game {
     // TODO: Move
     pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
         let map = self.map.as_mut().unwrap();
-        let player = &mut self.players[self.displayplayer];
-        map.clear_clip_segs();
 
+        let player = &mut self.players[self.consoleplayer];
+        //dbg!(&player.mo.as_ref().unwrap().obj.momxy);
+        //dbg!(player.xy);
+
+        map.clear_clip_segs();
         // The state machine will handle which state renders to the surface
         //self.states.render(dt, &mut self.canvas);
         let player_subsect = map.point_in_subsector(&player.xy).unwrap();
