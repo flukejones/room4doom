@@ -1,4 +1,7 @@
-use crate::{Game, Level, p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player};
+use crate::{
+    level::Level, p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*,
+    player::Player,
+};
 use std::ptr::null_mut;
 use std::{any::Any, fmt};
 
@@ -70,10 +73,7 @@ impl<T: Any + Think> Thinker<T> {
     }
 
     /// If returns true then the thinker + objects should be removed
-    pub fn think(
-        &mut self,
-        level: &mut Level,
-    ) -> bool {
+    pub fn think(&mut self, level: &mut Level) -> bool {
         self.obj.think(level)
         // let func = self.state.action.mobj_func();
         // unsafe { (*func)(self) }
@@ -92,24 +92,6 @@ impl<T: Any + Think> Drop for Thinker<T> {
 pub trait Think {
     /// impl of this trait should return true *if* the thinker + object are to be removed
     fn think(&mut self, level: &mut Level) -> bool;
-}
-
-pub fn ticker(game: &mut Game) {
-    // if game.players[game.consoleplayer].viewz as i32 != 1 {
-    //     return;
-    // }
-
-    for (i, player) in game.players.iter_mut().enumerate() {
-        if game.player_in_game[i] {
-            if let Some(ref mut level) = game.level {
-                player.think(level);
-            }
-        }
-    }
-
-    // P_RunThinkers ();, this may need to remove thinkers..
-    // P_UpdateSpecials ();
-    // P_RespawnSpecials ();
 }
 
 /// Enum of function callbacks

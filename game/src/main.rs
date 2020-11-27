@@ -1,7 +1,9 @@
 use gumdrop::Options;
 use sdl2;
 
-use gamelib::{d_main::d_doom_loop, d_main::GameOptions, input::Input, Game};
+use gamelib::{
+    d_main::d_doom_loop, d_main::GameOptions, game::Game, input::Input,
+};
 
 /// The main `game` crate should take care of initialising a few things
 fn main() {

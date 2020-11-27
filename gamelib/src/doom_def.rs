@@ -12,19 +12,42 @@ pub const MAXPLAYERS: usize = 4;
 
 pub const BACKUPTICS: usize = 12;
 
+// Game mode handling - identify IWAD version
+//  to handle IWAD dependend animations etc.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum GameMode {
+    Shareware,  // DOOM 1 shareware, E1, M9
+    Registered, // DOOM 1 registered, E3, M27
+    Commercial, // DOOM 2 retail, E1 M34
+    // DOOM 2 german edition not handled
+    Retail,       // DOOM 1 retail, E4, M36
+    Indetermined, // Well, no IWAD found.
+}
+
+// Mission packs - might be useful for TC stuff?
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum GameMission {
+    Doom,     // DOOM 1
+    Doom2,    // DOOM 2
+    PackTnt,  // TNT mission pack
+    PackPlut, // Plutonia pack
+    None,
+}
+
 /// The current state of the game: whether we are
 /// playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum GameState {
+    FORCE_WIPE = -1,
     GS_LEVEL,
     GS_INTERMISSION,
     GS_FINALE,
     GS_DEMOSCREEN,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum GameAction {
     ga_nothing,
@@ -50,7 +73,7 @@ pub static MTF_HARD: u8 = 4;
 pub static MTF_AMBUSH: u8 = 8;
 
 /// Key cards.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Card {
     it_bluecard,
@@ -64,7 +87,7 @@ pub enum Card {
 }
 
 /// The defined weapons, including a marker indicating user has not changed weapon.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum WeaponType {
     wp_fist,
@@ -84,7 +107,7 @@ pub enum WeaponType {
 }
 
 /// Ammunition types defined.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
@@ -101,7 +124,7 @@ pub enum AmmoType {
 }
 
 /// Power up artifacts.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum PowerType {
     pw_invulnerability,
@@ -113,10 +136,10 @@ pub enum PowerType {
     NUMPOWERS,
 }
 
-// Power up durations,
-//  how many seconds till expiration,
-//  assuming TICRATE is 35 ticks/second.
-//
+/// Power up durations,
+///  how many seconds till expiration,
+///  assuming TICRATE is 35 ticks/second.
+#[derive(Debug, Copy, Clone)]
 pub enum PowerDuration {
     INVULNTICS = (30 * TICRATE) as isize,
     INVISTICS  = (61 * TICRATE) as isize, // TODO: fix back to 60
