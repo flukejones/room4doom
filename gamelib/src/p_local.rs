@@ -25,6 +25,7 @@ pub const fn bam_to_radian(value: u32) -> f32 {
     (value as f32 * 8.38190317e-8) * DEG_TO_RAD
 }
 
+static mut RNDINDEX: usize = 0;
 static mut PRNDINDEX: usize = 0;
 
 pub const RNDTABLE: [u32; 256] = [
@@ -50,6 +51,20 @@ pub fn p_random() -> u32 {
     unsafe {
         PRNDINDEX = (RNDTABLE[PRNDINDEX + 1] & 0xFF) as usize;
         RNDTABLE[PRNDINDEX] as u32
+    }
+}
+
+pub fn m_random() -> u32 {
+    unsafe {
+        RNDINDEX = (RNDTABLE[RNDINDEX + 1] & 0xFF) as usize;
+        RNDTABLE[RNDINDEX] as u32
+    }
+}
+
+pub fn m_clear_random() {
+    unsafe {
+        RNDINDEX = 0;
+        PRNDINDEX = 0;
     }
 }
 

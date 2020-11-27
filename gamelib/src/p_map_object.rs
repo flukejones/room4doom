@@ -6,10 +6,9 @@ use wad::{
     DPtr,
 };
 
-use crate::{Level, info::StateNum};
 use crate::{
-    angle::Angle, info::MapObjectInfo, p_local::FRACUNIT_DIV4,
-    p_local::ONCEILINGZ,
+    angle::Angle, doom_def::TICRATE, info::MapObjectInfo,
+    p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
@@ -17,9 +16,9 @@ use crate::{
     info::states::get_state,
 };
 use crate::{
-    info::states::State, map_data::MapData, p_local::p_random,
-    sounds::SfxEnum,
+    info::states::State, map_data::MapData, p_local::p_random, sounds::SfxEnum,
 };
+use crate::{info::StateNum, level::Level};
 use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
@@ -177,8 +176,8 @@ pub struct MapObject {
     /// If >0, the target will be chased
     /// no matter what (even if shot)
     pub threshold:    i32,
-    // Additional info record for player avatars only.
-    // Only valid if type == MT_PLAYER
+    /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
+    /// RUST: If this is not `None` then the `NonNull` pointer is guaranteed to point to a player
     player:           Option<NonNull<Player>>,
     /// Player number last looked for.
     lastlook:         i32,
@@ -202,19 +201,16 @@ impl Think for MapObject {
             self.p_xy_movement(level);
         }
 
-        //     // FIXME: decent NOP/NULL/Nil function pointer please.
-        //     if (mobj->thinker.function.acv == (actionf_v)(-1))
-        //         return; // mobj was removed
-        // }
+        if self.was_removed() {
+            return true; // mobj was removed
+        }
 
-        // if ((mobj->z != mobj->floorz) || mobj->momz)
-        // {
-        //     P_ZMovement(mobj);
-
-        //     // FIXME: decent NOP/NULL/Nil function pointer please.
-        //     if (mobj->thinker.function.acv == (actionf_v)(-1))
-        //         return; // mobj was removed
-        // }
+        if self.z != self.floorz || self.momz != 0.0 {
+            // TODO: P_ZMovement(mobj);
+            if self.was_removed() {
+                return true; // mobj was removed
+            }
+        }
 
         // cycle through states,
         // calling action functions at transitions
@@ -227,34 +223,42 @@ impl Think for MapObject {
                     return true;
                 }
             } // freed itself
+        } else {
+            // check for nightmare respawn
+            if self.flags & MapObjectFlag::MF_COUNTKILL as u32 == 0 {
+                return false;
+            }
+            if !level.respawn_monsters {
+                return false;
+            }
+            self.movecount += 1;
+
+            if self.movecount < 12 * TICRATE {
+                return false;
+            }
+            if (level.level_time & 31) != 0 {
+                return false;
+            }
+            if p_random() > 4 {
+                return false;
+            }
+            // TODO: P_NightmareRespawn(mobj);
         }
-        // else
-        // {
-        //     // check for nightmare respawn
-        //     if (!(mobj->flags & MF_COUNTKILL))
-        //         return;
-
-        //     if (!respawnmonsters)
-        //         return;
-
-        //     mobj->movecount++;
-
-        //     if (mobj->movecount < 12 * TICRATE)
-        //         return;
-
-        //     if (leveltime & 31)
-        //         return;
-
-        //     if (P_Random() > 4)
-        //         return;
-
-        //     P_NightmareRespawn(mobj);
-        // }
         false
     }
 }
 
 impl MapObject {
+    fn was_removed(&self) -> bool {
+        if let Some(thinker) = self.thinker {
+            match unsafe { &thinker.as_ref().function } {
+                ActionFunc::None => return true, // mobj was removed
+                _ => {}
+            }
+        }
+        false
+    }
+
     /// P_ExplodeMissile
     fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
@@ -432,7 +436,7 @@ impl MapObject {
 
         let mut player = &mut players[mthing.kind as usize - 1];
 
-        if player.playerstate == PlayerState::PstReborn {
+        if player.player_state == PlayerState::PstReborn {
             // TODO: G_PlayerReborn(mthing.kind - 1);
         }
 
@@ -461,7 +465,7 @@ impl MapObject {
         mobj.health = player.health;
 
         player.mo = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
-        player.playerstate = PlayerState::PstLive;
+        player.player_state = PlayerState::PstLive;
         player.refire = 0;
         player.message = None;
         player.damagecount = 0;

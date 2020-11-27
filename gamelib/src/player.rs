@@ -3,19 +3,19 @@ use std::f32::consts::FRAC_PI_2;
 use glam::Vec2;
 use wad::{lumps::SubSector, DPtr, Vertex};
 
-use crate::{Level, p_player_sprite::PspDef};
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
 };
 use crate::{
     d_thinker::{Think, Thinker},
+    info::SpriteNum,
+    p_local::bam_to_radian,
+    p_local::fixed_to_float,
+    p_map_object::MapObject,
     tic_cmd::TicCmd,
 };
-use crate::{
-    info::SpriteNum, map_data::MapData, p_local::bam_to_radian,
-    p_local::fixed_to_float, p_map::MobjCtrl, p_map_object::MapObject,
-};
+use crate::{level::Level, p_player_sprite::PspDef};
 
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,
@@ -103,9 +103,9 @@ pub struct Player {
     pub rotation:   Angle,
     pub sub_sector: Option<DPtr<SubSector>>,
 
-    pub mo:          Option<Thinker<MapObject>>,
-    pub playerstate: PlayerState,
-    pub cmd:         TicCmd,
+    pub mo:           Option<Thinker<MapObject>>,
+    pub player_state: PlayerState,
+    pub cmd:          TicCmd,
 
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
@@ -131,7 +131,7 @@ pub struct Player {
     pub backpack: bool,
 
     /// Frags, kills of other players.
-    frags:       [i32; MAXPLAYERS as usize],
+    pub frags:   [i32; MAXPLAYERS as usize],
     readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
@@ -153,9 +153,9 @@ pub struct Player {
     pub refire: i32,
 
     /// For intermission stats.
-    killcount:   i32,
-    itemcount:   i32,
-    secretcount: i32,
+    pub killcount:   i32,
+    pub itemcount:   i32,
+    pub secretcount: i32,
 
     /// Hint messages.
     pub message: Option<String>,
@@ -239,7 +239,7 @@ impl Player {
             pendingweapon: WeaponType::NUMWEAPONS,
             weaponowned: [0; NUM_WEAPONS],
 
-            playerstate: PlayerState::PstReborn,
+            player_state: PlayerState::PstReborn,
             cmd: TicCmd::new(),
 
             psprites: [
