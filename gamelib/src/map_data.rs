@@ -208,7 +208,9 @@ impl MapData {
     pub fn get_map_extents(&self) -> &MapExtents { &self.extents }
 
     pub fn load<'m>(&mut self, wad: &Wad) {
-        let index = wad.find_lump_index(self.get_name());
+        let index = wad
+            .find_lump_index(self.get_name())
+            .expect(&format!("Could not find {}", self.get_name()));
         // THINGS
         self.things =
             wad.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {

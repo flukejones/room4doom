@@ -251,13 +251,14 @@ impl Wad {
         }
     }
 
-    pub fn find_lump_index(&self, name: &str) -> usize {
+    pub fn find_lump_index(&self, name: &str) -> Option<usize> {
         for (i, dir) in self.wad_dirs.iter().enumerate() {
             if &dir.lump_name == name {
-                return i;
+                return Some(i);
             }
         }
-        panic!("Index not found for lump name: {}", name);
+        println!("Index not found for lump name: {}", name);
+        None
     }
 
     pub fn read_lump_to_vec<F, T>(
