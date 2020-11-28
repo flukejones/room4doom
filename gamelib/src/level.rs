@@ -39,8 +39,8 @@ impl Level {
     pub fn setup_level(
         wad_data: &Wad,
         skill: Skill,
-        episode: u32,
-        map: u32,
+        mut episode: u32,
+        mut map: u32,
         game_mode: GameMode,
         players: &mut [Player],
     ) -> Self {
@@ -48,12 +48,31 @@ impl Level {
             Skill::Nightmare => false,
             _ => true,
         };
+        dbg!(game_mode);
+
+        if game_mode == GameMode::Retail {
+            if episode > 4 {
+                episode = 4;
+            }
+        } else if game_mode == GameMode::Shareware {
+            if episode > 1 {
+                episode = 1; // only start episode 1 on shareware
+            }
+        } else {
+            if episode > 3 {
+                episode = 3;
+            }
+        }
+
+        if map > 9 && game_mode != GameMode::Commercial {
+            map = 9;
+        }
 
         let map_name = if game_mode == GameMode::Commercial {
             if map < 10 {
-                format!("map0{}", map)
+                format!("MAP0{}", map)
             } else {
-                format!("map{}", map)
+                format!("MAP{}", map)
             }
         } else {
             format!("E{}M{}", episode, map)

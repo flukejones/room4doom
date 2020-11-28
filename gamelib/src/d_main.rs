@@ -6,7 +6,10 @@ use sdl2::{
     surface::Surface, video::Window,
 };
 
-use crate::{game::Game, input::Input, timestep::TimeStep};
+use crate::{
+    doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
+    timestep::TimeStep,
+};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -91,6 +94,35 @@ pub struct GameOptions {
     pub autostart:    bool,
     #[options(help = "game options help")]
     pub help:         bool,
+}
+
+pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission) {
+    let game_mode;
+    let game_mission;
+
+    if wad.find_lump_index("MAP01").is_some() {
+        game_mission = GameMission::Doom2;
+    } else if wad.find_lump_index("E1M1").is_some() {
+        game_mission = GameMission::Doom;
+    } else {
+        panic!("Could not determine IWAD type");
+    }
+
+    if game_mission == GameMission::Doom {
+        // Doom 1.  But which version?
+        if wad.find_lump_index("E4M1").is_some() {
+            game_mode = GameMode::Retail;
+        } else if wad.find_lump_index("E3M1").is_some() {
+            game_mode = GameMode::Registered;
+        } else {
+            game_mode = GameMode::Shareware;
+        }
+    } else {
+        game_mode = GameMode::Commercial;
+        // TODO: check for TNT or Plutonia
+    }
+
+    (game_mode, game_mission)
 }
 
 pub fn d_doom_loop(

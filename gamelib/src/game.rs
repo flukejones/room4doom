@@ -7,6 +7,7 @@ use crate::{
     p_local::m_clear_random,
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
+use d_main::identify_version;
 use sdl2::{render::Canvas, surface::Surface};
 use wad::Wad;
 
@@ -66,6 +67,7 @@ pub struct Game {
     localcmds:   [TicCmd; BACKUPTICS],
 
     game_mode:       GameMode,
+    game_mission:    GameMission,
     wipe_game_state: GameState,
     usergame:        bool,
 
@@ -83,6 +85,7 @@ impl Game {
 
         let mut wad = Wad::new(options.iwad.clone());
         wad.read_directories();
+        let (game_mode, game_mission) = identify_version(&wad);
 
         Game {
             wad_data: wad,
@@ -122,7 +125,8 @@ impl Game {
             netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
             localcmds: [TicCmd::new(); BACKUPTICS],
 
-            game_mode: GameMode::Indetermined,
+            game_mode,
+            game_mission,
             wipe_game_state: GameState::GS_LEVEL,
             usergame: false,
             game_options: options,
@@ -246,7 +250,7 @@ impl Game {
         //     }
     }
 
-    pub fn do_load_level(&mut self) {
+    fn do_load_level(&mut self) {
         // TODO: check and set sky texture, function R_TextureNumForName
 
         if self.wipe_game_state == GameState::GS_LEVEL {
