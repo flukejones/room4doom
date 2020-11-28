@@ -1,7 +1,9 @@
 ///	Movement, collision handling.
 ///	Shooting and aiming.
-use crate::p_local::MAXRADIUS;
+use glam::Vec2;
+
 use crate::p_map_object::MapObject;
+use crate::{level::Level, p_local::MAXRADIUS};
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -20,16 +22,42 @@ pub struct MobjCtrl {
     numspechit: i32,
 }
 
+// TODO: these funcitons need to live in Level. Conflicting borrows are happening. We can keep the MobjCtrl struct
+
 impl MobjCtrl {
-     /// P_TryMove // map function
+    /// P_TryMove // map function
     // TODO: P_TryMove
-    pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
+    pub fn p_try_move(
+        &mut self,
+        level: &Level,
+        mobj: &mut MapObject,
+        ptryx: f32,
+        ptryy: f32,
+    ) -> bool {
         // P_CheckPosition // map function
         // P_UnsetThingPosition // map function
         // P_SetThingPosition // map function
         // P_CrossSpecialLine
         //unimplemented!();
-        false
+        self.floatok = false;
+        if !self.p_check_position(level, mobj, &Vec2::new(ptryx, ptryy)) {
+            return false; // solid wall or thing
+        }
+        mobj.floorz = self.tmfloorz;
+        true
+    }
+
+    pub fn p_check_position(
+        &mut self,
+        level: &Level,
+        mobj: &mut MapObject,
+        xy: &Vec2,
+    ) -> bool {
+        // TODO: R_PointInSubsector
+        if let Some(newsubsect) = level.map_data.point_in_subsector(xy) {
+            self.tmfloorz = newsubsect.sector.floor_height as f32;
+        }
+        true
     }
 
     /// P_SlideMove, // map function
