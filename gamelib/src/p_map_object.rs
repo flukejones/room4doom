@@ -142,7 +142,7 @@ pub struct MapObject {
     frame:            i32,
     subsector:        DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
-    floorz:           f32,
+    pub floorz:       f32,
     pub ceilingz:     f32,
     /// For movement checking.
     radius:           f32,
@@ -279,7 +279,7 @@ impl MapObject {
     }
 
     /// P_ZMovement
-    fn p_z_movement(&mut self, level: &mut Level) { self.z = self.floorz; }
+    fn p_z_movement(&mut self, level: &mut Level) { unimplemented!() }
 
     pub fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
@@ -322,6 +322,7 @@ impl MapObject {
                 ymove = 0.0;
             }
 
+            level.mobj_ctrl.p_try_move(level, self, ptryx, ptryy);
             // TODO: if (!P_TryMove(mo, ptryx, ptryy))
 
             if xmove as i32 == 0 || ymove as i32 == 0 {
@@ -329,7 +330,7 @@ impl MapObject {
             }
         }
 
-        if !level.mobj_ctrl.p_try_move(ptryx, ptryy) {
+        if !level.mobj_ctrl.p_try_move(level, self, ptryx, ptryy) {
             // blocked move
             if self.player.is_some() {
                 // try to slide along it
