@@ -465,10 +465,6 @@ impl Game {
             level.bsp_ctrl.clear_clip_segs();
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
-            let player_subsect = map.point_in_subsector(&player.xy).unwrap();
-            //player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
-
-            player.sub_sector = Some(player_subsect); //DPtr::new(player_subsect);
 
             canvas.clear();
             level

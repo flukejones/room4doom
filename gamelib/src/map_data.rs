@@ -381,7 +381,7 @@ impl MapData {
         let mut node;
         let mut side;
 
-        while node_id & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
+        while node_id & IS_SSECTOR_MASK == 0 {
             node = &self.get_nodes()[node_id as usize];
             side = node.point_on_side(&point);
             node_id = node.child_index[side];

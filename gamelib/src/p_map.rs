@@ -24,13 +24,12 @@ pub struct MobjCtrl {
 
 // TODO: these funcitons need to live in Level. Conflicting borrows are happening. We can keep the MobjCtrl struct
 
-impl MobjCtrl {
+impl MapObject {
     /// P_TryMove // map function
     // TODO: P_TryMove
     pub fn p_try_move(
         &mut self,
-        level: &Level,
-        mobj: &mut MapObject,
+        level: &mut Level,
         ptryx: f32,
         ptryy: f32,
     ) -> bool {
@@ -39,23 +38,18 @@ impl MobjCtrl {
         // P_SetThingPosition // map function
         // P_CrossSpecialLine
         //unimplemented!();
-        self.floatok = false;
-        if !self.p_check_position(level, mobj, &Vec2::new(ptryx, ptryy)) {
+        level.mobj_ctrl.floatok = false;
+        if !self.p_check_position(level, &Vec2::new(ptryx, ptryy)) {
             return false; // solid wall or thing
         }
-        mobj.floorz = self.tmfloorz;
+        self.floorz = level.mobj_ctrl.tmfloorz;
         true
     }
 
-    pub fn p_check_position(
-        &mut self,
-        level: &Level,
-        mobj: &mut MapObject,
-        xy: &Vec2,
-    ) -> bool {
+    pub fn p_check_position(&mut self, level: &mut Level, xy: &Vec2) -> bool {
         // TODO: R_PointInSubsector
         if let Some(newsubsect) = level.map_data.point_in_subsector(xy) {
-            self.tmfloorz = newsubsect.sector.floor_height as f32;
+            level.mobj_ctrl.tmfloorz = newsubsect.sector.floor_height as f32;
         }
         true
     }
