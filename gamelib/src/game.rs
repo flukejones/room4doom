@@ -85,7 +85,41 @@ impl Game {
 
         let mut wad = Wad::new(options.iwad.clone());
         wad.read_directories();
-        let (game_mode, game_mission) = identify_version(&wad);
+        let (game_mode, game_mission, game_description) =
+            identify_version(&wad);
+
+        // Mimic the OG output
+        println!(
+            "\n{} Startup v{}.{}\n",
+            game_description,
+            DOOM_VERSION / 100,
+            DOOM_VERSION % 100
+        );
+        println!("V_Init: allocate screens.");
+        println!("M_LoadDefaults: Load system defaults.");
+        println!("Z_Init: Init zone memory allocation daemon.");
+        println!("W_Init: Init WADfiles.");
+        match game_mode {
+            GameMode::Shareware => {
+                print!("===========================================================================\n");
+                print!("                                Shareware!\n");
+                print!("===========================================================================\n");
+            }
+            _ => {
+                print!("===========================================================================\n");
+                print!("                 Commercial product - do not distribute!\n");
+                print!("         Please report software piracy to the SPA: 1-800-388-PIR8\n");
+                print!("===========================================================================\n");
+            }
+        }
+        println!("M_Init: Init miscellaneous info.");
+        println!("R_Init: Init DOOM refresh daemon - ");
+        println!("\nP_Init: Init Playloop state.");
+        println!("I_Init: Setting up machine state.");
+        println!("D_CheckNetGame: Checking network game status.");
+        println!("S_Init: Setting up sound.");
+        println!("HU_Init: Setting up heads up display.");
+        println!("ST_Init: Init status bar.");
 
         Game {
             wad_data: wad,
@@ -432,7 +466,8 @@ impl Game {
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
             let player_subsect = map.point_in_subsector(&player.xy).unwrap();
-            player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
+            //player.viewz = player_subsect.sector.floor_height as f32 + 41.0;
+
             player.sub_sector = Some(player_subsect); //DPtr::new(player_subsect);
 
             canvas.clear();

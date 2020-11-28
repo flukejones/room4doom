@@ -143,7 +143,7 @@ pub struct MapObject {
     subsector:        DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
     floorz:           f32,
-    ceilingz:         f32,
+    pub ceilingz:     f32,
     /// For movement checking.
     radius:           f32,
     height:           f32,
@@ -206,7 +206,7 @@ impl Think for MapObject {
         }
 
         if self.z != self.floorz || self.momz != 0.0 {
-            // TODO: P_ZMovement(mobj);
+            self.p_z_movement(level);
             if self.was_removed() {
                 return true; // mobj was removed
             }
@@ -277,6 +277,9 @@ impl MapObject {
             // TODO: S_StartSound (mo, mo->info->deathsound);
         }
     }
+
+    /// P_ZMovement
+    fn p_z_movement(&mut self, level: &mut Level) { self.z = self.floorz; }
 
     pub fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
@@ -472,7 +475,7 @@ impl MapObject {
         player.bonuscount = 0;
         player.extralight = 0;
         player.fixedcolormap = 0;
-        player.viewheight = VIEWHEIGHT as f32;
+        player.viewheight = VIEWHEIGHT;
 
         // Temporary. Need to change update code to use the mobj after doing ticcmd
         player.xy.set_x(x);

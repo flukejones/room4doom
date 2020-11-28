@@ -361,7 +361,7 @@ mod tests {
 
         assert_eq!(wad.wad_dirs[6].lump_name, "E1M1");
 
-        let i = wad.find_lump_index("E1M1");
+        let i = wad.find_lump_index("E1M1").unwrap();
         assert_eq!(wad.wad_dirs[i].lump_name, "E1M1");
     }
 }

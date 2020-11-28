@@ -4,7 +4,7 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use crate::{angle::Angle, map_data::MapData, player::Player};
 
-use wad::{lumps::*, DPtr,  Vertex};
+use wad::lumps::*;
 
 const MAX_SEGS: usize = 32;
 
@@ -17,18 +17,16 @@ struct ClipRange {
 #[derive(Default)]
 pub struct BspCtrl {
     // put below in new struct
-    solidsegs:  Vec<ClipRange>,
+    solidsegs: Vec<ClipRange>,
     /// index in to self.solidsegs
-    new_end:    usize,
-    rw_angle1:  Angle,
+    new_end:   usize,
+    rw_angle1: Angle,
     // wall upper/lower heights
 }
 
 impl BspCtrl {
-    pub fn get_rw_angle1(&self) -> Angle {
-        self.rw_angle1
-    }
-    
+    pub fn get_rw_angle1(&self) -> Angle { self.rw_angle1 }
+
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
@@ -343,7 +341,7 @@ impl BspCtrl {
                 [(node_id ^ IS_SSECTOR_MASK) as usize]
                 .clone();
             // Check if it should be drawn, then draw
-            self.draw_subsector(map,object, &subsect, canvas);
+            self.draw_subsector(map, object, &subsect, canvas);
             return;
         }
 
@@ -454,7 +452,7 @@ pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use crate::{map_data::MapData};
+    use crate::map_data::MapData;
     use crate::r_bsp::IS_SSECTOR_MASK;
     use wad::{Vertex, Wad};
 
