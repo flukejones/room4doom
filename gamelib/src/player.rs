@@ -1,11 +1,16 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use glam::Vec2;
 use wad::{lumps::SubSector, DPtr, Vertex};
 
+/// 16 pixels of bob
+const MAXBOB: f32 = 1.0; // 0x100000;
+
 use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
+    info::StateNum,
+    p_local::VIEWHEIGHT,
 };
 use crate::{
     d_thinker::{Think, Thinker},
@@ -206,7 +211,7 @@ impl Player {
             mo,
 
             viewheight: 41.0,
-            deltaviewheight: 41.0,
+            deltaviewheight: 1.0,
             bob: 3.0,
             health: 100,
             armorpoints: 0,
@@ -273,6 +278,67 @@ impl Player {
         }
     }
 
+    /// P_CalcHeight
+    /// Calculate the walking / running height adjustment
+    fn calculate_height(&mut self, level_time: i32) {
+        // Regular movement bobbing
+        // (needs to be calculated for gun swing
+        // even if not on ground)
+        // OPTIMIZE: tablify angle
+        // Note: a LUT allows for effects
+        //  like a ramp with low health.
+        if let Some(ref mut mo) = self.mo {
+            let x = mo.obj.momxy.x();
+            let y = mo.obj.momxy.y();
+            self.bob = x * x + y * y;
+
+            //self.bob >>= 2;
+
+            if self.bob > MAXBOB {
+                self.bob = MAXBOB;
+            }
+
+            // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
+            // if self.viewz > mo.obj.ceilingz - 4.0 {
+            //     self.viewz = mo.obj.ceilingz - 4.0;
+            // }
+
+            // BOB IS WRONG!
+            let angle = ((8192 / 20 * level_time) & 8191) as f32; // / 180.0 * PI;
+            let bob = self.bob / 2.0 * angle.sin();
+
+            // move viewheight
+            if self.player_state == PlayerState::PstLive {
+                self.viewheight += self.deltaviewheight;
+
+                if self.viewheight > VIEWHEIGHT {
+                    self.viewheight = VIEWHEIGHT;
+                    self.deltaviewheight = 0.0;
+                }
+
+                if self.viewheight < VIEWHEIGHT / 2.0 {
+                    self.viewheight = VIEWHEIGHT / 2.0;
+                    if self.deltaviewheight <= 0.0 {
+                        self.deltaviewheight = 1.0;
+                    }
+                }
+
+                if self.deltaviewheight > 0.0 {
+                    self.deltaviewheight = 0.25;
+                    if self.deltaviewheight <= 0.0 {
+                        self.deltaviewheight = 1.0;
+                    }
+                }
+            }
+
+            self.viewz = mo.obj.z + self.viewheight + bob;
+
+            if self.viewz > mo.obj.ceilingz - 4.0 {
+                self.viewz = mo.obj.ceilingz - 4.0;
+            }
+        }
+    }
+
     fn move_player(&mut self) {
         // TODO: Fix adjustments after fixing the tic timestep
         if self.cmd.angleturn != 0 {
@@ -305,6 +371,8 @@ impl Player {
 impl Think for Player {
     fn think(&mut self, level: &mut Level) -> bool {
         self.move_player();
+        self.calculate_height(level.level_time);
+
         if let Some(ref mut mo) = self.mo {
             mo.think(level); // Player own the thinker, so make it think here
         }

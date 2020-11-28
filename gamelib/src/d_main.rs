@@ -96,9 +96,10 @@ pub struct GameOptions {
     pub help:         bool,
 }
 
-pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission) {
+pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission, String) {
     let game_mode;
     let game_mission;
+    let game_description;
 
     if wad.find_lump_index("MAP01").is_some() {
         game_mission = GameMission::Doom2;
@@ -112,17 +113,20 @@ pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission) {
         // Doom 1.  But which version?
         if wad.find_lump_index("E4M1").is_some() {
             game_mode = GameMode::Retail;
+            game_description = String::from("The Ultimate DOOM");
         } else if wad.find_lump_index("E3M1").is_some() {
             game_mode = GameMode::Registered;
+            game_description = String::from("DOOM Registered");
         } else {
             game_mode = GameMode::Shareware;
+            game_description = String::from("DOOM Shareware");
         }
     } else {
         game_mode = GameMode::Commercial;
+        game_description = String::from("DOOM 2: Hell on Earth");
         // TODO: check for TNT or Plutonia
     }
-
-    (game_mode, game_mission)
+    (game_mode, game_mission, game_description)
 }
 
 pub fn d_doom_loop(

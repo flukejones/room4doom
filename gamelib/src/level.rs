@@ -48,7 +48,6 @@ impl Level {
             Skill::Nightmare => false,
             _ => true,
         };
-        dbg!(game_mode);
 
         if game_mode == GameMode::Retail {
             if episode > 4 {
@@ -151,5 +150,7 @@ pub fn ticker(game: &mut Game) {
                 thinker.unlink();
             }
         }
+
+        level.level_time += 1;
     }
 }
