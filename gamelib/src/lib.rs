@@ -3,7 +3,7 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use angle::Angle;
-use player::Player;
+use glam::Vec2;
 pub mod angle;
 pub mod d_main;
 pub mod d_thinker;
@@ -30,9 +30,9 @@ pub mod tic_cmd;
 pub mod timestep;
 
 /// R_PointToDist
-fn point_to_dist(x: f32, y: f32, object: &Player) -> f32 {
-    let mut dx = (x - object.xy.x()).abs();
-    let mut dy = (y - object.xy.y()).abs();
+fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
+    let mut dx = (x - to.x()).abs();
+    let mut dy = (y - to.y()).abs();
 
     if dy > dx {
         let temp = dx;

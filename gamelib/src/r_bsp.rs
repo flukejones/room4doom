@@ -2,7 +2,9 @@ use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-use crate::{angle::Angle, map_data::MapData, player::Player};
+use crate::{
+    angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player,
+};
 
 use wad::lumps::*;
 
@@ -30,19 +32,28 @@ impl BspCtrl {
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
-        object: &Player,
+        player: &Player,
         seg: &'a Segment,
         canvas: &mut Canvas<Surface>,
     ) {
         // reject orthogonal back sides
-        if !seg.is_facing_point(&object.xy) {
+        let xy = player.mo.as_ref().unwrap().obj.xy;
+        let angle = player.mo.as_ref().unwrap().obj.angle;
+
+        if !seg.is_facing_point(&xy) {
             return;
         }
 
         let clipangle = Angle::new(FRAC_PI_4);
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&seg.start_vertex, object);
-        let mut angle2 = vertex_angle_to_object(&seg.end_vertex, object);
+        let mut angle1 = vertex_angle_to_object(
+            &seg.start_vertex,
+            &player.mo.as_ref().unwrap().obj,
+        );
+        let mut angle2 = vertex_angle_to_object(
+            &seg.end_vertex,
+            &player.mo.as_ref().unwrap().obj,
+        );
 
         let span = angle1 - angle2;
 
@@ -53,8 +64,8 @@ impl BspCtrl {
         // Global angle needed by segcalc.
         self.rw_angle1 = angle1;
 
-        angle1 -= object.rotation;
-        angle2 -= object.rotation;
+        angle1 -= angle;
+        angle2 -= angle;
 
         let mut tspan = angle1 + clipangle;
         if tspan.rad() >= FRAC_PI_2 {
@@ -95,7 +106,7 @@ impl BspCtrl {
             if back_sector.ceil_height <= front_sector.floor_height
                 || back_sector.floor_height >= front_sector.ceil_height
             {
-                self.clip_solid_seg(x1, x2 - 1, object, seg, canvas);
+                self.clip_solid_seg(x1, x2 - 1, player, seg, canvas);
                 return;
             }
 
@@ -119,7 +130,7 @@ impl BspCtrl {
                 return;
             }
         }
-        self.clip_solid_seg(x1, x2 - 1, object, seg, canvas);
+        self.clip_solid_seg(x1, x2 - 1, player, seg, canvas);
     }
 
     /// R_Subsector - r_bsp
@@ -331,7 +342,7 @@ impl BspCtrl {
     pub fn draw_bsp<'a>(
         &'a mut self,
         map: &MapData,
-        object: &Player,
+        player: &Player,
         node_id: u16,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -341,27 +352,28 @@ impl BspCtrl {
                 [(node_id ^ IS_SSECTOR_MASK) as usize]
                 .clone();
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, object, &subsect, canvas);
+            self.draw_subsector(map, player, &subsect, canvas);
             return;
         }
 
+        let mobj = &player.mo.as_ref().unwrap().obj;
         // otherwise get node
         let node = map.get_nodes()[node_id as usize].clone();
         // find which side the point is on
-        let side = node.point_on_side(&object.xy);
+        let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.draw_bsp(map, object, node.child_index[side], canvas);
+        self.draw_bsp(map, player, node.child_index[side], canvas);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(
-            &object.xy,
-            object.rotation.rad(),
+            &mobj.xy,
+            mobj.angle.rad(),
             FRAC_PI_4,
             side ^ 1,
         ) {
-            self.draw_bsp(map, object, node.child_index[side ^ 1], canvas);
+            self.draw_bsp(map, player, node.child_index[side ^ 1], canvas);
         }
     }
 }
@@ -396,9 +408,9 @@ fn angle_to_screen(mut radian: f32) -> i32 {
 //  tantoangle[] table.
 ///
 /// The flipping isn't done here...
-pub fn vertex_angle_to_object(vertex: &Vec2, object: &Player) -> Angle {
-    let x = vertex.x() - object.xy.x();
-    let y = vertex.y() - object.xy.y();
+pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
+    let x = vertex.x() - mobj.xy.x();
+    let y = vertex.y() - mobj.xy.y();
     Angle::new(y.atan2(x))
 
     // if x >= 0.0 {

@@ -103,11 +103,6 @@ const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 /// player_t
 #[derive(Debug)]
 pub struct Player {
-    // TODO: move these to mapobject
-    pub xy:         Vertex,
-    pub rotation:   Angle,
-    pub sub_sector: Option<DPtr<SubSector>>,
-
     pub mo:           Option<Thinker<MapObject>>,
     pub player_state: PlayerState,
     pub cmd:          TicCmd,
@@ -204,10 +199,7 @@ impl Player {
         mo: Option<Thinker<MapObject>>, // TODO: should be a pointer
     ) -> Player {
         Player {
-            xy,
             viewz: z,
-            rotation,
-            sub_sector,
             mo,
 
             viewheight: 41.0,
@@ -343,18 +335,17 @@ impl Player {
         // TODO: Fix adjustments after fixing the tic timestep
         if self.cmd.angleturn != 0 {
             let a = bam_to_radian((self.cmd.angleturn as u32) << 16);
-            self.rotation += a;
+            self.mo.as_mut().unwrap().obj.angle += a;
         }
 
         if self.cmd.forwardmove != 0 {
-            self.thrust(self.rotation, self.cmd.forwardmove as i32 * 2048);
+            let angle = self.mo.as_mut().unwrap().obj.angle;
+            self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
         }
 
         if self.cmd.sidemove != 0 {
-            self.thrust(
-                self.rotation - FRAC_PI_2,
-                self.cmd.sidemove as i32 * 2048,
-            );
+            let angle = self.mo.as_mut().unwrap().obj.angle;
+            self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
         }
 
         if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {

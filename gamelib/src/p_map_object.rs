@@ -279,7 +279,7 @@ impl MapObject {
     }
 
     /// P_ZMovement
-    fn p_z_movement(&mut self, level: &mut Level) { unimplemented!() }
+    fn p_z_movement(&mut self, level: &mut Level) { self.z = self.floorz; }
 
     pub fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
@@ -322,7 +322,7 @@ impl MapObject {
                 ymove = 0.0;
             }
 
-            level.mobj_ctrl.p_try_move(level, self, ptryx, ptryy);
+            self.p_try_move(level, ptryx, ptryy);
             // TODO: if (!P_TryMove(mo, ptryx, ptryy))
 
             if xmove as i32 == 0 || ymove as i32 == 0 {
@@ -330,11 +330,11 @@ impl MapObject {
             }
         }
 
-        if !level.mobj_ctrl.p_try_move(level, self, ptryx, ptryy) {
+        if !self.p_try_move(level, ptryx, ptryy) {
             // blocked move
             if self.player.is_some() {
                 // try to slide along it
-                level.mobj_ctrl.p_slide_move();
+                self.p_slide_move();
             } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
                 // TODO: explode a missile
                 // if (ceilingline &&
@@ -405,14 +405,6 @@ impl MapObject {
             }
         }
 
-        // TODO: temporary block for player move only, remove when mobj moves done
-        if let Some(mut player) = self.player {
-            unsafe {
-                self.momxy *= FRICTION;
-                player.as_mut().xy += self.momxy;
-                return;
-            }
-        }
         self.momxy *= FRICTION;
         self.xy += self.momxy;
     }
@@ -477,11 +469,6 @@ impl MapObject {
         player.extralight = 0;
         player.fixedcolormap = 0;
         player.viewheight = VIEWHEIGHT;
-
-        // Temporary. Need to change update code to use the mobj after doing ticcmd
-        player.xy.set_x(x);
-        player.xy.set_y(y);
-        player.rotation = Angle::new(mthing.angle * PI / 180.0);
 
         let player_ptr =
             unsafe { NonNull::new_unchecked(player as *mut Player) };
