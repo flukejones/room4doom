@@ -322,7 +322,8 @@ impl Player {
                 }
 
                 if self.deltaviewheight > 0.0 {
-                    self.deltaviewheight = 0.25;
+                    // player->deltaviewheight += FRACUNIT / 4;
+                    self.deltaviewheight += 0.25;
                     if self.deltaviewheight <= 0.0 {
                         self.deltaviewheight = 1.0;
                     }
@@ -331,6 +332,7 @@ impl Player {
 
             self.viewz = mobj.obj.z + self.viewheight + bob;
 
+            // if (player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
             if self.viewz > mobj.obj.ceilingz - 4.0 {
                 self.viewz = mobj.obj.ceilingz - 4.0;
             }
@@ -350,12 +352,12 @@ impl Player {
             false
         };
 
-        if self.cmd.forwardmove != 0 {
+        if self.cmd.forwardmove != 0 && self.onground {
             let angle = self.mobj.as_mut().unwrap().obj.angle;
             self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
         }
 
-        if self.cmd.sidemove != 0 {
+        if self.cmd.sidemove != 0 && self.onground {
             let angle = self.mobj.as_mut().unwrap().obj.angle;
             self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
         }
