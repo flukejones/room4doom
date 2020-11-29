@@ -7,8 +7,12 @@ use wad::{
 };
 
 use crate::{
-    angle::Angle, doom_def::TICRATE, info::MapObjectInfo,
-    p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ,
+    angle::Angle,
+    doom_def::TICRATE,
+    info::MapObjectInfo,
+    p_local::FRACUNIT,
+    p_local::FRACUNIT_DIV4,
+    p_local::{fixed_to_float, ONCEILINGZ},
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
@@ -30,7 +34,7 @@ pub static MAXMOVE: f32 = 30.0;
 pub static STOPSPEED: f32 = 0.0625;
 pub static FRICTION: f32 = 0.90625;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
@@ -279,7 +283,73 @@ impl MapObject {
     }
 
     /// P_ZMovement
-    fn p_z_movement(&mut self, level: &mut Level) { self.z = self.floorz; }
+    fn p_z_movement(&mut self, level: &mut Level) {
+        if self.player.is_some() && self.z < self.floorz {
+            let player = self.player.as_mut().unwrap();
+            unsafe {
+                let player = player.as_mut();
+                player.viewheight -= self.floorz - self.z;
+                player.deltaviewheight =
+                    (((VIEWHEIGHT - player.viewheight) as i32) >> 3) as f32;
+            }
+        }
+
+        // adjust height
+        self.z += self.momz;
+
+        if self.flags & MapObjectFlag::MF_FLOAT as u32 != 0
+            && self.target.is_some()
+        {
+            // TODO: float down towards target if too close
+            // if (!(mo->flags & MF_SKULLFLY) && !(mo->flags & MF_INFLOAT))
+            // {
+            //     dist = P_AproxDistance(mo->x - mo->target->x,
+            //                         mo->y - mo->target->y);
+
+            //     delta = (mo->target->z + (mo->height >> 1)) - mo->z;
+
+            //     if (delta < 0 && dist < -(delta * 3))
+            //         mo->z -= FLOATSPEED;
+            //     else if (delta > 0 && dist < (delta * 3))
+            //         mo->z += FLOATSPEED;
+            // }
+        }
+
+        // clip movement
+
+        if self.z <= self.floorz {
+            // hit the floor
+            // TODO: The lost soul correction for old demos
+            if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
+                // the skull slammed into something
+                self.momz = -self.momz;
+            }
+
+            if self.momz < 0.0 {
+                // TODO: is the gravity correct? (FRACUNIT == GRAVITY)
+                if self.player.is_some() && self.momz < -1.0 * 8.0 {
+                    // Squat down.
+                    // Decrease viewheight for a moment
+                    // after hitting the ground (hard),
+                    // and utter appropriate sound.
+                    let player = self.player.as_mut().unwrap();
+                    unsafe {
+                        player.as_mut().viewheight =
+                            ((self.momz as i32) >> 3) as f32;
+                    }
+                }
+                self.momz = 0.0;
+            }
+
+            self.z = self.floorz;
+        } else if self.flags & MapObjectFlag::MF_NOGRAVITY as u32 == 0 {
+            if self.momz == 0.0 {
+                self.momz = -1.0 * 2.0;
+            } else {
+                self.momz -= 1.0;
+            }
+        }
+    }
 
     fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
@@ -322,36 +392,35 @@ impl MapObject {
                 ymove = 0.0;
             }
 
-            self.p_try_move(level, ptryx, ptryy);
-            // TODO: if (!P_TryMove(mo, ptryx, ptryy))
+            if !self.p_try_move(level, ptryx, ptryy) {
+                // blocked move
+                if self.player.is_some() {
+                    // try to slide along it
+                    self.p_slide_move();
+                } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                    // TODO: explode a missile
+                    // if (ceilingline &&
+                    //     ceilingline->backsector &&
+                    //     ceilingline->backsector->ceilingpic == skyflatnum)
+                    // {
+                    //     // Hack to prevent missiles exploding
+                    //     // against the sky.
+                    //     // Does not handle sky floors.
+                    //     P_RemoveMobj(mo);
+                    //     return;
+                    // }
+                    self.p_explode_missile();
+                } else {
+                    self.momxy = Vec2::default();
+                }
+            }
 
             if xmove as i32 == 0 || ymove as i32 == 0 {
                 break;
             }
         }
 
-        if !self.p_try_move(level, ptryx, ptryy) {
-            // blocked move
-            if self.player.is_some() {
-                // try to slide along it
-                self.p_slide_move();
-            } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-                // TODO: explode a missile
-                // if (ceilingline &&
-                //     ceilingline->backsector &&
-                //     ceilingline->backsector->ceilingpic == skyflatnum)
-                // {
-                //     // Hack to prevent missiles exploding
-                //     // against the sky.
-                //     // Does not handle sky floors.
-                //     P_RemoveMobj(mo);
-                //     return;
-                // }
-                self.p_explode_missile();
-            } else {
-                self.momxy = Vec2::default();
-            }
-        }
+        
 
         // slow down
 
@@ -363,6 +432,7 @@ impl MapObject {
             return; // no friction for missiles ever
         }
 
+        // TODO: this part is incorrect
         if self.z > self.floorz {
             return; // no friction when airborne
         }
@@ -403,10 +473,9 @@ impl MapObject {
                     return;
                 }
             }
+        } else {
+            self.momxy *= FRICTION;
         }
-
-        self.momxy *= FRICTION;
-        self.xy += self.momxy;
     }
 
     /// P_SpawnPlayer

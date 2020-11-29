@@ -42,8 +42,13 @@ impl MapObject {
         if !self.p_check_position(level, &Vec2::new(ptryx, ptryy)) {
             return false; // solid wall or thing
         }
+        
         self.floorz = level.mobj_ctrl.tmfloorz;
         self.ceilingz = level.mobj_ctrl.tmceilingz;
+
+        self.xy.set_x(ptryx);
+        self.xy.set_y(ptryy);
+
         true
     }
 
