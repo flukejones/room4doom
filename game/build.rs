@@ -28,7 +28,8 @@ fn main() {
         for entry in std::fs::read_dir(dll_dir).expect("Can't read DLL dir") {
             let entry_path = entry.expect("Invalid fs entry").path();
             let file_name_result = entry_path.file_name();
-            let mut new_file_path = manifest_dir.parent().unwrap().to_path_buf();
+            let mut new_file_path =
+                manifest_dir.parent().unwrap().to_path_buf();
             if let Some(file_name) = file_name_result {
                 let file_name = file_name.to_str().unwrap();
                 if file_name.ends_with(".dll") {

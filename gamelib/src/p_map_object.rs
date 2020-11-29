@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_4, f32::consts::PI, ptr::NonNull};
+use std::{f32::consts::FRAC_PI_4, ptr::NonNull};
 
 use glam::Vec2;
 use wad::{
@@ -7,12 +7,8 @@ use wad::{
 };
 
 use crate::{
-    angle::Angle,
-    doom_def::TICRATE,
-    info::MapObjectInfo,
-    p_local::FRACUNIT,
-    p_local::FRACUNIT_DIV4,
-    p_local::{fixed_to_float, ONCEILINGZ},
+    angle::Angle, doom_def::TICRATE, info::MapObjectInfo,
+    p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
@@ -149,7 +145,7 @@ pub struct MapObject {
     pub floorz:       f32,
     pub ceilingz:     f32,
     /// For movement checking.
-    radius:           f32,
+    pub radius:       f32,
     height:           f32,
     /// Momentums, used to update position.
     pub momxy:        Vec2,
@@ -419,8 +415,6 @@ impl MapObject {
                 break;
             }
         }
-
-        
 
         // slow down
 

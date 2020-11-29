@@ -95,7 +95,7 @@ impl BspCtrl {
         let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;
 
         let colour = sdl2::pixels::Color::RGBA(
-            150 + lightnum - z as u8,
+            100 + lightnum - (z >> 1) as u8,
             50 + lightnum,
             50 + lightnum,
             alpha,

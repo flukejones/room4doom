@@ -76,7 +76,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(options: GameOptions) -> Game {
+    pub fn new(mut options: GameOptions) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = match options.skill {
             d_main::Skill::Nightmare => true,
@@ -87,6 +87,23 @@ impl Game {
         wad.read_directories();
         let (game_mode, game_mission, game_description) =
             identify_version(&wad);
+
+        if game_mode == GameMode::Retail {
+            if options.episode > 4 {
+                options.episode = 4;
+            }
+        } else if game_mode == GameMode::Shareware {
+            if options.episode > 1 {
+                options.episode = 1; // only start episode 1 on shareware
+            }
+            if options.map > 5 {
+                options.map = 5;
+            }
+        } else {
+            if options.episode > 3 {
+                options.episode = 3;
+            }
+        }
 
         // Mimic the OG output
         println!(
@@ -209,6 +226,9 @@ impl Game {
         } else if self.game_mode == GameMode::Shareware {
             if episode > 1 {
                 episode = 1; // only start episode 1 on shareware
+            }
+            if map > 5 {
+                map = 5;
             }
         } else {
             if episode > 3 {
