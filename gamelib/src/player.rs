@@ -1,10 +1,10 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, FRAC_PI_8, PI};
 
 use glam::Vec2;
 use wad::{lumps::SubSector, DPtr, Vertex};
 
 /// 16 pixels of bob
-const MAXBOB: f32 = 1.0; // 0x100000;
+const MAXBOB: f32 = 16.0; // 0x100000;
 
 use crate::{
     angle::Angle,
@@ -103,7 +103,7 @@ const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 /// player_t
 #[derive(Debug)]
 pub struct Player {
-    pub mo:           Option<Thinker<MapObject>>,
+    pub mobj:         Option<Thinker<MapObject>>,
     pub player_state: PlayerState,
     pub cmd:          TicCmd,
 
@@ -117,6 +117,7 @@ pub struct Player {
     pub deltaviewheight: f32,
     /// bounded/scaled total momentum.
     pub bob:             f32,
+    pub onground:        bool,
 
     /// This is only used between levels,
     /// mo->health is used during levels.
@@ -185,26 +186,21 @@ pub struct Player {
 }
 
 impl Default for Player {
-    fn default() -> Self {
-        Player::new(Vertex::new(0.0, 0.0), 0.0, Angle::new(0.0), None, None)
-    }
+    fn default() -> Self { Player::new(None) }
 }
 
 impl Player {
     pub const fn new(
-        xy: Vertex,
-        z: f32,
-        rotation: Angle,
-        sub_sector: Option<DPtr<SubSector>>,
-        mo: Option<Thinker<MapObject>>, // TODO: should be a pointer
+        mobj: Option<Thinker<MapObject>>, // TODO: should be a pointer
     ) -> Player {
         Player {
-            viewz: z,
-            mo,
+            viewz: 0.0,
+            mobj,
 
             viewheight: 41.0,
             deltaviewheight: 1.0,
-            bob: 3.0,
+            bob: 1.0,
+            onground: true,
             health: 100,
             armorpoints: 0,
             armortype: 0,
@@ -265,39 +261,49 @@ impl Player {
         let y = mv as f32 * angle.sin();
         let mxy = Vec2::new(x, y);
 
-        if let Some(ref mut thinker) = self.mo {
+        if let Some(ref mut thinker) = self.mobj {
             thinker.obj.momxy += mxy;
         }
     }
 
     /// P_CalcHeight
     /// Calculate the walking / running height adjustment
-    fn calculate_height(&mut self, level_time: i32) {
+    fn calculate_height(&mut self, level_time: u32) {
         // Regular movement bobbing
         // (needs to be calculated for gun swing
         // even if not on ground)
         // OPTIMIZE: tablify angle
         // Note: a LUT allows for effects
         //  like a ramp with low health.
-        if let Some(ref mut mo) = self.mo {
-            let x = mo.obj.momxy.x();
-            let y = mo.obj.momxy.y();
+        if let Some(ref mut mobj) = self.mobj {
+            let x = mobj.obj.momxy.x();
+            let y = mobj.obj.momxy.y();
             self.bob = x * x + y * y;
 
-            //self.bob >>= 2;
+            // Reduce precision
+            self.bob = (self.bob as i32 >> 2) as f32;
 
             if self.bob > MAXBOB {
                 self.bob = MAXBOB;
             }
 
             // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
-            // if self.viewz > mo.obj.ceilingz - 4.0 {
-            //     self.viewz = mo.obj.ceilingz - 4.0;
-            // }
+            if !self.onground {
+                self.viewz = mobj.obj.z + VIEWHEIGHT;
 
-            // BOB IS WRONG!
-            let angle = ((8192 / 20 * level_time) & 8191) as f32; // / 180.0 * PI;
-            let bob = self.bob / 2.0 * angle.sin();
+                if self.viewz > mobj.obj.ceilingz - 4.0 {
+                    self.viewz = mobj.obj.ceilingz - 4.0;
+                }
+
+                self.viewz = mobj.obj.z + self.viewheight;
+            }
+
+            // Need to shunt finesine left by 13 bits?
+            // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
+            let angle = ((3350528u32.overflowing_mul(level_time).0) & 67100672)
+                as f32
+                * 8.38190317e-8;
+            let bob = self.bob / 2.0 * angle.cos(); // not sine!
 
             // move viewheight
             if self.player_state == PlayerState::PstLive {
@@ -323,10 +329,10 @@ impl Player {
                 }
             }
 
-            self.viewz = mo.obj.z + self.viewheight + bob;
+            self.viewz = mobj.obj.z + self.viewheight + bob;
 
-            if self.viewz > mo.obj.ceilingz - 4.0 {
-                self.viewz = mo.obj.ceilingz - 4.0;
+            if self.viewz > mobj.obj.ceilingz - 4.0 {
+                self.viewz = mobj.obj.ceilingz - 4.0;
             }
         }
     }
@@ -335,21 +341,27 @@ impl Player {
         // TODO: Fix adjustments after fixing the tic timestep
         if self.cmd.angleturn != 0 {
             let a = bam_to_radian((self.cmd.angleturn as u32) << 16);
-            self.mo.as_mut().unwrap().obj.angle += a;
+            self.mobj.as_mut().unwrap().obj.angle += a;
         }
 
+        self.onground = if let Some(think) = self.mobj.as_ref() {
+            think.obj.z <= think.obj.floorz
+        } else {
+            false
+        };
+
         if self.cmd.forwardmove != 0 {
-            let angle = self.mo.as_mut().unwrap().obj.angle;
+            let angle = self.mobj.as_mut().unwrap().obj.angle;
             self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
         }
 
         if self.cmd.sidemove != 0 {
-            let angle = self.mo.as_mut().unwrap().obj.angle;
+            let angle = self.mobj.as_mut().unwrap().obj.angle;
             self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
         }
 
         if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
-            if let Some(ref thinker) = self.mo {
+            if let Some(ref thinker) = self.mobj {
                 if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
                 {
                     //P_SetMobjState (player->mo, S_PLAY_RUN1);
@@ -364,7 +376,7 @@ impl Think for Player {
         self.move_player();
         self.calculate_height(level.level_time);
 
-        if let Some(ref mut mo) = self.mo {
+        if let Some(ref mut mo) = self.mobj {
             mo.think(level); // Player own the thinker, so make it think here
         }
         false

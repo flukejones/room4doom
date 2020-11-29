@@ -281,7 +281,7 @@ impl MapObject {
     /// P_ZMovement
     fn p_z_movement(&mut self, level: &mut Level) { self.z = self.floorz; }
 
-    pub fn p_xy_movement(&mut self, level: &mut Level) {
+    fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
@@ -460,7 +460,7 @@ impl MapObject {
         mobj.angle = Angle::new(FRAC_PI_4 * (mthing.angle / 45.0));
         mobj.health = player.health;
 
-        player.mo = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
+        player.mobj = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
         player.player_state = PlayerState::PstLive;
         player.refire = 0;
         player.message = None;
@@ -473,7 +473,7 @@ impl MapObject {
         let player_ptr =
             unsafe { NonNull::new_unchecked(player as *mut Player) };
 
-        if let Some(ref mut think) = player.mo {
+        if let Some(ref mut think) = player.mobj {
             think.obj.player = Some(player_ptr);
         }
 
