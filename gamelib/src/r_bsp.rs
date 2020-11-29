@@ -37,8 +37,8 @@ impl BspCtrl {
         canvas: &mut Canvas<Surface>,
     ) {
         // reject orthogonal back sides
-        let xy = player.mo.as_ref().unwrap().obj.xy;
-        let angle = player.mo.as_ref().unwrap().obj.angle;
+        let xy = player.mobj.as_ref().unwrap().obj.xy;
+        let angle = player.mobj.as_ref().unwrap().obj.angle;
 
         if !seg.is_facing_point(&xy) {
             return;
@@ -48,11 +48,11 @@ impl BspCtrl {
         // Reset to correct angles
         let mut angle1 = vertex_angle_to_object(
             &seg.start_vertex,
-            &player.mo.as_ref().unwrap().obj,
+            &player.mobj.as_ref().unwrap().obj,
         );
         let mut angle2 = vertex_angle_to_object(
             &seg.end_vertex,
-            &player.mo.as_ref().unwrap().obj,
+            &player.mobj.as_ref().unwrap().obj,
         );
 
         let span = angle1 - angle2;
@@ -356,7 +356,7 @@ impl BspCtrl {
             return;
         }
 
-        let mobj = &player.mo.as_ref().unwrap().obj;
+        let mobj = &player.mobj.as_ref().unwrap().obj;
         // otherwise get node
         let node = map.get_nodes()[node_id as usize].clone();
         // find which side the point is on

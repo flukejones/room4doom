@@ -26,7 +26,7 @@ pub struct Level {
     pub thinkers:         Vec<Option<Thinker<MapObject>>>,
     pub game_skill:       Skill,
     pub respawn_monsters: bool,
-    pub level_time:       i32,
+    pub level_time:       u32,
     /// Required for the mobj controller (Boss check)
     pub episode:          u32,
     /// Required for the mobj controller (Boss check)
@@ -121,7 +121,7 @@ pub fn ticker(game: &mut Game) {
         for (i, player) in game.players.iter_mut().enumerate() {
             if game.player_in_game[i] {
                 if player.think(level) {
-                    if let Some(ref mut mobj) = player.mo {
+                    if let Some(ref mut mobj) = player.mobj {
                         mobj.unlink();
                         mobj.function = ActionFunc::None;
                     }

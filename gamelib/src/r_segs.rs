@@ -43,12 +43,12 @@ impl BspCtrl {
         let hyp = point_to_dist(
             seg.start_vertex.x(),
             seg.start_vertex.y(),
-            object.mo.as_ref().unwrap().obj.xy,
+            object.mobj.as_ref().unwrap().obj.xy,
         ); // verified correct
         let rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
 
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
-        let view_angle = object.mo.as_ref().unwrap().obj.angle;
+        let view_angle = object.mobj.as_ref().unwrap().obj.angle;
 
         //m_ScreenXToAngle[i] = atan((m_HalfScreenWidth - i) / (float)m_iDistancePlayerToScreen) * 180 / PI;
         let visangle = view_angle

@@ -43,13 +43,15 @@ impl MapObject {
             return false; // solid wall or thing
         }
         self.floorz = level.mobj_ctrl.tmfloorz;
+        self.ceilingz = level.mobj_ctrl.tmceilingz;
         true
     }
 
-    pub fn p_check_position(&mut self, level: &mut Level, xy: &Vec2) -> bool {
+    fn p_check_position(&mut self, level: &mut Level, xy: &Vec2) -> bool {
         // TODO: R_PointInSubsector
         if let Some(newsubsect) = level.map_data.point_in_subsector(xy) {
             level.mobj_ctrl.tmfloorz = newsubsect.sector.floor_height as f32;
+            level.mobj_ctrl.tmceilingz = newsubsect.sector.ceil_height as f32;
         }
         true
     }
