@@ -112,7 +112,7 @@ impl InputEvents {
         }
 
         for i in 0..WeaponType::NUMWEAPONS as u8 {
-            if let Some (key) = Sc::from_i32('1' as i32 + 1 as i32) {
+            if let Some(key) = Sc::from_i32('1' as i32 + 1 as i32) {
                 if self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
                     cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
@@ -128,20 +128,22 @@ impl InputEvents {
         let mousex = self.mouse_pos.0;
 
         forward += self.mouse_pos.1;
-        if strafe{
+        if strafe {
             side += mousex * 2;
-        }else{
+        } else {
             cmd.angleturn -= (mousex * 0x8) as i16;
         }
 
-        if forward > MAXPLMOVE{
-            forward = MAXPLMOVE;}
-        else if forward < -MAXPLMOVE{
-            forward = -MAXPLMOVE;}
-        if side > MAXPLMOVE{
-            side = MAXPLMOVE;}
-        else if side < -MAXPLMOVE{
-            side = -MAXPLMOVE;}
+        if forward > MAXPLMOVE {
+            forward = MAXPLMOVE;
+        } else if forward < -MAXPLMOVE {
+            forward = -MAXPLMOVE;
+        }
+        if side > MAXPLMOVE {
+            side = MAXPLMOVE;
+        } else if side < -MAXPLMOVE {
+            side = -MAXPLMOVE;
+        }
 
         cmd.forwardmove += forward as i8;
         cmd.sidemove += side as i8;
@@ -167,7 +169,7 @@ impl InputEvents {
 pub struct Input {
     pump:           EventPump,
     pub tic_events: InputEvents,
-    pub config: InputConfig,
+    pub config:     InputConfig,
     quit:           bool,
 }
 
