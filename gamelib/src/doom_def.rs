@@ -107,6 +107,9 @@ pub enum WeaponType {
     wp_nochange,
 }
 
+pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
+pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
+
 /// Ammunition types defined.
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]

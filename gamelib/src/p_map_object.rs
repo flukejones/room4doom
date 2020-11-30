@@ -1,4 +1,7 @@
-use std::{f32::consts::{FRAC_PI_4, FRAC_PI_8}, ptr::NonNull};
+use std::{
+    f32::consts::{FRAC_PI_4, FRAC_PI_8},
+    ptr::NonNull,
+};
 
 use glam::Vec2;
 use wad::{
@@ -6,14 +9,21 @@ use wad::{
     DPtr,
 };
 
-use crate::{angle::Angle, d_main::Skill, doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE}, info::MapObjectInfo, info::map_object_info, p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ};
+use crate::{
+    angle::Angle,
+    d_main::Skill,
+    doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
+    info::MapObjectInfo,
+    p_local::FRACUNIT_DIV4,
+    p_local::ONCEILINGZ,
+};
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
     d_thinker::{ActionFunc, Thinker},
     info::states::get_state,
 };
 use crate::{
-    info::states::State, map_data::MapData, p_local::p_random, sounds::SfxEnum,
+    info::states::State, p_local::p_random, sounds::SfxEnum,
 };
 use crate::{info::StateNum, level::Level};
 use crate::{
@@ -152,7 +162,7 @@ pub struct MapObject {
     kind:             u16,
     /// &mobjinfo[mobj.type]
     info:             MapObjectInfo,
-    pub tics:             i32,
+    pub tics:         i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
@@ -475,25 +485,25 @@ impl MapObject {
     ///  between levels.
     ///
     /// Called in game.c
-    pub fn p_spawn_player<'b>(
+    pub fn p_spawn_player(
         mthing: &Thing,
-        level: &'b mut Level,
-        players: &'b mut [Player],
+        level: &mut Level,
+        players: &mut [Player],
+        active_players: &[bool; MAXPLAYERS],
     ) {
         if mthing.kind == 0 {
             return;
         }
 
         // not playing?
-        // Network thing
-        // if !playeringame[mthing.kind - 1] {
-        //     return;
-        // }
+        if !active_players[(mthing.kind - 1) as usize] {
+            return;
+        }
 
         let mut player = &mut players[mthing.kind as usize - 1];
 
         if player.player_state == PlayerState::PstReborn {
-            // TODO: G_PlayerReborn(mthing.kind - 1);
+            player.player_reborn();
         }
 
         let x = mthing.pos.x();
@@ -556,7 +566,12 @@ impl MapObject {
     }
 
     /// P_SpawnMapThing
-    pub fn p_spawn_map_thing(mthing: &Thing, level: &mut Level) {
+    pub fn p_spawn_map_thing(
+        mthing: &Thing,
+        level: &mut Level,
+        players: &mut [Player],
+        active_players: &[bool; MAXPLAYERS],
+    ) {
         // count deathmatch start positions
         if mthing.kind == 11 {
             if level.deathmatch_p.len() < level.deathmatch_starts.len() {
@@ -570,7 +585,7 @@ impl MapObject {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
             if !level.deathmatch {
-                //MapObject::p_spawn_player(mthing, level);
+                MapObject::p_spawn_player(mthing, level, players, active_players);
             }
             return;
         }
@@ -609,7 +624,8 @@ impl MapObject {
 
         // don't spawn keycards and players in deathmatch
         if level.deathmatch
-            && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32 != 0
+            && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32
+                != 0
         {
             return;
         }
@@ -624,7 +640,9 @@ impl MapObject {
         let y = mthing.pos.y();
         let z;
 
-        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32 != 0 {
+        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32
+            != 0
+        {
             z = ONCEILINGZ;
         } else {
             z = ONFLOORZ;
@@ -649,7 +667,12 @@ impl MapObject {
         }
 
         // P_AddThinker(&mobj->thinker);
-        level.thinkers.push(Some(thinker));
+        if !level.add_thinker(thinker) {
+            panic!("P_SpawnMapThing: Could not spawn type {} at ({}, {}): out of memory",
+            mthing.kind,
+            mthing.pos.x(),
+            mthing.pos.y());
+        }
     }
 
     /// P_SpawnMobj
@@ -770,27 +793,5 @@ impl MapObject {
         }
 
         return true;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::MapObject;
-    use crate::{map_data::MapData, player::Player};
-    use wad::Wad;
-
-    #[test]
-    fn load_player() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
-
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
-
-        let mthing = map.get_things()[0].clone();
-
-        let mut players = [Player::default()];
-
-        MapObject::p_spawn_player(&mthing, &map, &mut players);
     }
 }

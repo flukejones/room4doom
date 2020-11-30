@@ -302,6 +302,7 @@ impl Game {
         //         skytexture = R_TextureNumForName("SKY4");
         //         break;
         //     }
+        println!("New game!");
     }
 
     fn do_load_level(&mut self) {
@@ -337,12 +338,14 @@ impl Game {
             self.game_map,
             self.game_mode,
             &mut self.players,
+            &self.player_in_game,
         );
 
         level.game_tic = self.game_tic;
         self.level_start_tic = self.game_tic;
         level.game_tic = self.game_tic;
 
+        println!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
 
         // Player setup from P_SetupLevel
@@ -354,11 +357,17 @@ impl Game {
         self.players[self.consoleplayer].viewz = 1.0;
 
         // TODO: S_Start();
+        
     }
 
     pub fn running(&self) -> bool { self.running }
 
     pub fn set_running(&mut self, run: bool) { self.running = run; }
+
+    fn do_reborn(&mut self, player_num: usize) {
+        self.game_action = GameAction::ga_loadlevel;
+        // TODO: deathmatch spawns
+    }
 
     /// G_Ticker
     pub fn ticker(&mut self) {
@@ -366,6 +375,11 @@ impl Game {
         // for (i = 0; i < MAXPLAYERS; i++)
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
         //     G_DoReborn(i);
+        for i in 0..MAXPLAYERS {
+            if self.player_in_game[i] && self.players[i].player_state == PlayerState::PstReborn {
+                self.do_reborn(i);
+            }
+        }
 
         // // do things to change the game state
         // while (gameaction != ga_nothing)
@@ -477,6 +491,10 @@ impl Game {
     /// D_Display
     // TODO: Move
     pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
+        if !self.player_in_game[0] {
+            return;
+        }
+
         if let Some(ref mut level) = self.level {
             let map = &level.map_data;
 
