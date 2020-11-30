@@ -5,11 +5,7 @@ use glam::Vec2;
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;
 
-use crate::{
-    angle::Angle,
-    doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
-    p_local::VIEWHEIGHT,
-};
+use crate::{angle::Angle, doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS}, p_local::MAXHEALTH, doom_def::MAX_AMMO, p_local::VIEWHEIGHT};
 use crate::{
     d_thinker::{Think, Thinker},
     info::SpriteNum,
@@ -131,18 +127,18 @@ pub struct Player {
 
     /// Frags, kills of other players.
     pub frags:   [i32; MAXPLAYERS as usize],
-    readyweapon: WeaponType,
+    pub readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
-    pendingweapon: WeaponType,
+    pub pendingweapon: WeaponType,
 
-    weaponowned: [i32; NUM_WEAPONS],
-    ammo:        [i32; NUM_AMMO],
-    maxammo:     [i32; NUM_AMMO],
+    pub weaponowned: [bool; NUM_WEAPONS],
+    pub ammo:        [u32; NUM_AMMO],
+    maxammo:     [u32; NUM_AMMO],
 
     /// True if button down last tic.
-    attackdown: bool,
-    usedown:    bool,
+    pub attackdown: bool,
+    pub usedown:    bool,
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
@@ -228,7 +224,7 @@ impl Player {
             frags: [0; 4],
             readyweapon: WeaponType::wp_pistol,
             pendingweapon: WeaponType::NUMWEAPONS,
-            weaponowned: [0; NUM_WEAPONS],
+            weaponowned: [false; NUM_WEAPONS],
 
             player_state: PlayerState::PstReborn,
             cmd: TicCmd::new(),
@@ -250,6 +246,31 @@ impl Player {
         }
     }
     // TODO: needs p_pspr.c, p_inter.c
+
+    pub fn player_reborn(&mut self) {
+        let kill_count = self.killcount;
+        let item_count = self.itemcount;
+        let secret_count = self.secretcount;
+
+        *self = Player::default();
+        self.killcount = kill_count;
+        self.itemcount = item_count;
+        self.secretcount = secret_count;
+
+        self.usedown = false;
+        self.attackdown = false;
+        self.player_state = PlayerState::PstLive;
+        self.health = MAXHEALTH;
+        self.readyweapon = WeaponType::wp_pistol;
+        self.pendingweapon = WeaponType::wp_pistol;
+        self.weaponowned[WeaponType::wp_fist as usize] = true;
+        self.weaponowned[WeaponType::wp_pistol as usize] = true;
+        self.ammo[AmmoType::am_clip as usize] = 50;
+
+        for i in 0..self.maxammo.len() {
+            self.maxammo[i] = MAX_AMMO[i];
+        }
+    }
 
     fn thrust(&mut self, angle: Angle, mv: i32) {
         // mv is in a fixed float format, we need to convert it

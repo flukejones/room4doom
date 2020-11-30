@@ -1,6 +1,19 @@
 use wad::{lumps::Thing, Wad};
 
-use crate::{d_main::Skill, d_thinker::Think, d_thinker::{ActionFunc, Thinker}, doom_def::GameMode, doom_def::MAXPLAYERS, game::Game, doom_def::MAX_DEATHMATCH_STARTS, map_data::MapData, p_map::MobjCtrl, p_map_object::MapObject, player::Player, r_bsp::BspCtrl};
+use crate::{
+    d_main::Skill,
+    d_thinker::Think,
+    d_thinker::{ActionFunc, Thinker},
+    doom_def::GameMode,
+    doom_def::MAXPLAYERS,
+    doom_def::MAX_DEATHMATCH_STARTS,
+    game::Game,
+    map_data::MapData,
+    p_map::MobjCtrl,
+    p_map_object::MapObject,
+    player::Player,
+    r_bsp::BspCtrl,
+};
 
 /// The level is considered a `World` or sorts. One that exists only
 /// while the player is in it. Another benefit of this structure is
@@ -9,26 +22,27 @@ use crate::{d_main::Skill, d_thinker::Think, d_thinker::{ActionFunc, Thinker}, d
 ///
 /// In some ways this is the "P" module
 pub struct Level {
-    pub map_data:         MapData,
-    pub bsp_ctrl:         BspCtrl,
-    pub mobj_ctrl:        MobjCtrl,
-    pub thinkers:         Vec<Option<Thinker<MapObject>>>,
-    pub game_skill:       Skill,
-    pub respawn_monsters: bool,
-    pub level_time:       u32,
+    pub map_data:          MapData,
+    pub bsp_ctrl:          BspCtrl,
+    pub mobj_ctrl:         MobjCtrl,
+    pub thinkers:          Vec<Option<Thinker<MapObject>>>,
+    max_thinker_capacity:  usize,
+    pub game_skill:        Skill,
+    pub respawn_monsters:  bool,
+    pub level_time:        u32,
     /// Required for the mobj controller (Boss check)
-    pub episode:          u32,
+    pub episode:           u32,
     /// Required for the mobj controller (Boss check)
-    pub game_map:         u32,
+    pub game_map:          u32,
     /// This needs to be synced with `Game`
-    pub game_tic:         u32,
+    pub game_tic:          u32,
     /// The `Things` for player start locations
-    pub player_starts: [Option<Thing>; MAXPLAYERS],
+    pub player_starts:     [Option<Thing>; MAXPLAYERS],
     /// The `Things` for deathmatch start locations
     pub deathmatch_starts: [Option<Thing>; MAX_DEATHMATCH_STARTS],
-    pub deathmatch_p: Vec<Thing>,
+    pub deathmatch_p:      Vec<Thing>,
     /// Was the level set for deathmatch game
-    pub deathmatch: bool,
+    pub deathmatch:        bool,
     /// for intermission
     pub totalkills:        i32,
     /// for intermission
@@ -45,6 +59,7 @@ impl Level {
         mut map: u32,
         game_mode: GameMode,
         players: &mut [Player],
+        active_players: &[bool; MAXPLAYERS],
     ) -> Self {
         let respawn_monsters = match skill {
             Skill::Nightmare => false,
@@ -88,7 +103,8 @@ impl Level {
             map_data,
             bsp_ctrl: BspCtrl::default(),
             mobj_ctrl: MobjCtrl::default(),
-            thinkers: Vec::with_capacity(thinker_count + 20),
+            thinkers: Vec::with_capacity(thinker_count + 50),
+            max_thinker_capacity: thinker_count + 50,
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
@@ -108,17 +124,62 @@ impl Level {
         let thing_list = (*level.map_data.get_things()).to_owned();
 
         for thing in &thing_list {
-            MapObject::p_spawn_map_thing(thing, &mut level);
+            MapObject::p_spawn_map_thing(
+                thing,
+                &mut level,
+                players,
+                active_players,
+            );
         }
         dbg!(&level.thinkers.len());
 
-        let player_start = level.player_starts[0].unwrap();
-        MapObject::p_spawn_player(&player_start, &mut level, players);
         // G_DoReborn
         // G_CheckSpot
 
         level
         // TODO: P_InitThinkers();
+    }
+
+    pub fn add_thinker(&mut self, thinker: Thinker<MapObject>) -> bool {
+        let mut index = 0;
+        for i in 0..self.thinkers.len() {
+            if self.thinkers[i].is_none() {
+                break;
+            }
+            index += 1;
+        }
+        if index < self.max_thinker_capacity {
+            if index < self.thinkers.len() {
+                self.thinkers[index] = Some(thinker);
+            } else {
+                self.thinkers.push(Some(thinker));
+            }
+            return true;
+        }
+
+        false
+    }
+
+    /// Clean out the inactive thinkers. This iterates the full allocation to find
+    /// thinkers with `None` action. The list is between 50-300 usually, depending
+    /// on the level.
+    pub fn clean_thinker_list(&mut self) {
+        for i in 0..self.thinkers.len() {
+            // Do not remove if already None, or if has Action
+            let status =
+                self.thinkers[i].as_ref().map_or(
+                    false,
+                    |thinker| match thinker.function {
+                        ActionFunc::None => true,
+                        _ => false,
+                    },
+                );
+            if status {
+                // An item must always be replaced in place to prevent realloc of vec
+                let mut thinker = self.thinkers[i].take().unwrap();
+                thinker.unlink();
+            }
+        }
     }
 }
 
@@ -153,22 +214,7 @@ pub fn ticker(game: &mut Game) {
         // P_RespawnSpecials ();
 
         // TODO: trial removal of mobs
-        for i in 0..level.thinkers.len() {
-            // Do not remove if already None, or if has Action
-            let status =
-                level.thinkers[i].as_ref().map_or(
-                    false,
-                    |thinker| match thinker.function {
-                        ActionFunc::None => true,
-                        _ => false,
-                    },
-                );
-            if status {
-                // An item must always be replaced in place to prevent realloc of vec
-                let mut thinker = level.thinkers[i].take().unwrap();
-                thinker.unlink();
-            }
-        }
+        level.clean_thinker_list();
 
         level.level_time += 1;
     }
