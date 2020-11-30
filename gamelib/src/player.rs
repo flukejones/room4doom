@@ -5,7 +5,13 @@ use glam::Vec2;
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;
 
-use crate::{angle::Angle, doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS}, p_local::MAXHEALTH, doom_def::MAX_AMMO, p_local::VIEWHEIGHT};
+use crate::{
+    angle::Angle,
+    doom_def::MAX_AMMO,
+    doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
+    p_local::MAXHEALTH,
+    p_local::VIEWHEIGHT,
+};
 use crate::{
     d_thinker::{Think, Thinker},
     info::SpriteNum,
@@ -127,13 +133,13 @@ pub struct Player {
 
     /// Frags, kills of other players.
     pub frags:   [i32; MAXPLAYERS as usize],
-    pub readyweapon: WeaponType,
+    readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
-    pub pendingweapon: WeaponType,
+    pendingweapon: WeaponType,
 
-    pub weaponowned: [bool; NUM_WEAPONS],
-    pub ammo:        [u32; NUM_AMMO],
+    weaponowned: [bool; NUM_WEAPONS],
+    ammo:        [u32; NUM_AMMO],
     maxammo:     [u32; NUM_AMMO],
 
     /// True if button down last tic.
