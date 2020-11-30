@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_4, ptr::NonNull};
+use std::{f32::consts::{FRAC_PI_4, FRAC_PI_8}, ptr::NonNull};
 
 use glam::Vec2;
 use wad::{
@@ -6,10 +6,7 @@ use wad::{
     DPtr,
 };
 
-use crate::{
-    angle::Angle, doom_def::TICRATE, info::MapObjectInfo,
-    p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ,
-};
+use crate::{angle::Angle, d_main::Skill, doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE}, info::MapObjectInfo, info::map_object_info, p_local::FRACUNIT_DIV4, p_local::ONCEILINGZ};
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
     d_thinker::{ActionFunc, Thinker},
@@ -152,10 +149,10 @@ pub struct MapObject {
     pub momz:         f32,
     /// If == validcount, already checked.
     validcount:       i32,
-    kind:             MapObjectType,
+    kind:             u16,
     /// &mobjinfo[mobj.type]
     info:             MapObjectInfo,
-    tics:             i32,
+    pub tics:             i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
@@ -480,7 +477,7 @@ impl MapObject {
     /// Called in game.c
     pub fn p_spawn_player<'b>(
         mthing: &Thing,
-        map: &'b MapData,
+        level: &'b mut Level,
         players: &'b mut [Player],
     ) {
         if mthing.kind == 0 {
@@ -508,8 +505,8 @@ impl MapObject {
             x,
             y,
             z as i32,
-            MapObjectType::MT_PLAYER,
-            map,
+            MapObjectType::MT_PLAYER as u16,
+            level,
         );
         let mut mobj = &mut thinker.obj;
 
@@ -558,30 +555,134 @@ impl MapObject {
         // }
     }
 
+    /// P_SpawnMapThing
+    pub fn p_spawn_map_thing(mthing: &Thing, level: &mut Level) {
+        // count deathmatch start positions
+        if mthing.kind == 11 {
+            if level.deathmatch_p.len() < level.deathmatch_starts.len() {
+                level.deathmatch_p.push(*mthing);
+            }
+            return;
+        }
+
+        // check for players specially
+        if mthing.kind <= 4 {
+            // save spots for respawning in network games
+            level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
+            if !level.deathmatch {
+                //MapObject::p_spawn_player(mthing, level);
+            }
+            return;
+        }
+
+        // check for apropriate skill level
+        let bit: u16;
+        if level.game_skill == Skill::Baby {
+            bit = 1;
+        } else if level.game_skill == Skill::Nightmare {
+            bit = 4;
+        } else {
+            bit = level.game_skill as u16 - 1;
+        }
+
+        if mthing.flags & bit == 0 {
+            return;
+        }
+
+        // find which type to spawn
+        let mut i = 0;
+        for n in 0..MapObjectType::NUMMOBJTYPES as u16 {
+            if mthing.kind == MOBJINFO[n as usize].doomednum as u16 {
+                i = n;
+                break;
+            }
+        }
+
+        if i == MapObjectType::NUMMOBJTYPES as u16 {
+            println!(
+                "P_SpawnMapThing: Unknown type {} at ({}, {})",
+                mthing.kind,
+                mthing.pos.x(),
+                mthing.pos.y()
+            );
+        }
+
+        // don't spawn keycards and players in deathmatch
+        if level.deathmatch
+            && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32 != 0
+        {
+            return;
+        }
+
+        // TODO: don't spawn any monsters if -nomonsters
+        // if (nomonsters && (i == MT_SKULL || (mobjinfo[i].flags & MF_COUNTKILL)))
+        // {
+        //     return;
+        // }
+
+        let x = mthing.pos.x();
+        let y = mthing.pos.y();
+        let z;
+
+        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32 != 0 {
+            z = ONCEILINGZ;
+        } else {
+            z = ONFLOORZ;
+        }
+
+        let mut thinker = MapObject::p_spawn_map_object(x, y, z, i, level);
+        let mobj = &mut thinker.obj;
+        if mobj.tics > 0 {
+            mobj.tics = 1 + ((p_random() as i32) % mobj.tics);
+        }
+        if mobj.flags & MapObjectFlag::MF_COUNTKILL as u32 != 0 {
+            level.totalkills += 1;
+        }
+        if mobj.flags & MapObjectFlag::MF_COUNTITEM as u32 != 0 {
+            level.totalitems += 1;
+        }
+
+        // TODO: check the angle is correct
+        mobj.angle = Angle::new(FRAC_PI_8 * (mthing.angle / FRAC_PI_8));
+        if mthing.flags & MTF_AMBUSH != 0 {
+            mobj.flags |= MapObjectFlag::MF_AMBUSH as u32;
+        }
+
+        // P_AddThinker(&mobj->thinker);
+        level.thinkers.push(Some(thinker));
+    }
+
     /// P_SpawnMobj
+    ///
+    /// The callee is expected to handle adding the thinker with P_AddThinker, and
+    /// inserting in to the level thinker container (differently to doom).
+    ///
     // TODO: pass in a ref to the container so the obj can be added
     //  Doom calls an zmalloc function for this. Then pass a reference back for it
-    pub fn p_spawn_map_object(
+    fn p_spawn_map_object(
         x: f32,
         y: f32,
         mut z: i32,
-        kind: MapObjectType,
-        map: &MapData,
+        kind: u16,
+        level: &mut Level,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
 
-        // if (gameskill != sk_nightmare)
-        //     mobj->reactiontime = info->reactiontime;
+        // TODO: Nightmare reactiontimes?
+        let reactiontime = if level.game_skill != Skill::Nightmare {
+            info.reactiontime
+        } else {
+            info.reactiontime
+        };
 
-        // mobj->lastlook = P_Random() % MAXPLAYERS;
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
         let sub_sector: DPtr<SubSector> =
-            map.point_in_subsector(&Vec2::new(x, y)).unwrap();
+            level.map_data.point_in_subsector(&Vec2::new(x, y)).unwrap();
 
         let floorz = sub_sector.sector.floor_height as i32;
         let ceilingz = sub_sector.sector.ceil_height as i32;
@@ -611,13 +712,11 @@ impl MapObject {
             flags: info.flags,
             health: info.spawnhealth,
             tics: state.tics,
-            // TODO: this may or may not need a clone instead. But because the
-            //  containing array is const and there is no `mut` it should be fine
             movedir: 0,
             movecount: 0,
-            reactiontime: info.reactiontime,
+            reactiontime,
             threshold: 0,
-            lastlook: 2,
+            lastlook: (p_random() as i32) % MAXPLAYERS as i32,
             spawn_point: None,
             target: None,
             subsector: sub_sector,
@@ -630,7 +729,6 @@ impl MapObject {
         thinker.function = ActionFunc::None; //P_MobjThinker
 
         // P_AddThinker(&mobj->thinker);
-
         thinker
     }
 

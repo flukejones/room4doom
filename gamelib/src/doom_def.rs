@@ -9,6 +9,7 @@ pub static DOOM_191_VERSION: u8 = 111;
 
 /// The maximum number of players, multiplayer/networking.
 pub const MAXPLAYERS: usize = 4;
+pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
 pub const BACKUPTICS: usize = 12;
 
@@ -70,7 +71,7 @@ pub static MTF_NORMAL: u8 = 2;
 pub static MTF_HARD: u8 = 4;
 
 /// Deaf monsters/do not react to sound.
-pub static MTF_AMBUSH: u8 = 8;
+pub static MTF_AMBUSH: u16 = 8;
 
 /// Key cards.
 #[derive(Debug, Copy, Clone)]
