@@ -12,9 +12,17 @@ pub struct InputEvents {
     key_state:   HashSet<Sc>,
     mouse_state: HashSet<Mb>,
     mouse_pos:   (i32, i32),
+    mouse_delta: (i32, i32),
+    mouse_scale: (i32, i32),
     turn_held:   u32,
 }
 impl InputEvents {
+    fn new(mouse_scale: (i32, i32)) -> Self {
+        let mut i = Self::default();
+        i.set_mouse_scale(mouse_scale);
+        i
+    }
+
     pub fn clear(&mut self) {
         self.key_state.clear();
         self.mouse_state.clear();
@@ -25,8 +33,6 @@ impl InputEvents {
 
     pub fn is_mb_pressed(&self, m: Mb) -> bool { self.mouse_state.contains(&m) }
 
-    pub fn mouse_pos(&self) -> (i32, i32) { self.mouse_pos }
-
     fn set_kb(&mut self, b: Sc) { self.key_state.insert(b); }
 
     fn unset_kb(&mut self, b: Sc) { self.key_state.remove(&b); }
@@ -35,7 +41,16 @@ impl InputEvents {
 
     fn unset_mb(&mut self, b: Mb) { self.mouse_state.remove(&b); }
 
-    pub fn set_mouse_pos(&mut self, state: (i32, i32)) {
+    pub fn set_mouse_scale(&mut self, scale: (i32, i32)) {
+        self.mouse_scale = scale;
+    }
+
+    fn reset_mouse_delta(&mut self) { self.mouse_delta = (0, 0); }
+
+    fn set_mouse_pos(&mut self, state: (i32, i32)) {
+        let x = self.mouse_pos.0 - state.0;
+        let y = self.mouse_pos.1 - state.1;
+        self.mouse_delta = (-(x * self.mouse_scale.0), y * self.mouse_scale.1);
         self.mouse_pos = state;
     }
 
@@ -125,9 +140,9 @@ impl InputEvents {
             forward += FORWARDMOVE[speed];
         }
 
-        let mousex = self.mouse_pos.0;
+        let mousex = self.mouse_delta.0;
 
-        forward += self.mouse_pos.1;
+        forward += self.mouse_delta.1;
         if strafe {
             side += mousex * 2;
         } else {
@@ -160,6 +175,7 @@ impl InputEvents {
         //     sendsave = false;
         //     cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot << BTS_SAVESHIFT);
         // }
+        self.reset_mouse_delta();
 
         cmd
     }
@@ -178,7 +194,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            tic_events: InputEvents::default(),
+            tic_events: InputEvents::new((7, 0)),
             config: InputConfig::default(),
             quit: false,
         }
@@ -195,7 +211,7 @@ impl Input {
     /// to cause delays in proccessing
     ///
     pub fn update(&mut self) {
-        if let Some(event) = self.pump.poll_event() {
+        while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown { scancode, .. } => {
                     if let Some(sc) = scancode {

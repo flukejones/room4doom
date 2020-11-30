@@ -8,7 +8,7 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use sdl2::{render::Canvas, surface::Surface};
+use sdl2::{render::Canvas, rect::Rect, surface::Surface};
 use wad::Wad;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
@@ -16,6 +16,7 @@ pub struct Game {
     /// Contains the full wad file
     wad_data:  Wad,
     pub level: Option<Level>,
+    pub crop_rect: Rect,
 
     running:    bool,
     // Game locals
@@ -141,6 +142,7 @@ impl Game {
         Game {
             wad_data: wad,
             level: None,
+            crop_rect: Rect::new(0,0,1,1),
 
             running: true,
 
@@ -357,7 +359,6 @@ impl Game {
         self.players[self.consoleplayer].viewz = 1.0;
 
         // TODO: S_Start();
-        
     }
 
     pub fn running(&self) -> bool { self.running }
@@ -376,7 +377,9 @@ impl Game {
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
         //     G_DoReborn(i);
         for i in 0..MAXPLAYERS {
-            if self.player_in_game[i] && self.players[i].player_state == PlayerState::PstReborn {
+            if self.player_in_game[i]
+                && self.players[i].player_state == PlayerState::PstReborn
+            {
                 self.do_reborn(i);
             }
         }

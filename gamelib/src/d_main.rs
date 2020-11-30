@@ -1,10 +1,7 @@
 use std::{error::Error, fmt, str::FromStr};
 
 use gumdrop::Options;
-use sdl2::{
-    keyboard::Scancode, pixels::PixelFormatEnum, render::Canvas,
-    surface::Surface, video::Window,
-};
+use sdl2::{keyboard::Scancode, pixels::PixelFormatEnum, render::Canvas, rect::Rect, surface::Surface, video::Window};
 
 use crate::{
     doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
@@ -134,6 +131,12 @@ pub fn d_doom_loop(
     mut input: Input,
     mut canvas: Canvas<Window>,
 ) {
+    let wsize = canvas.output_size().unwrap();
+    let ratio = wsize.1 / 3;
+    let xw = ratio * 4;
+    let xp = (wsize.0 - xw) / 2;
+    game.crop_rect = Rect::new(xp as i32, 0,xw,wsize.1);
+
     let mut timestep = TimeStep::new();
 
     'running: loop {
@@ -166,17 +169,17 @@ pub fn d_display(
     // TODO: NetUpdate(); // send out any new accumulation
 
     // consume the canvas
-    i_finish_update(canvas, window);
+    i_finish_update(canvas, window, game.crop_rect);
 }
 
 /// Page-flip or blit to screen
-pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>) {
+pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>, crop_rect: Rect) {
     //canvas.present();
 
     let texture_creator = window.texture_creator();
     let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
 
-    window.copy(&t, None, None).unwrap();
+    window.copy(&t, None, Some(crop_rect)).unwrap();
     window.present();
 }
 

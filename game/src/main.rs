@@ -16,12 +16,20 @@ fn main() {
     let options = GameOptions::parse_args_default_or_exit();
 
     println!("{:?}", options);
-    let window = video_ctx
+    let mut window = video_ctx
         .window("DIIRDOOM", options.width, options.height)
         .position_centered()
         .opengl()
         .build()
         .unwrap();
+
+    if options.fullscreen {
+        window.set_fullscreen(sdl2::video::FullscreenType::Desktop).unwrap();
+    }
+
+    sdl_ctx.mouse().show_cursor(false);
+    sdl_ctx.mouse().set_relative_mouse_mode(true);
+    sdl_ctx.mouse().capture(true);
 
     let canvas = window
         .into_canvas()

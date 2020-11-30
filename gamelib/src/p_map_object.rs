@@ -22,9 +22,7 @@ use crate::{
     d_thinker::{ActionFunc, Thinker},
     info::states::get_state,
 };
-use crate::{
-    info::states::State, p_local::p_random, sounds::SfxEnum,
-};
+use crate::{info::states::State, p_local::p_random, sounds::SfxEnum};
 use crate::{info::StateNum, level::Level};
 use crate::{
     info::{MapObjectType, SpriteNum},
@@ -548,7 +546,7 @@ impl MapObject {
         }
 
         // // setup gun psprite
-        // P_SetupPsprites(p);
+        // TODO: P_SetupPsprites(p);
 
         // // give all cards in death match mode
         // if deathmatch {
@@ -559,9 +557,9 @@ impl MapObject {
 
         // if mthing.kind - 1 == consoleplayer {
         //     // wake up the status bar
-        //     ST_Start();
+        // TODO:  ST_Start();
         //     // wake up the heads up text
-        //     HU_Start();
+        // TODO:  HU_Start();
         // }
     }
 
@@ -585,7 +583,12 @@ impl MapObject {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
             if !level.deathmatch {
-                MapObject::p_spawn_player(mthing, level, players, active_players);
+                MapObject::p_spawn_player(
+                    mthing,
+                    level,
+                    players,
+                    active_players,
+                );
             }
             return;
         }
