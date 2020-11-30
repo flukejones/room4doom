@@ -1,17 +1,6 @@
-use wad::Wad;
+use wad::{lumps::Thing, Wad};
 
-use crate::{
-    d_main::Skill,
-    d_thinker::Think,
-    d_thinker::{ActionFunc, Thinker},
-    doom_def::GameMode,
-    game::Game,
-    map_data::MapData,
-    p_map::MobjCtrl,
-    p_map_object::MapObject,
-    player::Player,
-    r_bsp::BspCtrl,
-};
+use crate::{d_main::Skill, d_thinker::Think, d_thinker::{ActionFunc, Thinker}, doom_def::GameMode, doom_def::MAXPLAYERS, game::Game, doom_def::MAX_DEATHMATCH_STARTS, map_data::MapData, p_map::MobjCtrl, p_map_object::MapObject, player::Player, r_bsp::BspCtrl};
 
 /// The level is considered a `World` or sorts. One that exists only
 /// while the player is in it. Another benefit of this structure is
@@ -33,6 +22,19 @@ pub struct Level {
     pub game_map:         u32,
     /// This needs to be synced with `Game`
     pub game_tic:         u32,
+    /// The `Things` for player start locations
+    pub player_starts: [Option<Thing>; MAXPLAYERS],
+    /// The `Things` for deathmatch start locations
+    pub deathmatch_starts: [Option<Thing>; MAX_DEATHMATCH_STARTS],
+    pub deathmatch_p: Vec<Thing>,
+    /// Was the level set for deathmatch game
+    pub deathmatch: bool,
+    /// for intermission
+    pub totalkills:        i32,
+    /// for intermission
+    pub totalitems:        i32,
+    /// for intermission
+    pub totalsecret:       i32,
 }
 impl Level {
     /// P_SetupLevel
@@ -80,23 +82,40 @@ impl Level {
         let mut map_data = MapData::new(map_name);
         map_data.load(wad_data);
 
-        // TODO: actually find the players
-        let player_thing = map_data.get_things()[0].clone();
+        let thinker_count = map_data.get_things().len();
 
-        let level = Level {
+        let mut level = Level {
             map_data,
             bsp_ctrl: BspCtrl::default(),
             mobj_ctrl: MobjCtrl::default(),
-            thinkers: Vec::with_capacity(200),
+            thinkers: Vec::with_capacity(thinker_count + 20),
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
             episode,
             game_map: map,
             game_tic: 0,
+            player_starts: [None; MAXPLAYERS],
+            deathmatch_starts: [None; MAX_DEATHMATCH_STARTS],
+            deathmatch_p: Vec::with_capacity(MAX_DEATHMATCH_STARTS),
+            deathmatch: false,
+            // TODO: copy end values to game obj
+            totalkills: 0,
+            totalitems: 0,
+            totalsecret: 0,
         };
 
-        MapObject::p_spawn_player(&player_thing, &level.map_data, players);
+        let thing_list = (*level.map_data.get_things()).to_owned();
+
+        for thing in &thing_list {
+            MapObject::p_spawn_map_thing(thing, &mut level);
+        }
+        dbg!(&level.thinkers.len());
+
+        let player_start = level.player_starts[0].unwrap();
+        MapObject::p_spawn_player(&player_start, &mut level, players);
+        // G_DoReborn
+        // G_CheckSpot
 
         level
         // TODO: P_InitThinkers();
