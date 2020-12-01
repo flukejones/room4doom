@@ -8,15 +8,15 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use sdl2::{render::Canvas, rect::Rect, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use wad::Wad;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     /// Contains the full wad file
-    wad_data:  Wad,
-    pub level: Option<Level>,
-    pub crop_rect: Rect,
+    wad_data:         Wad,
+    pub(crate) level: Option<Level>,
+    pub crop_rect:    Rect,
 
     running:    bool,
     // Game locals
@@ -26,11 +26,11 @@ pub struct Game {
     netgame:    bool,
 
     /// Tracks which players are currently active, set by d_net.c loop
-    pub player_in_game: [bool; MAXPLAYERS],
+    pub(crate) player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
-    pub players:        [Player; MAXPLAYERS],
+    pub(crate) players:        [Player; MAXPLAYERS],
     /// ?
-    turbodetected:      [bool; MAXPLAYERS],
+    turbodetected:             [bool; MAXPLAYERS],
 
     //
     old_game_state:   GameState,
@@ -48,24 +48,24 @@ pub struct Game {
     pub paused: bool,
 
     /// player taking events and displaying
-    pub consoleplayer: usize,
+    pub(crate) consoleplayer: usize,
     /// view being displayed        
-    displayplayer:     usize,
+    displayplayer:            usize,
     /// gametic at level start              
-    level_start_tic:   u32,
+    level_start_tic:          u32,
     /// for intermission
-    totalkills:        i32,
+    totalkills:               i32,
     /// for intermission
-    totalitems:        i32,
+    totalitems:               i32,
     /// for intermission
-    totalsecret:       i32,
+    totalsecret:              i32,
 
     wminfo: WBStartStruct,
 
     /// d_net.c
-    pub netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
+    pub(crate) netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
-    localcmds:   [TicCmd; BACKUPTICS],
+    localcmds:          [TicCmd; BACKUPTICS],
 
     game_mode:       GameMode,
     game_mission:    GameMission,
@@ -73,7 +73,7 @@ pub struct Game {
     usergame:        bool,
 
     /// The options the game exe was started with
-    game_options: GameOptions,
+    pub game_options: GameOptions,
 }
 
 impl Game {
@@ -142,7 +142,7 @@ impl Game {
         Game {
             wad_data: wad,
             level: None,
-            crop_rect: Rect::new(0,0,1,1),
+            crop_rect: Rect::new(0, 0, 1, 1),
 
             running: true,
 
@@ -194,7 +194,12 @@ impl Game {
     /// in the game. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
     /// changing game vars beyong action here, probably nothing.
-    pub fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
+    pub(crate) fn defered_init_new(
+        &mut self,
+        skill: Skill,
+        episode: u32,
+        map: u32,
+    ) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;
@@ -361,9 +366,9 @@ impl Game {
         // TODO: S_Start();
     }
 
-    pub fn running(&self) -> bool { self.running }
+    pub(crate) fn running(&self) -> bool { self.running }
 
-    pub fn set_running(&mut self, run: bool) { self.running = run; }
+    pub(crate) fn set_running(&mut self, run: bool) { self.running = run; }
 
     fn do_reborn(&mut self, player_num: usize) {
         self.game_action = GameAction::ga_loadlevel;
@@ -371,7 +376,7 @@ impl Game {
     }
 
     /// G_Ticker
-    pub fn ticker(&mut self) {
+    pub(crate) fn ticker(&mut self) {
         // // do player reborns if needed
         // for (i = 0; i < MAXPLAYERS; i++)
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
@@ -493,7 +498,7 @@ impl Game {
 
     /// D_Display
     // TODO: Move
-    pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
+    pub(crate) fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
         if !self.player_in_game[0] {
             return;
         }

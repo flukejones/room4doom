@@ -21,7 +21,7 @@ use crate::{
 /// work with the data, as much of it is interlinked.
 ///
 /// In some ways this is the "P" module
-pub struct Level {
+pub(crate) struct Level {
     pub map_data:          MapData,
     pub bsp_ctrl:          BspCtrl,
     pub mobj_ctrl:         MobjCtrl,

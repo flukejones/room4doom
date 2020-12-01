@@ -1,10 +1,20 @@
 use std::{error::Error, fmt, str::FromStr};
 
+use golem::Context;
+
 use gumdrop::Options;
-use sdl2::{keyboard::Scancode, pixels::PixelFormatEnum, render::Canvas, rect::Rect, surface::Surface, video::Window};
+use sdl2::{
+    keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect,
+    render::Canvas, surface::Surface, video::Window,
+};
 
 use crate::{
-    doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
+    doom_def::GameMission,
+    doom_def::GameMode,
+    game::Game,
+    input::Input,
+    renderer::basic::Basic,
+    renderer::{cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer},
     timestep::TimeStep,
 };
 
@@ -126,61 +136,76 @@ pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission, String) {
     (game_mode, game_mission, game_description)
 }
 
+/// Never returns
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    mut canvas: Canvas<Window>,
-) {
-    let wsize = canvas.output_size().unwrap();
-    let ratio = wsize.1 / 3;
-    let xw = ratio * 4;
-    let xp = (wsize.0 - xw) / 2;
-    game.crop_rect = Rect::new(xp as i32, 0,xw,wsize.1);
-
+    gl: Window,
+    ctx: Context,
+) -> Result<(), Box<dyn Error>> {
     let mut timestep = TimeStep::new();
 
-    'running: loop {
+    let mut render_buffer =
+        Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
+
+    // TODO: sort this block of stuff out
+    let wsize = gl.drawable_size();
+    let ratio = wsize.1 as f32 / 3.0;
+    let xw = ratio * 4.0;
+    let xp = (wsize.0 as f32 - xw) / 2.0;
+    game.crop_rect = Rect::new(xp as i32, 0, xw as u32, wsize.1);
+
+    ctx.set_viewport(
+        game.crop_rect.x() as u32,
+        game.crop_rect.y() as u32,
+        game.crop_rect.width(),
+        game.crop_rect.height(),
+    );
+
+    //let mut rend =  Basic::new(&ctx);
+    let mut rend = LottesCRT::new(&ctx);
+    //let mut rend = CGWGCRT::new(&ctx, game.crop_rect.width(), game.crop_rect.height());
+    rend.set_tex_filter().unwrap();
+
+    let buf_width = render_buffer.surface().width();
+    let buf_height = render_buffer.surface().height();
+    Ok(loop {
         if !game.running() {
-            break 'running;
+            break;
         }
 
+        render_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
+        render_buffer.clear();
+
+        // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
         // TODO: S_UpdateSounds(players[consoleplayer].mo); // move positional sounds
-        let surface = Surface::new(320, 200, PixelFormatEnum::RGB555).unwrap();
-        let drawer = surface.into_canvas().unwrap();
-        // inputs are outside of tic loop?
-        d_display(&mut game, drawer, &mut canvas);
-    }
+        // Draw everything to the buffer
+        d_display(&mut game, &mut render_buffer);
+
+        let pix = render_buffer
+            .read_pixels(Rect::new(0, 0, buf_width, buf_height), PixelFormatEnum::RGBA32)
+            .unwrap();
+
+        rend.clear();
+        rend.set_image_data(&pix, (buf_width, buf_height));
+        rend.draw().unwrap();
+
+        gl.gl_swap_window();
+    })
 }
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-pub fn d_display(
-    game: &mut Game,
-    mut canvas: Canvas<Surface>,
-    window: &mut Canvas<Window>,
-) {
+fn d_display(game: &mut Game, mut canvas: &mut Canvas<Surface>) {
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
     game.render_player_view(&mut canvas);
+    //canvas.present();
 
     // // menus go directly to the screen
     // TODO: M_Drawer();	 // menu is drawn even on top of everything
     // net update does i/o and buildcmds...
     // TODO: NetUpdate(); // send out any new accumulation
-
-    // consume the canvas
-    i_finish_update(canvas, window, game.crop_rect);
-}
-
-/// Page-flip or blit to screen
-pub fn i_finish_update(canvas: Canvas<Surface>, window: &mut Canvas<Window>, crop_rect: Rect) {
-    //canvas.present();
-
-    let texture_creator = window.texture_creator();
-    let t = canvas.into_surface().as_texture(&texture_creator).unwrap();
-
-    window.copy(&t, None, Some(crop_rect)).unwrap();
-    window.present();
 }
 
 fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {

@@ -6,7 +6,7 @@ pub const MAXPLMOVE: i32 = FORWARDMOVE[1];
 
 pub const SLOWTURNTICS: i32 = 6;
 
-pub struct ButtonCode {
+pub(crate) struct ButtonCode {
     // Press "Fire".
     pub bt_attack: u8,
     // Use button, to open doors, activate switches.
@@ -34,7 +34,7 @@ pub struct ButtonCode {
     pub bts_saveshift: u8,
 }
 
-pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
+pub(crate) const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
     // Press "Fire".
     bt_attack: 1,
     // Use button, to open doors, activate switches.
@@ -68,7 +68,7 @@ pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
 /// plus a checksum for internal state consistency.
 // G_BuildTiccmd
 #[derive(Debug, Default, Copy, Clone)]
-pub struct TicCmd {
+pub(crate) struct TicCmd {
     /// *2048 for move
     pub forwardmove: i8,
     /// *2048 for move

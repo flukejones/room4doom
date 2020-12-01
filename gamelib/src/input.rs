@@ -8,7 +8,7 @@ use sdl2::EventPump;
 use crate::{doom_def::WeaponType, tic_cmd::*};
 
 #[derive(Debug, Default, Clone)]
-pub struct InputEvents {
+pub(crate) struct InputEvents {
     key_state:   HashSet<Sc>,
     mouse_state: HashSet<Mb>,
     mouse_pos:   (i32, i32),
@@ -183,10 +183,10 @@ impl InputEvents {
 
 /// Fetch all input
 pub struct Input {
-    pump:           EventPump,
-    pub tic_events: InputEvents,
-    pub config:     InputConfig,
-    quit:           bool,
+    pump:                  EventPump,
+    pub(crate) tic_events: InputEvents,
+    pub(crate) config:     InputConfig,
+    quit:                  bool,
 }
 
 impl Input {
@@ -194,7 +194,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            tic_events: InputEvents::new((7, 0)),
+            tic_events: InputEvents::new((10, 0)),
             config: InputConfig::default(),
             quit: false,
         }
@@ -210,7 +210,7 @@ impl Input {
     /// all the required actions in the same block that it is called in. It has the potential
     /// to cause delays in proccessing
     ///
-    pub fn update(&mut self) {
+    pub(crate) fn update(&mut self) {
         while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown { scancode, .. } => {
@@ -239,10 +239,10 @@ impl Input {
             }
         }
     }
-    pub fn get_quit(&self) -> bool { self.quit }
+    pub(crate) fn get_quit(&self) -> bool { self.quit }
 }
 
-pub struct InputConfig {
+pub(crate) struct InputConfig {
     key_right: Sc,
     key_left:  Sc,
 
@@ -266,14 +266,14 @@ impl Default for InputConfig {
             key_right: Sc::Right,
             key_left:  Sc::Left,
 
-            key_up:          Sc::Up,
-            key_down:        Sc::Down,
-            key_strafeleft:  Sc::Comma,
-            key_straferight: Sc::Period,
+            key_up:          Sc::W,
+            key_down:        Sc::S,
+            key_strafeleft:  Sc::A,
+            key_straferight: Sc::D,
             key_fire:        Sc::RCtrl,
             key_use:         Sc::Space,
             key_strafe:      Sc::RAlt,
-            key_speed:       Sc::RShift,
+            key_speed:       Sc::LShift,
 
             mousebfire:    Mb::Left,
             mousebstrafe:  Mb::Middle,

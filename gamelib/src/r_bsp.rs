@@ -17,7 +17,7 @@ struct ClipRange {
 }
 
 #[derive(Default)]
-pub struct BspCtrl {
+pub(crate) struct BspCtrl {
     // put below in new struct
     solidsegs: Vec<ClipRange>,
     /// index in to self.solidsegs
@@ -408,7 +408,7 @@ fn angle_to_screen(mut radian: f32) -> i32 {
 //  tantoangle[] table.
 ///
 /// The flipping isn't done here...
-pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
+pub(crate) fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x() - mobj.xy.x();
     let y = vertex.y() - mobj.xy.y();
     Angle::new(y.atan2(x))
@@ -456,7 +456,7 @@ pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     // }
 }
 
-pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
     let x = point1.x() - point2.x();
     let y = point1.y() - point2.y();
     Angle::new(y.atan2(x))

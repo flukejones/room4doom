@@ -12,7 +12,7 @@ const BOXRIGHT: usize = 3;
 const BOXLEFT: usize = 2;
 
 #[derive(Default)]
-pub struct MobjCtrl {
+pub(crate) struct MobjCtrl {
     tmbbox:     [f32; 4],
     tmflags:    u32,
     tmx:        f32,
@@ -135,7 +135,7 @@ impl MapObject {
 
 /// P_RadiusAttack
 /// Source is the creature that caused the explosion at spot.
-pub fn p_radius_attack(
+pub(crate) fn p_radius_attack(
     spot: &mut MapObject,
     source: &mut MapObject,
     damage: f32,

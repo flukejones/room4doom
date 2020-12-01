@@ -1,4 +1,4 @@
-use sdl2::{gfx::primitives::DrawRenderer, render::Canvas, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, PI};
 use wad::lumps::Segment;
 
@@ -77,8 +77,6 @@ impl BspCtrl {
         let bottomstep = -(worldbottom as f32 * rw_scalestep);
         let mut bottomfrac = 100.0 - (worldbottom as f32 * scale1);
 
-        let alpha = 255;
-
         // testing lighting
         let mut lightnum =
             seg.linedef.front_sidedef.sector.light_level as u8 >> 4;
@@ -95,24 +93,23 @@ impl BspCtrl {
         let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;
 
         let colour = sdl2::pixels::Color::RGBA(
-            100 + lightnum - (z >> 1) as u8,
-            50 + lightnum,
-            50 + lightnum,
-            alpha,
+            150 + lightnum - (z >> 2) as u8,
+            130 + lightnum - (z >> 2) as u8,
+            130 + lightnum - (z >> 2) as u8,
+            0,
         );
+        canvas.set_draw_color(colour);
 
         // R_RenderSegLoop
         let mut curr = start;
         while curr <= stop {
-            canvas
-                .line(
-                    curr as i16,
-                    topfrac as i16,
-                    curr as i16,
-                    bottomfrac as i16,
-                    colour,
-                )
-                .ok();
+            let rect = Rect::new(
+                curr,
+                topfrac as i32,
+                1 as u32,
+                (bottomfrac as i32 - topfrac as i32) as u32, // WOAH! floating point rounding stuff
+            );
+            canvas.fill_rect(rect).unwrap();
 
             curr += 1;
             topfrac += topstep;

@@ -2,7 +2,7 @@ use crate::info::{SpriteNum, StateNum};
 use crate::{d_thinker::ActionFunc, p_enemy::a_pain, p_player_sprite::a_punch};
 use std::fmt;
 
-pub struct State {
+pub(crate) struct State {
     /// Sprite to use
     pub sprite:     SpriteNum,
     /// The frame within this sprite to show for the state
@@ -65,7 +65,7 @@ impl fmt::Debug for State {
 }
 
 //pub const STATESJ: [State; NUM_CATEGORIES] = [
-pub fn get_state(index: usize) -> State {
+pub(crate) fn get_state(index: usize) -> State {
     /*let states = [
         State::new(
             SpriteNum::SPR_TROO,
