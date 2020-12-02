@@ -1,13 +1,10 @@
 use std::{
     error::Error,
-    f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI},
     fmt,
     str::FromStr,
 };
 
-use glam::{Mat4, Vec3};
-use golem::Dimension::*;
-use golem::*;
+use golem::Context;
 
 use gumdrop::Options;
 use sdl2::{
@@ -15,10 +12,7 @@ use sdl2::{
     render::Canvas, surface::Surface, video::Window,
 };
 
-use crate::{
-    doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
-    timestep::TimeStep,
-};
+use crate::{doom_def::GameMission, doom_def::GameMode, game::Game, input::Input, renderers::{FinalRenderer, Renderer}, timestep::TimeStep};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -138,17 +132,19 @@ pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission, String) {
     (game_mode, game_mission, game_description)
 }
 
-pub fn d_doom_loop(mut game: Game, mut input: Input, gl: Window, ctx: Context) {
+/// Never returns
+pub fn d_doom_loop(
+    mut game: Game,
+    mut input: Input,
+    gl: Window,
+    ctx: Context,
+) -> Result<(), Box<dyn Error>> {
     let mut timestep = TimeStep::new();
 
-    let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGB24)
-        .unwrap()
-        .into_canvas()
-        .unwrap();
-    let mut final_buffer = Surface::new(640, 400, PixelFormatEnum::RGB24)
-        .unwrap()
-        .into_canvas()
-        .unwrap();
+    let mut render_buffer =
+        Surface::new(320, 200, PixelFormatEnum::RGB24)?.into_canvas()?;
+    let mut final_buffer =
+        Surface::new(640, 400, PixelFormatEnum::RGB24)?.into_canvas()?;
     let texture_creator = final_buffer.texture_creator();
 
     // TODO: sort this block of stuff out
@@ -169,7 +165,7 @@ pub fn d_doom_loop(mut game: Game, mut input: Input, gl: Window, ctx: Context) {
     let mut rend = FinalRenderer::new(&ctx);
     rend.set_tex_filter().unwrap();
 
-    loop {
+    Ok(loop {
         if !game.running() {
             break;
         }
@@ -187,30 +183,29 @@ pub fn d_doom_loop(mut game: Game, mut input: Input, gl: Window, ctx: Context) {
         // Throw it through the final render pass for shaders etc
         if scale {
             let texture = texture_creator
-                .create_texture_from_surface(render_buffer.surface())
-                .unwrap();
-            final_buffer.copy(&texture, None, None).unwrap();
+                .create_texture_from_surface(render_buffer.surface())?;
+            final_buffer.copy(&texture, None, None)?;
         }
 
         if scale {
             let pix = final_buffer
                 .read_pixels(Rect::new(0, 0, 640, 400), PixelFormatEnum::RGB24)
                 .unwrap();
-            rend.draw(&ctx, &pix, (640, 400)).unwrap();
+            rend.draw( &pix, (640, 400)).unwrap();
         } else {
             let pix = render_buffer
                 .read_pixels(Rect::new(0, 0, 320, 200), PixelFormatEnum::RGB24)
                 .unwrap();
-            rend.draw(&ctx, &pix, (320, 200)).unwrap();
+            rend.draw( &pix, (320, 200)).unwrap();
         };
         // Showtime!
         gl.gl_swap_window();
-    }
+    })
 }
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-pub fn d_display(game: &mut Game, mut canvas: &mut Canvas<Surface>) {
+fn d_display(game: &mut Game, mut canvas: &mut Canvas<Surface>) {
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
     game.render_player_view(&mut canvas);
     //canvas.present();
@@ -247,125 +242,4 @@ fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
         // G_Ticker
         game.ticker();
     });
-}
-
-struct FinalRenderer {
-    _quad:      [f32; 16],
-    indices:    [u32; 6],
-    shader:     ShaderProgram,
-    projection: Mat4,
-    look_at:    Mat4,
-    texture:    Texture,
-    vb:         VertexBuffer,
-    eb:         ElementBuffer,
-}
-impl FinalRenderer {
-    fn new(ctx: &Context) -> Self {
-        #[rustfmt::skip]
-        let quad = [
-            // position         vert_uv
-            -1.0, -1.0,         0.0, 1.0, // bottom left
-            1.0, -1.0,          1.0, 1.0, // bottom right
-            1.0, 1.0,           1.0, 0.0, // top right
-            -1.0, 1.0,          0.0, 0.0, // top left
-        ];
-        let indices = [0, 1, 2, 2, 3, 0];
-
-        let shader = ShaderProgram::new(
-            ctx,
-            ShaderDescription {
-                vertex_input:    &[
-                    Attribute::new("position", AttributeType::Vector(D2)),
-                    Attribute::new("vert_uv", AttributeType::Vector(D2)),
-                ],
-                fragment_input:  &[Attribute::new(
-                    "frag_uv",
-                    AttributeType::Vector(D2),
-                )],
-                uniforms:        &[
-                    Uniform::new("projMat", UniformType::Matrix(D4)),
-                    Uniform::new("viewMat", UniformType::Matrix(D4)),
-                    Uniform::new("modelMat", UniformType::Matrix(D4)),
-                    Uniform::new("image", UniformType::Sampler2D),
-                ],
-                vertex_shader:   r#" void main() {
-                                    gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
-                                    frag_uv = vert_uv;
-                                }"#,
-                fragment_shader: r#" void main() {
-                                    vec4 colour = texture(image, frag_uv);
-                                    gl_FragColor = colour;
-                                }"#,
-            },
-        ).unwrap();
-
-        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
-        let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        );
-
-        let mut vb = VertexBuffer::new(ctx).unwrap();
-        let mut eb = ElementBuffer::new(ctx).unwrap();
-        vb.set_data(&quad);
-        eb.set_data(&indices);
-
-        Self {
-            _quad: quad,
-            indices,
-            shader,
-            projection,
-            look_at,
-            texture: Texture::new(ctx).unwrap(),
-            vb,
-            eb,
-        }
-    }
-
-    fn set_tex_filter(&mut self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
-    }
-
-    fn draw(
-        &mut self,
-        ctx: &Context,
-        tex: &[u8],
-        size: (u32, u32),
-    ) -> Result<(), GolemError> {
-        self.texture
-            .set_image(Some(tex), size.0, size.1, ColorFormat::RGB);
-
-        self.shader.bind();
-
-        self.shader.set_uniform("image", UniformValue::Int(1))?;
-
-        self.shader.set_uniform(
-            "projMat",
-            UniformValue::Matrix4(self.projection.to_cols_array()),
-        )?;
-        self.shader.set_uniform(
-            "viewMat",
-            UniformValue::Matrix4(self.look_at.to_cols_array()),
-        )?;
-        self.shader.set_uniform(
-            "modelMat",
-            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
-        )?;
-
-        let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
-
-        ctx.clear();
-        unsafe {
-            self.shader.draw(
-                &self.vb,
-                &self.eb,
-                0..self.indices.len(),
-                GeometryMode::Triangles,
-            )?;
-        }
-        Ok(())
-    }
 }

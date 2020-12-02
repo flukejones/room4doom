@@ -1,5 +1,5 @@
 use sdl2::{
-    gfx::primitives::DrawRenderer, rect::Point, rect::Rect, render::Canvas,
+    rect::Rect, render::Canvas,
     surface::Surface,
 };
 use std::f32::consts::{FRAC_PI_2, PI};

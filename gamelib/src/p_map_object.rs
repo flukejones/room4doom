@@ -31,13 +31,13 @@ use crate::{
 };
 
 static MOBJ_CYCLE_LIMIT: u32 = 1000000;
-pub static MAXMOVE: f32 = 30.0;
-pub static STOPSPEED: f32 = 0.0625;
-pub static FRICTION: f32 = 0.90625;
+pub(crate) static MAXMOVE: f32 = 30.0;
+pub(crate) static STOPSPEED: f32 = 0.0625;
+pub(crate) static FRICTION: f32 = 0.90625;
 
 #[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
-pub enum MapObjectFlag {
+pub(crate) enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
     MF_SPECIAL      = 1,
     /// Blocks.
@@ -124,7 +124,7 @@ pub enum MapObjectFlag {
 }
 
 #[derive(Debug)]
-pub struct MapObject {
+pub(crate) struct MapObject {
     /// Direct link to the `Thinker` that owns this `MapObject`. Required as
     /// functions on a `MapObject` may need to change the thinker function
     pub thinker:      Option<NonNull<Thinker<MapObject>>>,

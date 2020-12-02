@@ -5,7 +5,7 @@ use crate::sounds::SfxEnum;
 /// This variable exists only to help create the mobs array
 const NUM_CATEGORIES: usize = MapObjectType::NUMMOBJTYPES as usize;
 
-pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
+pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     // MT_PLAYER
     MapObjectInfo::new(
         -1,                     // doomednum

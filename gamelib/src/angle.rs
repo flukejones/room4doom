@@ -5,7 +5,7 @@ use std::{
     },
 };
 
-pub static CLASSIC_DOOM_SCREEN_XTO_VIEW: [f32; 321] = [
+pub(crate) static CLASSIC_DOOM_SCREEN_XTO_VIEW: [f32; 321] = [
     45.043945, 44.824219, 44.648437, 44.472656, 44.296875, 44.121094,
     43.945312, 43.725586, 43.549805, 43.374023, 43.154297, 42.978516,
     42.802734, 42.583008, 42.407227, 42.187500, 42.011719, 41.791992,
@@ -62,7 +62,7 @@ pub static CLASSIC_DOOM_SCREEN_XTO_VIEW: [f32; 321] = [
 ];
 
 #[derive(Debug, Default, Copy, Clone)]
-pub struct Angle(f32);
+pub(crate) struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI
@@ -80,7 +80,7 @@ impl Angle {
         }
     }
 
-    pub fn as_degrees(&self) -> i32 { (self.0 * 180.0 / PI) as i32 }
+    //pub fn as_degrees(&self) -> i32 { (self.0 * 180.0 / PI) as i32 }
 
     pub fn rad(&self) -> f32 { self.0 }
 
@@ -88,9 +88,7 @@ impl Angle {
 
     pub fn cos(&self) -> f32 { self.0.cos() }
 
-    pub fn sin_cos(&self) -> (f32, f32) { self.0.sin_cos() }
-
-    pub fn tan(&self) -> f32 { self.0.tan() }
+    //pub fn tan(&self) -> f32 { self.0.tan() }
 }
 
 impl Add for Angle {

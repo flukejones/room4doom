@@ -8,7 +8,7 @@ use sdl2::EventPump;
 use crate::{doom_def::WeaponType, tic_cmd::*};
 
 #[derive(Debug, Default, Clone)]
-pub struct InputEvents {
+pub(crate) struct InputEvents {
     key_state:   HashSet<Sc>,
     mouse_state: HashSet<Mb>,
     mouse_pos:   (i32, i32),
@@ -184,8 +184,8 @@ impl InputEvents {
 /// Fetch all input
 pub struct Input {
     pump:           EventPump,
-    pub tic_events: InputEvents,
-    pub config:     InputConfig,
+    pub(crate) tic_events: InputEvents,
+    pub(crate) config:     InputConfig,
     quit:           bool,
 }
 
@@ -210,7 +210,7 @@ impl Input {
     /// all the required actions in the same block that it is called in. It has the potential
     /// to cause delays in proccessing
     ///
-    pub fn update(&mut self) {
+    pub(crate) fn update(&mut self) {
         while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown { scancode, .. } => {
@@ -239,10 +239,10 @@ impl Input {
             }
         }
     }
-    pub fn get_quit(&self) -> bool { self.quit }
+    pub(crate) fn get_quit(&self) -> bool { self.quit }
 }
 
-pub struct InputConfig {
+pub(crate) struct InputConfig {
     key_right: Sc,
     key_left:  Sc,
 

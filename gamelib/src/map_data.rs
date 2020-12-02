@@ -142,7 +142,7 @@ impl MapData {
     pub fn get_things(&self) -> &[Thing] { &self.things }
 
     #[inline]
-    pub fn set_extents(&mut self) {
+    pub(crate) fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
         // then a min vertex of -3542 won't be set since it's negative
@@ -373,7 +373,7 @@ impl MapData {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn point_in_subsector(
+    pub(crate) fn point_in_subsector(
         &self,
         point: &Vertex,
     ) -> Option<DPtr<SubSector>> {

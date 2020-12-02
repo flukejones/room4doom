@@ -7,7 +7,7 @@ use std::ptr::NonNull;
 use wad::lumps::Sector;
 
 // P_LIGHTS
-pub struct FireFlicker {
+pub(crate) struct FireFlicker {
     pub thinker:   Option<NonNull<Thinker<FireFlicker>>>,
     pub sector:    NonNull<Sector>,
     pub count:     i32,
@@ -15,7 +15,7 @@ pub struct FireFlicker {
     pub min_light: i32,
 }
 
-pub struct LightFlash {
+pub(crate) struct LightFlash {
     pub thinker:   Option<NonNull<Thinker<LightFlash>>>,
     pub sector:    NonNull<Sector>,
     pub count:     i32,
@@ -25,7 +25,7 @@ pub struct LightFlash {
     pub min_time:  i32,
 }
 
-pub struct Strobe {
+pub(crate) struct Strobe {
     pub thinker:     Option<NonNull<Thinker<Strobe>>>,
     pub sector:      NonNull<Sector>,
     pub count:       i32,
@@ -35,7 +35,7 @@ pub struct Strobe {
     pub bright_time: i32,
 }
 
-pub struct Glow {
+pub(crate) struct Glow {
     pub thinker:   Option<NonNull<Thinker<Glow>>>,
     pub sector:    NonNull<Sector>,
     pub min_light: i32,
@@ -44,14 +44,14 @@ pub struct Glow {
 }
 
 // P_PLATS
-pub enum PlatEnum {
+pub(crate) enum PlatEnum {
     up,
     down,
     waiting,
     in_stasis,
 }
 
-pub enum PlatType {
+pub(crate) enum PlatType {
     perpetualRaise,
     downWaitUpStay,
     raiseAndChange,
@@ -59,7 +59,7 @@ pub enum PlatType {
     blazeDWUS,
 }
 
-pub struct Platform {
+pub(crate) struct Platform {
     pub thinker:    Option<NonNull<Thinker<Platform>>>,
     pub sector:     NonNull<Sector>,
     pub speed:      f32,
@@ -76,7 +76,7 @@ pub struct Platform {
 
 // P_FLOOR
 //
-pub enum FloorEnum {
+pub(crate) enum FloorEnum {
     /// lower floor to highest surrounding floor
     lowerFloor,
     /// lower floor to lowest surrounding floor
@@ -101,14 +101,14 @@ pub enum FloorEnum {
     raiseFloor512,
 }
 
-pub enum StairEnum {
+pub(crate) enum StairEnum {
     /// slowly build by 8
     build8,
     /// quickly build by 16
     turbo16,
 }
 
-pub struct FloorMove {
+pub(crate) struct FloorMove {
     pub thinker:         Option<NonNull<Thinker<FloorMove>>>,
     pub sector:          NonNull<Sector>,
     kind:                FloorEnum,
@@ -122,7 +122,7 @@ pub struct FloorMove {
 
 // P_CEILNG
 //
-pub enum CeilingKind {
+pub(crate) enum CeilingKind {
     lowerToFloor,
     raiseToHighest,
     lowerAndCrush,
@@ -131,7 +131,7 @@ pub enum CeilingKind {
     silentCrushAndRaise,
 }
 
-pub struct CeilingMove {
+pub(crate) struct CeilingMove {
     pub thinker:      Option<NonNull<Thinker<FloorMove>>>,
     pub sector:       NonNull<Sector>,
     pub kind:         CeilingKind,
