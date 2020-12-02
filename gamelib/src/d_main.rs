@@ -8,10 +8,7 @@ use sdl2::{
     render::Canvas, surface::Surface, video::Window,
 };
 
-use crate::{
-    doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
-    renderers::*, timestep::TimeStep,
-};
+use crate::{doom_def::GameMission, doom_def::GameMode, game::Game, input::Input, renderer::basic::Basic, renderer::{Renderer, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT}, timestep::TimeStep};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -141,9 +138,9 @@ pub fn d_doom_loop(
     let mut timestep = TimeStep::new();
 
     let mut render_buffer =
-        Surface::new(320, 200, PixelFormatEnum::RGB24)?.into_canvas()?;
+        Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
     let mut final_buffer =
-        Surface::new(640, 400, PixelFormatEnum::RGB24)?.into_canvas()?;
+        Surface::new(640, 400, PixelFormatEnum::RGBA32)?.into_canvas()?;
     let texture_creator = final_buffer.texture_creator();
 
     // TODO: sort this block of stuff out
@@ -161,7 +158,9 @@ pub fn d_doom_loop(
     );
 
     let scale = false;
-    let mut rend = LottesCRTRenderer::new(&ctx);
+    //let mut rend =  Basic::new(&ctx);
+    let mut rend = LottesCRT::new(&ctx);
+    //let mut rend = CGWGCRT::new(&ctx);
     rend.set_tex_filter().unwrap();
 
     Ok(loop {
@@ -169,8 +168,10 @@ pub fn d_doom_loop(
             break;
         }
 
-        render_buffer.set_draw_color(Color::RGB(0, 0, 0));
+        render_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
         render_buffer.clear();
+        final_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
+        final_buffer.clear();
 
         // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
@@ -188,12 +189,12 @@ pub fn d_doom_loop(
 
         if scale {
             let pix = final_buffer
-                .read_pixels(Rect::new(0, 0, 640, 400), PixelFormatEnum::RGB24)
+                .read_pixels(Rect::new(0, 0, 640, 400), PixelFormatEnum::RGBA32)
                 .unwrap();
             rend.draw(&pix, (640, 400)).unwrap();
         } else {
             let pix = render_buffer
-                .read_pixels(Rect::new(0, 0, 320, 200), PixelFormatEnum::RGB24)
+                .read_pixels(Rect::new(0, 0, 320, 200), PixelFormatEnum::RGBA32)
                 .unwrap();
             rend.draw(&pix, (320, 200)).unwrap();
         };

@@ -26,7 +26,7 @@ pub(crate) mod p_spec;
 pub(crate) mod player;
 pub(crate) mod r_bsp;
 pub(crate) mod r_segs;
-pub(crate) mod renderers;
+pub(crate) mod renderer;
 pub(crate) mod sounds;
 pub(crate) mod tic_cmd;
 pub(crate) mod timestep;

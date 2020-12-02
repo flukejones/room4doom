@@ -194,7 +194,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            tic_events: InputEvents::new((7, 0)),
+            tic_events: InputEvents::new((10, 0)),
             config: InputConfig::default(),
             quit: false,
         }
@@ -266,14 +266,14 @@ impl Default for InputConfig {
             key_right: Sc::Right,
             key_left:  Sc::Left,
 
-            key_up:          Sc::Up,
-            key_down:        Sc::Down,
-            key_strafeleft:  Sc::Comma,
-            key_straferight: Sc::Period,
+            key_up:          Sc::W,
+            key_down:        Sc::S,
+            key_strafeleft:  Sc::A,
+            key_straferight: Sc::D,
             key_fire:        Sc::RCtrl,
             key_use:         Sc::Space,
             key_strafe:      Sc::RAlt,
-            key_speed:       Sc::RShift,
+            key_speed:       Sc::LShift,
 
             mousebfire:    Mb::Left,
             mousebstrafe:  Mb::Middle,
