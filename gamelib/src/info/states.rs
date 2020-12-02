@@ -65,7 +65,7 @@ impl fmt::Debug for State {
 }
 
 //pub const STATESJ: [State; NUM_CATEGORIES] = [
-    pub(crate) fn get_state(index: usize) -> State {
+pub(crate) fn get_state(index: usize) -> State {
     /*let states = [
         State::new(
             SpriteNum::SPR_TROO,

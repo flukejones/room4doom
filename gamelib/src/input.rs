@@ -183,10 +183,10 @@ impl InputEvents {
 
 /// Fetch all input
 pub struct Input {
-    pump:           EventPump,
+    pump:                  EventPump,
     pub(crate) tic_events: InputEvents,
     pub(crate) config:     InputConfig,
-    quit:           bool,
+    quit:                  bool,
 }
 
 impl Input {

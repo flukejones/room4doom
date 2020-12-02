@@ -34,11 +34,17 @@ pub(crate) fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()
 }
 
-pub(crate) fn a_lower(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_lower(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_raise(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_raise(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
 pub(crate) fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()
@@ -48,21 +54,33 @@ pub(crate) fn a_fireshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()
 }
 
-pub(crate) fn a_firecgun(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_firecgun(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_fireplasma(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_fireplasma(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
 pub(crate) fn a_firemissile(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()
 }
 
-pub(crate) fn a_firebfg(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_firebfg(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_bfgsound(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_bfgsound(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
-pub(crate) fn a_punch(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
 pub(crate) fn a_checkreload(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()

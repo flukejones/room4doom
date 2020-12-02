@@ -1,8 +1,4 @@
-use std::{
-    error::Error,
-    fmt,
-    str::FromStr,
-};
+use std::{error::Error, fmt, str::FromStr};
 
 use golem::Context;
 
@@ -12,7 +8,10 @@ use sdl2::{
     render::Canvas, surface::Surface, video::Window,
 };
 
-use crate::{doom_def::GameMission, doom_def::GameMode, game::Game, input::Input, renderers::{FinalRenderer, Renderer}, timestep::TimeStep};
+use crate::{
+    doom_def::GameMission, doom_def::GameMode, game::Game, input::Input,
+    renderers::*, timestep::TimeStep,
+};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -162,7 +161,7 @@ pub fn d_doom_loop(
     );
 
     let scale = false;
-    let mut rend = FinalRenderer::new(&ctx);
+    let mut rend = LottesCRTRenderer::new(&ctx);
     rend.set_tex_filter().unwrap();
 
     Ok(loop {
@@ -191,12 +190,12 @@ pub fn d_doom_loop(
             let pix = final_buffer
                 .read_pixels(Rect::new(0, 0, 640, 400), PixelFormatEnum::RGB24)
                 .unwrap();
-            rend.draw( &pix, (640, 400)).unwrap();
+            rend.draw(&pix, (640, 400)).unwrap();
         } else {
             let pix = render_buffer
                 .read_pixels(Rect::new(0, 0, 320, 200), PixelFormatEnum::RGB24)
                 .unwrap();
-            rend.draw( &pix, (320, 200)).unwrap();
+            rend.draw(&pix, (320, 200)).unwrap();
         };
         // Showtime!
         gl.gl_swap_window();

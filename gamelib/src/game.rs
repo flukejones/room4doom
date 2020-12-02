@@ -8,15 +8,15 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use sdl2::{render::Canvas, rect::Rect, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use wad::Wad;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     /// Contains the full wad file
-    wad_data:  Wad,
+    wad_data:         Wad,
     pub(crate) level: Option<Level>,
-    pub crop_rect: Rect,
+    pub crop_rect:    Rect,
 
     running:    bool,
     // Game locals
@@ -30,7 +30,7 @@ pub struct Game {
     /// Each player in the array may be controlled
     pub(crate) players:        [Player; MAXPLAYERS],
     /// ?
-    turbodetected:      [bool; MAXPLAYERS],
+    turbodetected:             [bool; MAXPLAYERS],
 
     //
     old_game_state:   GameState,
@@ -50,22 +50,22 @@ pub struct Game {
     /// player taking events and displaying
     pub(crate) consoleplayer: usize,
     /// view being displayed        
-    displayplayer:     usize,
+    displayplayer:            usize,
     /// gametic at level start              
-    level_start_tic:   u32,
+    level_start_tic:          u32,
     /// for intermission
-    totalkills:        i32,
+    totalkills:               i32,
     /// for intermission
-    totalitems:        i32,
+    totalitems:               i32,
     /// for intermission
-    totalsecret:       i32,
+    totalsecret:              i32,
 
     wminfo: WBStartStruct,
 
     /// d_net.c
     pub(crate) netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
-    localcmds:   [TicCmd; BACKUPTICS],
+    localcmds:          [TicCmd; BACKUPTICS],
 
     game_mode:       GameMode,
     game_mission:    GameMission,
@@ -142,7 +142,7 @@ impl Game {
         Game {
             wad_data: wad,
             level: None,
-            crop_rect: Rect::new(0,0,1,1),
+            crop_rect: Rect::new(0, 0, 1, 1),
 
             running: true,
 
@@ -194,7 +194,12 @@ impl Game {
     /// in the game. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
     /// changing game vars beyong action here, probably nothing.
-    pub(crate) fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
+    pub(crate) fn defered_init_new(
+        &mut self,
+        skill: Skill,
+        episode: u32,
+        map: u32,
+    ) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;
