@@ -93,9 +93,9 @@ impl BspCtrl {
         let z = seg.sidedef.sector.floor_height.abs() as u8 / 2;
 
         let colour = sdl2::pixels::Color::RGBA(
-            170 + lightnum - (z >> 2) as u8,
-            160 + lightnum - (z >> 2) as u8,
-            150 + lightnum - (z >> 1) as u8,
+            150 + lightnum - (z >> 2) as u8,
+            130 + lightnum - (z >> 2) as u8,
+            130 + lightnum - (z >> 2) as u8,
             0,
         );
         canvas.set_draw_color(colour);

@@ -23,16 +23,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .window("DIIRDOOM", options.width, options.height)
         .position_centered()
         .opengl()
+        .hidden()
         .build()?;
     let _gl_ctx = window.gl_create_context()?;
-
-    if options.fullscreen {
-        window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
-    }
-
-    sdl_ctx.mouse().show_cursor(false);
-    sdl_ctx.mouse().set_relative_mouse_mode(true);
-    sdl_ctx.mouse().capture(true);
 
     // initialization
     let gl_attr = video_ctx.gl_attr();
@@ -46,6 +39,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
 
     let game = Game::new(options);
+
+    window.show();
+
+    if game.game_options.fullscreen {
+        let mode = if game.game_options.width != 320 {
+            sdl2::video::FullscreenType::Desktop
+        } else {
+            sdl2::video::FullscreenType::True
+        };
+        window.set_fullscreen(mode)?;
+        window.set_bordered(false);
+    }
+
+    sdl_ctx.mouse().show_cursor(false);
+    sdl_ctx.mouse().set_relative_mouse_mode(true);
+    sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, context)
 }

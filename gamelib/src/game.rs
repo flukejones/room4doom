@@ -73,7 +73,7 @@ pub struct Game {
     usergame:        bool,
 
     /// The options the game exe was started with
-    game_options: GameOptions,
+    pub game_options: GameOptions,
 }
 
 impl Game {

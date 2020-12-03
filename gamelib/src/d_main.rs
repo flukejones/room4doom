@@ -8,7 +8,15 @@ use sdl2::{
     render::Canvas, surface::Surface, video::Window,
 };
 
-use crate::{doom_def::GameMission, doom_def::GameMode, game::Game, input::Input, renderer::basic::Basic, renderer::{Renderer, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT}, timestep::TimeStep};
+use crate::{
+    doom_def::GameMission,
+    doom_def::GameMode,
+    game::Game,
+    input::Input,
+    renderer::basic::Basic,
+    renderer::{cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer},
+    timestep::TimeStep,
+};
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -139,9 +147,6 @@ pub fn d_doom_loop(
 
     let mut render_buffer =
         Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
-    let mut final_buffer =
-        Surface::new(640, 400, PixelFormatEnum::RGBA32)?.into_canvas()?;
-    let texture_creator = final_buffer.texture_creator();
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
@@ -157,12 +162,13 @@ pub fn d_doom_loop(
         game.crop_rect.height(),
     );
 
-    let scale = false;
     //let mut rend =  Basic::new(&ctx);
     let mut rend = LottesCRT::new(&ctx);
-    //let mut rend = CGWGCRT::new(&ctx);
+    //let mut rend = CGWGCRT::new(&ctx, game.crop_rect.width(), game.crop_rect.height());
     rend.set_tex_filter().unwrap();
 
+    let buf_width = render_buffer.surface().width();
+    let buf_height = render_buffer.surface().height();
     Ok(loop {
         if !game.running() {
             break;
@@ -170,8 +176,6 @@ pub fn d_doom_loop(
 
         render_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
         render_buffer.clear();
-        final_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
-        final_buffer.clear();
 
         // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
@@ -179,26 +183,14 @@ pub fn d_doom_loop(
         // Draw everything to the buffer
         d_display(&mut game, &mut render_buffer);
 
-        // So many read/writes!
-        // Throw it through the final render pass for shaders etc
-        if scale {
-            let texture = texture_creator
-                .create_texture_from_surface(render_buffer.surface())?;
-            final_buffer.copy(&texture, None, None)?;
-        }
+        let pix = render_buffer
+            .read_pixels(Rect::new(0, 0, buf_width, buf_height), PixelFormatEnum::RGBA32)
+            .unwrap();
 
-        if scale {
-            let pix = final_buffer
-                .read_pixels(Rect::new(0, 0, 640, 400), PixelFormatEnum::RGBA32)
-                .unwrap();
-            rend.draw(&pix, (640, 400)).unwrap();
-        } else {
-            let pix = render_buffer
-                .read_pixels(Rect::new(0, 0, 320, 200), PixelFormatEnum::RGBA32)
-                .unwrap();
-            rend.draw(&pix, (320, 200)).unwrap();
-        };
-        // Showtime!
+        rend.clear();
+        rend.set_image_data(&pix, (buf_width, buf_height));
+        rend.draw().unwrap();
+
         gl.gl_swap_window();
     })
 }

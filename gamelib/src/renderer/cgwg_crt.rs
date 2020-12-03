@@ -1,10 +1,10 @@
 use std::f32::consts::FRAC_PI_4;
 
 use glam::{Mat4, Vec3};
+use golem::Dimension::*;
 use golem::*;
-use golem::{Dimension::*};
 
-use super::Renderer;
+use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 
 /// CRT shader
 /// ```
@@ -19,30 +19,22 @@ use super::Renderer;
 ///  */
 /// ```
 pub(crate) struct CGWGCRT<'c> {
-  ctx:        &'c Context,
-  _quad:      [f32; 16],
-  indices:    [u32; 6],
-  crt:     ShaderProgram,
-  projection: Mat4,
-  look_at:    Mat4,
-  texture:    Texture,
-  vb:         VertexBuffer,
-  eb:         ElementBuffer,
+    ctx:        &'c Context,
+    _quad:      [f32; 16],
+    indices:    [u32; 6],
+    crt_shader: ShaderProgram,
+    crt_width:  u32,
+    crt_height: u32,
+    projection: Mat4,
+    look_at:    Mat4,
+    texture:    Texture,
+    vb:         VertexBuffer,
+    eb:         ElementBuffer,
 }
 
 impl<'c> CGWGCRT<'c> {
-  pub fn new(ctx: &'c Context) -> Self {
-      let quad = [
-          // position         vert_uv
-          -1.0, -1.0, 0.0, 1.0, // bottom left
-          1.0, -1.0, 1.0, 1.0, // bottom right
-          1.0, 1.0, 1.0, 0.0, // top right
-          -1.0, 1.0, 0.0, 0.0, // top left
-      ];
-
-      let indices = [0, 1, 2, 2, 3, 0];
-
-      let crt = ShaderProgram::new(
+    pub fn new(ctx: &'c Context, crt_width: u32, crt_height: u32) -> Self {
+        let crt = ShaderProgram::new(
       ctx,
       ShaderDescription {
         uniforms:        &[
@@ -380,111 +372,120 @@ void main()
       },
     ).unwrap();
 
-      let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
-      let look_at = Mat4::look_at_rh(
-          Vec3::new(0.0, 0.0, 2.5),
-          Vec3::new(0.0, 0.0, 0.0),
-          Vec3::new(0.0, 1.0, 0.0),
-      );
+        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
+        let look_at = Mat4::look_at_rh(
+            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
 
-      let mut vb = VertexBuffer::new(ctx).unwrap();
-      let mut eb = ElementBuffer::new(ctx).unwrap();
-      vb.set_data(&quad);
-      eb.set_data(&indices);
+        let mut vb = VertexBuffer::new(ctx).unwrap();
+        let mut eb = ElementBuffer::new(ctx).unwrap();
+        vb.set_data(&GL_QUAD);
+        eb.set_data(&GL_QUAD_INDICES);
 
-      Self {
-          ctx,
-          _quad: quad,
-          indices,
-          crt,
-          projection,
-          look_at,
-          texture: Texture::new(ctx).unwrap(),
-          vb,
-          eb,
-      }
-  }
-
-  pub fn set_tex_filter(&mut self) -> Result<(), GolemError> {
-      self.texture.set_minification(TextureFilter::Nearest)?;
-      self.texture.set_magnification(TextureFilter::Linear)
-  }
+        Self {
+            ctx,
+            _quad: GL_QUAD,
+            indices: GL_QUAD_INDICES,
+            crt_shader: crt,
+            crt_width,
+            crt_height,
+            projection,
+            look_at,
+            texture: Texture::new(ctx).unwrap(),
+            vb,
+            eb,
+        }
+    }
 }
 
 impl<'c> Renderer for CGWGCRT<'c> {
-  fn draw(
-      &mut self,
-      input: &[u8],
-      input_size: (u32, u32),
-  ) -> Result<(), GolemError> {
-      self.texture.set_image(
-          Some(input),
-          input_size.0,
-          input_size.1,
-          ColorFormat::RGBA,
-      );
+    fn clear(&self) {
+        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
+        self.ctx.clear();
+    }
 
-      self.crt.bind();
-      self.crt.prepare_draw(&self.vb, &self.eb)?;
+    fn set_tex_filter(&self) -> Result<(), GolemError> {
+        self.texture.set_minification(TextureFilter::Nearest)?;
+        self.texture.set_magnification(TextureFilter::Linear)
+    }
 
-      self.crt.set_uniform("image", UniformValue::Int(1))?;
+    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
+        self.texture.set_image(
+            Some(input),
+            input_size.0,
+            input_size.1,
+            ColorFormat::RGBA,
+        );
+    }
 
-      self.crt.set_uniform(
-          "projMat",
-          UniformValue::Matrix4(self.projection.to_cols_array()),
-      )?;
-      self.crt.set_uniform(
-          "viewMat",
-          UniformValue::Matrix4(self.look_at.to_cols_array()),
-      )?;
-      self.crt.set_uniform(
-          "modelMat",
-          UniformValue::Matrix4(Mat4::identity().to_cols_array()),
-      )?;
+    fn draw(&mut self) -> Result<(), GolemError> {
+        // Set the image to use
+        let bind_point = std::num::NonZeroU32::new(1).unwrap();
+        self.texture.set_active(bind_point);
 
-      self.crt
-          .set_uniform("inputSize", UniformValue::Vector2([320.0, 200.0]))?;
+        self.crt_shader.bind();
+        self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
 
-      self.crt
-          .set_uniform("outputSize", UniformValue::Vector2([320.0, 200.0]))?;
-      self.crt.set_uniform(
-          "textureSize",
-          UniformValue::Vector2([input_size.0 as f32, input_size.1 as f32]),
-      )?;
+        self.crt_shader.set_uniform("image", UniformValue::Int(1))?;
 
-      self.crt
-          .set_uniform("CRTgamma", UniformValue::Float(2.5))?;
-      self.crt
-          .set_uniform("monitorgamma", UniformValue::Float(2.22))?;
-      // distance from viewer
-      self.crt.set_uniform("d", UniformValue::Float(1.5))?;
-      // radius of curvature - 2.0 to 3.0?
-      self.crt.set_uniform("R", UniformValue::Float(2.5))?;
-      self.crt
-          .set_uniform("cornersize", UniformValue::Float(0.02))?;
-      // border smoothness parameter
-      self.crt
-          .set_uniform("cornersmooth", UniformValue::Float(80.0))?;
+        self.crt_shader.set_uniform(
+            "projMat",
+            UniformValue::Matrix4(self.projection.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "viewMat",
+            UniformValue::Matrix4(self.look_at.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "modelMat",
+            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
+        )?;
 
-      self.crt
-          .set_uniform("overscan", UniformValue::Vector2([0.99, 0.99]))?;
-      self.crt
-          .set_uniform("aspect", UniformValue::Vector2([1.0, 0.75]))?;
+        self.crt_shader.set_uniform(
+            "inputSize",
+            UniformValue::Vector2([
+                self.texture.width() as f32,
+                self.texture.height() as f32,
+            ]),
+        )?;
 
-      let bind_point = std::num::NonZeroU32::new(1).unwrap();
-      self.texture.set_active(bind_point);
+        self.crt_shader.set_uniform(
+            "outputSize",
+            UniformValue::Vector2([self.crt_width as f32, self.crt_height as f32]),
+        )?;
+        self.crt_shader.set_uniform(
+            "textureSize",
+            UniformValue::Vector2([
+                self.texture.width() as f32,
+                self.texture.height() as f32,
+            ]),
+        )?;
 
-      self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-      self.ctx.clear();
+        self.crt_shader
+            .set_uniform("CRTgamma", UniformValue::Float(1.9))?;
+        self.crt_shader
+            .set_uniform("monitorgamma", UniformValue::Float(2.4))?;
+        // distance from viewer
+        self.crt_shader.set_uniform("d", UniformValue::Float(1.5))?;
+        // radius of curvature - 2.0 to 3.0?
+        self.crt_shader.set_uniform("R", UniformValue::Float(2.3))?;
+        self.crt_shader
+            .set_uniform("cornersize", UniformValue::Float(0.02))?;
+        // border smoothness parameter
+        self.crt_shader
+            .set_uniform("cornersmooth", UniformValue::Float(80.0))?;
 
-      unsafe {
-          self.crt.draw(
-              &self.vb,
-              &self.eb,
-              0..self.indices.len(),
-              GeometryMode::Triangles,
-          )?;
-      }
-      Ok(())
-  }
+        self.crt_shader
+            .set_uniform("overscan", UniformValue::Vector2([0.99, 0.99]))?;
+        self.crt_shader
+            .set_uniform("aspect", UniformValue::Vector2([1.0, 0.75]))?;
+
+        unsafe {
+            self.crt_shader
+                .draw_prepared(0..self.indices.len(), GeometryMode::Triangles);
+        }
+        Ok(())
+    }
 }
