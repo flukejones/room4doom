@@ -13,6 +13,8 @@ pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
 pub const BACKUPTICS: usize = 12;
 
+pub const ML_MAPPED: u32 =		256;
+
 // Game mode handling - identify IWAD version
 //  to handle IWAD dependend animations etc.
 #[derive(Debug, Copy, Clone, PartialEq)]

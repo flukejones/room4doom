@@ -2,13 +2,39 @@ use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-use crate::{
-    angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player,
-};
+use crate::{angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player, r_segs::SegRender};
 
 use wad::lumps::*;
 
 const MAX_SEGS: usize = 32;
+
+// Need to sort out what is shared and what is not so that a data struct
+// can be organised along with method/ownsership
+//
+// seg_t *curline; // SHARED, PASS AS AN ARG to segs.c functions
+//
+// side_t *sidedef; // don't use..., get from curline/seg
+//
+// line_t *linedef; // In maputils as an arg to P_LineOpening, not global
+//
+// These can be chased through the chain of:
+// seg.linedef.front_sidedef.sector.floor_height
+// This block as a struct to pass round?
+//
+// sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
+// sector_t *backsector;
+// drawseg_t drawsegs[MAXDRAWSEGS]; // in bsp, plane, segs, things
+// drawseg_t *ds_p; // in bsp, plane, segs, things
+// //
+// typedef struct
+// {
+//     int first;
+//     int last;
+// } cliprange_t;
+// // newend is one past the last valid seg
+// cliprange_t *newend;
+// cliprange_t solidsegs[MAXSEGS];
+//
 
 #[derive(Debug, Copy, Clone)]
 struct ClipRange {
@@ -18,6 +44,7 @@ struct ClipRange {
 
 #[derive(Default)]
 pub(crate) struct BspCtrl {
+    // Items used in r_segs:
     // put below in new struct
     solidsegs: Vec<ClipRange>,
     /// index in to self.solidsegs
@@ -27,11 +54,10 @@ pub(crate) struct BspCtrl {
 }
 
 impl BspCtrl {
-    pub fn get_rw_angle1(&self) -> Angle { self.rw_angle1 }
-
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
+        map: &MapData,
         player: &Player,
         seg: &'a Segment,
         canvas: &mut Canvas<Surface>,
@@ -106,7 +132,7 @@ impl BspCtrl {
             if back_sector.ceil_height <= front_sector.floor_height
                 || back_sector.floor_height >= front_sector.ceil_height
             {
-                self.clip_solid_seg(x1, x2 - 1, player, seg, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, map, player, canvas);
                 return;
             }
 
@@ -115,7 +141,7 @@ impl BspCtrl {
                 || back_sector.floor_height != front_sector.floor_height
             {
                 // TODO: clip-pass
-                //self.clip_portal_seg(x1, x2 - 1, object, seg, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, map, player, canvas);
                 return;
             }
 
@@ -130,7 +156,7 @@ impl BspCtrl {
                 return;
             }
         }
-        self.clip_solid_seg(x1, x2 - 1, player, seg, canvas);
+        self.clip_solid_seg(x1, x2 - 1, seg, map, player, canvas);
     }
 
     /// R_Subsector - r_bsp
@@ -144,7 +170,7 @@ impl BspCtrl {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = map.get_segments()[i as usize].clone();
-            self.add_line(object, &seg, canvas);
+            self.add_line(map, object, &seg, canvas);
         }
     }
 
@@ -169,8 +195,9 @@ impl BspCtrl {
         &mut self,
         first: i32,
         last: i32,
-        object: &Player,
         seg: &Segment,
+        map: &MapData,
+        object: &Player,
         canvas: &mut Canvas<Surface>,
     ) {
         let mut next;
@@ -182,11 +209,20 @@ impl BspCtrl {
             start += 1;
         }
 
+        // We create the seg-renderer for each seg as data is not shared
+        // TODO: check the above
+        let mut seg_render = SegRender::new(object, seg, map);
+
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
-                self.store_wall_range(first, last, seg, object, canvas);
+                seg_render.store_wall_range(
+                    first,
+                    last,
+                    self.rw_angle1,
+                    canvas
+                );
 
                 next = self.new_end;
                 self.new_end += 1;
@@ -202,11 +238,10 @@ impl BspCtrl {
             }
 
             // There is a fragment above *start.
-            self.store_wall_range(
+            seg_render.store_wall_range(
                 first,
                 self.solidsegs[start].first - 1,
-                seg,
-                object,
+                self.rw_angle1,
                 canvas,
             );
             // Now adjust the clip size.
@@ -222,11 +257,10 @@ impl BspCtrl {
         while last >= self.solidsegs[next + 1].first - 1
             && next + 1 < self.solidsegs.len() - 1
         {
-            self.store_wall_range(
+            seg_render.store_wall_range(
                 self.solidsegs[next].last + 1,
                 self.solidsegs[next + 1].first - 1,
-                seg,
-                object,
+                self.rw_angle1,
                 canvas,
             );
 
@@ -239,11 +273,10 @@ impl BspCtrl {
         }
 
         // There is a fragment after *next.
-        self.store_wall_range(
+        seg_render.store_wall_range(
             self.solidsegs[next].last + 1,
             last,
-            seg,
-            object,
+            self.rw_angle1,
             canvas,
         );
         // Adjust the clip size.
@@ -254,12 +287,15 @@ impl BspCtrl {
     }
 
     /// R_ClipPassWallSegment - r_bsp
+    /// Clips the given range of columns, but does not includes it in the clip list.
+    /// Does handle windows, e.g. LineDefs with upper and lower texture
     fn clip_portal_seg(
         &mut self,
         first: i32,
         last: i32,
-        object: &Player,
         seg: &Segment,
+        map: &MapData,
+        object: &Player,
         canvas: &mut Canvas<Surface>,
     ) {
         let mut next;
@@ -271,19 +307,25 @@ impl BspCtrl {
             start += 1;
         }
 
+        let mut seg_render = SegRender::new(object, seg, map);
+
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
-                self.store_wall_range(first, last, seg, object, canvas);
+                seg_render.store_wall_range(
+                    first,
+                    last,
+                    self.rw_angle1,
+                    canvas,
+                );
                 return;
             }
 
             // There is a fragment above *start.
-            self.store_wall_range(
+            seg_render.store_wall_range(
                 first,
                 self.solidsegs[start].first - 1,
-                seg,
-                object,
+                self.rw_angle1,
                 canvas,
             );
         }
@@ -297,11 +339,10 @@ impl BspCtrl {
         while last >= self.solidsegs[next + 1].first - 1
             && next + 1 < self.solidsegs.len() - 1
         {
-            self.store_wall_range(
+            seg_render.store_wall_range(
                 self.solidsegs[next].last + 1,
                 self.solidsegs[next + 1].first - 1,
-                seg,
-                object,
+                self.rw_angle1,
                 canvas,
             );
 
@@ -313,11 +354,10 @@ impl BspCtrl {
         }
 
         // There is a fragment after *next.
-        self.store_wall_range(
+        seg_render.store_wall_range(
             self.solidsegs[next].last + 1,
             last,
-            seg,
-            object,
+            self.rw_angle1,
             canvas,
         );
     }
