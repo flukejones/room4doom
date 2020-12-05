@@ -162,8 +162,8 @@ pub fn d_doom_loop(
         game.crop_rect.height(),
     );
 
-    //let mut rend =  Basic::new(&ctx);
-    let mut rend = LottesCRT::new(&ctx);
+    let mut rend =  Basic::new(&ctx);
+    //let mut rend = LottesCRT::new(&ctx);
     //let mut rend = CGWGCRT::new(&ctx, game.crop_rect.width(), game.crop_rect.height());
     rend.set_tex_filter().unwrap();
 
