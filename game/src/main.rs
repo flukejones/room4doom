@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // initialization
     let gl_attr = video_ctx.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attr.set_context_version(3, 0);
+    gl_attr.set_context_version(3, 2);
 
     let context =
         Context::from_glow(glow::Context::from_loader_function(|s| {
