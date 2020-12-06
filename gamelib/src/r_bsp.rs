@@ -2,7 +2,7 @@ use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-use crate::{angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player, r_segs::SegRender};
+use crate::{angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player, r_defs::*, r_segs::SegRender};
 
 use wad::lumps::*;
 
@@ -36,10 +36,27 @@ const MAX_SEGS: usize = 32;
 // cliprange_t solidsegs[MAXSEGS];
 //
 
-#[derive(Debug, Copy, Clone)]
-struct ClipRange {
-    first: i32,
-    last:  i32,
+/// This is the data required in a few places for drawing or clipping
+/// - R_DrawSprite, r_things.c
+/// - R_DrawMasked, r_things.c
+/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
+///                               it then inserts/incs pointer to next drawseg in the array when finished
+/// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
+pub(crate) struct DrawData {
+    /// index to drawsegs
+    /// Used in r_segs and r_things
+    pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
+                     // DrawSeg used, which is inserted in drawsegs at end of r_segs
+    pub drawsegs: Vec<DrawSeg>,
+}
+
+impl DrawData {
+    pub fn new() -> Self {
+        DrawData {
+            ds_p: 0,
+            drawsegs: Vec::with_capacity(MAXDRAWSEGS),
+        }
+    }
 }
 
 #[derive(Default)]

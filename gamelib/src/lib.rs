@@ -30,6 +30,7 @@ pub(crate) mod renderer;
 pub(crate) mod sounds;
 pub(crate) mod tic_cmd;
 pub(crate) mod timestep;
+pub(crate) mod r_defs;
 
 /// R_PointToDist
 fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {

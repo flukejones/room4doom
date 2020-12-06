@@ -106,7 +106,7 @@ impl<'a> SegRender<'a> {
         }
     }
 
-    /// R_StoreWallRange - r_segs (required in r_bsp)
+    /// R_StoreWallRange - r_segs
     pub fn store_wall_range(
         &mut self,
         start: i32,
@@ -162,11 +162,19 @@ impl<'a> SegRender<'a> {
 
         // calculate texture boundaries
         //  and decide if floor / ceiling marks are needed
+        // `seg.sidedef.sector` is the front sector
         self.worldtop = self.seg.sidedef.sector.ceil_height as i32 - z;
         self.worldbottom = self.seg.sidedef.sector.floor_height as i32 - z;
 
-        // TODO: Texture stuff here
-        //  midtexture = toptexture = bottomtexture = maskedtexture = 0;
+        // These are all zeroed to start with, thanks rust.
+        // midtexture = toptexture = bottomtexture = maskedtexture = 0;
+
+        // ds_p is pointer to item in drawsegs, which is set by R_ClearDrawSegs
+        // is drawseg_t which needs to be in an easy ref location, reffed in
+        // - r_segs.c - uses it extensively, ds_p++; at end
+        // - r_plane.c - only checks for an overflow?]
+        // - r_bsp.c - sets t point to first element of drawsegs array
+
 
         self.topstep = -(self.worldtop as f32 * self.rw_scalestep);
         self.topfrac = 100.0 - (self.worldtop as f32 * scale1);
