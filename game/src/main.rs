@@ -33,9 +33,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     gl_attr.set_context_version(3, 2);
 
     let context =
-        Context::from_glow(glow::Context::from_loader_function(|s| {
-            video_ctx.gl_get_proc_address(s) as *const _
-        }))
+        Context::from_loader_function(
+            |s| video_ctx.gl_get_proc_address(s) as *const _,
+        )
         .unwrap();
 
     let game = Game::new(options);

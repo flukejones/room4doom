@@ -9,10 +9,10 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 wad = { path = "../wad" }
-sdl2 = "~0.33.0"
+sdl2 = "~0.34.0"
 glam = "0.8.5"
 gumdrop = "~0.7"
-golem = "0.1.7"
+golem = { git = "https://github.com/flukejones/golem/" }
 
 [dev-dependencies]
 criterion = "~0.3"
