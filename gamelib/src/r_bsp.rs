@@ -25,15 +25,6 @@ const MAX_SEGS: usize = 32;
 // sector_t *backsector;
 // drawseg_t drawsegs[MAXDRAWSEGS]; // in bsp, plane, segs, things
 // drawseg_t *ds_p; // in bsp, plane, segs, things
-// //
-// typedef struct
-// {
-//     int first;
-//     int last;
-// } cliprange_t;
-// // newend is one past the last valid seg
-// cliprange_t *newend;
-// cliprange_t solidsegs[MAXSEGS];
 //
 
 /// This is the data required in a few places for drawing or clipping

@@ -10,11 +10,11 @@ name = "diirdoom"
 path = "src/main.rs"
 
 [dependencies]
-sdl2 = "~0.33.0"
+sdl2 = "~0.34.0"
 glam = "0.8.5"
 gumdrop = "~0.7"
 rand = "*"
 gamelib = { path = "../gamelib" }
 wad = { path = "../wad" }
 utils = { path = "../utils" }
-golem = "0.1.7"
+golem = { git = "https://github.com/flukejones/golem/" }
