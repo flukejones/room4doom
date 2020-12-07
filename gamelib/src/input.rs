@@ -11,7 +11,6 @@ use crate::{doom_def::WeaponType, tic_cmd::*};
 pub(crate) struct InputEvents {
     key_state:   HashSet<Sc>,
     mouse_state: HashSet<Mb>,
-    mouse_pos:   (i32, i32),
     mouse_delta: (i32, i32),
     mouse_scale: (i32, i32),
     turn_held:   u32,
@@ -26,7 +25,7 @@ impl InputEvents {
     pub fn clear(&mut self) {
         self.key_state.clear();
         self.mouse_state.clear();
-        self.mouse_pos = (0, 0)
+        self.mouse_delta = (0, 0)
     }
 
     pub fn is_kb_pressed(&self, s: Sc) -> bool { self.key_state.contains(&s) }
@@ -48,10 +47,7 @@ impl InputEvents {
     fn reset_mouse_delta(&mut self) { self.mouse_delta = (0, 0); }
 
     fn set_mouse_pos(&mut self, state: (i32, i32)) {
-        let x = self.mouse_pos.0 - state.0;
-        let y = self.mouse_pos.1 - state.1;
-        self.mouse_delta = (-(x * self.mouse_scale.0), y * self.mouse_scale.1);
-        self.mouse_pos = state;
+        self.mouse_delta = (state.0 * self.mouse_scale.0, state.1 * self.mouse_scale.1);
     }
 
     pub fn build_tic_cmd(&mut self, cfg: &InputConfig) -> TicCmd {
@@ -230,8 +226,8 @@ impl Input {
                     self.tic_events.unset_mb(mouse_btn);
                 }
 
-                Event::MouseMotion { x, y, .. } => {
-                    self.tic_events.set_mouse_pos((x, y));
+                Event::MouseMotion { x: _, y: _, xrel, yrel, .. } => {
+                    self.tic_events.set_mouse_pos((xrel, yrel));
                 }
 
                 Event::Quit { .. } => self.quit = true, // Early out if Quit
