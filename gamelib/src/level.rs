@@ -12,7 +12,7 @@ use crate::{
     p_map::MobjCtrl,
     p_map_object::MapObject,
     player::Player,
-    r_bsp::BspCtrl,
+    r_bsp::RenderData,
 };
 
 /// The level is considered a `World` or sorts. One that exists only
@@ -23,7 +23,7 @@ use crate::{
 /// In some ways this is the "P" module
 pub(crate) struct Level {
     pub map_data:          MapData,
-    pub bsp_ctrl:          BspCtrl,
+    pub bsp_ctrl:          RenderData,
     pub mobj_ctrl:         MobjCtrl,
     pub thinkers:          Vec<Option<Thinker<MapObject>>>,
     max_thinker_capacity:  usize,
@@ -101,7 +101,7 @@ impl Level {
 
         let mut level = Level {
             map_data,
-            bsp_ctrl: BspCtrl::default(),
+            bsp_ctrl: RenderData::default(),
             mobj_ctrl: MobjCtrl::default(),
             thinkers: Vec::with_capacity(thinker_count + 50),
             max_thinker_capacity: thinker_count + 50,

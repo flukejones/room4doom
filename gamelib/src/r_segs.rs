@@ -1,8 +1,8 @@
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::{ptr::NonNull, f32::consts::{FRAC_PI_2, PI}};
 use wad::lumps::Segment;
 
-use crate::{doom_def::ML_MAPPED, angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW}, map_data::MapData, player::Player, point_to_dist, scale};
+use crate::{angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW}, doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED}, map_data::MapData, player::Player, point_to_dist, r_bsp::RenderData, r_defs::DrawSeg, r_defs::MAXDRAWSEGS, scale};
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -53,8 +53,8 @@ pub(crate) struct SegRender<'a> {
     bottomfrac: f32,
     bottomstep: f32,
 
-    worldtop:    i32,
-    worldbottom: i32,
+    worldtop:    f32,
+    worldbottom: f32,
     worldhigh:   i32,
     worldlow:    i32,
 }
@@ -99,8 +99,8 @@ impl<'a> SegRender<'a> {
             bottomfrac: 0.0,
             bottomstep: 0.0,
 
-            worldtop: 0,
-            worldbottom: 0,
+            worldtop: 0.0,
+            worldbottom: 0.0,
             worldhigh: 0,
             worldlow: 0,
         }
@@ -111,9 +111,14 @@ impl<'a> SegRender<'a> {
         &mut self,
         start: i32,
         stop: i32,
-        rw_angle: Angle,
+        rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        // Keep original Doom behaviour here
+        if rdata.drawsegs.len() >= MAXDRAWSEGS {
+            return;
+        }
+
         if start >= 320 || start > stop {
             println!("Bad R_RenderWallRange: {} to {}", start, stop);
             return;
@@ -127,7 +132,7 @@ impl<'a> SegRender<'a> {
         linedef.flags |= ML_MAPPED as u16;
 
         self.rw_normalangle = Angle::new(self.seg.angle_rads() + FRAC_PI_2);
-        let offsetangle = self.rw_normalangle - rw_angle; // radians
+        let offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
 
         // Unrequired with full angle range
         // if offsetangle > FRAC_PI_2 {
@@ -142,10 +147,14 @@ impl<'a> SegRender<'a> {
         ); // verified correct
         self.rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
 
+        
+        let mut ds_p = DrawSeg::new(NonNull::from(self.seg));
+
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
         let view_angle = self.object.mobj.as_ref().unwrap().obj.angle;
 
         //m_ScreenXToAngle[i] = atan((m_HalfScreenWidth - i) / (float)m_iDistancePlayerToScreen) * 180 / PI;
+        // TODO: doublecheck the angles and bounds
         let visangle =
             view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degress not rads
         let scale1 =
@@ -156,18 +165,45 @@ impl<'a> SegRender<'a> {
         let scale2 =
             scale(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
+        ds_p.scale1 = scale1;
+        ds_p.scale2 = scale2;
+        ds_p.x1 = start;
+        self.rw_x = start;
+        ds_p.x2 = stop;
+        self.rw_stopx = stop +1;
+        
+
         // testing draws
         self.rw_scalestep = (scale2 - scale1) / (stop - start) as f32;
-        let z = self.object.viewz as i32;
+        ds_p.scalestep = self.rw_scalestep;
+
 
         // calculate texture boundaries
         //  and decide if floor / ceiling marks are needed
         // `seg.sidedef.sector` is the front sector
-        self.worldtop = self.seg.sidedef.sector.ceil_height as i32 - z;
-        self.worldbottom = self.seg.sidedef.sector.floor_height as i32 - z;
+        let viewz = self.object.viewz;
+        self.worldtop = self.seg.sidedef.sector.ceil_height as f32 - viewz;
+        self.worldbottom = self.seg.sidedef.sector.floor_height as f32 - viewz;
 
         // These are all zeroed to start with, thanks rust.
         // midtexture = toptexture = bottomtexture = maskedtexture = 0;
+
+        let mut vtop = 0.0;
+        if self.seg.linedef.back_sidedef.is_none() {
+            // single sided line
+            // TODO: Need to R_InitTextures and figure out where to put this
+            //self.midtexture = texturetranslation[sidedef.middle_tex];
+            self.markfloor = true;
+            self.markceiling = true;
+            if linedef.flags & ML_DONTPEGBOTTOM as u16 != 0 {
+                // TODO: textureheight
+                //vtop = self.seg.sidedef.sector.floor_height + textureheight[self.seg.sidedef.middle_tex];
+                //self.rw_midtexturemid = vtop - viewz;
+            } else {
+                self.rw_midtexturemid = self.worldtop;
+            }
+            self.rw_midtexturemid += self.seg.sidedef.y_offset;
+        }
 
         // ds_p is pointer to item in drawsegs, which is set by R_ClearDrawSegs
         // is drawseg_t which needs to be in an easy ref location, reffed in
