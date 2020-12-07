@@ -30,10 +30,10 @@ pub struct MapExtents {
 /// Test if a node is an index to another node in the tree or is an index to a `SubSector`
 /// ```
 /// # use wad::{Wad, nodes::IS_SSECTOR_MASK};
-/// # use gamelib::r_bsp::BspCtrl;
+/// # use gamelib::r_bsp::RenderData;
 /// # let mut wad = Wad::new("../doom1.wad");
 /// # wad.read_directories();
-/// # let mut map = BspCtrl::new("E1M1".to_owned());
+/// # let mut map = RenderData::new("E1M1".to_owned());
 /// # map.load(&wad);
 /// let nodes = map.get_nodes();
 /// // Test if it is a child node or a leaf node
@@ -65,10 +65,10 @@ pub struct MapExtents {
 /// Find the subsector a player is in
 /// ```
 /// # use wad::{Wad, nodes::{Node, IS_SSECTOR_MASK}, Vertex};
-/// # use gamelib::r_bsp::BspCtrl;
+/// # use gamelib::r_bsp::RenderData;
 /// # let mut wad = Wad::new("../doom1.wad");
 /// # wad.read_directories();
-/// # let mut map = BspCtrl::new("E1M1".to_owned());
+/// # let mut map = RenderData::new("E1M1".to_owned());
 /// # map.load(&wad);
 ///
 /// // These are the coordinates for Player 1 in the WAD

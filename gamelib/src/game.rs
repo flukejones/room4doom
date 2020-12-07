@@ -515,7 +515,7 @@ impl Game {
             canvas.clear();
             level
                 .bsp_ctrl
-                .draw_bsp(&map, player, map.start_node(), canvas);
+                .render_bsp_node(&map, player, map.start_node(), canvas);
         }
     }
 }

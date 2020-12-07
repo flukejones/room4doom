@@ -23,17 +23,25 @@ const MAX_SEGS: usize = 32;
 //
 // sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
 // sector_t *backsector;
-// drawseg_t drawsegs[MAXDRAWSEGS]; // in bsp, plane, segs, things
-// drawseg_t *ds_p; // in bsp, plane, segs, things
-//
 
-/// This is the data required in a few places for drawing or clipping
+/// We store most of hwats needed for rendering in various functions here to avoid
+/// having to pass too many things in args through multiple function calls. This
+/// is due to the Doom C relying a fair bit on global state.
+///
+/// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
+/// ----------------------------------------------------------------------------
 /// - R_DrawSprite, r_things.c
 /// - R_DrawMasked, r_things.c
 /// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
-pub(crate) struct DrawData {
+#[derive(Default)]
+pub(crate) struct RenderData {
+    solidsegs: Vec<ClipRange>,
+    /// index in to self.solidsegs
+    new_end:   usize,
+    pub rw_angle1: Angle,
+    
     /// index to drawsegs
     /// Used in r_segs and r_things
     pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
@@ -41,27 +49,7 @@ pub(crate) struct DrawData {
     pub drawsegs: Vec<DrawSeg>,
 }
 
-impl DrawData {
-    pub fn new() -> Self {
-        DrawData {
-            ds_p: 0,
-            drawsegs: Vec::with_capacity(MAXDRAWSEGS),
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct BspCtrl {
-    // Items used in r_segs:
-    // put below in new struct
-    solidsegs: Vec<ClipRange>,
-    /// index in to self.solidsegs
-    new_end:   usize,
-    rw_angle1: Angle,
-    // wall upper/lower heights
-}
-
-impl BspCtrl {
+impl RenderData {
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
@@ -228,7 +216,7 @@ impl BspCtrl {
                 seg_render.store_wall_range(
                     first,
                     last,
-                    self.rw_angle1,
+                    self,
                     canvas
                 );
 
@@ -249,7 +237,7 @@ impl BspCtrl {
             seg_render.store_wall_range(
                 first,
                 self.solidsegs[start].first - 1,
-                self.rw_angle1,
+                self,
                 canvas,
             );
             // Now adjust the clip size.
@@ -268,7 +256,7 @@ impl BspCtrl {
             seg_render.store_wall_range(
                 self.solidsegs[next].last + 1,
                 self.solidsegs[next + 1].first - 1,
-                self.rw_angle1,
+                self,
                 canvas,
             );
 
@@ -284,7 +272,7 @@ impl BspCtrl {
         seg_render.store_wall_range(
             self.solidsegs[next].last + 1,
             last,
-            self.rw_angle1,
+            self,
             canvas,
         );
         // Adjust the clip size.
@@ -323,7 +311,7 @@ impl BspCtrl {
                 seg_render.store_wall_range(
                     first,
                     last,
-                    self.rw_angle1,
+                    self,
                     canvas,
                 );
                 return;
@@ -333,7 +321,7 @@ impl BspCtrl {
             seg_render.store_wall_range(
                 first,
                 self.solidsegs[start].first - 1,
-                self.rw_angle1,
+                self,
                 canvas,
             );
         }
@@ -350,7 +338,7 @@ impl BspCtrl {
             seg_render.store_wall_range(
                 self.solidsegs[next].last + 1,
                 self.solidsegs[next + 1].first - 1,
-                self.rw_angle1,
+                self,
                 canvas,
             );
 
@@ -365,7 +353,7 @@ impl BspCtrl {
         seg_render.store_wall_range(
             self.solidsegs[next].last + 1,
             last,
-            self.rw_angle1,
+            self,
             canvas,
         );
     }
@@ -387,7 +375,7 @@ impl BspCtrl {
     }
 
     /// R_RenderBSPNode - r_bsp
-    pub fn draw_bsp<'a>(
+    pub fn render_bsp_node<'a>(
         &'a mut self,
         map: &MapData,
         player: &Player,
@@ -410,7 +398,7 @@ impl BspCtrl {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.draw_bsp(map, player, node.child_index[side], canvas);
+        self.render_bsp_node(map, player, node.child_index[side], canvas);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -421,7 +409,7 @@ impl BspCtrl {
             FRAC_PI_4,
             side ^ 1,
         ) {
-            self.draw_bsp(map, player, node.child_index[side ^ 1], canvas);
+            self.render_bsp_node(map, player, node.child_index[side ^ 1], canvas);
         }
     }
 }
