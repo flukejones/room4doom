@@ -2,7 +2,10 @@ use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-use crate::{angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player, r_defs::*, r_segs::SegRender};
+use crate::{
+    angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player,
+    r_defs::*, r_segs::SegRender,
+};
 
 use wad::lumps::*;
 
@@ -37,15 +40,15 @@ const MAX_SEGS: usize = 32;
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
 pub(crate) struct RenderData {
-    solidsegs: Vec<ClipRange>,
+    solidsegs:     Vec<ClipRange>,
     /// index in to self.solidsegs
-    new_end:   usize,
+    new_end:       usize,
     pub rw_angle1: Angle,
-    
+
     /// index to drawsegs
     /// Used in r_segs and r_things
-    pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
-                     // DrawSeg used, which is inserted in drawsegs at end of r_segs
+    pub ds_p:     usize, // Or, depending on place in code this can be skipped and a new
+    // DrawSeg used, which is inserted in drawsegs at end of r_segs
     pub drawsegs: Vec<DrawSeg>,
 }
 
@@ -55,7 +58,7 @@ impl RenderData {
         &'a mut self,
         map: &MapData,
         player: &Player,
-        seg: &'a Segment,
+        seg: &'a WadSegment,
         canvas: &mut Canvas<Surface>,
     ) {
         // reject orthogonal back sides
@@ -160,7 +163,7 @@ impl RenderData {
         &'a mut self,
         map: &MapData,
         object: &Player,
-        subsect: &SubSector,
+        subsect: &WadSubSector,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
@@ -191,7 +194,7 @@ impl RenderData {
         &mut self,
         first: i32,
         last: i32,
-        seg: &Segment,
+        seg: &WadSegment,
         map: &MapData,
         object: &Player,
         canvas: &mut Canvas<Surface>,
@@ -213,12 +216,7 @@ impl RenderData {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
-                seg_render.store_wall_range(
-                    first,
-                    last,
-                    self,
-                    canvas
-                );
+                seg_render.store_wall_range(first, last, self, canvas);
 
                 next = self.new_end;
                 self.new_end += 1;
@@ -289,7 +287,7 @@ impl RenderData {
         &mut self,
         first: i32,
         last: i32,
-        seg: &Segment,
+        seg: &WadSegment,
         map: &MapData,
         object: &Player,
         canvas: &mut Canvas<Surface>,
@@ -308,12 +306,7 @@ impl RenderData {
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
-                seg_render.store_wall_range(
-                    first,
-                    last,
-                    self,
-                    canvas,
-                );
+                seg_render.store_wall_range(first, last, self, canvas);
                 return;
             }
 
@@ -409,7 +402,12 @@ impl RenderData {
             FRAC_PI_4,
             side ^ 1,
         ) {
-            self.render_bsp_node(map, player, node.child_index[side ^ 1], canvas);
+            self.render_bsp_node(
+                map,
+                player,
+                node.child_index[side ^ 1],
+                canvas,
+            );
         }
     }
 }
@@ -502,11 +500,11 @@ pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 mod tests {
     use crate::map_data::MapData;
     use crate::r_bsp::IS_SSECTOR_MASK;
-    use wad::{Vertex, Wad};
+    use wad::{Vertex, WadData};
 
     #[test]
     fn check_e1m1_things() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -534,7 +532,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_vertexes() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -549,7 +547,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_lump_pointers() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -586,7 +584,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_linedefs() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -610,7 +608,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_sectors() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -635,7 +633,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_sidedefs() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -658,7 +656,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_segments() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -690,7 +688,7 @@ mod tests {
 
     #[test]
     fn check_nodes_of_e1m1() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());
@@ -736,7 +734,7 @@ mod tests {
 
     #[test]
     fn find_vertex_using_bsptree() {
-        let mut wad = Wad::new("../doom1.wad");
+        let mut wad = WadData::new("../doom1.wad");
         wad.read_directories();
 
         let mut map = MapData::new("E1M1".to_owned());

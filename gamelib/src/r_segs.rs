@@ -1,8 +1,21 @@
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-use std::{ptr::NonNull, f32::consts::{FRAC_PI_2, PI}};
-use wad::lumps::Segment;
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    ptr::NonNull,
+};
+use wad::lumps::WadSegment;
 
-use crate::{angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW}, doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED}, map_data::MapData, player::Player, point_to_dist, r_bsp::RenderData, r_defs::DrawSeg, r_defs::MAXDRAWSEGS, scale};
+use crate::{
+    angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW},
+    doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED},
+    map_data::MapData,
+    player::Player,
+    point_to_dist,
+    r_bsp::RenderData,
+    r_defs::DrawSeg,
+    r_defs::MAXDRAWSEGS,
+    scale_from_view_angle,
+};
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -16,7 +29,7 @@ pub(crate) struct SegRender<'a> {
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
     /// `sector_t *frontsector;` `sector_t *backsector;` shared variables between
     /// `r_bsp.c` and `r_seg.c`.
-    seg:    &'a Segment,
+    seg:    &'a WadSegment,
     map:    &'a MapData,
 
     /// True if any of the segs textures might be visible.
@@ -60,7 +73,11 @@ pub(crate) struct SegRender<'a> {
 }
 
 impl<'a> SegRender<'a> {
-    pub fn new(object: &'a Player, seg: &'a Segment, map: &'a MapData) -> Self {
+    pub fn new(
+        object: &'a Player,
+        seg: &'a WadSegment,
+        map: &'a MapData,
+    ) -> Self {
         SegRender {
             object,
             seg,
@@ -147,7 +164,6 @@ impl<'a> SegRender<'a> {
         ); // verified correct
         self.rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
 
-        
         let mut ds_p = DrawSeg::new(NonNull::from(self.seg));
 
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
@@ -157,26 +173,32 @@ impl<'a> SegRender<'a> {
         // TODO: doublecheck the angles and bounds
         let visangle =
             view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degress not rads
-        let scale1 =
-            scale(visangle, self.rw_normalangle, self.rw_distance, view_angle);
+        let scale1 = scale_from_view_angle(
+            visangle,
+            self.rw_normalangle,
+            self.rw_distance,
+            view_angle,
+        );
 
         let visangle =
             view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
-        let scale2 =
-            scale(visangle, self.rw_normalangle, self.rw_distance, view_angle);
+        let scale2 = scale_from_view_angle(
+            visangle,
+            self.rw_normalangle,
+            self.rw_distance,
+            view_angle,
+        );
 
         ds_p.scale1 = scale1;
         ds_p.scale2 = scale2;
         ds_p.x1 = start;
         self.rw_x = start;
         ds_p.x2 = stop;
-        self.rw_stopx = stop +1;
-        
+        self.rw_stopx = stop + 1;
 
         // testing draws
         self.rw_scalestep = (scale2 - scale1) / (stop - start) as f32;
         ds_p.scalestep = self.rw_scalestep;
-
 
         // calculate texture boundaries
         //  and decide if floor / ceiling marks are needed
@@ -210,7 +232,6 @@ impl<'a> SegRender<'a> {
         // - r_segs.c - uses it extensively, ds_p++; at end
         // - r_plane.c - only checks for an overflow?]
         // - r_bsp.c - sets t point to first element of drawsegs array
-
 
         self.topstep = -(self.worldtop as f32 * self.rw_scalestep);
         self.topfrac = 100.0 - (self.worldtop as f32 * scale1);

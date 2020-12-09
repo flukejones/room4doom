@@ -37,6 +37,7 @@ pub use crate::wad::*;
 /// The WAD structure and parser
 pub mod wad;
 
+pub mod iterators;
 /// A Lump is a chunk of data that starts at an offset in the WAD, and ends
 /// at a location that is `sizeof<record-in-lump> * num-of-entries`
 ///

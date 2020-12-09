@@ -5,8 +5,8 @@ use std::{
 
 use glam::Vec2;
 use wad::{
-    lumps::{SubSector, Thing},
-    DPtr,
+    lumps::{WadSubSector, WadThing},
+    WadPtr,
 };
 
 use crate::{
@@ -145,7 +145,7 @@ pub(crate) struct MapObject {
     sprite:           SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame:            i32,
-    subsector:        DPtr<SubSector>,
+    subsector:        WadPtr<WadSubSector>,
     /// The closest interval over all contacted Sectors.
     pub floorz:       f32,
     pub ceilingz:     f32,
@@ -187,7 +187,7 @@ pub(crate) struct MapObject {
     /// Player number last looked for.
     lastlook:         i32,
     /// For nightmare respawn.
-    spawn_point:      Option<Thing>,
+    spawn_point:      Option<WadThing>,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
 }
@@ -484,7 +484,7 @@ impl MapObject {
     ///
     /// Called in game.c
     pub fn p_spawn_player(
-        mthing: &Thing,
+        mthing: &WadThing,
         level: &mut Level,
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
@@ -565,7 +565,7 @@ impl MapObject {
 
     /// P_SpawnMapThing
     pub fn p_spawn_map_thing(
-        mthing: &Thing,
+        mthing: &WadThing,
         level: &mut Level,
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
@@ -707,7 +707,7 @@ impl MapObject {
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
-        let sub_sector: DPtr<SubSector> =
+        let sub_sector: WadPtr<WadSubSector> =
             level.map_data.point_in_subsector(&Vec2::new(x, y)).unwrap();
 
         let floorz = sub_sector.sector.floor_height as i32;

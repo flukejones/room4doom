@@ -10,11 +10,9 @@
 //  - [ ] Reject
 //  - [ ] Blockmap
 
-use std::f32::EPSILON;
 use std::str;
 
 //pub use crate::nodes::IS_SSECTOR_MASK;
-use crate::WadPtr;
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///
@@ -347,15 +345,15 @@ impl WadSideDef {
             y_offset,
             upper_tex: str::from_utf8(upper_tex)
                 .expect("Invalid upper_tex name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             lower_tex: str::from_utf8(lower_tex)
                 .expect("Invalid lower_tex name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             middle_tex: str::from_utf8(middle_tex)
                 .expect("Invalid middle_tex name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             sector,
         }

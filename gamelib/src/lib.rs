@@ -4,6 +4,10 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use angle::Angle;
 use glam::Vec2;
+use std::fmt;
+use std::ops::{Deref, DerefMut};
+use std::ptr::NonNull;
+
 pub(crate) mod angle;
 pub mod d_main;
 pub(crate) mod d_thinker;
@@ -25,12 +29,12 @@ pub(crate) mod p_player_sprite;
 pub(crate) mod p_spec;
 pub(crate) mod player;
 pub(crate) mod r_bsp;
+pub(crate) mod r_defs;
 pub(crate) mod r_segs;
 pub(crate) mod renderer;
 pub(crate) mod sounds;
 pub(crate) mod tic_cmd;
 pub(crate) mod timestep;
-pub(crate) mod r_defs;
 
 /// R_PointToDist
 fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
@@ -49,7 +53,7 @@ fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 
 /// R_ScaleFromGlobalAngle
 // All should be in rads
-fn scale(
+fn scale_from_view_angle(
     visangle: Angle,
     rw_normalangle: Angle,
     rw_distance: f32,
@@ -78,4 +82,38 @@ fn scale(
         scale = MIN_SCALEFACTOR;
     }
     scale
+}
+
+/// Functions purely as a safe fn wrapper around a `NonNull` because we know that
+/// the Map structure is not going to change under us
+struct WadPtr<T> {
+    p: NonNull<T>,
+}
+
+impl<T> WadPtr<T> {
+    fn new(t: &T) -> WadPtr<T> {
+        WadPtr {
+            p: NonNull::from(t),
+        }
+    }
+}
+
+impl<T> Clone for WadPtr<T> {
+    fn clone(&self) -> WadPtr<T> { WadPtr { p: self.p } }
+}
+
+impl<T> Deref for WadPtr<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target { unsafe { self.p.as_ref() } }
+}
+
+impl<T> DerefMut for WadPtr<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.p.as_mut() } }
+}
+
+impl<T: fmt::Debug> fmt::Debug for WadPtr<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
+    }
 }

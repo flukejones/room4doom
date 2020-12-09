@@ -1,11 +1,11 @@
 use std::ptr::NonNull;
 
-use wad::lumps::Segment;
+use wad::lumps::WadSegment;
 
 pub const MAXDRAWSEGS: usize = 256;
 
 pub(crate) struct DrawSeg {
-    pub curline: NonNull<Segment>,
+    pub curline: NonNull<WadSegment>,
     pub x1:      i32,
     pub x2:      i32,
 
@@ -30,7 +30,7 @@ pub(crate) struct DrawSeg {
 }
 
 impl DrawSeg {
-    pub fn new(seg: NonNull<Segment>) -> Self {
+    pub fn new(seg: NonNull<WadSegment>) -> Self {
         DrawSeg {
             curline:          seg,
             x1:               0,

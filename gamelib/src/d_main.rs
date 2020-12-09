@@ -103,7 +103,7 @@ pub struct GameOptions {
     pub help:         bool,
 }
 
-pub fn identify_version(wad: &wad::Wad) -> (GameMode, GameMission, String) {
+pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
     let game_mode;
     let game_mission;
     let game_description;
@@ -162,7 +162,7 @@ pub fn d_doom_loop(
         game.crop_rect.height(),
     );
 
-    let mut rend =  Basic::new(&ctx);
+    let mut rend = Basic::new(&ctx);
     //let mut rend = LottesCRT::new(&ctx);
     //let mut rend = CGWGCRT::new(&ctx, game.crop_rect.width(), game.crop_rect.height());
     rend.set_tex_filter().unwrap();
@@ -184,7 +184,10 @@ pub fn d_doom_loop(
         d_display(&mut game, &mut render_buffer);
 
         let pix = render_buffer
-            .read_pixels(Rect::new(0, 0, buf_width, buf_height), PixelFormatEnum::RGBA32)
+            .read_pixels(
+                Rect::new(0, 0, buf_width, buf_height),
+                PixelFormatEnum::RGBA32,
+            )
             .unwrap();
 
         rend.clear();
