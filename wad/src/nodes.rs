@@ -1,80 +1,19 @@
 use std::f32::consts::PI;
 
-use glam::Vec2;
+use crate::lumps::{Node, WadVertex};
 use utils::*;
-
-use crate::Vertex;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
-/// The base node structure as parsed from the WAD records. What is stored in the WAD
-/// is the splitting line used for splitting the map/node (starts with the map then
-/// consecutive nodes, aiming for an even split if possible), a box which encapsulates
-/// the left and right regions of the split, and the index numbers for left and right
-/// children of the node; the index is in to the array built from this lump.
-///
-/// **The last node is the root node**
-///
-/// The data in the WAD lump is structured as follows:
-///
-/// | Field Size | Data Type                            | Content                                          |
-/// |------------|--------------------------------------|--------------------------------------------------|
-/// | 0x00-0x03  | Partition line x coordinate          | X coordinate of the splitter                     |
-/// | 0x02-0x03  | Partition line y coordinate          | Y coordinate of the splitter                     |
-/// | 0x04-0x05  | Change in x to end of partition line | The amount to move in X to reach end of splitter |
-/// | 0x06-0x07  | Change in y to end of partition line | The amount to move in Y to reach end of splitter |
-/// | 0x08-0x09  | Right (Front) box top                | First corner of front box (Y coordinate)         |
-/// | 0x0A-0x0B  | Right (Front)  box bottom            | Second corner of front box (Y coordinate)        |
-/// | 0x0C-0x0D  | Right (Front)  box left              | First corner of front box (X coordinate)         |
-/// | 0x0E-0x0F  | Right (Front)  box right             | Second corner of front box (X coordinate)        |
-/// | 0x10-0x11  | Left (Back) box top                  | First corner of back box (Y coordinate)          |
-/// | 0x12-0x13  | Left (Back)  box bottom              | Second corner of back box (Y coordinate)         |
-/// | 0x14-0x15  | Left (Back)  box left                | First corner of back box (X coordinate)          |
-/// | 0x16-0x17  | Left (Back)  box right               | Second corner of back box (X coordinate)         |
-/// | 0x18-0x19  | Right (Front) child index            | Index of the front child + sub-sector indicator  |
-/// | 0x1A-0x1B  | Left (Back)  child index             | Index of the back child + sub-sector indicator   |
-#[derive(Debug, Clone)]
-pub struct Node {
-    /// Where the line used for splitting the map starts
-    pub split_start:    Vertex,
-    /// Where the line used for splitting the map ends
-    pub split_delta:    Vertex,
-    /// Coordinates of the bounding boxes:
-    /// - [0][0] == right box, top-left
-    /// - [0][1] == right box, bottom-right
-    /// - [1][0] == left box, top-left
-    /// - [1][1] == left box, bottom-right
-    pub bounding_boxes: [[Vertex; 2]; 2],
-    /// The node children. Doom uses a clever trick where if one node is selected
-    /// then the other can also be checked with the same/minimal code by inverting
-    /// the last bit
-    pub child_index:    [u16; 2],
-}
-
 impl Node {
-    pub fn new(
-        split_start: Vertex,
-        split_delta: Vertex,
-        bounding_boxes: [[Vertex; 2]; 2],
-        right_child_id: u16,
-        left_child_id: u16,
-    ) -> Node {
-        Node {
-            split_start,
-            split_delta,
-            bounding_boxes,
-            child_index: [right_child_id, left_child_id],
-        }
-    }
-
     /// R_PointOnSide
     ///
     /// Determine with cross-product which side of a splitting line the point is on
-    pub fn point_on_side(&self, v: &Vertex) -> usize {
-        let dx = v.x() - self.split_start.x();
-        let dy = v.y() - self.split_start.y();
+    pub fn point_on_side(&self, v: &WadVertex) -> usize {
+        let dx = v.x - self.split_start.x;
+        let dy = v.y - self.split_start.y;
 
-        if (self.split_delta.y() * dx) > (dy * self.split_delta.x()) {
+        if (self.split_delta.y * dx) > (dy * self.split_delta.x) {
             return 0;
         }
         1
@@ -83,11 +22,11 @@ impl Node {
     /// Useful for finding the subsector that a Point is located in
     ///
     /// 0 == right, 1 == left
-    pub fn point_in_bounds(&self, v: &Vertex, side: usize) -> bool {
-        if v.x() > self.bounding_boxes[side][0].x()
-            && v.x() < self.bounding_boxes[side][1].x()
-            && v.y() < self.bounding_boxes[side][0].y()
-            && v.y() > self.bounding_boxes[side][1].y()
+    pub fn point_in_bounds(&self, v: &WadVertex, side: usize) -> bool {
+        if v.x > self.bounding_boxes[side][0].x
+            && v.x < self.bounding_boxes[side][1].x
+            && v.y < self.bounding_boxes[side][0].y
+            && v.y > self.bounding_boxes[side][1].y
         {
             return true;
         }
@@ -128,10 +67,10 @@ impl Node {
         origin_ang = origin_ang + shift;
 
         // Secondary broad phase check if each corner is in fov angle
-        for x in [top_left.x(), bottom_right.x()].iter() {
-            for y in [top_left.y(), bottom_right.y()].iter() {
+        for x in [top_left.x, bottom_right.x].iter() {
+            for y in [top_left.y, bottom_right.y].iter() {
                 // generate angle from object position to bb corner
-                let mut v_angle = (y - vec.y()).atan2(x - vec.x());
+                let mut v_angle = (y - vec.y).atan2(x - vec.x);
                 v_angle = (origin_ang - radian_range(v_angle + shift)).abs();
                 if v_angle <= half_fov {
                     return true;
@@ -145,7 +84,7 @@ impl Node {
 
     pub fn ray_from_point_intersect(
         &self,
-        origin_v: &Vertex,
+        origin_v: &WadVertex,
         origin_ang: f32,
         side: usize,
     ) -> bool {
@@ -156,8 +95,8 @@ impl Node {
         // Fine phase, check if a ray intersects any box line made from diagonals from corner
         // to corner. This will often catch cases where we want to see what's in a BB, but the FOV
         // is passing through the box with extents on outside of FOV
-        let top_right = Vertex::new(bottom_right.x(), top_left.y());
-        let bottom_left = Vertex::new(top_left.x(), bottom_right.y());
+        let top_right = WadVertex::new(bottom_right.x, top_left.y);
+        let bottom_left = WadVertex::new(top_left.x, bottom_right.y);
         // Start from FOV edges to catch the FOV passing through a BB case early
         // In reality this hardly ever fires for BB
         for i in (0..=steps as u32).rev().step_by(step_size) {
@@ -224,16 +163,16 @@ impl Node {
 //         map.load(&wad);
 
 //         let nodes = map.get_nodes();
-//         assert_eq!(nodes[0].split_start.x() as i32, 1552);
-//         assert_eq!(nodes[0].split_start.y() as i32, -2432);
-//         assert_eq!(nodes[0].split_delta.x() as i32, 112);
-//         assert_eq!(nodes[0].split_delta.y() as i32, 0);
+//         assert_eq!(nodes[0].split_start.x as i32, 1552);
+//         assert_eq!(nodes[0].split_start.y as i32, -2432);
+//         assert_eq!(nodes[0].split_delta.x as i32, 112);
+//         assert_eq!(nodes[0].split_delta.y as i32, 0);
 
-//         assert_eq!(nodes[0].bounding_boxes[0][0].x() as i32, 1552); //top
-//         assert_eq!(nodes[0].bounding_boxes[0][0].y() as i32, -2432); //bottom
+//         assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //top
+//         assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //bottom
 
-//         assert_eq!(nodes[0].bounding_boxes[1][0].x() as i32, 1600);
-//         assert_eq!(nodes[0].bounding_boxes[1][0].y() as i32, -2048);
+//         assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
+//         assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
 
 //         assert_eq!(nodes[0].child_index[0], 32768);
 //         assert_eq!(nodes[0].child_index[1], 32769);

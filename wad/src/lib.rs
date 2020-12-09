@@ -31,8 +31,6 @@
 //!             └───────── └────────────────────┘
 //! ```
 
-pub use glam::*;
-
 /// Bring only the WAD structs down to root level
 pub use crate::wad::*;
 
@@ -46,6 +44,4 @@ pub mod wad;
 /// need to be parsed in to. Parsing is done via the `wad` module
 pub mod lumps;
 
-pub mod nodes;
-
-pub type Vertex = Vec2;
+//pub mod nodes;

@@ -1,5 +1,10 @@
+use crate::lumps::{
+    WadLineDef, WadNode, WadSector, WadSegment, WadSideDef, WadSubSector,
+    WadThing, WadVertex,
+};
 use std::fs::File;
 use std::io::prelude::*;
+use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::ptr::NonNull;
@@ -7,32 +12,33 @@ use std::{fmt, str};
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
-#[derive(Clone)]
-pub struct DPtr<T> {
+pub struct WadPtr<T> {
     p: NonNull<T>,
 }
 
-impl<T> DPtr<T> {
-    pub fn new(t: &T) -> DPtr<T> {
-        DPtr {
+impl<T> WadPtr<T> {
+    pub fn new(t: &T) -> WadPtr<T> {
+        WadPtr {
             p: NonNull::from(t),
         }
     }
-
-    pub fn clone(&self) -> DPtr<T> { DPtr { p: self.p.clone() } }
 }
 
-impl<T> Deref for DPtr<T> {
+impl<T> Clone for WadPtr<T> {
+    fn clone(&self) -> WadPtr<T> { WadPtr { p: self.p } }
+}
+
+impl<T> Deref for WadPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target { unsafe { self.p.as_ref() } }
 }
 
-impl<T> DerefMut for DPtr<T> {
+impl<T> DerefMut for WadPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.p.as_mut() } }
 }
 
-impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
+impl<T: fmt::Debug> fmt::Debug for WadPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
     }
@@ -77,7 +83,7 @@ pub enum LumpIndex {
     Count,
 }
 
-impl LumpIndex {
+impl ToString for LumpIndex {
     fn to_string(&self) -> String {
         match self {
             LumpIndex::Things => "THINGS".to_string(),
@@ -136,15 +142,17 @@ impl fmt::Debug for WadHeader {
 /// | 0x04-0x07  | unsigned int | The size of the lump in bytes                              |
 /// | 0x08-0x0f  | 8 ASCII char | ASCII holding the name of the lump                         |
 ///
-pub struct WadDirectory {
+pub struct LumpInfo {
     /// The offset in bytes where the lump data starts
-    lump_offset: u32,
+    lump_offset: usize,
     /// The size in bytes of the lump referenced
-    lump_size:   u32,
+    lump_size:   usize,
     /// Name for the lump data
     lump_name:   String,
+    /// The Index in to `WadData.file_data`
+    file_handle: usize,
 }
-impl fmt::Debug for WadDirectory {
+impl fmt::Debug for LumpInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -156,169 +164,326 @@ impl fmt::Debug for WadDirectory {
 
 /// "Where's All (the) Data": contains the WAD in memory, plus an array of directories
 /// telling us where each data lump starts
-pub struct Wad {
-    pub wad_file_path: PathBuf,
-    /// The WAD as an array of bytes read in to memory
-    pub wad_data:      Vec<u8>,
+pub struct WadData {
+    /// The WAD as an array of bytes read in to memory, the index is the handle
+    file_data: Vec<Vec<u8>>,
     /// Tells us where each lump of data is
-    pub wad_dirs:      Vec<WadDirectory>,
+    lump_info: Vec<LumpInfo>,
 }
 
-impl fmt::Debug for Wad {
+impl fmt::Debug for WadData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "\nWadLoader {{\n  wad_file_path: {:?},\n wad_dirs: {:?},\n}}",
-            self.wad_file_path, self.wad_dirs
-        )
+        write!(f, "\nWadLoader {{\n lumps: {:?},\n}}", self.lump_info)
     }
 }
 
-impl Wad {
-    pub fn new<A>(file_path: A) -> Wad
-    where
-        A: Into<PathBuf>, {
-        let mut wad = Wad {
-            wad_file_path: file_path.into(),
-            wad_data:      Vec::new(),
-            wad_dirs:      Vec::new(),
+impl WadData {
+    pub fn new(file_path: PathBuf) -> WadData {
+        let mut wad = WadData {
+            file_data: Vec::new(),
+            lump_info: Vec::new(),
         };
 
-        let mut file = File::open(&wad.wad_file_path)
-            .expect(&format!("Could not open {:?}", &wad.wad_file_path));
+        let mut file = File::open(&file_path)
+            .unwrap_or_else(|_| panic!("Could not open {:?}", &file_path));
 
         let file_len = file.metadata().unwrap().len();
-        wad.wad_data.reserve_exact(file_len as usize);
+        let mut file_data = Vec::with_capacity(file_len as usize);
+
         let wad_len = file
-            .read_to_end(&mut wad.wad_data)
-            .expect(&format!("Could not read {:?}", &wad.wad_file_path));
+            .read_to_end(&mut file_data)
+            .unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
 
         if wad_len != file_len as usize {
             panic!("Did not read complete WAD")
         }
 
+        wad.file_data.push(file_data);
+        wad.cache_lumps(0);
         wad
     }
 
-    pub fn read_2_bytes(&self, offset: usize) -> u16 {
-        (self.wad_data[offset + 1] as u16) << 8 | (self.wad_data[offset] as u16)
+    pub fn add_file(&mut self, file_path: PathBuf) {
+        let mut file = File::open(&file_path)
+            .unwrap_or_else(|_| panic!("Could not open {:?}", &file_path));
+
+        let file_len = file.metadata().unwrap().len();
+        let mut file_data = Vec::with_capacity(file_len as usize);
+
+        let wad_len = file
+            .read_to_end(&mut file_data)
+            .unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
+
+        if wad_len != file_len as usize {
+            panic!("Did not read complete WAD")
+        }
+
+        self.file_data.push(file_data);
+        self.cache_lumps(self.file_data.len() - 1);
     }
 
-    pub fn read_4_bytes(&self, offset: usize) -> u32 {
-        (self.wad_data[offset + 3] as u32) << 24
-            | (self.wad_data[offset + 2] as u32) << 16
-            | (self.wad_data[offset + 1] as u32) << 8
-            | (self.wad_data[offset] as u32)
+    fn read_2_bytes(&self, offset: usize, file_idx: usize) -> i16 {
+        (self.file_data[file_idx][offset + 1] as i16) << 8
+            | (self.file_data[file_idx][offset] as i16)
     }
 
-    pub fn read_header(&self, offset: usize) -> WadHeader {
+    fn read_4_bytes(&self, offset: usize, file_idx: usize) -> i32 {
+        (self.file_data[file_idx][offset + 3] as i32) << 24
+            | (self.file_data[file_idx][offset + 2] as i32) << 16
+            | (self.file_data[file_idx][offset + 1] as i32) << 8
+            | (self.file_data[file_idx][offset] as i32)
+    }
+
+    fn read_header(&self, file_idx: usize) -> WadHeader {
         let mut t = [0u8; 4];
-        t[0] = self.wad_data[offset];
-        t[1] = self.wad_data[offset + 1];
-        t[2] = self.wad_data[offset + 2];
-        t[3] = self.wad_data[offset + 3];
+        t[0] = self.file_data[file_idx][0];
+        t[1] = self.file_data[file_idx][1];
+        t[2] = self.file_data[file_idx][2];
+        t[3] = self.file_data[file_idx][3];
 
         WadHeader {
             wad_type:   t,
-            dir_count:  self.read_4_bytes(offset + 4),
-            dir_offset: self.read_4_bytes(offset + 8),
+            dir_count:  self.read_4_bytes(4, file_idx) as u32,
+            dir_offset: self.read_4_bytes(8, file_idx) as u32,
         }
     }
 
-    pub fn read_dir_data(&self, offset: usize) -> WadDirectory {
+    fn read_dir_data(&self, offset: usize, file_idx: usize) -> LumpInfo {
         let mut n = [0u8; 8]; // length is 8 slots total
         for i in 0..8 {
-            n[i] = self.wad_data[offset + 8 + i]
+            n[i] = self.file_data[file_idx][offset + 8 + i]
         }
 
-        WadDirectory {
-            lump_offset: self.read_4_bytes(offset),
-            lump_size:   self.read_4_bytes(offset + 4),
+        LumpInfo {
+            file_handle: file_idx,
+            lump_offset: self.read_4_bytes(offset, file_idx) as usize,
+            lump_size:   self.read_4_bytes(offset + 4, file_idx) as usize,
             lump_name:   str::from_utf8(&n)
                 .expect("Invalid lump name")
-                .trim_end_matches("\u{0}") // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
         }
     }
 
-    pub fn read_directories(&mut self) {
-        let header = self.read_header(0);
-        self.wad_dirs.reserve_exact(header.dir_count as usize);
+    fn cache_lumps(&mut self, file_idx: usize) {
+        let header = self.read_header(file_idx);
+        self.lump_info.reserve_exact(header.dir_count as usize);
 
         for i in 0..(header.dir_count) {
-            let dir = self.read_dir_data((header.dir_offset + i * 16) as usize);
-            self.wad_dirs.push(dir);
+            let dir = self
+                .read_dir_data((header.dir_offset + i * 16) as usize, file_idx);
+            self.lump_info.push(dir);
         }
     }
 
-    pub fn find_lump_index(&self, name: &str) -> Option<usize> {
-        for (i, dir) in self.wad_dirs.iter().enumerate() {
-            if &dir.lump_name == name {
-                return Some(i);
+    fn find_lump_info(&self, name: &str) -> Option<&LumpInfo> {
+        for info in self.lump_info.iter() {
+            if info.lump_name == name {
+                return Some(info);
             }
         }
         println!("Index not found for lump name: {}", name);
         None
     }
 
-    pub fn read_lump_to_vec<F, T>(
-        &self,
-        mut index: usize,
-        lump_type: LumpIndex,
-        data_size: u32,
-        func: F,
-    ) -> Vec<T>
+    fn read_lump_to_vec<F, T>(&self, lump_info: &LumpInfo, func: F) -> Vec<T>
     where
         F: Fn(usize) -> T, {
-        let name: String = lump_type.to_string();
-        index += lump_type as usize;
+        let item_size = size_of::<T>();
+        let item_count = lump_info.lump_size / item_size;
 
-        if self.wad_dirs[index].lump_name != name {
-            panic!(
-                "Invalid {} lump index: {}, found {}",
-                name, index, self.wad_dirs[index].lump_name
-            )
-        }
-
-        let data_count = self.wad_dirs[index].lump_size / data_size;
-
-        let mut v: Vec<T> = Vec::new();
-        for i in 0..data_count {
-            let offset =
-                (self.wad_dirs[index].lump_offset + i * data_size) as usize;
+        let mut v: Vec<T> = Vec::with_capacity(item_count);
+        for i in 0..item_count {
+            let offset = (lump_info.lump_offset + i * item_size) as usize;
             v.push(func(offset));
         }
         v
+    }
+
+    fn find_lump_for_map_or_panic(
+        &self,
+        map_name: &str,
+        lump: LumpIndex,
+    ) -> &LumpInfo {
+        for (idx, info) in self.lump_info.iter().enumerate() {
+            if info.lump_name == map_name {
+                return &self.lump_info[idx + lump as usize];
+            }
+        }
+        panic!("Could not find {}", map_name);
+    }
+
+    /// A map index must be provided
+    pub fn read_things(&self, map_name: &str) -> Vec<WadThing> {
+        let info = self.find_lump_for_map_or_panic(map_name, LumpIndex::Things);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadThing::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+                self.read_2_bytes(offset + 4, info.file_handle),
+                self.read_2_bytes(offset + 6, info.file_handle),
+                self.read_2_bytes(offset + 8, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_vertexes(&self, map_name: &str) -> Vec<WadVertex> {
+        let info =
+            self.find_lump_for_map_or_panic(map_name, LumpIndex::Vertexes);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadVertex::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_sectors(&self, map_name: &str) -> Vec<WadSector> {
+        let info =
+            self.find_lump_for_map_or_panic(map_name, LumpIndex::Sectors);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadSector::new(
+                self.read_2_bytes(offset, info.file_handle) as i16,
+                self.read_2_bytes(offset + 2, info.file_handle) as i16,
+                &self.file_data[info.file_handle][offset + 4..offset + 12],
+                &self.file_data[info.file_handle][offset + 12..offset + 20],
+                self.read_2_bytes(offset + 20, info.file_handle),
+                self.read_2_bytes(offset + 22, info.file_handle),
+                self.read_2_bytes(offset + 24, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_sidedefs(&self, map_name: &str) -> Vec<WadSideDef> {
+        let info =
+            self.find_lump_for_map_or_panic(map_name, LumpIndex::SideDefs);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadSideDef::new(
+                self.read_2_bytes(offset, info.file_handle) as i16,
+                self.read_2_bytes(offset + 2, info.file_handle) as i16,
+                &self.file_data[info.file_handle][offset + 4..offset + 12],
+                &self.file_data[info.file_handle][offset + 12..offset + 20],
+                &self.file_data[info.file_handle][offset + 20..offset + 28],
+                self.read_2_bytes(offset + 28, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_linedefs(&self, map_name: &str) -> Vec<WadLineDef> {
+        let info =
+            self.find_lump_for_map_or_panic(map_name, LumpIndex::LineDefs);
+
+        self.read_lump_to_vec(info, |offset| {
+            let back_sidedef = {
+                let index = self.read_2_bytes(offset + 12, info.file_handle);
+                if index < i16::MAX {
+                    Some(index)
+                } else {
+                    None
+                }
+            };
+
+            WadLineDef::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+                self.read_2_bytes(offset + 4, info.file_handle),
+                self.read_2_bytes(offset + 6, info.file_handle),
+                self.read_2_bytes(offset + 8, info.file_handle),
+                self.read_2_bytes(offset + 10, info.file_handle),
+                back_sidedef,
+            )
+        })
+    }
+
+    pub fn read_segments(&self, map_name: &str) -> Vec<WadSegment> {
+        let info = self.find_lump_for_map_or_panic(map_name, LumpIndex::Segs);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadSegment::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+                self.read_2_bytes(offset + 4, info.file_handle),
+                self.read_2_bytes(offset + 6, info.file_handle),
+                self.read_2_bytes(offset + 8, info.file_handle), // 0 front or 1 back
+                self.read_2_bytes(offset + 10, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_subsectors(&self, map_name: &str) -> Vec<WadSubSector> {
+        let info =
+            self.find_lump_for_map_or_panic(map_name, LumpIndex::SubSectors);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadSubSector::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+            )
+        })
+    }
+
+    pub fn read_nodes(&self, map_name: &str) -> Vec<WadNode> {
+        let info = self.find_lump_for_map_or_panic(map_name, LumpIndex::Nodes);
+
+        self.read_lump_to_vec(info, |offset| {
+            WadNode::new(
+                self.read_2_bytes(offset, info.file_handle),
+                self.read_2_bytes(offset + 2, info.file_handle),
+                self.read_2_bytes(offset + 4, info.file_handle),
+                self.read_2_bytes(offset + 6, info.file_handle),
+                [
+                    [
+                        self.read_2_bytes(offset + 12, info.file_handle), // top
+                        self.read_2_bytes(offset + 8, info.file_handle), // left
+                        self.read_2_bytes(offset + 14, info.file_handle), // bottom
+                        self.read_2_bytes(offset + 10, info.file_handle), // right
+                    ],
+                    [
+                        self.read_2_bytes(offset + 20, info.file_handle),
+                        self.read_2_bytes(offset + 16, info.file_handle),
+                        self.read_2_bytes(offset + 22, info.file_handle),
+                        self.read_2_bytes(offset + 18, info.file_handle),
+                    ],
+                ],
+                self.read_2_bytes(offset + 24, info.file_handle) as u16,
+                self.read_2_bytes(offset + 26, info.file_handle) as u16,
+            )
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::wad::Wad;
+    use crate::wad::WadData;
+    use crate::LumpIndex;
 
     #[test]
     fn load_wad() {
-        let wad = Wad::new("../doom1.wad");
-        assert_eq!(wad.wad_data.len(), 4225460);
+        let wad = WadData::new("../doom1.wad".into());
+        assert_eq!(wad.file_data[0].len(), 4225460);
     }
 
     #[test]
     fn read_two_bytes() {
-        let wad = Wad::new("../doom1.wad");
-        let x1 = wad.read_2_bytes(0);
+        let wad = WadData::new("../doom1.wad".into());
+        let x1 = wad.read_2_bytes(0, 0);
         dbg!(&x1);
-        let x2 = wad.read_2_bytes(2);
+        let x2 = wad.read_2_bytes(2, 0);
         dbg!(&x2);
     }
 
     #[test]
     fn read_four_bytes() {
-        let wad = Wad::new("../doom1.wad");
-        let x = wad.read_4_bytes(0);
+        let wad = WadData::new("../doom1.wad".into());
+        let x = wad.read_4_bytes(0, 0);
         dbg!(&x);
 
-        let y =
-            (wad.read_2_bytes(2) as u32) << 16 | (wad.read_2_bytes(0) as u32);
+        let y = (wad.read_2_bytes(2, 0) as i32) << 16
+            | (wad.read_2_bytes(0, 0) as i32);
         dbg!(&y);
 
         assert_eq!(x, y);
@@ -326,7 +491,7 @@ mod tests {
 
     #[test]
     fn read_header() {
-        let wad = Wad::new("../doom1.wad");
+        let wad = WadData::new("../doom1.wad".into());
 
         let header = wad.read_header(0);
         dbg!(&header);
@@ -334,34 +499,64 @@ mod tests {
 
     #[test]
     fn read_single_dir() {
-        let wad = Wad::new("../doom1.wad");
+        let wad = WadData::new("../doom1.wad".into());
 
         let header = wad.read_header(0);
-        let dir = wad.read_dir_data((header.dir_offset) as usize);
+        let dir = wad.read_dir_data((header.dir_offset) as usize, 0);
         dbg!(&dir);
     }
 
     #[test]
     fn read_all_dirs() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
+        let wad = WadData::new("../doom1.wad".into());
 
-        for i in 6..18 {
-            dbg!(&wad.wad_dirs[i]);
+        for i in 0..18 {
+            dbg!("{:?}", &wad.lump_info[i]);
         }
 
         let header = wad.read_header(0);
-        assert_eq!(wad.wad_dirs.len(), header.dir_count as usize);
+        assert_eq!(wad.lump_info.len(), header.dir_count as usize);
     }
 
     #[test]
     fn find_e1m1() {
-        let mut wad = Wad::new("../doom1.wad");
-        wad.read_directories();
+        let wad = WadData::new("../doom1.wad".into());
 
-        assert_eq!(wad.wad_dirs[6].lump_name, "E1M1");
+        assert_eq!(wad.lump_info[6].lump_name, "E1M1");
 
-        let i = wad.find_lump_index("E1M1").unwrap();
-        assert_eq!(wad.wad_dirs[i].lump_name, "E1M1");
+        let info = wad.find_lump_info("E1M1").unwrap();
+        dbg!(&info.lump_name);
+        dbg!(&info.file_handle);
+        dbg!(&info.lump_offset);
+        dbg!(&info.lump_size);
+        assert_eq!(info.lump_name, "E1M1");
+    }
+
+    #[test]
+    fn find_e1m1_things() {
+        let wad = WadData::new("../doom1.wad".into());
+        let things_lump =
+            wad.find_lump_for_map_or_panic("E1M1", LumpIndex::Things);
+        assert_eq!(things_lump.lump_name, "THINGS");
+    }
+
+    #[test]
+    fn find_e1m2_vertexes() {
+        let wad = WadData::new("../doom1.wad".into());
+        let things_lump =
+            wad.find_lump_for_map_or_panic("E1M2", LumpIndex::Vertexes);
+        assert_eq!(things_lump.lump_name, LumpIndex::Vertexes.to_string());
+    }
+
+    #[test]
+    #[ignore]
+    fn load_sigil() {
+        let mut wad = WadData::new("../doom.wad".into());
+        assert_eq!(wad.lump_info.len(), 2306);
+        wad.add_file("../sigil.wad".into());
+        assert_eq!(wad.lump_info.len(), 2452);
+        let things_lump =
+            wad.find_lump_for_map_or_panic("E3M2", LumpIndex::Vertexes);
+        assert_eq!(things_lump.lump_name, LumpIndex::Vertexes.to_string());
     }
 }
