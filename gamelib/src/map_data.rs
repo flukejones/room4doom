@@ -1,13 +1,13 @@
 use std::str;
 
-use wad::{lumps::*, DPtr, LumpIndex, Vertex, Wad};
+use wad::{lumps::*, Lumps, Vertex, WadData, WadPtr};
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the map area
 #[derive(Debug, Default)]
 pub struct MapExtents {
-    pub min_vertex:    Vertex,
-    pub max_vertex:    Vertex,
+    pub min_vertex:    WadVertex,
+    pub max_vertex:    WadVertex,
     pub width:         f32,
     pub height:        f32,
     pub automap_scale: f32,
@@ -29,9 +29,9 @@ pub struct MapExtents {
 ///
 /// Test if a node is an index to another node in the tree or is an index to a `SubSector`
 /// ```
-/// # use wad::{Wad, nodes::IS_SSECTOR_MASK};
+/// # use wad::{WadData, nodes::IS_SSECTOR_MASK};
 /// # use gamelib::r_bsp::RenderData;
-/// # let mut wad = Wad::new("../doom1.wad");
+/// # let mut wad = WadData::new("../doom1.wad");
 /// # wad.read_directories();
 /// # let mut map = RenderData::new("E1M1".to_owned());
 /// # map.load(&wad);
@@ -64,9 +64,9 @@ pub struct MapExtents {
 ///
 /// Find the subsector a player is in
 /// ```
-/// # use wad::{Wad, nodes::{Node, IS_SSECTOR_MASK}, Vertex};
+/// # use wad::{WadData, nodes::{Node, IS_SSECTOR_MASK}, Vertex};
 /// # use gamelib::r_bsp::RenderData;
-/// # let mut wad = Wad::new("../doom1.wad");
+/// # let mut wad = WadData::new("../doom1.wad");
 /// # wad.read_directories();
 /// # let mut map = RenderData::new("E1M1".to_owned());
 /// # map.load(&wad);
@@ -106,13 +106,13 @@ pub struct MapData {
     name:       String,
     /// Things will be linked to/from each other in many ways, which means this array may
     /// never be resized or it will invalidate references and pointers
-    things:     Vec<Thing>,
-    vertexes:   Vec<Vertex>,
-    linedefs:   Vec<LineDef>,
-    sectors:    Vec<Sector>,
-    sidedefs:   Vec<SideDef>,
-    subsectors: Vec<SubSector>,
-    segments:   Vec<Segment>,
+    things:     Vec<WadThing>,
+    vertexes:   Vec<WadVertex>,
+    linedefs:   Vec<WadLineDef>,
+    sectors:    Vec<WadSector>,
+    sidedefs:   Vec<WadSideDef>,
+    subsectors: Vec<WadSubSector>,
+    segments:   Vec<WadSegment>,
     extents:    MapExtents,
     nodes:      Vec<Node>,
     start_node: u16,
@@ -139,7 +139,7 @@ impl MapData {
     pub fn get_name(&self) -> &str { &self.name }
 
     #[inline]
-    pub fn get_things(&self) -> &[Thing] { &self.things }
+    pub fn get_things(&self) -> &[WadThing] { &self.things }
 
     #[inline]
     pub(crate) fn set_extents(&mut self) {
@@ -170,22 +170,22 @@ impl MapData {
     }
 
     #[inline]
-    pub fn get_vertexes(&self) -> &[Vertex] { &self.vertexes }
+    pub fn get_vertexes(&self) -> &[WadVertex] { &self.vertexes }
 
     #[inline]
-    pub fn get_linedefs(&self) -> &[LineDef] { &self.linedefs }
+    pub fn get_linedefs(&self) -> &[WadLineDef] { &self.linedefs }
 
     #[inline]
-    pub fn get_sectors(&self) -> &[Sector] { &self.sectors }
+    pub fn get_sectors(&self) -> &[WadSector] { &self.sectors }
 
     #[inline]
-    pub fn get_sidedefs(&self) -> &[SideDef] { &self.sidedefs }
+    pub fn get_sidedefs(&self) -> &[WadSideDef] { &self.sidedefs }
 
     #[inline]
-    pub fn get_subsectors(&self) -> &[SubSector] { &self.subsectors }
+    pub fn get_subsectors(&self) -> &[WadSubSector] { &self.subsectors }
 
     #[inline]
-    pub fn get_segments(&self) -> &[Segment] { &self.segments }
+    pub fn get_segments(&self) -> &[WadSegment] { &self.segments }
 
     fn set_scale(&mut self) {
         let map_width = self.extents.width as f32;
@@ -207,15 +207,15 @@ impl MapData {
     #[inline]
     pub fn get_map_extents(&self) -> &MapExtents { &self.extents }
 
-    pub fn load<'m>(&mut self, wad: &Wad) {
+    pub fn load<'m>(&mut self, wad: &WadData) {
         let index = wad
             .find_lump_index(self.get_name())
             .expect(&format!("Could not find {}", self.get_name()));
         // THINGS
         self.things =
-            wad.read_lump_to_vec(index, LumpIndex::Things, 10, |offset| {
-                Thing::new(
-                    Vertex::new(
+            wad.read_lump_to_vec(index, Lumps::Things, 10, |offset| {
+                WadThing::new(
+                    WadVertex::new(
                         wad.read_2_bytes(offset) as i16 as f32,
                         wad.read_2_bytes(offset + 2) as i16 as f32,
                     ),
@@ -226,20 +226,20 @@ impl MapData {
             });
         // Vertexes
         self.vertexes =
-            wad.read_lump_to_vec(index, LumpIndex::Vertexes, 4, |offset| {
-                Vertex::new(
+            wad.read_lump_to_vec(index, Lumps::Vertexes, 4, |offset| {
+                WadVertex::new(
                     wad.read_2_bytes(offset) as i16 as f32,
                     wad.read_2_bytes(offset + 2) as i16 as f32,
                 )
             });
         // Sectors
         self.sectors =
-            wad.read_lump_to_vec(index, LumpIndex::Sectors, 26, |offset| {
-                Sector::new(
+            wad.read_lump_to_vec(index, Lumps::Sectors, 26, |offset| {
+                WadSector::new(
                     wad.read_2_bytes(offset) as i16,
                     wad.read_2_bytes(offset + 2) as i16,
-                    &wad.wad_data[offset + 4..offset + 12],
-                    &wad.wad_data[offset + 12..offset + 20],
+                    &wad.file_data[offset + 4..offset + 12],
+                    &wad.file_data[offset + 12..offset + 20],
                     wad.read_2_bytes(offset + 20),
                     wad.read_2_bytes(offset + 22),
                     wad.read_2_bytes(offset + 24),
@@ -247,21 +247,21 @@ impl MapData {
             });
         // Sidedefs
         self.sidedefs =
-            wad.read_lump_to_vec(index, LumpIndex::SideDefs, 30, |offset| {
+            wad.read_lump_to_vec(index, Lumps::SideDefs, 30, |offset| {
                 let sector =
                     &self.get_sectors()[wad.read_2_bytes(offset + 28) as usize];
-                SideDef::new(
+                WadSideDef::new(
                     wad.read_2_bytes(offset) as i16,
                     wad.read_2_bytes(offset + 2) as i16,
-                    &wad.wad_data[offset + 4..offset + 12],
-                    &wad.wad_data[offset + 12..offset + 20],
-                    &wad.wad_data[offset + 20..offset + 28],
-                    DPtr::new(sector),
+                    &wad.file_data[offset + 4..offset + 12],
+                    &wad.file_data[offset + 12..offset + 20],
+                    &wad.file_data[offset + 20..offset + 28],
+                    WadPtr::new(sector),
                 )
             });
         //LineDefs
         self.linedefs =
-            wad.read_lump_to_vec(index, LumpIndex::LineDefs, 14, |offset| {
+            wad.read_lump_to_vec(index, Lumps::LineDefs, 14, |offset| {
                 let start_vertex =
                     &self.get_vertexes()[wad.read_2_bytes(offset) as usize];
                 let end_vertex =
@@ -271,18 +271,18 @@ impl MapData {
                 let back_sidedef = {
                     let index = wad.read_2_bytes(offset + 12) as usize;
                     if index < 65535 {
-                        Some(DPtr::new(&self.get_sidedefs()[index]))
+                        Some(WadPtr::new(&self.get_sidedefs()[index]))
                     } else {
                         None
                     }
                 };
-                LineDef::new(
-                    DPtr::new(start_vertex),
-                    DPtr::new(end_vertex),
+                WadLineDef::new(
+                    WadPtr::new(start_vertex),
+                    WadPtr::new(end_vertex),
                     wad.read_2_bytes(offset + 4),
                     wad.read_2_bytes(offset + 6),
                     wad.read_2_bytes(offset + 8),
-                    DPtr::new(front_sidedef),
+                    WadPtr::new(front_sidedef),
                     back_sidedef,
                 )
             });
@@ -291,7 +291,7 @@ impl MapData {
         //
         // SEGS
         self.segments =
-            wad.read_lump_to_vec(index, LumpIndex::Segs, 12, |offset| {
+            wad.read_lump_to_vec(index, Lumps::Segs, 12, |offset| {
                 let start_vertex =
                     &self.get_vertexes()[wad.read_2_bytes(offset) as usize];
                 let end_vertex =
@@ -307,12 +307,12 @@ impl MapData {
                     // then it defaults to the front
                     linedef.back_sidedef.as_ref().unwrap().clone()
                 };
-                Segment::new(
-                    DPtr::new(start_vertex),
-                    DPtr::new(end_vertex),
+                WadSegment::new(
+                    WadPtr::new(start_vertex),
+                    WadPtr::new(end_vertex),
                     ((wad.read_2_bytes(offset + 4) as u32) << 16) as f32
                         * 8.38190317e-8,
-                    DPtr::new(linedef),
+                    WadPtr::new(linedef),
                     sidedef,
                     direction, // 0 front or 1 back
                     wad.read_2_bytes(offset + 10),
@@ -320,53 +320,52 @@ impl MapData {
             });
         // SSECTORS
         self.subsectors =
-            wad.read_lump_to_vec(index, LumpIndex::SubSectors, 4, |offset| {
+            wad.read_lump_to_vec(index, Lumps::SSectors, 4, |offset| {
                 let start_seg = wad.read_2_bytes(offset + 2);
                 let sector = self.get_segments()[start_seg as usize]
                     .sidedef
                     .sector
                     .clone();
-                SubSector::new(sector, wad.read_2_bytes(offset), start_seg)
+                WadSubSector::new(sector, wad.read_2_bytes(offset), start_seg)
             });
 
         // NODES
-        self.nodes =
-            wad.read_lump_to_vec(index, LumpIndex::Nodes, 28, |offset| {
-                Node::new(
-                    Vertex::new(
-                        wad.read_2_bytes(offset) as i16 as f32,
-                        wad.read_2_bytes(offset + 2) as i16 as f32,
-                    ),
-                    Vertex::new(
-                        wad.read_2_bytes(offset + 4) as i16 as f32,
-                        wad.read_2_bytes(offset + 6) as i16 as f32,
-                    ),
+        self.nodes = wad.read_lump_to_vec(index, Lumps::Nodes, 28, |offset| {
+            Node::new(
+                WadVertex::new(
+                    wad.read_2_bytes(offset) as i16 as f32,
+                    wad.read_2_bytes(offset + 2) as i16 as f32,
+                ),
+                WadVertex::new(
+                    wad.read_2_bytes(offset + 4) as i16 as f32,
+                    wad.read_2_bytes(offset + 6) as i16 as f32,
+                ),
+                [
                     [
-                        [
-                            Vertex::new(
-                                wad.read_2_bytes(offset + 12) as i16 as f32, // top
-                                wad.read_2_bytes(offset + 8) as i16 as f32, // left
-                            ),
-                            Vertex::new(
-                                wad.read_2_bytes(offset + 14) as i16 as f32, // bottom
-                                wad.read_2_bytes(offset + 10) as i16 as f32, // right
-                            ),
-                        ],
-                        [
-                            Vertex::new(
-                                wad.read_2_bytes(offset + 20) as i16 as f32,
-                                wad.read_2_bytes(offset + 16) as i16 as f32,
-                            ),
-                            Vertex::new(
-                                wad.read_2_bytes(offset + 22) as i16 as f32,
-                                wad.read_2_bytes(offset + 18) as i16 as f32,
-                            ),
-                        ],
+                        WadVertex::new(
+                            wad.read_2_bytes(offset + 12) as i16 as f32, // top
+                            wad.read_2_bytes(offset + 8) as i16 as f32,  // left
+                        ),
+                        WadVertex::new(
+                            wad.read_2_bytes(offset + 14) as i16 as f32, // bottom
+                            wad.read_2_bytes(offset + 10) as i16 as f32, // right
+                        ),
                     ],
-                    wad.read_2_bytes(offset + 24),
-                    wad.read_2_bytes(offset + 26),
-                )
-            });
+                    [
+                        WadVertex::new(
+                            wad.read_2_bytes(offset + 20) as i16 as f32,
+                            wad.read_2_bytes(offset + 16) as i16 as f32,
+                        ),
+                        WadVertex::new(
+                            wad.read_2_bytes(offset + 22) as i16 as f32,
+                            wad.read_2_bytes(offset + 18) as i16 as f32,
+                        ),
+                    ],
+                ],
+                wad.read_2_bytes(offset + 24),
+                wad.read_2_bytes(offset + 26),
+            )
+        });
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
         self.set_scale();
@@ -375,8 +374,8 @@ impl MapData {
     /// R_PointInSubsector - r_main
     pub(crate) fn point_in_subsector(
         &self,
-        point: &Vertex,
-    ) -> Option<DPtr<SubSector>> {
+        point: &WadVertex,
+    ) -> Option<WadPtr<WadSubSector>> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -387,7 +386,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return Some(DPtr::new(
+        return Some(WadPtr::new(
             &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize],
         ));
     }

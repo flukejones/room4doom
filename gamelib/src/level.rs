@@ -1,4 +1,4 @@
-use wad::{lumps::Thing, Wad};
+use wad::{lumps::WadThing, WadData};
 
 use crate::{
     d_main::Skill,
@@ -37,10 +37,10 @@ pub(crate) struct Level {
     /// This needs to be synced with `Game`
     pub game_tic:          u32,
     /// The `Things` for player start locations
-    pub player_starts:     [Option<Thing>; MAXPLAYERS],
+    pub player_starts:     [Option<WadThing>; MAXPLAYERS],
     /// The `Things` for deathmatch start locations
-    pub deathmatch_starts: [Option<Thing>; MAX_DEATHMATCH_STARTS],
-    pub deathmatch_p:      Vec<Thing>,
+    pub deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
+    pub deathmatch_p:      Vec<WadThing>,
     /// Was the level set for deathmatch game
     pub deathmatch:        bool,
     /// for intermission
@@ -53,7 +53,7 @@ pub(crate) struct Level {
 impl Level {
     /// P_SetupLevel
     pub fn setup_level(
-        wad_data: &Wad,
+        wad_data: &WadData,
         skill: Skill,
         mut episode: u32,
         mut map: u32,

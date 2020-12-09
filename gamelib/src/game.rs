@@ -9,12 +9,12 @@ use crate::{
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-use wad::Wad;
+use wad::WadData;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     /// Contains the full wad file
-    wad_data:         Wad,
+    wad_data:         WadData,
     pub(crate) level: Option<Level>,
     pub crop_rect:    Rect,
 
@@ -84,7 +84,7 @@ impl Game {
             _ => false,
         };
 
-        let mut wad = Wad::new(options.iwad.clone());
+        let mut wad = WadData::new(options.iwad.clone());
         wad.read_directories();
         let (game_mode, game_mission, game_description) =
             identify_version(&wad);
@@ -513,9 +513,12 @@ impl Game {
             //self.states.render(dt, &mut self.canvas);
 
             canvas.clear();
-            level
-                .bsp_ctrl
-                .render_bsp_node(&map, player, map.start_node(), canvas);
+            level.bsp_ctrl.render_bsp_node(
+                &map,
+                player,
+                map.start_node(),
+                canvas,
+            );
         }
     }
 }

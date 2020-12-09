@@ -4,12 +4,12 @@
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use std::ptr::NonNull;
-use wad::lumps::Sector;
+use wad::lumps::WadSector;
 
 // P_LIGHTS
 pub(crate) struct FireFlicker {
     pub thinker:   Option<NonNull<Thinker<FireFlicker>>>,
-    pub sector:    NonNull<Sector>,
+    pub sector:    NonNull<WadSector>,
     pub count:     i32,
     pub max_light: i32,
     pub min_light: i32,
@@ -17,7 +17,7 @@ pub(crate) struct FireFlicker {
 
 pub(crate) struct LightFlash {
     pub thinker:   Option<NonNull<Thinker<LightFlash>>>,
-    pub sector:    NonNull<Sector>,
+    pub sector:    NonNull<WadSector>,
     pub count:     i32,
     pub max_light: i32,
     pub min_light: i32,
@@ -27,7 +27,7 @@ pub(crate) struct LightFlash {
 
 pub(crate) struct Strobe {
     pub thinker:     Option<NonNull<Thinker<Strobe>>>,
-    pub sector:      NonNull<Sector>,
+    pub sector:      NonNull<WadSector>,
     pub count:       i32,
     pub min_light:   i32,
     pub max_light:   i32,
@@ -37,7 +37,7 @@ pub(crate) struct Strobe {
 
 pub(crate) struct Glow {
     pub thinker:   Option<NonNull<Thinker<Glow>>>,
-    pub sector:    NonNull<Sector>,
+    pub sector:    NonNull<WadSector>,
     pub min_light: i32,
     pub max_light: i32,
     pub direction: Angle,
@@ -61,7 +61,7 @@ pub(crate) enum PlatType {
 
 pub(crate) struct Platform {
     pub thinker:    Option<NonNull<Thinker<Platform>>>,
-    pub sector:     NonNull<Sector>,
+    pub sector:     NonNull<WadSector>,
     pub speed:      f32,
     pub low:        f32,
     pub high:       f32,
@@ -110,7 +110,7 @@ pub(crate) enum StairEnum {
 
 pub(crate) struct FloorMove {
     pub thinker:         Option<NonNull<Thinker<FloorMove>>>,
-    pub sector:          NonNull<Sector>,
+    pub sector:          NonNull<WadSector>,
     kind:                FloorEnum,
     pub speed:           f32,
     pub crush:           bool,
@@ -133,7 +133,7 @@ pub(crate) enum CeilingKind {
 
 pub(crate) struct CeilingMove {
     pub thinker:      Option<NonNull<Thinker<FloorMove>>>,
-    pub sector:       NonNull<Sector>,
+    pub sector:       NonNull<WadSector>,
     pub kind:         CeilingKind,
     pub bottomheight: f32,
     pub topheight:    f32,
