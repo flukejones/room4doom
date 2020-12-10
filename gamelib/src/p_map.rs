@@ -34,8 +34,8 @@ impl MapObject {
         ptryx: f32,
         ptryy: f32,
     ) -> bool {
-        // P_UnsetThingPosition // map function, sets subsector pointer and blockmap pointer
-        // P_SetThingPosition // map function
+        // P_UnsetThingPosition // level function, sets subsector pointer and blockmap pointer
+        // P_SetThingPosition // level function
         // P_CrossSpecialLine
         //unimplemented!();
         level.mobj_ctrl.floatok = false;
@@ -126,7 +126,7 @@ impl MapObject {
         true
     }
 
-    /// P_SlideMove, // map function
+    /// P_SlideMove, // level function
     // TODO: P_SlideMove
     pub fn p_slide_move(&mut self) {
         //unimplemented!();
@@ -142,7 +142,7 @@ pub(crate) fn p_radius_attack(
 ) {
     let dist = damage + MAXRADIUS;
     unimplemented!()
-    // // origin of block map is bmaporgx and bmaporgy
+    // // origin of block level is bmaporgx and bmaporgy
     // let yh = (spot.xy.y() + dist - bmaporgy) >> MAPBLOCKSHIFT;
     // let yl = (spot.xy.y() - dist - bmaporgy) >> MAPBLOCKSHIFT;
     // let xh = (spot.xy.x() + dist - bmaporgx) >> MAPBLOCKSHIFT;

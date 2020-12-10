@@ -145,7 +145,7 @@ impl<'a> SegRender<'a> {
         let sidedef = self.seg.sidedef.clone();
         let mut linedef = self.seg.linedef.clone();
 
-        // mark the segment as visible for auto map
+        // mark the segment as visible for auto level
         linedef.flags |= ML_MAPPED as u16;
 
         self.rw_normalangle = Angle::new(self.seg.angle_rads() + FRAC_PI_2);

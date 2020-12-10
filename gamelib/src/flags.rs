@@ -25,7 +25,7 @@ pub enum LineDefFlags {
     /// solid wall that has nothing on the other side. This is useful in
     /// protecting secret doors and such. Note that if the sector on the other
     /// side of this "secret" line has its floor height HIGHER than the sector
-    /// on the facing side of the secret line, then the map will show the lines
+    /// on the facing side of the secret line, then the level will show the lines
     /// beyond and thus give up the secret
     Secret        = 1 << 5,
     /// For purposes of monsters hearing sounds and thus

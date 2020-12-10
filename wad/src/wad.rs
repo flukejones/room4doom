@@ -19,7 +19,7 @@ pub(crate) enum Lumps {
     /// Defines upper, lower, and middle textures. Also defines texture
     /// horizontal and vertical offsets. This is information for a `LineDef`
     SideDefs,
-    /// An array of signed short X, Y pairs (`Vertex`). All coordinates in this map
+    /// An array of signed short X, Y pairs (`Vertex`). All coordinates in this level
     /// block are indexes into this array
     Vertexes,
     /// Portions of lines cut due to Binary Space Partitioning (see page
@@ -36,7 +36,7 @@ pub(crate) enum Lumps {
     /// Sector-to-sector visibility matrix to speed-up line of sight
     /// calculations
     Reject,
-    /// 128x128 grid partition of the map LINEDEFS to accelerate collision
+    /// 128x128 grid partition of the level LINEDEFS to accelerate collision
     /// detection
     Blockmap,
     Count,
@@ -272,6 +272,16 @@ impl WadData {
             }
         }
         panic!("Could not find {}", map_name);
+    }
+
+    /// Finds the requested lump in reverse search
+    pub(crate) fn find_lump_or_panic(&self, lump_name: &str) -> &LumpInfo {
+        for (idx, info) in self.lump_info.iter().rev().enumerate() {
+            if info.lump_name == lump_name {
+                return &self.lump_info[idx];
+            }
+        }
+        panic!("Could not find {}", lump_name);
     }
 }
 
