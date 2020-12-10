@@ -4,10 +4,7 @@ use std::{
 };
 
 use glam::Vec2;
-use wad::{
-    lumps::{WadSubSector, WadThing},
-    WadPtr,
-};
+use wad::lumps::{WadSubSector, WadThing};
 
 use crate::{
     angle::Angle,
@@ -16,6 +13,7 @@ use crate::{
     info::MapObjectInfo,
     p_local::FRACUNIT_DIV4,
     p_local::ONCEILINGZ,
+    DPtr,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
@@ -145,7 +143,7 @@ pub(crate) struct MapObject {
     sprite:           SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame:            i32,
-    subsector:        WadPtr<WadSubSector>,
+    subsector:        DPtr<WadSubSector>,
     /// The closest interval over all contacted Sectors.
     pub floorz:       f32,
     pub ceilingz:     f32,
@@ -707,7 +705,7 @@ impl MapObject {
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
-        let sub_sector: WadPtr<WadSubSector> =
+        let sub_sector: DPtr<WadSubSector> =
             level.map_data.point_in_subsector(&Vec2::new(x, y)).unwrap();
 
         let floorz = sub_sector.sector.floor_height as i32;

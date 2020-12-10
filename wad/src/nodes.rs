@@ -150,7 +150,7 @@ impl Node {
 // #[cfg(test)]
 // mod tests {
 //     use crate::nodes::IS_SSECTOR_MASK;
-//     use gamelib::map::Map;
+//     use gamelib::level::Map;
 //     use crate::wad::Wad;
 //     use crate::Vertex;
 
@@ -159,10 +159,10 @@ impl Node {
 //         let mut wad = Wad::new("../doom1.wad");
 //         wad.read_directories();
 
-//         let mut map = Map::new("E1M1".to_owned());
-//         map.load(&wad);
+//         let mut level = Map::new("E1M1".to_owned());
+//         level.load(&wad);
 
-//         let nodes = map.get_nodes();
+//         let nodes = level.get_nodes();
 //         assert_eq!(nodes[0].split_start.x as i32, 1552);
 //         assert_eq!(nodes[0].split_start.y as i32, -2432);
 //         assert_eq!(nodes[0].split_delta.x as i32, 112);
@@ -198,12 +198,12 @@ impl Node {
 //         let mut wad = Wad::new("../doom1.wad");
 //         wad.read_directories();
 
-//         let mut map = Map::new("E1M1".to_owned());
-//         map.load(&wad);
+//         let mut level = Map::new("E1M1".to_owned());
+//         level.load(&wad);
 
 //         let player = Vertex::new(1056.0, -3616.0);
-//         let nodes = map.get_nodes();
-//         let subsector = map
+//         let nodes = level.get_nodes();
+//         let subsector = level
 //             .find_subsector(&player, (nodes.len() - 1) as u16)
 //             .unwrap();
 //         //assert_eq!(subsector_id, Some(103));

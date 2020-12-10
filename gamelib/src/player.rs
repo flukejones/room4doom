@@ -73,7 +73,7 @@ pub(crate) struct WBPlayerStruct {
     pub score:   i32,
 }
 
-/// parms for world map / intermission
+/// parms for world level / intermission
 #[derive(Debug, Default)]
 pub(crate) struct WBStartStruct {
     /// episode # (0-2)

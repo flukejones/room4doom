@@ -18,8 +18,7 @@ pub(crate) mod flags;
 pub mod game;
 pub(crate) mod info;
 pub mod input;
-pub(crate) mod level;
-pub mod map_data;
+pub(crate) mod level_data;
 pub(crate) mod p_enemy;
 pub(crate) mod p_lights;
 pub(crate) mod p_local;
@@ -86,33 +85,33 @@ fn scale_from_view_angle(
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
-struct WadPtr<T> {
+struct DPtr<T> {
     p: NonNull<T>,
 }
 
-impl<T> WadPtr<T> {
-    fn new(t: &T) -> WadPtr<T> {
-        WadPtr {
+impl<T> DPtr<T> {
+    fn new(t: &T) -> DPtr<T> {
+        DPtr {
             p: NonNull::from(t),
         }
     }
 }
 
-impl<T> Clone for WadPtr<T> {
-    fn clone(&self) -> WadPtr<T> { WadPtr { p: self.p } }
+impl<T> Clone for DPtr<T> {
+    fn clone(&self) -> DPtr<T> { DPtr { p: self.p } }
 }
 
-impl<T> Deref for WadPtr<T> {
+impl<T> Deref for DPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target { unsafe { self.p.as_ref() } }
 }
 
-impl<T> DerefMut for WadPtr<T> {
+impl<T> DerefMut for DPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.p.as_mut() } }
 }
 
-impl<T: fmt::Debug> fmt::Debug for WadPtr<T> {
+impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
     }

@@ -97,7 +97,7 @@ pub struct WadLineDef {
     pub end_vertex:    i16,
     /// The line attributes, see `LineDefFlags`
     pub flags:         i16,
-    pub line_type:     i16,
+    pub special:       i16,
     /// This is a number which ties this line's effect type
     /// to all SECTORS that have the same tag number (in their last
     /// field)
@@ -123,7 +123,7 @@ impl WadLineDef {
             start_vertex,
             end_vertex,
             flags,
-            line_type,
+            special: line_type,
             sector_tag,
             front_sidedef,
             back_sidedef,
@@ -229,7 +229,7 @@ impl WadSubSector {
     }
 }
 
-/// A `Sector` is a horizontal (east-west and north-south) area of the map
+/// A `Sector` is a horizontal (east-west and north-south) area of the level
 /// where a floor height and ceiling height is defined.
 /// Any change in floor or ceiling height or texture requires a
 /// new sector (and therefore separating linedefs and sidedefs).
@@ -361,7 +361,7 @@ impl WadSideDef {
 }
 
 /// The base node structure as parsed from the WAD records. What is stored in the WAD
-/// is the splitting line used for splitting the map/node (starts with the map then
+/// is the splitting line used for splitting the level/node (starts with the level then
 /// consecutive nodes, aiming for an even split if possible), a box which encapsulates
 /// the left and right regions of the split, and the index numbers for left and right
 /// children of the node; the index is in to the array built from this lump.
@@ -388,10 +388,10 @@ impl WadSideDef {
 /// | 0x1A-0x1B  | Left (Back)  child index             | Index of the back child + sub-sector indicator   |
 #[derive(Debug, Clone)]
 pub struct WadNode {
-    /// Where the line used for splitting the map starts
+    /// Where the line used for splitting the level starts
     pub x:              i16,
     pub y:              i16,
-    /// Where the line used for splitting the map ends
+    /// Where the line used for splitting the level ends
     pub dx:             i16,
     pub dy:             i16,
     /// Coordinates of the bounding boxes:

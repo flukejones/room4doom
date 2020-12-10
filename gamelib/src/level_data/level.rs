@@ -1,5 +1,6 @@
 use wad::{lumps::WadThing, WadData};
 
+use crate::level_data::map_data::MapData;
 use crate::{
     d_main::Skill,
     d_thinker::Think,
@@ -8,7 +9,6 @@ use crate::{
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
-    map_data::MapData,
     p_map::MobjCtrl,
     p_map_object::MapObject,
     player::Player,
@@ -74,10 +74,8 @@ impl Level {
             if episode > 1 {
                 episode = 1; // only start episode 1 on shareware
             }
-        } else {
-            if episode > 3 {
-                episode = 3;
-            }
+        } else if episode > 3 {
+            episode = 3;
         }
 
         if map > 9 && game_mode != GameMode::Commercial {
@@ -199,12 +197,10 @@ pub fn ticker(game: &mut Game) {
     // Only run thinkers if a level is loaded
     if let Some(ref mut level) = game.level {
         for (i, player) in game.players.iter_mut().enumerate() {
-            if game.player_in_game[i] {
-                if player.think(level) {
-                    if let Some(ref mut mobj) = player.mobj {
-                        mobj.unlink();
-                        mobj.function = ActionFunc::None;
-                    }
+            if game.player_in_game[i] && player.think(level) {
+                if let Some(ref mut mobj) = player.mobj {
+                    mobj.unlink();
+                    mobj.function = ActionFunc::None;
                 }
             }
         }

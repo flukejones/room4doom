@@ -284,7 +284,7 @@ impl Game {
         self.game_skill = skill;
         self.usergame = true; // will be set false if a demo
 
-        // TODO: set the sky map for the episode
+        // TODO: set the sky level for the episode
         // if (gamemode == commercial)
         // {
         //     skytexture = R_TextureNumForName("SKY3");
