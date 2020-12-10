@@ -3,26 +3,6 @@ use std::f32::consts::PI;
 use glam::Vec2;
 
 #[inline]
-pub fn radian_range(rad: f32) -> f32 {
-    if rad < 0.0 {
-        return rad + 2.0 * PI;
-    } else if rad >= 2.0 * PI {
-        return rad - 2.0 * PI;
-    }
-    rad
-}
-
-#[inline]
-pub fn degree_range(deg: f32) -> f32 {
-    if deg < 0.0 {
-        return deg + 360.0;
-    } else if deg >= 360.0 {
-        return deg - 360.0;
-    }
-    deg
-}
-
-#[inline]
 pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
     lhs.x() * rhs.y() - lhs.y() * rhs.x()
 }

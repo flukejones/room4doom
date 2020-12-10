@@ -1,5 +1,5 @@
 use crate::p_map_object::MapObjectFlag;
-use crate::r_bsp::point_to_angle_2;
+use crate::renderer::r_bsp::point_to_angle_2;
 use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 
 /// A_FaceTarget

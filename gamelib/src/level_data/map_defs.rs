@@ -1,16 +1,19 @@
 use crate::angle::Angle;
 use crate::DPtr;
 use glam::Vec2;
+use std::f32::EPSILON;
 
+#[derive(Debug)]
 pub(crate) enum SlopeType {
-    ST_HORIZONTAL,
-    ST_VERTICAL,
-    ST_POSITIVE,
-    ST_NEGATIVE,
+    Horizontal,
+    Vertical,
+    Positive,
+    Negative,
 }
 
 /// The SECTORS record, at runtime.
 /// Stores things/mobjs.
+#[derive(Debug)]
 pub(crate) struct Sector {
     pub floorheight:   f32,
     pub ceilingheight: f32,
@@ -47,6 +50,7 @@ pub(crate) struct Sector {
     //  struct line_s**	lines;	// [linecount] size
 }
 
+#[derive(Debug)]
 pub(crate) struct SideDef {
     // add this to the calculated texture column
     pub textureoffset: f32,
@@ -64,7 +68,7 @@ pub(crate) struct SideDef {
     pub sector: DPtr<Sector>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct BBox {
     pub top:    f32,
     pub bottom: f32,
@@ -96,14 +100,14 @@ impl BBox {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct LineDef {
     // Vertices, from v1 to v2.
     pub v1: DPtr<Vec2>,
     pub v2: DPtr<Vec2>,
 
     // Precalculated v2 - v1 for side checking.
-    pub dx: f32,
-    pub dy: f32,
+    pub delta: Vec2,
 
     // Animation related.
     pub flags:   i16,
@@ -136,7 +140,8 @@ pub(crate) struct LineDef {
     // TODO: void*	specialdata: Option<DPtr<Thinker>>,
 }
 
-pub struct Segment {
+#[derive(Debug)]
+pub(crate) struct Segment {
     // Vertices, from v1 to v2.
     pub v1: DPtr<Vec2>,
     pub v2: DPtr<Vec2>,
@@ -156,4 +161,46 @@ pub struct Segment {
 
     pub frontsector: DPtr<Sector>,
     pub backsector:  Option<DPtr<Sector>>,
+}
+
+impl Segment {
+    /// True if the right side of the segment faces the point
+    pub fn is_facing_point(&self, point: &Vec2) -> bool {
+        let start = &self.v1;
+        let end = &self.v2;
+
+        let d = (end.y() - start.y()) * (start.x() - point.x())
+            - (end.x() - start.x()) * (start.y() - point.y());
+        if d <= EPSILON {
+            return true;
+        }
+        false
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SubSector {
+    pub sector:    DPtr<Sector>,
+    /// How many `Segment`s line this `SubSector`
+    pub seg_count: i16,
+    /// The `Segment` to start with
+    pub start_seg: i16,
+}
+
+#[derive(Debug)]
+pub struct Node {
+    /// Where the line used for splitting the level starts
+    pub xy:             Vec2,
+    /// Where the line used for splitting the level ends
+    pub delta:          Vec2,
+    /// Coordinates of the bounding boxes:
+    /// - [0][0] == right box, top-left
+    /// - [0][1] == right box, bottom-right
+    /// - [1][0] == left box, top-left
+    /// - [1][1] == left box, bottom-right
+    pub bounding_boxes: [[Vec2; 2]; 2],
+    /// The node children. Doom uses a clever trick where if one node is selected
+    /// then the other can also be checked with the same/minimal code by inverting
+    /// the last bit
+    pub child_index:    [u16; 2],
 }

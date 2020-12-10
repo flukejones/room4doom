@@ -1,4 +1,5 @@
-use crate::{d_thinker::Think, level::Level, p_spec::*};
+use crate::level_data::level::Level;
+use crate::{d_thinker::Think, p_spec::*};
 
 impl Think for FireFlicker {
     fn think(&mut self, level: &mut Level) -> bool { false }

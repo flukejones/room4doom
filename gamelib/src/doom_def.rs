@@ -13,8 +13,8 @@ pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
 pub const BACKUPTICS: usize = 12;
 
-pub const ML_DONTPEGBOTTOM: u32 =	16;
-pub const ML_MAPPED: u32 =		256;
+pub const ML_DONTPEGBOTTOM: u32 = 16;
+pub const ML_MAPPED: u32 = 256;
 
 // Game mode handling - identify IWAD version
 //  to handle IWAD dependend animations etc.
@@ -74,7 +74,7 @@ pub static MTF_NORMAL: u8 = 2;
 pub static MTF_HARD: u8 = 4;
 
 /// Deaf monsters/do not react to sound.
-pub static MTF_AMBUSH: u16 = 8;
+pub static MTF_AMBUSH: i16 = 8;
 
 /// Key cards.
 #[derive(Debug, Copy, Clone)]

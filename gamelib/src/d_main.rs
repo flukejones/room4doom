@@ -13,8 +13,9 @@ use crate::{
     doom_def::GameMode,
     game::Game,
     input::Input,
-    renderer::basic::Basic,
-    renderer::{cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer},
+    shaders::{
+        basic::Basic, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer,
+    },
     timestep::TimeStep,
 };
 
@@ -108,9 +109,9 @@ pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
     let game_mission;
     let game_description;
 
-    if wad.find_lump_index("MAP01").is_some() {
+    if wad.lump_exists("MAP01") {
         game_mission = GameMission::Doom2;
-    } else if wad.find_lump_index("E1M1").is_some() {
+    } else if wad.lump_exists("E1M1") {
         game_mission = GameMission::Doom;
     } else {
         panic!("Could not determine IWAD type");
@@ -118,10 +119,10 @@ pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
 
     if game_mission == GameMission::Doom {
         // Doom 1.  But which version?
-        if wad.find_lump_index("E4M1").is_some() {
+        if wad.lump_exists("E4M1") {
             game_mode = GameMode::Retail;
             game_description = String::from("The Ultimate DOOM");
-        } else if wad.find_lump_index("E3M1").is_some() {
+        } else if wad.lump_exists("E3M1") {
             game_mode = GameMode::Registered;
             game_description = String::from("DOOM Registered");
         } else {
@@ -169,7 +170,7 @@ pub fn d_doom_loop(
 
     let buf_width = render_buffer.surface().width();
     let buf_height = render_buffer.surface().height();
-    Ok(loop {
+    loop {
         if !game.running() {
             break;
         }
@@ -195,7 +196,12 @@ pub fn d_doom_loop(
         rend.draw().unwrap();
 
         gl.gl_swap_window();
-    })
+
+        if let Some(fps) = timestep.frame_rate() {
+            println!("FPS: {}", fps);
+        }
+    }
+    Ok(())
 }
 
 /// D_Display

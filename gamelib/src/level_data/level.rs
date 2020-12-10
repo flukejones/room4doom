@@ -1,6 +1,7 @@
 use wad::{lumps::WadThing, WadData};
 
 use crate::level_data::map_data::MapData;
+use crate::renderer::r_bsp::RenderData;
 use crate::{
     d_main::Skill,
     d_thinker::Think,
@@ -12,7 +13,6 @@ use crate::{
     p_map::MobjCtrl,
     p_map_object::MapObject,
     player::Player,
-    r_bsp::RenderData,
 };
 
 /// The level is considered a `World` or sorts. One that exists only
@@ -61,10 +61,7 @@ impl Level {
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
     ) -> Self {
-        let respawn_monsters = match skill {
-            Skill::Nightmare => false,
-            _ => true,
-        };
+        let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
         if game_mode == GameMode::Retail {
             if episode > 4 {
@@ -164,14 +161,9 @@ impl Level {
     pub fn clean_thinker_list(&mut self) {
         for i in 0..self.thinkers.len() {
             // Do not remove if already None, or if has Action
-            let status =
-                self.thinkers[i].as_ref().map_or(
-                    false,
-                    |thinker| match thinker.function {
-                        ActionFunc::None => true,
-                        _ => false,
-                    },
-                );
+            let status = self.thinkers[i].as_ref().map_or(false, |thinker| {
+                matches!(thinker.function, ActionFunc::None)
+            });
             if status {
                 // An item must always be replaced in place to prevent realloc of vec
                 let mut thinker = self.thinkers[i].take().unwrap();

@@ -1,17 +1,18 @@
-use std::str;
-
 use crate::angle::Angle;
 use crate::level_data::map_defs::{
-    BBox, LineDef, Sector, Segment, SideDef, SlopeType,
+    BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
 };
+use crate::p_local::bam_to_radian;
 use crate::DPtr;
 use glam::Vec2;
 use wad::{lumps::*, WadData};
 
+pub(crate) const IS_SSECTOR_MASK: u16 = 0x8000;
+
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
 #[derive(Debug, Default)]
-pub struct MapExtents {
+pub(crate) struct MapExtents {
     pub min_vertex:    Vec2,
     pub max_vertex:    Vec2,
     pub width:         f32,
@@ -29,86 +30,8 @@ pub struct MapExtents {
 /// Access to the `Vec` arrays within is limited to immutable only to
 /// prevent unwanted removal of items, which *will* break references and
 /// segfault
-///
-/// # Examples:
-/// ### Testing nodes
-///
-/// Test if a node is an index to another node in the tree or is an index to a `SubSector`
-/// ```
-/// # use wad::{WadData, nodes::IS_SSECTOR_MASK};
-/// # use gamelib::r_bsp::RenderData;
-/// # let mut wad = WadData::new("../doom1.wad");
-/// # wad.read_directories();
-/// # let mut level = RenderData::new("E1M1".to_owned());
-/// # level.load(&wad);
-/// let nodes = level.get_nodes();
-/// // Test if it is a child node or a leaf node
-/// if nodes[2].child_index[0] & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-///     // It's a leaf node, so it's a subsector index
-///     let ssect_index = nodes[2].child_index[0] ^ IS_SSECTOR_MASK;
-///     panic!("The right child of this node should be an index to another node")
-/// } else {
-///     // It's a child node and is the index to another node in the tree
-///     let node_index = nodes[2].child_index[0];
-///     assert_eq!(node_index, 1);
-/// }
-///
-/// // Both sides function the same
-/// // The left child of this node is an index to a SubSector
-/// if nodes[2].child_index[1] & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-///     // It's a leaf node
-///     let ssect_index = nodes[2].child_index[1] ^ IS_SSECTOR_MASK;
-///     assert_eq!(ssect_index, 4);
-/// } else {
-///     let node_index = nodes[2].child_index[1];
-///     panic!("The left child of node 3 should be an index to a SubSector")
-/// }
-///
-/// ```
-///
-/// ### Testing nodes
-///
-/// Find the subsector a player is in
-/// ```
-/// # use wad::{WadData, nodes::{Node, IS_SSECTOR_MASK}, Vertex};
-/// # use gamelib::r_bsp::RenderData;
-/// # let mut wad = WadData::new("../doom1.wad");
-/// # wad.read_directories();
-/// # let mut level = RenderData::new("E1M1".to_owned());
-/// # level.load(&wad);
-///
-/// // These are the coordinates for Player 1 in the WAD
-/// let player = Vertex::new(1056.0, -3616.0);
-/// let nodes = level.get_nodes();
-///
-/// fn find_subsector(v: &Vertex, node_id: u16, nodes: &[Node]) -> Option<u16> {
-///     // Test if it is a child node or a leaf node
-///     if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-///         println!("{:#018b}", node_id & IS_SSECTOR_MASK);
-///         // It's a leaf node and is the index to a subsector
-///         return Some(node_id ^ IS_SSECTOR_MASK);
-///     }
-///
-///     let dx = (v.x() - nodes[node_id as usize].split_start.x()) as i32;
-///     let dy = (v.y() - nodes[node_id as usize].split_start.y()) as i32;
-///     if (dx * nodes[node_id as usize].split_delta.y() as i32)
-///         - (dy * nodes[node_id as usize].split_delta.x() as i32) <= 0 {
-///         println!("BRANCH LEFT");
-///         return find_subsector(&v, nodes[node_id as usize].child_index[1], nodes);
-///     } else {
-///         println!("BRANCH RIGHT");
-///         return find_subsector(&v, nodes[node_id as usize].child_index[0], nodes);
-///     }
-///     None
-/// }
-///
-/// let id = find_subsector(&player, (nodes.len() - 1) as u16, &nodes);
-/// assert_eq!(id, Some(103));
-/// assert_eq!(&level.get_subsectors()[id.unwrap() as usize].seg_count, &5);
-/// assert_eq!(&level.get_subsectors()[id.unwrap() as usize].start_seg, &305);
-/// ```
 #[derive(Debug)]
-pub struct MapData {
+pub(crate) struct MapData {
     name:       String,
     /// Things will be linked to/from each other in many ways, which means this array may
     /// never be resized or it will invalidate references and pointers
@@ -117,7 +40,7 @@ pub struct MapData {
     linedefs:   Vec<LineDef>,
     sectors:    Vec<Sector>,
     sidedefs:   Vec<SideDef>,
-    subsectors: Vec<WadSubSector>,
+    subsectors: Vec<SubSector>,
     segments:   Vec<Segment>,
     extents:    MapExtents,
     nodes:      Vec<Node>,
@@ -140,9 +63,6 @@ impl MapData {
             start_node: 0,
         }
     }
-
-    #[inline]
-    pub fn get_name(&self) -> &str { &self.name }
 
     #[inline]
     pub fn get_things(&self) -> &[WadThing] { &self.things }
@@ -188,7 +108,7 @@ impl MapData {
     pub fn get_sidedefs(&self) -> &[SideDef] { &self.sidedefs }
 
     #[inline]
-    pub fn get_subsectors(&self) -> &[WadSubSector] { &self.subsectors }
+    pub fn get_subsectors(&self) -> &[SubSector] { &self.subsectors }
 
     #[inline]
     pub fn get_segments(&self) -> &[Segment] { &self.segments }
@@ -213,7 +133,7 @@ impl MapData {
     #[inline]
     pub fn get_map_extents(&self) -> &MapExtents { &self.extents }
 
-    pub fn load<'m>(&mut self, wad: &WadData) {
+    pub fn load(&mut self, wad: &WadData) {
         // THINGS
         self.things = wad.thing_iter(&self.name).collect();
 
@@ -248,8 +168,8 @@ impl MapData {
                 let sector = &self.get_sectors()[s.sector as usize];
 
                 SideDef {
-                    textureoffset: 0.0,
-                    rowoffset:     0.0,
+                    textureoffset: s.y_offset as f32,
+                    rowoffset:     s.x_offset as f32,
                     toptexture:    0,
                     bottomtexture: 0,
                     midtexture:    0,
@@ -287,30 +207,29 @@ impl MapData {
                 let dy = v2.y() - v1.y();
 
                 let slope = if dx == 0.0 {
-                    SlopeType::ST_VERTICAL
+                    SlopeType::Vertical
                 } else if dy == 0.0 {
-                    SlopeType::ST_HORIZONTAL
+                    SlopeType::Horizontal
                 } else if dy / dx > 0.0 {
-                    SlopeType::ST_POSITIVE
+                    SlopeType::Positive
                 } else {
-                    SlopeType::ST_NEGATIVE
+                    SlopeType::Negative
                 };
 
                 LineDef {
-                    v1: DPtr::new(v1),
-                    v2: DPtr::new(v2),
-                    dx,
-                    dy,
-                    flags: l.flags,
-                    special: l.special,
-                    tag: l.sector_tag,
-                    bbox: BBox::new(*v1, *v2),
-                    slopetype: slope,
+                    v1:            DPtr::new(v1),
+                    v2:            DPtr::new(v2),
+                    delta:         Vec2::new(dx, dy),
+                    flags:         l.flags,
+                    special:       l.special,
+                    tag:           l.sector_tag,
+                    bbox:          BBox::new(*v1, *v2),
+                    slopetype:     slope,
                     front_sidedef: DPtr::new(front),
-                    back_sidedef: back_side,
-                    frontsector: front.sector.clone(),
-                    backsector: back_sector,
-                    validcount: 0,
+                    back_sidedef:  back_side,
+                    frontsector:   front.sector.clone(),
+                    backsector:    back_sector,
+                    validcount:    0,
                 }
             })
             .collect();
@@ -322,7 +241,6 @@ impl MapData {
         self.segments = wad
             .segment_iter(&self.name)
             .map(|s| {
-                let x;
                 let v1 = &self.get_vertexes()[s.start_vertex as usize];
                 let v2 = &self.get_vertexes()[s.end_vertex as usize];
 
@@ -335,7 +253,7 @@ impl MapData {
                     line.back_sidedef.as_ref().unwrap().clone()
                 };
 
-                let angle = (s.angle << 16) as f32 * 8.38190317e-8;
+                let angle = bam_to_radian((s.angle as u32) << 16);
 
                 Segment {
                     v1:          DPtr::new(v1),
@@ -351,63 +269,60 @@ impl MapData {
             .collect();
 
         // SSECTORS
-        self.subsectors =
-            wad.read_lump_to_vec(index, Lumps::SSectors, 4, |offset| {
-                let start_seg = wad.read_2_bytes(offset + 2);
-                let sector = self.get_segments()[start_seg as usize]
+        self.subsectors = wad
+            .subsector_iter(&self.name)
+            .map(|s| {
+                let sector = self.get_segments()[s.start_seg as usize]
                     .sidedef
                     .sector
                     .clone();
-                WadSubSector::new(sector, wad.read_2_bytes(offset), start_seg)
-            });
+                SubSector {
+                    sector,
+                    seg_count: s.seg_count,
+                    start_seg: s.start_seg,
+                }
+            })
+            .collect();
 
         // NODES
-        self.nodes = wad.read_lump_to_vec(index, Lumps::Nodes, 28, |offset| {
-            Node::new(
-                WadVertex::new(
-                    wad.read_2_bytes(offset) as i16 as f32,
-                    wad.read_2_bytes(offset + 2) as i16 as f32,
-                ),
-                WadVertex::new(
-                    wad.read_2_bytes(offset + 4) as i16 as f32,
-                    wad.read_2_bytes(offset + 6) as i16 as f32,
-                ),
-                [
+        self.nodes = wad
+            .node_iter(&self.name)
+            .map(|n| Node {
+                xy:             Vec2::new(n.x as f32, n.y as f32),
+                delta:          Vec2::new(n.dx as f32, n.dy as f32),
+                bounding_boxes: [
                     [
-                        WadVertex::new(
-                            wad.read_2_bytes(offset + 12) as i16 as f32, // top
-                            wad.read_2_bytes(offset + 8) as i16 as f32,  // left
+                        Vec2::new(
+                            n.bounding_boxes[0][2] as f32,
+                            n.bounding_boxes[0][0] as f32,
                         ),
-                        WadVertex::new(
-                            wad.read_2_bytes(offset + 14) as i16 as f32, // bottom
-                            wad.read_2_bytes(offset + 10) as i16 as f32, // right
+                        Vec2::new(
+                            n.bounding_boxes[0][3] as f32,
+                            n.bounding_boxes[0][1] as f32,
                         ),
                     ],
                     [
-                        WadVertex::new(
-                            wad.read_2_bytes(offset + 20) as i16 as f32,
-                            wad.read_2_bytes(offset + 16) as i16 as f32,
+                        Vec2::new(
+                            n.bounding_boxes[1][2] as f32,
+                            n.bounding_boxes[1][0] as f32,
                         ),
-                        WadVertex::new(
-                            wad.read_2_bytes(offset + 22) as i16 as f32,
-                            wad.read_2_bytes(offset + 18) as i16 as f32,
+                        Vec2::new(
+                            n.bounding_boxes[1][3] as f32,
+                            n.bounding_boxes[1][1] as f32,
                         ),
                     ],
                 ],
-                wad.read_2_bytes(offset + 24),
-                wad.read_2_bytes(offset + 26),
-            )
-        });
+                child_index:    n.child_index,
+            })
+            .collect();
+
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
         self.set_scale();
     }
 
     /// R_PointInSubsector - r_main
-    pub(crate) fn point_in_subsector(
-        &self,
-        point: &WadVertex,
-    ) -> Option<WadPtr<WadSubSector>> {
+    pub(crate) fn point_in_subsector(&self, point: &Vec2) -> DPtr<SubSector> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -418,8 +333,8 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return Some(WadPtr::new(
+        return DPtr::new(
             &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize],
-        ));
+        );
     }
 }

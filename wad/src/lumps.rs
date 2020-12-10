@@ -277,11 +277,14 @@ impl WadSector {
                 ceil_tex.len()
             )
         }
+
         WadSector {
             floor_height,
             ceil_height,
             floor_tex: str::from_utf8(floor_tex)
-                .expect("Invalid floor tex name")
+                .unwrap_or_else(|_| {
+                    panic!("Invalid floor tex name: {:?}", floor_tex)
+                })
                 .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             ceil_tex: str::from_utf8(ceil_tex)
@@ -395,10 +398,6 @@ pub struct WadNode {
     pub dx:             i16,
     pub dy:             i16,
     /// Coordinates of the bounding boxes:
-    /// - [0][0] == right box, top-left
-    /// - [0][1] == right box, bottom-right
-    /// - [1][0] == left box, top-left
-    /// - [1][1] == left box, bottom-right
     pub bounding_boxes: [[i16; 4]; 2],
     /// The node children. Doom uses a clever trick where if one node is selected
     /// then the other can also be checked with the same/minimal code by inverting

@@ -61,7 +61,7 @@ pub(crate) static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
     315.527344, 315.351562, 315.175781, 314.956055,
 ];
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub(crate) struct Angle(f32);
 
 impl Angle {

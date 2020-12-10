@@ -1,9 +1,10 @@
-///	Movement, collision handling.
-///	Shooting and aiming.
+//!	Movement, collision handling.
+//!	Shooting and aiming.
 use glam::Vec2;
 
+use crate::level_data::level::Level;
+use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::{level::Level, p_local::MAXRADIUS};
 
 const MAXSPECIALCROSS: i32 = 8;
 const BOXTOP: usize = 0;
@@ -100,28 +101,27 @@ impl MapObject {
 
         // TODO: ceilingline = NULL;
 
-        if let Some(newsubsect) = level.map_data.point_in_subsector(xy) {
-            ctrl.tmfloorz = newsubsect.sector.floor_height as f32;
-            ctrl.tmceilingz = newsubsect.sector.ceil_height as f32;
+        let newsubsect = level.map_data.point_in_subsector(xy);
+        ctrl.tmfloorz = newsubsect.sector.floorheight;
+        ctrl.tmceilingz = newsubsect.sector.ceilingheight;
 
-            // TODO: validcount++;??? There's like, two places in the p_map.c file
-            ctrl.numspechit = 0;
-            if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
-                return true;
-            }
-
-            // Check things first, possibly picking things up.
-            // The bounding box is extended by MAXRADIUS
-            // because mobj_ts are grouped into mapblocks
-            // based on their origin point, and can overlap
-            // into adjacent blocks by up to MAXRADIUS units.
-
-            // TODO: P_BlockThingsIterator, PIT_CheckThing
-            // TODO: P_BlockLinesIterator, PIT_CheckLine
-
-            level.mobj_ctrl.tmfloorz = newsubsect.sector.floor_height as f32;
-            level.mobj_ctrl.tmceilingz = newsubsect.sector.ceil_height as f32;
+        // TODO: validcount++;??? There's like, two places in the p_map.c file
+        ctrl.numspechit = 0;
+        if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
+            return true;
         }
+
+        // Check things first, possibly picking things up.
+        // The bounding box is extended by MAXRADIUS
+        // because mobj_ts are grouped into mapblocks
+        // based on their origin point, and can overlap
+        // into adjacent blocks by up to MAXRADIUS units.
+
+        // TODO: P_BlockThingsIterator, PIT_CheckThing
+        // TODO: P_BlockLinesIterator, PIT_CheckLine
+
+        level.mobj_ctrl.tmfloorz = newsubsect.sector.floorheight;
+        level.mobj_ctrl.tmceilingz = newsubsect.sector.ceilingheight;
 
         true
     }

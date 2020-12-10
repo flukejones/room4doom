@@ -8,8 +8,6 @@ pub static VIEWHEIGHT: f32 = 41.0;
 
 pub static MAXRADIUS: f32 = 32.0;
 
-pub const FRACBITS: i32 = 16;
-
 /// The Doom `FRACUNIT` is `1 << FRACBITS`
 pub const FRACUNIT: f32 = 65536.0; //(1 << FRACBITS) as f32;
 
@@ -74,6 +72,7 @@ mod tests {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn convert_bam_to_rad() {
         // DOOM constants
         let ang45: u32 = 0x20000000;
