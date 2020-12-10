@@ -1,13 +1,13 @@
+use crate::angle::Angle;
+use crate::level_data::map_data::{MapData, IS_SSECTOR_MASK};
+use crate::level_data::map_defs::{Segment, SubSector};
+use crate::p_map_object::MapObject;
+use crate::player::Player;
+use crate::renderer::r_defs::{ClipRange, DrawSeg};
+use crate::renderer::r_segs::SegRender;
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
-
-use crate::{
-    angle::Angle, map_data::MapData, p_map_object::MapObject, player::Player,
-    r_defs::*, r_segs::SegRender,
-};
-
-use wad::lumps::*;
 
 const MAX_SEGS: usize = 32;
 
@@ -21,7 +21,7 @@ const MAX_SEGS: usize = 32;
 // line_t *linedef; // In maputils as an arg to P_LineOpening, not global
 //
 // These can be chased through the chain of:
-// seg.linedef.front_sidedef.sector.floor_height
+// seg.linedef.front_sidedef.sector.floorheight
 // This block as a struct to pass round?
 //
 // sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
@@ -58,7 +58,7 @@ impl RenderData {
         &'a mut self,
         map: &MapData,
         player: &Player,
-        seg: &'a WadSegment,
+        seg: &'a Segment,
         canvas: &mut Canvas<Surface>,
     ) {
         // reject orthogonal back sides
@@ -71,14 +71,10 @@ impl RenderData {
 
         let clipangle = Angle::new(FRAC_PI_4);
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(
-            &seg.start_vertex,
-            &player.mobj.as_ref().unwrap().obj,
-        );
-        let mut angle2 = vertex_angle_to_object(
-            &seg.end_vertex,
-            &player.mobj.as_ref().unwrap().obj,
-        );
+        let mut angle1 =
+            vertex_angle_to_object(&seg.v1, &player.mobj.as_ref().unwrap().obj);
+        let mut angle2 =
+            vertex_angle_to_object(&seg.v2, &player.mobj.as_ref().unwrap().obj);
 
         let span = angle1 - angle2;
 
@@ -128,16 +124,16 @@ impl RenderData {
             let back_sector = &back_sector.sector;
 
             // Doors. Block view
-            if back_sector.ceil_height <= front_sector.floor_height
-                || back_sector.floor_height >= front_sector.ceil_height
+            if back_sector.ceilingheight <= front_sector.floorheight
+                || back_sector.floorheight >= front_sector.ceilingheight
             {
                 self.clip_solid_seg(x1, x2 - 1, seg, map, player, canvas);
                 return;
             }
 
             // Windows usually, but also changes in heights from sectors eg: steps
-            if back_sector.ceil_height != front_sector.ceil_height
-                || back_sector.floor_height != front_sector.floor_height
+            if back_sector.ceilingheight != front_sector.ceilingheight
+                || back_sector.floorheight != front_sector.floorheight
             {
                 // TODO: clip-pass
                 self.clip_portal_seg(x1, x2 - 1, seg, map, player, canvas);
@@ -147,10 +143,10 @@ impl RenderData {
             // Reject empty lines used for triggers and special events.
             // Identical floor and ceiling on both sides, identical light levels
             // on both sides, and no middle texture.
-            if back_sector.ceil_tex == front_sector.ceil_tex
-                && back_sector.floor_tex == front_sector.floor_tex
-                && back_sector.light_level == front_sector.light_level
-                && seg.linedef.front_sidedef.middle_tex.is_empty()
+            if back_sector.ceilingpic == front_sector.ceilingpic
+                && back_sector.floorpic == front_sector.floorpic
+                && back_sector.lightlevel == front_sector.lightlevel
+                && seg.linedef.front_sidedef.midtexture == 0
             {
                 return;
             }
@@ -163,12 +159,12 @@ impl RenderData {
         &'a mut self,
         map: &MapData,
         object: &Player,
-        subsect: &WadSubSector,
+        subsect: &SubSector,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
-            let seg = map.get_segments()[i as usize].clone();
+            let seg = &map.get_segments()[i as usize];
             self.add_line(map, object, &seg, canvas);
         }
     }
@@ -194,7 +190,7 @@ impl RenderData {
         &mut self,
         first: i32,
         last: i32,
-        seg: &WadSegment,
+        seg: &Segment,
         map: &MapData,
         object: &Player,
         canvas: &mut Canvas<Surface>,
@@ -287,7 +283,7 @@ impl RenderData {
         &mut self,
         first: i32,
         last: i32,
-        seg: &WadSegment,
+        seg: &Segment,
         map: &MapData,
         object: &Player,
         canvas: &mut Canvas<Surface>,
@@ -377,9 +373,8 @@ impl RenderData {
     ) {
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
-            let subsect = map.get_subsectors()
-                [(node_id ^ IS_SSECTOR_MASK) as usize]
-                .clone();
+            let subsect =
+                &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
             self.draw_subsector(map, player, &subsect, canvas);
             return;
@@ -387,7 +382,7 @@ impl RenderData {
 
         let mobj = &player.mobj.as_ref().unwrap().obj;
         // otherwise get node
-        let node = map.get_nodes()[node_id as usize].clone();
+        let node = &map.get_nodes()[node_id as usize];
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
@@ -446,48 +441,6 @@ pub(crate) fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x() - mobj.xy.x();
     let y = vertex.y() - mobj.xy.y();
     Angle::new(y.atan2(x))
-
-    // if x >= 0.0 {
-    //     if y >= 0.0 {
-    //         if x > y {
-    //             // octant 0
-    //             return (y / x).tan();
-    //         } else {
-    //             // octant 1
-    //             return (FRAC_PI_2) - 1.0 - (x/y).tan();
-    //         }
-    //     } else {
-    //         // y<0
-    //         y = -y;
-    //         if x > y {
-    //             // octant 8
-    //             return -(y/x).tan();
-    //         } else {
-    //             // octant 7
-    //             return (PI + PI/2.0) + (x/y).tan();
-    //         }
-    //     }
-    // } else {
-    //     x = -x;
-    //     if y >= 0.0 {
-    //         if x > y {
-    //             // octant 3
-    //             return PI - 1.0 - (y/x).tan();
-    //         } else {
-    //             // octant 2
-    //             return (FRAC_PI_2) + (x/y).tan();
-    //         }
-    //     } else {
-    //         y = -y;
-    //         if x > y {
-    //             // octant 4
-    //             return PI + (y/x).tan();
-    //         } else {
-    //             // octant 5
-    //             return  (PI + PI/2.0) - 1.0 - (x/y).tan();
-    //         }
-    //     }
-    // }
 }
 
 pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
@@ -498,43 +451,42 @@ pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use crate::map_data::MapData;
-    use crate::r_bsp::IS_SSECTOR_MASK;
-    use wad::{Vertex, WadData};
+    use crate::angle::Angle;
+    use crate::level_data::map_data::MapData;
+    use crate::renderer::r_bsp::IS_SSECTOR_MASK;
+    use glam::Vec2;
+    use std::f32::consts::{FRAC_PI_2, PI};
+    use wad::WadData;
 
     #[test]
     fn check_e1m1_things() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         let things = map.get_things();
-        assert_eq!(things[0].pos.x() as i32, 1056);
-        assert_eq!(things[0].pos.y() as i32, -3616);
-        assert_eq!(things[0].angle as i32, 90);
+        assert_eq!(things[0].x as i32, 1056);
+        assert_eq!(things[0].y as i32, -3616);
+        assert_eq!(things[0].angle, 90);
         assert_eq!(things[0].kind, 1);
         assert_eq!(things[0].flags, 7);
-        assert_eq!(things[137].pos.x() as i32, 3648);
-        assert_eq!(things[137].pos.y() as i32, -3840);
-        assert_eq!(things[137].angle as i32, 0);
+        assert_eq!(things[137].x as i32, 3648);
+        assert_eq!(things[137].y as i32, -3840);
+        assert_eq!(things[137].angle, 0);
         assert_eq!(things[137].kind, 2015);
         assert_eq!(things[137].flags, 7);
 
-        assert_eq!(things[0].angle as i32, 90);
-        assert_eq!(things[9].angle as i32, 135);
-        assert_eq!(things[14].angle as i32, 0);
-        assert_eq!(things[16].angle as i32, 90);
-        assert_eq!(things[17].angle as i32, 180);
-        assert_eq!(things[83].angle as i32, 270);
+        assert_eq!(things[0].angle, 90);
+        assert_eq!(things[9].angle, 135);
+        assert_eq!(things[14].angle, 0);
+        assert_eq!(things[16].angle, 90);
+        assert_eq!(things[17].angle, 180);
+        assert_eq!(things[83].angle, 270);
     }
 
     #[test]
     fn check_e1m1_vertexes() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
@@ -547,56 +499,54 @@ mod tests {
 
     #[test]
     fn check_e1m1_lump_pointers() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
+
         let linedefs = map.get_linedefs();
 
         // Check links
         // LINEDEF->VERTEX
-        assert_eq!(linedefs[2].start_vertex.x() as i32, 1088);
-        assert_eq!(linedefs[2].end_vertex.x() as i32, 1088);
-        // LINEDEF->SIDEDEF
-        assert_eq!(linedefs[2].front_sidedef.middle_tex, "LITE3");
-        // LINEDEF->SIDEDEF->SECTOR
-        assert_eq!(linedefs[2].front_sidedef.sector.floor_tex, "FLOOR4_8");
-        // LINEDEF->SIDEDEF->SECTOR
-        assert_eq!(linedefs[2].front_sidedef.sector.ceil_height, 72);
+        assert_eq!(linedefs[2].v1.x() as i32, 1088);
+        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+        // // LINEDEF->SIDEDEF
+        // assert_eq!(linedefs[2].front_sidedef.midtexture, "LITE3");
+        // // LINEDEF->SIDEDEF->SECTOR
+        // assert_eq!(linedefs[2].front_sidedef.sector.floorpic, "FLOOR4_8");
+        // // LINEDEF->SIDEDEF->SECTOR
+        assert_eq!(linedefs[2].front_sidedef.sector.ceilingheight, 72.0);
 
         let segments = map.get_segments();
         // SEGMENT->VERTEX
-        assert_eq!(segments[0].start_vertex.x() as i32, 1552);
-        assert_eq!(segments[0].end_vertex.x() as i32, 1552);
+        assert_eq!(segments[0].v1.x() as i32, 1552);
+        assert_eq!(segments[0].v2.x() as i32, 1552);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
         // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
-        assert_eq!(
-            segments[0].linedef.front_sidedef.sector.ceil_tex,
-            "CEIL3_5"
-        );
-        // SEGMENT->LINEDEF->SIDEDEF
-        assert_eq!(segments[0].linedef.front_sidedef.upper_tex, "BIGDOOR2");
+        // assert_eq!(
+        //     segments[0].linedef.front_sidedef.sector.ceilingpic,
+        //     "CEIL3_5"
+        // );
+        // // SEGMENT->LINEDEF->SIDEDEF
+        // assert_eq!(segments[0].linedef.front_sidedef.toptexture, "BIGDOOR2");
 
-        let sides = map.get_sidedefs();
-        assert_eq!(sides[211].sector.ceil_tex, "TLITE6_4");
+        // let sides = map.get_sidedefs();
+        // assert_eq!(sides[211].sector.ceilingpic, "TLITE6_4");
     }
 
     #[test]
     fn check_e1m1_linedefs() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
-        let linedefs = map.get_linedefs();
-        assert_eq!(linedefs[0].start_vertex.x() as i32, 1088);
-        assert_eq!(linedefs[0].end_vertex.x() as i32, 1024);
-        assert_eq!(linedefs[2].start_vertex.x() as i32, 1088);
-        assert_eq!(linedefs[2].end_vertex.x() as i32, 1088);
 
-        assert_eq!(linedefs[474].start_vertex.x() as i32, 3536);
-        assert_eq!(linedefs[474].end_vertex.x() as i32, 3520);
+        let linedefs = map.get_linedefs();
+        assert_eq!(linedefs[0].v1.x() as i32, 1088);
+        assert_eq!(linedefs[0].v2.x() as i32, 1024);
+        assert_eq!(linedefs[2].v1.x() as i32, 1088);
+        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+
+        assert_eq!(linedefs[474].v1.x() as i32, 3536);
+        assert_eq!(linedefs[474].v2.x() as i32, 3520);
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
@@ -608,74 +558,54 @@ mod tests {
 
     #[test]
     fn check_e1m1_sectors() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         let sectors = map.get_sectors();
-        assert_eq!(sectors[0].floor_height, 0);
-        assert_eq!(sectors[0].ceil_height, 72);
-        assert_eq!(sectors[0].floor_tex, "FLOOR4_8");
-        assert_eq!(sectors[0].ceil_tex, "CEIL3_5");
-        assert_eq!(sectors[0].light_level, 160);
-        assert_eq!(sectors[0].kind, 0);
+        assert_eq!(sectors[0].floorheight, 0.0);
+        assert_eq!(sectors[0].ceilingheight, 72.0);
+        assert_eq!(sectors[0].lightlevel, 160);
         assert_eq!(sectors[0].tag, 0);
-        assert_eq!(sectors[84].floor_height, -24);
-        assert_eq!(sectors[84].ceil_height, 48);
-        assert_eq!(sectors[84].floor_tex, "FLOOR5_2");
-        assert_eq!(sectors[84].ceil_tex, "CEIL3_5");
-        assert_eq!(sectors[84].light_level, 255);
-        assert_eq!(sectors[84].kind, 0);
+        assert_eq!(sectors[84].floorheight, -24.0);
+        assert_eq!(sectors[84].ceilingheight, 48.0);
+        assert_eq!(sectors[84].lightlevel, 255);
+        assert_eq!(sectors[84].special, 0);
         assert_eq!(sectors[84].tag, 0);
     }
 
     #[test]
     fn check_e1m1_sidedefs() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         let sidedefs = map.get_sidedefs();
-        assert_eq!(sidedefs[0].x_offset, 0);
-        assert_eq!(sidedefs[0].y_offset, 0);
-        assert_eq!(sidedefs[0].middle_tex, "DOOR3");
-        assert_eq!(sidedefs[0].sector.floor_tex, "FLOOR4_8");
-        assert_eq!(sidedefs[9].x_offset, 0);
-        assert_eq!(sidedefs[9].y_offset, 48);
-        assert_eq!(sidedefs[9].middle_tex, "BROWN1");
-        assert_eq!(sidedefs[9].sector.floor_tex, "FLOOR4_8");
-        assert_eq!(sidedefs[647].x_offset, 4);
-        assert_eq!(sidedefs[647].y_offset, 0);
-        assert_eq!(sidedefs[647].middle_tex, "SUPPORT2");
-        assert_eq!(sidedefs[647].sector.floor_tex, "FLOOR4_8");
+        assert_eq!(sidedefs[0].rowoffset, 0.0);
+        assert_eq!(sidedefs[0].textureoffset, 0.0);
+        assert_eq!(sidedefs[9].rowoffset, 0.0);
+        assert_eq!(sidedefs[9].textureoffset, 48.0);
+        assert_eq!(sidedefs[647].rowoffset, 4.0);
+        assert_eq!(sidedefs[647].textureoffset, 0.0);
     }
 
     #[test]
     fn check_e1m1_segments() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
+        let wad = WadData::new("../doom1.wad".into());
 
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         let segments = map.get_segments();
-        assert_eq!(segments[0].start_vertex.x() as i32, 1552);
-        assert_eq!(segments[0].end_vertex.x() as i32, 1552);
-        assert_eq!(segments[731].start_vertex.x() as i32, 3040);
-        assert_eq!(segments[731].end_vertex.x() as i32, 2976);
-        assert_eq!(segments[0].angle, 90.0);
-        assert_eq!(segments[0].linedef.front_sidedef.upper_tex, "BIGDOOR2");
-        assert_eq!(segments[0].direction, 0);
-        assert_eq!(segments[0].offset, 0);
+        assert_eq!(segments[0].v1.x() as i32, 1552);
+        assert_eq!(segments[0].v2.x() as i32, 1552);
+        assert_eq!(segments[731].v1.x() as i32, 3040);
+        assert_eq!(segments[731].v2.x() as i32, 2976);
+        assert_eq!(segments[0].angle, Angle::new(FRAC_PI_2));
+        assert_eq!(segments[0].offset, 0.0);
 
-        assert_eq!(segments[731].angle, 180.0);
-        assert_eq!(segments[731].linedef.front_sidedef.upper_tex, "STARTAN1");
-        assert_eq!(segments[731].direction, 1);
-        assert_eq!(segments[731].offset, 0);
+        assert_eq!(segments[731].angle, Angle::new(PI));
+        assert_eq!(segments[731].offset, 0.0);
 
         let subsectors = map.get_subsectors();
         assert_eq!(subsectors[0].seg_count, 4);
@@ -688,20 +618,20 @@ mod tests {
 
     #[test]
     fn check_nodes_of_e1m1() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         let nodes = map.get_nodes();
-        assert_eq!(nodes[0].split_start.x() as i32, 1552);
-        assert_eq!(nodes[0].split_start.y() as i32, -2432);
-        assert_eq!(nodes[0].split_delta.x() as i32, 112);
-        assert_eq!(nodes[0].split_delta.y() as i32, 0);
+        assert_eq!(nodes[0].xy.x() as i32, 1552);
+        assert_eq!(nodes[0].xy.y() as i32, -2432);
+        assert_eq!(nodes[0].delta.x() as i32, 112);
+        assert_eq!(nodes[0].delta.y() as i32, 0);
 
-        assert_eq!(nodes[0].bounding_boxes[0][0].x() as i32, 1552); //top
-        assert_eq!(nodes[0].bounding_boxes[0][0].y() as i32, -2432); //bottom
+        assert_eq!(nodes[0].bounding_boxes[0][0].x() as i32, 1552); //left
+        assert_eq!(nodes[0].bounding_boxes[0][0].y() as i32, -2432); //top
+        assert_eq!(nodes[0].bounding_boxes[0][1].x() as i32, 1664); //right
+        assert_eq!(nodes[0].bounding_boxes[0][1].y() as i32, -2560); //bottom
 
         assert_eq!(nodes[0].bounding_boxes[1][0].x() as i32, 1600);
         assert_eq!(nodes[0].bounding_boxes[1][0].y() as i32, -2048);
@@ -710,10 +640,10 @@ mod tests {
         assert_eq!(nodes[0].child_index[1], 32769);
         assert_eq!(IS_SSECTOR_MASK, 0x8000);
 
-        assert_eq!(nodes[235].split_start.x() as i32, 2176);
-        assert_eq!(nodes[235].split_start.y() as i32, -3776);
-        assert_eq!(nodes[235].split_delta.x() as i32, 0);
-        assert_eq!(nodes[235].split_delta.y() as i32, -32);
+        assert_eq!(nodes[235].xy.x() as i32, 2176);
+        assert_eq!(nodes[235].xy.y() as i32, -3776);
+        assert_eq!(nodes[235].delta.x() as i32, 0);
+        assert_eq!(nodes[235].delta.y() as i32, -32);
         assert_eq!(nodes[235].child_index[0], 128);
         assert_eq!(nodes[235].child_index[1], 234);
 
@@ -734,15 +664,13 @@ mod tests {
 
     #[test]
     fn find_vertex_using_bsptree() {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
-
+        let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
         // The actual location of THING0
-        let player = Vertex::new(1056.0, -3616.0);
-        let subsector = map.point_in_subsector(&player).unwrap();
+        let player = Vec2::new(1056.0, -3616.0);
+        let subsector = map.point_in_subsector(&player);
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);
         assert_eq!(subsector.start_seg, 305);

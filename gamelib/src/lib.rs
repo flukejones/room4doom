@@ -1,6 +1,6 @@
 #![feature(const_fn_floating_point_arithmetic)]
 
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use angle::Angle;
 use glam::Vec2;
@@ -12,7 +12,6 @@ pub(crate) mod angle;
 pub mod d_main;
 pub(crate) mod d_thinker;
 pub(crate) mod doom_def;
-pub(crate) mod entities;
 pub(crate) mod errors;
 pub(crate) mod flags;
 pub mod game;
@@ -27,10 +26,8 @@ pub(crate) mod p_map_object;
 pub(crate) mod p_player_sprite;
 pub(crate) mod p_spec;
 pub(crate) mod player;
-pub(crate) mod r_bsp;
-pub(crate) mod r_defs;
-pub(crate) mod r_segs;
 pub(crate) mod renderer;
+pub(crate) mod shaders;
 pub(crate) mod sounds;
 pub(crate) mod tic_cmd;
 pub(crate) mod timestep;
@@ -115,4 +112,13 @@ impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
     }
+}
+
+pub fn radian_range(rad: f32) -> f32 {
+    if rad < 0.0 {
+        return rad + 2.0 * PI;
+    } else if rad >= 2.0 * PI {
+        return rad - 2.0 * PI;
+    }
+    rad
 }

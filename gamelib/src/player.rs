@@ -5,6 +5,8 @@ use glam::Vec2;
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;
 
+use crate::level_data::level::Level;
+use crate::p_player_sprite::PspDef;
 use crate::{
     angle::Angle,
     doom_def::MAX_AMMO,
@@ -20,7 +22,6 @@ use crate::{
     p_map_object::MapObject,
     tic_cmd::TicCmd,
 };
-use crate::{level::Level, p_player_sprite::PspDef};
 
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,

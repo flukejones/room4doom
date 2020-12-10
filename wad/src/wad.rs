@@ -233,8 +233,8 @@ impl WadData {
 
     fn read_dir_data(&self, offset: usize, file_idx: usize) -> LumpInfo {
         let mut n = [0u8; 8]; // length is 8 slots total
-        for i in 0..8 {
-            n[i] = self.file_data[file_idx][offset + 8 + i]
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = self.file_data[file_idx][offset + 8 + i]
         }
         let file = &self.file_data[file_idx];
 
@@ -282,6 +282,15 @@ impl WadData {
             }
         }
         panic!("Could not find {}", lump_name);
+    }
+
+    pub fn lump_exists(&self, lump_name: &str) -> bool {
+        for lump in self.lump_info.iter().rev() {
+            if lump.lump_name == lump_name {
+                return true;
+            }
+        }
+        false
     }
 }
 

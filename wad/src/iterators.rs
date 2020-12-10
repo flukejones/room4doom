@@ -35,7 +35,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadThing, impl Fn(usize) -> WadThing + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Things);
-        let item_size = size_of::<WadThing>();
+        let item_size = 10;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -61,7 +61,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadVertex, impl Fn(usize) -> WadVertex + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Vertexes);
-        let item_size = size_of::<WadVertex>();
+        let item_size = 4;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -84,7 +84,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadSector, impl Fn(usize) -> WadSector + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Sectors);
-        let item_size = size_of::<WadSector>();
+        let item_size = 26;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -112,7 +112,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadSideDef, impl Fn(usize) -> WadSideDef + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::SideDefs);
-        let item_size = size_of::<WadSideDef>();
+        let item_size = 30;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -139,7 +139,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadLineDef, impl Fn(usize) -> WadLineDef + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::LineDefs);
-        let item_size = size_of::<WadLineDef>();
+        let item_size = 14;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -150,7 +150,7 @@ impl WadData {
             transformer: move |offset| {
                 let back_sidedef = {
                     let index = self.read_2_bytes(offset + 12, file);
-                    if index < i16::MAX {
+                    if (index as u16) < u16::MAX {
                         Some(index)
                     } else {
                         None
@@ -176,7 +176,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadSegment, impl Fn(usize) -> WadSegment + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Segs);
-        let item_size = size_of::<WadSegment>();
+        let item_size = 12;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -203,7 +203,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadSubSector, impl Fn(usize) -> WadSubSector + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::SSectors);
-        let item_size = size_of::<WadSubSector>();
+        let item_size = 4;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -226,7 +226,7 @@ impl WadData {
         map_name: &str,
     ) -> LumpIter<WadNode, impl Fn(usize) -> WadNode + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Nodes);
-        let item_size = size_of::<WadNode>();
+        let item_size = 28;
         let file = &self.file_data[info.file_handle];
 
         LumpIter {
@@ -242,16 +242,16 @@ impl WadData {
                     self.read_2_bytes(offset + 6, file),
                     [
                         [
-                            self.read_2_bytes(offset + 12, file), // top
-                            self.read_2_bytes(offset + 8, file),  // left
-                            self.read_2_bytes(offset + 14, file), // bottom
-                            self.read_2_bytes(offset + 10, file), // right
+                            self.read_2_bytes(offset + 8, file),  // top
+                            self.read_2_bytes(offset + 10, file), // bottom
+                            self.read_2_bytes(offset + 12, file), // left
+                            self.read_2_bytes(offset + 14, file), // right
                         ],
                         [
-                            self.read_2_bytes(offset + 20, file),
                             self.read_2_bytes(offset + 16, file),
-                            self.read_2_bytes(offset + 22, file),
                             self.read_2_bytes(offset + 18, file),
+                            self.read_2_bytes(offset + 20, file),
+                            self.read_2_bytes(offset + 22, file),
                         ],
                     ],
                     self.read_2_bytes(offset + 24, file) as u16,

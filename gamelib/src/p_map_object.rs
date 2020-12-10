@@ -1,11 +1,11 @@
-use std::{
-    f32::consts::{FRAC_PI_4, FRAC_PI_8},
-    ptr::NonNull,
-};
+use std::ptr::NonNull;
 
+use crate::level_data::level::Level;
 use glam::Vec2;
-use wad::lumps::{WadSubSector, WadThing};
+use wad::lumps::WadThing;
 
+use crate::info::StateNum;
+use crate::level_data::map_defs::SubSector;
 use crate::{
     angle::Angle,
     d_main::Skill,
@@ -21,12 +21,13 @@ use crate::{
     info::states::get_state,
 };
 use crate::{info::states::State, p_local::p_random, sounds::SfxEnum};
-use crate::{info::StateNum, level::Level};
 use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
     player::{Player, PlayerState},
 };
+use std::f32::consts::PI;
+use std::f32::EPSILON;
 
 static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 pub(crate) static MAXMOVE: f32 = 30.0;
@@ -143,7 +144,7 @@ pub(crate) struct MapObject {
     sprite:           SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame:            i32,
-    subsector:        DPtr<WadSubSector>,
+    subsector:        DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
     pub floorz:       f32,
     pub ceilingz:     f32,
@@ -208,7 +209,9 @@ impl Think for MapObject {
             return true; // mobj was removed
         }
 
-        if self.z != self.floorz || self.momz != 0.0 {
+        if (self.z.floor() - self.floorz.floor()).abs() > EPSILON
+            || self.momz != 0.0
+        {
             self.p_z_movement(level);
             if self.was_removed() {
                 return true; // mobj was removed
@@ -221,10 +224,8 @@ impl Think for MapObject {
             self.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if self.tics > 0 {
-                if !self.p_set_mobj_state(self.state.next_state) {
-                    return true;
-                }
+            if self.tics > 0 && !self.p_set_mobj_state(self.state.next_state) {
+                return true;
             } // freed itself
         } else {
             // check for nightmare respawn
@@ -254,9 +255,8 @@ impl Think for MapObject {
 impl MapObject {
     fn was_removed(&self) -> bool {
         if let Some(thinker) = self.thinker {
-            match unsafe { &thinker.as_ref().function } {
-                ActionFunc::None => return true, // mobj was removed
-                _ => {}
+            if let ActionFunc::None = unsafe { &thinker.as_ref().function } {
+                return true;
             }
         }
         false
@@ -437,14 +437,14 @@ impl MapObject {
         if self.flags & MapObjectFlag::MF_CORPSE as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
-            if self.momxy.x() > FRACUNIT_DIV4
+            if (self.momxy.x() > FRACUNIT_DIV4
                 || self.momxy.x() < -FRACUNIT_DIV4
                 || self.momxy.y() > FRACUNIT_DIV4
-                || self.momxy.y() < -FRACUNIT_DIV4
+                || self.momxy.y() < -FRACUNIT_DIV4)
+                && (self.floorz - self.subsector.sector.floorheight).abs()
+                    > EPSILON
             {
-                if self.floorz as i16 != self.subsector.sector.floor_height {
-                    return;
-                }
+                return;
             }
         }
 
@@ -502,15 +502,12 @@ impl MapObject {
             player.player_reborn();
         }
 
-        let x = mthing.pos.x();
-        let y = mthing.pos.y();
-        let z = ONFLOORZ as f32;
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
         // the Player object owns this.
         let mut thinker = MapObject::p_spawn_map_object(
-            x,
-            y,
-            z as i32,
+            mthing.x as f32,
+            mthing.y as f32,
+            ONFLOORZ,
             MapObjectType::MT_PLAYER as u16,
             level,
         );
@@ -523,7 +520,8 @@ impl MapObject {
                     << MapObjectFlag::MF_TRANSSHIFT as u8;
         }
 
-        mobj.angle = Angle::new(FRAC_PI_4 * (mthing.angle / 45.0));
+        // TODO: check this angle stuff
+        mobj.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
         mobj.health = player.health;
 
         player.mobj = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
@@ -592,13 +590,13 @@ impl MapObject {
         }
 
         // check for apropriate skill level
-        let bit: u16;
+        let bit: i16;
         if level.game_skill == Skill::Baby {
             bit = 1;
         } else if level.game_skill == Skill::Nightmare {
             bit = 4;
         } else {
-            bit = level.game_skill as u16 - 1;
+            bit = level.game_skill as i16 - 1;
         }
 
         if mthing.flags & bit == 0 {
@@ -608,7 +606,7 @@ impl MapObject {
         // find which type to spawn
         let mut i = 0;
         for n in 0..MapObjectType::NUMMOBJTYPES as u16 {
-            if mthing.kind == MOBJINFO[n as usize].doomednum as u16 {
+            if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
                 i = n;
                 break;
             }
@@ -617,9 +615,7 @@ impl MapObject {
         if i == MapObjectType::NUMMOBJTYPES as u16 {
             println!(
                 "P_SpawnMapThing: Unknown type {} at ({}, {})",
-                mthing.kind,
-                mthing.pos.x(),
-                mthing.pos.y()
+                mthing.kind, mthing.x, mthing.y
             );
         }
 
@@ -637,8 +633,8 @@ impl MapObject {
         //     return;
         // }
 
-        let x = mthing.pos.x();
-        let y = mthing.pos.y();
+        let x = mthing.x as f32;
+        let y = mthing.y as f32;
         let z;
 
         if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32
@@ -662,7 +658,7 @@ impl MapObject {
         }
 
         // TODO: check the angle is correct
-        mobj.angle = Angle::new(FRAC_PI_8 * (mthing.angle / FRAC_PI_8));
+        mobj.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
         if mthing.flags & MTF_AMBUSH != 0 {
             mobj.flags |= MapObjectFlag::MF_AMBUSH as u32;
         }
@@ -671,8 +667,8 @@ impl MapObject {
         if !level.add_thinker(thinker) {
             panic!("P_SpawnMapThing: Could not spawn type {} at ({}, {}): out of memory",
             mthing.kind,
-            mthing.pos.x(),
-            mthing.pos.y());
+            mthing.x,
+            mthing.y);
         }
     }
 
@@ -705,11 +701,11 @@ impl MapObject {
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
-        let sub_sector: DPtr<WadSubSector> =
-            level.map_data.point_in_subsector(&Vec2::new(x, y)).unwrap();
+        let sub_sector: DPtr<SubSector> =
+            level.map_data.point_in_subsector(&Vec2::new(x, y));
 
-        let floorz = sub_sector.sector.floor_height as i32;
-        let ceilingz = sub_sector.sector.ceil_height as i32;
+        let floorz = sub_sector.sector.floorheight as i32;
+        let ceilingz = sub_sector.sector.ceilingheight as i32;
 
         if z == ONFLOORZ {
             z = floorz;

@@ -1,6 +1,6 @@
+use crate::level_data::level::Level;
 use crate::{
-    level::Level, p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*,
-    player::Player,
+    p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player,
 };
 use std::ptr::null_mut;
 use std::{any::Any, fmt};

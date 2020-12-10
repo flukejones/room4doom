@@ -1,4 +1,5 @@
-use crate::level::{self, Level};
+use crate::level_data::level;
+use crate::level_data::level::Level;
 use crate::player::{Player, WBStartStruct};
 use crate::tic_cmd::TicCmd;
 use crate::{d_main, player::PlayerState};
@@ -49,9 +50,9 @@ pub struct Game {
 
     /// player taking events and displaying
     pub(crate) consoleplayer: usize,
-    /// view being displayed        
+    /// view being displayed
     displayplayer:            usize,
-    /// gametic at level start              
+    /// gametic at level start
     level_start_tic:          u32,
     /// for intermission
     totalkills:               i32,
@@ -79,13 +80,11 @@ pub struct Game {
 impl Game {
     pub fn new(mut options: GameOptions) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
-        let respawn_monsters = match options.skill {
-            d_main::Skill::Nightmare => true,
-            _ => false,
-        };
+        let respawn_monsters =
+            matches!(options.skill, d_main::Skill::Nightmare);
 
-        let mut wad = WadData::new(options.iwad.clone());
-        wad.read_directories();
+        let wad = WadData::new(options.iwad.clone().into());
+
         let (game_mode, game_mission, game_description) =
             identify_version(&wad);
 
@@ -100,10 +99,8 @@ impl Game {
             if options.map > 5 {
                 options.map = 5;
             }
-        } else {
-            if options.episode > 3 {
-                options.episode = 3;
-            }
+        } else if options.episode > 3 {
+            options.episode = 3;
         }
 
         // Mimic the OG output
@@ -119,15 +116,17 @@ impl Game {
         println!("W_Init: Init WADfiles.");
         match game_mode {
             GameMode::Shareware => {
-                print!("===========================================================================\n");
-                print!("                                Shareware!\n");
-                print!("===========================================================================\n");
+                println!("===========================================================================");
+                println!("                                Shareware!");
+                println!("===========================================================================");
             }
             _ => {
-                print!("===========================================================================\n");
-                print!("                 Commercial product - do not distribute!\n");
-                print!("         Please report software piracy to the SPA: 1-800-388-PIR8\n");
-                print!("===========================================================================\n");
+                println!("===========================================================================");
+                println!(
+                    "                 Commercial product - do not distribute!"
+                );
+                println!("         Please report software piracy to the SPA: 1-800-388-PIR8");
+                println!("===========================================================================");
             }
         }
         println!("M_Init: Init miscellaneous info.");
@@ -237,10 +236,8 @@ impl Game {
             if map > 5 {
                 map = 5;
             }
-        } else {
-            if episode > 3 {
-                episode = 3;
-            }
+        } else if episode > 3 {
+            episode = 3;
         }
 
         if map > 9 && self.game_mode != GameMode::Commercial {
@@ -449,26 +446,25 @@ impl Game {
 
         // check for special buttons
         for i in 0..MAXPLAYERS {
-            if self.player_in_game[i] {
-                if self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_special > 0
-                {
-                    let mask = self.players[i].cmd.buttons
-                        & TIC_CMD_BUTTONS.bt_specialmask;
-                    if mask == TIC_CMD_BUTTONS.bt_specialmask {
-                        //     paused ^= 1;
-                        //     if (paused)
-                        //         S_PauseSound();
-                        //     else
-                        //         S_ResumeSound();
-                        //     break;
-                    } else if mask == TIC_CMD_BUTTONS.bts_savegame {
-                        //     if (!savedescription[0])
-                        //         strcpy(savedescription, "NET GAME");
-                        //     savegameslot =
-                        //         (players[i].cmd.buttons & BTS_SAVEMASK) >> BTS_SAVESHIFT;
-                        //     gameaction = ga_savegame;
-                        //     break;
-                    }
+            if self.player_in_game[i]
+                && self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_special > 0
+            {
+                let mask = self.players[i].cmd.buttons
+                    & TIC_CMD_BUTTONS.bt_specialmask;
+                if mask == TIC_CMD_BUTTONS.bt_specialmask {
+                    //     paused ^= 1;
+                    //     if (paused)
+                    //         S_PauseSound();
+                    //     else
+                    //         S_ResumeSound();
+                    //     break;
+                } else if mask == TIC_CMD_BUTTONS.bts_savegame {
+                    //     if (!savedescription[0])
+                    //         strcpy(savedescription, "NET GAME");
+                    //     savegameslot =
+                    //         (players[i].cmd.buttons & BTS_SAVEMASK) >> BTS_SAVESHIFT;
+                    //     gameaction = ga_savegame;
+                    //     break;
                 }
             }
         }
