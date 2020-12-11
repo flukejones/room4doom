@@ -132,10 +132,10 @@ impl RenderData {
             }
 
             // Windows usually, but also changes in heights from sectors eg: steps
+            #[allow(clippy::float_cmp)]
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                // TODO: clip-pass
                 self.clip_portal_seg(x1, x2 - 1, seg, map, player, canvas);
                 return;
             }
@@ -498,6 +498,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
@@ -557,6 +558,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn check_e1m1_sectors() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
@@ -575,6 +577,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn check_e1m1_sidedefs() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
@@ -590,6 +593,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn check_e1m1_segments() {
         let wad = WadData::new("../doom1.wad".into());
 
