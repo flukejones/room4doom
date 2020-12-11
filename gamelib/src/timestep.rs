@@ -1,3 +1,4 @@
+use std::fmt;
 use std::time::Instant;
 
 const MS_PER_UPDATE: f32 = 28.57;
@@ -8,7 +9,24 @@ pub struct TimeStep {
     delta_time:  f32,
     frame_count: u32,
     frame_time:  f32,
+    run_tics:    u32,
+    last_tics:   u32,
     lag:         f32,
+}
+
+#[derive(Debug)]
+pub struct FrameData {
+    pub tics:   u32,
+    pub frames: u32,
+}
+
+impl fmt::Display for FrameData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "FrameData (per-second):\n  - tics: {}\n  -  fps: {}",
+            self.tics, self.frames
+        ))
+    }
 }
 
 impl TimeStep {
@@ -18,6 +36,8 @@ impl TimeStep {
             delta_time:  0.0,
             frame_count: 0,
             frame_time:  0.0,
+            run_tics:    0,
+            last_tics:   0,
             lag:         0.0,
         }
     }
@@ -39,20 +59,28 @@ impl TimeStep {
         while self.lag >= MS_PER_UPDATE {
             run_this(dt);
             self.lag -= MS_PER_UPDATE;
+            self.run_tics += 1;
         }
     }
 
-    pub fn frame_rate(&mut self) -> Option<u32> {
+    pub fn frame_rate(&mut self) -> Option<FrameData> {
         self.frame_count += 1;
         self.frame_time += self.delta_time;
         let tmp;
+        let tmp2;
         // per second
         if self.frame_time >= 1000.0 {
             tmp = self.frame_count;
+            tmp2 = self.last_tics;
             self.frame_count = 0;
             self.frame_time = 0.0;
-            return Some(tmp);
+            self.last_tics = self.run_tics;
+            return Some(FrameData {
+                tics:   self.run_tics - tmp2,
+                frames: tmp,
+            });
         }
+
         None
     }
 }
