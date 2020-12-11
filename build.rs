@@ -4,8 +4,9 @@ use std::path::PathBuf;
 fn main() {
     let target = env::var("TARGET").unwrap();
     if target.contains("pc-windows") {
-        let manifest_dir =
+        let mut manifest_dir =
             PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+        manifest_dir.pop();
         let mut lib_dir = manifest_dir.clone();
         let mut dll_dir = manifest_dir.clone();
         if target.contains("msvc") {

@@ -274,16 +274,6 @@ impl WadData {
         panic!("Could not find {}", map_name);
     }
 
-    /// Finds the requested lump in reverse search
-    pub(crate) fn find_lump_or_panic(&self, lump_name: &str) -> &LumpInfo {
-        for (idx, info) in self.lump_info.iter().rev().enumerate() {
-            if info.lump_name == lump_name {
-                return &self.lump_info[idx];
-            }
-        }
-        panic!("Could not find {}", lump_name);
-    }
-
     pub fn lump_exists(&self, lump_name: &str) -> bool {
         for lump in self.lump_info.iter().rev() {
             if lump.lump_name == lump_name {

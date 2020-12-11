@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2018"
 license = "MPL-2.0"
+build = "../build.rs"
 
 [[bin]]
 name = "diirdoom"

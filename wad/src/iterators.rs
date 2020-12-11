@@ -1,7 +1,6 @@
 use crate::lumps::*;
 use crate::{Lumps, WadData};
 use std::marker::PhantomData;
-use std::mem::size_of;
 
 pub struct LumpIter<T, F: Fn(usize) -> T> {
     item_size:   usize,
