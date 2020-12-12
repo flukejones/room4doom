@@ -10,7 +10,9 @@ use crate::level_data::map_data::MapData;
 use crate::level_data::map_defs::Segment;
 use crate::player::Player;
 use crate::renderer::bsp::RenderData;
-use crate::renderer::defs::{DrawSeg, MAXDRAWSEGS};
+use crate::renderer::defs::{
+    DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP,
+};
 use crate::{point_to_dist, scale_from_view_angle};
 use std::f32::EPSILON;
 
@@ -145,7 +147,7 @@ impl<'a> SegRender<'a> {
 
         self.rw_normalangle = self.seg.angle;
         self.rw_normalangle += FRAC_PI_2;
-        let offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
+        let mut offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
 
         // Unrequired with full angle range
         // if offsetangle > FRAC_PI_2 {
@@ -199,43 +201,216 @@ impl<'a> SegRender<'a> {
         // calculate texture boundaries
         //  and decide if floor / ceiling marks are needed
         // `seg.sidedef.sector` is the front sector
+        let frontsector = &self.seg.frontsector;
         let viewz = self.object.viewz;
-        self.worldtop = self.seg.sidedef.sector.ceilingheight - viewz;
-        self.worldbottom = self.seg.sidedef.sector.floorheight - viewz;
+        self.worldtop = frontsector.ceilingheight - viewz;
+        self.worldbottom = frontsector.floorheight - viewz;
 
         // These are all zeroed to start with, thanks rust.
         // midtexture = toptexture = bottomtexture = maskedtexture = 0;
 
         let vtop = 0.0;
-        if self.seg.linedef.back_sidedef.is_none() {
+        if self.seg.backsector.is_none() {
             // single sided line
             // TODO: Need to R_InitTextures and figure out where to put this
             //self.midtexture = texturetranslation[sidedef.middle_tex];
+            self.midtexture = 1;
             self.markfloor = true;
             self.markceiling = true;
             if linedef.flags & ML_DONTPEGBOTTOM as i16 != 0 {
                 // TODO: textureheight
                 //vtop = self.seg.sidedef.sector.floor_height + textureheight[self.seg.sidedef.middle_tex];
-                //self.rw_midtexturemid = vtop - viewz;
+                self.rw_midtexturemid = vtop - viewz;
             } else {
+                // top of texture at top
                 self.rw_midtexturemid = self.worldtop;
             }
             self.rw_midtexturemid += self.seg.sidedef.rowoffset;
+
+            ds_p.silhouette = SIL_BOTH;
+            // TODO: ds_p.sprtopclip = screenheightarray;
+            // TODO: ds_p.sprbottomclip = negonearray;
+            ds_p.bsilheight = f32::MAX;
+            ds_p.tsilheight = f32::MAX;
+        } else {
+            let backsector = self.seg.backsector.as_ref().unwrap();
+            // two sided line
+            // TODO: when thing render started
+            //  ds_p->sprtopclip = ds_p->sprbottomclip = NULL;
+            ds_p.silhouette = SIL_NONE;
+
+            if frontsector.floorheight > backsector.floorheight {
+                ds_p.silhouette = SIL_BOTTOM;
+                ds_p.bsilheight = frontsector.floorheight;
+            } else if backsector.floorheight > viewz {
+                ds_p.silhouette = SIL_BOTTOM;
+                ds_p.bsilheight = f32::MAX;
+            }
+
+            if frontsector.ceilingheight < backsector.ceilingheight {
+                ds_p.silhouette = SIL_TOP;
+                ds_p.tsilheight = frontsector.ceilingheight;
+            } else if backsector.ceilingheight < viewz {
+                ds_p.silhouette = SIL_TOP;
+                ds_p.bsilheight = f32::MIN;
+            }
+
+            if backsector.ceilingheight <= frontsector.floorheight {
+                // TODO: ds_p->sprbottomclip = negonearray;
+                ds_p.silhouette = SIL_BOTTOM;
+                ds_p.bsilheight = f32::MAX;
+            }
+
+            if backsector.floorheight >= frontsector.ceilingheight {
+                // TODO: ds_p->sprtopclip = screenheightarray;
+                ds_p.silhouette = SIL_TOP;
+                ds_p.bsilheight = f32::MIN;
+            }
+
+            self.worldhigh = (backsector.ceilingheight - viewz) as i32;
+            self.worldlow = (backsector.floorheight - viewz) as i32;
+
+            // TODO: hack to allow height changes in outdoor areas
+            //  if (frontsector->ceilingpic == skyflatnum && backsector->ceilingpic == skyflatnum)
+            // 	{ worldtop = worldhigh; }
+
+            // Checks to see if panes need updating?
+            if self.worldlow != self.worldbottom as i32
+                || backsector.floorpic != frontsector.floorpic
+                || backsector.lightlevel != frontsector.lightlevel
+            {
+                self.markfloor = true;
+            } else {
+                self.markfloor = false;
+            }
+            //
+            if self.worldhigh != self.worldtop as i32
+                || backsector.ceilingpic != frontsector.ceilingpic
+            {
+                self.markceiling = true;
+            } else {
+                self.markceiling = false;
+            }
+
+            if self.worldhigh < self.worldtop as i32 {
+                // TODO: texture stuff
+                //  toptexture = texturetranslation[sidedef->toptexture];
+                self.toptexture = 2;
+            }
+
+            if self.worldlow > self.worldbottom as i32 {
+                // TODO: texture stuff
+                //  bottomtexture = texturetranslation[sidedef->bottomtexture];
+                self.bottomtexture = 3;
+            }
+
+            self.rw_toptexturemid += sidedef.rowoffset;
+            self.rw_bottomtexturemid += sidedef.rowoffset;
+
+            if sidedef.midtexture != 0 {
+                self.maskedtexture = true;
+                // TODO: ds_p->maskedtexturecol = maskedtexturecol = lastopening - rw_x;
+                //  lastopening += rw_stopx - rw_x;
+            }
         }
 
-        // ds_p is pointer to item in drawsegs, which is set by R_ClearDrawSegs
-        // is drawseg_t which needs to be in an easy ref location, reffed in
-        // - r_segs.c - uses it extensively, ds_p++; at end
-        // - r_plane.c - only checks for an overflow?]
-        // - r_bsp.c - sets t point to first element of drawsegs array
+        // calculate rw_offset (only needed for textured lines)
+        if self.midtexture
+            | self.toptexture
+            | self.bottomtexture
+            | self.maskedtexture as i32
+            != 0
+        {
+            self.segtextured = true;
+        }
 
+        if self.segtextured {
+            offsetangle = self.rw_normalangle - rdata.rw_angle1;
+
+            if offsetangle.rad() > PI {
+                offsetangle = -offsetangle;
+            } else if offsetangle.rad() > FRAC_PI_2 {
+                offsetangle = Angle::new(FRAC_PI_2);
+            }
+
+            let sine = offsetangle.sin();
+            self.rw_offset = hyp * sine;
+
+            if self.rw_offset - rdata.rw_angle1.rad() < PI {
+                self.rw_offset = -self.rw_offset;
+            }
+
+            self.rw_offset += sidedef.textureoffset + self.seg.offset;
+            self.rw_centerangle =
+                Angle::new(FRAC_PI_2) + view_angle - self.rw_normalangle;
+
+            // TODO: calculate light table
+            //  use different light tables
+            //  for horizontal / vertical / diagonal
+            // OPTIMIZE: get rid of LIGHTSEGSHIFT globally
+            // if (!fixedcolormap)
+            // {
+            //     lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT) + extralight;
+            //
+            //     if (curline->v1->y == curline->v2->y)
+            //     lightnum--;
+            //     else if (curline->v1->x == curline->v2->x)
+            //     lightnum++;
+            //
+            //     if (lightnum < 0)
+            //     walllights = scalelight[0];
+            //     else if (lightnum >= LIGHTLEVELS)
+            //     walllights = scalelight[LIGHTLEVELS - 1];
+            //     else
+            //     walllights = scalelight[lightnum];
+            // }
+        }
+
+        // if a floor / ceiling plane is on the wrong side
+        //  of the view plane, it is definitely invisible
+        //  and doesn't need to be marked.
+        if frontsector.floorheight >= viewz {
+            // above view plane
+            self.markfloor = false;
+        }
+        // TDOD: if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != skyflatnum
+        if frontsector.ceilingheight <= viewz {
+            // below view plane
+            self.markceiling = false;
+        }
+
+        // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop as f32 * self.rw_scalestep);
         self.topfrac = 100.0 - (self.worldtop as f32 * scale1);
 
         self.bottomstep = -(self.worldbottom as f32 * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom as f32 * scale1);
 
-        // testing lighting
+        if self.seg.backsector.is_some() {
+            if self.worldhigh < self.worldtop as i32 {
+                self.pixhighstep = -(self.worldhigh as f32 * self.rw_scalestep);
+                self.pixhigh = 100.0 - (self.worldhigh as f32 * scale1);
+            }
+
+            if self.worldlow > self.worldbottom as i32 {
+                self.pixlowstep = -(self.worldlow as f32 * self.rw_scalestep);
+                self.pixlow = 100.0 - (self.worldlow as f32 * scale1);
+            }
+        }
+
+        self.render_seg_loop(stop, viewz as i32, rdata, canvas);
+    }
+
+    fn render_seg_loop(
+        &mut self,
+        stop: i32,
+        viewheight: i32,
+        rdata: &mut RenderData,
+        canvas: &mut Canvas<Surface>,
+    ) {
+        //
+        // TESTING STUFF
+        //
         let mut lightnum =
             self.seg.linedef.front_sidedef.sector.lightlevel as u8 >> 4;
 
@@ -260,22 +435,93 @@ impl<'a> SegRender<'a> {
         canvas.set_draw_color(colour);
 
         // R_RenderSegLoop
-        let mut curr = start;
-        while curr <= stop {
-            let rect = Rect::new(
-                curr,
-                self.topfrac as i32,
-                1 as u32,
-                (self.bottomfrac as i32 - self.topfrac as i32) as u32, // WOAH! floating point rounding stuff
-            );
-            canvas.fill_rect(rect).unwrap();
+        let mut top = 0;
+        let mut bottom = 0;
+        let mut mid = 0;
+        while self.rw_x <= stop {
+            if self.markceiling {
+                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
+                bottom = self.topfrac as i32 - 1;
 
-            curr += 1;
+                if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    bottom =
+                        rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                }
+                if top <= bottom {
+                    // TODO: ceilingplane
+                }
+            }
+
+            if self.markfloor {
+                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
+                }
+                if top <= bottom {
+                    // TODO: floorplane
+                }
+            }
+
+            if self.midtexture != 0 {
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] =
+                    SCREENHEIGHT as i32;
+                rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
+
+                let rect = Rect::new(
+                    self.rw_x,
+                    self.topfrac as i32,
+                    1,
+                    (self.bottomfrac as i32 - self.topfrac as i32) as u32, // WOAH! floating point rounding stuff
+                );
+
+                canvas.fill_rect(rect).unwrap();
+            } else {
+                if self.toptexture != 0 {
+                    mid = self.pixhigh as i32;
+                    self.pixhigh += self.pixhighstep;
+                    //
+                    // if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    //     mid =
+                    //         rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                    // }
+
+                    let rect = Rect::new(
+                        self.rw_x,
+                        self.topfrac as i32,
+                        1,
+                        (mid - self.topfrac as i32) as u32, // WOAH! floating point rounding stuff
+                    );
+                    canvas.fill_rect(rect).unwrap();
+
+                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
+                }
+
+                if self.bottomtexture != 0 {
+                    mid = self.pixlow as i32;
+                    self.pixlow += self.pixlowstep;
+
+                    // if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize]
+                    // {
+                    //     mid = rdata.portal_clip.ceilingclip[self.rw_x as usize]
+                    //         + 1;
+                    // }
+
+                    let rect = Rect::new(
+                        self.rw_x,
+                        mid,
+                        1,
+                        (self.bottomfrac as i32 - mid) as u32, // WOAH! floating point rounding stuff
+                    );
+                    canvas.fill_rect(rect).unwrap();
+
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
+                }
+            }
+
+            self.rw_x += 1;
+            self.rw_scale += self.rw_scalestep;
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
-            if curr < 0 {
-                break;
-            }
         }
     }
 }

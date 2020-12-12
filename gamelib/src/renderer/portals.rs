@@ -7,8 +7,8 @@ pub(crate) struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
-    pub floorclip:   [i16; SCREENWIDTH],
-    pub ceilingclip: [i16; SCREENWIDTH],
+    pub floorclip:   [i32; SCREENWIDTH],
+    pub ceilingclip: [i32; SCREENWIDTH],
 }
 
 impl PortalClip {
@@ -21,7 +21,7 @@ impl PortalClip {
 
     pub(crate) fn clear(&mut self) {
         for i in 0..SCREENWIDTH {
-            self.floorclip[i] = SCREENHEIGHT as i16;
+            self.floorclip[i] = SCREENHEIGHT as i32;
             self.ceilingclip[i] = -1;
         }
     }
