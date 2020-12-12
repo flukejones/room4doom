@@ -1,7 +1,7 @@
 use wad::{lumps::WadThing, WadData};
 
 use crate::level_data::map_data::MapData;
-use crate::renderer::r_bsp::RenderData;
+use crate::renderer::bsp::RenderData;
 use crate::{
     d_main::Skill,
     d_thinker::Think,

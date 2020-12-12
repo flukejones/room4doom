@@ -3,8 +3,9 @@ use crate::level_data::map_data::{MapData, IS_SSECTOR_MASK};
 use crate::level_data::map_defs::{Segment, SubSector};
 use crate::p_map_object::MapObject;
 use crate::player::Player;
-use crate::renderer::r_defs::{ClipRange, DrawSeg};
-use crate::renderer::r_segs::SegRender;
+use crate::renderer::defs::{ClipRange, DrawSeg};
+use crate::renderer::portals::PortalClip;
+use crate::renderer::segs::SegRender;
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
@@ -27,7 +28,7 @@ const MAX_SEGS: usize = 32;
 // sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
 // sector_t *backsector;
 
-/// We store most of hwats needed for rendering in various functions here to avoid
+/// We store most of what is needed for rendering in various functions here to avoid
 /// having to pass too many things in args through multiple function calls. This
 /// is due to the Doom C relying a fair bit on global state.
 ///
@@ -40,7 +41,9 @@ const MAX_SEGS: usize = 32;
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
 pub(crate) struct RenderData {
-    solidsegs:     Vec<ClipRange>,
+    solidsegs:   Vec<ClipRange>,
+    portal_clip: PortalClip,
+
     /// index in to self.solidsegs
     new_end:       usize,
     pub rw_angle1: Angle,
@@ -453,7 +456,7 @@ pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 mod tests {
     use crate::angle::Angle;
     use crate::level_data::map_data::MapData;
-    use crate::renderer::r_bsp::IS_SSECTOR_MASK;
+    use crate::renderer::bsp::IS_SSECTOR_MASK;
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;
