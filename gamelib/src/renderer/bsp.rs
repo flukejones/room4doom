@@ -41,8 +41,8 @@ const MAX_SEGS: usize = 32;
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
 pub(crate) struct RenderData {
-    solidsegs:   Vec<ClipRange>,
-    portal_clip: PortalClip,
+    solidsegs:       Vec<ClipRange>,
+    pub portal_clip: PortalClip,
 
     /// index in to self.solidsegs
     new_end:       usize,

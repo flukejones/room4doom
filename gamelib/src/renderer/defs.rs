@@ -2,6 +2,11 @@ use std::ptr::NonNull;
 
 use crate::level_data::map_defs::Segment;
 
+pub(crate) const SIL_NONE: i32 = 0;
+pub(crate) const SIL_BOTTOM: i32 = 1;
+pub(crate) const SIL_TOP: i32 = 2;
+pub(crate) const SIL_BOTH: i32 = 3;
+
 pub(crate) const SCREENWIDTH: usize = 320;
 pub(crate) const SCREENHEIGHT: usize = 200;
 
