@@ -9,8 +9,8 @@ use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_data::MapData;
 use crate::level_data::map_defs::Segment;
 use crate::player::Player;
-use crate::renderer::r_bsp::RenderData;
-use crate::renderer::r_defs::{DrawSeg, MAXDRAWSEGS};
+use crate::renderer::bsp::RenderData;
+use crate::renderer::defs::{DrawSeg, MAXDRAWSEGS};
 use crate::{point_to_dist, scale_from_view_angle};
 use std::f32::EPSILON;
 
@@ -21,6 +21,8 @@ use std::f32::EPSILON;
 // short *maskedtexturecol;
 
 // TODO: possibly init this once then use a `clear` func when new is required
+/// All of the state in this struct is unique to it as it is used once per seg
+/// to be rendered.
 pub(crate) struct SegRender<'a> {
     object: &'a Player,
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
