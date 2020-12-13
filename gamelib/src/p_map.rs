@@ -3,14 +3,16 @@
 use glam::Vec2;
 
 use crate::level_data::level::Level;
+use crate::level_data::map_defs::LineDef;
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
+use crate::p_map_util::box_on_line_side;
 
 const MAXSPECIALCROSS: i32 = 8;
-const BOXTOP: usize = 0;
-const BOXBOTTOM: usize = 1;
-const BOXRIGHT: usize = 3;
-const BOXLEFT: usize = 2;
+pub(crate) const BOXTOP: usize = 0;
+pub(crate) const BOXBOTTOM: usize = 1;
+pub(crate) const BOXRIGHT: usize = 3;
+pub(crate) const BOXLEFT: usize = 2;
 
 #[derive(Default)]
 pub(crate) struct MobjCtrl {
@@ -103,6 +105,7 @@ impl MapObject {
 
         let newsubsect = level.map_data.point_in_subsector(xy);
         ctrl.tmfloorz = newsubsect.sector.floorheight;
+        ctrl.tmdropoffz = newsubsect.sector.floorheight;
         ctrl.tmceilingz = newsubsect.sector.ceilingheight;
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
@@ -120,10 +123,46 @@ impl MapObject {
         // TODO: P_BlockThingsIterator, PIT_CheckThing
         // TODO: P_BlockLinesIterator, PIT_CheckLine
 
-        level.mobj_ctrl.tmfloorz = newsubsect.sector.floorheight;
-        level.mobj_ctrl.tmceilingz = newsubsect.sector.ceilingheight;
+        ctrl.tmfloorz = newsubsect.sector.floorheight;
+        ctrl.tmceilingz = newsubsect.sector.ceilingheight;
 
         true
+    }
+
+    /// PIT_CheckLine
+    /// Adjusts tmfloorz and tmceilingz as lines are contacted
+    fn PIT_check_line(&mut self, ctrl: &mut MobjCtrl, ld: &LineDef) -> bool {
+        if ctrl.tmbbox[BOXRIGHT] <= ld.bbox.left
+            || ctrl.tmbbox[BOXLEFT] >= ld.bbox.right
+            || ctrl.tmbbox[BOXTOP] <= ld.bbox.bottom
+            || ctrl.tmbbox[BOXBOTTOM] >= ld.bbox.top
+        {
+            return true;
+        }
+
+        if box_on_line_side(&ctrl.tmbbox, &ld) != -1 {
+            return true;
+        }
+
+        // A line has been hit
+
+        // The moving thing's destination position will cross
+        // the given line.
+        // If this should not be allowed, return false.
+        // If the line is special, keep track of it
+        // to process later if the move is proven ok.
+        // NOTE: specials are NOT sorted by order,
+        // so two special lines that are only 8 pixels apart
+        // could be crossed in either order.
+
+        if ld.backsector.is_none() {
+            // one-sided line
+            return false;
+        }
+
+        // TODO: complete this function
+
+        false
     }
 
     /// P_SlideMove, // level function
