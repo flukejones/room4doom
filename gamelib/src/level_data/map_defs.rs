@@ -140,6 +140,18 @@ pub(crate) struct LineDef {
     // TODO: void*	specialdata: Option<DPtr<Thinker>>,
 }
 
+impl LineDef {
+    pub(crate) fn point_on_side(&self, v: &Vec2) -> usize {
+        let dx = v.x() - self.v1.x();
+        let dy = v.y() - self.v1.y();
+
+        if (self.delta.y() * dx) > (dy * self.delta.x()) {
+            return 0;
+        }
+        1
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Segment {
     // Vertices, from v1 to v2.

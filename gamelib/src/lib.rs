@@ -23,6 +23,7 @@ pub(crate) mod p_lights;
 pub(crate) mod p_local;
 pub(crate) mod p_map;
 pub(crate) mod p_map_object;
+pub(crate) mod p_map_util;
 pub(crate) mod p_player_sprite;
 pub(crate) mod p_spec;
 pub(crate) mod player;

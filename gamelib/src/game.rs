@@ -1,7 +1,6 @@
 use crate::level_data::level;
 use crate::level_data::level::Level;
 use crate::player::{Player, WBStartStruct};
-use crate::renderer::RenderData;
 use crate::tic_cmd::TicCmd;
 use crate::{d_main, player::PlayerState};
 use crate::{
