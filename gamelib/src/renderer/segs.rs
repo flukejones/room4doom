@@ -483,13 +483,7 @@ impl SegRender {
             }
 
             if self.midtexture != 0 && yh > yl {
-                let rect = Rect::new(
-                    self.rw_x,
-                    yl,
-                    1,
-                    (yh - yl) as u32, // WOAH! floating point rounding stuff
-                );
-                canvas.fill_rect(rect).unwrap();
+                canvas.draw_line((self.rw_x, yl), (self.rw_x, yh)).unwrap();
 
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] =
                     SCREENHEIGHT as i32;
@@ -505,13 +499,9 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        let rect = Rect::new(
-                            self.rw_x,
-                            yl,
-                            1,
-                            (mid - yl) as u32, // WOAH! floating point rounding stuff
-                        );
-                        canvas.fill_rect(rect).unwrap();
+                        canvas
+                            .draw_line((self.rw_x, yl), (self.rw_x, mid))
+                            .unwrap();
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
@@ -533,13 +523,9 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        let rect = Rect::new(
-                            self.rw_x,
-                            mid,
-                            1,
-                            (yh - mid) as u32, // WOAH! floating point rounding stuff
-                        );
-                        canvas.fill_rect(rect).unwrap();
+                        canvas
+                            .draw_line((self.rw_x, yh), (self.rw_x, mid))
+                            .unwrap();
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
