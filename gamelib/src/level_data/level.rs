@@ -65,22 +65,6 @@ impl Level {
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
-        if game_mode == GameMode::Retail {
-            if episode > 4 {
-                episode = 4;
-            }
-        } else if game_mode == GameMode::Shareware {
-            if episode > 1 {
-                episode = 1; // only start episode 1 on shareware
-            }
-        } else if episode > 3 {
-            episode = 3;
-        }
-
-        if map > 9 && game_mode != GameMode::Commercial {
-            map = 9;
-        }
-
         let map_name = if game_mode == GameMode::Commercial {
             if map < 10 {
                 format!("MAP0{}", map)

@@ -84,13 +84,13 @@ impl Game {
         let respawn_monsters =
             matches!(options.skill, d_main::Skill::Nightmare);
 
-        let wad = WadData::new(options.iwad.clone().into());
+        let mut wad = WadData::new(options.iwad.clone().into());
 
         let (game_mode, game_mission, game_description) =
             identify_version(&wad);
 
         if game_mode == GameMode::Retail {
-            if options.episode > 4 {
+            if options.episode > 4 && options.pwad.is_none() {
                 options.episode = 4;
             }
         } else if game_mode == GameMode::Shareware {
@@ -102,6 +102,10 @@ impl Game {
             }
         } else if options.episode > 3 {
             options.episode = 3;
+        }
+
+        if let Some(ref pwad) = options.pwad {
+            wad.add_file(pwad.into());
         }
 
         // Mimic the OG output
@@ -226,20 +230,20 @@ impl Game {
             // TODO: S_ResumeSound();
         }
 
-        if self.game_mode == GameMode::Retail {
-            if episode > 4 {
-                episode = 4;
-            }
-        } else if self.game_mode == GameMode::Shareware {
-            if episode > 1 {
-                episode = 1; // only start episode 1 on shareware
-            }
-            if map > 5 {
-                map = 5;
-            }
-        } else if episode > 3 {
-            episode = 3;
-        }
+        // if self.game_mode == GameMode::Retail {
+        //     if episode > 4 {
+        //         episode = 4;
+        //     }
+        // } else if self.game_mode == GameMode::Shareware {
+        //     if episode > 1 {
+        //         episode = 1; // only start episode 1 on shareware
+        //     }
+        //     if map > 5 {
+        //         map = 5;
+        //     }
+        // } else if episode > 3 {
+        //     episode = 3;
+        // }
 
         if map > 9 && self.game_mode != GameMode::Commercial {
             map = 9;
