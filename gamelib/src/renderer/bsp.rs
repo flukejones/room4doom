@@ -144,8 +144,9 @@ impl BspRenderer {
             {
                 return;
             }
+        } else {
+            self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
         }
-        self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
     }
 
     /// R_Subsector - r_bsp
