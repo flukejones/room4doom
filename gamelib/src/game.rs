@@ -1,6 +1,7 @@
 use crate::level_data::level;
 use crate::level_data::level::Level;
 use crate::player::{Player, WBStartStruct};
+use crate::renderer::RenderData;
 use crate::tic_cmd::TicCmd;
 use crate::{d_main, player::PlayerState};
 use crate::{
@@ -504,15 +505,17 @@ impl Game {
 
             let player = &mut self.players[self.consoleplayer];
 
-            level.bsp_ctrl.clear_clip_segs();
+            level.bsp_renderer.clear_clip_segs();
+            level.r_data.portal_clip.clear();
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 
             canvas.clear();
-            level.bsp_ctrl.render_bsp_node(
+            level.bsp_renderer.render_bsp_node(
                 &map,
                 player,
                 map.start_node(),
+                &mut level.r_data,
                 canvas,
             );
         }

@@ -4,8 +4,8 @@ use crate::level_data::map_defs::{Segment, SubSector};
 use crate::p_map_object::MapObject;
 use crate::player::Player;
 use crate::renderer::defs::{ClipRange, DrawSeg};
-use crate::renderer::portals::PortalClip;
 use crate::renderer::segs::SegRender;
+use crate::renderer::RenderData;
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
@@ -40,28 +40,19 @@ const MAX_SEGS: usize = 32;
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
-pub(crate) struct RenderData {
-    solidsegs:       Vec<ClipRange>,
-    pub portal_clip: PortalClip,
-
+pub(crate) struct BspRenderer {
     /// index in to self.solidsegs
-    new_end:       usize,
-    pub rw_angle1: Angle,
-
-    /// index to drawsegs
-    /// Used in r_segs and r_things
-    pub ds_p:     usize, // Or, depending on place in code this can be skipped and a new
-    // DrawSeg used, which is inserted in drawsegs at end of r_segs
-    pub drawsegs: Vec<DrawSeg>,
+    new_end:   usize,
+    solidsegs: Vec<ClipRange>,
 }
 
-impl RenderData {
+impl BspRenderer {
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
-        map: &MapData,
         player: &Player,
         seg: &'a Segment,
+        r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
         // reject orthogonal back sides
@@ -86,7 +77,7 @@ impl RenderData {
         }
 
         // Global angle needed by segcalc.
-        self.rw_angle1 = angle1;
+        r_data.rw_angle1 = angle1;
 
         angle1 -= angle;
         angle2 -= angle;
@@ -130,7 +121,7 @@ impl RenderData {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, map, player, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
                 return;
             }
 
@@ -139,7 +130,7 @@ impl RenderData {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, map, player, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, player, r_data, canvas);
                 return;
             }
 
@@ -154,7 +145,7 @@ impl RenderData {
                 return;
             }
         }
-        self.clip_solid_seg(x1, x2 - 1, seg, map, player, canvas);
+        self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
     }
 
     /// R_Subsector - r_bsp
@@ -163,12 +154,13 @@ impl RenderData {
         map: &MapData,
         object: &Player,
         subsect: &SubSector,
+        r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.get_segments()[i as usize];
-            self.add_line(map, object, &seg, canvas);
+            self.add_line(object, &seg, r_data, canvas);
         }
     }
 
@@ -186,6 +178,7 @@ impl RenderData {
             });
         }
         self.new_end = 2;
+        // self.r_segs = SegRender::default();
     }
 
     /// R_ClipSolidWallSegment - r_bsp
@@ -194,10 +187,11 @@ impl RenderData {
         first: i32,
         last: i32,
         seg: &Segment,
-        map: &MapData,
         object: &Player,
+        r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        let mut r_segs = SegRender::default();
         let mut next;
 
         // Find the first range that touches the range
@@ -209,13 +203,12 @@ impl RenderData {
 
         // We create the seg-renderer for each seg as data is not shared
         // TODO: check the above
-        let mut seg_render = SegRender::new(object, seg, map);
-
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
-                seg_render.store_wall_range(first, last, self, canvas);
+                r_segs
+                    .store_wall_range(first, last, seg, object, r_data, canvas);
 
                 next = self.new_end;
                 self.new_end += 1;
@@ -231,12 +224,7 @@ impl RenderData {
             }
 
             // There is a fragment above *start.
-            seg_render.store_wall_range(
-                first,
-                self.solidsegs[start].first - 1,
-                self,
-                canvas,
-            );
+            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
             // Now adjust the clip size.
             self.solidsegs[start].first = first;
         }
@@ -250,12 +238,7 @@ impl RenderData {
         while last >= self.solidsegs[next + 1].first - 1
             && next + 1 < self.solidsegs.len() - 1
         {
-            seg_render.store_wall_range(
-                self.solidsegs[next].last + 1,
-                self.solidsegs[next + 1].first - 1,
-                self,
-                canvas,
-            );
+            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
             next += 1;
 
@@ -266,12 +249,7 @@ impl RenderData {
         }
 
         // There is a fragment after *next.
-        seg_render.store_wall_range(
-            self.solidsegs[next].last + 1,
-            last,
-            self,
-            canvas,
-        );
+        r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
         // Adjust the clip size.
         self.solidsegs[start].last = last;
 
@@ -287,10 +265,11 @@ impl RenderData {
         first: i32,
         last: i32,
         seg: &Segment,
-        map: &MapData,
         object: &Player,
+        r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        let mut r_segs = SegRender::default();
         let mut next;
 
         // Find the first range that touches the range
@@ -300,22 +279,16 @@ impl RenderData {
             start += 1;
         }
 
-        let mut seg_render = SegRender::new(object, seg, map);
-
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
-                seg_render.store_wall_range(first, last, self, canvas);
+                r_segs
+                    .store_wall_range(first, last, seg, object, r_data, canvas);
                 return;
             }
 
             // There is a fragment above *start.
-            seg_render.store_wall_range(
-                first,
-                self.solidsegs[start].first - 1,
-                self,
-                canvas,
-            );
+            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
         }
 
         // Bottom contained in start?
@@ -327,12 +300,7 @@ impl RenderData {
         while last >= self.solidsegs[next + 1].first - 1
             && next + 1 < self.solidsegs.len() - 1
         {
-            seg_render.store_wall_range(
-                self.solidsegs[next].last + 1,
-                self.solidsegs[next + 1].first - 1,
-                self,
-                canvas,
-            );
+            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
             next += 1;
 
@@ -342,12 +310,7 @@ impl RenderData {
         }
 
         // There is a fragment after *next.
-        seg_render.store_wall_range(
-            self.solidsegs[next].last + 1,
-            last,
-            self,
-            canvas,
-        );
+        r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
     }
 
     fn crunch(&mut self, mut start: usize, mut next: usize) {
@@ -372,6 +335,7 @@ impl RenderData {
         map: &MapData,
         player: &Player,
         node_id: u16,
+        r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
@@ -379,7 +343,7 @@ impl RenderData {
             let subsect =
                 &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, &subsect, canvas);
+            self.draw_subsector(map, player, &subsect, r_data, canvas);
             return;
         }
 
@@ -389,7 +353,13 @@ impl RenderData {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], canvas);
+        self.render_bsp_node(
+            map,
+            player,
+            node.child_index[side],
+            r_data,
+            canvas,
+        );
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -404,6 +374,7 @@ impl RenderData {
                 map,
                 player,
                 node.child_index[side ^ 1],
+                r_data,
                 canvas,
             );
         }
