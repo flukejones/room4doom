@@ -209,7 +209,7 @@ impl SegRender {
             // single sided line
             // TODO: Need to R_InitTextures and figure out where to put this
             //self.midtexture = texturetranslation[sidedef.middle_tex];
-            self.midtexture = 1;
+            self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
             self.markceiling = true;
             if linedef.flags & ML_DONTPEGBOTTOM as i16 != 0 {
@@ -272,31 +272,41 @@ impl SegRender {
             // Checks to see if panes need updating?
             if self.worldlow != self.worldbottom as i32
                 || backsector.floorpic != frontsector.floorpic
-                || backsector.lightlevel != frontsector.lightlevel
             {
                 self.markfloor = true;
             } else {
+                // same plane on both sides
                 self.markfloor = false;
             }
             //
             if self.worldhigh != self.worldtop as i32
                 || backsector.ceilingpic != frontsector.ceilingpic
+                || backsector.lightlevel != frontsector.lightlevel
             {
                 self.markceiling = true;
             } else {
+                // same plane on both sides
                 self.markceiling = false;
+            }
+
+            if backsector.ceilingheight <= frontsector.floorheight
+                || backsector.floorheight >= frontsector.ceilingheight
+            {
+                // closed door
+                self.markceiling = true;
+                self.markfloor = true;
             }
 
             if self.worldhigh < self.worldtop as i32 {
                 // TODO: texture stuff
                 //  toptexture = texturetranslation[sidedef->toptexture];
-                self.toptexture = 2;
+                self.toptexture = sidedef.toptexture as i32;
             }
 
             if self.worldlow > self.worldbottom as i32 {
                 // TODO: texture stuff
                 //  bottomtexture = texturetranslation[sidedef->bottomtexture];
-                self.bottomtexture = 3;
+                self.bottomtexture = sidedef.bottomtexture as i32;
             }
 
             self.rw_toptexturemid += sidedef.rowoffset;
@@ -305,7 +315,7 @@ impl SegRender {
             if sidedef.midtexture != 0 {
                 self.maskedtexture = true;
                 // TODO: ds_p->maskedtexturecol = maskedtexturecol = lastopening - rw_x;
-                //  lastopening += rw_stopx - rw_x;
+                // lastopening += rw_stopx - rw_x;
             }
         }
 
@@ -434,7 +444,7 @@ impl SegRender {
         let mut bottom;
         let mut mid;
         while self.rw_x <= stop {
-            yl = (self.topfrac - 1.0) as i32;
+            yl = self.topfrac as i32 + 1;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
@@ -468,6 +478,10 @@ impl SegRender {
                 }
             }
 
+            if !self.segtextured {
+                continue;
+            }
+
             if self.midtexture != 0 && yh > yl {
                 let rect = Rect::new(
                     self.rw_x,
@@ -480,7 +494,7 @@ impl SegRender {
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] =
                     SCREENHEIGHT as i32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
-            } else {
+            } else if yh > yl {
                 if self.toptexture != 0 {
                     mid = self.pixhigh as i32;
                     self.pixhigh += self.pixhighstep;

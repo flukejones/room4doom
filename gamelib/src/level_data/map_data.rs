@@ -170,9 +170,9 @@ impl MapData {
                 SideDef {
                     textureoffset: s.y_offset as f32,
                     rowoffset:     s.x_offset as f32,
-                    toptexture:    0,
-                    bottomtexture: 0,
-                    midtexture:    0,
+                    toptexture:    if s.upper_tex.is_empty() { 0 } else { 1 },
+                    bottomtexture: if s.lower_tex.is_empty() { 0 } else { 1 },
+                    midtexture:    if s.middle_tex.is_empty() { 0 } else { 1 },
                     sector:        DPtr::new(sector),
                 }
             })
