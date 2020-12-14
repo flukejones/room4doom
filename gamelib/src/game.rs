@@ -513,7 +513,12 @@ impl Game {
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 
-            canvas.clear();
+            let colour = sdl2::pixels::Color::RGBA(90, 80, 80, 255);
+            canvas.set_draw_color(colour);
+            canvas.fill_rect(Rect::new(0, 0, 320, 100)).unwrap();
+            let colour = sdl2::pixels::Color::RGBA(90, 90, 90, 255);
+            canvas.set_draw_color(colour);
+            canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
             level.bsp_renderer.render_bsp_node(
                 &map,
                 player,

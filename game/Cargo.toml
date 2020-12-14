@@ -17,5 +17,4 @@ gumdrop = "~0.7"
 rand = "*"
 gamelib = { path = "../gamelib" }
 wad = { path = "../wad" }
-utils = { path = "../utils" }
 golem = { git = "https://github.com/flukejones/golem/" }

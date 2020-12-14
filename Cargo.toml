@@ -1,2 +1,2 @@
 [workspace]
-members = ["wad", "game", "gamelib", "utils"]
+members = ["wad", "game", "gamelib"]

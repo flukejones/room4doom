@@ -1,3 +1,4 @@
+use glam::Vec2;
 use std::{
     f32::consts::PI,
     ops::{
@@ -87,6 +88,11 @@ impl Angle {
     pub fn sin(&self) -> f32 { self.0.sin() }
 
     pub fn cos(&self) -> f32 { self.0.cos() }
+
+    pub fn unit(&self) -> Vec2 {
+        let (y, x) = self.0.sin_cos();
+        Vec2::new(x, y)
+    }
 
     //pub fn tan(&self) -> f32 { self.0.tan() }
 }
