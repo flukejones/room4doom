@@ -7,6 +7,7 @@ use std::{
 use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW};
 use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_defs::Segment;
+use crate::p_map_object::MapObject;
 use crate::player::Player;
 use crate::renderer::defs::{
     DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP,
@@ -66,8 +67,8 @@ pub(crate) struct SegRender {
 
     worldtop:    f32,
     worldbottom: f32,
-    worldhigh:   i32,
-    worldlow:    i32,
+    worldhigh:   f32,
+    worldlow:    f32,
 }
 
 impl SegRender {
@@ -108,8 +109,8 @@ impl SegRender {
 
             worldtop:    0.0,
             worldbottom: 0.0,
-            worldhigh:   0,
-            worldlow:    0,
+            worldhigh:   0.0,
+            worldlow:    0.0,
         }
     }
 
@@ -137,7 +138,7 @@ impl SegRender {
         let sidedef = seg.sidedef.clone();
         let mut linedef = seg.linedef.clone();
 
-        // mark the segment as visible for auto level
+        // mark the segment as visible for automap
         linedef.flags |= ML_MAPPED as i16;
 
         self.rw_normalangle = seg.angle;
@@ -262,15 +263,15 @@ impl SegRender {
                 ds_p.bsilheight = f32::MIN;
             }
 
-            self.worldhigh = (backsector.ceilingheight - viewz) as i32;
-            self.worldlow = (backsector.floorheight - viewz) as i32;
+            self.worldhigh = backsector.ceilingheight - viewz;
+            self.worldlow = backsector.floorheight - viewz;
 
             // TODO: hack to allow height changes in outdoor areas
             //  if (frontsector->ceilingpic == skyflatnum && backsector->ceilingpic == skyflatnum)
             // 	{ worldtop = worldhigh; }
 
             // Checks to see if panes need updating?
-            if self.worldlow != self.worldbottom as i32
+            if self.worldlow != self.worldbottom
                 || backsector.floorpic != frontsector.floorpic
             {
                 self.markfloor = true;
@@ -279,7 +280,7 @@ impl SegRender {
                 self.markfloor = false;
             }
             //
-            if self.worldhigh != self.worldtop as i32
+            if self.worldhigh != self.worldtop
                 || backsector.ceilingpic != frontsector.ceilingpic
                 || backsector.lightlevel != frontsector.lightlevel
             {
@@ -297,13 +298,13 @@ impl SegRender {
                 self.markfloor = true;
             }
 
-            if self.worldhigh < self.worldtop as i32 {
+            if self.worldhigh < self.worldtop {
                 // TODO: texture stuff
                 //  toptexture = texturetranslation[sidedef->toptexture];
                 self.toptexture = sidedef.toptexture as i32;
             }
 
-            if self.worldlow > self.worldbottom as i32 {
+            if self.worldlow > self.worldbottom {
                 // TODO: texture stuff
                 //  bottomtexture = texturetranslation[sidedef->bottomtexture];
                 self.bottomtexture = sidedef.bottomtexture as i32;
@@ -385,30 +386,30 @@ impl SegRender {
         }
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
-        self.topstep = -(self.worldtop as f32 * self.rw_scalestep);
-        self.topfrac = 100.0 - (self.worldtop as f32 * self.rw_scale);
+        self.topstep = -(self.worldtop * self.rw_scalestep);
+        self.topfrac = 100.0 - (self.worldtop * self.rw_scale);
 
-        self.bottomstep = -(self.worldbottom as f32 * self.rw_scalestep);
-        self.bottomfrac = 100.0 - (self.worldbottom as f32 * self.rw_scale);
+        self.bottomstep = -(self.worldbottom * self.rw_scalestep);
+        self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
-            if self.worldhigh < self.worldtop as i32 {
-                self.pixhigh = 100.0 - (self.worldhigh as f32 * self.rw_scale);
-                self.pixhighstep = -(self.worldhigh as f32 * self.rw_scalestep);
+            if self.worldhigh < self.worldtop {
+                self.pixhigh = 100.0 - (self.worldhigh * self.rw_scale);
+                self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
-            if self.worldlow > self.worldbottom as i32 {
-                self.pixlow = 100.0 - (self.worldlow as f32 * self.rw_scale);
-                self.pixlowstep = -(self.worldlow as f32 * self.rw_scalestep);
+            if self.worldlow > self.worldbottom {
+                self.pixlow = 100.0 - (self.worldlow * self.rw_scale);
+                self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
 
-        self.render_seg_loop(stop, seg, rdata, canvas);
+        self.render_seg_loop(object, seg, rdata, canvas);
     }
 
     fn render_seg_loop(
         &mut self,
-        stop: i32,
+        player: &Player,
         seg: &Segment,
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
@@ -443,35 +444,36 @@ impl SegRender {
         let mut top;
         let mut bottom;
         let mut mid;
-        while self.rw_x <= stop {
-            yl = self.topfrac as i32 + 1;
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
-                yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
+        while self.rw_x < self.rw_stopx {
+            yl = self.topfrac + 1.0;
+            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+                yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
             if self.markceiling {
-                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
-                bottom = yl - 1;
+                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                bottom = yl - 1.0;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom =
-                        rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                        rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 }
                 if top <= bottom {
                     // TODO: ceilingplane
                 }
             }
 
-            yh = self.bottomfrac as i32;
-            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1 {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+            yh = self.bottomfrac;
+            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0 {
+                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
 
             if self.markfloor {
-                top = yh + 1;
-                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                top = yh + 1.0;
+                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
+                    top =
+                        rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 }
                 if top <= bottom {
                     // TODO: floorplane
@@ -483,57 +485,78 @@ impl SegRender {
             }
 
             if self.midtexture != 0 && yh > yl {
-                canvas.draw_line((self.rw_x, yl), (self.rw_x, yh)).unwrap();
+                canvas
+                    .draw_line((self.rw_x, yl as i32), (self.rw_x, yh as i32))
+                    .unwrap();
 
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                    SCREENHEIGHT as i32;
-                rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
-            } else if yh > yl {
+                    SCREENHEIGHT as f32;
+                rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
+            } else {
                 if self.toptexture != 0 {
-                    mid = self.pixhigh as i32;
+                    mid = self.pixhigh;
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                        mid =
-                            rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
+                        mid = rdata.portal_clip.floorclip[self.rw_x as usize]
+                            - 1.0;
                     }
 
                     if mid >= yl {
-                        canvas
-                            .draw_line((self.rw_x, yl), (self.rw_x, mid))
-                            .unwrap();
+                        // TODO: temporary?
+                        if seg.linedef.point_on_side(
+                            &player.mobj.as_ref().unwrap().obj.xy,
+                        ) == 0
+                        {
+                            canvas
+                                .draw_line(
+                                    (self.rw_x, yl as i32),
+                                    (self.rw_x, mid as i32),
+                                )
+                                .unwrap();
+                        }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                            yl - 1;
+                            yl - 1.0;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1;
+                    rdata.portal_clip.ceilingclip[self.rw_x as usize] =
+                        yl - 1.0;
                 }
 
                 if self.bottomtexture != 0 {
-                    mid = self.pixlow as i32;
+                    mid = self.pixlow;
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize]
                     {
                         mid = rdata.portal_clip.ceilingclip[self.rw_x as usize]
-                            + 1;
+                            + 1.0;
                     }
 
                     if mid <= yh {
-                        canvas
-                            .draw_line((self.rw_x, yh), (self.rw_x, mid))
-                            .unwrap();
+                        // TODO: temporary?
+                        if seg.linedef.point_on_side(
+                            &player.mobj.as_ref().unwrap().obj.xy,
+                        ) == 0
+                        {
+                            canvas
+                                .draw_line(
+                                    (self.rw_x, yh as i32),
+                                    (self.rw_x, mid as i32),
+                                )
+                                .unwrap();
+                        }
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
                         rdata.portal_clip.floorclip[self.rw_x as usize] =
-                            yh + 1;
+                            yh + 1.0;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1;
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
                 }
             }
 
@@ -542,5 +565,21 @@ impl SegRender {
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
         }
+    }
+
+    /// A column is a vertical slice/span from a wall texture that,
+    ///  given the DOOM style restrictions on the view orientation,
+    ///  will always have constant z depth.
+    /// Thus a special case loop for very fast rendering can
+    ///  be used. It has also been used with Wolfenstein 3D.
+    fn draw_column(&self, yh: i32, yl: i32, canvas: &mut Canvas<Surface>) {
+        // let mut count = yh - yl;
+        // let mut frac = 0.0;
+        // let mut fracstep;
+        //
+        // while count != 0 {
+        //     canvas.draw_line((self.rw_x, yl), (self.rw_x, yh)).unwrap();
+        //     count -= 1;
+        // }
     }
 }

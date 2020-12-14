@@ -105,7 +105,7 @@ impl BspRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(angle1.rad()); // this or vertex_angle_to_object incorrect
+        let x1 = angle_to_screen(angle1.rad());
         let x2 = angle_to_screen(angle2.rad());
 
         // Does not cross a pixel?
@@ -382,8 +382,7 @@ impl BspRenderer {
     }
 }
 
-/// ANgle must be within 90d range
-fn angle_to_screen(mut radian: f32) -> i32 {
+pub(crate) fn angle_to_screen(mut radian: f32) -> i32 {
     let mut x;
 
     // Left side
@@ -395,7 +394,7 @@ fn angle_to_screen(mut radian: f32) -> i32 {
         x = p - x;
     } else {
         // Right side
-        radian = (FRAC_PI_2) - radian;
+        radian = FRAC_PI_2 - radian;
         let t = radian.tan();
         x = t * p;
         x += p;
