@@ -315,6 +315,7 @@ impl SegRender {
 
             if sidedef.midtexture != 0 {
                 self.maskedtexture = true;
+                ds_p.maskedtexturecol = sidedef.midtexture;
                 // TODO: ds_p->maskedtexturecol = maskedtexturecol = lastopening - rw_x;
                 // lastopening += rw_stopx - rw_x;
             }
@@ -418,7 +419,7 @@ impl SegRender {
         // TESTING STUFF
         //
         let mut lightnum =
-            seg.linedef.front_sidedef.sector.lightlevel as u8 >> 4;
+            seg.linedef.front_sidedef.sector.lightlevel as u8 >> 2;
 
         if (seg.v1.y() - seg.v2.y()).abs() < EPSILON {
             if lightnum > 5 {
@@ -431,9 +432,9 @@ impl SegRender {
         let z = seg.sidedef.sector.floorheight.abs() as u8 / 2;
 
         let colour = sdl2::pixels::Color::RGBA(
-            150 + lightnum - (z >> 2) as u8,
-            130 + lightnum - (z >> 2) as u8,
-            130 + lightnum - (z >> 2) as u8,
+            100 + (self.midtexture * 5) as u8 + lightnum - (z >> 2) as u8,
+            100 + (self.toptexture * 5) as u8 + lightnum - (z >> 2) as u8,
+            100 + (self.bottomtexture * 5) as u8 + lightnum - (z >> 2) as u8,
             255,
         );
         canvas.set_draw_color(colour);

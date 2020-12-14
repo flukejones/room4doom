@@ -24,8 +24,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_PLAY_XDIE1, // xdeathstate
         SfxEnum::sfx_pldeth,    // deathsound
         0.0,                    // speed
-        16.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        16.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -54,8 +54,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_POSS_XDIE1, // xdeathstate
         SfxEnum::sfx_podth1,    // deathsound
         8.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
@@ -82,8 +82,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_POSS_XDIE1, // xdeathstate
         SfxEnum::sfx_podth2,    // deathsound
         8.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
@@ -110,8 +110,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_vildth,   // deathsound
         15.0,                  // speed
-        20.0 * FRACUNIT,       // radius
-        56.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        56.0,                  // height
         500,                   // mass
         0,                     // damage
         SfxEnum::sfx_vilact,   // activesound
@@ -138,8 +138,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -165,8 +165,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_skedth,    // deathsound
         10.0,                   // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         500,                    // mass
         0,                      // damage
         SfxEnum::sfx_skeact,    // activesound
@@ -192,9 +192,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_TRACEEXP1, // deathstate
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_barexp,   // deathsound
-        10.0 * FRACUNIT,       // speed
-        11.0 * FRACUNIT,       // radius
-        8.0 * FRACUNIT,        // height
+        10.0,                  // speed
+        11.0,                  // radius
+        8.0,                   // height
         100,                   // mass
         10,                    // damage
         SfxEnum::sfx_None,     // activesound
@@ -222,8 +222,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,   // xdeathstate
         SfxEnum::sfx_None,  // deathsound
         0.0,                // speed
-        20.0 * FRACUNIT,    // radius
-        16.0 * FRACUNIT,    // height
+        20.0,               // radius
+        16.0,               // height
         100,                // mass
         0,                  // damage
         SfxEnum::sfx_None,  // activesound
@@ -249,8 +249,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_mandth,   // deathsound
         8.0,                   // speed
-        48.0 * FRACUNIT,       // radius
-        64.0 * FRACUNIT,       // height
+        48.0,                  // radius
+        64.0,                  // height
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_posact,   // activesound
@@ -276,9 +276,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_FATSHOTX1, // deathstate
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_firxpl,   // deathsound
-        20.0 * FRACUNIT,       // speed
-        6.0 * FRACUNIT,        // radius
-        8.0 * FRACUNIT,        // height
+        20.0,                  // speed
+        6.0,                   // radius
+        8.0,                   // height
         100,                   // mass
         8,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -306,8 +306,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_POSS_XDIE1, // xdeathstate
         SfxEnum::sfx_podth2,    // deathsound
         8.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
@@ -334,8 +334,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_TROO_XDIE1, // xdeathstate
         SfxEnum::sfx_bgdth1,    // deathsound
         8.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_bgact,     // activesound
@@ -362,8 +362,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_sgtdth,   // deathsound
         10.0,                  // speed
-        30.0 * FRACUNIT,       // radius
-        56.0 * FRACUNIT,       // height
+        30.0,                  // radius
+        56.0,                  // height
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -390,8 +390,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_sgtdth,   // deathsound
         10.0,                  // speed
-        30.0 * FRACUNIT,       // radius
-        56.0 * FRACUNIT,       // height
+        30.0,                  // radius
+        56.0,                  // height
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -419,8 +419,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_cacdth,   // deathsound
         8.0,                   // speed
-        31.0 * FRACUNIT,       // radius
-        56.0 * FRACUNIT,       // height
+        31.0,                  // radius
+        56.0,                  // height
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -449,8 +449,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_brsdth,   // deathsound
         8.0,                   // speed
-        24.0 * FRACUNIT,       // radius
-        64.0 * FRACUNIT,       // height
+        24.0,                  // radius
+        64.0,                  // height
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -476,9 +476,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_BRBALLX1, // deathstate
         StateNum::S_NULL,     // xdeathstate
         SfxEnum::sfx_firxpl,  // deathsound
-        15.0 * FRACUNIT,      // speed
-        6.0 * FRACUNIT,       // radius
-        8.0 * FRACUNIT,       // height
+        15.0,                 // speed
+        6.0,                  // radius
+        8.0,                  // height
         100,                  // mass
         8,                    // damage
         SfxEnum::sfx_None,    // activesound
@@ -506,8 +506,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_kntdth,   // deathsound
         8.0,                   // speed
-        24.0 * FRACUNIT,       // radius
-        64.0 * FRACUNIT,       // height
+        24.0,                  // radius
+        64.0,                  // height
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -534,8 +534,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_firxpl,    // deathsound
         8.0,                    // speed
-        16.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        16.0,                   // radius
+        56.0,                   // height
         50,                     // mass
         3,                      // damage
         SfxEnum::sfx_dmact,     // activesound
@@ -563,8 +563,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_spidth,   // deathsound
         12.0,                  // speed
-        128.0 * FRACUNIT,      // radius
-        100.0 * FRACUNIT,      // height
+        128.0,                 // radius
+        100.0,                 // height
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -591,8 +591,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_bspdth,    // deathsound
         12.0,                   // speed
-        64.0 * FRACUNIT,        // radius
-        64.0 * FRACUNIT,        // height
+        64.0,                   // radius
+        64.0,                   // height
         600,                    // mass
         0,                      // damage
         SfxEnum::sfx_bspact,    // activesound
@@ -619,8 +619,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_cybdth,    // deathsound
         16.0,                   // speed
-        40.0 * FRACUNIT,        // radius
-        110.0 * FRACUNIT,       // height
+        40.0,                   // radius
+        110.0,                  // height
         1000,                   // mass
         0,                      // damage
         SfxEnum::sfx_dmact,     // activesound
@@ -647,8 +647,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_pedth,    // deathsound
         8.0,                   // speed
-        31.0 * FRACUNIT,       // radius
-        56.0 * FRACUNIT,       // height
+        31.0,                  // radius
+        56.0,                  // height
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
@@ -677,8 +677,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_SSWV_XDIE1, // xdeathstate
         SfxEnum::sfx_ssdth,     // deathsound
         8.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        56.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        56.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
@@ -705,8 +705,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,     // xdeathstate
         SfxEnum::sfx_keendt,  // deathsound
         0.0,                  // speed
-        16.0 * FRACUNIT,      // radius
-        72.0 * FRACUNIT,      // height
+        16.0,                 // radius
+        72.0,                 // height
         10000000,             // mass
         0,                    // damage
         SfxEnum::sfx_None,    // activesound
@@ -735,8 +735,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_bosdth,    // deathsound
         0.0,                    // speed
-        16.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        16.0,                   // radius
+        16.0,                   // height
         10000000,               // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -761,8 +761,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,        // xdeathstate
         SfxEnum::sfx_None,       // deathsound
         0.0,                     // speed
-        20.0 * FRACUNIT,         // radius
-        32.0 * FRACUNIT,         // height
+        20.0,                    // radius
+        32.0,                    // height
         100,                     // mass
         0,                       // damage
         SfxEnum::sfx_None,       // activesound
@@ -787,8 +787,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        32.0 * FRACUNIT,   // height
+        20.0,              // radius
+        32.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -812,9 +812,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,    // deathstate
         StateNum::S_NULL,    // xdeathstate
         SfxEnum::sfx_firxpl, // deathsound
-        10.0 * FRACUNIT,     // speed
-        6.0 * FRACUNIT,      // radius
-        32.0 * FRACUNIT,     // height
+        10.0,                // speed
+        6.0,                 // radius
+        32.0,                // height
         100,                 // mass
         3,                   // damage
         SfxEnum::sfx_None,   // activesound
@@ -843,8 +843,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        16.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -870,8 +870,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,    // xdeathstate
         SfxEnum::sfx_barexp, // deathsound
         0.0,                 // speed
-        10.0 * FRACUNIT,     // radius
-        42.0 * FRACUNIT,     // height
+        10.0,                // radius
+        42.0,                // height
         100,                 // mass
         0,                   // damage
         SfxEnum::sfx_None,   // activesound
@@ -897,9 +897,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_TBALLX1, // deathstate
         StateNum::S_NULL,    // xdeathstate
         SfxEnum::sfx_firxpl, // deathsound
-        10.0 * FRACUNIT,     // speed
-        6.0 * FRACUNIT,      // radius
-        8.0 * FRACUNIT,      // height
+        10.0,                // speed
+        6.0,                 // radius
+        8.0,                 // height
         100,                 // mass
         3,                   // damage
         SfxEnum::sfx_None,   // activesound
@@ -926,9 +926,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_RBALLX1, // deathstate
         StateNum::S_NULL,    // xdeathstate
         SfxEnum::sfx_firxpl, // deathsound
-        10.0 * FRACUNIT,     // speed
-        6.0 * FRACUNIT,      // radius
-        8.0 * FRACUNIT,      // height
+        10.0,                // speed
+        6.0,                 // radius
+        8.0,                 // height
         100,                 // mass
         5,                   // damage
         SfxEnum::sfx_None,   // activesound
@@ -955,9 +955,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_EXPLODE1, // deathstate
         StateNum::S_NULL,     // xdeathstate
         SfxEnum::sfx_barexp,  // deathsound
-        20.0 * FRACUNIT,      // speed
-        11.0 * FRACUNIT,      // radius
-        8.0 * FRACUNIT,       // height
+        20.0,                 // speed
+        11.0,                 // radius
+        8.0,                  // height
         100,                  // mass
         20,                   // damage
         SfxEnum::sfx_None,    // activesound
@@ -984,9 +984,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_PLASEXP,  // deathstate
         StateNum::S_NULL,     // xdeathstate
         SfxEnum::sfx_firxpl,  // deathsound
-        25.0 * FRACUNIT,      // speed
-        13.0 * FRACUNIT,      // radius
-        8.0 * FRACUNIT,       // height
+        25.0,                 // speed
+        13.0,                 // radius
+        8.0,                  // height
         100,                  // mass
         5,                    // damage
         SfxEnum::sfx_None,    // activesound
@@ -1013,9 +1013,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_BFGLAND, // deathstate
         StateNum::S_NULL,    // xdeathstate
         SfxEnum::sfx_rxplod, // deathsound
-        25.0 * FRACUNIT,     // speed
-        13.0 * FRACUNIT,     // radius
-        8.0 * FRACUNIT,      // height
+        25.0,                // speed
+        13.0,                // radius
+        8.0,                 // height
         100,                 // mass
         100,                 // damage
         SfxEnum::sfx_None,   // activesound
@@ -1042,9 +1042,9 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_ARACH_PLEX, // deathstate
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_firxpl,    // deathsound
-        25.0 * FRACUNIT,        // speed
-        13.0 * FRACUNIT,        // radius
-        8.0 * FRACUNIT,         // height
+        25.0,                   // speed
+        13.0,                   // radius
+        8.0,                    // height
         100,                    // mass
         5,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -1072,8 +1072,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1099,8 +1099,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                    // xdeathstate
         SfxEnum::sfx_None,                   // deathsound
         0.0,                                 // speed
-        20.0 * FRACUNIT,                     // radius
-        16.0 * FRACUNIT,                     // height
+        20.0,                                // radius
+        16.0,                                // height
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
@@ -1125,8 +1125,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1152,8 +1152,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1179,8 +1179,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1205,8 +1205,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,   // xdeathstate
         SfxEnum::sfx_None,  // deathsound
         0.0,                // speed
-        20.0 * FRACUNIT,    // radius
-        16.0 * FRACUNIT,    // height
+        20.0,               // radius
+        16.0,               // height
         100,                // mass
         0,                  // damage
         SfxEnum::sfx_None,  // activesound
@@ -1232,8 +1232,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1258,8 +1258,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1284,8 +1284,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1310,8 +1310,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1336,8 +1336,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1362,8 +1362,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1388,8 +1388,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1414,8 +1414,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,   // xdeathstate
         SfxEnum::sfx_None,  // deathsound
         0.0,                // speed
-        20.0 * FRACUNIT,    // radius
-        16.0 * FRACUNIT,    // height
+        20.0,               // radius
+        16.0,               // height
         100,                // mass
         0,                  // damage
         SfxEnum::sfx_None,  // activesound
@@ -1440,8 +1440,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,   // xdeathstate
         SfxEnum::sfx_None,  // deathsound
         0.0,                // speed
-        20.0 * FRACUNIT,    // radius
-        16.0 * FRACUNIT,    // height
+        20.0,               // radius
+        16.0,               // height
         100,                // mass
         0,                  // damage
         SfxEnum::sfx_None,  // activesound
@@ -1466,8 +1466,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,   // xdeathstate
         SfxEnum::sfx_None,  // deathsound
         0.0,                // speed
-        20.0 * FRACUNIT,    // radius
-        16.0 * FRACUNIT,    // height
+        20.0,               // radius
+        16.0,               // height
         100,                // mass
         0,                  // damage
         SfxEnum::sfx_None,  // activesound
@@ -1492,8 +1492,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1518,8 +1518,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1544,8 +1544,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1570,8 +1570,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1596,8 +1596,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1622,8 +1622,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1648,8 +1648,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1674,8 +1674,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1700,8 +1700,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1726,8 +1726,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -1752,8 +1752,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1778,8 +1778,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1804,8 +1804,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1830,8 +1830,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1856,8 +1856,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1882,8 +1882,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1908,8 +1908,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1934,8 +1934,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1960,8 +1960,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -1986,8 +1986,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2012,8 +2012,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2038,8 +2038,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2064,8 +2064,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2090,8 +2090,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2116,8 +2116,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2142,8 +2142,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                 // xdeathstate
         SfxEnum::sfx_None,                // deathsound
         0.0,                              // speed
-        20.0 * FRACUNIT,                  // radius
-        16.0 * FRACUNIT,                  // height
+        20.0,                             // radius
+        16.0,                             // height
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
@@ -2168,8 +2168,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2194,8 +2194,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2220,8 +2220,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2246,8 +2246,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2272,8 +2272,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2298,8 +2298,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2324,8 +2324,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2350,8 +2350,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2376,8 +2376,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2402,8 +2402,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2428,8 +2428,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2454,8 +2454,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2480,8 +2480,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2506,8 +2506,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2532,8 +2532,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2558,8 +2558,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2584,8 +2584,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2610,8 +2610,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2636,8 +2636,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2662,8 +2662,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2688,8 +2688,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        16.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -2714,8 +2714,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -2740,8 +2740,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,         // xdeathstate
         SfxEnum::sfx_None,        // deathsound
         0.0,                      // speed
-        16.0 * FRACUNIT,          // radius
-        68.0 * FRACUNIT,          // height
+        16.0,                     // radius
+        68.0,                     // height
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
@@ -2768,8 +2768,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        16.0 * FRACUNIT,   // radius
-        84.0 * FRACUNIT,   // height
+        16.0,              // radius
+        84.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2796,8 +2796,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        16.0 * FRACUNIT,   // radius
-        84.0 * FRACUNIT,   // height
+        16.0,              // radius
+        84.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2824,8 +2824,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        16.0 * FRACUNIT,   // radius
-        68.0 * FRACUNIT,   // height
+        16.0,              // radius
+        68.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2852,8 +2852,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        16.0 * FRACUNIT,   // radius
-        52.0 * FRACUNIT,   // height
+        16.0,              // radius
+        52.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2880,8 +2880,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        84.0 * FRACUNIT,   // height
+        20.0,              // radius
+        84.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2907,8 +2907,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        68.0 * FRACUNIT,   // height
+        20.0,              // radius
+        68.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2934,8 +2934,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        52.0 * FRACUNIT,   // height
+        20.0,              // radius
+        52.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2961,8 +2961,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        52.0 * FRACUNIT,   // height
+        20.0,              // radius
+        52.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -2988,8 +2988,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,         // xdeathstate
         SfxEnum::sfx_None,        // deathsound
         0.0,                      // speed
-        20.0 * FRACUNIT,          // radius
-        68.0 * FRACUNIT,          // height
+        20.0,                     // radius
+        68.0,                     // height
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
@@ -3015,8 +3015,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3041,8 +3041,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3067,8 +3067,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3093,8 +3093,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3119,8 +3119,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        16.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -3145,8 +3145,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3171,8 +3171,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,      // xdeathstate
         SfxEnum::sfx_None,     // deathsound
         0.0,                   // speed
-        20.0 * FRACUNIT,       // radius
-        16.0 * FRACUNIT,       // height
+        20.0,                  // radius
+        16.0,                  // height
         100,                   // mass
         0,                     // damage
         SfxEnum::sfx_None,     // activesound
@@ -3197,8 +3197,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        16.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -3223,8 +3223,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        20.0 * FRACUNIT,        // radius
-        16.0 * FRACUNIT,        // height
+        20.0,                   // radius
+        16.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -3249,8 +3249,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3275,8 +3275,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,  // xdeathstate
         SfxEnum::sfx_None, // deathsound
         0.0,               // speed
-        20.0 * FRACUNIT,   // radius
-        16.0 * FRACUNIT,   // height
+        20.0,              // radius
+        16.0,              // height
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
@@ -3301,8 +3301,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3327,8 +3327,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3353,8 +3353,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3379,8 +3379,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3405,8 +3405,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        32.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        32.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3431,8 +3431,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,               // xdeathstate
         SfxEnum::sfx_None,              // deathsound
         0.0,                            // speed
-        16.0 * FRACUNIT,                // radius
-        16.0 * FRACUNIT,                // height
+        16.0,                           // radius
+        16.0,                           // height
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
@@ -3457,8 +3457,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        16.0 * FRACUNIT,        // radius
-        88.0 * FRACUNIT,        // height
+        16.0,                   // radius
+        88.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -3485,8 +3485,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,         // xdeathstate
         SfxEnum::sfx_None,        // deathsound
         0.0,                      // speed
-        16.0 * FRACUNIT,          // radius
-        88.0 * FRACUNIT,          // height
+        16.0,                     // radius
+        88.0,                     // height
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
@@ -3513,8 +3513,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,        // xdeathstate
         SfxEnum::sfx_None,       // deathsound
         0.0,                     // speed
-        16.0 * FRACUNIT,         // radius
-        64.0 * FRACUNIT,         // height
+        16.0,                    // radius
+        64.0,                    // height
         100,                     // mass
         0,                       // damage
         SfxEnum::sfx_None,       // activesound
@@ -3541,8 +3541,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,       // xdeathstate
         SfxEnum::sfx_None,      // deathsound
         0.0,                    // speed
-        16.0 * FRACUNIT,        // radius
-        64.0 * FRACUNIT,        // height
+        16.0,                   // radius
+        64.0,                   // height
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
@@ -3569,8 +3569,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,        // xdeathstate
         SfxEnum::sfx_None,       // deathsound
         0.0,                     // speed
-        16.0 * FRACUNIT,         // radius
-        64.0 * FRACUNIT,         // height
+        16.0,                    // radius
+        64.0,                    // height
         100,                     // mass
         0,                       // damage
         SfxEnum::sfx_None,       // activesound
@@ -3597,8 +3597,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,         // xdeathstate
         SfxEnum::sfx_None,        // deathsound
         0.0,                      // speed
-        16.0 * FRACUNIT,          // radius
-        64.0 * FRACUNIT,          // height
+        16.0,                     // radius
+        64.0,                     // height
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
@@ -3625,8 +3625,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                    // xdeathstate
         SfxEnum::sfx_None,                   // deathsound
         0.0,                                 // speed
-        20.0 * FRACUNIT,                     // radius
-        16.0 * FRACUNIT,                     // height
+        20.0,                                // radius
+        16.0,                                // height
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
@@ -3651,8 +3651,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                    // xdeathstate
         SfxEnum::sfx_None,                   // deathsound
         0.0,                                 // speed
-        20.0 * FRACUNIT,                     // radius
-        16.0 * FRACUNIT,                     // height
+        20.0,                                // radius
+        16.0,                                // height
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
@@ -3677,8 +3677,8 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         StateNum::S_NULL,                    // xdeathstate
         SfxEnum::sfx_None,                   // deathsound
         0.0,                                 // speed
-        20.0 * FRACUNIT,                     // radius
-        16.0 * FRACUNIT,                     // height
+        20.0,                                // radius
+        16.0,                                // height
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound

@@ -2,55 +2,190 @@
 //!	Shooting and aiming.
 use glam::Vec2;
 
+use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
-use crate::level_data::map_defs::{BBox, LineDef};
+use crate::level_data::map_data::MapData;
+use crate::level_data::map_defs::{BBox, LineDef, SubSector};
 use crate::p_local::MAXRADIUS;
-use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::box_on_line_side;
+use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
+use crate::p_map_util::{
+    circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
+};
+use crate::DPtr;
+use std::f32::consts::FRAC_PI_4;
 
 const MAXSPECIALCROSS: i32 = 8;
-pub(crate) const BOXTOP: usize = 0;
-pub(crate) const BOXBOTTOM: usize = 1;
-pub(crate) const BOXRIGHT: usize = 3;
-pub(crate) const BOXLEFT: usize = 2;
 
+/// The pupose of this struct is to record the highest and lowest points in a
+/// subsector. When a mob crosses a seg it may be between floor/ceiling heights.
 #[derive(Default)]
-pub(crate) struct MobjCtrl {
-    tmbbox:     BBox,
-    tmflags:    u32,
-    tmx:        f32,
-    tmy:        f32,
+pub(crate) struct SubSectorMinMax {
+    tmflags:     u32,
     /// If "floatok" true, move would be ok
     /// if within "tmfloorz - tmceilingz".
-    floatok:    bool,
-    tmfloorz:   f32,
-    tmceilingz: f32,
-    tmdropoffz: f32,
-    numspechit: i32,
+    floatok:     bool,
+    min_floor_z: f32,
+    max_ceil_z:  f32,
+    max_dropoff: f32,
+    spec_hits:   Vec<DPtr<LineDef>>,
 }
 
 impl MapObject {
-    /// P_TryMove
-    pub fn p_try_move(
+    // TODO: Okay so, first, broadphase get all segs in radius+momentum length,
+    //  then get first collision only for wall-slide. Need to manage portal collisions better
+    //  Alternative:
+    //  - find subsector we're in
+    //  - check each line, if contact portal then get back sector if front checked
+    //  - record each checked line to compare if added
+    fn get_contacting_ssects(
+        &self,
+        map_data: &MapData,
+    ) -> Vec<DPtr<SubSector>> {
+        let mut subsects =
+            vec![map_data.point_in_subsector(&(self.xy + self.momxy))];
+        let mov = self.xy + self.momxy;
+        let r = self.radius;
+        // TODO: need to check if subsector already added
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y())),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() - r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y())),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() - r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() - r)),
+        );
+
+        subsects
+    }
+
+    fn get_contacts_map(
         &mut self,
-        level: &mut Level,
-        ptryx: f32,
-        ptryy: f32,
-    ) -> bool {
-        // P_UnsetThingPosition // level function, sets subsector pointer and blockmap pointer
-        // P_SetThingPosition // level function
+        ctrl: &mut SubSectorMinMax,
+        map_data: &MapData,
+    ) -> Vec<LineContact> {
+        let mut points = Vec::new();
+        let mut contacts: Vec<LineContact> = Vec::new();
+        // TODO: figure out a better way to get all segs in vicinity;
+
+        for line in map_data.get_linedefs() {
+            //for seg in segs.iter() {
+            if let Some(contact) = self.pit_check_line(ctrl, &line) {
+                if let Some(point) = contact.point_contacted {
+                    if !points.contains(&point) {
+                        points.push(point);
+                        contacts.push(contact);
+                    }
+                } else {
+                    contacts.push(contact);
+                }
+            }
+        }
+        contacts
+    }
+
+    fn get_contacts_in_ssects(
+        &mut self,
+        subsects: &[DPtr<SubSector>],
+        ctrl: &mut SubSectorMinMax,
+        map_data: &MapData,
+    ) -> Vec<LineContact> {
+        let mut points = Vec::new();
+        let mut contacts: Vec<LineContact> = Vec::new();
+        // TODO: record checked lines
+        let segs = map_data.get_segments();
+        for subsect in subsects.iter() {
+            let sector = &subsect.sector;
+            //for line in sector.lines.iter() {}
+            for seg in &segs[subsect.start_seg as usize
+                ..(subsect.start_seg + subsect.seg_count) as usize]
+            {
+                //for seg in segs.iter() {
+                if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
+                    if let Some(point) = contact.point_contacted {
+                        if !points.contains(&point) {
+                            points.push(point);
+                            contacts.push(contact);
+                        }
+                    } else {
+                        contacts.push(contact);
+                    }
+                }
+            }
+        }
+        contacts
+    }
+
+    fn resolve_contacts(&mut self, contacts: &[LineContact]) {
+        for contact in contacts.iter() {
+            let relative = contact.normal * contact.penetration;
+            self.momxy -= relative;
+        }
+    }
+
+    /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
+    pub fn p_try_move(&mut self, level: &mut Level) {
         // P_CrossSpecialLine
-        //unimplemented!();
         level.mobj_ctrl.floatok = false;
-        if !self.p_check_position(level, &Vec2::new(ptryx, ptryy)) {
-            return false; // solid wall or thing
+
+        let ctrl = &mut level.mobj_ctrl;
+        // TODO: ceilingline = NULL;
+
+        // First sector is always the one we are in
+        let curr_ssect = level.map_data.point_in_subsector(&self.xy);
+        ctrl.min_floor_z = curr_ssect.sector.floorheight;
+        ctrl.max_dropoff = curr_ssect.sector.floorheight;
+        ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
+
+        // TODO: validcount++;??? There's like, two places in the p_map.c file
+        if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
+            return;
         }
 
-        self.floorz = level.mobj_ctrl.tmfloorz;
-        self.ceilingz = level.mobj_ctrl.tmceilingz;
+        // Check things first, possibly picking things up.
+        // TODO: P_BlockThingsIterator, PIT_CheckThing
 
-        self.xy.set_x(ptryx);
-        self.xy.set_y(ptryy);
+        // This is effectively P_BlockLinesIterator, PIT_CheckLine
+        let contacts = self.get_contacts_map(ctrl, &level.map_data);
+        //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
+
+        // TODO: find the most suitable contact to move with (wall sliding)
+        if !contacts.is_empty() {
+            if let Some(point) = contacts[0].point_contacted {
+                // Have to pad the penetration by 1.0 to prevent a bad clip
+                // on some occasions, like going full speed in to a corner
+                self.momxy -=
+                    contacts[0].normal * (contacts[0].penetration + 1.0);
+            } else {
+                self.momxy = contacts[0].slide_dir
+                    * contacts[0].angle_delta
+                    * self.momxy.length();
+            }
+            let contacts = self.get_contacts_map(ctrl, &level.map_data);
+            //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
+            self.resolve_contacts(&contacts);
+        }
+
+        self.xy += self.momxy;
+        if ctrl.min_floor_z - self.z < 24.0 || ctrl.min_floor_z < self.z {
+            self.floorz = ctrl.min_floor_z;
+            self.ceilingz = ctrl.max_ceil_z;
+        }
 
         // TODO: if any special lines were hit, do the effect
         // if (!(thing->flags & (MF_TELEPORT | MF_NOCLIP)))
@@ -68,107 +203,87 @@ impl MapObject {
         //         }
         //     }
         // }
-
-        true
-    }
-
-    /// P_CheckPosition
-    /// This is purely informative, nothing is modified
-    /// (except things picked up).
-    ///
-    /// in:
-    ///  a mobj_t (can be valid or invalid)
-    ///  a position to be checked
-    ///   (doesn't need to be related to the mobj_t->x,y)
-    ///
-    /// during:
-    ///  special things are touched if MF_PICKUP
-    ///  early out on solid lines?
-    ///
-    /// out:
-    ///  newsubsec
-    ///  floorz
-    ///  ceilingz
-    ///  tmdropoffz
-    ///   the lowest point contacted
-    ///   (monsters won't move to a dropoff)
-    ///  speciallines[]
-    ///  numspeciallines
-    fn p_check_position(&mut self, level: &mut Level, xy: &Vec2) -> bool {
-        let ctrl = &mut level.mobj_ctrl;
-        ctrl.tmbbox.top = xy.y() + self.radius;
-        ctrl.tmbbox.bottom = xy.y() - self.radius;
-        ctrl.tmbbox.left = xy.x() + self.radius;
-        ctrl.tmbbox.right = xy.x() - self.radius;
-
-        // TODO: ceilingline = NULL;
-
-        let newsubsect = level.map_data.point_in_subsector(xy);
-        ctrl.tmfloorz = newsubsect.sector.floorheight;
-        ctrl.tmdropoffz = newsubsect.sector.floorheight;
-        ctrl.tmceilingz = newsubsect.sector.ceilingheight;
-
-        // TODO: validcount++;??? There's like, two places in the p_map.c file
-        ctrl.numspechit = 0;
-        if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
-            return true;
-        }
-
-        // Check things first, possibly picking things up.
-        // The bounding box is extended by MAXRADIUS
-        // because mobj_ts are grouped into mapblocks
-        // based on their origin point, and can overlap
-        // into adjacent blocks by up to MAXRADIUS units.
-
-        // TODO: P_BlockThingsIterator, PIT_CheckThing
-        // TODO: P_BlockLinesIterator, PIT_CheckLine
-
-        ctrl.tmfloorz = newsubsect.sector.floorheight;
-        ctrl.tmceilingz = newsubsect.sector.ceilingheight;
-
-        true
     }
 
     /// PIT_CheckLine
-    /// Adjusts tmfloorz and tmceilingz as lines are contacted
-    fn PIT_check_line(&mut self, ctrl: &mut MobjCtrl, ld: &LineDef) -> bool {
-        if ctrl.tmbbox.right <= ld.bbox.left
-            || ctrl.tmbbox.left >= ld.bbox.right
-            || ctrl.tmbbox.top <= ld.bbox.bottom
-            || ctrl.tmbbox.bottom >= ld.bbox.top
-        {
-            return true;
+    /// Adjusts tmfloorz and tmceilingz as lines are contacted, if
+    /// penetration with a line is detected then the pen distance is returned
+    fn pit_check_line(
+        &mut self,
+        ctrl: &mut SubSectorMinMax,
+        ld: &LineDef,
+    ) -> Option<LineContact> {
+        if ld.point_on_side(&self.xy) == 1 {
+            return None;
         }
 
-        if box_on_line_side(&ctrl.tmbbox, &ld) != -1 {
-            return true;
+        if let Some(contact) = circle_to_seg_intersect(
+            self.xy,
+            self.momxy,
+            self.radius,
+            *ld.v1,
+            *ld.v2,
+        ) {
+            // TODO: really need to check the lines of the subsector on the
+            //  on the other side of the contact too
+
+            if ld.backsector.is_none() {
+                // one-sided line
+                return Some(contact);
+            }
+
+            // Flag checks
+            // TODO: can we move these up a call?
+            if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
+                if ld.flags & LineDefFlags::Blocking as i16 != 0 {
+                    return Some(contact); // explicitly blocking everything
+                }
+
+                if self.player.is_none()
+                    && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
+                {
+                    return Some(contact); // block monsters only
+                }
+            } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                return Some(contact);
+            }
+
+            // Find the smallest/largest etc if group of line hits
+            let portal = PortalZ::new(ld);
+            if portal.top_z < ctrl.max_ceil_z {
+                ctrl.max_ceil_z = portal.top_z;
+                // TODO: ceilingline = ld;
+            }
+            if portal.bottom_z > ctrl.min_floor_z {
+                ctrl.min_floor_z = portal.bottom_z;
+            }
+            if portal.low_point < ctrl.max_dropoff {
+                ctrl.max_dropoff = portal.low_point;
+            }
+
+            if ld.special != 0 {
+                ctrl.spec_hits.push(DPtr::new(ld));
+            }
+
+            if portal.bottom_z - self.z > 24.0 && portal.bottom_z > self.z {
+                return Some(contact);
+            }
+
+            // // Line crossed, we might be colliding a nearby line
+            // if let Some(back) = &ld.backsector {
+            //     for line in back.lines.iter() {
+            //         if *line.v1 == *ld.v1 && *line.v2 == *ld.v2
+            //             || *line.v1 == *ld.v2 && *line.v2 == *ld.v1
+            //         {
+            //             continue;
+            //         }
+            //         if let Some(contact) = self.pit_check_line(ctrl, line) {
+            //             return Some(contact);
+            //         }
+            //     }
+            // }
         }
-
-        // A line has been hit
-
-        // The moving thing's destination position will cross
-        // the given line.
-        // If this should not be allowed, return false.
-        // If the line is special, keep track of it
-        // to process later if the move is proven ok.
-        // NOTE: specials are NOT sorted by order,
-        // so two special lines that are only 8 pixels apart
-        // could be crossed in either order.
-
-        if ld.backsector.is_none() {
-            // one-sided line
-            return false;
-        }
-
-        // TODO: complete this function
-
-        false
-    }
-
-    /// P_SlideMove, // level function
-    // TODO: P_SlideMove
-    pub fn p_slide_move(&mut self) {
-        //unimplemented!();
+        None
     }
 }
 

@@ -93,6 +93,10 @@ impl<T> DPtr<T> {
     }
 }
 
+impl<T> DPtr<T> {
+    fn as_ptr(&self) -> *mut T { self.p.as_ptr() }
+}
+
 impl<T> Clone for DPtr<T> {
     fn clone(&self) -> DPtr<T> { DPtr { p: self.p } }
 }

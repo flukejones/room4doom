@@ -2,9 +2,9 @@ use std::f32::consts::PI;
 
 use crate::level_data::map_defs::Node;
 
+use crate::p_map_util::ray_to_line_intersect;
 use crate::radian_range;
 use glam::Vec2;
-use utils::*;
 
 impl Node {
     /// R_PointOnSide

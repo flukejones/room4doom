@@ -157,7 +157,7 @@ impl MapData {
                 soundtraversed: 0,
                 blockbox:       [0, 0, 0, 0],
                 validcount:     0,
-                linecount:      0,
+                lines:          Vec::new(),
             })
             .collect();
 
@@ -233,6 +233,13 @@ impl MapData {
                 }
             })
             .collect();
+
+        // Now map sectors to lines
+        // This is going to be required for collision checks
+        for line in self.linedefs.iter_mut() {
+            let mut sector = line.frontsector.clone();
+            sector.lines.push(DPtr::new(line));
+        }
 
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in level struct

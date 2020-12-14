@@ -6,8 +6,6 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-utils = { path = "../utils" }
-
 #[dev-dependencies]
 #criterion = "~0.3"
 #gamelib = { path = "../gamelib" }

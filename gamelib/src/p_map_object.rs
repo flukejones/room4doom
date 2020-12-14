@@ -182,7 +182,7 @@ pub(crate) struct MapObject {
     pub threshold:    i32,
     /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
     /// RUST: If this is not `None` then the `NonNull` pointer is guaranteed to point to a player
-    player:           Option<NonNull<Player>>,
+    pub player:       Option<NonNull<Player>>,
     /// Player number last looked for.
     lastlook:         i32,
     /// For nightmare respawn.
@@ -263,7 +263,7 @@ impl MapObject {
     }
 
     /// P_ExplodeMissile
-    fn p_explode_missile(&mut self) {
+    pub(crate) fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
         self.z = 0.0;
         self.p_set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
@@ -350,6 +350,7 @@ impl MapObject {
         }
     }
 
+    /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
         if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
@@ -373,51 +374,21 @@ impl MapObject {
             self.momxy.set_y(-MAXMOVE);
         }
 
-        let mut ptryx;
-        let mut ptryy;
-        let mut xmove = self.momxy.x();
-        let mut ymove = self.momxy.y();
+        // This whole loop is a bit crusty. It consists of looping over progressively smaller
+        // moves until we either hit 0, or get a move. Because the whole game is 2D we can
+        // use modern 2D collision detection where if there is a seg/wall penetration then we
+        // move the player back by the penetration amount. This would also make the "slide" stuff
+        // a lot easier (but perhaps not as accurate to Doom classic?)
+        // Oh yeah, this would also remove:
+        //  - linedef BBox,
+        //  - BBox checks (these are AABB)
+        //  - the need to store line slopes
+        // TODO: The above stuff, refactor the collisions and movement to use modern techniques
 
-        loop {
-            if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
-                ptryx = self.xy.x() + xmove / 2.0;
-                ptryy = self.xy.y() + ymove / 2.0;
-                xmove /= 2.0;
-                ymove /= 2.0;
-            } else {
-                ptryx = self.xy.x() + xmove;
-                ptryy = self.xy.y() + ymove;
-                xmove = 0.0;
-                ymove = 0.0;
-            }
-
-            if !self.p_try_move(level, ptryx, ptryy) {
-                // blocked move
-                if self.player.is_some() {
-                    // try to slide along it
-                    self.p_slide_move();
-                } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-                    // TODO: explode a missile
-                    // if (ceilingline &&
-                    //     ceilingline->backsector &&
-                    //     ceilingline->backsector->ceilingpic == skyflatnum)
-                    // {
-                    //     // Hack to prevent missiles exploding
-                    //     // against the sky.
-                    //     // Does not handle sky floors.
-                    //     P_RemoveMobj(mo);
-                    //     return;
-                    // }
-                    self.p_explode_missile();
-                } else {
-                    self.momxy = Vec2::default();
-                }
-            }
-
-            if xmove as i32 == 0 || ymove as i32 == 0 {
-                break;
-            }
-        }
+        // This was once the loop that progressively made the movement smaller
+        // until zero or success
+        // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
+        self.p_try_move(level);
 
         // slow down
 
@@ -429,7 +400,6 @@ impl MapObject {
             return; // no friction for missiles ever
         }
 
-        // TODO: this part is incorrect
         if self.z > self.floorz {
             return; // no friction when airborne
         }
