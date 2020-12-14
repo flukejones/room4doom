@@ -3,7 +3,7 @@
 use glam::Vec2;
 
 use crate::level_data::level::Level;
-use crate::level_data::map_defs::LineDef;
+use crate::level_data::map_defs::{BBox, LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::box_on_line_side;
@@ -16,7 +16,7 @@ pub(crate) const BOXLEFT: usize = 2;
 
 #[derive(Default)]
 pub(crate) struct MobjCtrl {
-    tmbbox:     [f32; 4],
+    tmbbox:     BBox,
     tmflags:    u32,
     tmx:        f32,
     tmy:        f32,
@@ -96,10 +96,10 @@ impl MapObject {
     ///  numspeciallines
     fn p_check_position(&mut self, level: &mut Level, xy: &Vec2) -> bool {
         let ctrl = &mut level.mobj_ctrl;
-        ctrl.tmbbox[BOXTOP] = xy.y() + self.radius;
-        ctrl.tmbbox[BOXBOTTOM] = xy.y() - self.radius;
-        ctrl.tmbbox[BOXRIGHT] = xy.x() + self.radius;
-        ctrl.tmbbox[BOXLEFT] = xy.x() - self.radius;
+        ctrl.tmbbox.top = xy.y() + self.radius;
+        ctrl.tmbbox.bottom = xy.y() - self.radius;
+        ctrl.tmbbox.left = xy.x() + self.radius;
+        ctrl.tmbbox.right = xy.x() - self.radius;
 
         // TODO: ceilingline = NULL;
 
@@ -132,10 +132,10 @@ impl MapObject {
     /// PIT_CheckLine
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
     fn PIT_check_line(&mut self, ctrl: &mut MobjCtrl, ld: &LineDef) -> bool {
-        if ctrl.tmbbox[BOXRIGHT] <= ld.bbox.left
-            || ctrl.tmbbox[BOXLEFT] >= ld.bbox.right
-            || ctrl.tmbbox[BOXTOP] <= ld.bbox.bottom
-            || ctrl.tmbbox[BOXBOTTOM] >= ld.bbox.top
+        if ctrl.tmbbox.right <= ld.bbox.left
+            || ctrl.tmbbox.left >= ld.bbox.right
+            || ctrl.tmbbox.top <= ld.bbox.bottom
+            || ctrl.tmbbox.bottom >= ld.bbox.top
         {
             return true;
         }

@@ -39,9 +39,7 @@ fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     let mut dy = (y - to.y()).abs();
 
     if dy > dx {
-        let temp = dx;
-        dx = dy;
-        dy = temp;
+        std::mem::swap(&mut dx, &mut dy);
     }
 
     let dist = (dx.powi(2) + dy.powi(2)).sqrt();
