@@ -4,15 +4,14 @@ use glam::Vec2;
 
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
-use crate::level_data::map_defs::{BBox, LineDef};
+use crate::level_data::map_data::MapData;
+use crate::level_data::map_defs::{BBox, LineDef, SubSector};
 use crate::p_local::MAXRADIUS;
-use crate::p_map_object::{MapObject, MapObjectFlag, FRICTION, MAXMOVE};
+use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
 use crate::p_map_util::{
     circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
 };
 use crate::DPtr;
-use std::f32::consts::FRAC_PI_2;
-use std::f32::EPSILON;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -31,6 +30,32 @@ pub(crate) struct SubSectorMinMax {
 }
 
 impl MapObject {
+    fn get_contacts_in_ssects(
+        &mut self,
+        subsect: &SubSector,
+        ctrl: &mut SubSectorMinMax,
+        map_data: &MapData,
+    ) -> Vec<LineContact> {
+        let mut contacts: Vec<LineContact> = Vec::new();
+        // TODO: figure out a better way to get all segs in vicinity;
+        let segs = map_data.get_segments();
+        for seg in &segs[subsect.start_seg as usize
+            ..(subsect.start_seg + subsect.seg_count) as usize]
+        {
+            //for seg in segs.iter() {
+            if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
+                contacts.push(contact);
+            }
+        }
+        contacts
+    }
+
+    fn resolve_contacts(&mut self, contacts: &[LineContact]) {
+        for contact in contacts.iter() {
+            self.momxy -= contact.normal * contact.penetration;
+        }
+    }
+
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
     pub fn p_try_move(&mut self, level: &mut Level) {
         // P_CrossSpecialLine
@@ -39,10 +64,12 @@ impl MapObject {
         let ctrl = &mut level.mobj_ctrl;
         // TODO: ceilingline = NULL;
 
-        let subs = level.map_data.point_in_subsector(&(self.xy + self.momxy));
-        ctrl.min_floor_z = subs.sector.floorheight;
-        ctrl.max_dropoff = subs.sector.floorheight;
-        ctrl.max_ceil_z = subs.sector.ceilingheight;
+        // First sector is always the one we are in
+        let curr_subsect =
+            level.map_data.point_in_subsector(&(self.xy + self.momxy));
+        ctrl.min_floor_z = curr_subsect.sector.floorheight;
+        ctrl.max_dropoff = curr_subsect.sector.floorheight;
+        ctrl.max_ceil_z = curr_subsect.sector.ceilingheight;
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
         if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
@@ -52,66 +79,30 @@ impl MapObject {
         // Check things first, possibly picking things up.
         // TODO: P_BlockThingsIterator, PIT_CheckThing
 
-        // TODO: testing functions
         // This is effectively P_BlockLinesIterator, PIT_CheckLine
-        let segs = level.map_data.get_segments();
-
-        let mut contacts: Vec<LineContact> = Vec::new();
         let mut blocked = false;
-        for seg in &segs[subs.start_seg as usize
-            ..(subs.start_seg + subs.seg_count) as usize]
-        {
-            if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
-                contacts.push(contact);
-            }
-        }
+        let contacts =
+            self.get_contacts_in_ssects(&curr_subsect, ctrl, &level.map_data);
 
-        for contact in contacts.iter_mut() {
-            self.momxy -= contact.normal * (contact.penetration);
-        }
-
-        let mut ang_less = FRAC_PI_2;
-        let mut ang_greater = 0.0;
-        let mut slide = Vec2::default();
-        for contact in contacts.iter_mut() {
-            if contact.half_angle >= ang_greater {
-                ang_greater = contact.half_angle;
-            }
-            if contact.half_angle <= FRAC_PI_2 {
-                ang_less = contact.half_angle;
-            }
-
-            slide += contact.slide_dir;
-            // self.momxy =
-            //     contact.slide_dir * (self.momxy.length() * contact.half_angle);
-        }
-
+        // TODO: find the most suitable contact to move with (wall sliding)
         if !contacts.is_empty() {
             blocked = true;
-            if ang_less >= ang_greater {
-                self.momxy = slide * (self.momxy.length() * ang_less);
-            } else {
-                self.momxy =
-                    slide * (self.momxy.length() * ang_greater - ang_less);
-            }
+            self.momxy = contacts[0].slide_dir
+                * contacts[0].angle_delta
+                * self.momxy.length();
 
-            contacts.clear();
-            for seg in &segs[subs.start_seg as usize
-                ..(subs.start_seg + subs.seg_count) as usize]
-            {
-                if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
-                    contacts.push(contact);
-                }
-            }
-            for contact in contacts.iter_mut() {
-                self.momxy -= contact.normal * (contact.penetration);
-            }
+            let contacts = self.get_contacts_in_ssects(
+                &curr_subsect,
+                ctrl,
+                &level.map_data,
+            );
+            self.resolve_contacts(&contacts);
         }
 
         self.xy += self.momxy;
         if !blocked {
-            self.floorz = level.mobj_ctrl.min_floor_z;
-            self.ceilingz = level.mobj_ctrl.max_ceil_z;
+            self.floorz = ctrl.min_floor_z;
+            self.ceilingz = ctrl.max_ceil_z;
         }
 
         // TODO: if any special lines were hit, do the effect
@@ -140,6 +131,10 @@ impl MapObject {
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
     ) -> Option<LineContact> {
+        if ld.point_on_side(&self.xy) == 1 {
+            return None;
+        }
+
         if let Some(contact) = circle_to_seg_intersect(
             self.xy,
             self.momxy,
@@ -147,6 +142,9 @@ impl MapObject {
             *ld.v1,
             *ld.v2,
         ) {
+            // TODO: really need to check the lines of the subsector on the
+            //  on the other side of the contact too
+
             if ld.backsector.is_none() {
                 // one-sided line
                 return Some(contact);
@@ -185,8 +183,22 @@ impl MapObject {
                 ctrl.spec_hits.push(DPtr::new(ld));
             }
 
-            if portal.bottom_z - self.z > 24.0 {
+            if portal.bottom_z - self.z > 24.0 && portal.bottom_z > self.z {
                 return Some(contact);
+            }
+
+            // Line crossed, we might be colliding a nearby line
+            if let Some(back) = &ld.backsector {
+                for line in back.lines.iter() {
+                    if *line.v1 == *ld.v1 && *line.v2 == *ld.v2
+                        || *line.v1 == *ld.v2 && *line.v2 == *ld.v1
+                    {
+                        continue;
+                    }
+                    if let Some(contact) = self.pit_check_line(ctrl, line) {
+                        return Some(contact);
+                    }
+                }
             }
         }
         None

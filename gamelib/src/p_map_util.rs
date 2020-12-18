@@ -117,7 +117,7 @@ pub(crate) struct LineContact {
     pub penetration: f32,
     pub normal:      Vec2,
     pub slide_dir:   Vec2,
-    pub half_angle:  f32,
+    pub angle_delta: f32,
 }
 
 impl LineContact {
@@ -131,7 +131,7 @@ impl LineContact {
             penetration,
             normal,
             slide_dir,
-            half_angle: angle_delta,
+            angle_delta,
         }
     }
 }
@@ -147,14 +147,15 @@ pub(crate) fn circle_to_seg_intersect(
     point2: Vec2,
 ) -> Option<LineContact> {
     let move_to = origin + momentum;
-
     // if let Some(dist) = circle_point_intersect(move_to, radius, point1) {
     //     let normal = (point1 - move_to).normalize();
-    //     return Some(LineContact::new(dist, normal, normal, 0.0));
+    //     let delta = point1.angle_between(move_to);
+    //     return Some(LineContact::new(dist, normal, normal, delta));
     // }
     // if let Some(dist) = circle_point_intersect(move_to, radius, point2) {
     //     let normal = (point2 - move_to).normalize();
-    //     return Some(LineContact::new(dist, normal, normal, 0.0));
+    //     let delta = point2.angle_between(move_to);
+    //     return Some(LineContact::new(dist, normal, normal, delta));
     // }
 
     let lc = move_to - point1;
@@ -164,7 +165,7 @@ pub(crate) fn circle_to_seg_intersect(
     let nearest = point1 + p;
 
     if let Some(dist) = circle_point_intersect(move_to, radius, nearest) {
-        if p.length() <= d.length() && p.dot(d) > EPSILON {
+        if p.length() < d.length() && p.dot(d) > EPSILON {
             // TODO: save enough info to build this data later when really required
             let lc = origin - point1;
             let p = project_vec2(lc, d);
@@ -175,15 +176,21 @@ pub(crate) fn circle_to_seg_intersect(
             if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
                 slide_direction = Vec2::default();
             }
-            let vs_angle =
-                slide_direction.angle_between(move_to - origin).cos();
 
-            return Some(LineContact::new(
+            let mut vs_angle =
+                slide_direction.angle_between(move_to - origin).cos();
+            if vs_angle.is_nan() {
+                vs_angle = 0.0;
+            }
+
+            let contact = LineContact::new(
                 dist,
                 (nearest - move_to).normalize(),
                 slide_direction,
                 vs_angle,
-            ));
+            );
+
+            return Some(contact);
         }
     }
     None
@@ -206,7 +213,7 @@ fn circle_point_intersect(
 ) -> Option<f32> {
     let dist = point - origin;
     let len = dist.length();
-    if len <= radius {
+    if len < radius {
         return Some(radius - len);
     }
     None

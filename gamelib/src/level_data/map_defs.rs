@@ -45,9 +45,7 @@ pub(crate) struct Sector {
 
     // thinker_t for reversable actions
     // TODO: void*	specialdata;
-    pub linecount: i32,
-    // TODO: index in to lines array, and iter by linecount
-    //  struct line_s**	lines;	// [linecount] size
+    pub lines: Vec<DPtr<LineDef>>,
 }
 
 #[derive(Debug)]
