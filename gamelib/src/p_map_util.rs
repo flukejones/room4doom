@@ -146,17 +146,16 @@ pub(crate) fn circle_to_seg_intersect(
     point1: Vec2,
     point2: Vec2,
 ) -> Option<LineContact> {
+    let mut end_contact = false;
+
     let move_to = origin + momentum;
-    // if let Some(dist) = circle_point_intersect(move_to, radius, point1) {
-    //     let normal = (point1 - move_to).normalize();
-    //     let delta = point1.angle_between(move_to);
-    //     return Some(LineContact::new(dist, normal, normal, delta));
-    // }
-    // if let Some(dist) = circle_point_intersect(move_to, radius, point2) {
-    //     let normal = (point2 - move_to).normalize();
-    //     let delta = point2.angle_between(move_to);
-    //     return Some(LineContact::new(dist, normal, normal, delta));
-    // }
+    // TODO: move the final block out to new call so that we're not calling twice on ends
+    if let Some(dist) = circle_point_intersect(move_to, radius, point1) {
+        end_contact = true;
+    }
+    if let Some(dist) = circle_point_intersect(move_to, radius, point2) {
+        end_contact = true;
+    }
 
     let lc = move_to - point1;
     let d = point2 - point1;
@@ -164,8 +163,8 @@ pub(crate) fn circle_to_seg_intersect(
 
     let nearest = point1 + p;
 
-    if let Some(dist) = circle_point_intersect(move_to, radius, nearest) {
-        if p.length() < d.length() && p.dot(d) > EPSILON {
+    if let Some(mut dist) = circle_point_intersect(move_to, radius, nearest) {
+        if (p.length() < d.length() && p.dot(d) > EPSILON) || end_contact {
             // TODO: save enough info to build this data later when really required
             let lc = origin - point1;
             let p = project_vec2(lc, d);
@@ -181,6 +180,13 @@ pub(crate) fn circle_to_seg_intersect(
                 slide_direction.angle_between(move_to - origin).cos();
             if vs_angle.is_nan() {
                 vs_angle = 0.0;
+            }
+
+            // If it's an end point we register a contact normal and slide direction
+            // only, so that collision resolution can still be done
+            if end_contact && vs_angle >= 0.99 {
+                dist = 1.0;
+                vs_angle = 1.0;
             }
 
             let contact = LineContact::new(

@@ -12,6 +12,7 @@ use crate::p_map_util::{
     circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
 };
 use crate::DPtr;
+use std::f32::consts::FRAC_PI_4;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -30,21 +31,80 @@ pub(crate) struct SubSectorMinMax {
 }
 
 impl MapObject {
+    // TODO: Okay so, first, broadphase get all segs in radius+momentum length,
+    //  then get first collision only for wall-slide. Need to manage portal collisions better
+    fn get_contacting_ssects(
+        &self,
+        map_data: &MapData,
+    ) -> Vec<DPtr<SubSector>> {
+        let mut subsects =
+            vec![map_data.point_in_subsector(&(self.xy + self.momxy))];
+        let mov = self.xy + self.momxy;
+        let r = self.radius;
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y())),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() - r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() + r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y())),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() - r)),
+        );
+        subsects.push(
+            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() - r)),
+        );
+
+        subsects
+    }
+
+    fn get_contacts_map(
+        &mut self,
+        ctrl: &mut SubSectorMinMax,
+        map_data: &MapData,
+    ) -> Vec<LineContact> {
+        let mut contacts: Vec<LineContact> = Vec::new();
+        // TODO: figure out a better way to get all segs in vicinity;
+
+        for line in map_data.get_linedefs() {
+            //for seg in segs.iter() {
+            if let Some(contact) = self.pit_check_line(ctrl, &line) {
+                contacts.push(contact);
+                break;
+            }
+        }
+        contacts
+    }
+
     fn get_contacts_in_ssects(
         &mut self,
-        subsect: &SubSector,
+        subsects: &[DPtr<SubSector>],
         ctrl: &mut SubSectorMinMax,
         map_data: &MapData,
     ) -> Vec<LineContact> {
         let mut contacts: Vec<LineContact> = Vec::new();
         // TODO: figure out a better way to get all segs in vicinity;
         let segs = map_data.get_segments();
-        for seg in &segs[subsect.start_seg as usize
-            ..(subsect.start_seg + subsect.seg_count) as usize]
-        {
-            //for seg in segs.iter() {
-            if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
-                contacts.push(contact);
+        for subsect in subsects.iter() {
+            //let sector = &subsect.sector;
+            for seg in &segs[subsect.start_seg as usize
+                ..(subsect.start_seg + subsect.seg_count) as usize]
+            {
+                //for seg in segs.iter() {
+                if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
+                    contacts.push(contact);
+                }
             }
         }
         contacts
@@ -52,7 +112,8 @@ impl MapObject {
 
     fn resolve_contacts(&mut self, contacts: &[LineContact]) {
         for contact in contacts.iter() {
-            self.momxy -= contact.normal * contact.penetration;
+            let relative = contact.normal * contact.penetration;
+            self.momxy -= relative;
         }
     }
 
@@ -65,11 +126,10 @@ impl MapObject {
         // TODO: ceilingline = NULL;
 
         // First sector is always the one we are in
-        let curr_subsect =
-            level.map_data.point_in_subsector(&(self.xy + self.momxy));
-        ctrl.min_floor_z = curr_subsect.sector.floorheight;
-        ctrl.max_dropoff = curr_subsect.sector.floorheight;
-        ctrl.max_ceil_z = curr_subsect.sector.ceilingheight;
+        let curr_ssect = level.map_data.point_in_subsector(&self.xy);
+        ctrl.min_floor_z = curr_ssect.sector.floorheight;
+        ctrl.max_dropoff = curr_ssect.sector.floorheight;
+        ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
         if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
@@ -81,26 +141,24 @@ impl MapObject {
 
         // This is effectively P_BlockLinesIterator, PIT_CheckLine
         let mut blocked = false;
-        let contacts =
-            self.get_contacts_in_ssects(&curr_subsect, ctrl, &level.map_data);
+        let contacts = self.get_contacts_map(ctrl, &level.map_data);
+        //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
 
         // TODO: find the most suitable contact to move with (wall sliding)
         if !contacts.is_empty() {
             blocked = true;
+
             self.momxy = contacts[0].slide_dir
                 * contacts[0].angle_delta
                 * self.momxy.length();
 
-            let contacts = self.get_contacts_in_ssects(
-                &curr_subsect,
-                ctrl,
-                &level.map_data,
-            );
+            let contacts = self.get_contacts_map(ctrl, &level.map_data);
+            //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
             self.resolve_contacts(&contacts);
         }
 
         self.xy += self.momxy;
-        if !blocked {
+        if ctrl.min_floor_z - self.z < 24.0 || ctrl.min_floor_z < self.z {
             self.floorz = ctrl.min_floor_z;
             self.ceilingz = ctrl.max_ceil_z;
         }
@@ -187,19 +245,19 @@ impl MapObject {
                 return Some(contact);
             }
 
-            // Line crossed, we might be colliding a nearby line
-            if let Some(back) = &ld.backsector {
-                for line in back.lines.iter() {
-                    if *line.v1 == *ld.v1 && *line.v2 == *ld.v2
-                        || *line.v1 == *ld.v2 && *line.v2 == *ld.v1
-                    {
-                        continue;
-                    }
-                    if let Some(contact) = self.pit_check_line(ctrl, line) {
-                        return Some(contact);
-                    }
-                }
-            }
+            // // Line crossed, we might be colliding a nearby line
+            // if let Some(back) = &ld.backsector {
+            //     for line in back.lines.iter() {
+            //         if *line.v1 == *ld.v1 && *line.v2 == *ld.v2
+            //             || *line.v1 == *ld.v2 && *line.v2 == *ld.v1
+            //         {
+            //             continue;
+            //         }
+            //         if let Some(contact) = self.pit_check_line(ctrl, line) {
+            //             return Some(contact);
+            //         }
+            //     }
+            // }
         }
         None
     }
