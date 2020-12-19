@@ -12,7 +12,6 @@ use crate::p_map_util::{
     circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
 };
 use crate::DPtr;
-use std::f32::consts::FRAC_PI_4;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -110,7 +109,7 @@ impl MapObject {
         // TODO: record checked lines
         let segs = map_data.get_segments();
         for subsect in subsects.iter() {
-            let sector = &subsect.sector;
+            //let sector = &subsect.sector;
             //for line in sector.lines.iter() {}
             for seg in &segs[subsect.start_seg as usize
                 ..(subsect.start_seg + subsect.seg_count) as usize]
@@ -166,7 +165,7 @@ impl MapObject {
 
         // TODO: find the most suitable contact to move with (wall sliding)
         if !contacts.is_empty() {
-            if let Some(point) = contacts[0].point_contacted {
+            if contacts[0].point_contacted.is_some() {
                 // Have to pad the penetration by 1.0 to prevent a bad clip
                 // on some occasions, like going full speed in to a corner
                 self.momxy -=
@@ -181,8 +180,10 @@ impl MapObject {
             self.resolve_contacts(&contacts);
         }
 
+        let old_pos = self.xy;
+
         self.xy += self.momxy;
-        if ctrl.min_floor_z - self.z < 24.0 || ctrl.min_floor_z < self.z {
+        if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
             self.floorz = ctrl.min_floor_z;
             self.ceilingz = ctrl.max_ceil_z;
         }
@@ -265,7 +266,23 @@ impl MapObject {
                 ctrl.spec_hits.push(DPtr::new(ld));
             }
 
-            if portal.bottom_z - self.z > 24.0 && portal.bottom_z > self.z {
+            // These are the very specific portal collisions
+            if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
+                && portal.top_z - self.z < self.height
+            {
+                return Some(contact);
+            }
+
+            if portal.bottom_z - self.z > 24.0 {
+                return Some(contact);
+            }
+
+            if self.flags
+                & (MapObjectFlag::MF_DROPOFF as u32
+                    | MapObjectFlag::MF_FLOAT as u32)
+                != 0
+                && portal.bottom_z - portal.low_point > 24.0
+            {
                 return Some(contact);
             }
 
