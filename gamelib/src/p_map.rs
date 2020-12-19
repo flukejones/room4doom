@@ -33,6 +33,10 @@ pub(crate) struct SubSectorMinMax {
 impl MapObject {
     // TODO: Okay so, first, broadphase get all segs in radius+momentum length,
     //  then get first collision only for wall-slide. Need to manage portal collisions better
+    //  Alternative:
+    //  - find subsector we're in
+    //  - check each line, if contact portal then get back sector if front checked
+    //  - record each checked line to compare if added
     fn get_contacting_ssects(
         &self,
         map_data: &MapData,
@@ -41,6 +45,7 @@ impl MapObject {
             vec![map_data.point_in_subsector(&(self.xy + self.momxy))];
         let mov = self.xy + self.momxy;
         let r = self.radius;
+        // TODO: need to check if subsector already added
         subsects.push(
             map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() + r)),
         );
@@ -74,14 +79,21 @@ impl MapObject {
         ctrl: &mut SubSectorMinMax,
         map_data: &MapData,
     ) -> Vec<LineContact> {
+        let mut points = Vec::new();
         let mut contacts: Vec<LineContact> = Vec::new();
         // TODO: figure out a better way to get all segs in vicinity;
 
         for line in map_data.get_linedefs() {
             //for seg in segs.iter() {
             if let Some(contact) = self.pit_check_line(ctrl, &line) {
-                contacts.push(contact);
-                break;
+                if let Some(point) = contact.point_contacted {
+                    if !points.contains(&point) {
+                        points.push(point);
+                        contacts.push(contact);
+                    }
+                } else {
+                    contacts.push(contact);
+                }
             }
         }
         contacts
@@ -93,17 +105,26 @@ impl MapObject {
         ctrl: &mut SubSectorMinMax,
         map_data: &MapData,
     ) -> Vec<LineContact> {
+        let mut points = Vec::new();
         let mut contacts: Vec<LineContact> = Vec::new();
-        // TODO: figure out a better way to get all segs in vicinity;
+        // TODO: record checked lines
         let segs = map_data.get_segments();
         for subsect in subsects.iter() {
-            //let sector = &subsect.sector;
+            let sector = &subsect.sector;
+            //for line in sector.lines.iter() {}
             for seg in &segs[subsect.start_seg as usize
                 ..(subsect.start_seg + subsect.seg_count) as usize]
             {
                 //for seg in segs.iter() {
                 if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
-                    contacts.push(contact);
+                    if let Some(point) = contact.point_contacted {
+                        if !points.contains(&point) {
+                            points.push(point);
+                            contacts.push(contact);
+                        }
+                    } else {
+                        contacts.push(contact);
+                    }
                 }
             }
         }
@@ -140,18 +161,21 @@ impl MapObject {
         // TODO: P_BlockThingsIterator, PIT_CheckThing
 
         // This is effectively P_BlockLinesIterator, PIT_CheckLine
-        let mut blocked = false;
         let contacts = self.get_contacts_map(ctrl, &level.map_data);
         //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
 
         // TODO: find the most suitable contact to move with (wall sliding)
         if !contacts.is_empty() {
-            blocked = true;
-
-            self.momxy = contacts[0].slide_dir
-                * contacts[0].angle_delta
-                * self.momxy.length();
-
+            if let Some(point) = contacts[0].point_contacted {
+                // Have to pad the penetration by 1.0 to prevent a bad clip
+                // on some occasions, like going full speed in to a corner
+                self.momxy -=
+                    contacts[0].normal * (contacts[0].penetration + 1.0);
+            } else {
+                self.momxy = contacts[0].slide_dir
+                    * contacts[0].angle_delta
+                    * self.momxy.length();
+            }
             let contacts = self.get_contacts_map(ctrl, &level.map_data);
             //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
             self.resolve_contacts(&contacts);
