@@ -12,7 +12,6 @@ use crate::p_map_util::{
     circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
 };
 use crate::DPtr;
-use std::f32::consts::FRAC_PI_4;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -110,7 +109,7 @@ impl MapObject {
         // TODO: record checked lines
         let segs = map_data.get_segments();
         for subsect in subsects.iter() {
-            let sector = &subsect.sector;
+            //let sector = &subsect.sector;
             //for line in sector.lines.iter() {}
             for seg in &segs[subsect.start_seg as usize
                 ..(subsect.start_seg + subsect.seg_count) as usize]
@@ -181,8 +180,8 @@ impl MapObject {
             self.resolve_contacts(&contacts);
         }
 
-        self.xy += self.momxy;
-        if ctrl.min_floor_z - self.z < 24.0 || ctrl.min_floor_z < self.z {
+        if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
+            self.xy += self.momxy;
             self.floorz = ctrl.min_floor_z;
             self.ceilingz = ctrl.max_ceil_z;
         }
