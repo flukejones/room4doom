@@ -150,7 +150,7 @@ pub(crate) struct MapObject {
     pub ceilingz:     f32,
     /// For movement checking.
     pub radius:       f32,
-    height:           f32,
+    pub height:       f32,
     /// Momentums, used to update position.
     pub momxy:        Vec2,
     pub momz:         f32,
