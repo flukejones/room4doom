@@ -1,15 +1,17 @@
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::renderer::bsp::point_to_angle_2;
 use glam::Vec2;
-use std::f32::consts::PI;
 use std::f32::EPSILON;
 
 #[derive(Default)]
 pub(crate) struct PortalZ {
-    pub top_z:     f32,
-    pub bottom_z:  f32,
-    pub range:     f32,
-    pub low_point: f32,
+    /// The lowest ceiling of the portal line
+    pub top_z:    f32,
+    /// The highest floor of the portal line
+    pub bottom_z: f32,
+    /// Range between `bottom_z` and `top_z`
+    pub range:    f32,
+    /// The lowest floor of the portal line
+    pub lowest_z: f32,
 }
 
 impl PortalZ {
@@ -22,10 +24,10 @@ impl PortalZ {
         let back = line.backsector.as_ref().unwrap();
 
         let mut ww = PortalZ {
-            top_z:     0.0,
-            bottom_z:  0.0,
-            range:     0.0,
-            low_point: 0.0,
+            top_z:    0.0,
+            bottom_z: 0.0,
+            range:    0.0,
+            lowest_z: 0.0,
         };
 
         if front.ceilingheight < back.ceilingheight {
@@ -36,10 +38,10 @@ impl PortalZ {
 
         if front.floorheight > back.floorheight {
             ww.bottom_z = front.floorheight;
-            ww.low_point = back.floorheight;
+            ww.lowest_z = back.floorheight;
         } else {
             ww.bottom_z = back.floorheight;
-            ww.low_point = front.floorheight;
+            ww.lowest_z = front.floorheight;
         }
         ww.range = ww.top_z - ww.bottom_z;
 

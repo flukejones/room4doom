@@ -255,11 +255,13 @@ impl MapObject {
                 ctrl.max_ceil_z = portal.top_z;
                 // TODO: ceilingline = ld;
             }
+            // Find the highest floor point (for steps etc)
             if portal.bottom_z > ctrl.min_floor_z {
                 ctrl.min_floor_z = portal.bottom_z;
             }
-            if portal.low_point < ctrl.max_dropoff {
-                ctrl.max_dropoff = portal.low_point;
+            // Find the lowest possible point in subsectors contacted
+            if portal.lowest_z < ctrl.max_dropoff {
+                ctrl.max_dropoff = portal.lowest_z;
             }
 
             if ld.special != 0 {
@@ -281,7 +283,7 @@ impl MapObject {
                 & (MapObjectFlag::MF_DROPOFF as u32
                     | MapObjectFlag::MF_FLOAT as u32)
                 != 0
-                && portal.bottom_z - portal.low_point > 24.0
+                && portal.bottom_z - portal.lowest_z > 24.0
             {
                 return Some(contact);
             }
