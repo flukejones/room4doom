@@ -51,11 +51,11 @@ pub(crate) enum PlayerState {
 #[derive(Debug)]
 enum Cheat {
     /// No clipping, walk through barriers.
-    CfNoclip     = 1,
+    Noclip     = 1,
     /// No damage, no health loss.
-    CfGodmode    = 2,
+    Godmode    = 2,
     /// Not really a cheat, just a debug aid.
-    CfNomomentum = 4,
+    NoMomentum = 4,
 }
 
 /// INTERMISSION
@@ -184,6 +184,9 @@ pub(crate) struct Player {
 
     /// True if secret level has been done.
     didsecret: bool,
+
+    // Custom option
+    pub head_bob: bool,
 }
 
 impl Default for Player {
@@ -235,6 +238,8 @@ impl Player {
 
             player_state: PlayerState::PstReborn,
             cmd: TicCmd::new(),
+
+            head_bob: true,
 
             psprites: [
                 PspDef {
@@ -326,10 +331,13 @@ impl Player {
 
             // Need to shunt finesine left by 13 bits?
             // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
-            let angle = ((3350528u32.overflowing_mul(level_time).0) & 67100672)
-                as f32
-                * 8.38190317e-8;
-            let bob = self.bob / 2.0 * angle.cos(); // not sine!
+            let mut bob = 0.0;
+            if self.head_bob {
+                let angle = ((3350528u32.overflowing_mul(level_time).0)
+                    & 67100672) as f32
+                    * 8.38190317e-8;
+                bob = self.bob / 2.0 * angle.cos(); // not sine!
+            }
 
             // move viewheight
             if self.player_state == PlayerState::PstLive {
@@ -348,7 +356,6 @@ impl Player {
                 }
 
                 if self.deltaviewheight > 0.0 {
-                    // player->deltaviewheight += FRACUNIT / 4;
                     self.deltaviewheight += 0.25;
                     if self.deltaviewheight <= 0.0 {
                         self.deltaviewheight = 1.0;
@@ -358,7 +365,6 @@ impl Player {
 
             self.viewz = mobj.obj.z + self.viewheight + bob;
 
-            // if (player->viewz > player->mo->ceilingz - 4 * FRACUNIT)
             if self.viewz > mobj.obj.ceilingz - 4.0 {
                 self.viewz = mobj.obj.ceilingz - 4.0;
             }
