@@ -36,97 +36,45 @@ impl MapObject {
     //  - find subsector we're in
     //  - check each line, if contact portal then get back sector if front checked
     //  - record each checked line to compare if added
-    fn get_contacting_ssects(
-        &self,
-        map_data: &MapData,
-    ) -> Vec<DPtr<SubSector>> {
-        let mut subsects =
-            vec![map_data.point_in_subsector(&(self.xy + self.momxy))];
-        let mov = self.xy + self.momxy;
-        let r = self.radius;
-        // TODO: need to check if subsector already added
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() + r)),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y())),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() - r)),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() + r)),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y() + r)),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() - r, mov.y())),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x() + r, mov.y() - r)),
-        );
-        subsects.push(
-            map_data.point_in_subsector(&Vec2::new(mov.x(), mov.y() - r)),
-        );
-
-        subsects
-    }
-
-    fn get_contacts_map(
+    fn get_contacts(
         &mut self,
+        subsect: &SubSector,
         ctrl: &mut SubSectorMinMax,
         map_data: &MapData,
     ) -> Vec<LineContact> {
+        let mut count = 0;
         let mut points = Vec::new();
-        let mut contacts: Vec<LineContact> = Vec::new();
-        // TODO: figure out a better way to get all segs in vicinity;
-
-        for line in map_data.get_linedefs() {
-            //for seg in segs.iter() {
-            if let Some(contact) = self.pit_check_line(ctrl, &line) {
-                if let Some(point) = contact.point_contacted {
-                    if !points.contains(&point) {
-                        points.push(point);
-                        contacts.push(contact);
-                    }
-                } else {
-                    contacts.push(contact);
-                }
-            }
-        }
-        contacts
-    }
-
-    fn get_contacts_in_ssects(
-        &mut self,
-        subsects: &[DPtr<SubSector>],
-        ctrl: &mut SubSectorMinMax,
-        map_data: &MapData,
-    ) -> Vec<LineContact> {
-        let mut points = Vec::new();
+        let mut lines = Vec::new();
         let mut contacts: Vec<LineContact> = Vec::new();
         // TODO: record checked lines
         let segs = map_data.get_segments();
-        for subsect in subsects.iter() {
-            //let sector = &subsect.sector;
-            //for line in sector.lines.iter() {}
-            for seg in &segs[subsect.start_seg as usize
-                ..(subsect.start_seg + subsect.seg_count) as usize]
-            {
-                //for seg in segs.iter() {
-                if let Some(contact) = self.pit_check_line(ctrl, &seg.linedef) {
-                    if let Some(point) = contact.point_contacted {
-                        if !points.contains(&point) {
-                            points.push(point);
-                            contacts.push(contact);
-                        }
-                    } else {
-                        contacts.push(contact);
-                    }
+        for seg in &segs[subsect.start_seg as usize
+            ..(subsect.start_seg + subsect.seg_count) as usize]
+        {
+            //for seg in segs.iter() {
+            self.pit_check_line(
+                ctrl,
+                &seg.linedef,
+                &mut lines,
+                &mut points,
+                &mut contacts,
+            );
+            count += 1;
+            // Line crossed, we might be colliding a nearby line
+            if let Some(back) = &seg.linedef.backsector {
+                for line in back.lines.iter() {
+                    self.pit_check_line(
+                        ctrl,
+                        line,
+                        &mut lines,
+                        &mut points,
+                        &mut contacts,
+                    );
+                    count += 1;
                 }
             }
         }
+        println!("Lines checked: {} ", count);
         contacts
     }
 
@@ -160,8 +108,9 @@ impl MapObject {
         // TODO: P_BlockThingsIterator, PIT_CheckThing
 
         // This is effectively P_BlockLinesIterator, PIT_CheckLine
-        let contacts = self.get_contacts_map(ctrl, &level.map_data);
-        //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
+        let mv_ssect =
+            level.map_data.point_in_subsector(&(self.xy + self.momxy));
+        let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
 
         // TODO: find the most suitable contact to move with (wall sliding)
         if !contacts.is_empty() {
@@ -175,8 +124,10 @@ impl MapObject {
                     * contacts[0].angle_delta
                     * self.momxy.length();
             }
-            let contacts = self.get_contacts_map(ctrl, &level.map_data);
-            //self.get_contacts_in_ssects(&subsects, ctrl, &level.map_data);
+
+            let mv_ssect =
+                level.map_data.point_in_subsector(&(self.xy + self.momxy));
+            let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
             self.resolve_contacts(&contacts);
         }
 
@@ -213,9 +164,12 @@ impl MapObject {
         &mut self,
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
-    ) -> Option<LineContact> {
+        lines: &mut Vec<*const LineDef>,
+        points: &mut Vec<Vec2>,
+        contacts: &mut Vec<LineContact>,
+    ) {
         if ld.point_on_side(&self.xy) == 1 {
-            return None;
+            return;
         }
 
         if let Some(contact) = circle_to_seg_intersect(
@@ -225,28 +179,45 @@ impl MapObject {
             *ld.v1,
             *ld.v2,
         ) {
-            // TODO: really need to check the lines of the subsector on the
-            //  on the other side of the contact too
+            if let Some(point) = contact.point_contacted {
+                if points.contains(&point) {
+                    return;
+                }
+                points.push(point);
+            }
+
+            // Compare pointer only
+            if lines.contains(&(ld as *const LineDef)) {
+                return;
+            }
+            lines.push(ld as *const LineDef);
 
             if ld.backsector.is_none() {
                 // one-sided line
-                return Some(contact);
+                contacts.push(contact);
+                return;
             }
+
+            // TODO: really need to check the lines of the subsector on the
+            //  on the other side of the contact too
 
             // Flag checks
             // TODO: can we move these up a call?
             if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
                 if ld.flags & LineDefFlags::Blocking as i16 != 0 {
-                    return Some(contact); // explicitly blocking everything
+                    contacts.push(contact);
+                    return; // explicitly blocking everything
                 }
 
                 if self.player.is_none()
                     && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
                 {
-                    return Some(contact); // block monsters only
+                    contacts.push(contact);
+                    return; // block monsters only
                 }
             } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-                return Some(contact);
+                contacts.push(contact);
+                return;
             }
 
             // Find the smallest/largest etc if group of line hits
@@ -272,11 +243,13 @@ impl MapObject {
             if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
                 && portal.top_z - self.z < self.height
             {
-                return Some(contact);
+                contacts.push(contact);
+                return;
             }
 
             if portal.bottom_z - self.z > 24.0 {
-                return Some(contact);
+                contacts.push(contact);
+                return;
             }
 
             if self.flags
@@ -285,24 +258,10 @@ impl MapObject {
                 != 0
                 && portal.bottom_z - portal.lowest_z > 24.0
             {
-                return Some(contact);
+                contacts.push(contact);
+                return;
             }
-
-            // // Line crossed, we might be colliding a nearby line
-            // if let Some(back) = &ld.backsector {
-            //     for line in back.lines.iter() {
-            //         if *line.v1 == *ld.v1 && *line.v2 == *ld.v2
-            //             || *line.v1 == *ld.v2 && *line.v2 == *ld.v1
-            //         {
-            //             continue;
-            //         }
-            //         if let Some(contact) = self.pit_check_line(ctrl, line) {
-            //             return Some(contact);
-            //         }
-            //     }
-            // }
         }
-        None
     }
 }
 
