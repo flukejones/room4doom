@@ -2,6 +2,7 @@ use wad::{lumps::WadThing, WadData};
 
 use crate::level_data::map_data::MapData;
 use crate::renderer::bsp::BspRenderer;
+use crate::renderer::plane::VisPlaneCtrl;
 use crate::renderer::RenderData;
 use crate::{
     d_main::Skill,
@@ -26,6 +27,7 @@ pub(crate) struct Level {
     pub map_data:          MapData,
     pub bsp_renderer:      BspRenderer,
     pub r_data:            RenderData,
+    pub visplanes:         VisPlaneCtrl,
     pub mobj_ctrl:         SubSectorMinMax,
     pub thinkers:          Vec<Option<Thinker<MapObject>>>,
     max_thinker_capacity:  usize,
@@ -83,6 +85,7 @@ impl Level {
         let mut level = Level {
             map_data,
             r_data: RenderData::default(),
+            visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
             mobj_ctrl: SubSectorMinMax::default(),
             thinkers: Vec::with_capacity(thinker_count + 50),
