@@ -179,7 +179,6 @@ impl BspRenderer {
             });
         }
         self.new_end = 2;
-        // self.r_segs = SegRender::default();
     }
 
     /// R_ClipSolidWallSegment - r_bsp

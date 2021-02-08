@@ -380,7 +380,7 @@ impl SegRender {
             // above view plane
             self.markfloor = false;
         }
-        // TDOD: if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != skyflatnum
+        // TODO: if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != skyflatnum
         if frontsector.ceilingheight <= viewz {
             // below view plane
             self.markceiling = false;
@@ -403,6 +403,15 @@ impl SegRender {
                 self.pixlow = 100.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
+        }
+
+        // render it
+        if self.markceiling {
+            // ceilingplane = R_CheckPlane(ceilingplane, self.rw_x, self.rw_stopx - 1);
+        }
+
+        if self.markfloor {
+            // floorplane = R_CheckPlane(floorplane, self.rw_x, self.rw_stopx - 1);
         }
 
         self.render_seg_loop(object, seg, rdata, canvas);

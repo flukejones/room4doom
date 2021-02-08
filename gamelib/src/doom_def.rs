@@ -20,21 +20,29 @@ pub const ML_MAPPED: u32 = 256;
 //  to handle IWAD dependend animations etc.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMode {
-    Shareware,  // DOOM 1 shareware, E1, M9
-    Registered, // DOOM 1 registered, E3, M27
-    Commercial, // DOOM 2 retail, E1 M34
+    Shareware,
+    // DOOM 1 shareware, E1, M9
+    Registered,
+    // DOOM 1 registered, E3, M27
+    Commercial,
+    // DOOM 2 retail, E1 M34
     // DOOM 2 german edition not handled
-    Retail,       // DOOM 1 retail, E4, M36
+    Retail,
+    // DOOM 1 retail, E4, M36
     Indetermined, // Well, no IWAD found.
 }
 
 // Mission packs - might be useful for TC stuff?
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMission {
-    Doom,     // DOOM 1
-    Doom2,    // DOOM 2
-    PackTnt,  // TNT mission pack
-    PackPlut, // Plutonia pack
+    Doom,
+    // DOOM 1
+    Doom2,
+    // DOOM 2
+    PackTnt,
+    // TNT mission pack
+    PackPlut,
+    // Plutonia pack
     None,
 }
 
@@ -149,7 +157,8 @@ pub enum PowerType {
 #[derive(Debug, Copy, Clone)]
 pub enum PowerDuration {
     INVULNTICS = (30 * TICRATE) as isize,
-    INVISTICS  = (61 * TICRATE) as isize, // TODO: fix back to 60
+    INVISTICS  = (61 * TICRATE) as isize,
+    // TODO: fix back to 60
     INFRATICS  = (120 * TICRATE) as isize,
     IRONTICS   = (60 * TICRATE) as isize,
 }

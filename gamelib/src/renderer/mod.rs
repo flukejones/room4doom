@@ -29,3 +29,7 @@ pub(crate) struct RenderData {
     /// Used in r_segs and r_things
     pub ds_p:        usize, // Or, depending on place in code this can be skipped and a new
 }
+
+impl RenderData {
+    pub fn clear_data(&mut self) { self.portal_clip.clear(); }
+}

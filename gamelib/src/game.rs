@@ -508,8 +508,9 @@ impl Game {
 
             let player = &mut self.players[self.consoleplayer];
 
+            level.visplanes.clear_planes();
             level.bsp_renderer.clear_clip_segs();
-            level.r_data.portal_clip.clear();
+            level.r_data.clear_data();
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 

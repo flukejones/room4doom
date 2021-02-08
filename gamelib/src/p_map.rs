@@ -252,15 +252,15 @@ impl MapObject {
                 return;
             }
 
-            if self.flags
-                & (MapObjectFlag::MF_DROPOFF as u32
-                    | MapObjectFlag::MF_FLOAT as u32)
-                != 0
-                && portal.bottom_z - portal.lowest_z > 24.0
-            {
-                contacts.push(contact);
-                return;
-            }
+            // if self.flags
+            //     & (MapObjectFlag::MF_DROPOFF as u32
+            //         | MapObjectFlag::MF_FLOAT as u32)
+            //     != 0
+            //     && portal.bottom_z - portal.lowest_z > 24.0
+            // {
+            //     contacts.push(contact);
+            //     return;
+            // }
         }
     }
 }
