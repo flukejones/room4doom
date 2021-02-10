@@ -14,12 +14,12 @@ pub const FRACUNIT: f32 = 65536.0; //(1 << FRACBITS) as f32;
 pub const FRACUNIT_DIV4: f32 = 0.25;
 
 /// Convert a Doom `fixed_t` fixed-point float to `f32`
-pub const fn fixed_to_float(value: i32) -> f32 { value as f32 / FRACUNIT }
+pub fn fixed_to_float(value: i32) -> f32 { value as f32 / FRACUNIT }
 
 const DEG_TO_RAD: f32 = 0.017453292; //PI / 180.0;
 
 /// Convert a BAM (Binary Angle Measure) to radians
-pub const fn bam_to_radian(value: u32) -> f32 {
+pub fn bam_to_radian(value: u32) -> f32 {
     (value as f32 * 8.38190317e-8) * DEG_TO_RAD
 }
 

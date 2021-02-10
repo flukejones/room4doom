@@ -1,4 +1,4 @@
-#![feature(const_fn_floating_point_arithmetic)]
+// #![feature(const_fn_floating_point_arithmetic)]
 
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
