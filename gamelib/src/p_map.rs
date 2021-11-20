@@ -74,14 +74,15 @@ impl MapObject {
                 }
             }
         }
-        println!("Lines checked: {} ", count);
+        //println!("Lines checked: {} ", count);
         contacts
     }
 
     fn resolve_contacts(&mut self, contacts: &[LineContact]) {
         for contact in contacts.iter() {
             let relative = contact.normal * contact.penetration;
-            self.momxy -= relative;
+            self.momxy /= 2.0;
+            self.xy -= relative;
         }
     }
 
@@ -107,31 +108,28 @@ impl MapObject {
         // Check things first, possibly picking things up.
         // TODO: P_BlockThingsIterator, PIT_CheckThing
 
-        // This is effectively P_BlockLinesIterator, PIT_CheckLine
-        let mv_ssect =
+        let mut n = 0;
+        while n < 5 {
+            // This is effectively P_BlockLinesIterator, PIT_CheckLine
+            let mv_ssect =
             level.map_data.point_in_subsector(&(self.xy + self.momxy));
-        let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
 
-        // TODO: find the most suitable contact to move with (wall sliding)
-        if !contacts.is_empty() {
-            if contacts[0].point_contacted.is_some() {
-                // Have to pad the penetration by 1.0 to prevent a bad clip
-                // on some occasions, like going full speed in to a corner
-                self.momxy -=
-                    contacts[0].normal * (contacts[0].penetration + 1.0);
-            } else {
-                self.momxy = contacts[0].slide_dir
-                    * contacts[0].angle_delta
-                    * self.momxy.length();
+            let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
+            if contacts.len() >=1 {
+                println!("CONTACTS: {}", &contacts.len());
             }
 
-            let mv_ssect =
-                level.map_data.point_in_subsector(&(self.xy + self.momxy));
-            let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
+            // if !contacts.is_empty() {
+            //     if contacts[0].point_contacted.is_some() {
+            //         self.momxy = contacts[0].slide_dir
+            //             * contacts[0].angle_delta
+            //             * self.momxy.length();
+            //     }
+            // }
+
+            n += 1;
             self.resolve_contacts(&contacts);
         }
-
-        let old_pos = self.xy;
 
         self.xy += self.momxy;
         if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
@@ -168,9 +166,9 @@ impl MapObject {
         points: &mut Vec<Vec2>,
         contacts: &mut Vec<LineContact>,
     ) {
-        if ld.point_on_side(&self.xy) == 1 {
-            return;
-        }
+        // if ld.point_on_side(&self.xy) == 1 {
+        //     return;
+        // }
 
         if let Some(contact) = circle_to_seg_intersect(
             self.xy,
