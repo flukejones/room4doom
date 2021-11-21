@@ -6,6 +6,18 @@ use std::{
     },
 };
 
+fn player_dist_to_screen() -> f32 {
+    160.0 / (45.0f32 * PI / 180.0).tan()
+}
+
+pub(crate) fn screen_to_x_view(x: i32) -> f32 {
+    let a = ((160.0 - x as f32) / player_dist_to_screen()).atan() * 180.0 / PI;
+    if a < 0.0000001 {
+        return 360.0 + a;
+    }
+    a
+}
+
 pub(crate) static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
     45.043945, 44.824219, 44.648437, 44.472656, 44.296875, 44.121094,
     43.945312, 43.725586, 43.549805, 43.374023, 43.154297, 42.978516,

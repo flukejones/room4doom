@@ -4,7 +4,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW};
+use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW, screen_to_x_view};
 use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_defs::Segment;
 use crate::p_map_object::MapObject;
@@ -163,7 +163,6 @@ impl SegRender {
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
         let view_angle = object.mobj.as_ref().unwrap().obj.angle;
 
-        //m_ScreenXToAngle[i] = atan((m_HalfScreenWidth - i) / (float)m_iDistancePlayerToScreen) * 180 / PI;
         // TODO: doublecheck the angles and bounds
         let visangle =
             view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degrees not rads
@@ -474,8 +473,8 @@ impl SegRender {
             }
 
             yh = self.bottomfrac;
-            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0 {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                yh = rdata.portal_clip.floorclip[self.rw_x as usize];
             }
 
             if self.markfloor {
@@ -508,8 +507,7 @@ impl SegRender {
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.floorclip[self.rw_x as usize]
-                            - 1.0;
+                        mid = rdata.portal_clip.floorclip[self.rw_x as usize];
                     }
 
                     if mid >= yl {
@@ -529,11 +527,11 @@ impl SegRender {
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                            yl - 1.0;
+                            yl; // - 1.0;
                     }
                 } else if self.markceiling {
                     rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                        yl - 1.0;
+                        yl; // - 1.0;
                 }
 
                 if self.bottomtexture != 0 {
@@ -542,8 +540,7 @@ impl SegRender {
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize]
                     {
-                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize]
-                            + 1.0;
+                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize];
                     }
 
                     if mid <= yh {
@@ -563,10 +560,10 @@ impl SegRender {
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
                         rdata.portal_clip.floorclip[self.rw_x as usize] =
-                            yh + 1.0;
+                            yh;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh;
                 }
             }
 

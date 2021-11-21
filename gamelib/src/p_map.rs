@@ -53,7 +53,17 @@ impl MapObject {
                 li,
                 &mut contacts,
             );
+            // if let Some(back) = li.backsector.as_ref() {
+            //     for li in &back.lines {
+            //         self.pit_check_line(
+            //             ctrl,
+            //             &li,
+            //             &mut contacts,
+            //         );
+            //     }
+            // }
         }
+
         contacts
     }
 
