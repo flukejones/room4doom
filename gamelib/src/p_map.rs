@@ -42,47 +42,27 @@ impl MapObject {
         ctrl: &mut SubSectorMinMax,
         map_data: &MapData,
     ) -> Vec<LineContact> {
-        let mut count = 0;
-        let mut points = Vec::new();
-        let mut lines = Vec::new();
         let mut contacts: Vec<LineContact> = Vec::new();
-        // TODO: record checked lines
-        let segs = map_data.get_segments();
-        for seg in &segs[subsect.start_seg as usize
-            ..(subsect.start_seg + subsect.seg_count) as usize]
-        {
-            //for seg in segs.iter() {
+        // TODO: FIXME: The root cause of collision issues is determining which sectors to check.
+        //  a lot of this stems from the player radius and origin point
+        let l = map_data.get_linedefs(); //&subsect.sector.lines;
+
+        for li in l {
             self.pit_check_line(
                 ctrl,
-                &seg.linedef,
-                &mut lines,
-                &mut points,
+                li,
                 &mut contacts,
             );
-            count += 1;
-            // Line crossed, we might be colliding a nearby line
-            if let Some(back) = &seg.linedef.backsector {
-                for line in back.lines.iter() {
-                    self.pit_check_line(
-                        ctrl,
-                        line,
-                        &mut lines,
-                        &mut points,
-                        &mut contacts,
-                    );
-                    count += 1;
-                }
-            }
         }
-        //println!("Lines checked: {} ", count);
         contacts
     }
 
     fn resolve_contacts(&mut self, contacts: &[LineContact]) {
         for contact in contacts.iter() {
-            let relative = contact.normal * contact.penetration;
-            self.momxy /= 2.0;
-            self.xy -= relative;
+            self.xy -= contact.normal * contact.penetration;
+        }
+        if !contacts.is_empty() {
+            println!("{}, collisions resolved", contacts.len());
         }
     }
 
@@ -108,30 +88,25 @@ impl MapObject {
         // Check things first, possibly picking things up.
         // TODO: P_BlockThingsIterator, PIT_CheckThing
 
-        let mut n = 0;
-        while n < 5 {
-            // This is effectively P_BlockLinesIterator, PIT_CheckLine
-            let mv_ssect =
-            level.map_data.point_in_subsector(&(self.xy + self.momxy));
+        // This is effectively P_BlockLinesIterator, PIT_CheckLine
+        let mut mv_ssect =
+            level.map_data.point_in_subsector(&(self.xy +self.momxy));
 
-            let contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
-            if contacts.len() >=1 {
-                println!("CONTACTS: {}", &contacts.len());
-            }
-
-            // if !contacts.is_empty() {
-            //     if contacts[0].point_contacted.is_some() {
-            //         self.momxy = contacts[0].slide_dir
-            //             * contacts[0].angle_delta
-            //             * self.momxy.length();
-            //     }
-            // }
-
-            n += 1;
-            self.resolve_contacts(&contacts);
+        let mut contacts  = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
+        if !contacts.is_empty() {
+            println!("{} contacts", contacts.len());
+            self.momxy = contacts[0].slide_dir
+                * contacts[0].angle_delta
+                * self.momxy.length();
         }
 
+        mv_ssect =
+                level.map_data.point_in_subsector(&(self.xy +self.momxy));
+            contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
+            self.resolve_contacts(&contacts);
+
         self.xy += self.momxy;
+
         if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
             self.floorz = ctrl.min_floor_z;
             self.ceilingz = ctrl.max_ceil_z;
@@ -156,19 +131,16 @@ impl MapObject {
     }
 
     /// PIT_CheckLine
-    /// Adjusts tmfloorz and tmceilingz as lines are contacted, if
-    /// penetration with a line is detected then the pen distance is returned
+    /// Adjusts tmfloorz and tmceilingz as lines are contacted
     fn pit_check_line(
         &mut self,
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
-        lines: &mut Vec<*const LineDef>,
-        points: &mut Vec<Vec2>,
         contacts: &mut Vec<LineContact>,
     ) {
-        // if ld.point_on_side(&self.xy) == 1 {
-        //     return;
-        // }
+        if ld.point_on_side(&self.xy) == 1 {
+            return;
+        }
 
         if let Some(contact) = circle_to_seg_intersect(
             self.xy,
@@ -177,27 +149,11 @@ impl MapObject {
             *ld.v1,
             *ld.v2,
         ) {
-            if let Some(point) = contact.point_contacted {
-                if points.contains(&point) {
-                    return;
-                }
-                points.push(point);
-            }
-
-            // Compare pointer only
-            if lines.contains(&(ld as *const LineDef)) {
-                return;
-            }
-            lines.push(ld as *const LineDef);
-
             if ld.backsector.is_none() {
                 // one-sided line
                 contacts.push(contact);
                 return;
             }
-
-            // TODO: really need to check the lines of the subsector on the
-            //  on the other side of the contact too
 
             // Flag checks
             // TODO: can we move these up a call?

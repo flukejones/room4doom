@@ -153,33 +153,13 @@ pub(crate) fn circle_to_seg_intersect(
 ) -> Option<LineContact> {
     let move_to = origin + momentum;
 
-    // TODO: move the final block out to new call so that we're not calling twice on ends
-    if let Some(dist) = circle_point_intersect(move_to, radius, point1) {
-        return Some(LineContact::new(
-            dist,
-            (point1 - move_to).normalize(),
-            Vec2::default(),
-            0.0,
-            Some(point1),
-        ));
-    }
-    if let Some(dist) = circle_point_intersect(move_to, radius, point2) {
-        return Some(LineContact::new(
-            dist,
-            (point2 - move_to).normalize(),
-            Vec2::default(),
-            0.0,
-            Some(point2),
-        ));
-    }
-
     let lc = move_to - point1;
     let d = point2 - point1;
     let p = project_vec2(lc, d);
 
     let nearest = point1 + p;
 
-    if let Some(mut dist) = circle_point_intersect(move_to, radius, nearest) {
+    if let Some(dist) = circle_point_intersect(move_to, radius, nearest) {
         if (p.length() < d.length() && p.dot(d) > EPSILON) {
             // TODO: save enough info to build this data later when really required
             let lc = origin - point1;
