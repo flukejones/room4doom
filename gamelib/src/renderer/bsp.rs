@@ -236,7 +236,7 @@ impl BspRenderer {
 
         next = start;
         while last >= self.solidsegs[next + 1].first - 1
-            && next + 1 < self.solidsegs.len() - 1
+            && next + 1 < self.solidsegs.len()
         {
             r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
@@ -251,7 +251,7 @@ impl BspRenderer {
         // There is a fragment after *next.
         r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
         // Adjust the clip size.
-        self.solidsegs[start].last = last;
+        //self.solidsegs[start].last = last;
 
         //crunch
         self.crunch(start, next);
@@ -297,8 +297,8 @@ impl BspRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - 1
-            && next + 1 < self.solidsegs.len() - 1
+        while last >= self.solidsegs[next].first
+            && next < self.solidsegs.len()
         {
             r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
@@ -314,19 +314,17 @@ impl BspRenderer {
     }
 
     fn crunch(&mut self, mut start: usize, mut next: usize) {
-        {
-            if next == start {
-                return;
-            }
-
-            while (next + 1) != self.new_end && start < self.solidsegs.len() - 1
-            {
-                next += 1;
-                start += 1;
-                self.solidsegs[start] = self.solidsegs[next];
-            }
-            self.new_end = start + 1;
+        if next == start {
+            return;
         }
+
+        while next != self.new_end && start < self.solidsegs.len()
+        {
+            next += 1;
+            start += 1;
+            self.solidsegs[start] = self.solidsegs[next];
+        }
+        self.new_end = start;
     }
 
     /// R_RenderBSPNode - r_bsp
