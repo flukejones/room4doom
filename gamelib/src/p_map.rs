@@ -45,7 +45,8 @@ impl MapObject {
         let mut contacts: Vec<LineContact> = Vec::new();
         // TODO: FIXME: The root cause of collision issues is determining which sectors to check.
         //  a lot of this stems from the player radius and origin point
-        let l = map_data.get_linedefs(); //&subsect.sector.lines;
+        // let l = &subsect.sector.lines;
+        let l = map_data.get_linedefs();
 
         for li in l {
             self.pit_check_line(
@@ -53,16 +54,50 @@ impl MapObject {
                 li,
                 &mut contacts,
             );
-            // if let Some(back) = li.backsector.as_ref() {
-            //     for li in &back.lines {
-            //         self.pit_check_line(
-            //             ctrl,
-            //             &li,
-            //             &mut contacts,
-            //         );
-            //     }
-            // }
+            if let Some(back) = li.backsector.as_ref() {
+                for li in &back.lines {
+                    self.pit_check_line(
+                        ctrl,
+                        &li,
+                        &mut contacts,
+                    );
+                }
+            }
         }
+
+        // let mut tmp = Vec::new();
+
+        // This absolutely shits the bed on E5M4 in SIGIL
+        // for line in &subsect.sector.lines {
+        //     if line.bbox.left + self.radius <= self.xy.x()
+        //         || line.bbox.right + self.radius >= self.xy.x()
+        //         || line.bbox.top + self.radius >= self.xy.y()
+        //         || line.bbox.bottom + self.radius <= self.xy.y() {
+        //         self.pit_check_line(
+        //             ctrl,
+        //             line,
+        //             &mut contacts,
+        //         );
+        //     }
+        //     tmp.push(line.as_ptr() as usize);
+
+        //     if let Some(back) = line.backsector.as_ref() {
+        //         for line in &back.lines {
+        //             if !tmp.contains(&(line.as_ptr() as usize))
+        //                 || line.bbox.left + self.radius <= self.xy.x()
+        //                 || line.bbox.right + self.radius >= self.xy.x()
+        //                 || line.bbox.top + self.radius >= self.xy.y()
+        //                 || line.bbox.bottom + self.radius <= self.xy.y() {
+        //                 self.pit_check_line(
+        //                     ctrl,
+        //                     line,
+        //                     &mut contacts,
+        //                 );
+        //             }
+        //             tmp.push(line.as_ptr() as usize);
+        //         }
+        //     }
+        // }
 
         contacts
     }
