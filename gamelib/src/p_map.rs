@@ -4,13 +4,10 @@ use glam::Vec2;
 
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
-use crate::level_data::map_data::MapData;
-use crate::level_data::map_defs::{BBox, LineDef, SubSector};
+use crate::level_data::map_defs::{LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
-use crate::p_map_util::{
-    circle_to_seg_intersect, unit_vec_from, LineContact, PortalZ,
-};
+use crate::p_map_util::{PortalZ, circle_to_line_intercept, slide_line_intercept};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -30,132 +27,43 @@ pub(crate) struct SubSectorMinMax {
 }
 
 impl MapObject {
-    // TODO: Okay so, first, broadphase get all segs in radius+momentum length,
-    //  then get first collision only for wall-slide. Need to manage portal collisions better
-    //  Alternative:
-    //  - find subsector we're in
-    //  - check each line, if contact portal then get back sector if front checked
-    //  - record each checked line to compare if added
-    fn get_contacts(
-        &mut self,
-        subsect: &SubSector,
-        ctrl: &mut SubSectorMinMax,
-        map_data: &MapData,
-    ) -> Vec<LineContact> {
-        let mut contacts: Vec<LineContact> = Vec::new();
-        // TODO: FIXME: The root cause of collision issues is determining which sectors to check.
-        //  a lot of this stems from the player radius and origin point
-        // let l = &subsect.sector.lines;
-        let l = map_data.get_linedefs();
-
-        for li in l {
-            self.pit_check_line(
-                ctrl,
-                li,
-                &mut contacts,
-            );
-            if let Some(back) = li.backsector.as_ref() {
-                for li in &back.lines {
-                    self.pit_check_line(
-                        ctrl,
-                        &li,
-                        &mut contacts,
-                    );
-                }
-            }
-        }
-
-        // let mut tmp = Vec::new();
-
-        // This absolutely shits the bed on E5M4 in SIGIL
-        // for line in &subsect.sector.lines {
-        //     if line.bbox.left + self.radius <= self.xy.x()
-        //         || line.bbox.right + self.radius >= self.xy.x()
-        //         || line.bbox.top + self.radius >= self.xy.y()
-        //         || line.bbox.bottom + self.radius <= self.xy.y() {
-        //         self.pit_check_line(
-        //             ctrl,
-        //             line,
-        //             &mut contacts,
-        //         );
-        //     }
-        //     tmp.push(line.as_ptr() as usize);
-
-        //     if let Some(back) = line.backsector.as_ref() {
-        //         for line in &back.lines {
-        //             if !tmp.contains(&(line.as_ptr() as usize))
-        //                 || line.bbox.left + self.radius <= self.xy.x()
-        //                 || line.bbox.right + self.radius >= self.xy.x()
-        //                 || line.bbox.top + self.radius >= self.xy.y()
-        //                 || line.bbox.bottom + self.radius <= self.xy.y() {
-        //                 self.pit_check_line(
-        //                     ctrl,
-        //                     line,
-        //                     &mut contacts,
-        //                 );
-        //             }
-        //             tmp.push(line.as_ptr() as usize);
-        //         }
-        //     }
-        // }
-
-        contacts
-    }
-
-    fn resolve_contacts(&mut self, contacts: &[LineContact]) {
-        for contact in contacts.iter() {
-            self.xy -= contact.normal * contact.penetration;
-        }
-        if !contacts.is_empty() {
-            println!("{}, collisions resolved", contacts.len());
-        }
-    }
-
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    pub fn p_try_move(&mut self, level: &mut Level) {
+    pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32, level: &mut Level) -> bool {
         // P_CrossSpecialLine
         level.mobj_ctrl.floatok = false;
 
-        let ctrl = &mut level.mobj_ctrl;
-        // TODO: ceilingline = NULL;
+        let try_move = Vec2::new(ptryx, ptryy);
 
+        if !self.p_check_position(&try_move, level) {
+            // up to callee to do something like slide check
+            return false;
+        }
+
+        // TODO: ceilingline = NULL;
         // First sector is always the one we are in
-        let curr_ssect = level.map_data.point_in_subsector(&self.xy);
+        let ctrl = &mut level.mobj_ctrl;
+        let curr_ssect = level.map_data.point_in_subsector(&try_move);
+
         ctrl.min_floor_z = curr_ssect.sector.floorheight;
         ctrl.max_dropoff = curr_ssect.sector.floorheight;
         ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
-        if ctrl.tmflags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
-            return;
-        }
+        // TODO: P_BlockThingsIterator, PIT_CheckThing/Line
 
-        // Check things first, possibly picking things up.
-        // TODO: P_BlockThingsIterator, PIT_CheckThing
+        // the move is ok,
+        // so link the thing into its new position
+        // P_UnsetThingPosition (thing);
 
-        // This is effectively P_BlockLinesIterator, PIT_CheckLine
-        let mut mv_ssect =
-            level.map_data.point_in_subsector(&(self.xy +self.momxy));
-
-        let mut contacts  = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
-        if !contacts.is_empty() {
-            println!("{} contacts", contacts.len());
-            self.momxy = contacts[0].slide_dir
-                * contacts[0].angle_delta
-                * self.momxy.length();
-        }
-
-        mv_ssect =
-                level.map_data.point_in_subsector(&(self.xy +self.momxy));
-            contacts = self.get_contacts(&mv_ssect, ctrl, &level.map_data);
-            self.resolve_contacts(&contacts);
-
-        self.xy += self.momxy;
+        let old_xy = self.xy;
 
         if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
             self.floorz = ctrl.min_floor_z;
             self.ceilingz = ctrl.max_ceil_z;
         }
+        self.xy = try_move;
+
+        // P_SetThingPosition (thing);
 
         // TODO: if any special lines were hit, do the effect
         // if (!(thing->flags & (MF_TELEPORT | MF_NOCLIP)))
@@ -173,50 +81,141 @@ impl MapObject {
         //         }
         //     }
         // }
+        true
+    }
+
+    // P_SlideMove
+    // Loop until get a good move or stopped
+    pub fn p_slide_move(&mut self, level: &mut Level) {
+        // let ctrl = &mut level.mobj_ctrl;
+
+        let mut hitcount = 0;
+        let mut new_momxy;
+        let mut try_move;
+
+        loop {
+            if hitcount == 3 {
+                try_move = self.xy + self.momxy;
+                self.p_try_move(try_move.x(), try_move.y(), level);
+                break;
+            }
+            new_momxy = self.momxy;
+            try_move = self.xy;
+
+            let curr_ssect = level.map_data.point_in_subsector(&(self.xy));
+
+            for ld in &curr_ssect.sector.lines {
+                if let Some(contact) = slide_line_intercept(
+                    self.xy + new_momxy,
+                    new_momxy,
+                    self.radius + 5.0,
+                    *ld.v1,
+                    *ld.v2,
+                ) {
+                    //try_move -= contact.penetration * contact.normal;
+                    let new_len = contact.angle_delta * new_momxy.length();
+                    new_momxy = contact.slide_dir * new_len;
+                    break;
+                }
+            }
+
+            // TODO: move up to the wall / stairstep
+
+            try_move += new_momxy;
+            self.momxy = new_momxy;
+
+            if self.p_try_move(try_move.x(), try_move.y(), level) {
+                break;
+            }
+
+            hitcount += 1;
+        }
+    }
+
+    // P_CheckPosition
+    // This is purely informative, nothing is modified
+    // (except things picked up).
+    //
+    // in:
+    //  a mobj_t (can be valid or invalid)
+    //  a position to be checked
+    //   (doesn't need to be related to the mobj_t->x,y)
+    //
+    // during:
+    //  special things are touched if MF_PICKUP
+    //  early out on solid lines?
+    //
+    // out:
+    //  newsubsec
+    //  floorz
+    //  ceilingz
+    //  tmdropoffz
+    //   the lowest point contacted
+    //   (monsters won't move to a dropoff)
+    //  speciallines[]
+    //  numspeciallines
+    //
+    /// Check for things and lines contacts.
+    ///
+    /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
+    /// and this function checks if the line is solid, if not then it also sets
+    /// the portal ceil/floor coords and dropoffs
+    fn p_check_position(
+        &mut self, try_move: &Vec2, level: &mut Level
+    ) -> bool {
+        let ctrl = &mut level.mobj_ctrl;
+        let curr_ssect = level.map_data.point_in_subsector(try_move);
+
+        for line in &curr_ssect.sector.lines {
+            if !self.pit_check_line(try_move, ctrl, line) {
+                return false;
+            }
+        }
+        true
     }
 
     /// PIT_CheckLine
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
     fn pit_check_line(
         &mut self,
+        try_move: &Vec2,
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
-        contacts: &mut Vec<LineContact>,
-    ) {
-        if ld.point_on_side(&self.xy) == 1 {
-            return;
+    ) -> bool {
+        // TODO: Line bounding box check here
+        if try_move.x() + self.radius <= ld.bbox.left
+            || try_move.x() - self.radius >= ld.bbox.right
+            || try_move.y() + self.radius <= ld.bbox.bottom
+            || try_move.y() - self.radius >= ld.bbox.top {
+                return true;
         }
 
-        if let Some(contact) = circle_to_seg_intersect(
-            self.xy,
-            self.momxy,
+        if circle_to_line_intercept(
+            *try_move,
             self.radius,
             *ld.v1,
             *ld.v2,
         ) {
-            if ld.backsector.is_none() {
-                // one-sided line
-                contacts.push(contact);
-                return;
+            // Moved from before circle_to_seg_intersect call
+            if ld.point_on_side(&self.xy) != 0 {
+                return true;
             }
-
-            // Flag checks
-            // TODO: can we move these up a call?
-            if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
-                if ld.flags & LineDefFlags::Blocking as i16 != 0 {
-                    contacts.push(contact);
-                    return; // explicitly blocking everything
+            // Moved from before circle_to_seg_intersect call
+            if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                if ld.flags & LineDefFlags::Blocking as i16 == 0 {
+                    return false; // explicitly blocking everything
                 }
 
                 if self.player.is_none()
                     && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
                 {
-                    contacts.push(contact);
-                    return; // block monsters only
+                    return false; // block monsters only
                 }
-            } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-                contacts.push(contact);
-                return;
+            }
+
+            if ld.backsector.is_none() {
+                // one-sided line
+                return false;
             }
 
             // Find the smallest/largest etc if group of line hits
@@ -238,17 +237,17 @@ impl MapObject {
                 ctrl.spec_hits.push(DPtr::new(ld));
             }
 
+            // Next two ifs imported from?
             // These are the very specific portal collisions
             if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
                 && portal.top_z - self.z < self.height
             {
-                contacts.push(contact);
-                return;
+                return false;
             }
 
+            // Line is higher
             if portal.bottom_z - self.z > 24.0 {
-                contacts.push(contact);
-                return;
+                return false;
             }
 
             // if self.flags
@@ -261,6 +260,7 @@ impl MapObject {
             //     return;
             // }
         }
+        true
     }
 }
 
