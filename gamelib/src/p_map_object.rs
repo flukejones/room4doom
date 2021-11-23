@@ -352,7 +352,8 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
+        if self.momxy.x() <= 0.0001 && self.momxy.x() >= -0.0001
+            && self.momxy.y() <= 0.0001 && self.momxy.y() >= -0.0001 {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
@@ -385,10 +386,41 @@ impl MapObject {
         //  - the need to store line slopes
         // TODO: The above stuff, refactor the collisions and movement to use modern techniques
 
-        // This was once the loop that progressively made the movement smaller
-        // until zero or success
         // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
-        self.p_try_move(level);
+        let mut xmove = self.momxy.x();
+        let mut ymove = self.momxy.y();
+        let mut ptryx;
+        let mut ptryy;
+        loop {
+            if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
+                ptryx = self.xy.x() + xmove / 2.0;
+                ptryy = self.xy.y() + ymove / 2.0;
+                xmove /= 2.0;
+                ymove /= 2.0;
+            }
+            else
+            {
+                ptryx = self.xy.x() + xmove;
+                ptryy = self.xy.y() + ymove;
+                xmove = 0.0;
+                ymove = 0.0;
+            }
+
+            if !self.p_try_move(ptryx, ptryy, level) {
+                if self.player.is_some() {
+                    self.p_slide_move(level);
+                } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                    // TODO: explode
+                } else {
+                    self.momxy.set_x(0.0);
+                    self.momxy.set_y(0.0);
+                }
+            }
+
+            if xmove <= 0.0 || ymove <= 0.0 {
+                break
+            }
+        }
 
         // slow down
 

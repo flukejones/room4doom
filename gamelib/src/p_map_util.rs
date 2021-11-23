@@ -57,7 +57,7 @@ pub(crate) fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
         SlopeType::Horizontal => {
             p1 = (tmbox.top > ld.v1.y()) as i32;
             p2 = (tmbox.bottom > ld.v1.y()) as i32;
-            if ld.delta.x() < f32::EPSILON {
+            if ld.delta.x() < 0.0 {
                 p1 ^= 1;
                 p2 ^= 1;
             }
@@ -65,7 +65,7 @@ pub(crate) fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
         SlopeType::Vertical => {
             p1 = (tmbox.right > ld.v1.x()) as i32;
             p2 = (tmbox.left > ld.v1.x()) as i32;
-            if ld.delta.y() < f32::EPSILON {
+            if ld.delta.y() < 0.0 {
                 p1 ^= 1;
                 p2 ^= 1;
             }
@@ -114,80 +114,91 @@ pub fn ray_to_line_intersect(
     None
 }
 
-#[derive(Debug)]
-pub(crate) struct LineContact {
-    pub penetration:     f32,
-    pub normal:          Vec2,
-    pub slide_dir:       Vec2,
-    pub angle_delta:     f32,
-    pub point_contacted: Option<Vec2>,
-}
-
-impl LineContact {
-    pub fn new(
-        penetration: f32,
-        normal: Vec2,
-        slide_dir: Vec2,
-        angle_delta: f32,
-        point_contacted: Option<Vec2>,
-    ) -> Self {
-        LineContact {
-            penetration,
-            normal,
-            slide_dir,
-            angle_delta,
-            point_contacted,
-        }
-    }
-}
-
 /// Produce a `LineContact` with the normal from movement->line, and the depth
 /// of penetration taking in to account the radius.
+///
+/// Does some of `P_HitSlideLine`
 #[inline]
-pub(crate) fn circle_to_seg_intersect(
+pub(crate) fn line_slide_direction(
     origin: Vec2,
     momentum: Vec2,
     radius: f32,
     point1: Vec2,
     point2: Vec2,
-) -> Option<LineContact> {
-    let move_to = origin + momentum;
+) -> Option<Vec2> {
+    let mxy = momentum.normalize() * radius;
+    let move_to = origin + momentum + mxy;
 
     let lc = move_to - point1;
     let d = point2 - point1;
     let p = project_vec2(lc, d);
 
-    let nearest = point1 + p;
+    let mxy_on_line = point1 + p;
 
-    if let Some(dist) = circle_point_intersect(move_to, radius, nearest) {
-        if (p.length() < d.length() && p.dot(d) > EPSILON) {
-            // TODO: save enough info to build this data later when really required
-            let lc = origin - point1;
-            let p = project_vec2(lc, d);
-            // point on line from starting point
-            let origin_on_line = point1 + p;
-            // line angle headng in direction we need to slide
-            let mut slide_direction = (nearest - origin_on_line).normalize();
-            if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
-                slide_direction = Vec2::default();
-            }
+    let lc = origin - point1;
+    let p2 = project_vec2(lc, d);
+    // point on line from starting point
+    let origin_on_line = point1 + p2;
 
-            let mut vs_angle =
-                slide_direction.angle_between(move_to - origin).cos();
-            if vs_angle.is_nan() {
-                vs_angle = 0.0;
-            }
-
-            return Some(LineContact::new(
-                dist,
-                (nearest - move_to).normalize(),
-                slide_direction,
-                vs_angle,
-                None,
-            ));
+    if p.length() < d.length() && p.dot(d) > EPSILON {
+        // line angle headng in direction we need to slide
+        let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
+        if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
+            slide_direction = Vec2::default();
         }
+
+        let mut vs_angle =
+            mxy.angle_between(slide_direction).cos();
+        if vs_angle.is_nan() {
+            vs_angle = 0.0;
+        }
+
+        return Some(slide_direction * (vs_angle * momentum.length()));
     }
     None
+}
+
+#[inline]
+pub(crate) fn line_line_intersection(
+    origin: Vec2,
+    moved: Vec2,
+    ln1: Vec2,
+    ln2: Vec2,
+) -> bool {
+    // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
+    // dot product  : v1.x * v2.x + v1.y * v2.y
+    let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y())) - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
+    let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x())) - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
+    let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x())) - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
+
+    if denominator == 0.0 {
+        return numerator1 == 0.0 && numerator2 == 0.0
+    }
+
+    let r = numerator1 / denominator;
+    let s = numerator2 / denominator;
+
+    return (r >= 0.0 && r <= 1.0) && (s >= 0.0 && s <= 1.0);
+}
+
+#[inline]
+pub(crate) fn circle_to_line_intercept_basic(
+    origin: Vec2,
+    radius: f32,
+    point1: Vec2,
+    point2: Vec2,
+) -> bool {
+    let lc = origin - point1;
+    let d = point2 - point1;
+    let p = project_vec2(lc, d);
+    let nearest = point1 + p;
+
+    if circle_point_intersect(origin, radius, nearest) {
+        if p.length() < d.length() && p.dot(d) > EPSILON {
+            return true;
+        }
+    }
+    false
 }
 
 fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
@@ -204,13 +215,13 @@ fn circle_point_intersect(
     origin: Vec2,
     radius: f32,
     point: Vec2,
-) -> Option<f32> {
+) -> bool {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {
-        return Some(radius - len);
+        return true; //Some(radius - len);
     }
-    None
+    false
 }
 
 #[inline]
@@ -249,11 +260,11 @@ mod tests {
         let origin = Vec2::new(5.0, 5.0);
         let point1 = Vec2::new(3.0, 5.0);
         let point2 = Vec2::new(7.0, 4.0);
-        assert!(circle_to_seg_intersect(origin, m, r, point1, point2).is_some());
+        assert!(line_slide_direction(origin, m, r, point1, point2).is_some());
 
         let point1 = Vec2::new(5.2, 9.0);
         let point2 = Vec2::new(4.0, 7.0);
-        assert!(circle_to_seg_intersect(origin, m, r, point1, point2).is_none());
+        assert!(line_slide_direction(origin, m, r, point1, point2).is_none());
 
         // let r = 3.0;
         // assert!(circle_point_intersect(origin, r, point1).is_none());
