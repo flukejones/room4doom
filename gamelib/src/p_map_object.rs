@@ -352,7 +352,8 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() == 0.0 && self.momxy.y() == 0.0 {
+        if self.momxy.x() <= 0.0001 && self.momxy.x() >= -0.0001
+            && self.momxy.y() <= 0.0001 && self.momxy.y() >= -0.0001 {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
@@ -385,8 +386,6 @@ impl MapObject {
         //  - the need to store line slopes
         // TODO: The above stuff, refactor the collisions and movement to use modern techniques
 
-        // This was once the loop that progressively made the movement smaller
-        // until zero or success
         // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
         let mut xmove = self.momxy.x();
         let mut ymove = self.momxy.y();

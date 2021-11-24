@@ -114,43 +114,20 @@ pub fn ray_to_line_intersect(
     None
 }
 
-#[derive(Debug)]
-pub(crate) struct LineSlideContact {
-    pub penetration:     f32,
-    pub normal:          Vec2,
-    pub slide_dir:       Vec2,
-    pub angle_delta:     f32,
-}
-
-impl LineSlideContact {
-    pub fn new(
-        penetration: f32,
-        normal: Vec2,
-        slide_dir: Vec2,
-        angle_delta: f32,
-    ) -> Self {
-        LineSlideContact {
-            penetration,
-            normal,
-            slide_dir,
-            angle_delta,
-        }
-    }
-}
-
 /// Produce a `LineContact` with the normal from movement->line, and the depth
 /// of penetration taking in to account the radius.
 ///
 /// Does some of `P_HitSlideLine`
 #[inline]
-pub(crate) fn slide_line_intercept(
+pub(crate) fn line_slide_direction(
     origin: Vec2,
     momentum: Vec2,
     radius: f32,
     point1: Vec2,
     point2: Vec2,
-) -> Option<LineSlideContact> {
-    let move_to = origin + momentum;
+) -> Option<Vec2> {
+    let mxy = momentum.normalize() * radius;
+    let move_to = origin + momentum + mxy;
 
     let lc = move_to - point1;
     let d = point2 - point1;
@@ -163,33 +140,49 @@ pub(crate) fn slide_line_intercept(
     // point on line from starting point
     let origin_on_line = point1 + p2;
 
-    if let Some(dist) = circle_point_intersect(origin, radius, origin_on_line) {
-        if p.length() < d.length() && p.dot(d) > EPSILON {
-            // line angle headng in direction we need to slide
-            let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
-            if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
-                slide_direction = Vec2::default();
-            }
-
-            let mut vs_angle =
-                momentum.angle_between(slide_direction).cos();
-            if vs_angle.is_nan() {
-                vs_angle = 0.0;
-            }
-
-            return Some(LineSlideContact::new(
-                dist,
-                (origin_on_line - origin).normalize(),
-                slide_direction,
-                vs_angle, //(nearest - origin_on_line).length(),
-            ));
+    if p.length() < d.length() && p.dot(d) > EPSILON {
+        // line angle headng in direction we need to slide
+        let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
+        if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
+            slide_direction = Vec2::default();
         }
+
+        let mut vs_angle =
+            mxy.angle_between(slide_direction).cos();
+        if vs_angle.is_nan() {
+            vs_angle = 0.0;
+        }
+
+        return Some(slide_direction * (vs_angle * momentum.length()));
     }
     None
 }
 
 #[inline]
-pub(crate) fn circle_to_line_intercept(
+pub(crate) fn line_line_intersection(
+    origin: Vec2,
+    moved: Vec2,
+    ln1: Vec2,
+    ln2: Vec2,
+) -> bool {
+    // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
+    // dot product  : v1.x * v2.x + v1.y * v2.y
+    let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y())) - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
+    let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x())) - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
+    let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x())) - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
+
+    if denominator == 0.0 {
+        return numerator1 == 0.0 && numerator2 == 0.0
+    }
+
+    let r = numerator1 / denominator;
+    let s = numerator2 / denominator;
+
+    return (r >= 0.0 && r <= 1.0) && (s >= 0.0 && s <= 1.0);
+}
+
+#[inline]
+pub(crate) fn circle_to_line_intercept_basic(
     origin: Vec2,
     radius: f32,
     point1: Vec2,
@@ -200,7 +193,7 @@ pub(crate) fn circle_to_line_intercept(
     let p = project_vec2(lc, d);
     let nearest = point1 + p;
 
-    if let Some(_) = circle_point_intersect(origin, radius, nearest) {
+    if circle_point_intersect(origin, radius, nearest) {
         if p.length() < d.length() && p.dot(d) > EPSILON {
             return true;
         }
@@ -222,13 +215,13 @@ fn circle_point_intersect(
     origin: Vec2,
     radius: f32,
     point: Vec2,
-) -> Option<f32> {
+) -> bool {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {
-        return Some(radius - len);
+        return true; //Some(radius - len);
     }
-    None
+    false
 }
 
 #[inline]
@@ -267,11 +260,11 @@ mod tests {
         let origin = Vec2::new(5.0, 5.0);
         let point1 = Vec2::new(3.0, 5.0);
         let point2 = Vec2::new(7.0, 4.0);
-        assert!(slide_line_intercept(origin, m, r, point1, point2).is_some());
+        assert!(line_slide_direction(origin, m, r, point1, point2).is_some());
 
         let point1 = Vec2::new(5.2, 9.0);
         let point2 = Vec2::new(4.0, 7.0);
-        assert!(slide_line_intercept(origin, m, r, point1, point2).is_none());
+        assert!(line_slide_direction(origin, m, r, point1, point2).is_none());
 
         // let r = 3.0;
         // assert!(circle_point_intersect(origin, r, point1).is_none());

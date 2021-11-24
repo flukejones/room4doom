@@ -7,7 +7,7 @@ use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
-use crate::p_map_util::{PortalZ, circle_to_line_intercept, slide_line_intercept};
+use crate::p_map_util::{PortalZ, line_line_intersection, circle_to_line_intercept_basic, line_slide_direction};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -43,10 +43,6 @@ impl MapObject {
         // First sector is always the one we are in
         let ctrl = &mut level.mobj_ctrl;
         let curr_ssect = level.map_data.point_in_subsector(&try_move);
-
-        ctrl.min_floor_z = curr_ssect.sector.floorheight;
-        ctrl.max_dropoff = curr_ssect.sector.floorheight;
-        ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
         // TODO: P_BlockThingsIterator, PIT_CheckThing/Line
@@ -93,29 +89,38 @@ impl MapObject {
         let mut new_momxy;
         let mut try_move;
 
+        // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         loop {
             if hitcount == 3 {
-                try_move = self.xy + self.momxy;
-                self.p_try_move(try_move.x(), try_move.y(), level);
+                // try_move = self.xy + self.momxy;
+                // self.p_try_move(try_move.x(), try_move.y(), level);
                 break;
             }
             new_momxy = self.momxy;
             try_move = self.xy;
 
-            let curr_ssect = level.map_data.point_in_subsector(&(self.xy));
+            let ssect = level.map_data.point_in_subsector(&(self.xy));
+            // let segs = &level.map_data.get_segments()[ssect.start_seg as usize..(ssect.start_seg+ssect.seg_count) as usize];
+            // TODO: Use the blockmap, find closest best line
+            for ld in ssect.sector.lines.iter() {
+                if try_move.x() + self.radius >= ld.bbox.left
+                || try_move.x() - self.radius <= ld.bbox.right
+                || try_move.y() + self.radius >= ld.bbox.bottom
+                || try_move.y() - self.radius <= ld.bbox.top {
 
-            for ld in &curr_ssect.sector.lines {
-                if let Some(contact) = slide_line_intercept(
-                    self.xy + new_momxy,
-                    new_momxy,
-                    self.radius + 5.0,
-                    *ld.v1,
-                    *ld.v2,
-                ) {
-                    //try_move -= contact.penetration * contact.normal;
-                    let new_len = contact.angle_delta * new_momxy.length();
-                    new_momxy = contact.slide_dir * new_len;
-                    break;
+                    //if ld.point_on_side(&self.xy) == 0 {
+                        // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
+                        if let Some(m) = line_slide_direction(
+                            self.xy,
+                            new_momxy,
+                            self.radius,
+                            *ld.v1,
+                            *ld.v2,
+                                    ) {
+                            new_momxy = m;
+                            break;
+                        }
+                    //}
                 }
             }
 
@@ -165,9 +170,43 @@ impl MapObject {
     ) -> bool {
         let ctrl = &mut level.mobj_ctrl;
         let curr_ssect = level.map_data.point_in_subsector(try_move);
+        // The base floor / ceiling is from the subsector
+        // that contains the point.
+        // Any contacted lines the step closer together
+        // will adjust them.
+        ctrl.min_floor_z = curr_ssect.sector.floorheight;
+        ctrl.max_dropoff = curr_ssect.sector.floorheight;
+        ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
 
-        for line in &curr_ssect.sector.lines {
-            if !self.pit_check_line(try_move, ctrl, line) {
+        if self.flags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
+            return true;
+        }
+
+        // TODO: use the blockmap for checking lines
+        // TODO: use a P_BlockThingsIterator
+        // TODO: use a P_BlockLinesIterator - used to build a list of lines to check
+        //       it also calls PIT_CheckLine on each line
+        //       P_BlockLinesIterator is called mobj->radius^2
+        for line in level.map_data.get_linedefs() {
+            // To use the line_line_intersection() here requires:
+            // MIDLINE
+            // if pit_check_line(
+            //     Vec2(try_move.x, try_move.y - radius),
+            //     Vec2(try_move.x, try_move.y + radius),
+            // ) {
+            // DIAGONAL:
+            // if pit_check_line(
+            //     Vec2(try_move.x - radius, try_move.y + radius),
+            //     Vec2(try_move.x + radius, try_move.y - radius),
+            // ) {
+            let left = try_move.x() - self.radius;
+            let right = try_move.x() + self.radius;
+            let top = try_move.y() - self.radius;
+            let bottom = try_move.y() + self.radius;
+            if !self.pit_check_line(Vec2::new(try_move.x(), top), Vec2::new(try_move.x(), bottom), ctrl, line)
+                || !self.pit_check_line(Vec2::new(left, try_move.y()), Vec2::new(right, try_move.y()), ctrl, line)
+                || !self.pit_check_line(Vec2::new(left, top), Vec2::new(right, bottom), ctrl, line)
+                || !self.pit_check_line(Vec2::new(right, top), Vec2::new(left, bottom), ctrl, line) {
                 return false;
             }
         }
@@ -178,28 +217,35 @@ impl MapObject {
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
     fn pit_check_line(
         &mut self,
-        try_move: &Vec2,
+        point1: Vec2,
+        point2: Vec2,
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
     ) -> bool {
         // TODO: Line bounding box check here
-        if try_move.x() + self.radius <= ld.bbox.left
-            || try_move.x() - self.radius >= ld.bbox.right
-            || try_move.y() + self.radius <= ld.bbox.bottom
-            || try_move.y() - self.radius >= ld.bbox.top {
-                return true;
-        }
+        // if try_move.x() + self.radius <= ld.bbox.left
+        //     || try_move.x() - self.radius >= ld.bbox.right
+        //     || try_move.y() + self.radius <= ld.bbox.bottom
+        //     || try_move.y() - self.radius >= ld.bbox.top {
+        //         return true;
+        // }
 
-        if circle_to_line_intercept(
-            *try_move,
-            self.radius,
+        // In OG Doom the function used to check if collided is P_BoxOnLineSide
+        // this does very fast checks using the line slope, for example a
+        // line that is horizontal or vertical checked against the top/bottom/left/right
+        // of bbox.
+        // If the line is a slope then if it's positive or negative determines which
+        // box corners are used - Doom checks which side of the line each are on
+        // using `P_PointOnLineSide`
+        // If both are same side then there is no intersection.
+        //
+        // TODO: use box_on_line_side?
+        if line_line_intersection(
+            point1,
+            point2,
             *ld.v1,
             *ld.v2,
         ) {
-            // Moved from before circle_to_seg_intersect call
-            if ld.point_on_side(&self.xy) != 0 {
-                return true;
-            }
             // Moved from before circle_to_seg_intersect call
             if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
                 if ld.flags & LineDefFlags::Blocking as i16 == 0 {
