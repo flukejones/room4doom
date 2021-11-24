@@ -4,10 +4,10 @@ use glam::Vec2;
 
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
-use crate::level_data::map_defs::{LineDef};
+use crate::level_data::map_defs::{BBox, LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
-use crate::p_map_util::{PortalZ, line_line_intersection, circle_to_line_intercept_basic, line_slide_direction};
+use crate::p_map_util::{PortalZ, box_on_line_side, circle_to_line_intercept_basic, line_line_intersection, line_slide_direction};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -168,6 +168,17 @@ impl MapObject {
     fn p_check_position(
         &mut self, try_move: &Vec2, level: &mut Level
     ) -> bool {
+        let left = try_move.x() - self.radius;
+        let right = try_move.x() + self.radius;
+        let top = try_move.y() + self.radius;
+        let bottom = try_move.y() - self.radius;
+        let tmbbox = BBox {
+            top,
+            bottom,
+            left,
+            right,
+        };
+
         let ctrl = &mut level.mobj_ctrl;
         let curr_ssect = level.map_data.point_in_subsector(try_move);
         // The base floor / ceiling is from the subsector
@@ -188,25 +199,7 @@ impl MapObject {
         //       it also calls PIT_CheckLine on each line
         //       P_BlockLinesIterator is called mobj->radius^2
         for line in level.map_data.get_linedefs() {
-            // To use the line_line_intersection() here requires:
-            // MIDLINE
-            // if pit_check_line(
-            //     Vec2(try_move.x, try_move.y - radius),
-            //     Vec2(try_move.x, try_move.y + radius),
-            // ) {
-            // DIAGONAL:
-            // if pit_check_line(
-            //     Vec2(try_move.x - radius, try_move.y + radius),
-            //     Vec2(try_move.x + radius, try_move.y - radius),
-            // ) {
-            let left = try_move.x() - self.radius;
-            let right = try_move.x() + self.radius;
-            let top = try_move.y() - self.radius;
-            let bottom = try_move.y() + self.radius;
-            if !self.pit_check_line(Vec2::new(try_move.x(), top), Vec2::new(try_move.x(), bottom), ctrl, line)
-                || !self.pit_check_line(Vec2::new(left, try_move.y()), Vec2::new(right, try_move.y()), ctrl, line)
-                || !self.pit_check_line(Vec2::new(left, top), Vec2::new(right, bottom), ctrl, line)
-                || !self.pit_check_line(Vec2::new(right, top), Vec2::new(left, bottom), ctrl, line) {
+            if !self.pit_check_line(&tmbbox, ctrl, line) {
                 return false;
             }
         }
@@ -217,18 +210,18 @@ impl MapObject {
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
     fn pit_check_line(
         &mut self,
-        point1: Vec2,
-        point2: Vec2,
+        tmbbox: &BBox,
+        // point1: Vec2,
+        // point2: Vec2,
         ctrl: &mut SubSectorMinMax,
         ld: &LineDef,
     ) -> bool {
-        // TODO: Line bounding box check here
-        // if try_move.x() + self.radius <= ld.bbox.left
-        //     || try_move.x() - self.radius >= ld.bbox.right
-        //     || try_move.y() + self.radius <= ld.bbox.bottom
-        //     || try_move.y() - self.radius >= ld.bbox.top {
-        //         return true;
-        // }
+        if tmbbox.right <= ld.bbox.left
+            || tmbbox.left >= ld.bbox.right
+            || tmbbox.top <= ld.bbox.bottom
+            || tmbbox.bottom >= ld.bbox.top {
+                return true;
+        }
 
         // In OG Doom the function used to check if collided is P_BoxOnLineSide
         // this does very fast checks using the line slope, for example a
@@ -238,74 +231,69 @@ impl MapObject {
         // box corners are used - Doom checks which side of the line each are on
         // using `P_PointOnLineSide`
         // If both are same side then there is no intersection.
-        //
-        // TODO: use box_on_line_side?
-        if line_line_intersection(
-            point1,
-            point2,
-            *ld.v1,
-            *ld.v2,
-        ) {
-            // Moved from before circle_to_seg_intersect call
-            if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-                if ld.flags & LineDefFlags::Blocking as i16 == 0 {
-                    return false; // explicitly blocking everything
-                }
 
-                if self.player.is_none()
-                    && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
-                {
-                    return false; // block monsters only
-                }
-            }
-
-            if ld.backsector.is_none() {
-                // one-sided line
-                return false;
-            }
-
-            // Find the smallest/largest etc if group of line hits
-            let portal = PortalZ::new(ld);
-            if portal.top_z < ctrl.max_ceil_z {
-                ctrl.max_ceil_z = portal.top_z;
-                // TODO: ceilingline = ld;
-            }
-            // Find the highest floor point (for steps etc)
-            if portal.bottom_z > ctrl.min_floor_z {
-                ctrl.min_floor_z = portal.bottom_z;
-            }
-            // Find the lowest possible point in subsectors contacted
-            if portal.lowest_z < ctrl.max_dropoff {
-                ctrl.max_dropoff = portal.lowest_z;
-            }
-
-            if ld.special != 0 {
-                ctrl.spec_hits.push(DPtr::new(ld));
-            }
-
-            // Next two ifs imported from?
-            // These are the very specific portal collisions
-            if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
-                && portal.top_z - self.z < self.height
-            {
-                return false;
-            }
-
-            // Line is higher
-            if portal.bottom_z - self.z > 24.0 {
-                return false;
-            }
-
-            // if self.flags
-            //     & (MapObjectFlag::MF_DROPOFF as u32
-            //         | MapObjectFlag::MF_FLOAT as u32)
-            //     != 0
-            //     && portal.bottom_z - portal.lowest_z > 24.0
-            // {
-            //     contacts.push(contact);
-            //     return;
-            // }
+        if box_on_line_side(&tmbbox, ld) != -1 {
+            return true;
         }
+
+        if ld.backsector.is_none() {
+            // one-sided line
+            return false;
+        }
+
+        if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+            if ld.flags & LineDefFlags::Blocking as i16 == 0 {
+                return false; // explicitly blocking everything
+            }
+
+            if self.player.is_none()
+                && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
+            {
+                return false; // block monsters only
+            }
+        }
+
+        // Find the smallest/largest etc if group of line hits
+        let portal = PortalZ::new(ld);
+        if portal.top_z < ctrl.max_ceil_z {
+            ctrl.max_ceil_z = portal.top_z;
+            // TODO: ceilingline = ld;
+        }
+        // Find the highest floor point (for steps etc)
+        if portal.bottom_z > ctrl.min_floor_z {
+            ctrl.min_floor_z = portal.bottom_z;
+        }
+        // Find the lowest possible point in subsectors contacted
+        if portal.lowest_z < ctrl.max_dropoff {
+            ctrl.max_dropoff = portal.lowest_z;
+        }
+
+        if ld.special != 0 {
+            ctrl.spec_hits.push(DPtr::new(ld));
+        }
+
+        // Next two ifs imported from?
+        // These are the very specific portal collisions
+        if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
+            && portal.top_z - self.z < self.height
+        {
+            return false;
+        }
+
+        // Line is higher
+        if portal.bottom_z - self.z > 24.0 {
+            return false;
+        }
+
+        // if self.flags
+        //     & (MapObjectFlag::MF_DROPOFF as u32
+        //         | MapObjectFlag::MF_FLOAT as u32)
+        //     != 0
+        //     && portal.bottom_z - portal.lowest_z > 24.0
+        // {
+        //     contacts.push(contact);
+        //     return;
+        // }
         true
     }
 }

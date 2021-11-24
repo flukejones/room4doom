@@ -57,7 +57,7 @@ pub(crate) fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
         SlopeType::Horizontal => {
             p1 = (tmbox.top > ld.v1.y()) as i32;
             p2 = (tmbox.bottom > ld.v1.y()) as i32;
-            if ld.delta.x() < f32::EPSILON {
+            if ld.delta.x() < 0.0 {
                 p1 ^= 1;
                 p2 ^= 1;
             }
@@ -65,7 +65,7 @@ pub(crate) fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
         SlopeType::Vertical => {
             p1 = (tmbox.right > ld.v1.x()) as i32;
             p2 = (tmbox.left > ld.v1.x()) as i32;
-            if ld.delta.y() < f32::EPSILON {
+            if ld.delta.y() < 0.0 {
                 p1 ^= 1;
                 p2 ^= 1;
             }
