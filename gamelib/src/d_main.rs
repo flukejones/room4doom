@@ -4,8 +4,8 @@ use golem::Context;
 
 use gumdrop::Options;
 use sdl2::{
-    keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect,
-    render::Canvas, surface::Surface, video::Window,
+    keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect, render::Canvas,
+    surface::Surface, video::Window,
 };
 
 use crate::{
@@ -13,9 +13,7 @@ use crate::{
     doom_def::GameMode,
     game::Game,
     input::Input,
-    shaders::{
-        basic::Basic, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer,
-    },
+    shaders::{basic::Basic, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer},
     timestep::TimeStep,
 };
 
@@ -37,7 +35,7 @@ impl fmt::Display for DoomArgError {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Skill {
     NoItems = -1, // the "-skill 0" hack
-    Baby    = 0,
+    Baby = 0,
     Easy,
     Medium,
     Hard,
@@ -45,7 +43,9 @@ pub enum Skill {
 }
 
 impl Default for Skill {
-    fn default() -> Self { Skill::Medium }
+    fn default() -> Self {
+        Skill::Medium
+    }
 }
 
 impl FromStr for Skill {
@@ -66,42 +66,42 @@ impl FromStr for Skill {
 #[derive(Debug, Options)]
 pub struct GameOptions {
     #[options(no_short, help = "path to game WAD", default = "./doom1.wad")]
-    pub iwad:       String,
+    pub iwad: String,
     #[options(no_short, help = "path to patch WAD")]
-    pub pwad:       Option<String>,
+    pub pwad: Option<String>,
     #[options(help = "resolution width in pixels", default = "640")]
-    pub width:      u32,
+    pub width: u32,
     #[options(help = "resolution height in pixels", default = "480")]
-    pub height:     u32,
+    pub height: u32,
     #[options(help = "fullscreen?")]
     pub fullscreen: bool,
 
     #[options(help = "Disable monsters")]
-    pub no_monsters:  bool,
+    pub no_monsters: bool,
     #[options(help = "Monsters respawn after being killed")]
     pub respawn_parm: bool,
     #[options(help = "Monsters move faster")]
-    pub fast_parm:    bool,
+    pub fast_parm: bool,
     #[options(
         no_short,
         help = "Developer mode. F1 saves a screenshot in the current working directory"
     )]
-    pub dev_parm:     bool,
+    pub dev_parm: bool,
     #[options(
         help = "Start a deathmatch game: 1 = classic, 2 = Start a deathmatch 2.0 game.  Weapons do not stay in place and all items respawn after 30 seconds"
     )]
-    pub deathmatch:   u8,
+    pub deathmatch: u8,
     #[options(
         help = "Set the game skill, 1-5 (1: easiest, 5: hardest). A skill of 0 disables all monsters"
     )]
-    pub skill:        Skill,
+    pub skill: Skill,
     #[options(help = "Select episode", default = "1")]
-    pub episode:      u32,
+    pub episode: u32,
     #[options(help = "Select level in episode", default = "1")]
-    pub map:          u32,
-    pub autostart:    bool,
+    pub map: u32,
+    pub autostart: bool,
     #[options(help = "game options help")]
-    pub help:         bool,
+    pub help: bool,
 }
 
 pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
@@ -146,8 +146,7 @@ pub fn d_doom_loop(
 ) -> Result<(), Box<dyn Error>> {
     let mut timestep = TimeStep::new();
 
-    let mut render_buffer =
-        Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
+    let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();

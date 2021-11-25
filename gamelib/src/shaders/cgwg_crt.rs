@@ -19,51 +19,51 @@ use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 ///  */
 /// ```
 pub(crate) struct CGWGCRT<'c> {
-    ctx:        &'c Context,
-    _quad:      [f32; 16],
-    indices:    [u32; 6],
+    ctx: &'c Context,
+    _quad: [f32; 16],
+    indices: [u32; 6],
     crt_shader: ShaderProgram,
-    crt_width:  u32,
+    crt_width: u32,
     crt_height: u32,
     projection: Mat4,
-    look_at:    Mat4,
-    texture:    Texture,
-    vb:         VertexBuffer,
-    eb:         ElementBuffer,
+    look_at: Mat4,
+    texture: Texture,
+    vb: VertexBuffer,
+    eb: ElementBuffer,
 }
 
 impl<'c> CGWGCRT<'c> {
     pub fn new(ctx: &'c Context, crt_width: u32, crt_height: u32) -> Self {
         let crt = ShaderProgram::new(
-      ctx,
-      ShaderDescription {
-        uniforms:        &[
-            // Standard view stuff
-              Uniform::new("projMat", UniformType::Matrix(D4)),
-              Uniform::new("viewMat", UniformType::Matrix(D4)),
-              Uniform::new("modelMat", UniformType::Matrix(D4)),
-              //
-              Uniform::new("inputSize", UniformType::Vector(NumberType::Float, D2)),
-              Uniform::new("outputSize", UniformType::Vector(NumberType::Float, D2)),
-              Uniform::new("textureSize", UniformType::Vector(NumberType::Float, D2)),
-              //
-              Uniform::new("CRTgamma", UniformType::Scalar(NumberType::Float)),
-              Uniform::new("monitorgamma", UniformType::Scalar(NumberType::Float)),
-              Uniform::new("cornersize", UniformType::Scalar(NumberType::Float)),
-              Uniform::new("cornersmooth", UniformType::Scalar(NumberType::Float)),
-              Uniform::new("d", UniformType::Scalar(NumberType::Float)),
-              Uniform::new("R", UniformType::Scalar(NumberType::Float)),
-              //
-              Uniform::new("overscan", UniformType::Vector(NumberType::Float, D2)),
-              Uniform::new("aspect", UniformType::Vector(NumberType::Float, D2)),
-              // The SDL bytes
-              Uniform::new("image", UniformType::Sampler2D),
-          ],
-          vertex_input:    &[
-              Attribute::new("position", AttributeType::Vector(D2)),
-              Attribute::new("vert_uv", AttributeType::Vector(D2)),
-          ],
-          vertex_shader:   r#"
+            ctx,
+            ShaderDescription {
+                uniforms: &[
+                    // Standard view stuff
+                    Uniform::new("projMat", UniformType::Matrix(D4)),
+                    Uniform::new("viewMat", UniformType::Matrix(D4)),
+                    Uniform::new("modelMat", UniformType::Matrix(D4)),
+                    //
+                    Uniform::new("inputSize", UniformType::Vector(NumberType::Float, D2)),
+                    Uniform::new("outputSize", UniformType::Vector(NumberType::Float, D2)),
+                    Uniform::new("textureSize", UniformType::Vector(NumberType::Float, D2)),
+                    //
+                    Uniform::new("CRTgamma", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("monitorgamma", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("cornersize", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("cornersmooth", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("d", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("R", UniformType::Scalar(NumberType::Float)),
+                    //
+                    Uniform::new("overscan", UniformType::Vector(NumberType::Float, D2)),
+                    Uniform::new("aspect", UniformType::Vector(NumberType::Float, D2)),
+                    // The SDL bytes
+                    Uniform::new("image", UniformType::Sampler2D),
+                ],
+                vertex_input: &[
+                    Attribute::new("position", AttributeType::Vector(D2)),
+                    Attribute::new("vert_uv", AttributeType::Vector(D2)),
+                ],
+                vertex_shader: r#"
 #define FIX(c) max(abs(c), 1e-5);
 
 float intersect(vec2 xy)
@@ -133,36 +133,16 @@ void main()
   // Resulting X pixel-coordinate of the pixel we're drawing.
   mod_factor = texCoord.x * textureSize.x * outputSize.x / inputSize.x;			
 }"#,
-          fragment_input:  &[Attribute::new(
-              "texCoord",
-              AttributeType::Vector(D2)
-            ),
-            Attribute::new(
-              "one",
-              AttributeType::Vector(D2)
-            ),
-            Attribute::new(
-              "mod_factor",
-              AttributeType::Scalar,
-            ),
-            Attribute::new(
-              "ilfac",
-              AttributeType::Vector(D2)
-            ),
-            Attribute::new(
-              "stretch",
-              AttributeType::Vector(D3)
-            ),
-            Attribute::new(
-              "sinangle",
-              AttributeType::Vector(D2)
-            ),
-            Attribute::new(
-              "cosangle",
-              AttributeType::Vector(D2)
-            ),
-          ],
-          fragment_shader: r#"
+                fragment_input: &[
+                    Attribute::new("texCoord", AttributeType::Vector(D2)),
+                    Attribute::new("one", AttributeType::Vector(D2)),
+                    Attribute::new("mod_factor", AttributeType::Scalar),
+                    Attribute::new("ilfac", AttributeType::Vector(D2)),
+                    Attribute::new("stretch", AttributeType::Vector(D3)),
+                    Attribute::new("sinangle", AttributeType::Vector(D2)),
+                    Attribute::new("cosangle", AttributeType::Vector(D2)),
+                ],
+                fragment_shader: r#"
 // Comment the next line to disable interpolation in linear gamma (and gain speed).
 #define LINEAR_PROCESSING
 
@@ -369,8 +349,9 @@ void main()
   gl_FragColor = vec4(mul_res, 1.0);
 }
 "#,
-      },
-    ).unwrap();
+            },
+        )
+        .unwrap();
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
         let look_at = Mat4::look_at_rh(
@@ -412,12 +393,8 @@ impl<'c> Renderer for CGWGCRT<'c> {
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture.set_image(
-            Some(input),
-            input_size.0,
-            input_size.1,
-            ColorFormat::RGBA,
-        );
+        self.texture
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
     }
 
     fn draw(&mut self) -> Result<(), GolemError> {
@@ -445,10 +422,7 @@ impl<'c> Renderer for CGWGCRT<'c> {
 
         self.crt_shader.set_uniform(
             "inputSize",
-            UniformValue::Vector2([
-                self.texture.width() as f32,
-                self.texture.height() as f32,
-            ]),
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
 
         self.crt_shader.set_uniform(
@@ -457,10 +431,7 @@ impl<'c> Renderer for CGWGCRT<'c> {
         )?;
         self.crt_shader.set_uniform(
             "textureSize",
-            UniformValue::Vector2([
-                self.texture.width() as f32,
-                self.texture.height() as f32,
-            ]),
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
 
         self.crt_shader

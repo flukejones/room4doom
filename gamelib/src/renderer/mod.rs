@@ -21,15 +21,17 @@ pub(crate) mod segs;
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
 pub(crate) struct RenderData {
-    pub rw_angle1:   Angle,
+    pub rw_angle1: Angle,
     // DrawSeg used, which is inserted in drawsegs at end of r_segs
-    pub drawsegs:    Vec<DrawSeg>,
+    pub drawsegs: Vec<DrawSeg>,
     pub portal_clip: PortalClip,
     /// index to drawsegs
     /// Used in r_segs and r_things
-    pub ds_p:        usize, // Or, depending on place in code this can be skipped and a new
+    pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
 }
 
 impl RenderData {
-    pub fn clear_data(&mut self) { self.portal_clip.clear(); }
+    pub fn clear_data(&mut self) {
+        self.portal_clip.clear();
+    }
 }

@@ -4,9 +4,7 @@ use golem::*;
 use gumdrop::Options;
 use sdl2;
 
-use gamelib::{
-    d_main::d_doom_loop, d_main::GameOptions, game::Game, input::Input,
-};
+use gamelib::{d_main::d_doom_loop, d_main::GameOptions, game::Game, input::Input};
 
 /// The main `game` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
@@ -33,10 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     gl_attr.set_context_version(3, 2);
 
     let context =
-        Context::from_loader_function(
-            |s| video_ctx.gl_get_proc_address(s) as *const _,
-        )
-        .unwrap();
+        Context::from_loader_function(|s| video_ctx.gl_get_proc_address(s) as *const _).unwrap();
 
     let game = Game::new(options);
 

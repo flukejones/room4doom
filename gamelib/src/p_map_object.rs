@@ -38,20 +38,20 @@ pub(crate) static FRICTION: f32 = 0.90625;
 #[allow(non_camel_case_types)]
 pub(crate) enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
-    MF_SPECIAL      = 1,
+    MF_SPECIAL = 1,
     /// Blocks.
-    MF_SOLID        = 2,
+    MF_SOLID = 2,
     /// Can be hit.
-    MF_SHOOTABLE    = 4,
+    MF_SHOOTABLE = 4,
     /// Don't use the sector links (invisible but touchable).
-    MF_NOSECTOR     = 8,
+    MF_NOSECTOR = 8,
     /// Don't use the block links (inert but displayable)
-    MF_NOBLOCKMAP   = 16,
+    MF_NOBLOCKMAP = 16,
 
     /// Not to be activated by sound, deaf monster.
-    MF_AMBUSH       = 32,
+    MF_AMBUSH = 32,
     /// Will try to attack right back.
-    MF_JUSTHIT      = 64,
+    MF_JUSTHIT = 64,
     /// Will take at least one step before attacking.
     MF_JUSTATTACKED = 128,
     /// On level spawning (initial position),
@@ -60,76 +60,76 @@ pub(crate) enum MapObjectFlag {
     /// Don't apply gravity (every tic),
     ///  that is, object will float, keeping current height
     ///  or changing it actively.
-    MF_NOGRAVITY    = 512,
+    MF_NOGRAVITY = 512,
 
     /// Movement flags.
     /// This allows jumps from high places.
-    MF_DROPOFF      = 0x400,
+    MF_DROPOFF = 0x400,
     /// For players, will pick up items.
-    MF_PICKUP       = 0x800,
+    MF_PICKUP = 0x800,
     /// Player cheat. ???
-    MF_NOCLIP       = 0x1000,
+    MF_NOCLIP = 0x1000,
     /// Player: keep info about sliding along walls.
-    MF_SLIDE        = 0x2000,
+    MF_SLIDE = 0x2000,
     /// Allow moves to any height, no gravity.
     /// For active floaters, e.g. cacodemons, pain elementals.
-    MF_FLOAT        = 0x4000,
+    MF_FLOAT = 0x4000,
     /// Don't cross lines
     ///   ??? or look at heights on teleport.
-    MF_TELEPORT     = 0x8000,
+    MF_TELEPORT = 0x8000,
     /// Don't hit same species, explode on block.
     /// Player missiles as well as fireballs of various kinds.
-    MF_MISSILE      = 0x10000,
+    MF_MISSILE = 0x10000,
     /// Dropped by a demon, not level spawned.
     /// E.g. ammo clips dropped by dying former humans.
-    MF_DROPPED      = 0x20000,
+    MF_DROPPED = 0x20000,
     /// Use fuzzy draw (shadow demons or spectres),
     ///  temporary player invisibility powerup.
-    MF_SHADOW       = 0x40000,
+    MF_SHADOW = 0x40000,
     /// Flag: don't bleed when shot (use puff),
     ///  barrels and shootable furniture shall not bleed.
-    MF_NOBLOOD      = 0x80000,
+    MF_NOBLOOD = 0x80000,
     /// Don't stop moving halfway off a step,
     ///  that is, have dead bodies slide down all the way.
-    MF_CORPSE       = 0x100000,
+    MF_CORPSE = 0x100000,
     /// Floating to a height for a move, ???
     ///  don't auto float to target's height.
-    MF_INFLOAT      = 0x200000,
+    MF_INFLOAT = 0x200000,
 
     /// On kill, count this enemy object
     ///  towards intermission kill total.
     /// Happy gathering.
-    MF_COUNTKILL    = 0x400000,
+    MF_COUNTKILL = 0x400000,
 
     /// On picking up, count this item object
     ///  towards intermission item total.
-    MF_COUNTITEM    = 0x800000,
+    MF_COUNTITEM = 0x800000,
 
     /// Special handling: skull in flight.
     /// Neither a cacodemon nor a missile.
-    MF_SKULLFLY     = 0x1000000,
+    MF_SKULLFLY = 0x1000000,
 
     /// Don't spawn this object
     ///  in death match mode (e.g. key cards).
-    MF_NOTDMATCH    = 0x2000000,
+    MF_NOTDMATCH = 0x2000000,
 
     /// Player sprites in multiplayer modes are modified
     ///  using an internal color lookup table for re-indexing.
     /// If 0x4 0x8 or 0xc,
     ///  use a translation table for player colormaps
-    MF_TRANSLATION  = 0xc000000,
+    MF_TRANSLATION = 0xc000000,
     /// Hmm ???.
-    MF_TRANSSHIFT   = 26,
+    MF_TRANSSHIFT = 26,
 }
 
 #[derive(Debug)]
 pub(crate) struct MapObject {
     /// Direct link to the `Thinker` that owns this `MapObject`. Required as
     /// functions on a `MapObject` may need to change the thinker function
-    pub thinker:      Option<NonNull<Thinker<MapObject>>>,
+    pub thinker: Option<NonNull<Thinker<MapObject>>>,
     /// Info for drawing: position.
-    pub xy:           Vec2,
-    pub z:            f32,
+    pub xy: Vec2,
+    pub z: f32,
     // More list: links in sector (if needed)
     // struct mobj_s*	snext;
     // struct mobj_s*	sprev;
@@ -139,54 +139,54 @@ pub(crate) struct MapObject {
     // struct mobj_s*	bprev;
     // More drawing info: to determine current sprite.
     /// orientation
-    pub angle:        Angle,
+    pub angle: Angle,
     /// used to find patch_t and flip value
-    sprite:           SpriteNum,
+    sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
-    frame:            i32,
-    subsector:        DPtr<SubSector>,
+    frame: i32,
+    subsector: DPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
-    pub floorz:       f32,
-    pub ceilingz:     f32,
+    pub floorz: f32,
+    pub ceilingz: f32,
     /// For movement checking.
-    pub radius:       f32,
-    pub height:       f32,
+    pub radius: f32,
+    pub height: f32,
     /// Momentums, used to update position.
-    pub momxy:        Vec2,
-    pub momz:         f32,
+    pub momxy: Vec2,
+    pub momz: f32,
     /// If == validcount, already checked.
-    validcount:       i32,
-    kind:             u16,
+    validcount: i32,
+    kind: u16,
     /// &mobjinfo[mobj.type]
-    info:             MapObjectInfo,
-    pub tics:         i32,
+    info: MapObjectInfo,
+    pub tics: i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    pub state:        State,
-    pub flags:        u32,
-    pub health:       i32,
+    pub state: State,
+    pub flags: u32,
+    pub health: i32,
     /// Movement direction, movement generation (zig-zagging).
     /// 0-7
-    movedir:          i32,
+    movedir: i32,
     /// when 0, select a new dir
-    movecount:        i32,
+    movecount: i32,
     // Thing being chased/attacked (or NULL),
     // also the originator for missiles.
-    pub target:       Option<NonNull<MapObject>>,
+    pub target: Option<NonNull<MapObject>>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     pub reactiontime: i32,
     /// If >0, the target will be chased
     /// no matter what (even if shot)
-    pub threshold:    i32,
+    pub threshold: i32,
     /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
     /// RUST: If this is not `None` then the `NonNull` pointer is guaranteed to point to a player
-    pub player:       Option<NonNull<Player>>,
+    pub player: Option<NonNull<Player>>,
     /// Player number last looked for.
-    lastlook:         i32,
+    lastlook: i32,
     /// For nightmare respawn.
-    spawn_point:      Option<WadThing>,
+    spawn_point: Option<WadThing>,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
 }
@@ -198,9 +198,7 @@ impl Think for MapObject {
         // momentum movement
         // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
         // {
-        if self.momxy.x() != 0.0
-            || self.momxy.y() != 0.0
-            || MapObjectFlag::MF_SKULLFLY as u32 != 0
+        if self.momxy.x() != 0.0 || self.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
         {
             self.p_xy_movement(level);
         }
@@ -209,9 +207,7 @@ impl Think for MapObject {
             return true; // mobj was removed
         }
 
-        if (self.z.floor() - self.floorz.floor()).abs() > EPSILON
-            || self.momz != 0.0
-        {
+        if (self.z.floor() - self.floorz.floor()).abs() > EPSILON || self.momz != 0.0 {
             self.p_z_movement(level);
             if self.was_removed() {
                 return true; // mobj was removed
@@ -288,17 +284,14 @@ impl MapObject {
             unsafe {
                 let player = player.as_mut();
                 player.viewheight -= self.floorz - self.z;
-                player.deltaviewheight =
-                    (((VIEWHEIGHT - player.viewheight) as i32) >> 3) as f32;
+                player.deltaviewheight = (((VIEWHEIGHT - player.viewheight) as i32) >> 3) as f32;
             }
         }
 
         // adjust height
         self.z += self.momz;
 
-        if self.flags & MapObjectFlag::MF_FLOAT as u32 != 0
-            && self.target.is_some()
-        {
+        if self.flags & MapObjectFlag::MF_FLOAT as u32 != 0 && self.target.is_some() {
             // TODO: float down towards target if too close
             // if (!(mo->flags & MF_SKULLFLY) && !(mo->flags & MF_INFLOAT))
             // {
@@ -333,8 +326,7 @@ impl MapObject {
                     // and utter appropriate sound.
                     let player = self.player.as_mut().unwrap();
                     unsafe {
-                        player.as_mut().viewheight =
-                            ((self.momz as i32) >> 3) as f32;
+                        player.as_mut().viewheight = ((self.momz as i32) >> 3) as f32;
                     }
                 }
                 self.momz = 0.0;
@@ -352,8 +344,11 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() <= 0.0001 && self.momxy.x() >= -0.0001
-            && self.momxy.y() <= 0.0001 && self.momxy.y() >= -0.0001 {
+        if self.momxy.x() <= 0.0001
+            && self.momxy.x() >= -0.0001
+            && self.momxy.y() <= 0.0001
+            && self.momxy.y() >= -0.0001
+        {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
@@ -397,9 +392,7 @@ impl MapObject {
                 ptryy = self.xy.y() + ymove / 2.0;
                 xmove /= 2.0;
                 ymove /= 2.0;
-            }
-            else
-            {
+            } else {
                 ptryx = self.xy.x() + xmove;
                 ptryy = self.xy.y() + ymove;
                 xmove = 0.0;
@@ -418,16 +411,13 @@ impl MapObject {
             }
 
             if xmove <= 0.0 || ymove <= 0.0 {
-                break
+                break;
             }
         }
 
         // slow down
 
-        if self.flags
-            & (MapObjectFlag::MF_MISSILE as u32
-                | MapObjectFlag::MF_SKULLFLY as u32)
-            != 0
+        if self.flags & (MapObjectFlag::MF_MISSILE as u32 | MapObjectFlag::MF_SKULLFLY as u32) != 0
         {
             return; // no friction for missiles ever
         }
@@ -443,8 +433,7 @@ impl MapObject {
                 || self.momxy.x() < -FRACUNIT_DIV4
                 || self.momxy.y() > FRACUNIT_DIV4
                 || self.momxy.y() < -FRACUNIT_DIV4)
-                && (self.floorz - self.subsector.sector.floorheight).abs()
-                    > EPSILON
+                && (self.floorz - self.subsector.sector.floorheight).abs() > EPSILON
             {
                 return;
             }
@@ -460,8 +449,7 @@ impl MapObject {
                 return;
             } else if let Some(player) = self.player {
                 if unsafe {
-                    player.as_ref().cmd.forwardmove == 0
-                        && player.as_ref().cmd.sidemove == 0
+                    player.as_ref().cmd.forwardmove == 0 && player.as_ref().cmd.sidemove == 0
                 } {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
@@ -517,9 +505,8 @@ impl MapObject {
 
         // set color translations for player sprites
         if mthing.kind > 1 {
-            mobj.flags = mobj.flags as u32
-                | (mthing.kind as u32 - 1)
-                    << MapObjectFlag::MF_TRANSSHIFT as u8;
+            mobj.flags =
+                mobj.flags as u32 | (mthing.kind as u32 - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
         }
 
         // TODO: check this angle stuff
@@ -536,8 +523,7 @@ impl MapObject {
         player.fixedcolormap = 0;
         player.viewheight = VIEWHEIGHT;
 
-        let player_ptr =
-            unsafe { NonNull::new_unchecked(player as *mut Player) };
+        let player_ptr = unsafe { NonNull::new_unchecked(player as *mut Player) };
 
         if let Some(ref mut think) = player.mobj {
             think.obj.player = Some(player_ptr);
@@ -581,12 +567,7 @@ impl MapObject {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
             if !level.deathmatch {
-                MapObject::p_spawn_player(
-                    mthing,
-                    level,
-                    players,
-                    active_players,
-                );
+                MapObject::p_spawn_player(mthing, level, players, active_players);
             }
             return;
         }
@@ -622,9 +603,7 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch
-            && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32
-                != 0
+        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32 != 0
         {
             return;
         }
@@ -639,9 +618,7 @@ impl MapObject {
         let y = mthing.y as f32;
         let z;
 
-        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32
-            != 0
-        {
+        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32 != 0 {
             z = ONCEILINGZ;
         } else {
             z = ONFLOORZ;
@@ -667,10 +644,10 @@ impl MapObject {
 
         // P_AddThinker(&mobj->thinker);
         if !level.add_thinker(thinker) {
-            panic!("P_SpawnMapThing: Could not spawn type {} at ({}, {}): out of memory",
-            mthing.kind,
-            mthing.x,
-            mthing.y);
+            panic!(
+                "P_SpawnMapThing: Could not spawn type {} at ({}, {}): out of memory",
+                mthing.kind, mthing.x, mthing.y
+            );
         }
     }
 
@@ -703,8 +680,7 @@ impl MapObject {
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
-        let sub_sector: DPtr<SubSector> =
-            level.map_data.point_in_subsector(&Vec2::new(x, y));
+        let sub_sector: DPtr<SubSector> = level.map_data.point_in_subsector(&Vec2::new(x, y));
 
         let floorz = sub_sector.sector.floorheight as i32;
         let ceilingz = sub_sector.sector.ceilingheight as i32;

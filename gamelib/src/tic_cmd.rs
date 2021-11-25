@@ -10,27 +10,27 @@ pub(crate) struct ButtonCode {
     // Press "Fire".
     pub bt_attack: u8,
     // Use button, to open doors, activate switches.
-    pub bt_use:    u8,
+    pub bt_use: u8,
 
     // Flag: game events, not really buttons.
-    pub bt_special:     u8,
+    pub bt_special: u8,
     pub bt_specialmask: u8,
 
     // Flag, weapon change pending.
     // If true, the next 3 bits hold weapon num.
-    pub bt_change:      u8,
+    pub bt_change: u8,
     // The 3bit weapon mask and shift, convenience.
-    pub bt_weaponmask:  u8,
+    pub bt_weaponmask: u8,
     pub bt_weaponshift: u8,
 
     // Pause the game.
-    pub bts_pause:    u8,
+    pub bts_pause: u8,
     // Save the game at each console.
     pub bts_savegame: u8,
 
     // Savegame slot numbers
     //  occupy the second byte of buttons.
-    pub bts_savemask:  u8,
+    pub bts_savemask: u8,
     pub bts_saveshift: u8,
 }
 
@@ -38,27 +38,27 @@ pub(crate) const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
     // Press "Fire".
     bt_attack: 1,
     // Use button, to open doors, activate switches.
-    bt_use:    2,
+    bt_use: 2,
 
     // Flag: game events, not really buttons.
-    bt_special:     128,
+    bt_special: 128,
     bt_specialmask: 3,
 
     // Flag, weapon change pending.
     // If true, the next 3 bits hold weapon num.
-    bt_change:      4,
+    bt_change: 4,
     // The 3bit weapon mask and shift, convenience.
-    bt_weaponmask:  (8 + 16 + 32),
+    bt_weaponmask: (8 + 16 + 32),
     bt_weaponshift: 3,
 
     // Pause the game.
-    bts_pause:    1,
+    bts_pause: 1,
     // Save the game at each console.
     bts_savegame: 2,
 
     // Savegame slot numbers
     //  occupy the second byte of buttons.
-    bts_savemask:  (4 + 8 + 16),
+    bts_savemask: (4 + 8 + 16),
     bts_saveshift: 2,
 };
 
@@ -72,24 +72,24 @@ pub(crate) struct TicCmd {
     /// *2048 for move
     pub forwardmove: i8,
     /// *2048 for move
-    pub sidemove:    i8,
+    pub sidemove: i8,
     /// <<16 for angle delta
-    pub angleturn:   i16,
+    pub angleturn: i16,
     /// checks for net game
     pub consistancy: i16,
-    pub chatchar:    u8,
-    pub buttons:     u8,
+    pub chatchar: u8,
+    pub buttons: u8,
 }
 
 impl TicCmd {
     pub const fn new() -> Self {
         TicCmd {
             forwardmove: 0,
-            sidemove:    0,
-            angleturn:   0,
+            sidemove: 0,
+            angleturn: 0,
             consistancy: 0,
-            chatchar:    0,
-            buttons:     0,
+            chatchar: 0,
+            buttons: 0,
         }
     }
 }

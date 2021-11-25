@@ -4,7 +4,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW, screen_to_x_view};
+use crate::angle::{screen_to_x_view, Angle, CLASSIC_SCREEN_X_TO_VIEW};
 use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_defs::Segment;
 use crate::p_map_object::MapObject;
@@ -32,85 +32,85 @@ pub(crate) struct SegRender {
     /// `r_bsp.c` and `r_seg.c`.
 
     /// True if any of the segs textures might be visible.
-    segtextured:         bool,
+    segtextured: bool,
     /// False if the back side is the same plane.
-    markfloor:           bool,
-    markceiling:         bool,
-    maskedtexture:       bool,
+    markfloor: bool,
+    markceiling: bool,
+    maskedtexture: bool,
     // Texture ID's
-    toptexture:          i32,
-    bottomtexture:       i32,
-    midtexture:          i32,
+    toptexture: i32,
+    bottomtexture: i32,
+    midtexture: i32,
     //
-    rw_normalangle:      Angle,
+    rw_normalangle: Angle,
     // regular wall
-    rw_x:                i32,
-    rw_stopx:            i32,
-    rw_centerangle:      Angle,
-    rw_offset:           f32,
-    rw_distance:         f32, // In R_ScaleFromGlobalAngle? Compute when needed
-    rw_scale:            f32,
-    rw_scalestep:        f32,
-    rw_midtexturemid:    f32,
-    rw_toptexturemid:    f32,
+    rw_x: i32,
+    rw_stopx: i32,
+    rw_centerangle: Angle,
+    rw_offset: f32,
+    rw_distance: f32, // In R_ScaleFromGlobalAngle? Compute when needed
+    rw_scale: f32,
+    rw_scalestep: f32,
+    rw_midtexturemid: f32,
+    rw_toptexturemid: f32,
     rw_bottomtexturemid: f32,
 
-    pixhigh:     f32,
-    pixlow:      f32,
+    pixhigh: f32,
+    pixlow: f32,
     pixhighstep: f32,
-    pixlowstep:  f32,
+    pixlowstep: f32,
 
-    topfrac:    f32,
-    topstep:    f32,
+    topfrac: f32,
+    topstep: f32,
     bottomfrac: f32,
     bottomstep: f32,
 
-    worldtop:    f32,
+    worldtop: f32,
     worldbottom: f32,
-    worldhigh:   f32,
-    worldlow:    f32,
+    worldhigh: f32,
+    worldlow: f32,
 }
 
 impl SegRender {
     pub fn new() -> Self {
         SegRender {
-            segtextured:         false,
+            segtextured: false,
             /// False if the back side is the same plane.
-            markfloor:           false,
-            markceiling:         false,
-            maskedtexture:       false,
+            markfloor: false,
+            markceiling: false,
+            maskedtexture: false,
             // Texture ID's
-            toptexture:          0,
-            bottomtexture:       0,
-            midtexture:          0,
+            toptexture: 0,
+            bottomtexture: 0,
+            midtexture: 0,
             //
-            rw_normalangle:      Angle::default(),
+            rw_normalangle: Angle::default(),
             // regular wall
-            rw_x:                0,
-            rw_stopx:            0,
-            rw_centerangle:      Angle::default(),
-            rw_offset:           0.0,
-            rw_distance:         0.0, // In R_ScaleFromGlobalAngle? Compute when needed
-            rw_scale:            0.0,
-            rw_scalestep:        0.0,
-            rw_midtexturemid:    0.0,
-            rw_toptexturemid:    0.0,
+            rw_x: 0,
+            rw_stopx: 0,
+            rw_centerangle: Angle::default(),
+            rw_offset: 0.0,
+            rw_distance: 0.0, // In R_ScaleFromGlobalAngle? Compute when needed
+            rw_scale: 0.0,
+            rw_scalestep: 0.0,
+            rw_midtexturemid: 0.0,
+            rw_toptexturemid: 0.0,
             rw_bottomtexturemid: 0.0,
 
-            pixhigh:     0.0,
-            pixlow:      0.0,
+            pixhigh: 0.0,
+            pixlow: 0.0,
             pixhighstep: 0.0,
-            pixlowstep:  0.0,
+            pixlowstep: 0.0,
 
-            topfrac:    0.0,
-            topstep:    0.0,
+            topfrac: 0.0,
+            topstep: 0.0,
             bottomfrac: 0.0,
             bottomstep: 0.0,
 
-            worldtop:    0.0,
+            worldtop: 0.0,
             worldbottom: 0.0,
-            worldhigh:   0.0,
-            worldlow:    0.0,
+            worldhigh: 0.0,
+            worldlow: 0.0,
         }
     }
 
@@ -151,11 +151,7 @@ impl SegRender {
         // }
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
-        let hyp = point_to_dist(
-            seg.v1.x(),
-            seg.v1.y(),
-            object.mobj.as_ref().unwrap().obj.xy,
-        ); // verified correct
+        let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), object.mobj.as_ref().unwrap().obj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
 
         let mut ds_p = DrawSeg::new(NonNull::from(seg));
@@ -164,23 +160,13 @@ impl SegRender {
         let view_angle = object.mobj.as_ref().unwrap().obj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle =
-            view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degrees not rads
-        self.rw_scale = scale_from_view_angle(
-            visangle,
-            self.rw_normalangle,
-            self.rw_distance,
-            view_angle,
-        );
+        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degrees not rads
+        self.rw_scale =
+            scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
-        let visangle =
-            view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
-        let scale2 = scale_from_view_angle(
-            visangle,
-            self.rw_normalangle,
-            self.rw_distance,
-            view_angle,
-        );
+        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
+        let scale2 =
+            scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.scale2 = scale2;
@@ -270,9 +256,7 @@ impl SegRender {
             // 	{ worldtop = worldhigh; }
 
             // Checks to see if panes need updating?
-            if self.worldlow != self.worldbottom
-                || backsector.floorpic != frontsector.floorpic
-            {
+            if self.worldlow != self.worldbottom || backsector.floorpic != frontsector.floorpic {
                 self.markfloor = true;
             } else {
                 // same plane on both sides
@@ -321,12 +305,7 @@ impl SegRender {
         }
 
         // calculate rw_offset (only needed for textured lines)
-        if self.midtexture
-            | self.toptexture
-            | self.bottomtexture
-            | self.maskedtexture as i32
-            != 0
-        {
+        if self.midtexture | self.toptexture | self.bottomtexture | self.maskedtexture as i32 != 0 {
             self.segtextured = true;
         }
 
@@ -347,8 +326,7 @@ impl SegRender {
             }
 
             self.rw_offset += sidedef.textureoffset + seg.offset;
-            self.rw_centerangle =
-                Angle::new(FRAC_PI_2) + view_angle - self.rw_normalangle;
+            self.rw_centerangle = Angle::new(FRAC_PI_2) + view_angle - self.rw_normalangle;
 
             // TODO: calculate light table
             //  use different light tables
@@ -426,8 +404,7 @@ impl SegRender {
         //
         // TESTING STUFF
         //
-        let mut lightnum =
-            seg.linedef.front_sidedef.sector.lightlevel as u8 >> 2;
+        let mut lightnum = seg.linedef.front_sidedef.sector.lightlevel as u8 >> 2;
 
         if (seg.v1.y() - seg.v2.y()).abs() < EPSILON {
             if lightnum > 5 {
@@ -464,8 +441,7 @@ impl SegRender {
                 bottom = yl - 1.0;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                    bottom =
-                        rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                    bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 }
                 if top <= bottom {
                     // TODO: ceilingplane
@@ -481,8 +457,7 @@ impl SegRender {
                 top = yh + 1.0;
                 bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                    top =
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 }
                 if top <= bottom {
                     // TODO: floorplane
@@ -498,8 +473,7 @@ impl SegRender {
                     .draw_line((self.rw_x, yl as i32), (self.rw_x, yh as i32))
                     .unwrap();
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                    SCREENHEIGHT as f32;
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] = SCREENHEIGHT as f32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
                 if self.toptexture != 0 {
@@ -512,55 +486,47 @@ impl SegRender {
 
                     if mid >= yl {
                         // TODO: temporary?
-                        if seg.linedef.point_on_side(
-                            &player.mobj.as_ref().unwrap().obj.xy,
-                        ) == 0
+                        if seg
+                            .linedef
+                            .point_on_side(&player.mobj.as_ref().unwrap().obj.xy)
+                            == 0
                         {
                             canvas
-                                .draw_line(
-                                    (self.rw_x, yl as i32),
-                                    (self.rw_x, mid as i32),
-                                )
+                                .draw_line((self.rw_x, yl as i32), (self.rw_x, mid as i32))
                                 .unwrap();
                         }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                            yl; // - 1.0;
+                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl; // - 1.0;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[self.rw_x as usize] =
-                        yl; // - 1.0;
+                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl; // - 1.0;
                 }
 
                 if self.bottomtexture != 0 {
                     mid = self.pixlow;
                     self.pixlow += self.pixlowstep;
 
-                    if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize]
-                    {
+                    if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.ceilingclip[self.rw_x as usize];
                     }
 
                     if mid <= yh {
                         // TODO: temporary?
-                        if seg.linedef.point_on_side(
-                            &player.mobj.as_ref().unwrap().obj.xy,
-                        ) == 0
+                        if seg
+                            .linedef
+                            .point_on_side(&player.mobj.as_ref().unwrap().obj.xy)
+                            == 0
                         {
                             canvas
-                                .draw_line(
-                                    (self.rw_x, yh as i32),
-                                    (self.rw_x, mid as i32),
-                                )
+                                .draw_line((self.rw_x, yh as i32), (self.rw_x, mid as i32))
                                 .unwrap();
                         }
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[self.rw_x as usize] =
-                            yh;
+                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh;
                     }
                 } else if self.markfloor {
                     rdata.portal_clip.floorclip[self.rw_x as usize] = yh;

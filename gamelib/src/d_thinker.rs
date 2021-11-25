@@ -1,7 +1,5 @@
 use crate::level_data::level::Level;
-use crate::{
-    p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player,
-};
+use crate::{p_map_object::MapObject, p_player_sprite::PspDef, p_spec::*, player::Player};
 use std::ptr::null_mut;
 use std::{any::Any, fmt};
 
@@ -32,9 +30,9 @@ use std::{any::Any, fmt};
 /// or iterate over possible blank spots in memory.
 #[derive(Debug)]
 pub(crate) struct Thinker<T: Any + Think> {
-    pub prev:     *mut Thinker<T>,
-    pub next:     *mut Thinker<T>,
-    pub obj:      T,
+    pub prev: *mut Thinker<T>,
+    pub next: *mut Thinker<T>,
+    pub obj: T,
     /// The `Thinker` function to run, this function typically also runs a `State`
     /// function on the Object. The `State` function may then require access to
     /// the `Thinker` to change/remove the thinker funciton.

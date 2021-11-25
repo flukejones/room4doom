@@ -15,33 +15,33 @@ use wad::WadData;
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     /// Contains the full wad file
-    wad_data:         WadData,
+    wad_data: WadData,
     pub(crate) level: Option<Level>,
-    pub crop_rect:    Rect,
+    pub crop_rect: Rect,
 
-    running:    bool,
+    running: bool,
     // Game locals
     /// only if started as net death
     deathmatch: bool,
     /// only true if packets are broadcast
-    netgame:    bool,
+    netgame: bool,
 
     /// Tracks which players are currently active, set by d_net.c loop
     pub(crate) player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
-    pub(crate) players:        [Player; MAXPLAYERS],
+    pub(crate) players: [Player; MAXPLAYERS],
     /// ?
-    turbodetected:             [bool; MAXPLAYERS],
+    turbodetected: [bool; MAXPLAYERS],
 
     //
-    old_game_state:   GameState,
-    game_action:      GameAction,
-    game_state:       GameState,
-    game_skill:       Skill,
+    old_game_state: GameState,
+    game_action: GameAction,
+    game_state: GameState,
+    game_skill: Skill,
     respawn_monsters: bool,
-    game_episode:     u32,
-    game_map:         u32,
-    game_tic:         u32,
+    game_episode: u32,
+    game_map: u32,
+    game_tic: u32,
 
     /// If non-zero, exit the level after this number of minutes.
     time_limit: Option<i32>,
@@ -51,27 +51,27 @@ pub struct Game {
     /// player taking events and displaying
     pub(crate) consoleplayer: usize,
     /// view being displayed
-    displayplayer:            usize,
+    displayplayer: usize,
     /// gametic at level start
-    level_start_tic:          u32,
+    level_start_tic: u32,
     /// for intermission
-    totalkills:               i32,
+    totalkills: i32,
     /// for intermission
-    totalitems:               i32,
+    totalitems: i32,
     /// for intermission
-    totalsecret:              i32,
+    totalsecret: i32,
 
     wminfo: WBStartStruct,
 
     /// d_net.c
     pub(crate) netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
-    localcmds:          [TicCmd; BACKUPTICS],
+    localcmds: [TicCmd; BACKUPTICS],
 
-    game_mode:       GameMode,
-    game_mission:    GameMission,
+    game_mode: GameMode,
+    game_mission: GameMission,
     wipe_game_state: GameState,
-    usergame:        bool,
+    usergame: bool,
 
     /// The options the game exe was started with
     pub game_options: GameOptions,
@@ -80,13 +80,11 @@ pub struct Game {
 impl Game {
     pub fn new(mut options: GameOptions) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
-        let respawn_monsters =
-            matches!(options.skill, d_main::Skill::Nightmare);
+        let respawn_monsters = matches!(options.skill, d_main::Skill::Nightmare);
 
         let mut wad = WadData::new(options.iwad.clone().into());
 
-        let (game_mode, game_mission, game_description) =
-            identify_version(&wad);
+        let (game_mode, game_mission, game_description) = identify_version(&wad);
 
         if game_mode == GameMode::Retail {
             if options.episode > 4 && options.pwad.is_none() {
@@ -120,17 +118,23 @@ impl Game {
         println!("W_Init: Init WADfiles.");
         match game_mode {
             GameMode::Shareware => {
-                println!("===========================================================================");
+                println!(
+                    "==========================================================================="
+                );
                 println!("                                Shareware!");
-                println!("===========================================================================");
+                println!(
+                    "==========================================================================="
+                );
             }
             _ => {
-                println!("===========================================================================");
                 println!(
-                    "                 Commercial product - do not distribute!"
+                    "==========================================================================="
                 );
+                println!("                 Commercial product - do not distribute!");
                 println!("         Please report software piracy to the SPA: 1-800-388-PIR8");
-                println!("===========================================================================");
+                println!(
+                    "==========================================================================="
+                );
             }
         }
         println!("M_Init: Init miscellaneous info.");
@@ -197,12 +201,7 @@ impl Game {
     /// in the game. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
     /// changing game vars beyong action here, probably nothing.
-    pub(crate) fn defered_init_new(
-        &mut self,
-        skill: Skill,
-        episode: u32,
-        map: u32,
-    ) {
+    pub(crate) fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;
@@ -367,9 +366,13 @@ impl Game {
         // TODO: S_Start();
     }
 
-    pub(crate) fn running(&self) -> bool { self.running }
+    pub(crate) fn running(&self) -> bool {
+        self.running
+    }
 
-    pub(crate) fn set_running(&mut self, run: bool) { self.running = run; }
+    pub(crate) fn set_running(&mut self, run: bool) {
+        self.running = run;
+    }
 
     fn do_reborn(&mut self, player_num: usize) {
         self.game_action = GameAction::ga_loadlevel;
@@ -383,9 +386,7 @@ impl Game {
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
         //     G_DoReborn(i);
         for i in 0..MAXPLAYERS {
-            if self.player_in_game[i]
-                && self.players[i].player_state == PlayerState::PstReborn
-            {
+            if self.player_in_game[i] && self.players[i].player_state == PlayerState::PstReborn {
                 self.do_reborn(i);
             }
         }
@@ -453,8 +454,7 @@ impl Game {
             if self.player_in_game[i]
                 && self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_special > 0
             {
-                let mask = self.players[i].cmd.buttons
-                    & TIC_CMD_BUTTONS.bt_specialmask;
+                let mask = self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_specialmask;
                 if mask == TIC_CMD_BUTTONS.bt_specialmask {
                     //     paused ^= 1;
                     //     if (paused)

@@ -5,11 +5,11 @@ use std::f32::EPSILON;
 #[derive(Default)]
 pub(crate) struct PortalZ {
     /// The lowest ceiling of the portal line
-    pub top_z:    f32,
+    pub top_z: f32,
     /// The highest floor of the portal line
     pub bottom_z: f32,
     /// Range between `bottom_z` and `top_z`
-    pub range:    f32,
+    pub range: f32,
     /// The lowest floor of the portal line
     pub lowest_z: f32,
 }
@@ -24,9 +24,9 @@ impl PortalZ {
         let back = line.backsector.as_ref().unwrap();
 
         let mut ww = PortalZ {
-            top_z:    0.0,
+            top_z: 0.0,
             bottom_z: 0.0,
-            range:    0.0,
+            range: 0.0,
             lowest_z: 0.0,
         };
 
@@ -147,8 +147,7 @@ pub(crate) fn line_slide_direction(
             slide_direction = Vec2::default();
         }
 
-        let mut vs_angle =
-            mxy.angle_between(slide_direction).cos();
+        let mut vs_angle = mxy.angle_between(slide_direction).cos();
         if vs_angle.is_nan() {
             vs_angle = 0.0;
         }
@@ -159,20 +158,18 @@ pub(crate) fn line_slide_direction(
 }
 
 #[inline]
-pub(crate) fn line_line_intersection(
-    origin: Vec2,
-    moved: Vec2,
-    ln1: Vec2,
-    ln2: Vec2,
-) -> bool {
+pub(crate) fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
     // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
     // dot product  : v1.x * v2.x + v1.y * v2.y
-    let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y())) - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
-    let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x())) - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
-    let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x())) - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
+    let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y()))
+        - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
+    let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x()))
+        - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
+    let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x()))
+        - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
 
     if denominator == 0.0 {
-        return numerator1 == 0.0 && numerator2 == 0.0
+        return numerator1 == 0.0 && numerator2 == 0.0;
     }
 
     let r = numerator1 / denominator;
@@ -211,11 +208,7 @@ fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
 }
 
 #[inline]
-fn circle_point_intersect(
-    origin: Vec2,
-    radius: f32,
-    point: Vec2,
-) -> bool {
+fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {

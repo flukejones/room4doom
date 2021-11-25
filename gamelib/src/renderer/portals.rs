@@ -7,14 +7,14 @@ pub(crate) struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
-    pub floorclip:   [f32; SCREENWIDTH],
+    pub floorclip: [f32; SCREENWIDTH],
     pub ceilingclip: [f32; SCREENWIDTH],
 }
 
 impl PortalClip {
     pub(crate) fn new() -> Self {
         PortalClip {
-            floorclip:   [0.0; SCREENWIDTH],
+            floorclip: [0.0; SCREENWIDTH],
             ceilingclip: [0.0; SCREENWIDTH],
         }
     }
@@ -28,5 +28,7 @@ impl PortalClip {
 }
 
 impl Default for PortalClip {
-    fn default() -> Self { PortalClip::new() }
+    fn default() -> Self {
+        PortalClip::new()
+    }
 }

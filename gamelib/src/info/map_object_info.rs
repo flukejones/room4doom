@@ -122,30 +122,29 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_FIRE
-        -1,                // doomednum
-        StateNum::S_FIRE1, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_FIRE1,                                                        // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_UNDEAD
@@ -206,30 +205,29 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_SMOKE
-        -1,                 // doomednum
-        StateNum::S_SMOKE1, // spawnstate
-        1000,               // spawnhealth
-        StateNum::S_NULL,   // seestate
-        SfxEnum::sfx_None,  // seesound
-        8,                  // reactiontime
-        SfxEnum::sfx_None,  // attacksound
-        StateNum::S_NULL,   // painstate
-        0,                  // painchance
-        SfxEnum::sfx_None,  // painsound
-        StateNum::S_NULL,   // meleestate
-        StateNum::S_NULL,   // missilestate
-        StateNum::S_NULL,   // deathstate
-        StateNum::S_NULL,   // xdeathstate
-        SfxEnum::sfx_None,  // deathsound
-        0.0,                // speed
-        20.0,               // radius
-        16.0,               // height
-        100,                // mass
-        0,                  // damage
-        SfxEnum::sfx_None,  // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,   // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_SMOKE1,                                                       // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_FATSO
@@ -719,81 +717,81 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_BOSSBRAIN
-        88,                     // doomednum
-        StateNum::S_BRAIN,      // spawnstate
-        250,                    // spawnhealth
-        StateNum::S_NULL,       // seestate
-        SfxEnum::sfx_None,      // seesound
-        8,                      // reactiontime
-        SfxEnum::sfx_None,      // attacksound
-        StateNum::S_BRAIN_PAIN, // painstate
-        255,                    // painchance
-        SfxEnum::sfx_bospn,     // painsound
-        StateNum::S_NULL,       // meleestate
-        StateNum::S_NULL,       // missilestate
-        StateNum::S_BRAIN_DIE1, // deathstate
-        StateNum::S_NULL,       // xdeathstate
-        SfxEnum::sfx_bosdth,    // deathsound
-        0.0,                    // speed
-        16.0,                   // radius
-        16.0,                   // height
-        10000000,               // mass
-        0,                      // damage
-        SfxEnum::sfx_None,      // activesound
+        88,                                                                  // doomednum
+        StateNum::S_BRAIN,                                                   // spawnstate
+        250,                                                                 // spawnhealth
+        StateNum::S_NULL,                                                    // seestate
+        SfxEnum::sfx_None,                                                   // seesound
+        8,                                                                   // reactiontime
+        SfxEnum::sfx_None,                                                   // attacksound
+        StateNum::S_BRAIN_PAIN,                                              // painstate
+        255,                                                                 // painchance
+        SfxEnum::sfx_bospn,                                                  // painsound
+        StateNum::S_NULL,                                                    // meleestate
+        StateNum::S_NULL,                                                    // missilestate
+        StateNum::S_BRAIN_DIE1,                                              // deathstate
+        StateNum::S_NULL,                                                    // xdeathstate
+        SfxEnum::sfx_bosdth,                                                 // deathsound
+        0.0,                                                                 // speed
+        16.0,                                                                // radius
+        16.0,                                                                // height
+        10000000,                                                            // mass
+        0,                                                                   // damage
+        SfxEnum::sfx_None,                                                   // activesound
         MapObjectFlag::MF_SOLID as u32 | MapObjectFlag::MF_SHOOTABLE as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                    // raisestate
     ),
     MapObjectInfo::new(
         // MT_BOSSSPIT
-        89,                      // doomednum
-        StateNum::S_BRAINEYE,    // spawnstate
-        1000,                    // spawnhealth
-        StateNum::S_BRAINEYESEE, // seestate
-        SfxEnum::sfx_None,       // seesound
-        8,                       // reactiontime
-        SfxEnum::sfx_None,       // attacksound
-        StateNum::S_NULL,        // painstate
-        0,                       // painchance
-        SfxEnum::sfx_None,       // painsound
-        StateNum::S_NULL,        // meleestate
-        StateNum::S_NULL,        // missilestate
-        StateNum::S_NULL,        // deathstate
-        StateNum::S_NULL,        // xdeathstate
-        SfxEnum::sfx_None,       // deathsound
-        0.0,                     // speed
-        20.0,                    // radius
-        32.0,                    // height
-        100,                     // mass
-        0,                       // damage
-        SfxEnum::sfx_None,       // activesound
+        89,                                                                      // doomednum
+        StateNum::S_BRAINEYE,                                                    // spawnstate
+        1000,                                                                    // spawnhealth
+        StateNum::S_BRAINEYESEE,                                                 // seestate
+        SfxEnum::sfx_None,                                                       // seesound
+        8,                                                                       // reactiontime
+        SfxEnum::sfx_None,                                                       // attacksound
+        StateNum::S_NULL,                                                        // painstate
+        0,                                                                       // painchance
+        SfxEnum::sfx_None,                                                       // painsound
+        StateNum::S_NULL,                                                        // meleestate
+        StateNum::S_NULL,                                                        // missilestate
+        StateNum::S_NULL,                                                        // deathstate
+        StateNum::S_NULL,                                                        // xdeathstate
+        SfxEnum::sfx_None,                                                       // deathsound
+        0.0,                                                                     // speed
+        20.0,                                                                    // radius
+        32.0,                                                                    // height
+        100,                                                                     // mass
+        0,                                                                       // damage
+        SfxEnum::sfx_None,                                                       // activesound
         MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
         // MT_BOSSTARGET
-        87,                // doomednum
-        StateNum::S_NULL,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        32.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        87,                                                                      // doomednum
+        StateNum::S_NULL,                                                        // spawnstate
+        1000,                                                                    // spawnhealth
+        StateNum::S_NULL,                                                        // seestate
+        SfxEnum::sfx_None,                                                       // seesound
+        8,                                                                       // reactiontime
+        SfxEnum::sfx_None,                                                       // attacksound
+        StateNum::S_NULL,                                                        // painstate
+        0,                                                                       // painchance
+        SfxEnum::sfx_None,                                                       // painsound
+        StateNum::S_NULL,                                                        // meleestate
+        StateNum::S_NULL,                                                        // missilestate
+        StateNum::S_NULL,                                                        // deathstate
+        StateNum::S_NULL,                                                        // xdeathstate
+        SfxEnum::sfx_None,                                                       // deathsound
+        0.0,                                                                     // speed
+        20.0,                                                                    // radius
+        32.0,                                                                    // height
+        100,                                                                     // mass
+        0,                                                                       // damage
+        SfxEnum::sfx_None,                                                       // activesound
         MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
         // MT_SPAWNSHOT
@@ -827,30 +825,29 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_SPAWNFIRE
-        -1,                     // doomednum
-        StateNum::S_SPAWNFIRE1, // spawnstate
-        1000,                   // spawnhealth
-        StateNum::S_NULL,       // seestate
-        SfxEnum::sfx_None,      // seesound
-        8,                      // reactiontime
-        SfxEnum::sfx_None,      // attacksound
-        StateNum::S_NULL,       // painstate
-        0,                      // painchance
-        SfxEnum::sfx_None,      // painsound
-        StateNum::S_NULL,       // meleestate
-        StateNum::S_NULL,       // missilestate
-        StateNum::S_NULL,       // deathstate
-        StateNum::S_NULL,       // xdeathstate
-        SfxEnum::sfx_None,      // deathsound
-        0.0,                    // speed
-        20.0,                   // radius
-        16.0,                   // height
-        100,                    // mass
-        0,                      // damage
-        SfxEnum::sfx_None,      // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,       // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_SPAWNFIRE1,                                                   // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_BARREL
@@ -1056,30 +1053,29 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_PUFF
-        -1,                // doomednum
-        StateNum::S_PUFF1, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_PUFF1,                                                        // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_BLOOD
@@ -1109,110 +1105,107 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_TFOG
-        -1,                // doomednum
-        StateNum::S_TFOG,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_TFOG,                                                         // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_IFOG
-        -1,                // doomednum
-        StateNum::S_IFOG,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_IFOG,                                                         // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_TELEPORTMAN
-        14,                // doomednum
-        StateNum::S_NULL,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        14,                                                                      // doomednum
+        StateNum::S_NULL,                                                        // spawnstate
+        1000,                                                                    // spawnhealth
+        StateNum::S_NULL,                                                        // seestate
+        SfxEnum::sfx_None,                                                       // seesound
+        8,                                                                       // reactiontime
+        SfxEnum::sfx_None,                                                       // attacksound
+        StateNum::S_NULL,                                                        // painstate
+        0,                                                                       // painchance
+        SfxEnum::sfx_None,                                                       // painsound
+        StateNum::S_NULL,                                                        // meleestate
+        StateNum::S_NULL,                                                        // missilestate
+        StateNum::S_NULL,                                                        // deathstate
+        StateNum::S_NULL,                                                        // xdeathstate
+        SfxEnum::sfx_None,                                                       // deathsound
+        0.0,                                                                     // speed
+        20.0,                                                                    // radius
+        16.0,                                                                    // height
+        100,                                                                     // mass
+        0,                                                                       // damage
+        SfxEnum::sfx_None,                                                       // activesound
         MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
         // MT_EXTRABFG
-        -1,                 // doomednum
-        StateNum::S_BFGEXP, // spawnstate
-        1000,               // spawnhealth
-        StateNum::S_NULL,   // seestate
-        SfxEnum::sfx_None,  // seesound
-        8,                  // reactiontime
-        SfxEnum::sfx_None,  // attacksound
-        StateNum::S_NULL,   // painstate
-        0,                  // painchance
-        SfxEnum::sfx_None,  // painsound
-        StateNum::S_NULL,   // meleestate
-        StateNum::S_NULL,   // missilestate
-        StateNum::S_NULL,   // deathstate
-        StateNum::S_NULL,   // xdeathstate
-        SfxEnum::sfx_None,  // deathsound
-        0.0,                // speed
-        20.0,               // radius
-        16.0,               // height
-        100,                // mass
-        0,                  // damage
-        SfxEnum::sfx_None,  // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,   // raisestate
+        -1,                                                                       // doomednum
+        StateNum::S_BFGEXP,                                                       // spawnstate
+        1000,                                                                     // spawnhealth
+        StateNum::S_NULL,                                                         // seestate
+        SfxEnum::sfx_None,                                                        // seesound
+        8,                                                                        // reactiontime
+        SfxEnum::sfx_None,                                                        // attacksound
+        StateNum::S_NULL,                                                         // painstate
+        0,                                                                        // painchance
+        SfxEnum::sfx_None,                                                        // painsound
+        StateNum::S_NULL,                                                         // meleestate
+        StateNum::S_NULL,                                                         // missilestate
+        StateNum::S_NULL,                                                         // deathstate
+        StateNum::S_NULL,                                                         // xdeathstate
+        SfxEnum::sfx_None,                                                        // deathsound
+        0.0,                                                                      // speed
+        20.0,                                                                     // radius
+        16.0,                                                                     // height
+        100,                                                                      // mass
+        0,                                                                        // damage
+        SfxEnum::sfx_None,                                                        // activesound
+        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC0
@@ -1268,211 +1261,211 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_MISC2
-        2014,              // doomednum
-        StateNum::S_BON1,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2014,                                                                  // doomednum
+        StateNum::S_BON1,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC3
-        2015,              // doomednum
-        StateNum::S_BON2,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2015,                                                                  // doomednum
+        StateNum::S_BON2,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC4
-        5,                 // doomednum
-        StateNum::S_BKEY,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        5,                                                                     // doomednum
+        StateNum::S_BKEY,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC5
-        13,                // doomednum
-        StateNum::S_RKEY,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        13,                                                                    // doomednum
+        StateNum::S_RKEY,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC6
-        6,                 // doomednum
-        StateNum::S_YKEY,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        6,                                                                     // doomednum
+        StateNum::S_YKEY,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC7
-        39,                 // doomednum
-        StateNum::S_YSKULL, // spawnstate
-        1000,               // spawnhealth
-        StateNum::S_NULL,   // seestate
-        SfxEnum::sfx_None,  // seesound
-        8,                  // reactiontime
-        SfxEnum::sfx_None,  // attacksound
-        StateNum::S_NULL,   // painstate
-        0,                  // painchance
-        SfxEnum::sfx_None,  // painsound
-        StateNum::S_NULL,   // meleestate
-        StateNum::S_NULL,   // missilestate
-        StateNum::S_NULL,   // deathstate
-        StateNum::S_NULL,   // xdeathstate
-        SfxEnum::sfx_None,  // deathsound
-        0.0,                // speed
-        20.0,               // radius
-        16.0,               // height
-        100,                // mass
-        0,                  // damage
-        SfxEnum::sfx_None,  // activesound
+        39,                                                                    // doomednum
+        StateNum::S_YSKULL,                                                    // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC8
-        38,                 // doomednum
-        StateNum::S_RSKULL, // spawnstate
-        1000,               // spawnhealth
-        StateNum::S_NULL,   // seestate
-        SfxEnum::sfx_None,  // seesound
-        8,                  // reactiontime
-        SfxEnum::sfx_None,  // attacksound
-        StateNum::S_NULL,   // painstate
-        0,                  // painchance
-        SfxEnum::sfx_None,  // painsound
-        StateNum::S_NULL,   // meleestate
-        StateNum::S_NULL,   // missilestate
-        StateNum::S_NULL,   // deathstate
-        StateNum::S_NULL,   // xdeathstate
-        SfxEnum::sfx_None,  // deathsound
-        0.0,                // speed
-        20.0,               // radius
-        16.0,               // height
-        100,                // mass
-        0,                  // damage
-        SfxEnum::sfx_None,  // activesound
+        38,                                                                    // doomednum
+        StateNum::S_RSKULL,                                                    // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC9
-        40,                 // doomednum
-        StateNum::S_BSKULL, // spawnstate
-        1000,               // spawnhealth
-        StateNum::S_NULL,   // seestate
-        SfxEnum::sfx_None,  // seesound
-        8,                  // reactiontime
-        SfxEnum::sfx_None,  // attacksound
-        StateNum::S_NULL,   // painstate
-        0,                  // painchance
-        SfxEnum::sfx_None,  // painsound
-        StateNum::S_NULL,   // meleestate
-        StateNum::S_NULL,   // missilestate
-        StateNum::S_NULL,   // deathstate
-        StateNum::S_NULL,   // xdeathstate
-        SfxEnum::sfx_None,  // deathsound
-        0.0,                // speed
-        20.0,               // radius
-        16.0,               // height
-        100,                // mass
-        0,                  // damage
-        SfxEnum::sfx_None,  // activesound
+        40,                                                                    // doomednum
+        StateNum::S_BSKULL,                                                    // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC10
@@ -1528,107 +1521,107 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_MISC12
-        2013,              // doomednum
-        StateNum::S_SOUL,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2013,                                                                  // doomednum
+        StateNum::S_SOUL,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_INV
-        2022,              // doomednum
-        StateNum::S_PINV,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2022,                                                                  // doomednum
+        StateNum::S_PINV,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC13
-        2023,              // doomednum
-        StateNum::S_PSTR,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2023,                                                                  // doomednum
+        StateNum::S_PSTR,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_INS
-        2024,              // doomednum
-        StateNum::S_PINS,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2024,                                                                  // doomednum
+        StateNum::S_PINS,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC14
@@ -1658,81 +1651,81 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_MISC15
-        2026,              // doomednum
-        StateNum::S_PMAP,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2026,                                                                  // doomednum
+        StateNum::S_PMAP,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC16
-        2045,              // doomednum
-        StateNum::S_PVIS,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        2045,                                                                  // doomednum
+        StateNum::S_PVIS,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_MEGA
-        83,                // doomednum
-        StateNum::S_MEGA,  // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        16.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
+        83,                                                                    // doomednum
+        StateNum::S_MEGA,                                                      // spawnstate
+        1000,                                                                  // spawnhealth
+        StateNum::S_NULL,                                                      // seestate
+        SfxEnum::sfx_None,                                                     // seesound
+        8,                                                                     // reactiontime
+        SfxEnum::sfx_None,                                                     // attacksound
+        StateNum::S_NULL,                                                      // painstate
+        0,                                                                     // painchance
+        SfxEnum::sfx_None,                                                     // painsound
+        StateNum::S_NULL,                                                      // meleestate
+        StateNum::S_NULL,                                                      // missilestate
+        StateNum::S_NULL,                                                      // deathstate
+        StateNum::S_NULL,                                                      // xdeathstate
+        SfxEnum::sfx_None,                                                     // deathsound
+        0.0,                                                                   // speed
+        20.0,                                                                  // radius
+        16.0,                                                                  // height
+        100,                                                                   // mass
+        0,                                                                     // damage
+        SfxEnum::sfx_None,                                                     // activesound
         MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
-        StateNum::S_NULL, // raisestate
+        StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
         // MT_CLIP
@@ -2864,138 +2857,133 @@ pub(crate) const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     ),
     MapObjectInfo::new(
         // MT_MISC56
-        59,                // doomednum
-        StateNum::S_MEAT2, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        84.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        59,                                                                         // doomednum
+        StateNum::S_MEAT2,                                                          // spawnstate
+        1000,                                                                       // spawnhealth
+        StateNum::S_NULL,                                                           // seestate
+        SfxEnum::sfx_None,                                                          // seesound
+        8,                                                                          // reactiontime
+        SfxEnum::sfx_None,                                                          // attacksound
+        StateNum::S_NULL,                                                           // painstate
+        0,                                                                          // painchance
+        SfxEnum::sfx_None,                                                          // painsound
+        StateNum::S_NULL,                                                           // meleestate
+        StateNum::S_NULL,                                                           // missilestate
+        StateNum::S_NULL,                                                           // deathstate
+        StateNum::S_NULL,                                                           // xdeathstate
+        SfxEnum::sfx_None,                                                          // deathsound
+        0.0,                                                                        // speed
+        20.0,                                                                       // radius
+        84.0,                                                                       // height
+        100,                                                                        // mass
+        0,                                                                          // damage
+        SfxEnum::sfx_None,                                                          // activesound
+        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC57
-        60,                // doomednum
-        StateNum::S_MEAT4, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        68.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        60,                                                                         // doomednum
+        StateNum::S_MEAT4,                                                          // spawnstate
+        1000,                                                                       // spawnhealth
+        StateNum::S_NULL,                                                           // seestate
+        SfxEnum::sfx_None,                                                          // seesound
+        8,                                                                          // reactiontime
+        SfxEnum::sfx_None,                                                          // attacksound
+        StateNum::S_NULL,                                                           // painstate
+        0,                                                                          // painchance
+        SfxEnum::sfx_None,                                                          // painsound
+        StateNum::S_NULL,                                                           // meleestate
+        StateNum::S_NULL,                                                           // missilestate
+        StateNum::S_NULL,                                                           // deathstate
+        StateNum::S_NULL,                                                           // xdeathstate
+        SfxEnum::sfx_None,                                                          // deathsound
+        0.0,                                                                        // speed
+        20.0,                                                                       // radius
+        68.0,                                                                       // height
+        100,                                                                        // mass
+        0,                                                                          // damage
+        SfxEnum::sfx_None,                                                          // activesound
+        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC58
-        61,                // doomednum
-        StateNum::S_MEAT3, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        52.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        61,                                                                         // doomednum
+        StateNum::S_MEAT3,                                                          // spawnstate
+        1000,                                                                       // spawnhealth
+        StateNum::S_NULL,                                                           // seestate
+        SfxEnum::sfx_None,                                                          // seesound
+        8,                                                                          // reactiontime
+        SfxEnum::sfx_None,                                                          // attacksound
+        StateNum::S_NULL,                                                           // painstate
+        0,                                                                          // painchance
+        SfxEnum::sfx_None,                                                          // painsound
+        StateNum::S_NULL,                                                           // meleestate
+        StateNum::S_NULL,                                                           // missilestate
+        StateNum::S_NULL,                                                           // deathstate
+        StateNum::S_NULL,                                                           // xdeathstate
+        SfxEnum::sfx_None,                                                          // deathsound
+        0.0,                                                                        // speed
+        20.0,                                                                       // radius
+        52.0,                                                                       // height
+        100,                                                                        // mass
+        0,                                                                          // damage
+        SfxEnum::sfx_None,                                                          // activesound
+        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC59
-        62,                // doomednum
-        StateNum::S_MEAT5, // spawnstate
-        1000,              // spawnhealth
-        StateNum::S_NULL,  // seestate
-        SfxEnum::sfx_None, // seesound
-        8,                 // reactiontime
-        SfxEnum::sfx_None, // attacksound
-        StateNum::S_NULL,  // painstate
-        0,                 // painchance
-        SfxEnum::sfx_None, // painsound
-        StateNum::S_NULL,  // meleestate
-        StateNum::S_NULL,  // missilestate
-        StateNum::S_NULL,  // deathstate
-        StateNum::S_NULL,  // xdeathstate
-        SfxEnum::sfx_None, // deathsound
-        0.0,               // speed
-        20.0,              // radius
-        52.0,              // height
-        100,               // mass
-        0,                 // damage
-        SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,  // raisestate
+        62,                                                                         // doomednum
+        StateNum::S_MEAT5,                                                          // spawnstate
+        1000,                                                                       // spawnhealth
+        StateNum::S_NULL,                                                           // seestate
+        SfxEnum::sfx_None,                                                          // seesound
+        8,                                                                          // reactiontime
+        SfxEnum::sfx_None,                                                          // attacksound
+        StateNum::S_NULL,                                                           // painstate
+        0,                                                                          // painchance
+        SfxEnum::sfx_None,                                                          // painsound
+        StateNum::S_NULL,                                                           // meleestate
+        StateNum::S_NULL,                                                           // missilestate
+        StateNum::S_NULL,                                                           // deathstate
+        StateNum::S_NULL,                                                           // xdeathstate
+        SfxEnum::sfx_None,                                                          // deathsound
+        0.0,                                                                        // speed
+        20.0,                                                                       // radius
+        52.0,                                                                       // height
+        100,                                                                        // mass
+        0,                                                                          // damage
+        SfxEnum::sfx_None,                                                          // activesound
+        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC60
-        63,                       // doomednum
-        StateNum::S_BLOODYTWITCH, // spawnstate
-        1000,                     // spawnhealth
-        StateNum::S_NULL,         // seestate
-        SfxEnum::sfx_None,        // seesound
-        8,                        // reactiontime
-        SfxEnum::sfx_None,        // attacksound
-        StateNum::S_NULL,         // painstate
-        0,                        // painchance
-        SfxEnum::sfx_None,        // painsound
-        StateNum::S_NULL,         // meleestate
-        StateNum::S_NULL,         // missilestate
-        StateNum::S_NULL,         // deathstate
-        StateNum::S_NULL,         // xdeathstate
-        SfxEnum::sfx_None,        // deathsound
-        0.0,                      // speed
-        20.0,                     // radius
-        68.0,                     // height
-        100,                      // mass
-        0,                        // damage
-        SfxEnum::sfx_None,        // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
-        StateNum::S_NULL,         // raisestate
+        63,                                                                         // doomednum
+        StateNum::S_BLOODYTWITCH,                                                   // spawnstate
+        1000,                                                                       // spawnhealth
+        StateNum::S_NULL,                                                           // seestate
+        SfxEnum::sfx_None,                                                          // seesound
+        8,                                                                          // reactiontime
+        SfxEnum::sfx_None,                                                          // attacksound
+        StateNum::S_NULL,                                                           // painstate
+        0,                                                                          // painchance
+        SfxEnum::sfx_None,                                                          // painsound
+        StateNum::S_NULL,                                                           // meleestate
+        StateNum::S_NULL,                                                           // missilestate
+        StateNum::S_NULL,                                                           // deathstate
+        StateNum::S_NULL,                                                           // xdeathstate
+        SfxEnum::sfx_None,                                                          // deathsound
+        0.0,                                                                        // speed
+        20.0,                                                                       // radius
+        68.0,                                                                       // height
+        100,                                                                        // mass
+        0,                                                                          // damage
+        SfxEnum::sfx_None,                                                          // activesound
+        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
         // MT_MISC61

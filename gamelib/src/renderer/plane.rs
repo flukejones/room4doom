@@ -1,67 +1,67 @@
-use crate::renderer::defs::{
-    Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH,
-};
+use crate::renderer::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
 
 pub(crate) struct VisPlaneCtrl {
     // Here comes the obnoxious "visplane".
-    pub visplanes:    Vec<Visplane>,
+    pub visplanes: Vec<Visplane>,
     pub lastvisplane: usize,
     /// Index of current visplane in `self.visplanes` for floor
-    pub floorplane:   usize,
+    pub floorplane: usize,
     /// Index of current visplane in `self.visplanes` for ceiling
     pub ceilingplane: usize,
 
     // ?
-    pub openings:    [i16; MAXOPENINGS],
+    pub openings: [i16; MAXOPENINGS],
     pub lastopening: usize,
 
-    pub floorclip:   [i32; SCREENWIDTH],
+    pub floorclip: [i32; SCREENWIDTH],
     pub ceilingclip: [i32; SCREENWIDTH],
     /// spanstart holds the start of a plane span
     /// initialized to 0 at start
-    pub spanstart:   [i32; SCREENHEIGHT],
-    pub spanstop:    [i32; SCREENHEIGHT],
+    pub spanstart: [i32; SCREENHEIGHT],
+    pub spanstop: [i32; SCREENHEIGHT],
 
     //lighttable_t **planezlight;
     pub planeheight: f32,
 
-    pub yslope:     [f32; SCREENHEIGHT],
-    pub distscale:  [f32; SCREENWIDTH],
+    pub yslope: [f32; SCREENHEIGHT],
+    pub distscale: [f32; SCREENWIDTH],
     pub basexscale: f32,
     pub baseyscale: f32,
 
-    pub cachedheight:   [f32; SCREENHEIGHT],
+    pub cachedheight: [f32; SCREENHEIGHT],
     pub cacheddistance: [f32; SCREENHEIGHT],
-    pub cachedxstep:    [f32; SCREENHEIGHT],
-    pub cachedystep:    [f32; SCREENHEIGHT],
+    pub cachedxstep: [f32; SCREENHEIGHT],
+    pub cachedystep: [f32; SCREENHEIGHT],
 }
 
 impl Default for VisPlaneCtrl {
-    fn default() -> Self { VisPlaneCtrl::new() }
+    fn default() -> Self {
+        VisPlaneCtrl::new()
+    }
 }
 
 impl VisPlaneCtrl {
     pub(crate) fn new() -> Self {
         VisPlaneCtrl {
-            visplanes:      vec![Visplane::default(); MAXVISPLANES],
-            lastvisplane:   0,
-            floorplane:     0,
-            ceilingplane:   0,
-            openings:       [0; MAXOPENINGS],
-            lastopening:    0,
-            floorclip:      [0; SCREENWIDTH],
-            ceilingclip:    [0; SCREENWIDTH],
-            spanstart:      [0; SCREENHEIGHT],
-            spanstop:       [0; SCREENHEIGHT],
-            planeheight:    0.0,
-            yslope:         [0.0; SCREENHEIGHT],
-            distscale:      [0.0; SCREENWIDTH],
-            basexscale:     0.0,
-            baseyscale:     0.0,
-            cachedheight:   [0.0; SCREENHEIGHT],
+            visplanes: vec![Visplane::default(); MAXVISPLANES],
+            lastvisplane: 0,
+            floorplane: 0,
+            ceilingplane: 0,
+            openings: [0; MAXOPENINGS],
+            lastopening: 0,
+            floorclip: [0; SCREENWIDTH],
+            ceilingclip: [0; SCREENWIDTH],
+            spanstart: [0; SCREENHEIGHT],
+            spanstop: [0; SCREENHEIGHT],
+            planeheight: 0.0,
+            yslope: [0.0; SCREENHEIGHT],
+            distscale: [0.0; SCREENWIDTH],
+            basexscale: 0.0,
+            baseyscale: 0.0,
+            cachedheight: [0.0; SCREENHEIGHT],
             cacheddistance: [0.0; SCREENHEIGHT],
-            cachedxstep:    [0.0; SCREENHEIGHT],
-            cachedystep:    [0.0; SCREENHEIGHT],
+            cachedxstep: [0.0; SCREENHEIGHT],
+            cachedystep: [0.0; SCREENHEIGHT],
         }
     }
 

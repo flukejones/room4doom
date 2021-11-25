@@ -13,10 +13,10 @@ pub(crate) const IS_SSECTOR_MASK: u16 = 0x8000;
 /// rectangle enclosing the level area
 #[derive(Debug, Default)]
 pub(crate) struct MapExtents {
-    pub min_vertex:    Vec2,
-    pub max_vertex:    Vec2,
-    pub width:         f32,
-    pub height:        f32,
+    pub min_vertex: Vec2,
+    pub max_vertex: Vec2,
+    pub width: f32,
+    pub height: f32,
     pub automap_scale: f32,
 }
 
@@ -32,18 +32,18 @@ pub(crate) struct MapExtents {
 /// segfault
 #[derive(Debug)]
 pub(crate) struct MapData {
-    name:       String,
+    name: String,
     /// Things will be linked to/from each other in many ways, which means this array may
     /// never be resized or it will invalidate references and pointers
-    things:     Vec<WadThing>,
-    vertexes:   Vec<Vec2>,
-    linedefs:   Vec<LineDef>,
-    sectors:    Vec<Sector>,
-    sidedefs:   Vec<SideDef>,
+    things: Vec<WadThing>,
+    vertexes: Vec<Vec2>,
+    linedefs: Vec<LineDef>,
+    sectors: Vec<Sector>,
+    sidedefs: Vec<SideDef>,
     subsectors: Vec<SubSector>,
-    segments:   Vec<Segment>,
-    extents:    MapExtents,
-    nodes:      Vec<Node>,
+    segments: Vec<Segment>,
+    extents: MapExtents,
+    nodes: Vec<Node>,
     start_node: u16,
 }
 
@@ -65,7 +65,9 @@ impl MapData {
     }
 
     #[inline]
-    pub fn get_things(&self) -> &[WadThing] { &self.things }
+    pub fn get_things(&self) -> &[WadThing] {
+        &self.things
+    }
 
     #[inline]
     pub(crate) fn set_extents(&mut self) {
@@ -89,29 +91,39 @@ impl MapData {
                 self.extents.max_vertex.set_y(v.y());
             }
         }
-        self.extents.width =
-            self.extents.max_vertex.x() - self.extents.min_vertex.x();
-        self.extents.height =
-            self.extents.max_vertex.y() - self.extents.min_vertex.y();
+        self.extents.width = self.extents.max_vertex.x() - self.extents.min_vertex.x();
+        self.extents.height = self.extents.max_vertex.y() - self.extents.min_vertex.y();
     }
 
     #[inline]
-    pub fn get_vertexes(&self) -> &[Vec2] { &self.vertexes }
+    pub fn get_vertexes(&self) -> &[Vec2] {
+        &self.vertexes
+    }
 
     #[inline]
-    pub fn get_linedefs(&self) -> &[LineDef] { &self.linedefs }
+    pub fn get_linedefs(&self) -> &[LineDef] {
+        &self.linedefs
+    }
 
     #[inline]
-    pub fn get_sectors(&self) -> &[Sector] { &self.sectors }
+    pub fn get_sectors(&self) -> &[Sector] {
+        &self.sectors
+    }
 
     #[inline]
-    pub fn get_sidedefs(&self) -> &[SideDef] { &self.sidedefs }
+    pub fn get_sidedefs(&self) -> &[SideDef] {
+        &self.sidedefs
+    }
 
     #[inline]
-    pub fn get_subsectors(&self) -> &[SubSector] { &self.subsectors }
+    pub fn get_subsectors(&self) -> &[SubSector] {
+        &self.subsectors
+    }
 
     #[inline]
-    pub fn get_segments(&self) -> &[Segment] { &self.segments }
+    pub fn get_segments(&self) -> &[Segment] {
+        &self.segments
+    }
 
     fn set_scale(&mut self) {
         let map_width = self.extents.width as f32;
@@ -125,13 +137,19 @@ impl MapData {
     }
 
     #[inline]
-    pub fn get_nodes(&self) -> &[Node] { &self.nodes }
+    pub fn get_nodes(&self) -> &[Node] {
+        &self.nodes
+    }
 
     #[inline]
-    pub fn start_node(&self) -> u16 { self.start_node }
+    pub fn start_node(&self) -> u16 {
+        self.start_node
+    }
 
     #[inline]
-    pub fn get_map_extents(&self) -> &MapExtents { &self.extents }
+    pub fn get_map_extents(&self) -> &MapExtents {
+        &self.extents
+    }
 
     pub fn load(&mut self, wad: &WadData) {
         // THINGS
@@ -147,17 +165,17 @@ impl MapData {
         self.sectors = wad
             .sector_iter(&self.name)
             .map(|s| Sector {
-                floorheight:    s.floor_height as f32,
-                ceilingheight:  s.ceil_height as f32,
-                floorpic:       0, // TODO: lookup texture
-                ceilingpic:     0, // TODO: lookup texture
-                lightlevel:     s.light_level,
-                special:        s.kind,
-                tag:            s.tag,
+                floorheight: s.floor_height as f32,
+                ceilingheight: s.ceil_height as f32,
+                floorpic: 0,   // TODO: lookup texture
+                ceilingpic: 0, // TODO: lookup texture
+                lightlevel: s.light_level,
+                special: s.kind,
+                tag: s.tag,
                 soundtraversed: 0,
-                blockbox:       [0, 0, 0, 0],
-                validcount:     0,
-                lines:          Vec::new(),
+                blockbox: [0, 0, 0, 0],
+                validcount: 0,
+                lines: Vec::new(),
             })
             .collect();
 
@@ -169,11 +187,11 @@ impl MapData {
 
                 SideDef {
                     textureoffset: s.y_offset as f32,
-                    rowoffset:     s.x_offset as f32,
-                    toptexture:    if s.upper_tex.is_empty() { 0 } else { 1 },
+                    rowoffset: s.x_offset as f32,
+                    toptexture: if s.upper_tex.is_empty() { 0 } else { 1 },
                     bottomtexture: if s.lower_tex.is_empty() { 0 } else { 1 },
-                    midtexture:    if s.middle_tex.is_empty() { 0 } else { 1 },
-                    sector:        DPtr::new(sector),
+                    midtexture: if s.middle_tex.is_empty() { 0 } else { 1 },
+                    sector: DPtr::new(sector),
                 }
             })
             .collect();
@@ -217,19 +235,19 @@ impl MapData {
                 };
 
                 LineDef {
-                    v1:            DPtr::new(v1),
-                    v2:            DPtr::new(v2),
-                    delta:         Vec2::new(dx, dy),
-                    flags:         l.flags,
-                    special:       l.special,
-                    tag:           l.sector_tag,
-                    bbox:          BBox::new(*v1, *v2),
-                    slopetype:     slope,
+                    v1: DPtr::new(v1),
+                    v2: DPtr::new(v2),
+                    delta: Vec2::new(dx, dy),
+                    flags: l.flags,
+                    special: l.special,
+                    tag: l.sector_tag,
+                    bbox: BBox::new(*v1, *v2),
+                    slopetype: slope,
                     front_sidedef: DPtr::new(front),
-                    back_sidedef:  back_side,
-                    frontsector:   front.sector.clone(),
-                    backsector:    back_sector,
-                    validcount:    0,
+                    back_sidedef: back_side,
+                    frontsector: front.sector.clone(),
+                    backsector: back_sector,
+                    validcount: 0,
                 }
             })
             .collect();
@@ -263,14 +281,14 @@ impl MapData {
                 let angle = bam_to_radian((s.angle as u32) << 16);
 
                 Segment {
-                    v1:          DPtr::new(v1),
-                    v2:          DPtr::new(v2),
-                    offset:      s.offset as f32,
-                    angle:       Angle::new(angle),
-                    sidedef:     side,
-                    linedef:     DPtr::new(line),
+                    v1: DPtr::new(v1),
+                    v2: DPtr::new(v2),
+                    offset: s.offset as f32,
+                    angle: Angle::new(angle),
+                    sidedef: side,
+                    linedef: DPtr::new(line),
                     frontsector: line.frontsector.clone(),
-                    backsector:  line.backsector.clone(),
+                    backsector: line.backsector.clone(),
                 }
             })
             .collect();
@@ -295,31 +313,19 @@ impl MapData {
         self.nodes = wad
             .node_iter(&self.name)
             .map(|n| Node {
-                xy:             Vec2::new(n.x as f32, n.y as f32),
-                delta:          Vec2::new(n.dx as f32, n.dy as f32),
+                xy: Vec2::new(n.x as f32, n.y as f32),
+                delta: Vec2::new(n.dx as f32, n.dy as f32),
                 bounding_boxes: [
                     [
-                        Vec2::new(
-                            n.bounding_boxes[0][2] as f32,
-                            n.bounding_boxes[0][0] as f32,
-                        ),
-                        Vec2::new(
-                            n.bounding_boxes[0][3] as f32,
-                            n.bounding_boxes[0][1] as f32,
-                        ),
+                        Vec2::new(n.bounding_boxes[0][2] as f32, n.bounding_boxes[0][0] as f32),
+                        Vec2::new(n.bounding_boxes[0][3] as f32, n.bounding_boxes[0][1] as f32),
                     ],
                     [
-                        Vec2::new(
-                            n.bounding_boxes[1][2] as f32,
-                            n.bounding_boxes[1][0] as f32,
-                        ),
-                        Vec2::new(
-                            n.bounding_boxes[1][3] as f32,
-                            n.bounding_boxes[1][1] as f32,
-                        ),
+                        Vec2::new(n.bounding_boxes[1][2] as f32, n.bounding_boxes[1][0] as f32),
+                        Vec2::new(n.bounding_boxes[1][3] as f32, n.bounding_boxes[1][1] as f32),
                     ],
                 ],
-                child_index:    n.child_index,
+                child_index: n.child_index,
             })
             .collect();
 
@@ -340,8 +346,6 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return DPtr::new(
-            &self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize],
-        );
+        return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
     }
 }

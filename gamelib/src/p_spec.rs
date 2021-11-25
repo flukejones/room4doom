@@ -8,36 +8,36 @@ use wad::lumps::WadSector;
 
 // P_LIGHTS
 pub(crate) struct FireFlicker {
-    pub thinker:   Option<NonNull<Thinker<FireFlicker>>>,
-    pub sector:    NonNull<WadSector>,
-    pub count:     i32,
+    pub thinker: Option<NonNull<Thinker<FireFlicker>>>,
+    pub sector: NonNull<WadSector>,
+    pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
 }
 
 pub(crate) struct LightFlash {
-    pub thinker:   Option<NonNull<Thinker<LightFlash>>>,
-    pub sector:    NonNull<WadSector>,
-    pub count:     i32,
+    pub thinker: Option<NonNull<Thinker<LightFlash>>>,
+    pub sector: NonNull<WadSector>,
+    pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
-    pub max_time:  i32,
-    pub min_time:  i32,
+    pub max_time: i32,
+    pub min_time: i32,
 }
 
 pub(crate) struct Strobe {
-    pub thinker:     Option<NonNull<Thinker<Strobe>>>,
-    pub sector:      NonNull<WadSector>,
-    pub count:       i32,
-    pub min_light:   i32,
-    pub max_light:   i32,
-    pub dark_time:   i32,
+    pub thinker: Option<NonNull<Thinker<Strobe>>>,
+    pub sector: NonNull<WadSector>,
+    pub count: i32,
+    pub min_light: i32,
+    pub max_light: i32,
+    pub dark_time: i32,
     pub bright_time: i32,
 }
 
 pub(crate) struct Glow {
-    pub thinker:   Option<NonNull<Thinker<Glow>>>,
-    pub sector:    NonNull<WadSector>,
+    pub thinker: Option<NonNull<Thinker<Glow>>>,
+    pub sector: NonNull<WadSector>,
     pub min_light: i32,
     pub max_light: i32,
     pub direction: Angle,
@@ -60,18 +60,18 @@ pub(crate) enum PlatType {
 }
 
 pub(crate) struct Platform {
-    pub thinker:    Option<NonNull<Thinker<Platform>>>,
-    pub sector:     NonNull<WadSector>,
-    pub speed:      f32,
-    pub low:        f32,
-    pub high:       f32,
-    pub wait:       i32,
-    pub count:      i32,
-    pub status:     PlatEnum,
+    pub thinker: Option<NonNull<Thinker<Platform>>>,
+    pub sector: NonNull<WadSector>,
+    pub speed: f32,
+    pub low: f32,
+    pub high: f32,
+    pub wait: i32,
+    pub count: i32,
+    pub status: PlatEnum,
     pub old_status: PlatEnum,
-    pub crush:      bool,
-    pub tag:        i32,
-    pub plat_type:  PlatType,
+    pub crush: bool,
+    pub tag: i32,
+    pub plat_type: PlatType,
 }
 
 // P_FLOOR
@@ -109,14 +109,14 @@ pub(crate) enum StairEnum {
 }
 
 pub(crate) struct FloorMove {
-    pub thinker:         Option<NonNull<Thinker<FloorMove>>>,
-    pub sector:          NonNull<WadSector>,
-    kind:                FloorEnum,
-    pub speed:           f32,
-    pub crush:           bool,
-    pub direction:       i32,
-    pub newspecial:      i32,
-    pub texture:         u8,
+    pub thinker: Option<NonNull<Thinker<FloorMove>>>,
+    pub sector: NonNull<WadSector>,
+    kind: FloorEnum,
+    pub speed: f32,
+    pub crush: bool,
+    pub direction: i32,
+    pub newspecial: i32,
+    pub texture: u8,
     pub floordestheight: f32,
 }
 
@@ -132,16 +132,16 @@ pub(crate) enum CeilingKind {
 }
 
 pub(crate) struct CeilingMove {
-    pub thinker:      Option<NonNull<Thinker<FloorMove>>>,
-    pub sector:       NonNull<WadSector>,
-    pub kind:         CeilingKind,
+    pub thinker: Option<NonNull<Thinker<FloorMove>>>,
+    pub sector: NonNull<WadSector>,
+    pub kind: CeilingKind,
     pub bottomheight: f32,
-    pub topheight:    f32,
-    pub speed:        f32,
-    pub crush:        bool,
+    pub topheight: f32,
+    pub speed: f32,
+    pub crush: bool,
     // 1 = up, 0 = waiting, -1 = down
-    pub direction:    i32,
+    pub direction: i32,
     // ID
-    pub tag:          i32,
+    pub tag: i32,
     pub olddirection: i32,
 }

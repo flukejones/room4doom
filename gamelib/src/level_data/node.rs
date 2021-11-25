@@ -83,12 +83,7 @@ impl Node {
         self.ray_from_point_intersect(&vec, angle_rads, side)
     }
 
-    pub fn ray_from_point_intersect(
-        &self,
-        origin_v: &Vec2,
-        origin_ang: f32,
-        side: usize,
-    ) -> bool {
+    pub fn ray_from_point_intersect(&self, origin_v: &Vec2, origin_ang: f32, side: usize) -> bool {
         let steps = 90.0; //half_fov * (180.0 / PI); // convert fov to degrees
         let step_size = 5; //steps as usize / 1;
         let top_left = &self.bounding_boxes[side][0];
@@ -105,42 +100,19 @@ impl Node {
             let left_fov = origin_ang + (i as f32 * PI / 180.0); // convert the step to rads
             let right_fov = origin_ang - (i as f32 * PI / 180.0);
             // We don't need the result from this, just need to know if it's "None"
-            if ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right)
-                .is_some()
-            {
+            if ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right).is_some() {
                 return true;
             }
 
-            if ray_to_line_intersect(
-                origin_v,
-                left_fov,
-                &bottom_left,
-                &top_right,
-            )
-            .is_some()
-            {
+            if ray_to_line_intersect(origin_v, left_fov, &bottom_left, &top_right).is_some() {
                 return true;
             }
 
-            if ray_to_line_intersect(
-                origin_v,
-                right_fov,
-                top_left,
-                bottom_right,
-            )
-            .is_some()
-            {
+            if ray_to_line_intersect(origin_v, right_fov, top_left, bottom_right).is_some() {
                 return true;
             }
 
-            if ray_to_line_intersect(
-                origin_v,
-                right_fov,
-                &bottom_left,
-                &top_right,
-            )
-            .is_some()
-            {
+            if ray_to_line_intersect(origin_v, right_fov, &bottom_left, &top_right).is_some() {
                 return true;
             }
         }
