@@ -425,3 +425,23 @@ impl WadNode {
         }
     }
 }
+
+/// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
+/// collision-detection between moving things and walls.
+#[derive(Debug, Clone)]
+pub struct WadBlockMap {
+    /// Leftmost X coord
+    x_origin: i32,
+    /// Bottommost Y coord
+    y_origin: i32,
+    columns: i32,
+    rows: i32,
+}
+
+impl WadBlockMap {
+    pub fn new(
+    ) -> WadBlockMap {
+        WadBlockMap {
+        }
+    }
+}

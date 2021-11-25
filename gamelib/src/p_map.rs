@@ -6,9 +6,9 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_defs::{BBox, LineDef};
 use crate::p_local::MAXRADIUS;
-use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
+use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{
-    box_on_line_side, circle_to_line_intercept_basic, line_line_intersection, line_slide_direction,
+    box_on_line_side, line_slide_direction,
     PortalZ,
 };
 use crate::DPtr;
@@ -42,12 +42,8 @@ impl MapObject {
             return false;
         }
 
-        // TODO: ceilingline = NULL;
-        // First sector is always the one we are in
         let ctrl = &mut level.mobj_ctrl;
-
-        // TODO: validcount++;??? There's like, two places in the p_map.c file
-        // TODO: P_BlockThingsIterator, PIT_CheckThing/Line
+        ctrl.spec_hits.clear();
 
         // the move is ok,
         // so link the thing into its new position
@@ -63,22 +59,16 @@ impl MapObject {
 
         // P_SetThingPosition (thing);
 
-        // TODO: if any special lines were hit, do the effect
-        // if (!(thing->flags & (MF_TELEPORT | MF_NOCLIP)))
-        // {
-        //     while (numspechit--)
-        //     {
-        //         // see if the line was crossed
-        //         ld = spechit[numspechit];
-        //         side = P_PointOnLineSide(thing->x, thing->y, ld);
-        //         oldside = P_PointOnLineSide(oldx, oldy, ld);
-        //         if (side != oldside)
-        //         {
-        //             if (ld->special)
-        //                 P_CrossSpecialLine(ld - lines, oldside, thing);
-        //         }
-        //     }
-        // }
+        if self.flags & (MapObjectFlag::MF_TELEPORT as u32  | MapObjectFlag::MF_NOCLIP as u32 )!= 0 {
+            for ld in &ctrl.spec_hits {
+                // see if the line was crossed
+                let side = ld.point_on_side(&self.xy);
+                let old_side = ld.point_on_side(&old_xy);
+                if side != old_side && ld.special != 0 {
+                    // TODO: P_CrossSpecialLine(ld - lines, oldside, thing);
+                }
+            }
+        }
         true
     }
 

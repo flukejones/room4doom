@@ -353,6 +353,13 @@ mod tests {
     }
 
     #[test]
+    fn find_e1m1_blockmap() {
+        let wad = WadData::new("../doom1.wad".into());
+        let things_lump = wad.find_lump_for_map_or_panic("E1M1", Lumps::Blockmap);
+        assert_eq!(things_lump.lump_name, "BLOCKMAP");
+    }
+
+    #[test]
     fn find_e1m2_vertexes() {
         let wad = WadData::new("../doom1.wad".into());
         let things_lump = wad.find_lump_for_map_or_panic("E1M2", Lumps::Vertexes);
