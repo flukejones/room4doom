@@ -42,7 +42,6 @@ impl MapObject {
         // TODO: ceilingline = NULL;
         // First sector is always the one we are in
         let ctrl = &mut level.mobj_ctrl;
-        let curr_ssect = level.map_data.point_in_subsector(&try_move);
 
         // TODO: validcount++;??? There's like, two places in the p_map.c file
         // TODO: P_BlockThingsIterator, PIT_CheckThing/Line
@@ -78,63 +77,6 @@ impl MapObject {
         //     }
         // }
         true
-    }
-
-    // P_SlideMove
-    // Loop until get a good move or stopped
-    pub fn p_slide_move(&mut self, level: &mut Level) {
-        // let ctrl = &mut level.mobj_ctrl;
-
-        let mut hitcount = 0;
-        let mut new_momxy;
-        let mut try_move;
-
-        // The p_try_move calls check collisions -> p_check_position -> pit_check_line
-        loop {
-            if hitcount == 3 {
-                // try_move = self.xy + self.momxy;
-                // self.p_try_move(try_move.x(), try_move.y(), level);
-                break;
-            }
-            new_momxy = self.momxy;
-            try_move = self.xy;
-
-            let ssect = level.map_data.point_in_subsector(&(self.xy));
-            // let segs = &level.map_data.get_segments()[ssect.start_seg as usize..(ssect.start_seg+ssect.seg_count) as usize];
-            // TODO: Use the blockmap, find closest best line
-            for ld in ssect.sector.lines.iter() {
-                if try_move.x() + self.radius >= ld.bbox.left
-                || try_move.x() - self.radius <= ld.bbox.right
-                || try_move.y() + self.radius >= ld.bbox.bottom
-                || try_move.y() - self.radius <= ld.bbox.top {
-
-                    //if ld.point_on_side(&self.xy) == 0 {
-                        // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
-                        if let Some(m) = line_slide_direction(
-                            self.xy,
-                            new_momxy,
-                            self.radius,
-                            *ld.v1,
-                            *ld.v2,
-                                    ) {
-                            new_momxy = m;
-                            break;
-                        }
-                    //}
-                }
-            }
-
-            // TODO: move up to the wall / stairstep
-
-            try_move += new_momxy;
-            self.momxy = new_momxy;
-
-            if self.p_try_move(try_move.x(), try_move.y(), level) {
-                break;
-            }
-
-            hitcount += 1;
-        }
     }
 
     // P_CheckPosition
@@ -295,6 +237,63 @@ impl MapObject {
         //     return;
         // }
         true
+    }
+
+    // P_SlideMove
+    // Loop until get a good move or stopped
+    pub fn p_slide_move(&mut self, level: &mut Level) {
+        // let ctrl = &mut level.mobj_ctrl;
+
+        let mut hitcount = 0;
+        let mut new_momxy;
+        let mut try_move;
+
+        // The p_try_move calls check collisions -> p_check_position -> pit_check_line
+        loop {
+            if hitcount == 3 {
+                // try_move = self.xy + self.momxy;
+                // self.p_try_move(try_move.x(), try_move.y(), level);
+                break;
+            }
+            new_momxy = self.momxy;
+            try_move = self.xy;
+
+            let ssect = level.map_data.point_in_subsector(&(self.xy));
+            // let segs = &level.map_data.get_segments()[ssect.start_seg as usize..(ssect.start_seg+ssect.seg_count) as usize];
+            // TODO: Use the blockmap, find closest best line
+            for ld in ssect.sector.lines.iter() {
+                if try_move.x() + self.radius >= ld.bbox.left
+                || try_move.x() - self.radius <= ld.bbox.right
+                || try_move.y() + self.radius >= ld.bbox.bottom
+                || try_move.y() - self.radius <= ld.bbox.top {
+
+                    //if ld.point_on_side(&self.xy) == 0 {
+                        // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
+                        if let Some(m) = line_slide_direction(
+                            self.xy,
+                            new_momxy,
+                            self.radius,
+                            *ld.v1,
+                            *ld.v2,
+                                    ) {
+                            new_momxy = m;
+                            break;
+                        }
+                    //}
+                }
+            }
+
+            // TODO: move up to the wall / stairstep
+
+            try_move += new_momxy;
+            self.momxy = new_momxy;
+
+            if self.p_try_move(try_move.x(), try_move.y(), level) {
+                break;
+            }
+
+            hitcount += 1;
+        }
     }
 }
 
