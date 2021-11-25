@@ -184,18 +184,18 @@ pub(crate) fn circle_to_line_intercept_basic(
     radius: f32,
     point1: Vec2,
     point2: Vec2,
-) -> bool {
+) -> Option<f32> {
     let lc = origin - point1;
     let d = point2 - point1;
     let p = project_vec2(lc, d);
     let nearest = point1 + p;
 
-    if circle_point_intersect(origin, radius, nearest) {
+    if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
         if p.length() < d.length() && p.dot(d) > EPSILON {
-            return true;
+            return Some(dist);
         }
     }
-    false
+    None
 }
 
 fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
@@ -208,13 +208,13 @@ fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
 }
 
 #[inline]
-fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
+fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {
-        return true; //Some(radius - len);
+        return Some(radius - len);
     }
-    false
+    None
 }
 
 #[inline]
@@ -247,21 +247,37 @@ mod tests {
     }
 
     #[test]
-    fn circle_seg_intersect() {
-        let r = 1.0;
-        let m = Vec2::default();
-        let origin = Vec2::new(5.0, 5.0);
-        let point1 = Vec2::new(3.0, 5.0);
-        let point2 = Vec2::new(7.0, 4.0);
-        assert!(line_slide_direction(origin, m, r, point1, point2).is_some());
+    fn test_circle_to_line_intercept_basic() {
+        let r = 5.0;
+        let origin = Vec2::new(5.0, 7.0);
+        let point1 = Vec2::new(1.0, 3.0);
+        let point2 = Vec2::new(7.0, 20.0);
+        assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_some());
 
-        let point1 = Vec2::new(5.2, 9.0);
-        let point2 = Vec2::new(4.0, 7.0);
-        assert!(line_slide_direction(origin, m, r, point1, point2).is_none());
+        let r = 2.0;
+        assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_none());
+    }
 
-        // let r = 3.0;
-        // assert!(circle_point_intersect(origin, r, point1).is_none());
-        // assert!(circle_point_intersect(origin, r, point2).is_some());
-        // assert!(circle_to_seg_intersect(origin, r, point1, point2).is_some());
+    #[test]
+    fn test_line_line_intersection() {
+        let origin1 = Vec2::new(5.0, 1.0);
+        let origin2 = Vec2::new(5.0, 10.0);
+        let point1 = Vec2::new(1.0, 5.0);
+        let point2 = Vec2::new(10.0, 5.0);
+        assert!(line_line_intersection(origin1, origin2, point1, point2));
+
+        let point1 = Vec2::new(5.0, 1.0);
+        let point2 = Vec2::new(5.0, 10.0);
+        assert!(line_line_intersection(origin1, origin2, point1, point2));
+
+        let point1 = Vec2::new(4.0, 1.0);
+        let point2 = Vec2::new(4.0, 10.0);
+        assert!(!line_line_intersection(origin1, origin2, point1, point2));
+
+        let origin1 = Vec2::new(1.0, 1.0);
+        let origin2 = Vec2::new(10.0, 10.0);
+        let point1 = Vec2::new(10.0, 1.0);
+        let point2 = Vec2::new(1.0, 10.0);
+        assert!(line_line_intersection(origin1, origin2, point1, point2));
     }
 }
