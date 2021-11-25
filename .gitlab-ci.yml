@@ -1,4 +1,4 @@
-image: rust:1.47
+image: rust
 
 .rust_cache: &rust_cache
   cache:
@@ -9,7 +9,6 @@ image: rust:1.47
 stages:
     - test
     - rustfmt
-    #- clippy
     - deploy
 
 test:
@@ -26,11 +25,11 @@ rustfmt:
    - rustup component add rustfmt
    - cargo fmt --all -- --check
 
-clippy:
-  <<: *rust_cache
-  script:
-    - rustup component add clippy
-    - cargo clippy --all
+#clippy:
+#  <<: *rust_cache
+#  script:
+#    - rustup component add clippy
+#    - cargo clippy --all
 
 pages:
   image: rust:1.47
