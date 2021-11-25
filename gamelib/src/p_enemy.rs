@@ -7,12 +7,10 @@ pub(crate) fn a_facetarget<'t>(actor: &'t mut MapObject) {
     actor.flags &= !(MapObjectFlag::MF_AMBUSH as u32);
 
     unsafe {
-        let angle =
-            point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
+        let angle = point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
         actor.angle = angle;
 
-        if actor.target.unwrap().as_mut().flags
-            & MapObjectFlag::MF_SHADOW as u32
+        if actor.target.unwrap().as_mut().flags & MapObjectFlag::MF_SHADOW as u32
             == MapObjectFlag::MF_SHADOW as u32
         {
             // TODO: actor.angle += P_SubRandom() << 21;
@@ -32,8 +30,7 @@ pub(crate) fn a_chase<'t>(actor: &'t mut MapObject) {
         if
         // TODO: gameversion > exe_doom_1_2 &&
         actor.target.is_none()
-            || (actor.target.is_some()
-                && unsafe { actor.target.unwrap().as_ref().health <= 0 })
+            || (actor.target.is_some() && unsafe { actor.target.unwrap().as_ref().health <= 0 })
         {
             actor.threshold = 0;
         } else {

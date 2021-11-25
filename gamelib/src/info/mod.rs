@@ -149,7 +149,9 @@ pub(crate) enum SpriteNum {
 }
 
 impl Default for SpriteNum {
-    fn default() -> Self { SpriteNum::SPR_TROO }
+    fn default() -> Self {
+        SpriteNum::SPR_TROO
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1270,29 +1272,29 @@ pub enum MapObjectType {
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct MapObjectInfo {
-    pub doomednum:    i32,
-    pub spawnstate:   StateNum,
-    pub spawnhealth:  i32,
-    pub seestate:     StateNum,
-    pub seesound:     SfxEnum,
+    pub doomednum: i32,
+    pub spawnstate: StateNum,
+    pub spawnhealth: i32,
+    pub seestate: StateNum,
+    pub seesound: SfxEnum,
     pub reactiontime: i32,
-    pub attacksound:  SfxEnum,
-    pub painstate:    StateNum,
-    pub painchance:   i32,
-    pub painsound:    SfxEnum,
-    pub meleestate:   StateNum,
+    pub attacksound: SfxEnum,
+    pub painstate: StateNum,
+    pub painchance: i32,
+    pub painsound: SfxEnum,
+    pub meleestate: StateNum,
     pub missilestate: StateNum,
-    pub deathstate:   StateNum,
-    pub xdeathstate:  StateNum,
-    pub deathsound:   SfxEnum,
-    pub speed:        f32,
-    pub radius:       f32,
-    pub height:       f32,
-    pub mass:         i32,
-    pub damage:       i32,
-    pub activesound:  SfxEnum,
-    pub flags:        u32,
-    pub raisestate:   StateNum,
+    pub deathstate: StateNum,
+    pub xdeathstate: StateNum,
+    pub deathsound: SfxEnum,
+    pub speed: f32,
+    pub radius: f32,
+    pub height: f32,
+    pub mass: i32,
+    pub damage: i32,
+    pub activesound: SfxEnum,
+    pub flags: u32,
+    pub raisestate: StateNum,
 }
 
 impl MapObjectInfo {

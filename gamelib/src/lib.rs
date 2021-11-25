@@ -94,21 +94,29 @@ impl<T> DPtr<T> {
 }
 
 impl<T> DPtr<T> {
-    fn as_ptr(&self) -> *mut T { self.p.as_ptr() }
+    fn as_ptr(&self) -> *mut T {
+        self.p.as_ptr()
+    }
 }
 
 impl<T> Clone for DPtr<T> {
-    fn clone(&self) -> DPtr<T> { DPtr { p: self.p } }
+    fn clone(&self) -> DPtr<T> {
+        DPtr { p: self.p }
+    }
 }
 
 impl<T> Deref for DPtr<T> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target { unsafe { self.p.as_ref() } }
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.p.as_ref() }
+    }
 }
 
 impl<T> DerefMut for DPtr<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.p.as_mut() } }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.p.as_mut() }
+    }
 }
 
 impl<T: fmt::Debug> fmt::Debug for DPtr<T> {

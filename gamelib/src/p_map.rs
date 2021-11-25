@@ -7,7 +7,10 @@ use crate::level_data::level::Level;
 use crate::level_data::map_defs::{BBox, LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag, MAXMOVE};
-use crate::p_map_util::{PortalZ, box_on_line_side, circle_to_line_intercept_basic, line_line_intersection, line_slide_direction};
+use crate::p_map_util::{
+    box_on_line_side, circle_to_line_intercept_basic, line_line_intersection, line_slide_direction,
+    PortalZ,
+};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -16,14 +19,14 @@ const MAXSPECIALCROSS: i32 = 8;
 /// subsector. When a mob crosses a seg it may be between floor/ceiling heights.
 #[derive(Default)]
 pub(crate) struct SubSectorMinMax {
-    tmflags:     u32,
+    tmflags: u32,
     /// If "floatok" true, move would be ok
     /// if within "tmfloorz - tmceilingz".
-    floatok:     bool,
+    floatok: bool,
     min_floor_z: f32,
-    max_ceil_z:  f32,
+    max_ceil_z: f32,
     max_dropoff: f32,
-    spec_hits:   Vec<DPtr<LineDef>>,
+    spec_hits: Vec<DPtr<LineDef>>,
 }
 
 impl MapObject {
@@ -107,9 +110,7 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    fn p_check_position(
-        &mut self, try_move: &Vec2, level: &mut Level
-    ) -> bool {
+    fn p_check_position(&mut self, try_move: &Vec2, level: &mut Level) -> bool {
         let left = try_move.x() - self.radius;
         let right = try_move.x() + self.radius;
         let top = try_move.y() + self.radius;
@@ -161,8 +162,9 @@ impl MapObject {
         if tmbbox.right <= ld.bbox.left
             || tmbbox.left >= ld.bbox.right
             || tmbbox.top <= ld.bbox.bottom
-            || tmbbox.bottom >= ld.bbox.top {
-                return true;
+            || tmbbox.bottom >= ld.bbox.top
+        {
+            return true;
         }
 
         // In OG Doom the function used to check if collided is P_BoxOnLineSide
@@ -188,9 +190,7 @@ impl MapObject {
                 return false; // explicitly blocking everything
             }
 
-            if self.player.is_none()
-                && ld.flags & LineDefFlags::BlockMonsters as i16 != 0
-            {
+            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as i16 != 0 {
                 return false; // block monsters only
             }
         }
@@ -263,22 +263,18 @@ impl MapObject {
             // TODO: Use the blockmap, find closest best line
             for ld in ssect.sector.lines.iter() {
                 if try_move.x() + self.radius >= ld.bbox.left
-                || try_move.x() - self.radius <= ld.bbox.right
-                || try_move.y() + self.radius >= ld.bbox.bottom
-                || try_move.y() - self.radius <= ld.bbox.top {
-
+                    || try_move.x() - self.radius <= ld.bbox.right
+                    || try_move.y() + self.radius >= ld.bbox.bottom
+                    || try_move.y() - self.radius <= ld.bbox.top
+                {
                     //if ld.point_on_side(&self.xy) == 0 {
-                        // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
-                        if let Some(m) = line_slide_direction(
-                            self.xy,
-                            new_momxy,
-                            self.radius,
-                            *ld.v1,
-                            *ld.v2,
-                                    ) {
-                            new_momxy = m;
-                            break;
-                        }
+                    // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
+                    if let Some(m) =
+                        line_slide_direction(self.xy, new_momxy, self.radius, *ld.v1, *ld.v2)
+                    {
+                        new_momxy = m;
+                        break;
+                    }
                     //}
                 }
             }
@@ -299,11 +295,7 @@ impl MapObject {
 
 /// P_RadiusAttack
 /// Source is the creature that caused the explosion at spot.
-pub(crate) fn p_radius_attack(
-    spot: &mut MapObject,
-    source: &mut MapObject,
-    damage: f32,
-) {
+pub(crate) fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32) {
     let dist = damage + MAXRADIUS;
     unimplemented!()
     // // origin of block level is bmaporgx and bmaporgy

@@ -15,15 +15,15 @@ pub(crate) enum SlopeType {
 /// Stores things/mobjs.
 #[derive(Debug)]
 pub(crate) struct Sector {
-    pub floorheight:   f32,
+    pub floorheight: f32,
     pub ceilingheight: f32,
     /// Is a tag or index to patch
-    pub floorpic:      i16,
+    pub floorpic: i16,
     /// Is a tag or index to patch
-    pub ceilingpic:    i16,
-    pub lightlevel:    i16,
-    pub special:       i16,
-    pub tag:           i16,
+    pub ceilingpic: i16,
+    pub lightlevel: i16,
+    pub special: i16,
+    pub tag: i16,
 
     /// 0 = untraversed, 1,2 = sndlines -1
     pub soundtraversed: i32,
@@ -58,9 +58,9 @@ pub(crate) struct SideDef {
 
     // Texture indices.
     // We do not maintain names here.
-    pub toptexture:    i16,
+    pub toptexture: i16,
     pub bottomtexture: i16,
-    pub midtexture:    i16,
+    pub midtexture: i16,
 
     // Sector the SideDef is facing.
     pub sector: DPtr<Sector>,
@@ -68,10 +68,10 @@ pub(crate) struct SideDef {
 
 #[derive(Debug, Default)]
 pub(crate) struct BBox {
-    pub top:    f32,
+    pub top: f32,
     pub bottom: f32,
-    pub left:   f32,
-    pub right:  f32,
+    pub left: f32,
+    pub right: f32,
 }
 
 impl BBox {
@@ -108,9 +108,9 @@ pub(crate) struct LineDef {
     pub delta: Vec2,
 
     // Animation related.
-    pub flags:   i16,
+    pub flags: i16,
     pub special: i16,
-    pub tag:     i16,
+    pub tag: i16,
 
     // Visual appearance: SideDefs.
     //  sidenum[1] will be -1 if one sided
@@ -125,12 +125,12 @@ pub(crate) struct LineDef {
     pub slopetype: SlopeType,
 
     pub front_sidedef: DPtr<SideDef>,
-    pub back_sidedef:  Option<DPtr<SideDef>>,
+    pub back_sidedef: Option<DPtr<SideDef>>,
 
     // Front and back sector.
     // Note: redundant? Can be retrieved from SideDefs.
     pub frontsector: DPtr<Sector>,
-    pub backsector:  Option<DPtr<Sector>>,
+    pub backsector: Option<DPtr<Sector>>,
 
     // if == validcount, already checked
     pub validcount: i32,
@@ -170,7 +170,7 @@ pub(crate) struct Segment {
     pub linedef: DPtr<LineDef>,
 
     pub frontsector: DPtr<Sector>,
-    pub backsector:  Option<DPtr<Sector>>,
+    pub backsector: Option<DPtr<Sector>>,
 }
 
 impl Segment {
@@ -190,7 +190,7 @@ impl Segment {
 
 #[derive(Debug)]
 pub(crate) struct SubSector {
-    pub sector:    DPtr<Sector>,
+    pub sector: DPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
     pub seg_count: i16,
     /// The `Segment` to start with
@@ -200,9 +200,9 @@ pub(crate) struct SubSector {
 #[derive(Debug)]
 pub struct Node {
     /// Where the line used for splitting the level starts
-    pub xy:             Vec2,
+    pub xy: Vec2,
     /// Where the line used for splitting the level ends
-    pub delta:          Vec2,
+    pub delta: Vec2,
     /// Coordinates of the bounding boxes:
     /// - [0][0] == right box, top-left
     /// - [0][1] == right box, bottom-right
@@ -212,5 +212,5 @@ pub struct Node {
     /// The node children. Doom uses a clever trick where if one node is selected
     /// then the other can also be checked with the same/minimal code by inverting
     /// the last bit
-    pub child_index:    [u16; 2],
+    pub child_index: [u16; 2],
 }

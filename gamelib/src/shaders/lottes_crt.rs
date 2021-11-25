@@ -7,15 +7,15 @@ use golem::*;
 use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 
 pub(crate) struct LottesCRT<'c> {
-    ctx:        &'c Context,
-    _quad:      [f32; 16],
-    indices:    [u32; 6],
+    ctx: &'c Context,
+    _quad: [f32; 16],
+    indices: [u32; 6],
     crt_shader: ShaderProgram,
     projection: Mat4,
-    look_at:    Mat4,
-    texture:    Texture,
-    vb:         VertexBuffer,
-    eb:         ElementBuffer,
+    look_at: Mat4,
+    texture: Texture,
+    vb: VertexBuffer,
+    eb: ElementBuffer,
 }
 
 impl<'c> LottesCRT<'c> {
@@ -272,12 +272,8 @@ impl<'c> Renderer for LottesCRT<'c> {
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture.set_image(
-            Some(input),
-            input_size.0,
-            input_size.1,
-            ColorFormat::RGBA,
-        );
+        self.texture
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
     }
 
     fn draw(&mut self) -> Result<(), GolemError> {
@@ -302,19 +298,13 @@ impl<'c> Renderer for LottesCRT<'c> {
         // CRT settings
         self.crt_shader.set_uniform(
             "color_texture_sz",
-            UniformValue::Vector2([
-                self.texture.width() as f32,
-                self.texture.height() as f32,
-            ]),
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
 
         // size of color texture rounded up to power of 2
         self.crt_shader.set_uniform(
             "color_texture_pow2_sz",
-            UniformValue::Vector2([
-                self.texture.width() as f32,
-                self.texture.height() as f32,
-            ]),
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
         // MASK
         // Scanline visibility

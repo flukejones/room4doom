@@ -51,9 +51,9 @@ pub(crate) enum PlayerState {
 #[derive(Debug)]
 enum Cheat {
     /// No clipping, walk through barriers.
-    Noclip     = 1,
+    Noclip = 1,
     /// No damage, no health loss.
-    Godmode    = 2,
+    Godmode = 2,
     /// Not really a cheat, just a debug aid.
     NoMomentum = 4,
 }
@@ -63,36 +63,36 @@ enum Cheat {
 #[derive(Debug, Default)]
 pub(crate) struct WBPlayerStruct {
     /// whether the player is in game
-    pub inn:     bool,
+    pub inn: bool,
     // Player stats, kills, collected items etc.
-    pub skills:  i32,
-    pub sitems:  i32,
+    pub skills: i32,
+    pub sitems: i32,
     pub ssecret: i32,
-    pub stime:   i32,
-    pub frags:   [i32; 4],
+    pub stime: i32,
+    pub frags: [i32; 4],
     /// current score on entry, modified on return
-    pub score:   i32,
+    pub score: i32,
 }
 
 /// parms for world level / intermission
 #[derive(Debug, Default)]
 pub(crate) struct WBStartStruct {
     /// episode # (0-2)
-    pub epsd:      i32,
+    pub epsd: i32,
     /// if true, splash the secret level
     pub didsecret: bool,
     /// previous and next levels, origin 0
-    pub last:      i32,
-    pub next:      i32,
-    pub maxkills:  i32,
-    pub maxitems:  i32,
+    pub last: i32,
+    pub next: i32,
+    pub maxkills: i32,
+    pub maxitems: i32,
     pub maxsecret: i32,
-    pub maxfrags:  i32,
+    pub maxfrags: i32,
     /// the par time
-    pub partime:   i32,
+    pub partime: i32,
     /// index of this player in game
-    pub pnum:      i32,
-    pub plyr:      [WBPlayerStruct; MAXPLAYERS as usize],
+    pub pnum: i32,
+    pub plyr: [WBPlayerStruct; MAXPLAYERS as usize],
 }
 
 const NUM_POWERS: usize = PowerType::NUMPOWERS as usize;
@@ -104,48 +104,48 @@ const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 /// player_t
 #[derive(Debug)]
 pub(crate) struct Player {
-    pub mobj:         Option<Thinker<MapObject>>,
+    pub mobj: Option<Thinker<MapObject>>,
     pub player_state: PlayerState,
-    pub cmd:          TicCmd,
+    pub cmd: TicCmd,
 
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
     /// Focal origin above r.z
-    pub viewz:           f32,
+    pub viewz: f32,
     /// Base height above floor for viewz.
-    pub viewheight:      f32,
+    pub viewheight: f32,
     /// Bob/squat speed.
     pub deltaviewheight: f32,
     /// bounded/scaled total momentum.
-    pub bob:             f32,
-    pub onground:        bool,
+    pub bob: f32,
+    pub onground: bool,
 
     /// This is only used between levels,
     /// mo->health is used during levels.
-    pub health:      i32,
+    pub health: i32,
     pub armorpoints: i32,
     /// Armor type is 0-2.
-    pub armortype:   i32,
+    pub armortype: i32,
 
     /// Power ups. invinc and invis are tic counters.
-    pub powers:   [i32; NUM_POWERS],
-    pub cards:    [bool; NUM_CARDS],
+    pub powers: [i32; NUM_POWERS],
+    pub cards: [bool; NUM_CARDS],
     pub backpack: bool,
 
     /// Frags, kills of other players.
-    pub frags:   [i32; MAXPLAYERS as usize],
+    pub frags: [i32; MAXPLAYERS as usize],
     readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
 
     weaponowned: [bool; NUM_WEAPONS],
-    ammo:        [u32; NUM_AMMO],
-    maxammo:     [u32; NUM_AMMO],
+    ammo: [u32; NUM_AMMO],
+    maxammo: [u32; NUM_AMMO],
 
     /// True if button down last tic.
     pub attackdown: bool,
-    pub usedown:    bool,
+    pub usedown: bool,
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
@@ -155,8 +155,8 @@ pub(crate) struct Player {
     pub refire: i32,
 
     /// For intermission stats.
-    pub killcount:   i32,
-    pub itemcount:   i32,
+    pub killcount: i32,
+    pub itemcount: i32,
     pub secretcount: i32,
 
     /// Hint messages.
@@ -164,7 +164,7 @@ pub(crate) struct Player {
 
     /// For screen flashing (red or bright).
     pub damagecount: i32,
-    pub bonuscount:  i32,
+    pub bonuscount: i32,
 
     // Who did damage (NULL for floors/ceilings).
     //mobj_t*		attacker;
@@ -190,12 +190,13 @@ pub(crate) struct Player {
 }
 
 impl Default for Player {
-    fn default() -> Self { Player::new(None) }
+    fn default() -> Self {
+        Player::new(None)
+    }
 }
 
 impl Player {
-    pub const fn new(
-        mobj: Option<Thinker<MapObject>>, // TODO: should be a pointer
+    pub const fn new(mobj: Option<Thinker<MapObject>>, // TODO: should be a pointer
     ) -> Player {
         Player {
             viewz: 0.0,
@@ -244,15 +245,15 @@ impl Player {
             psprites: [
                 PspDef {
                     state: None,
-                    tics:  1,
-                    sx:    0.0,
-                    sy:    0.0,
+                    tics: 1,
+                    sx: 0.0,
+                    sy: 0.0,
                 },
                 PspDef {
                     state: None,
-                    tics:  1,
-                    sx:    0.0,
-                    sy:    0.0,
+                    tics: 1,
+                    sx: 0.0,
+                    sy: 0.0,
                 },
             ],
         }
@@ -333,9 +334,8 @@ impl Player {
             // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
             let mut bob = 0.0;
             if self.head_bob {
-                let angle = ((3350528u32.overflowing_mul(level_time).0)
-                    & 67100672) as f32
-                    * 8.38190317e-8;
+                let angle =
+                    ((3350528u32.overflowing_mul(level_time).0) & 67100672) as f32 * 8.38190317e-8;
                 bob = self.bob / 2.0 * angle.cos(); // not sine!
             }
 
@@ -396,8 +396,7 @@ impl Player {
 
         if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
             if let Some(ref thinker) = self.mobj {
-                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
-                {
+                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
                     //P_SetMobjState (player->mo, S_PLAY_RUN1);
                 }
             }

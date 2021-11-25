@@ -4,20 +4,20 @@ use std::fmt;
 
 pub(crate) struct State {
     /// Sprite to use
-    pub sprite:     SpriteNum,
+    pub sprite: SpriteNum,
     /// The frame within this sprite to show for the state
-    pub frame:      i32,
+    pub frame: i32,
     /// How many tics this state takes. On nightmare it is shifted >> 1
-    pub tics:       i32,
+    pub tics: i32,
     // void (*action) (): i32,
     /// An action callback to run on this state
-    pub action:     ActionFunc,
+    pub action: ActionFunc,
     /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
     /// Don't know, Doom seems to set all to zero
-    pub misc1:      i32,
+    pub misc1: i32,
     /// Don't know, Doom seems to set all to zero
-    pub misc2:      i32,
+    pub misc2: i32,
 }
 
 impl State {

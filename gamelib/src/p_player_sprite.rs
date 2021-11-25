@@ -6,9 +6,9 @@ use crate::{info::states::State, player::Player};
 pub(crate) struct PspDef {
     /// a NULL state means not active
     pub state: Option<State>,
-    pub tics:  i32,
-    pub sx:    f32,
-    pub sy:    f32,
+    pub tics: i32,
+    pub sx: f32,
+    pub sy: f32,
 }
 
 /// The player can re-fire the weapon
@@ -98,7 +98,9 @@ pub(crate) fn a_closeshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
     unimplemented!()
 }
 
-pub(crate) fn a_saw(actor: &mut Player, _pspr: &mut PspDef) { unimplemented!() }
+pub(crate) fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
+    unimplemented!()
+}
 
 pub(crate) fn a_light0(actor: &mut Player, _pspr: &mut PspDef) {
     actor.extralight = 0;

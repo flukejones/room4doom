@@ -3,12 +3,12 @@ use crate::{Lumps, WadData};
 use std::marker::PhantomData;
 
 pub struct LumpIter<T, F: Fn(usize) -> T> {
-    item_size:   usize,
-    item_count:  usize,
+    item_size: usize,
+    item_count: usize,
     lump_offset: usize,
-    current:     usize,
+    current: usize,
     transformer: F,
-    _phantom:    PhantomData<T>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T, F> Iterator for LumpIter<T, F>
@@ -220,10 +220,7 @@ impl WadData {
         }
     }
 
-    pub fn node_iter(
-        &self,
-        map_name: &str,
-    ) -> LumpIter<WadNode, impl Fn(usize) -> WadNode + '_> {
+    pub fn node_iter(&self, map_name: &str) -> LumpIter<WadNode, impl Fn(usize) -> WadNode + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, Lumps::Nodes);
         let item_size = 28;
         let file = &self.file_data[info.file_handle];

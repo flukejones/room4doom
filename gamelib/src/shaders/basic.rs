@@ -7,15 +7,15 @@ use golem::*;
 use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 
 pub(crate) struct Basic<'c> {
-    ctx:        &'c Context,
-    _quad:      [f32; 16],
-    indices:    [u32; 6],
-    shader:     ShaderProgram,
+    ctx: &'c Context,
+    _quad: [f32; 16],
+    indices: [u32; 6],
+    shader: ShaderProgram,
     projection: Mat4,
-    look_at:    Mat4,
-    texture:    Texture,
-    vb:         VertexBuffer,
-    eb:         ElementBuffer,
+    look_at: Mat4,
+    texture: Texture,
+    vb: VertexBuffer,
+    eb: ElementBuffer,
 }
 
 impl<'c> Basic<'c> {
@@ -87,12 +87,8 @@ impl<'c> Renderer for Basic<'c> {
         self.texture.set_magnification(TextureFilter::Linear)
     }
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture.set_image(
-            Some(input),
-            input_size.0,
-            input_size.1,
-            ColorFormat::RGBA,
-        );
+        self.texture
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
     }
 
     fn draw(&mut self) -> Result<(), GolemError> {

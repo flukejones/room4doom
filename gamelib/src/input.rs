@@ -9,11 +9,11 @@ use crate::{doom_def::WeaponType, tic_cmd::*};
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct InputEvents {
-    key_state:   HashSet<Sc>,
+    key_state: HashSet<Sc>,
     mouse_state: HashSet<Mb>,
     mouse_delta: (i32, i32),
     mouse_scale: (i32, i32),
-    turn_held:   u32,
+    turn_held: u32,
 }
 impl InputEvents {
     fn new(mouse_scale: (i32, i32)) -> Self {
@@ -28,23 +28,37 @@ impl InputEvents {
         self.mouse_delta = (0, 0)
     }
 
-    pub fn is_kb_pressed(&self, s: Sc) -> bool { self.key_state.contains(&s) }
+    pub fn is_kb_pressed(&self, s: Sc) -> bool {
+        self.key_state.contains(&s)
+    }
 
-    pub fn is_mb_pressed(&self, m: Mb) -> bool { self.mouse_state.contains(&m) }
+    pub fn is_mb_pressed(&self, m: Mb) -> bool {
+        self.mouse_state.contains(&m)
+    }
 
-    fn set_kb(&mut self, b: Sc) { self.key_state.insert(b); }
+    fn set_kb(&mut self, b: Sc) {
+        self.key_state.insert(b);
+    }
 
-    fn unset_kb(&mut self, b: Sc) { self.key_state.remove(&b); }
+    fn unset_kb(&mut self, b: Sc) {
+        self.key_state.remove(&b);
+    }
 
-    fn set_mb(&mut self, b: Mb) { self.mouse_state.insert(b); }
+    fn set_mb(&mut self, b: Mb) {
+        self.mouse_state.insert(b);
+    }
 
-    fn unset_mb(&mut self, b: Mb) { self.mouse_state.remove(&b); }
+    fn unset_mb(&mut self, b: Mb) {
+        self.mouse_state.remove(&b);
+    }
 
     pub fn set_mouse_scale(&mut self, scale: (i32, i32)) {
         self.mouse_scale = scale;
     }
 
-    fn reset_mouse_delta(&mut self) { self.mouse_delta = (0, 0); }
+    fn reset_mouse_delta(&mut self) {
+        self.mouse_delta = (0, 0);
+    }
 
     fn set_mouse_pos(&mut self, state: (i32, i32)) {
         self.mouse_delta = (state.0 * self.mouse_scale.0, state.1 * self.mouse_scale.1);
@@ -55,8 +69,7 @@ impl InputEvents {
 
         // cmd->consistancy = consistancy[consoleplayer][maketic % BACKUPTICS];
 
-        let strafe = self.is_kb_pressed(cfg.key_strafe)
-            || self.is_mb_pressed(cfg.mousebstrafe);
+        let strafe = self.is_kb_pressed(cfg.key_strafe) || self.is_mb_pressed(cfg.mousebstrafe);
         let speed = if self.is_kb_pressed(cfg.key_speed) {
             1
         } else {
@@ -179,10 +192,10 @@ impl InputEvents {
 
 /// Fetch all input
 pub struct Input {
-    pump:                  EventPump,
+    pump: EventPump,
     pub(crate) tic_events: InputEvents,
-    pub(crate) config:     InputConfig,
-    quit:                  bool,
+    pub(crate) config: InputConfig,
+    quit: bool,
 }
 
 impl Input {
@@ -226,7 +239,13 @@ impl Input {
                     self.tic_events.unset_mb(mouse_btn);
                 }
 
-                Event::MouseMotion { x: _, y: _, xrel, yrel, .. } => {
+                Event::MouseMotion {
+                    x: _,
+                    y: _,
+                    xrel,
+                    yrel,
+                    ..
+                } => {
                     self.tic_events.set_mouse_pos((xrel, yrel));
                 }
 
@@ -235,24 +254,26 @@ impl Input {
             }
         }
     }
-    pub(crate) fn get_quit(&self) -> bool { self.quit }
+    pub(crate) fn get_quit(&self) -> bool {
+        self.quit
+    }
 }
 
 pub(crate) struct InputConfig {
     key_right: Sc,
-    key_left:  Sc,
+    key_left: Sc,
 
-    key_up:          Sc,
-    key_down:        Sc,
-    key_strafeleft:  Sc,
+    key_up: Sc,
+    key_down: Sc,
+    key_strafeleft: Sc,
     key_straferight: Sc,
-    key_fire:        Sc,
-    key_use:         Sc,
-    key_strafe:      Sc,
-    key_speed:       Sc,
+    key_fire: Sc,
+    key_use: Sc,
+    key_strafe: Sc,
+    key_speed: Sc,
 
-    mousebfire:    Mb,
-    mousebstrafe:  Mb,
+    mousebfire: Mb,
+    mousebstrafe: Mb,
     mousebforward: Mb,
 }
 
@@ -260,48 +281,74 @@ impl Default for InputConfig {
     fn default() -> Self {
         InputConfig {
             key_right: Sc::Right,
-            key_left:  Sc::Left,
+            key_left: Sc::Left,
 
-            key_up:          Sc::W,
-            key_down:        Sc::S,
-            key_strafeleft:  Sc::A,
+            key_up: Sc::W,
+            key_down: Sc::S,
+            key_strafeleft: Sc::A,
             key_straferight: Sc::D,
-            key_fire:        Sc::RCtrl,
-            key_use:         Sc::Space,
-            key_strafe:      Sc::RAlt,
-            key_speed:       Sc::LShift,
+            key_fire: Sc::RCtrl,
+            key_use: Sc::Space,
+            key_strafe: Sc::RAlt,
+            key_speed: Sc::LShift,
 
-            mousebfire:    Mb::Left,
-            mousebstrafe:  Mb::Middle,
+            mousebfire: Mb::Left,
+            mousebstrafe: Mb::Middle,
             mousebforward: Mb::Right,
         }
     }
 }
 
 impl InputConfig {
-    pub fn key_right(&self) -> Sc { self.key_right }
+    pub fn key_right(&self) -> Sc {
+        self.key_right
+    }
 
-    pub fn key_left(&self) -> Sc { self.key_left }
+    pub fn key_left(&self) -> Sc {
+        self.key_left
+    }
 
-    pub fn key_up(&self) -> Sc { self.key_up }
+    pub fn key_up(&self) -> Sc {
+        self.key_up
+    }
 
-    pub fn key_down(&self) -> Sc { self.key_down }
+    pub fn key_down(&self) -> Sc {
+        self.key_down
+    }
 
-    pub fn key_strafeleft(&self) -> Sc { self.key_strafeleft }
+    pub fn key_strafeleft(&self) -> Sc {
+        self.key_strafeleft
+    }
 
-    pub fn key_straferight(&self) -> Sc { self.key_straferight }
+    pub fn key_straferight(&self) -> Sc {
+        self.key_straferight
+    }
 
-    pub fn key_fire(&self) -> Sc { self.key_fire }
+    pub fn key_fire(&self) -> Sc {
+        self.key_fire
+    }
 
-    pub fn key_use(&self) -> Sc { self.key_use }
+    pub fn key_use(&self) -> Sc {
+        self.key_use
+    }
 
-    pub fn key_strafe(&self) -> Sc { self.key_strafe }
+    pub fn key_strafe(&self) -> Sc {
+        self.key_strafe
+    }
 
-    pub fn key_speed(&self) -> Sc { self.key_speed }
+    pub fn key_speed(&self) -> Sc {
+        self.key_speed
+    }
 
-    pub fn mousebfire(&self) -> Mb { self.mousebfire }
+    pub fn mousebfire(&self) -> Mb {
+        self.mousebfire
+    }
 
-    pub fn mousebstrafe(&self) -> Mb { self.mousebstrafe }
+    pub fn mousebstrafe(&self) -> Mb {
+        self.mousebstrafe
+    }
 
-    pub fn mousebforward(&self) -> Mb { self.mousebforward }
+    pub fn mousebforward(&self) -> Mb {
+        self.mousebforward
+    }
 }

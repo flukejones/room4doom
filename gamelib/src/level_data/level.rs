@@ -24,35 +24,35 @@ use crate::{
 ///
 /// In some ways this is the "P" module
 pub(crate) struct Level {
-    pub map_data:          MapData,
-    pub bsp_renderer:      BspRenderer,
-    pub r_data:            RenderData,
-    pub visplanes:         VisPlaneCtrl,
-    pub mobj_ctrl:         SubSectorMinMax,
-    pub thinkers:          Vec<Option<Thinker<MapObject>>>,
-    max_thinker_capacity:  usize,
-    pub game_skill:        Skill,
-    pub respawn_monsters:  bool,
-    pub level_time:        u32,
+    pub map_data: MapData,
+    pub bsp_renderer: BspRenderer,
+    pub r_data: RenderData,
+    pub visplanes: VisPlaneCtrl,
+    pub mobj_ctrl: SubSectorMinMax,
+    pub thinkers: Vec<Option<Thinker<MapObject>>>,
+    max_thinker_capacity: usize,
+    pub game_skill: Skill,
+    pub respawn_monsters: bool,
+    pub level_time: u32,
     /// Required for the mobj controller (Boss check)
-    pub episode:           u32,
+    pub episode: u32,
     /// Required for the mobj controller (Boss check)
-    pub game_map:          u32,
+    pub game_map: u32,
     /// This needs to be synced with `Game`
-    pub game_tic:          u32,
+    pub game_tic: u32,
     /// The `Things` for player start locations
-    pub player_starts:     [Option<WadThing>; MAXPLAYERS],
+    pub player_starts: [Option<WadThing>; MAXPLAYERS],
     /// The `Things` for deathmatch start locations
     pub deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
-    pub deathmatch_p:      Vec<WadThing>,
+    pub deathmatch_p: Vec<WadThing>,
     /// Was the level set for deathmatch game
-    pub deathmatch:        bool,
+    pub deathmatch: bool,
     /// for intermission
-    pub totalkills:        i32,
+    pub totalkills: i32,
     /// for intermission
-    pub totalitems:        i32,
+    pub totalitems: i32,
     /// for intermission
-    pub totalsecret:       i32,
+    pub totalsecret: i32,
 }
 impl Level {
     /// P_SetupLevel
@@ -109,12 +109,7 @@ impl Level {
         let thing_list = (*level.map_data.get_things()).to_owned();
 
         for thing in &thing_list {
-            MapObject::p_spawn_map_thing(
-                thing,
-                &mut level,
-                players,
-                active_players,
-            );
+            MapObject::p_spawn_map_thing(thing, &mut level, players, active_players);
         }
         dbg!(&level.thinkers.len());
 

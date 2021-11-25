@@ -42,7 +42,7 @@ const MAX_SEGS: usize = 32;
 #[derive(Default)]
 pub(crate) struct BspRenderer {
     /// index in to self.solidsegs
-    new_end:   usize,
+    new_end: usize,
     solidsegs: Vec<ClipRange>,
 }
 
@@ -65,10 +65,8 @@ impl BspRenderer {
 
         let clipangle = Angle::new(FRAC_PI_4);
         // Reset to correct angles
-        let mut angle1 =
-            vertex_angle_to_object(&seg.v1, &player.mobj.as_ref().unwrap().obj);
-        let mut angle2 =
-            vertex_angle_to_object(&seg.v2, &player.mobj.as_ref().unwrap().obj);
+        let mut angle1 = vertex_angle_to_object(&seg.v1, &player.mobj.as_ref().unwrap().obj);
+        let mut angle2 = vertex_angle_to_object(&seg.v2, &player.mobj.as_ref().unwrap().obj);
 
         let span = angle1 - angle2;
 
@@ -170,12 +168,12 @@ impl BspRenderer {
         self.solidsegs.clear();
         self.solidsegs.push(ClipRange {
             first: -0x7fffffff,
-            last:  -1,
+            last: -1,
         });
         for _ in 0..MAX_SEGS {
             self.solidsegs.push(ClipRange {
                 first: 320,
-                last:  0x7fffffff,
+                last: 0x7fffffff,
             });
         }
         self.new_end = 2;
@@ -207,8 +205,7 @@ impl BspRenderer {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
-                r_segs
-                    .store_wall_range(first, last, seg, object, r_data, canvas);
+                r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
                 next = self.new_end;
                 self.new_end += 1;
@@ -235,9 +232,7 @@ impl BspRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - 1
-            && next + 1 < self.solidsegs.len()
-        {
+        while last >= self.solidsegs[next + 1].first - 1 && next + 1 < self.solidsegs.len() {
             r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
             next += 1;
@@ -282,8 +277,7 @@ impl BspRenderer {
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
-                r_segs
-                    .store_wall_range(first, last, seg, object, r_data, canvas);
+                r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
                 return;
             }
 
@@ -297,9 +291,7 @@ impl BspRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next].first
-            && next < self.solidsegs.len()
-        {
+        while last >= self.solidsegs[next].first && next < self.solidsegs.len() {
             r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
 
             next += 1;
@@ -318,8 +310,7 @@ impl BspRenderer {
             return;
         }
 
-        while next != self.new_end && start < self.solidsegs.len()
-        {
+        while next != self.new_end && start < self.solidsegs.len() {
             next += 1;
             start += 1;
             self.solidsegs[start] = self.solidsegs[next];
@@ -338,8 +329,7 @@ impl BspRenderer {
     ) {
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
-            let subsect =
-                &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
+            let subsect = &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
             self.draw_subsector(map, player, &subsect, r_data, canvas);
             return;
@@ -351,30 +341,13 @@ impl BspRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(
-            map,
-            player,
-            node.child_index[side],
-            r_data,
-            canvas,
-        );
+        self.render_bsp_node(map, player, node.child_index[side], r_data, canvas);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if node.bb_extents_in_fov(
-            &mobj.xy,
-            mobj.angle.rad(),
-            FRAC_PI_4,
-            side ^ 1,
-        ) {
-            self.render_bsp_node(
-                map,
-                player,
-                node.child_index[side ^ 1],
-                r_data,
-                canvas,
-            );
+        if node.bb_extents_in_fov(&mobj.xy, mobj.angle.rad(), FRAC_PI_4, side ^ 1) {
+            self.render_bsp_node(map, player, node.child_index[side ^ 1], r_data, canvas);
         }
     }
 }

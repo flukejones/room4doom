@@ -30,10 +30,10 @@ use std::str;
 // TODO: A `Thing` type will need to be mapped against an enum
 #[derive(Debug, Copy, Clone)]
 pub struct WadThing {
-    pub x:     i16,
-    pub y:     i16,
+    pub x: i16,
+    pub y: i16,
     pub angle: i16,
-    pub kind:  i16,
+    pub kind: i16,
     pub flags: i16,
 }
 
@@ -65,7 +65,9 @@ pub struct WadVertex {
 }
 
 impl WadVertex {
-    pub fn new(x: i16, y: i16) -> WadVertex { WadVertex { x, y } }
+    pub fn new(x: i16, y: i16) -> WadVertex {
+        WadVertex { x, y }
+    }
 }
 
 /// Each linedef represents a line from one of the VERTEXES to another.
@@ -92,21 +94,21 @@ impl WadVertex {
 #[derive(Debug, Clone)]
 pub struct WadLineDef {
     /// The line starts from this point
-    pub start_vertex:  i16,
+    pub start_vertex: i16,
     /// The line ends at this point
-    pub end_vertex:    i16,
+    pub end_vertex: i16,
     /// The line attributes, see `LineDefFlags`
-    pub flags:         i16,
-    pub special:       i16,
+    pub flags: i16,
+    pub special: i16,
     /// This is a number which ties this line's effect type
     /// to all SECTORS that have the same tag number (in their last
     /// field)
-    pub sector_tag:    i16,
+    pub sector_tag: i16,
     /// Pointer to the front (right) `SideDef` for this line
     pub front_sidedef: i16,
     /// Pointer to the (left) `SideDef` for this line
     /// If the parsed value == `0xFFFF` means there is no sidedef
-    pub back_sidedef:  Option<i16>,
+    pub back_sidedef: Option<i16>,
 }
 
 impl WadLineDef {
@@ -151,21 +153,21 @@ pub struct WadSegment {
     /// The line starts from this point
     pub start_vertex: i16,
     /// The line ends at this point
-    pub end_vertex:   i16,
+    pub end_vertex: i16,
     /// Binary Angle Measurement
     ///
     /// Degrees(0-360) = angle * 0.005493164
-    pub angle:        i16,
+    pub angle: i16,
     /// The Linedef this segment travels along
-    pub linedef:      i16,
+    pub linedef: i16,
     /// The `side`, 0 = front/right, 1 = back/left
-    pub direction:    i16,
+    pub direction: i16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
     ///
     /// For diagonal `Segment` offset can be found with:
     /// `DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)`
-    pub offset:       i16,
+    pub offset: i16,
 }
 
 impl WadSegment {
@@ -238,21 +240,21 @@ impl WadSubSector {
 #[derive(Debug, Clone)]
 pub struct WadSector {
     pub floor_height: i16,
-    pub ceil_height:  i16,
+    pub ceil_height: i16,
     /// Floor texture name
-    pub floor_tex:    String,
+    pub floor_tex: String,
     /// Ceiling texture name
-    pub ceil_tex:     String,
+    pub ceil_tex: String,
     /// Light level from 0-255. There are actually only 32 brightnesses
     /// possible so blocks of 8 are the same bright
-    pub light_level:  i16,
+    pub light_level: i16,
     /// This determines some area-effects called special sectors
-    pub kind:         i16,
+    pub kind: i16,
     /// a "tag" number corresponding to LINEDEF(s) with the same tag
     /// number. When that linedef is activated, something will usually
     /// happen to this sector - its floor will rise, the lights will
     /// go out, etc
-    pub tag:          i16,
+    pub tag: i16,
 }
 
 impl WadSector {
@@ -282,9 +284,7 @@ impl WadSector {
             floor_height,
             ceil_height,
             floor_tex: str::from_utf8(floor_tex)
-                .unwrap_or_else(|_| {
-                    panic!("Invalid floor tex name: {:?}", floor_tex)
-                })
+                .unwrap_or_else(|_| panic!("Invalid floor tex name: {:?}", floor_tex))
                 .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
                 .to_owned(),
             ceil_tex: str::from_utf8(ceil_tex)
@@ -304,16 +304,16 @@ impl WadSector {
 /// Each `SideDef` record is 30 bytes
 #[derive(Debug, Clone)]
 pub struct WadSideDef {
-    pub x_offset:   i16,
-    pub y_offset:   i16,
+    pub x_offset: i16,
+    pub y_offset: i16,
     /// Name of upper texture used for example in the upper of a window
-    pub upper_tex:  String,
+    pub upper_tex: String,
     /// Name of lower texture used for example in the front of a step
-    pub lower_tex:  String,
+    pub lower_tex: String,
     /// The regular part of a wall
     pub middle_tex: String,
     /// Sector that this sidedef faces or helps to surround
-    pub sector:     i16,
+    pub sector: i16,
 }
 
 impl WadSideDef {
@@ -392,17 +392,17 @@ impl WadSideDef {
 #[derive(Debug, Clone)]
 pub struct WadNode {
     /// Where the line used for splitting the level starts
-    pub x:              i16,
-    pub y:              i16,
+    pub x: i16,
+    pub y: i16,
     /// Where the line used for splitting the level ends
-    pub dx:             i16,
-    pub dy:             i16,
+    pub dx: i16,
+    pub dy: i16,
     /// Coordinates of the bounding boxes:
     pub bounding_boxes: [[i16; 4]; 2],
     /// The node children. Doom uses a clever trick where if one node is selected
     /// then the other can also be checked with the same/minimal code by inverting
     /// the last bit
-    pub child_index:    [u16; 2],
+    pub child_index: [u16; 2],
 }
 
 impl WadNode {
