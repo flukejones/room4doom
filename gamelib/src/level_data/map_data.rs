@@ -372,8 +372,14 @@ impl MapData {
         return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
     }
 
+    /// Trace a line through the BSP from origin vector to endpoint vector.
+    ///
+    /// Any node in the tree that has a splitting line separating the two points
+    /// is added to the `nodes` list. The recursion always traverses down the
+    /// the side closest to `origin` resulting in an ordered node list where
+    /// the first node is the subsector the origin is in.
     pub fn trace_to_point<'a>(
-        & self,
+        &self,
         origin: &Vec2,
         endpoint: &Vec2,
         map: &MapData,
@@ -392,6 +398,8 @@ impl MapData {
         let side2 = node.point_on_side(endpoint);
         if side1 != side2 {
             // On opposite sides of the splitting line, recurse down both sides
+            // Traverse the side the origin is on first, then backside last. This
+            // gives an ordered list of nodes from closest to furtherest.
             self.trace_to_point(origin, endpoint, map, node.child_index[side1], nodes);
             self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
         } else {
@@ -403,7 +411,7 @@ impl MapData {
 #[cfg(test)]
 mod tests {
     use crate::angle::Angle;
-    use crate::level_data::map_data::{MapData};
+    use crate::level_data::map_data::MapData;
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;
@@ -459,15 +467,15 @@ mod tests {
                 assert_eq!(segs[start].v2.x(), 704.0);
                 assert_eq!(segs[start].v2.y(), -3552.0);
                 // Left side of the pillar
-                assert_eq!(segs[start+1].v1.x(), 896.0);
-                assert_eq!(segs[start+1].v1.y(), -3360.0);
-                assert_eq!(segs[start+1].v2.x(), 896.0);
-                assert_eq!(segs[start+1].v2.y(), -3392.0);
+                assert_eq!(segs[start + 1].v1.x(), 896.0);
+                assert_eq!(segs[start + 1].v1.y(), -3360.0);
+                assert_eq!(segs[start + 1].v2.x(), 896.0);
+                assert_eq!(segs[start + 1].v2.y(), -3392.0);
                 // Left wall
-                assert_eq!(segs[start+2].v1.x(), 704.0);
-                assert_eq!(segs[start+2].v1.y(), -3552.0);
-                assert_eq!(segs[start+2].v2.x(), 704.0);
-                assert_eq!(segs[start+2].v2.y(), -3360.0);
+                assert_eq!(segs[start + 2].v1.x(), 704.0);
+                assert_eq!(segs[start + 2].v1.y(), -3552.0);
+                assert_eq!(segs[start + 2].v2.x(), 704.0);
+                assert_eq!(segs[start + 2].v2.y(), -3360.0);
 
                 // Last sector directly above starting vector
                 let x = nodes.last().unwrap();
@@ -477,10 +485,10 @@ mod tests {
                 assert_eq!(segs[start].v1.y(), -3072.0);
                 assert_eq!(segs[start].v2.x(), 896.0);
                 assert_eq!(segs[start].v2.y(), -3104.0);
-                assert_eq!(segs[start+1].v1.x(), 704.0);
-                assert_eq!(segs[start+1].v1.y(), -3104.0);
-                assert_eq!(segs[start+1].v2.x(), 704.0);
-                assert_eq!(segs[start+1].v2.y(), -2944.0);
+                assert_eq!(segs[start + 1].v1.x(), 704.0);
+                assert_eq!(segs[start + 1].v1.y(), -3104.0);
+                assert_eq!(segs[start + 1].v2.x(), 704.0);
+                assert_eq!(segs[start + 1].v2.y(), -2944.0);
             }
         }
     }
