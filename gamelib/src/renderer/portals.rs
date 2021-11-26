@@ -3,7 +3,7 @@
 
 use crate::renderer::defs::{SCREENHEIGHT, SCREENWIDTH};
 
-pub(crate) struct PortalClip {
+pub struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
@@ -12,7 +12,7 @@ pub(crate) struct PortalClip {
 }
 
 impl PortalClip {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         PortalClip {
             floorclip: [0.0; SCREENWIDTH],
             ceilingclip: [0.0; SCREENWIDTH],

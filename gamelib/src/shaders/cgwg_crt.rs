@@ -18,7 +18,7 @@ use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 ///  *  any later version.
 ///  */
 /// ```
-pub(crate) struct CGWGCRT<'c> {
+pub struct CGWGCRT<'c> {
     ctx: &'c Context,
     _quad: [f32; 16],
     indices: [u32; 6],

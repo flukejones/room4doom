@@ -1,6 +1,6 @@
 use crate::renderer::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
 
-pub(crate) struct VisPlaneCtrl {
+pub struct VisPlaneCtrl {
     // Here comes the obnoxious "visplane".
     pub visplanes: Vec<Visplane>,
     pub lastvisplane: usize,
@@ -41,7 +41,7 @@ impl Default for VisPlaneCtrl {
 }
 
 impl VisPlaneCtrl {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         VisPlaneCtrl {
             visplanes: vec![Visplane::default(); MAXVISPLANES],
             lastvisplane: 0,

@@ -428,20 +428,41 @@ impl WadNode {
 
 /// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
 /// collision-detection between moving things and walls.
+///
+/// Each "block" is 128 square.
 #[derive(Debug, Clone)]
 pub struct WadBlockMap {
-    /// Leftmost X coord
-    x_origin: i32,
-    /// Bottommost Y coord
-    y_origin: i32,
-    columns: i32,
-    rows: i32,
+    /// Leftmost X coord, this is 16.16 fixed point, doing an `((i as i32)<<16) as f32` will convert
+    pub x_origin: i16,
+    /// Bottommost Y coord, this is 16.16 fixed point, doing an `((i as i32)<<16) as f32` will convert
+    pub y_origin: i16,
+    /// Width
+    pub width: i16,
+    /// Height
+    pub height: i16,
+    /// The line index is used by converting a local X.Y coordinate in to an offset in to this array.
+    /// The number at that location is then the index number in to the linedefs array.
+    pub line_indexes: Vec<i16>,
+    /// Blockmap Index start
+    pub blockmap_offset: usize,
 }
 
 impl WadBlockMap {
     pub fn new(
+        x_origin: i16,
+        y_origin: i16,
+        width: i16,
+        height: i16,
+        lines: Vec<i16>,
+        blockmap_idx: usize,
     ) -> WadBlockMap {
         WadBlockMap {
+            x_origin,
+            y_origin,
+            width,
+            height,
+            line_indexes: lines,
+            blockmap_offset: blockmap_idx,
         }
     }
 }

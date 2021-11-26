@@ -26,7 +26,7 @@ use std::f32::EPSILON;
 /// All of the state in this struct is unique to it as it is used once per seg
 /// to be rendered.
 #[derive(Default)]
-pub(crate) struct SegRender {
+pub struct SegRender {
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
     /// `sector_t *frontsector;` `sector_t *backsector;` shared variables between
     /// `r_bsp.c` and `r_seg.c`.

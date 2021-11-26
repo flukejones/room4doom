@@ -1,8 +1,8 @@
 use golem::GolemError;
 
-pub(crate) mod basic;
-pub(crate) mod cgwg_crt;
-pub(crate) mod lottes_crt;
+pub mod basic;
+pub mod cgwg_crt;
+pub mod lottes_crt;
 
 const GL_QUAD: [f32; 16] = [
     // position         vert_uv
@@ -14,7 +14,7 @@ const GL_QUAD: [f32; 16] = [
 
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-pub(crate) trait Renderer {
+pub trait Renderer {
     fn clear(&self);
 
     fn set_tex_filter(&self) -> Result<(), GolemError>;

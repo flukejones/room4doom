@@ -2,21 +2,21 @@ use std::ptr::NonNull;
 
 use crate::level_data::map_defs::Segment;
 
-pub(crate) const SIL_NONE: i32 = 0;
-pub(crate) const SIL_BOTTOM: i32 = 1;
-pub(crate) const SIL_TOP: i32 = 2;
-pub(crate) const SIL_BOTH: i32 = 3;
+pub const SIL_NONE: i32 = 0;
+pub const SIL_BOTTOM: i32 = 1;
+pub const SIL_TOP: i32 = 2;
+pub const SIL_BOTH: i32 = 3;
 
-pub(crate) const SCREENWIDTH: usize = 320;
-pub(crate) const SCREENHEIGHT: usize = 200;
+pub const SCREENWIDTH: usize = 320;
+pub const SCREENHEIGHT: usize = 200;
 
-pub(crate) const MAXDRAWSEGS: usize = 256;
+pub const MAXDRAWSEGS: usize = 256;
 
-pub(crate) const MAXVISPLANES: usize = 128;
+pub const MAXVISPLANES: usize = 128;
 
-pub(crate) const MAXOPENINGS: usize = SCREENWIDTH * 64;
+pub const MAXOPENINGS: usize = SCREENWIDTH * 64;
 
-pub(crate) struct DrawSeg {
+pub struct DrawSeg {
     pub curline: NonNull<Segment>,
     pub x1: i32,
     pub x2: i32,
@@ -61,14 +61,14 @@ impl DrawSeg {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct ClipRange {
+pub struct ClipRange {
     pub first: i32,
     pub last: i32,
 }
 
 /// Now what is a visplane, anyway?
 #[derive(Copy, Clone)]
-pub(crate) struct Visplane {
+pub struct Visplane {
     pub height: f32,
     pub picnum: i32,
     pub lightlevel: i32,
@@ -106,7 +106,7 @@ impl Default for Visplane {
 }
 
 impl Visplane {
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.height = 0.0;
         self.picnum = 0;
         self.lightlevel = 0;

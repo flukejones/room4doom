@@ -7,12 +7,14 @@ use crate::DPtr;
 use glam::Vec2;
 use wad::{lumps::*, WadData};
 
-pub(crate) const IS_SSECTOR_MASK: u16 = 0x8000;
+use super::map_defs::BlockMap;
+
+pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
 #[derive(Debug, Default)]
-pub(crate) struct MapExtents {
+pub struct MapExtents {
     pub min_vertex: Vec2,
     pub max_vertex: Vec2,
     pub width: f32,
@@ -31,7 +33,7 @@ pub(crate) struct MapExtents {
 /// prevent unwanted removal of items, which *will* break references and
 /// segfault
 #[derive(Debug)]
-pub(crate) struct MapData {
+pub struct MapData {
     name: String,
     /// Things will be linked to/from each other in many ways, which means this array may
     /// never be resized or it will invalidate references and pointers
@@ -44,6 +46,7 @@ pub(crate) struct MapData {
     segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
+    blockmap: BlockMap,
     start_node: u16,
 }
 
@@ -60,6 +63,7 @@ impl MapData {
             segments: Vec::new(),
             extents: MapExtents::default(),
             nodes: Vec::new(),
+            blockmap: BlockMap::default(),
             start_node: 0,
         }
     }
@@ -70,7 +74,7 @@ impl MapData {
     }
 
     #[inline]
-    pub(crate) fn set_extents(&mut self) {
+    pub fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
         // then a min vertex of -3542 won't be set since it's negative
@@ -329,13 +333,22 @@ impl MapData {
             })
             .collect();
 
+        // BLOCKMAP
+        let bm = wad.read_blockmap(&self.name);
+        self.blockmap.x_origin = bm.x_origin as f32;
+        self.blockmap.y_origin = bm.y_origin as f32;
+        self.blockmap.width = bm.width as i32;
+        self.blockmap.height = bm.height as i32;
+        self.blockmap.line_indexes = bm.line_indexes.iter().map(|n| *n as usize).collect();
+        self.blockmap.blockmap_offset = bm.blockmap_offset;
+
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
         self.set_scale();
     }
 
     /// R_PointInSubsector - r_main
-    pub(crate) fn point_in_subsector(&self, point: &Vec2) -> DPtr<SubSector> {
+    pub fn point_in_subsector(&self, point: &Vec2) -> DPtr<SubSector> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
