@@ -386,7 +386,6 @@ mod tests {
 
         let blockmap = wad.read_blockmap("E1M1");
         assert_eq!(blockmap.x_origin, -768 + -8); // -776 confirmed, needs conversion to float
-        assert_eq!(blockmap.x_origin as f32, 0.0);
         assert_eq!(blockmap.y_origin, -4864 + -8); // -4872 confirmed, needs conversion to float
         assert_eq!(blockmap.width, 36); // confirmed
         assert_eq!(blockmap.height, 23); // confirmed
