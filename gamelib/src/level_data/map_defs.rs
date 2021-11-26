@@ -214,6 +214,8 @@ pub struct Node {
     /// then the other can also be checked with the same/minimal code by inverting
     /// the last bit
     pub child_index: [u16; 2],
+    /// The parent of this node. Additional property to allow reversing up a BSP tree.
+    pub parent: u16,
 }
 
 /// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
