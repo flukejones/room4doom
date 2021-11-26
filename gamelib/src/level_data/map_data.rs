@@ -372,20 +372,6 @@ impl MapData {
         return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
     }
 
-    pub fn find_node_in(&self, point: &Vec2) -> u16 {
-        let mut node_id = self.start_node();
-        let mut node;
-        let mut side;
-
-        while node_id & IS_SSECTOR_MASK == 0 {
-            node = &self.get_nodes()[node_id as usize];
-            side = node.point_on_side(&point);
-            node_id = node.child_index[side];
-        }
-
-        return node_id ^ IS_SSECTOR_MASK;
-    }
-
     pub fn trace_to_point<'a>(
         & self,
         origin: &Vec2,
@@ -399,14 +385,15 @@ impl MapData {
             return;
         }
         let node = &map.get_nodes()[node_id as usize];
-        nodes.push(node_id);
+        //nodes.push(node_id);
 
         // find which side the point is on
         let side1 = node.point_on_side(origin);
         let side2 = node.point_on_side(endpoint);
         if side1 != side2 {
-            // On opposite sides of the splitting line
+            // On opposite sides of the splitting line, recurse down both sides
             self.trace_to_point(origin, endpoint, map, node.child_index[side1], nodes);
+            self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
         } else {
             self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
         }
@@ -426,69 +413,74 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
-        let origin = Vec2::new(710.0, -3400.0);
-        let endpoint = Vec2::new(250.0, -3200.0);
+        let origin = Vec2::new(710.0, -3400.0); // left corner from start
+        let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
+
+        // let origin = Vec2::new(1056.0, -3616.0); // player start
+        // let endpoint = Vec2::new(1088.0, -2914.0); // corpse ahead, 10?
+        //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
         let mut nodes = Vec::new();
         map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
+        dbg!(&nodes.len());
         dbg!(&nodes);
 
         let sub_sect = map.get_subsectors();
-        let segs = map.get_segments();
-        for x in nodes.iter() {
-            //let x = nodes.last().unwrap();
-            let start = sub_sect[*x as usize].start_seg as usize;
-            let end = sub_sect[*x as usize].seg_count as usize + start;
-            for seg in &segs[start..end] {
-                dbg!(x);
-                dbg!(&seg.v1);
-                dbg!(&seg.v2);
-            }
-        }
+        // let segs = map.get_segments();
+        // for x in nodes.iter() {
+        //     //let x = nodes.last().unwrap();
+        //     let start = sub_sect[*x as usize].start_seg as usize;
+        //     let end = sub_sect[*x as usize].seg_count as usize + start;
+        //     for seg in &segs[start..end] {
+        //         dbg!(x);
+        //         dbg!(sub_sect[*x as usize].seg_count);
+        //         dbg!(&seg.v1);
+        //         dbg!(&seg.v2);
+        //     }
+        // }
 
+        let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
         let segs = map.get_segments();
-        // wander around the coords of a subsector
+        // wander around the coords of the subsector corner from player start
         for x in 705..895 {
             for y in -3551..-3361 {
                 let origin = Vec2::new(x as f32, y as f32);
                 nodes.clear();
                 map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
 
-                let x = nodes.last().unwrap();
+                // Sector the starting vector is in. 3 segs attached
+                let x = nodes.first().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
+                // Bottom horizontal line
                 assert_eq!(segs[start].v1.x(), 832.0);
                 assert_eq!(segs[start].v1.y(), -3552.0);
                 assert_eq!(segs[start].v2.x(), 704.0);
                 assert_eq!(segs[start].v2.y(), -3552.0);
-
+                // Left side of the pillar
+                assert_eq!(segs[start+1].v1.x(), 896.0);
+                assert_eq!(segs[start+1].v1.y(), -3360.0);
+                assert_eq!(segs[start+1].v2.x(), 896.0);
+                assert_eq!(segs[start+1].v2.y(), -3392.0);
+                // Left wall
                 assert_eq!(segs[start+2].v1.x(), 704.0);
                 assert_eq!(segs[start+2].v1.y(), -3552.0);
                 assert_eq!(segs[start+2].v2.x(), 704.0);
                 assert_eq!(segs[start+2].v2.y(), -3360.0);
-            }
-        }
 
-        let endpoint = Vec2::new(2960.0, -2960.0);
-        for x in 705..895 {
-            for y in -3551..-3361 {
-                let origin = Vec2::new(x as f32, y as f32);
-                nodes.clear();
-                map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
-
+                // Last sector directly above starting vector
                 let x = nodes.last().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
-                assert_eq!(segs[start].v1.x(), 832.0);
-                assert_eq!(segs[start].v1.y(), -3552.0);
-                assert_eq!(segs[start].v2.x(), 704.0);
-                assert_eq!(segs[start].v2.y(), -3552.0);
-
-                assert_eq!(segs[start+2].v1.x(), 704.0);
-                assert_eq!(segs[start+2].v1.y(), -3552.0);
-                assert_eq!(segs[start+2].v2.x(), 704.0);
-                assert_eq!(segs[start+2].v2.y(), -3360.0);
+                assert_eq!(segs[start].v1.x(), 896.0);
+                assert_eq!(segs[start].v1.y(), -3072.0);
+                assert_eq!(segs[start].v2.x(), 896.0);
+                assert_eq!(segs[start].v2.y(), -3104.0);
+                assert_eq!(segs[start+1].v1.x(), 704.0);
+                assert_eq!(segs[start+1].v1.y(), -3104.0);
+                assert_eq!(segs[start+1].v2.x(), 704.0);
+                assert_eq!(segs[start+1].v2.y(), -2944.0);
             }
         }
     }
