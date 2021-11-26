@@ -330,8 +330,18 @@ impl MapData {
                     ],
                 ],
                 child_index: n.child_index,
+                parent: 0,
             })
             .collect();
+
+        for (i, wn) in wad.node_iter(&self.name).enumerate() {
+            if wn.child_index[0] & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
+                self.nodes[wn.child_index[0] as usize].parent = i as u16;
+            }
+            if wn.child_index[1] & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
+                self.nodes[wn.child_index[1] as usize].parent = i as u16;
+            }
+        }
 
         // BLOCKMAP
         let bm = wad.read_blockmap(&self.name);
@@ -360,5 +370,302 @@ impl MapData {
         }
 
         return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
+    }
+
+    pub fn find_node_in(&self, point: &Vec2) -> u16 {
+        let mut node_id = self.start_node();
+        let mut node;
+        let mut side;
+
+        while node_id & IS_SSECTOR_MASK == 0 {
+            node = &self.get_nodes()[node_id as usize];
+            side = node.point_on_side(&point);
+            node_id = node.child_index[side];
+        }
+
+        return node_id ^ IS_SSECTOR_MASK;
+    }
+
+    pub fn trace_to_point<'a>(
+        & self,
+        origin: &Vec2,
+        endpoint: &Vec2,
+        map: &MapData,
+        node_id: u16,
+        nodes: &mut Vec<u16>,
+    ) {
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            nodes.push(node_id ^ IS_SSECTOR_MASK);
+            return;
+        }
+        let node = &map.get_nodes()[node_id as usize];
+        nodes.push(node_id);
+
+        // find which side the point is on
+        let side1 = node.point_on_side(origin);
+        let side2 = node.point_on_side(endpoint);
+        if side1 != side2 {
+            // On opposite sides of the splitting line
+            self.trace_to_point(origin, endpoint, map, node.child_index[side1], nodes);
+        } else {
+            self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::angle::Angle;
+    use crate::level_data::map_data::{MapData};
+    use glam::Vec2;
+    use std::f32::consts::{FRAC_PI_2, PI};
+    use wad::WadData;
+
+    #[test]
+    fn test_tracing_bsp() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+        let origin = Vec2::new(710.0, -3400.0);
+        let endpoint = Vec2::new(250.0, -3200.0);
+        //let endpoint = Vec2::new(2912.0, -2816.0);
+
+        let mut nodes = Vec::new();
+        map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
+        dbg!(&nodes);
+
+        let sub_sect = map.get_subsectors();
+        let segs = map.get_segments();
+        for x in nodes.iter() {
+            //let x = nodes.last().unwrap();
+            let start = sub_sect[*x as usize].start_seg as usize;
+            let end = sub_sect[*x as usize].seg_count as usize + start;
+            for seg in &segs[start..end] {
+                dbg!(x);
+                dbg!(&seg.v1);
+                dbg!(&seg.v2);
+            }
+        }
+
+        let segs = map.get_segments();
+        // wander around the coords of a subsector
+        for x in 705..895 {
+            for y in -3551..-3361 {
+                let origin = Vec2::new(x as f32, y as f32);
+                nodes.clear();
+                map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
+
+                let x = nodes.last().unwrap();
+                let start = sub_sect[*x as usize].start_seg as usize;
+
+                assert_eq!(segs[start].v1.x(), 832.0);
+                assert_eq!(segs[start].v1.y(), -3552.0);
+                assert_eq!(segs[start].v2.x(), 704.0);
+                assert_eq!(segs[start].v2.y(), -3552.0);
+
+                assert_eq!(segs[start+2].v1.x(), 704.0);
+                assert_eq!(segs[start+2].v1.y(), -3552.0);
+                assert_eq!(segs[start+2].v2.x(), 704.0);
+                assert_eq!(segs[start+2].v2.y(), -3360.0);
+            }
+        }
+
+        let endpoint = Vec2::new(2960.0, -2960.0);
+        for x in 705..895 {
+            for y in -3551..-3361 {
+                let origin = Vec2::new(x as f32, y as f32);
+                nodes.clear();
+                map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
+
+                let x = nodes.last().unwrap();
+                let start = sub_sect[*x as usize].start_seg as usize;
+
+                assert_eq!(segs[start].v1.x(), 832.0);
+                assert_eq!(segs[start].v1.y(), -3552.0);
+                assert_eq!(segs[start].v2.x(), 704.0);
+                assert_eq!(segs[start].v2.y(), -3552.0);
+
+                assert_eq!(segs[start+2].v1.x(), 704.0);
+                assert_eq!(segs[start+2].v1.y(), -3552.0);
+                assert_eq!(segs[start+2].v2.x(), 704.0);
+                assert_eq!(segs[start+2].v2.y(), -3360.0);
+            }
+        }
+    }
+
+    #[test]
+    fn check_e1m1_things() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let things = map.get_things();
+        assert_eq!(things[0].x as i32, 1056);
+        assert_eq!(things[0].y as i32, -3616);
+        assert_eq!(things[0].angle, 90);
+        assert_eq!(things[0].kind, 1);
+        assert_eq!(things[0].flags, 7);
+        assert_eq!(things[137].x as i32, 3648);
+        assert_eq!(things[137].y as i32, -3840);
+        assert_eq!(things[137].angle, 0);
+        assert_eq!(things[137].kind, 2015);
+        assert_eq!(things[137].flags, 7);
+
+        assert_eq!(things[0].angle, 90);
+        assert_eq!(things[9].angle, 135);
+        assert_eq!(things[14].angle, 0);
+        assert_eq!(things[16].angle, 90);
+        assert_eq!(things[17].angle, 180);
+        assert_eq!(things[83].angle, 270);
+    }
+
+    #[test]
+    fn check_e1m1_vertexes() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let vertexes = map.get_vertexes();
+        assert_eq!(vertexes[0].x() as i32, 1088);
+        assert_eq!(vertexes[0].y() as i32, -3680);
+        assert_eq!(vertexes[466].x() as i32, 2912);
+        assert_eq!(vertexes[466].y() as i32, -4848);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn check_e1m1_lump_pointers() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let linedefs = map.get_linedefs();
+
+        // Check links
+        // LINEDEF->VERTEX
+        assert_eq!(linedefs[2].v1.x() as i32, 1088);
+        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+        // // LINEDEF->SIDEDEF
+        // assert_eq!(linedefs[2].front_sidedef.midtexture, "LITE3");
+        // // LINEDEF->SIDEDEF->SECTOR
+        // assert_eq!(linedefs[2].front_sidedef.sector.floorpic, "FLOOR4_8");
+        // // LINEDEF->SIDEDEF->SECTOR
+        assert_eq!(linedefs[2].front_sidedef.sector.ceilingheight, 72.0);
+
+        let segments = map.get_segments();
+        // SEGMENT->VERTEX
+        assert_eq!(segments[0].v1.x() as i32, 1552);
+        assert_eq!(segments[0].v2.x() as i32, 1552);
+        // SEGMENT->LINEDEF->SIDEDEF->SECTOR
+        // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
+        // assert_eq!(
+        //     segments[0].linedef.front_sidedef.sector.ceilingpic,
+        //     "CEIL3_5"
+        // );
+        // // SEGMENT->LINEDEF->SIDEDEF
+        // assert_eq!(segments[0].linedef.front_sidedef.toptexture, "BIGDOOR2");
+
+        // let sides = map.get_sidedefs();
+        // assert_eq!(sides[211].sector.ceilingpic, "TLITE6_4");
+    }
+
+    #[test]
+    fn check_e1m1_linedefs() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let linedefs = map.get_linedefs();
+        assert_eq!(linedefs[0].v1.x() as i32, 1088);
+        assert_eq!(linedefs[0].v2.x() as i32, 1024);
+        assert_eq!(linedefs[2].v1.x() as i32, 1088);
+        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+
+        assert_eq!(linedefs[474].v1.x() as i32, 3536);
+        assert_eq!(linedefs[474].v2.x() as i32, 3520);
+        assert!(linedefs[2].back_sidedef.is_none());
+        assert_eq!(linedefs[474].flags, 1);
+        assert!(linedefs[474].back_sidedef.is_none());
+        assert!(linedefs[466].back_sidedef.is_some());
+
+        // Flag check
+        assert_eq!(linedefs[26].flags, 29);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn check_e1m1_sectors() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let sectors = map.get_sectors();
+        assert_eq!(sectors[0].floorheight, 0.0);
+        assert_eq!(sectors[0].ceilingheight, 72.0);
+        assert_eq!(sectors[0].lightlevel, 160);
+        assert_eq!(sectors[0].tag, 0);
+        assert_eq!(sectors[84].floorheight, -24.0);
+        assert_eq!(sectors[84].ceilingheight, 48.0);
+        assert_eq!(sectors[84].lightlevel, 255);
+        assert_eq!(sectors[84].special, 0);
+        assert_eq!(sectors[84].tag, 0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn check_e1m1_sidedefs() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let sidedefs = map.get_sidedefs();
+        assert_eq!(sidedefs[0].rowoffset, 0.0);
+        assert_eq!(sidedefs[0].textureoffset, 0.0);
+        assert_eq!(sidedefs[9].rowoffset, 0.0);
+        assert_eq!(sidedefs[9].textureoffset, 48.0);
+        assert_eq!(sidedefs[647].rowoffset, 4.0);
+        assert_eq!(sidedefs[647].textureoffset, 0.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn check_e1m1_segments() {
+        let wad = WadData::new("../doom1.wad".into());
+
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        let segments = map.get_segments();
+        assert_eq!(segments[0].v1.x() as i32, 1552);
+        assert_eq!(segments[0].v2.x() as i32, 1552);
+        assert_eq!(segments[731].v1.x() as i32, 3040);
+        assert_eq!(segments[731].v2.x() as i32, 2976);
+        assert_eq!(segments[0].angle, Angle::new(FRAC_PI_2));
+        assert_eq!(segments[0].offset, 0.0);
+
+        assert_eq!(segments[731].angle, Angle::new(PI));
+        assert_eq!(segments[731].offset, 0.0);
+
+        let subsectors = map.get_subsectors();
+        assert_eq!(subsectors[0].seg_count, 4);
+        assert_eq!(subsectors[124].seg_count, 3);
+        assert_eq!(subsectors[236].seg_count, 4);
+        //assert_eq!(subsectors[0].start_seg.start_vertex.x() as i32, 1552);
+        //assert_eq!(subsectors[124].start_seg.start_vertex.x() as i32, 472);
+        //assert_eq!(subsectors[236].start_seg.start_vertex.x() as i32, 3040);
+    }
+
+    #[test]
+    fn find_vertex_using_bsptree() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::new("E1M1".to_owned());
+        map.load(&wad);
+
+        // The actual location of THING0
+        let player = Vec2::new(1056.0, -3616.0);
+        let subsector = map.point_in_subsector(&player);
+        //assert_eq!(subsector_id, Some(103));
+        assert_eq!(subsector.seg_count, 5);
+        assert_eq!(subsector.start_seg, 305);
     }
 }
