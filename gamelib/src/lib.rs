@@ -8,30 +8,30 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
-pub(crate) mod angle;
+pub mod angle;
 pub mod d_main;
-pub(crate) mod d_thinker;
-pub(crate) mod doom_def;
-pub(crate) mod errors;
-pub(crate) mod flags;
+pub mod d_thinker;
+pub mod doom_def;
+pub mod errors;
+pub mod flags;
 pub mod game;
-pub(crate) mod info;
+pub mod info;
 pub mod input;
-pub(crate) mod level_data;
-pub(crate) mod p_enemy;
-pub(crate) mod p_lights;
-pub(crate) mod p_local;
-pub(crate) mod p_map;
-pub(crate) mod p_map_object;
-pub(crate) mod p_map_util;
-pub(crate) mod p_player_sprite;
-pub(crate) mod p_spec;
-pub(crate) mod player;
-pub(crate) mod renderer;
-pub(crate) mod shaders;
-pub(crate) mod sounds;
-pub(crate) mod tic_cmd;
-pub(crate) mod timestep;
+pub mod level_data;
+pub mod p_enemy;
+pub mod p_lights;
+pub mod p_local;
+pub mod p_map;
+pub mod p_map_object;
+pub mod p_map_util;
+pub mod p_player_sprite;
+pub mod p_spec;
+pub mod player;
+pub mod renderer;
+pub mod shaders;
+pub mod sounds;
+pub mod tic_cmd;
+pub mod timestep;
 
 /// R_PointToDist
 fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
@@ -81,7 +81,7 @@ fn scale_from_view_angle(
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
-struct DPtr<T> {
+pub struct DPtr<T> {
     p: NonNull<T>,
 }
 

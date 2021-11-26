@@ -1,12 +1,12 @@
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 use crate::sounds::SfxEnum;
 
-pub(crate) mod map_object_info;
-pub(crate) mod states;
+pub mod map_object_info;
+pub mod states;
 
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types, dead_code)]
-pub(crate) enum SpriteNum {
+pub enum SpriteNum {
     SPR_TROO,
     SPR_SHTG,
     SPR_PUNG,
@@ -156,7 +156,7 @@ impl Default for SpriteNum {
 
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types, dead_code)]
-pub(crate) enum StateNum {
+pub enum StateNum {
     S_NULL,
     S_LIGHTDONE,
     S_PUNCH,
@@ -1271,7 +1271,7 @@ pub enum MapObjectType {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct MapObjectInfo {
+pub struct MapObjectInfo {
     pub doomednum: i32,
     pub spawnstate: StateNum,
     pub spawnhealth: i32,

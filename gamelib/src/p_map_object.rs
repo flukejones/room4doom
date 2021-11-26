@@ -30,13 +30,13 @@ use std::f32::consts::PI;
 use std::f32::EPSILON;
 
 static MOBJ_CYCLE_LIMIT: u32 = 1000000;
-pub(crate) static MAXMOVE: f32 = 30.0;
-pub(crate) static STOPSPEED: f32 = 0.0625;
-pub(crate) static FRICTION: f32 = 0.90625;
+pub static MAXMOVE: f32 = 30.0;
+pub static STOPSPEED: f32 = 0.0625;
+pub static FRICTION: f32 = 0.90625;
 
 #[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
-pub(crate) enum MapObjectFlag {
+pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
     MF_SPECIAL = 1,
     /// Blocks.
@@ -123,7 +123,7 @@ pub(crate) enum MapObjectFlag {
 }
 
 #[derive(Debug)]
-pub(crate) struct MapObject {
+pub struct MapObject {
     /// Direct link to the `Thinker` that owns this `MapObject`. Required as
     /// functions on a `MapObject` may need to change the thinker function
     pub thinker: Option<NonNull<Thinker<MapObject>>>,
@@ -259,7 +259,7 @@ impl MapObject {
     }
 
     /// P_ExplodeMissile
-    pub(crate) fn p_explode_missile(&mut self) {
+    pub fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
         self.z = 0.0;
         self.p_set_mobj_state(MOBJINFO[self.kind as usize].deathstate);

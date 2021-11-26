@@ -16,7 +16,7 @@ use wad::WadData;
 pub struct Game {
     /// Contains the full wad file
     wad_data: WadData,
-    pub(crate) level: Option<Level>,
+    pub level: Option<Level>,
     pub crop_rect: Rect,
 
     running: bool,
@@ -27,9 +27,9 @@ pub struct Game {
     netgame: bool,
 
     /// Tracks which players are currently active, set by d_net.c loop
-    pub(crate) player_in_game: [bool; MAXPLAYERS],
+    pub player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
-    pub(crate) players: [Player; MAXPLAYERS],
+    pub players: [Player; MAXPLAYERS],
     /// ?
     turbodetected: [bool; MAXPLAYERS],
 
@@ -49,7 +49,7 @@ pub struct Game {
     pub paused: bool,
 
     /// player taking events and displaying
-    pub(crate) consoleplayer: usize,
+    pub consoleplayer: usize,
     /// view being displayed
     displayplayer: usize,
     /// gametic at level start
@@ -64,7 +64,7 @@ pub struct Game {
     wminfo: WBStartStruct,
 
     /// d_net.c
-    pub(crate) netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
+    pub netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
     localcmds: [TicCmd; BACKUPTICS],
 
@@ -201,7 +201,7 @@ impl Game {
     /// in the game. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
     /// changing game vars beyong action here, probably nothing.
-    pub(crate) fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
+    pub fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;
@@ -366,11 +366,11 @@ impl Game {
         // TODO: S_Start();
     }
 
-    pub(crate) fn running(&self) -> bool {
+    pub fn running(&self) -> bool {
         self.running
     }
 
-    pub(crate) fn set_running(&mut self, run: bool) {
+    pub fn set_running(&mut self, run: bool) {
         self.running = run;
     }
 
@@ -380,7 +380,7 @@ impl Game {
     }
 
     /// G_Ticker
-    pub(crate) fn ticker(&mut self) {
+    pub fn ticker(&mut self) {
         // // do player reborns if needed
         // for (i = 0; i < MAXPLAYERS; i++)
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
@@ -498,7 +498,7 @@ impl Game {
 
     /// D_Display
     // TODO: Move
-    pub(crate) fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
+    pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
         if !self.player_in_game[0] {
             return;
         }

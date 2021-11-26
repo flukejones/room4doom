@@ -2,11 +2,11 @@ use crate::angle::Angle;
 use crate::renderer::defs::DrawSeg;
 use crate::renderer::portals::PortalClip;
 
-pub(crate) mod bsp;
-pub(crate) mod defs;
-pub(crate) mod plane;
-pub(crate) mod portals;
-pub(crate) mod segs;
+pub mod bsp;
+pub mod defs;
+pub mod plane;
+pub mod portals;
+pub mod segs;
 
 /// We store most of what is needed for rendering in various functions here to avoid
 /// having to pass too many things in args through multiple function calls. This
@@ -20,7 +20,7 @@ pub(crate) mod segs;
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
-pub(crate) struct RenderData {
+pub struct RenderData {
     pub rw_angle1: Angle,
     // DrawSeg used, which is inserted in drawsegs at end of r_segs
     pub drawsegs: Vec<DrawSeg>,

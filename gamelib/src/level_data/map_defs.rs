@@ -1,10 +1,11 @@
 use crate::angle::Angle;
+use crate::p_map_object::MapObject;
 use crate::DPtr;
 use glam::Vec2;
 use std::f32::EPSILON;
 
 #[derive(Debug)]
-pub(crate) enum SlopeType {
+pub enum SlopeType {
     Horizontal,
     Vertical,
     Positive,
@@ -14,7 +15,7 @@ pub(crate) enum SlopeType {
 /// The SECTORS record, at runtime.
 /// Stores things/mobjs.
 #[derive(Debug)]
-pub(crate) struct Sector {
+pub struct Sector {
     pub floorheight: f32,
     pub ceilingheight: f32,
     /// Is a tag or index to patch
@@ -49,7 +50,7 @@ pub(crate) struct Sector {
 }
 
 #[derive(Debug)]
-pub(crate) struct SideDef {
+pub struct SideDef {
     // add this to the calculated texture column
     pub textureoffset: f32,
 
@@ -67,7 +68,7 @@ pub(crate) struct SideDef {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct BBox {
+pub struct BBox {
     pub top: f32,
     pub bottom: f32,
     pub left: f32,
@@ -99,7 +100,7 @@ impl BBox {
 }
 
 #[derive(Debug)]
-pub(crate) struct LineDef {
+pub struct LineDef {
     // Vertices, from v1 to v2.
     pub v1: DPtr<Vec2>,
     pub v2: DPtr<Vec2>,
@@ -139,7 +140,7 @@ pub(crate) struct LineDef {
 }
 
 impl LineDef {
-    pub(crate) fn point_on_side(&self, v: &Vec2) -> usize {
+    pub fn point_on_side(&self, v: &Vec2) -> usize {
         let dx = v.x() - self.v1.x();
         let dy = v.y() - self.v1.y();
 
@@ -151,7 +152,7 @@ impl LineDef {
 }
 
 #[derive(Debug)]
-pub(crate) struct Segment {
+pub struct Segment {
     // Vertices, from v1 to v2.
     pub v1: DPtr<Vec2>,
     pub v2: DPtr<Vec2>,
@@ -189,7 +190,7 @@ impl Segment {
 }
 
 #[derive(Debug)]
-pub(crate) struct SubSector {
+pub struct SubSector {
     pub sector: DPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
     pub seg_count: i16,
@@ -213,4 +214,48 @@ pub struct Node {
     /// then the other can also be checked with the same/minimal code by inverting
     /// the last bit
     pub child_index: [u16; 2],
+}
+
+/// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
+/// collision-detection between moving things and walls.
+///
+/// Each "block" is 128 square
+#[derive(Debug, Clone, Default)]
+pub struct BlockMap {
+    /// Leftmost X coord
+    pub x_origin: f32,
+    /// Bottommost Y coord
+    pub y_origin: f32,
+    /// Width
+    pub width: i32,
+    /// Height
+    pub height: i32,
+    /// Links to the MapObjects this block currently contains
+    pub block_links: Vec<DPtr<MapObject>>,
+    ///
+    pub line_indexes: Vec<usize>,
+    ///
+    pub blockmap_offset: usize,
+}
+
+impl BlockMap {
+    pub fn new(
+        x_origin: f32,
+        y_origin: f32,
+        width: i32,
+        height: i32,
+        block_links: Vec<DPtr<MapObject>>,
+        line_indexes: Vec<usize>,
+        blockmap_offset: usize,
+    ) -> BlockMap {
+        BlockMap {
+            x_origin,
+            y_origin,
+            width,
+            height,
+            block_links,
+            line_indexes,
+            blockmap_offset,
+        }
+    }
 }

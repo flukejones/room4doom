@@ -40,7 +40,7 @@ const MAX_SEGS: usize = 32;
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
-pub(crate) struct BspRenderer {
+pub struct BspRenderer {
     /// index in to self.solidsegs
     new_end: usize,
     solidsegs: Vec<ClipRange>,
@@ -352,7 +352,7 @@ impl BspRenderer {
     }
 }
 
-pub(crate) fn angle_to_screen(mut radian: f32) -> i32 {
+pub fn angle_to_screen(mut radian: f32) -> i32 {
     let mut x;
 
     // Left side
@@ -381,13 +381,13 @@ pub(crate) fn angle_to_screen(mut radian: f32) -> i32 {
 //  tantoangle[] table.
 ///
 /// The flipping isn't done here...
-pub(crate) fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
+pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x() - mobj.xy.x();
     let y = vertex.y() - mobj.xy.y();
     Angle::new(y.atan2(x))
 }
 
-pub(crate) fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
     let x = point1.x() - point2.x();
     let y = point1.y() - point2.y();
     Angle::new(y.atan2(x))

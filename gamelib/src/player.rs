@@ -30,7 +30,7 @@ use crate::{
 /// From P_PSPR
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
-pub(crate) enum PsprNum {
+pub enum PsprNum {
     ps_weapon,
     ps_flash,
     NUMPSPRITES,
@@ -38,7 +38,7 @@ pub(crate) enum PsprNum {
 
 //// Player states.
 #[derive(Debug, PartialEq)]
-pub(crate) enum PlayerState {
+pub enum PlayerState {
     /// Playing or camping.
     PstLive,
     /// Dead on the ground, view follows killer.
@@ -61,7 +61,7 @@ enum Cheat {
 /// INTERMISSION
 /// Structure passed e.g. to WI_Start(wb)
 #[derive(Debug, Default)]
-pub(crate) struct WBPlayerStruct {
+pub struct WBPlayerStruct {
     /// whether the player is in game
     pub inn: bool,
     // Player stats, kills, collected items etc.
@@ -76,7 +76,7 @@ pub(crate) struct WBPlayerStruct {
 
 /// parms for world level / intermission
 #[derive(Debug, Default)]
-pub(crate) struct WBStartStruct {
+pub struct WBStartStruct {
     /// episode # (0-2)
     pub epsd: i32,
     /// if true, splash the secret level
@@ -103,7 +103,7 @@ const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 
 /// player_t
 #[derive(Debug)]
-pub(crate) struct Player {
+pub struct Player {
     pub mobj: Option<Thinker<MapObject>>,
     pub player_state: PlayerState,
     pub cmd: TicCmd,

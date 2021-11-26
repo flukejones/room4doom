@@ -3,7 +3,7 @@ use glam::Vec2;
 use std::f32::EPSILON;
 
 #[derive(Default)]
-pub(crate) struct PortalZ {
+pub struct PortalZ {
     /// The lowest ceiling of the portal line
     pub top_z: f32,
     /// The highest floor of the portal line
@@ -49,7 +49,7 @@ impl PortalZ {
     }
 }
 
-pub(crate) fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
+pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
     let mut p1;
     let mut p2;
 
@@ -119,7 +119,7 @@ pub fn ray_to_line_intersect(
 ///
 /// Does some of `P_HitSlideLine`
 #[inline]
-pub(crate) fn line_slide_direction(
+pub fn line_slide_direction(
     origin: Vec2,
     momentum: Vec2,
     radius: f32,
@@ -158,7 +158,7 @@ pub(crate) fn line_slide_direction(
 }
 
 #[inline]
-pub(crate) fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
+pub fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
     // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
     // dot product  : v1.x * v2.x + v1.y * v2.y
     let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y()))
@@ -179,7 +179,7 @@ pub(crate) fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: 
 }
 
 #[inline]
-pub(crate) fn circle_to_line_intercept_basic(
+pub fn circle_to_line_intercept_basic(
     origin: Vec2,
     radius: f32,
     point1: Vec2,

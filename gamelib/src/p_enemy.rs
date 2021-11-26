@@ -3,7 +3,7 @@ use crate::renderer::bsp::point_to_angle_2;
 use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 
 /// A_FaceTarget
-pub(crate) fn a_facetarget<'t>(actor: &'t mut MapObject) {
+pub fn a_facetarget<'t>(actor: &'t mut MapObject) {
     actor.flags &= !(MapObjectFlag::MF_AMBUSH as u32);
 
     unsafe {
@@ -20,7 +20,7 @@ pub(crate) fn a_facetarget<'t>(actor: &'t mut MapObject) {
 
 /// Actor has a melee attack,
 /// so it tries to close as fast as possible
-pub(crate) fn a_chase<'t>(actor: &'t mut MapObject) {
+pub fn a_chase<'t>(actor: &'t mut MapObject) {
     if actor.reactiontime > 0 {
         actor.reactiontime -= 1;
     }
@@ -122,7 +122,7 @@ pub(crate) fn a_chase<'t>(actor: &'t mut MapObject) {
 }
 
 /// Stay in state until a player is sighted.
-pub(crate) fn a_look<'t>(actor: &'t mut MapObject) {
+pub fn a_look<'t>(actor: &'t mut MapObject) {
     unimplemented!()
     // mobj_t *targ;
     //
@@ -181,7 +181,7 @@ pub(crate) fn a_look<'t>(actor: &'t mut MapObject) {
     // P_SetMobjState(actor, actor->info->seestate);
 }
 
-pub(crate) fn a_fire<'t>(actor: &'t mut MapObject) {
+pub fn a_fire<'t>(actor: &'t mut MapObject) {
     unimplemented!()
     // mobj_t *dest;
     // mobj_t *target;
@@ -206,7 +206,7 @@ pub(crate) fn a_fire<'t>(actor: &'t mut MapObject) {
     // P_SetThingPosition(actor);
 }
 
-pub(crate) fn a_scream<'t>(actor: &'t mut MapObject) {
+pub fn a_scream<'t>(actor: &'t mut MapObject) {
     unimplemented!()
     // int sound;
     //
@@ -241,13 +241,13 @@ pub(crate) fn a_scream<'t>(actor: &'t mut MapObject) {
     // S_StartSound(actor, sound);
 }
 
-pub(crate) fn a_pain<'t>(actor: &'t mut MapObject) {
+pub fn a_pain<'t>(actor: &'t mut MapObject) {
     unimplemented!()
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
 
-pub(crate) fn a_fall<'t>(actor: &'t mut MapObject) {
+pub fn a_fall<'t>(actor: &'t mut MapObject) {
     // actor is on ground, it can be walked over
     actor.flags &= !(MapObjectFlag::MF_SOLID as u32);
 
@@ -255,7 +255,7 @@ pub(crate) fn a_fall<'t>(actor: &'t mut MapObject) {
     // are meant to be obstacles.
 }
 
-pub(crate) fn a_explode<'t>(actor: &'t mut MapObject) {
+pub fn a_explode<'t>(actor: &'t mut MapObject) {
     if let Some(mut target) = actor.target {
         // just casually breaking lifetimes
         let target = unsafe { target.as_mut() };
@@ -263,7 +263,7 @@ pub(crate) fn a_explode<'t>(actor: &'t mut MapObject) {
     }
 }
 
-pub(crate) fn a_xscream<'t>(actor: &'t mut MapObject) {
+pub fn a_xscream<'t>(actor: &'t mut MapObject) {
     unimplemented!()
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);

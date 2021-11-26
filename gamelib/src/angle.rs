@@ -8,7 +8,7 @@ fn player_dist_to_screen() -> f32 {
     160.0 / (45.0f32 * PI / 180.0).tan()
 }
 
-pub(crate) fn screen_to_x_view(x: i32) -> f32 {
+pub fn screen_to_x_view(x: i32) -> f32 {
     let a = ((160.0 - x as f32) / player_dist_to_screen()).atan() * 180.0 / PI;
     if a < 0.0000001 {
         return 360.0 + a;
@@ -16,7 +16,7 @@ pub(crate) fn screen_to_x_view(x: i32) -> f32 {
     a
 }
 
-pub(crate) static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
+pub static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
     45.043945, 44.824219, 44.648437, 44.472656, 44.296875, 44.121094, 43.945312, 43.725586,
     43.549805, 43.374023, 43.154297, 42.978516, 42.802734, 42.583008, 42.407227, 42.187500,
     42.011719, 41.791992, 41.616211, 41.396484, 41.220703, 41.000977, 40.781250, 40.605469,
@@ -60,7 +60,7 @@ pub(crate) static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
 ];
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
-pub(crate) struct Angle(f32);
+pub struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI

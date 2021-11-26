@@ -7,10 +7,7 @@ use crate::level_data::level::Level;
 use crate::level_data::map_defs::{BBox, LineDef};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{
-    box_on_line_side, line_slide_direction,
-    PortalZ,
-};
+use crate::p_map_util::{box_on_line_side, line_slide_direction, PortalZ};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -18,7 +15,7 @@ const MAXSPECIALCROSS: i32 = 8;
 /// The pupose of this struct is to record the highest and lowest points in a
 /// subsector. When a mob crosses a seg it may be between floor/ceiling heights.
 #[derive(Default)]
-pub(crate) struct SubSectorMinMax {
+pub struct SubSectorMinMax {
     tmflags: u32,
     /// If "floatok" true, move would be ok
     /// if within "tmfloorz - tmceilingz".
@@ -59,7 +56,7 @@ impl MapObject {
 
         // P_SetThingPosition (thing);
 
-        if self.flags & (MapObjectFlag::MF_TELEPORT as u32  | MapObjectFlag::MF_NOCLIP as u32 )!= 0 {
+        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) != 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(&self.xy);
@@ -285,7 +282,7 @@ impl MapObject {
 
 /// P_RadiusAttack
 /// Source is the creature that caused the explosion at spot.
-pub(crate) fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32) {
+pub fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32) {
     let dist = damage + MAXRADIUS;
     unimplemented!()
     // // origin of block level is bmaporgx and bmaporgy

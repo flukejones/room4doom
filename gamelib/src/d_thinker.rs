@@ -29,7 +29,7 @@ use std::{any::Any, fmt};
 /// its neighbours and more, without having to pass in a ref to the Thinker container,
 /// or iterate over possible blank spots in memory.
 #[derive(Debug)]
-pub(crate) struct Thinker<T: Any + Think> {
+pub struct Thinker<T: Any + Think> {
     pub prev: *mut Thinker<T>,
     pub next: *mut Thinker<T>,
     pub obj: T,
@@ -87,7 +87,7 @@ impl<T: Any + Think> Drop for Thinker<T> {
     }
 }
 
-pub(crate) trait Think {
+pub trait Think {
     /// impl of this trait should return true *if* the thinker + object are to be removed
     fn think(&mut self, level: &mut Level) -> bool;
 }
@@ -98,7 +98,7 @@ pub(crate) trait Think {
 /// various different args *because* unlike C we can't rely on function arg casts. Use of `Any`
 /// could be done, but it introduces overhead at runtime.
 #[derive(Clone)]
-pub(crate) enum ActionFunc {
+pub enum ActionFunc {
     /// NULL thinker, used to tell the thinker runner to remove the thinker from list
     None,
     /// Called in the Thinker runner and State
