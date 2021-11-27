@@ -31,8 +31,8 @@ use std::f32::EPSILON;
 
 static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 pub static MAXMOVE: f32 = 30.0;
-pub static STOPSPEED: f32 = 0.0625;
-pub static FRICTION: f32 = 0.90625;
+pub static STOPSPEED: f32 = 0.0625; // 0x1000
+pub static FRICTION: f32 = 0.90625; // 0xE800
 
 #[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -344,10 +344,10 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() <= 0.0001
-            && self.momxy.x() >= -0.0001
-            && self.momxy.y() <= 0.0001
-            && self.momxy.y() >= -0.0001
+        if self.momxy.x() <= 0.0000001
+            && self.momxy.x() >= -0.0000001
+            && self.momxy.y() <= 0.0000001
+            && self.momxy.y() >= -0.0000001
         {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
@@ -410,7 +410,7 @@ impl MapObject {
                 }
             }
 
-            if xmove <= 0.0 || ymove <= 0.0 {
+            if xmove == 0.0 || ymove == 0.0 {
                 break;
             }
         }
