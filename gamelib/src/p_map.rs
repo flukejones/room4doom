@@ -35,13 +35,35 @@ impl MapObject {
 
         let try_move = Vec2::new(ptryx, ptryy);
 
+        level.mobj_ctrl.spec_hits.clear();
+        level.mobj_ctrl.floatok = true;
         if !self.p_check_position(self.xy, try_move, level) {
             // up to callee to do something like slide check
             return false;
         }
 
         let ctrl = &mut level.mobj_ctrl;
-        ctrl.spec_hits.clear();
+        if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
+            if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
+                return false;   // doesn't fit
+            }
+            ctrl.floatok = true;
+
+            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0 &&
+                ctrl.max_ceil_z - self.z < self.height {
+                    return false;   // mobj must lower itself to fit
+            }
+
+            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0 &&
+                ctrl.min_floor_z - self.z > 24.0 {
+                    return false;   // too big a step up
+            }
+
+            if self.flags & (MapObjectFlag::MF_DROPOFF as u32 | MapObjectFlag::MF_FLOAT as u32) == 0 &&
+                ctrl.min_floor_z - ctrl.max_dropoff > 24.0 {
+                    return false;   // too big a step up
+            }
+        }
 
         // the move is ok,
         // so link the thing into its new position
@@ -49,10 +71,8 @@ impl MapObject {
 
         let old_xy = self.xy;
 
-        if ctrl.min_floor_z - self.z <= 24.0 || ctrl.min_floor_z <= self.z {
-            self.floorz = ctrl.min_floor_z;
-            self.ceilingz = ctrl.max_ceil_z;
-        }
+        self.floorz = ctrl.min_floor_z;
+        self.ceilingz = ctrl.max_ceil_z;
         self.xy = try_move;
 
         // P_SetThingPosition (thing);
@@ -111,15 +131,12 @@ impl MapObject {
         };
 
         let ctrl = &mut level.mobj_ctrl;
-        let curr_ssect = level.map_data.point_in_subsector(endpoint);
+        let newsubsec = level.map_data.point_in_subsector(endpoint);
         // The base floor / ceiling is from the subsector
         // that contains the point.
-        // Any contacted lines the step closer together
-        // will adjust them.
-        // TODO: this needs to go up one call
-        ctrl.min_floor_z = curr_ssect.sector.floorheight;
-        ctrl.max_dropoff = curr_ssect.sector.floorheight;
-        ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
+        ctrl.min_floor_z = newsubsec.sector.floorheight;
+        ctrl.max_dropoff = newsubsec.sector.floorheight;
+        ctrl.max_ceil_z = newsubsec.sector.ceilingheight;
 
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
             return true;
@@ -191,8 +208,8 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-            if ld.linedef.flags & LineDefFlags::Blocking as i16 == 0 {
+        if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
+            if ld.linedef.flags & LineDefFlags::Blocking as i16 != 0 {
                 return false; // explicitly blocking everything
             }
 
@@ -220,28 +237,6 @@ impl MapObject {
             ctrl.spec_hits.push(DPtr::new(&ld.linedef));
         }
 
-        // Next two ifs imported from?
-        // These are the very specific portal collisions
-        if self.flags & MapObjectFlag::MF_TELEPORT as u32 != 0
-            && portal.top_z - self.z < self.height
-        {
-            return false;
-        }
-
-        // Line is higher
-        if portal.bottom_z - self.z > 24.0 {
-            return false;
-        }
-
-        // if self.flags
-        //     & (MapObjectFlag::MF_DROPOFF as u32
-        //         | MapObjectFlag::MF_FLOAT as u32)
-        //     != 0
-        //     && portal.bottom_z - portal.lowest_z > 24.0
-        // {
-        //     contacts.push(contact);
-        //     return;
-        // }
         true
     }
 
