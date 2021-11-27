@@ -422,7 +422,7 @@ impl BSPTrace {
             self.node_id = node.child_index[side2];
             self.find_ssect_intercepts(map);
         } else {
-            self.node_id = node.child_index[side2];
+            self.node_id = node.child_index[side1];
             self.find_ssect_intercepts(map);
         }
     }
