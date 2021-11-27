@@ -358,7 +358,7 @@ impl MapData {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn point_in_subsector(&self, point: &Vec2) -> DPtr<SubSector> {
+    pub fn point_in_subsector(&self, point: Vec2) -> DPtr<SubSector> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -371,6 +371,28 @@ impl MapData {
 
         return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
     }
+}
+
+pub struct BSPTrace {
+    origin: Vec2,
+    endpoint: Vec2,
+    node_id: u16,
+    nodes: Vec<u16>,
+}
+
+impl BSPTrace {
+    pub fn new(
+        origin: Vec2,
+        endpoint: Vec2,
+        node_id: u16,
+    ) -> Self {
+        Self {
+            origin,
+            endpoint,
+            node_id,
+            nodes: Vec::with_capacity(10),
+        }
+    }
 
     /// Trace a line through the BSP from origin vector to endpoint vector.
     ///
@@ -378,39 +400,41 @@ impl MapData {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    pub fn trace_to_point<'a>(
-        &self,
-        origin: &Vec2,
-        endpoint: &Vec2,
+    pub fn find_ssect_intercepts<'a>(
+        &mut self,
         map: &MapData,
-        node_id: u16,
-        nodes: &mut Vec<u16>,
     ) {
-        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            nodes.push(node_id ^ IS_SSECTOR_MASK);
+        if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);
             return;
         }
-        let node = &map.get_nodes()[node_id as usize];
-        //nodes.push(node_id);
+        let node = &map.get_nodes()[self.node_id as usize];
 
         // find which side the point is on
-        let side1 = node.point_on_side(origin);
-        let side2 = node.point_on_side(endpoint);
+        let side1 = node.point_on_side(&self.origin);
+        let side2 = node.point_on_side(&self.endpoint);
         if side1 != side2 {
             // On opposite sides of the splitting line, recurse down both sides
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
-            self.trace_to_point(origin, endpoint, map, node.child_index[side1], nodes);
-            self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
+            self.node_id = node.child_index[side1];
+            self.find_ssect_intercepts(map);
+            self.node_id = node.child_index[side2];
+            self.find_ssect_intercepts(map);
         } else {
-            self.trace_to_point(origin, endpoint, map, node.child_index[side2], nodes);
+            self.node_id = node.child_index[side2];
+            self.find_ssect_intercepts(map);
         }
+    }
+
+    pub fn intercepted_nodes(&self) -> &[u16] {
+        &self.nodes
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::Angle;
+    use crate::{angle::Angle, level_data::map_data::BSPTrace};
     use crate::level_data::map_data::MapData;
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
@@ -429,10 +453,10 @@ mod tests {
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut nodes = Vec::new();
-        map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
-        dbg!(&nodes.len());
-        dbg!(&nodes);
+        let mut bsp_trace = BSPTrace::new(origin, endpoint, map.start_node);
+        // bsp_trace.trace_to_point(&map);
+        // dbg!(&nodes.len());
+        // dbg!(&nodes);
 
         let sub_sect = map.get_subsectors();
         // let segs = map.get_segments();
@@ -453,12 +477,11 @@ mod tests {
         // wander around the coords of the subsector corner from player start
         for x in 705..895 {
             for y in -3551..-3361 {
-                let origin = Vec2::new(x as f32, y as f32);
-                nodes.clear();
-                map.trace_to_point(&origin, &endpoint, &map, map.start_node, &mut nodes);
+                bsp_trace.origin = Vec2::new(x as f32, y as f32);
+                bsp_trace.find_ssect_intercepts(&map);
 
                 // Sector the starting vector is in. 3 segs attached
-                let x = nodes.first().unwrap();
+                let x = bsp_trace.intercepted_nodes().first().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 // Bottom horizontal line
@@ -478,7 +501,7 @@ mod tests {
                 assert_eq!(segs[start + 2].v2.y(), -3360.0);
 
                 // Last sector directly above starting vector
-                let x = nodes.last().unwrap();
+                let x = bsp_trace.intercepted_nodes().last().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 assert_eq!(segs[start].v1.x(), 896.0);

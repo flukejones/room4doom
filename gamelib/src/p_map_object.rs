@@ -680,7 +680,7 @@ impl MapObject {
         let state = get_state(info.spawnstate as usize);
 
         // // set subsector and/or block links
-        let sub_sector: DPtr<SubSector> = level.map_data.point_in_subsector(&Vec2::new(x, y));
+        let sub_sector: DPtr<SubSector> = level.map_data.point_in_subsector(Vec2::new(x, y));
 
         let floorz = sub_sector.sector.floorheight as i32;
         let ceilingz = sub_sector.sector.ceilingheight as i32;

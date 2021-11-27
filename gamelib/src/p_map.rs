@@ -4,7 +4,8 @@ use glam::Vec2;
 
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
-use crate::level_data::map_defs::{BBox, LineDef};
+use crate::level_data::map_data::BSPTrace;
+use crate::level_data::map_defs::{BBox, LineDef, Segment};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{box_on_line_side, line_slide_direction, PortalZ};
@@ -34,7 +35,7 @@ impl MapObject {
 
         let try_move = Vec2::new(ptryx, ptryy);
 
-        if !self.p_check_position(&try_move, level) {
+        if !self.p_check_position(self.xy, try_move, level) {
             // up to callee to do something like slide check
             return false;
         }
@@ -97,11 +98,11 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    fn p_check_position(&mut self, try_move: &Vec2, level: &mut Level) -> bool {
-        let left = try_move.x() - self.radius;
-        let right = try_move.x() + self.radius;
-        let top = try_move.y() + self.radius;
-        let bottom = try_move.y() - self.radius;
+    fn p_check_position(&mut self, origin: Vec2, endpoint: Vec2, level: &mut Level) -> bool {
+        let left = endpoint.x() - self.radius;
+        let right = endpoint.x() + self.radius;
+        let top = endpoint.y() + self.radius;
+        let bottom = endpoint.y() - self.radius;
         let tmbbox = BBox {
             top,
             bottom,
@@ -110,11 +111,12 @@ impl MapObject {
         };
 
         let ctrl = &mut level.mobj_ctrl;
-        let curr_ssect = level.map_data.point_in_subsector(try_move);
+        let curr_ssect = level.map_data.point_in_subsector(endpoint);
         // The base floor / ceiling is from the subsector
         // that contains the point.
         // Any contacted lines the step closer together
         // will adjust them.
+        // TODO: this needs to go up one call
         ctrl.min_floor_z = curr_ssect.sector.floorheight;
         ctrl.max_dropoff = curr_ssect.sector.floorheight;
         ctrl.max_ceil_z = curr_ssect.sector.ceilingheight;
@@ -128,28 +130,45 @@ impl MapObject {
         // TODO: use a P_BlockLinesIterator - used to build a list of lines to check
         //       it also calls PIT_CheckLine on each line
         //       P_BlockLinesIterator is called mobj->radius^2
-        for line in level.map_data.get_linedefs() {
-            if !self.pit_check_line(&tmbbox, ctrl, line) {
-                return false;
+
+        // BSP walk to find all subsectors between two points
+        // Pretty much replaces the block iterators
+        let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+        let segs = level.map_data.get_segments();
+        let sub_sectors = level.map_data.get_subsectors();
+
+        for n in bsp_trace.intercepted_nodes() {
+            let ssect = &sub_sectors[*n as usize];
+            let start = ssect.start_seg as usize;
+            let end = start + ssect.seg_count as usize;
+            for seg in &segs[start..end] {
+                if !self.pit_check_line(&tmbbox, ctrl, &seg) {
+                    return false;
+                }
             }
         }
+
         true
     }
 
     /// PIT_CheckLine
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
+    ///
+    /// This has been adjusted to take a seg ref instead as the linedef info
+    /// is directly accessible.
     fn pit_check_line(
         &mut self,
         tmbbox: &BBox,
         // point1: Vec2,
         // point2: Vec2,
         ctrl: &mut SubSectorMinMax,
-        ld: &LineDef,
+        ld: &Segment,
     ) -> bool {
-        if tmbbox.right <= ld.bbox.left
-            || tmbbox.left >= ld.bbox.right
-            || tmbbox.top <= ld.bbox.bottom
-            || tmbbox.bottom >= ld.bbox.top
+        if tmbbox.right <= ld.linedef.bbox.left
+            || tmbbox.left >= ld.linedef.bbox.right
+            || tmbbox.top <= ld.linedef.bbox.bottom
+            || tmbbox.bottom >= ld.linedef.bbox.top
         {
             return true;
         }
@@ -163,7 +182,7 @@ impl MapObject {
         // using `P_PointOnLineSide`
         // If both are same side then there is no intersection.
 
-        if box_on_line_side(&tmbbox, ld) != -1 {
+        if box_on_line_side(&tmbbox, &ld.linedef) != -1 {
             return true;
         }
 
@@ -173,17 +192,17 @@ impl MapObject {
         }
 
         if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
-            if ld.flags & LineDefFlags::Blocking as i16 == 0 {
+            if ld.linedef.flags & LineDefFlags::Blocking as i16 == 0 {
                 return false; // explicitly blocking everything
             }
 
-            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as i16 != 0 {
+            if self.player.is_none() && ld.linedef.flags & LineDefFlags::BlockMonsters as i16 != 0 {
                 return false; // block monsters only
             }
         }
 
         // Find the smallest/largest etc if group of line hits
-        let portal = PortalZ::new(ld);
+        let portal = PortalZ::new(&ld.linedef);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
             // TODO: ceilingline = ld;
@@ -197,8 +216,8 @@ impl MapObject {
             ctrl.max_dropoff = portal.lowest_z;
         }
 
-        if ld.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(ld));
+        if ld.linedef.special != 0 {
+            ctrl.spec_hits.push(DPtr::new(&ld.linedef));
         }
 
         // Next two ifs imported from?
@@ -245,7 +264,7 @@ impl MapObject {
             new_momxy = self.momxy;
             try_move = self.xy;
 
-            let ssect = level.map_data.point_in_subsector(&(self.xy));
+            let ssect = level.map_data.point_in_subsector(self.xy);
             // let segs = &level.map_data.get_segments()[ssect.start_seg as usize..(ssect.start_seg+ssect.seg_count) as usize];
             // TODO: Use the blockmap, find closest best line
             for ld in ssect.sector.lines.iter() {
@@ -272,11 +291,13 @@ impl MapObject {
             self.momxy = new_momxy;
 
             if self.p_try_move(try_move.x(), try_move.y(), level) {
-                break;
+                return;
             }
 
             hitcount += 1;
         }
+        self.momxy.set_x(0.0);
+        self.momxy.set_y(0.0);
     }
 }
 
