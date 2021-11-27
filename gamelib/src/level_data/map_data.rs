@@ -686,7 +686,7 @@ mod tests {
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);
-        let subsector = map.point_in_subsector(&player);
+        let subsector = map.point_in_subsector(player);
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);
         assert_eq!(subsector.start_seg, 305);
