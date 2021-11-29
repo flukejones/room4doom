@@ -126,6 +126,10 @@ pub fn line_slide_direction(
     point1: Vec2,
     point2: Vec2,
 ) -> Option<Vec2> {
+    if momentum.x() == 0.0 && momentum.y() == 0.0 {
+        return None;
+    }
+
     let mxy = momentum.normalize() * radius;
     let move_to = origin + momentum + mxy;
 
@@ -140,7 +144,7 @@ pub fn line_slide_direction(
     // point on line from starting point
     let origin_on_line = point1 + p2;
 
-    if p.length() < d.length() && p.dot(d) > EPSILON {
+    if p2.length() < d.length() && p2.dot(d) > EPSILON {
         // line angle headng in direction we need to slide
         let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
         if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
@@ -151,32 +155,33 @@ pub fn line_slide_direction(
         if vs_angle.is_nan() {
             vs_angle = 0.0;
         }
+        dbg!(slide_direction * (vs_angle * momentum.length()));
 
         return Some(slide_direction * (vs_angle * momentum.length()));
     }
     None
 }
 
-#[inline]
-pub fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
-    // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
-    // dot product  : v1.x * v2.x + v1.y * v2.y
-    let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y()))
-        - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
-    let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x()))
-        - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
-    let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x()))
-        - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
+// #[inline]
+// pub fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
+//     // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
+//     // dot product  : v1.x * v2.x + v1.y * v2.y
+//     let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y()))
+//         - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
+//     let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x()))
+//         - ((origin.x() - ln1.x()) * (ln2.y() - ln1.y()));
+//     let numerator2 = ((origin.y() - ln1.y()) * (moved.x() - origin.x()))
+//         - ((origin.x() - ln1.x()) * (moved.y() - origin.y()));
 
-    if denominator == 0.0 {
-        return numerator1 == 0.0 && numerator2 == 0.0;
-    }
+//     if denominator == EPSILON {
+//         return numerator1 == EPSILON && numerator2 == EPSILON;
+//     }
 
-    let r = numerator1 / denominator;
-    let s = numerator2 / denominator;
+//     let r = numerator1 / denominator;
+//     let s = numerator2 / denominator;
 
-    return (r >= 0.0 && r <= 1.0) && (s >= 0.0 && s <= 1.0);
-}
+//     return (r >= 0.0 && r <= 1.0) && (s >= 0.0 && s <= 1.0);
+// }
 
 #[inline]
 pub fn circle_to_line_intercept_basic(

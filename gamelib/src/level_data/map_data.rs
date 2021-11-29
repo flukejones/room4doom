@@ -390,8 +390,15 @@ impl BSPTrace {
             origin,
             endpoint,
             node_id,
-            nodes: Vec::with_capacity(10),
+            nodes: Vec::with_capacity(20),
         }
+    }
+
+    pub fn set_line(&mut self,
+        origin: Vec2,
+        endpoint: Vec2) {
+        self.origin = origin;
+        self.endpoint = endpoint;
     }
 
     /// Trace a line through the BSP from origin vector to endpoint vector.
@@ -405,7 +412,8 @@ impl BSPTrace {
         map: &MapData,
     ) {
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);
+            if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)){
+                self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);}
             return;
         }
         let node = &map.get_nodes()[self.node_id as usize];

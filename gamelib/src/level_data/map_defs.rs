@@ -144,7 +144,7 @@ impl LineDef {
         let dx = v.x() - self.v1.x();
         let dy = v.y() - self.v1.y();
 
-        if (self.delta.y() * dx) > (dy * self.delta.x()) {
+        if (dy * self.delta.x()) < (self.delta.y() * dx) {
             return 0;
         }
         1

@@ -1,14 +1,17 @@
 //!	Movement, collision handling.
 //!	Shooting and aiming.
+use std::f32::consts::{FRAC_2_PI, FRAC_PI_2};
+
 use glam::Vec2;
 
+use crate::angle::Angle;
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
-use crate::level_data::map_defs::{BBox, LineDef, Segment};
+use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
 use crate::p_local::MAXRADIUS;
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{box_on_line_side, line_slide_direction, PortalZ};
+use crate::p_map_util::{PortalZ, box_on_line_side, line_slide_direction};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -38,7 +41,6 @@ impl MapObject {
         level.mobj_ctrl.spec_hits.clear();
         level.mobj_ctrl.floatok = true;
         if !self.p_check_position(self.xy, try_move, level) {
-            // up to callee to do something like slide check
             return false;
         }
 
@@ -155,12 +157,44 @@ impl MapObject {
         let segs = level.map_data.get_segments();
         let sub_sectors = level.map_data.get_subsectors();
 
+
+        let leadx;
+        let leady;
+        let trailx;
+        let traily;
+
+        if self.momxy.x() > 0.0 {
+            leadx = self.xy.x() + self.radius;
+            trailx = self.xy.x() - self.radius;
+        } else {
+            leadx = self.xy.x() - self.radius;
+            trailx = self.xy.x() + self.radius;
+        }
+
+        if self.xy.y() > 0.0 {
+            leady = self.xy.y() + self.radius;
+            traily = self.xy.y() - self.radius;
+        } else {
+            leady = self.xy.y() - self.radius;
+            traily = self.xy.y() + self.radius;
+        }
+
+        // The p_try_move calls check collisions -> p_check_position -> pit_check_line
+        let mut bsp_trace = BSPTrace::new(Vec2::new(trailx, traily), Vec2::new(leadx, leady) + self.momxy, level.map_data.start_node());
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        bsp_trace.set_line(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy);
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        bsp_trace.set_line(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy);
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
         for n in bsp_trace.intercepted_nodes() {
             let ssect = &sub_sectors[*n as usize];
             let start = ssect.start_seg as usize;
             let end = start + ssect.seg_count as usize;
             for seg in &segs[start..end] {
-                if !self.pit_check_line(&tmbbox, ctrl, &seg) {
+                if !self.pit_check_line(&tmbbox, ctrl, &seg.linedef) {
                     return false;
                 }
             }
@@ -180,12 +214,12 @@ impl MapObject {
         // point1: Vec2,
         // point2: Vec2,
         ctrl: &mut SubSectorMinMax,
-        ld: &Segment,
+        ld: &LineDef,
     ) -> bool {
-        if tmbbox.right <= ld.linedef.bbox.left
-            || tmbbox.left >= ld.linedef.bbox.right
-            || tmbbox.top <= ld.linedef.bbox.bottom
-            || tmbbox.bottom >= ld.linedef.bbox.top
+        if tmbbox.right < ld.bbox.left
+            || tmbbox.left > ld.bbox.right
+            || tmbbox.top < ld.bbox.bottom
+            || tmbbox.bottom > ld.bbox.top
         {
             return true;
         }
@@ -199,7 +233,7 @@ impl MapObject {
         // using `P_PointOnLineSide`
         // If both are same side then there is no intersection.
 
-        if box_on_line_side(&tmbbox, &ld.linedef) != -1 {
+        if box_on_line_side(&tmbbox, &ld) != -1 {
             return true;
         }
 
@@ -209,17 +243,17 @@ impl MapObject {
         }
 
         if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
-            if ld.linedef.flags & LineDefFlags::Blocking as i16 != 0 {
+            if ld.flags & LineDefFlags::Blocking as i16 != 0 {
                 return false; // explicitly blocking everything
             }
 
-            if self.player.is_none() && ld.linedef.flags & LineDefFlags::BlockMonsters as i16 != 0 {
+            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as i16 != 0 {
                 return false; // block monsters only
             }
         }
 
         // Find the smallest/largest etc if group of line hits
-        let portal = PortalZ::new(&ld.linedef);
+        let portal = PortalZ::new(&ld);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
             // TODO: ceilingline = ld;
@@ -233,8 +267,8 @@ impl MapObject {
             ctrl.max_dropoff = portal.lowest_z;
         }
 
-        if ld.linedef.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(&ld.linedef));
+        if ld.special != 0 {
+            ctrl.spec_hits.push(DPtr::new(&ld));
         }
 
         true
@@ -244,55 +278,137 @@ impl MapObject {
     // Loop until get a good move or stopped
     pub fn p_slide_move(&mut self, level: &mut Level) {
         // let ctrl = &mut level.mobj_ctrl;
-
         let mut hitcount = 0;
-        let mut new_momxy;
-        let mut try_move;
+        let mut best_slide_frac = 1.0;
+        let mut slide_move = self.momxy;
+
+        let leadx;
+        let leady;
+        let trailx;
+        let traily;
+
+        if self.momxy.x() > 0.0 {
+            leadx = self.xy.x() + self.radius;
+            trailx = self.xy.x() - self.radius;
+        } else {
+            leadx = self.xy.x() - self.radius;
+            trailx = self.xy.x() + self.radius;
+        }
+
+        if self.xy.y() > 0.0 {
+            leady = self.xy.y() + self.radius;
+            traily = self.xy.y() - self.radius;
+        } else {
+            leady = self.xy.y() - self.radius;
+            traily = self.xy.y() + self.radius;
+        }
 
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
+        let mut bsp_trace = BSPTrace::new(Vec2::new(leadx, leady), Vec2::new(leadx, leady) + self.momxy, level.map_data.start_node());
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        // bsp_trace.set_line(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy);
+        // bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        // bsp_trace.set_line(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy);
+        // bsp_trace.find_ssect_intercepts(&level.map_data);
+
         loop {
             if hitcount == 3 {
-                // try_move = self.xy + self.momxy;
-                // self.p_try_move(try_move.x(), try_move.y(), level);
-                break;
+                self.stair_step(level);
+                return;
             }
-            new_momxy = self.momxy;
-            try_move = self.xy;
 
-            let ssect = level.map_data.point_in_subsector(self.xy);
-            // let segs = &level.map_data.get_segments()[ssect.start_seg as usize..(ssect.start_seg+ssect.seg_count) as usize];
-            // TODO: Use the blockmap, find closest best line
-            for ld in ssect.sector.lines.iter() {
-                if try_move.x() + self.radius >= ld.bbox.left
-                    || try_move.x() - self.radius <= ld.bbox.right
-                    || try_move.y() + self.radius >= ld.bbox.bottom
-                    || try_move.y() - self.radius <= ld.bbox.top
-                {
-                    //if ld.point_on_side(&self.xy) == 0 {
-                    // TODO: Check lines in radius around mobj, find the best/closest line to use for slide
-                    if let Some(m) =
-                        line_slide_direction(self.xy, new_momxy, self.radius, *ld.v1, *ld.v2)
-                    {
-                        new_momxy = m;
+            let mut best_slide_line = None;
+            let mut collided = false;
+            for n in bsp_trace.intercepted_nodes() {
+                let segs = level.map_data.get_segments();
+                let sub_sectors = level.map_data.get_subsectors();
+
+                let ssect = &sub_sectors[*n as usize];
+                let start = ssect.start_seg as usize;
+                let end = start + ssect.seg_count as usize;
+                for seg in &segs[start..end] {
+                    if seg.linedef.point_on_side(&Vec2::new(leadx, leady)) != seg.linedef.point_on_side(&(Vec2::new(leadx, leady) + self.momxy)) {
+                        best_slide_line = Some(seg.linedef.clone());
+                        collided = true;
                         break;
                     }
-                    //}
+                    if seg.linedef.point_on_side(&Vec2::new(leadx, traily)) != seg.linedef.point_on_side(&(Vec2::new(leadx, traily) + self.momxy)) {
+                        best_slide_line = Some(seg.linedef.clone());
+                        collided = true;
+                        break;
+                    }
+
+                    if seg.linedef.point_on_side(&Vec2::new(trailx, leady)) != seg.linedef.point_on_side(&(Vec2::new(trailx, leady) + self.momxy)) {
+                        best_slide_line = Some(seg.linedef.clone());
+                        collided = true;
+                        break;
+                    }
+                }
+                if collided {
+                    break;
                 }
             }
 
+
             // TODO: move up to the wall / stairstep
 
-            try_move += new_momxy;
-            self.momxy = new_momxy;
+            slide_move = slide_move * best_slide_frac; // bestfrac
 
-            if self.p_try_move(try_move.x(), try_move.y(), level) {
+            // Clip the moves.
+            if let Some(best_slide_line) = best_slide_line.as_ref() {
+                self.hit_slide_line(&mut slide_move, best_slide_line);
+            }
+
+            self.momxy = slide_move;
+
+            let endpoint = self.xy + slide_move;
+            if self.p_try_move(endpoint.x(), endpoint.y(), level) {
                 return;
             }
 
             hitcount += 1;
         }
-        self.momxy.set_x(0.0);
-        self.momxy.set_y(0.0);
+    }
+
+    pub fn stair_step(&mut self, level: &mut Level) {
+        dbg!("STEP 1");
+        // Line might have hit the middle, end-on?
+        if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y(), level) {
+            dbg!("STEP 2");
+            self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y(), level);
+        }
+    }
+
+    /// P_HitSlideLine
+    pub fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef,) {
+        if matches!(line.slopetype, SlopeType::Horizontal) {
+            slide_move.set_y(0.0);
+            return;
+        }
+        if matches!(line.slopetype, SlopeType::Vertical) {
+            slide_move.set_x(0.0);
+            return;
+        }
+
+        let side = line.point_on_side(slide_move);
+        let mut line_angle = Angle::from_vector(line.delta);
+        if side == 1 {
+            line_angle += FRAC_2_PI;
+        }
+
+        let move_angle = Angle::from_vector(*slide_move);
+
+        let mut delta_angle = move_angle - line_angle;
+        if delta_angle.rad() >= FRAC_PI_2 {
+            delta_angle += FRAC_PI_2;
+        }
+
+        let move_dist = slide_move.length();
+        let new_dist = move_dist * delta_angle.cos();
+
+        *slide_move = line_angle.unit() * new_dist;
     }
 }
 
