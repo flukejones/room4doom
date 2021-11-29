@@ -9,9 +9,9 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::MAXRADIUS;
+use crate::p_local::{BestSlide, MAXRADIUS};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{PortalZ, box_on_line_side, line_slide_direction};
+use crate::p_map_util::{PortalZ, box_on_line_side, line_slide_direction, path_traverse};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -279,7 +279,7 @@ impl MapObject {
     pub fn p_slide_move(&mut self, level: &mut Level) {
         // let ctrl = &mut level.mobj_ctrl;
         let mut hitcount = 0;
-        let mut best_slide_frac = 1.0;
+        let mut best_slide = BestSlide::new();
         let mut slide_move = self.momxy;
 
         let leadx;
@@ -303,61 +303,26 @@ impl MapObject {
             traily = self.xy.y() + self.radius;
         }
 
-        // The p_try_move calls check collisions -> p_check_position -> pit_check_line
-        let mut bsp_trace = BSPTrace::new(Vec2::new(leadx, leady), Vec2::new(leadx, leady) + self.momxy, level.map_data.start_node());
-        bsp_trace.find_ssect_intercepts(&level.map_data);
-
-        // bsp_trace.set_line(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy);
-        // bsp_trace.find_ssect_intercepts(&level.map_data);
-
-        // bsp_trace.set_line(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy);
-        // bsp_trace.find_ssect_intercepts(&level.map_data);
-
         loop {
             if hitcount == 3 {
                 self.stair_step(level);
                 return;
             }
 
-            let mut best_slide_line = None;
-            let mut collided = false;
-            for n in bsp_trace.intercepted_nodes() {
-                let segs = level.map_data.get_segments();
-                let sub_sectors = level.map_data.get_subsectors();
+            path_traverse(Vec2::new(leadx, leady), Vec2::new(leadx, leady) + self.momxy, &mut best_slide, level);
+            path_traverse(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy, &mut best_slide, level);
+            path_traverse(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy, &mut best_slide, level);
 
-                let ssect = &sub_sectors[*n as usize];
-                let start = ssect.start_seg as usize;
-                let end = start + ssect.seg_count as usize;
-                for seg in &segs[start..end] {
-                    if seg.linedef.point_on_side(&Vec2::new(leadx, leady)) != seg.linedef.point_on_side(&(Vec2::new(leadx, leady) + self.momxy)) {
-                        best_slide_line = Some(seg.linedef.clone());
-                        collided = true;
-                        break;
-                    }
-                    if seg.linedef.point_on_side(&Vec2::new(leadx, traily)) != seg.linedef.point_on_side(&(Vec2::new(leadx, traily) + self.momxy)) {
-                        best_slide_line = Some(seg.linedef.clone());
-                        collided = true;
-                        break;
-                    }
-
-                    if seg.linedef.point_on_side(&Vec2::new(trailx, leady)) != seg.linedef.point_on_side(&(Vec2::new(trailx, leady) + self.momxy)) {
-                        best_slide_line = Some(seg.linedef.clone());
-                        collided = true;
-                        break;
-                    }
-                }
-                if collided {
-                    break;
-                }
+            if best_slide.best_slide_frac == 1.0 {
+                // The move most have hit the middle, so stairstep.
+                self.stair_step(level);
+                return;
             }
 
-
-            // TODO: move up to the wall / stairstep
-
-            slide_move = slide_move * best_slide_frac; // bestfrac
+            slide_move = slide_move * best_slide.best_slide_frac; // bestfrac
 
             // Clip the moves.
-            if let Some(best_slide_line) = best_slide_line.as_ref() {
+            if let Some(best_slide_line) = best_slide.best_slide_line.as_ref() {
                 self.hit_slide_line(&mut slide_move, best_slide_line);
             }
 
