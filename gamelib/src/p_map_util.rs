@@ -1,4 +1,4 @@
-use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
+use crate::{DPtr, level_data::{level::{self, Level}, map_data::BSPTrace, map_defs::{BBox, LineDef, SlopeType}}, p_local::{BestSlide, Intercept, Trace}};
 use glam::Vec2;
 use std::f32::EPSILON;
 
@@ -121,18 +121,10 @@ pub fn ray_to_line_intersect(
 #[inline]
 pub fn line_slide_direction(
     origin: Vec2,
-    momentum: Vec2,
-    radius: f32,
+    move_to: Vec2,
     point1: Vec2,
     point2: Vec2,
-) -> Option<Vec2> {
-    if momentum.x() == 0.0 && momentum.y() == 0.0 {
-        return None;
-    }
-
-    let mxy = momentum.normalize() * radius;
-    let move_to = origin + momentum + mxy;
-
+) -> Vec2 {
     let lc = move_to - point1;
     let d = point2 - point1;
     let p = project_vec2(lc, d);
@@ -144,28 +136,18 @@ pub fn line_slide_direction(
     // point on line from starting point
     let origin_on_line = point1 + p2;
 
-    if p2.length() < d.length() && p2.dot(d) > EPSILON {
-        // line angle headng in direction we need to slide
-        let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
-        if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
-            slide_direction = Vec2::default();
-        }
-
-        let mut vs_angle = mxy.angle_between(slide_direction).cos();
-        if vs_angle.is_nan() {
-            vs_angle = 0.0;
-        }
-        dbg!(slide_direction * (vs_angle * momentum.length()));
-
-        return Some(slide_direction * (vs_angle * momentum.length()));
+    // if p2.length() < d.length() && p2.dot(d) > EPSILON {
+    // line angle headng in direction we need to slide
+    let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
+    if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
+        slide_direction = Vec2::default();
     }
-    None
+
+    slide_direction
 }
 
 // #[inline]
 // pub fn line_line_intersection(origin: Vec2, moved: Vec2, ln1: Vec2, ln2: Vec2) -> bool {
-//     // cross product: lhs.x() * rhs.y() - lhs.y() * rhs.x()
-//     // dot product  : v1.x * v2.x + v1.y * v2.y
 //     let denominator = ((moved.x() - origin.x()) * (ln2.y() - ln1.y()))
 //         - ((moved.y() - origin.y()) * (ln2.x() - ln1.x()));
 //     let numerator1 = ((origin.y() - ln1.y()) * (ln2.x() - ln1.x()))
@@ -226,6 +208,73 @@ fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32>
 pub fn unit_vec_from(rotation: f32) -> Vec2 {
     let (y, x) = rotation.sin_cos();
     Vec2::new(x, y)
+}
+
+pub fn path_traverse(origin: Vec2, endpoint: Vec2, best_slide: &mut BestSlide, level: &Level) {
+    let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
+    let trace = Trace::new(origin, endpoint - origin);
+
+    let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
+    bsp_trace.find_ssect_intercepts(&level.map_data);
+
+    for n in bsp_trace.intercepted_nodes() {
+        let segs = level.map_data.get_segments();
+        let sub_sectors = level.map_data.get_subsectors();
+
+        let ssect = &sub_sectors[*n as usize];
+        let start = ssect.start_seg as usize;
+        let end = start + ssect.seg_count as usize;
+        for seg in &segs[start..end] {
+            if seg.linedef.point_on_side(&origin) != seg.linedef.point_on_side(&endpoint) {
+                // Add intercept
+                // PIT_AddLineIntercepts
+                add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts);
+            }
+        }
+    }
+    //return TraverseIntercepts(trav, Fixed.One);
+}
+
+pub fn add_line_intercepts(trace: &Trace, line: DPtr<LineDef>, intercepts: &mut Vec<Intercept>) -> bool {
+    let s1 = line.point_on_side(&trace.xy);
+    let s2 = line.point_on_side(&trace.dxy);
+
+    if s1 == s2 {
+        // line isn't crossed
+        return true;
+    }
+
+    let dl = Trace::new(*line.v1, line.delta);
+    let frac = intercept_vector (trace, &dl);
+
+    if frac < 0.0 {
+        return true; // behind the source
+    }
+
+    // TODO: early out
+    intercepts.push(Intercept{ frac, line: Some(line), thing: None } );
+    true
+}
+
+/// P_InterceptVector
+/// Returns the fractional intercept point
+/// along the first divline.
+/// This is only called by the addthings
+/// and addlines traversers.
+pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+    // Does things with fixed-point like this without much explanation:
+    // den = FixedMul (v1->dy>>8,v2->dx) - FixedMul(v1->dx>>8,v2->dy);
+    // why the shift right by 8?
+
+    let den = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+
+    if den == 0.0 {
+        return 0.0;
+    }
+
+    let num = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+
+    num / den
 }
 
 #[cfg(test)]

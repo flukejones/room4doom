@@ -1,3 +1,9 @@
+use std::io::Lines;
+
+use glam::Vec2;
+
+use crate::{DPtr, level_data::map_defs::LineDef, p_map_object::MapObject};
+
 /// P_MOBJ
 pub static ONFLOORZ: i32 = i32::MIN;
 /// P_MOBJ
@@ -62,6 +68,44 @@ pub fn m_clear_random() {
     unsafe {
         RNDINDEX = 0;
         PRNDINDEX = 0;
+    }
+}
+
+/// Used in path tracing for intercepts
+/// Is divline + trace types
+pub struct Trace {
+    pub xy: Vec2,
+    pub dxy: Vec2,
+}
+
+impl Trace {
+    pub fn new(xy: Vec2, dxy: Vec2) -> Self {
+        Self {
+            xy,
+            dxy,
+        }
+    }
+}
+
+pub struct Intercept {
+    pub frac: f32,
+    pub line: Option<DPtr<LineDef>>,
+    pub thing: Option<DPtr<MapObject>>,
+}
+
+#[derive(Debug,Default)]
+pub struct BestSlide {
+    pub best_slide_frac: f32,
+    pub second_slide_frac: f32,
+    pub best_slide_line: Option<DPtr<LineDef>>,
+    pub second_slide_line: Option<DPtr<LineDef>>,
+}
+
+impl BestSlide {
+    pub fn new() -> Self {
+        let mut b = Self::default();
+        b.best_slide_frac = 1.0;
+        b
     }
 }
 
