@@ -344,10 +344,8 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() <= 0.0000001
-            && self.momxy.x() >= -0.0000001
-            && self.momxy.y() <= 0.0000001
-            && self.momxy.y() >= -0.0000001
+        if self.momxy.x() == EPSILON
+            && self.momxy.y() == EPSILON
         {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
