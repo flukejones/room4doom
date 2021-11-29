@@ -235,6 +235,25 @@ pub fn path_traverse(origin: Vec2, endpoint: Vec2, best_slide: &mut BestSlide, l
     //return TraverseIntercepts(trav, Fixed.One);
 }
 
+pub fn traverse_intercepts(intercepts: &Vec<Intercept>, max_frac: f32) -> bool {
+    let mut dist = f32::MAX;
+    for i in intercepts {
+        if i.frac < dist {
+            dist = i.frac;
+            // TODO: set line ref
+        }
+    }
+
+    if dist > max_frac {
+        return false;
+    }
+
+    // if !PTR_SlideTraverse return false
+    // PTR_SlideTraverse checks if the line is blocking and sets the BestSlide
+
+    true
+}
+
 pub fn add_line_intercepts(trace: &Trace, line: DPtr<LineDef>, intercepts: &mut Vec<Intercept>) -> bool {
     let s1 = line.point_on_side(&trace.xy);
     let s2 = line.point_on_side(&trace.dxy);
