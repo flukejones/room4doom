@@ -1,6 +1,7 @@
 use crate::angle::Angle;
 use crate::p_map_object::MapObject;
 use crate::DPtr;
+use crate::p_map_util::cross;
 use glam::Vec2;
 use std::f32::EPSILON;
 
@@ -141,12 +142,21 @@ pub struct LineDef {
 
 impl LineDef {
     pub fn point_on_side(&self, v: &Vec2) -> usize {
+        // let r = (self.v2.x() - self.v1.x())*(v.y() - self.v1.y()) - (self.v2.y() - self.v1.y())*(v.x() - self.v1.x());
+        // // dbg!(r);
+        // if r.is_sign_positive() {
+        //     return 1; // Back side
+        // }
+        // 0 // Front side
+
         let dx = v.x() - self.v1.x();
         let dy = v.y() - self.v1.y();
 
-        if (dy * self.delta.x()) < (self.delta.y() * dx) {
+        if (dy * self.delta.x()) <= (self.delta.y() * dx) {
+            // Front side
             return 0;
         }
+        // Backside
         1
     }
 }
@@ -259,5 +269,35 @@ impl BlockMap {
             line_indexes,
             blockmap_offset,
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+
+    fn point_on_side(v1: Vec2, v2: Vec2, v: Vec2) -> usize {
+        let r = (v2.x() - v1.x())*(v.y() - v1.y()) - (v2.y() - v1.y())*(v.x() - v1.x());
+        // dbg!(r);
+        if r.is_sign_positive() {
+            return 1; // Back side
+        }
+        0 // Front side
+    }
+
+    #[test]
+    fn line_side_problem() {
+        // seg.v2.x() == 968.0 && seg.v2.y() == -2880.0 && seg.v1.x() == 832.0 && seg.v1.y() == -2944.0
+        let v1 = Vec2::new(832.0, -2944.0);
+        let v2 = Vec2::new(968.0, -2880.0);
+
+        let v = Vec2::new(0.0, 0.0);
+        let r = point_on_side(v1, v2, v);
+        assert_eq!(r, 1);
+
+        let v = Vec2::new(976.0, -2912.0);
+        let r = point_on_side(v1, v2, v);
+        assert_eq!(r, 0);
     }
 }

@@ -114,36 +114,9 @@ pub fn ray_to_line_intersect(
     None
 }
 
-/// Produce a `LineContact` with the normal from movement->line, and the depth
-/// of penetration taking in to account the radius.
-///
-/// Does some of `P_HitSlideLine`
-#[inline]
-pub fn line_slide_direction(
-    origin: Vec2,
-    move_to: Vec2,
-    point1: Vec2,
-    point2: Vec2,
-) -> Vec2 {
-    let lc = move_to - point1;
-    let d = point2 - point1;
-    let p = project_vec2(lc, d);
-
-    let mxy_on_line = point1 + p;
-
-    let lc = origin - point1;
-    let p2 = project_vec2(lc, d);
-    // point on line from starting point
-    let origin_on_line = point1 + p2;
-
-    // if p2.length() < d.length() && p2.dot(d) > EPSILON {
-    // line angle headng in direction we need to slide
-    let mut slide_direction = (mxy_on_line - origin_on_line).normalize();
-    if slide_direction.x().is_nan() || slide_direction.y().is_nan() {
-        slide_direction = Vec2::default();
-    }
-
-    slide_direction
+pub struct Slide {
+    pub direction: Vec2,
+    pub delta: f32,
 }
 
 #[inline]
@@ -324,26 +297,26 @@ mod tests {
         assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_none());
     }
 
-    #[test]
-    fn test_line_line_intersection() {
-        let origin1 = Vec2::new(5.0, 1.0);
-        let origin2 = Vec2::new(5.0, 10.0);
-        let point1 = Vec2::new(1.0, 5.0);
-        let point2 = Vec2::new(10.0, 5.0);
-        assert!(line_line_intersection(origin1, origin2, point1, point2));
+    // #[test]
+    // fn test_line_line_intersection() {
+    //     let origin1 = Vec2::new(5.0, 1.0);
+    //     let origin2 = Vec2::new(5.0, 10.0);
+    //     let point1 = Vec2::new(1.0, 5.0);
+    //     let point2 = Vec2::new(10.0, 5.0);
+    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
 
-        let point1 = Vec2::new(5.0, 1.0);
-        let point2 = Vec2::new(5.0, 10.0);
-        assert!(line_line_intersection(origin1, origin2, point1, point2));
+    //     let point1 = Vec2::new(5.0, 1.0);
+    //     let point2 = Vec2::new(5.0, 10.0);
+    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
 
-        let point1 = Vec2::new(4.0, 1.0);
-        let point2 = Vec2::new(4.0, 10.0);
-        assert!(!line_line_intersection(origin1, origin2, point1, point2));
+    //     let point1 = Vec2::new(4.0, 1.0);
+    //     let point2 = Vec2::new(4.0, 10.0);
+    //     assert!(!line_line_intersection(origin1, origin2, point1, point2));
 
-        let origin1 = Vec2::new(1.0, 1.0);
-        let origin2 = Vec2::new(10.0, 10.0);
-        let point1 = Vec2::new(10.0, 1.0);
-        let point2 = Vec2::new(1.0, 10.0);
-        assert!(line_line_intersection(origin1, origin2, point1, point2));
-    }
+    //     let origin1 = Vec2::new(1.0, 1.0);
+    //     let origin2 = Vec2::new(10.0, 10.0);
+    //     let point1 = Vec2::new(10.0, 1.0);
+    //     let point2 = Vec2::new(1.0, 10.0);
+    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
+    // }
 }
