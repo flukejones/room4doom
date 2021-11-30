@@ -1,6 +1,7 @@
 use std::ptr::NonNull;
 
 use crate::level_data::level::Level;
+use crate::p_local::BestSlide;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
@@ -171,8 +172,10 @@ pub struct MapObject {
     movedir: i32,
     /// when 0, select a new dir
     movecount: i32,
-    // Thing being chased/attacked (or NULL),
-    // also the originator for missiles.
+    /// The best slide move for a player object
+    pub best_slide: BestSlide,
+    /// Thing being chased/attacked (or NULL),
+    /// also the originator for missiles.
     pub target: Option<NonNull<MapObject>>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
@@ -710,6 +713,7 @@ impl MapObject {
             tics: state.tics,
             movedir: 0,
             movecount: 0,
+            best_slide: BestSlide::default(),
             reactiontime,
             threshold: 0,
             lastlook: (p_random() as i32) % MAXPLAYERS as i32,

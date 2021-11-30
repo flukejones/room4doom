@@ -73,6 +73,7 @@ pub fn m_clear_random() {
 
 /// Used in path tracing for intercepts
 /// Is divline + trace types
+#[derive(Debug)]
 pub struct Trace {
     pub xy: Vec2,
     pub dxy: Vec2,
@@ -87,6 +88,7 @@ impl Trace {
     }
 }
 
+#[derive(Debug,Default)]
 pub struct Intercept {
     pub frac: f32,
     pub line: Option<DPtr<LineDef>>,
