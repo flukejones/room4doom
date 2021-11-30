@@ -1,6 +1,6 @@
 //!	Movement, collision handling.
 //!	Shooting and aiming.
-use std::f32::consts::{FRAC_2_PI, FRAC_PI_2};
+use std::f32::consts::{FRAC_2_PI, FRAC_PI_2, PI};
 
 use glam::Vec2;
 
@@ -367,7 +367,7 @@ impl MapObject {
                 return;
             }
 
-            let slide_move = self.momxy * self.best_slide.best_slide_frac;
+            let mut slide_move = self.momxy * self.best_slide.best_slide_frac;
             // Clip the moves.
             if let Some(best_slide_line) = self.best_slide.best_slide_line.as_ref() {
                 self.hit_slide_line(&mut slide_move, best_slide_line);
@@ -443,7 +443,9 @@ impl MapObject {
             line_angle += FRAC_2_PI;
         }
 
-        let move_angle = Angle::from_vector(*slide_move);
+        let mut move_angle = Angle::from_vector(*slide_move);
+        dbg!(move_angle);
+        dbg!(line_angle);
 
         let mut delta_angle = move_angle - line_angle;
         if delta_angle.rad() >= FRAC_PI_2 {
@@ -453,8 +455,7 @@ impl MapObject {
         let move_dist = slide_move.length();
         let new_dist = move_dist * delta_angle.cos();
 
-        *slide_move = line_angle.unit() * new_dist;
-        dbg!(slide_move);
+        *slide_move = line_angle.unit() * new_dist; // not correct for upper half circle
     }
 }
 
