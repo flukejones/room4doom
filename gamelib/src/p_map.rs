@@ -9,9 +9,11 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::{BestSlide, MAXRADIUS};
+use crate::p_local::{BestSlide, Intercept, MAXRADIUS, fixed_to_float};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{PortalZ, box_on_line_side, line_slide_direction, path_traverse};
+use crate::p_map_util::{
+    box_on_line_side, intercept_vector, line_slide_direction, path_traverse, PortalZ,
+};
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -47,23 +49,26 @@ impl MapObject {
         let ctrl = &mut level.mobj_ctrl;
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
-                return false;   // doesn't fit
+                return false; // doesn't fit
             }
             ctrl.floatok = true;
 
-            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0 &&
-                ctrl.max_ceil_z - self.z < self.height {
-                    return false;   // mobj must lower itself to fit
+            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0
+                && ctrl.max_ceil_z - self.z < self.height
+            {
+                return false; // mobj must lower itself to fit
             }
 
-            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0 &&
-                ctrl.min_floor_z - self.z > 24.0 {
-                    return false;   // too big a step up
+            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0
+                && ctrl.min_floor_z - self.z > 24.0
+            {
+                return false; // too big a step up
             }
 
-            if self.flags & (MapObjectFlag::MF_DROPOFF as u32 | MapObjectFlag::MF_FLOAT as u32) == 0 &&
-                ctrl.min_floor_z - ctrl.max_dropoff > 24.0 {
-                    return false;   // too big a step up
+            if self.flags & (MapObjectFlag::MF_DROPOFF as u32 | MapObjectFlag::MF_FLOAT as u32) == 0
+                && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
+            {
+                return false; // too big a step up
             }
         }
 
@@ -157,7 +162,6 @@ impl MapObject {
         let segs = level.map_data.get_segments();
         let sub_sectors = level.map_data.get_subsectors();
 
-
         let leadx;
         let leady;
         let trailx;
@@ -180,13 +184,23 @@ impl MapObject {
         }
 
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
-        let mut bsp_trace = BSPTrace::new(Vec2::new(trailx, traily), Vec2::new(leadx, leady) + self.momxy, level.map_data.start_node());
+        let mut bsp_trace = BSPTrace::new(
+            Vec2::new(trailx, traily),
+            Vec2::new(leadx, leady) + self.momxy,
+            level.map_data.start_node(),
+        );
         bsp_trace.find_ssect_intercepts(&level.map_data);
 
-        bsp_trace.set_line(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy);
+        bsp_trace.set_line(
+            Vec2::new(leadx, traily),
+            Vec2::new(leadx, traily) + self.momxy,
+        );
         bsp_trace.find_ssect_intercepts(&level.map_data);
 
-        bsp_trace.set_line(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy);
+        bsp_trace.set_line(
+            Vec2::new(trailx, leady),
+            Vec2::new(trailx, leady) + self.momxy,
+        );
         bsp_trace.find_ssect_intercepts(&level.map_data);
 
         for n in bsp_trace.intercepted_nodes() {
@@ -279,8 +293,7 @@ impl MapObject {
     pub fn p_slide_move(&mut self, level: &mut Level) {
         // let ctrl = &mut level.mobj_ctrl;
         let mut hitcount = 0;
-        let mut best_slide = BestSlide::new();
-        let mut slide_move = self.momxy;
+        self.best_slide = BestSlide::new();
 
         let leadx;
         let leady;
@@ -309,20 +322,54 @@ impl MapObject {
                 return;
             }
 
-            path_traverse(Vec2::new(leadx, leady), Vec2::new(leadx, leady) + self.momxy, &mut best_slide, level);
-            path_traverse(Vec2::new(trailx, leady), Vec2::new(trailx, leady) + self.momxy, &mut best_slide, level);
-            path_traverse(Vec2::new(leadx, traily), Vec2::new(leadx, traily) + self.momxy, &mut best_slide, level);
+            path_traverse(
+                Vec2::new(leadx, leady),
+                Vec2::new(leadx, leady) + self.momxy,
+                level,
+                |intercept| self.slide_traverse(intercept),
+            );
+            path_traverse(
+                Vec2::new(trailx, leady),
+                Vec2::new(trailx, leady) + self.momxy,
+                level,
+                |intercept| self.slide_traverse(intercept),
+            );
+            path_traverse(
+                Vec2::new(leadx, traily),
+                Vec2::new(leadx, traily) + self.momxy,
+                level,
+                |intercept| self.slide_traverse(intercept),
+            );
 
-            if best_slide.best_slide_frac == 1.0 {
+            if self.best_slide.best_slide_frac == 1.0 {
                 // The move most have hit the middle, so stairstep.
                 self.stair_step(level);
                 return;
             }
 
-            slide_move = slide_move * best_slide.best_slide_frac; // bestfrac
+            self.best_slide.best_slide_frac -= 0.031250;
+            if self.best_slide.best_slide_frac > 0.0 {
+                let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
+                if !self.p_try_move(self.xy.x() + slide_move.x(), self.xy.y() + slide_move.y(), level) {
+                    self.stair_step(level);
+                    return;
+                }
+            }
 
+            // Now continue along the wall.
+            // First calculate remainder.
+            self.best_slide.best_slide_frac = 1.0 - (self.best_slide.best_slide_frac + 0.031250);
+            if self.best_slide.best_slide_frac > 1.0 {
+                self.best_slide.best_slide_frac = 1.0;
+            }
+
+            if self.best_slide.best_slide_frac <= 0.0 {
+                return;
+            }
+
+            let slide_move = self.momxy * self.best_slide.best_slide_frac;
             // Clip the moves.
-            if let Some(best_slide_line) = best_slide.best_slide_line.as_ref() {
+            if let Some(best_slide_line) = self.best_slide.best_slide_line.as_ref() {
                 self.hit_slide_line(&mut slide_move, best_slide_line);
             }
 
@@ -337,17 +384,50 @@ impl MapObject {
         }
     }
 
+    fn blocking_intercept(&mut self, intercept: &Intercept) {
+        if intercept.frac < self.best_slide.best_slide_frac {
+            self.best_slide.second_slide_frac = self.best_slide.best_slide_frac;
+            self.best_slide.second_slide_line = self.best_slide.best_slide_line.clone();
+            self.best_slide.best_slide_frac = intercept.frac;
+            self.best_slide.best_slide_line = intercept.line.clone();
+        }
+    }
+
+    pub fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
+        if let Some(line) = &intercept.line {
+            if (line.flags as usize) & LineDefFlags::TwoSided as usize == 0 {
+                if line.point_on_side(&self.xy) != 0 {
+                    return true; // Don't hit backside
+                }
+                self.blocking_intercept(intercept);
+            }
+
+            // set openrange, opentop, openbottom
+            let portal = PortalZ::new(line);
+            if portal.range < self.height // doesn't fit
+                || portal.top_z - self.z < self.height // mobj is too high
+                || portal.bottom_z - self.z > 24.0 // too big a step up
+            {
+                self.blocking_intercept(intercept);
+                return false;
+            }
+            // this line doesn't block movement
+            return true;
+        }
+
+        self.blocking_intercept(intercept);
+        false
+    }
+
     pub fn stair_step(&mut self, level: &mut Level) {
-        dbg!("STEP 1");
         // Line might have hit the middle, end-on?
         if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y(), level) {
-            dbg!("STEP 2");
             self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y(), level);
         }
     }
 
     /// P_HitSlideLine
-    pub fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef,) {
+    pub fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef) {
         if matches!(line.slopetype, SlopeType::Horizontal) {
             slide_move.set_y(0.0);
             return;
@@ -374,6 +454,7 @@ impl MapObject {
         let new_dist = move_dist * delta_angle.cos();
 
         *slide_move = line_angle.unit() * new_dist;
+        dbg!(slide_move);
     }
 }
 
