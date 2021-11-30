@@ -12,7 +12,7 @@ use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, fixed_to_float};
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{
-    box_on_line_side, intercept_vector, line_slide_direction, path_traverse, PortalZ,
+    box_on_line_side, path_traverse, PortalZ,
 };
 use crate::DPtr;
 
@@ -308,7 +308,7 @@ impl MapObject {
             trailx = self.xy.x() + self.radius;
         }
 
-        if self.xy.y() > 0.0 {
+        if self.momxy.y() > 0.0 {
             leady = self.xy.y() + self.radius;
             traily = self.xy.y() - self.radius;
         } else {
@@ -439,23 +439,24 @@ impl MapObject {
 
         let side = line.point_on_side(slide_move);
         let mut line_angle = Angle::from_vector(line.delta);
-        if side == 1 {
-            line_angle += FRAC_2_PI;
-        }
+        // if side == 1 {
+        //     line_angle += FRAC_PI_2;
+        // }
 
         let mut move_angle = Angle::from_vector(*slide_move);
-        dbg!(move_angle);
-        dbg!(line_angle);
+        // if move_angle.rad() > FRAC_PI_2 {
+        //     move_angle -= FRAC_PI_2;
+        // }
 
         let mut delta_angle = move_angle - line_angle;
-        if delta_angle.rad() >= FRAC_PI_2 {
-            delta_angle += FRAC_PI_2;
-        }
+        // if delta_angle.rad() > FRAC_PI_2 {
+        //     delta_angle += FRAC_PI_2;
+        // }
 
         let move_dist = slide_move.length();
         let new_dist = move_dist * delta_angle.cos();
 
-        *slide_move = line_angle.unit() * new_dist; // not correct for upper half circle
+        *slide_move = line_angle.unit() * new_dist;
     }
 }
 
