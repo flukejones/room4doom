@@ -157,12 +157,9 @@ pub fn unit_vec_from(rotation: f32) -> Vec2 {
     Vec2::new(x, y)
 }
 
-pub fn path_traverse(origin: Vec2, endpoint: Vec2, level: &Level, trav: impl FnMut(&Intercept) -> bool) -> bool {
+pub fn path_traverse(origin: Vec2, endpoint: Vec2, level: &Level, trav: impl FnMut(&Intercept) -> bool, bsp_trace: &mut BSPTrace) -> bool {
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
-
-    let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
-    bsp_trace.find_ssect_intercepts(&level.map_data);
 
     for n in bsp_trace.intercepted_nodes() {
         let segs = level.map_data.get_segments();

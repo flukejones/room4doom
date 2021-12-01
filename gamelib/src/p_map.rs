@@ -156,52 +156,56 @@ impl MapObject {
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
-        let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
-        bsp_trace.find_ssect_intercepts(&level.map_data);
-        let segs = level.map_data.get_segments();
         let sub_sectors = level.map_data.get_subsectors();
 
-        let leadx;
-        let leady;
-        let trailx;
-        let traily;
-
-        if self.momxy.x() > 0.0 {
-            leadx = self.xy.x() + self.radius;
-            trailx = self.xy.x() - self.radius;
-        } else {
-            leadx = self.xy.x() - self.radius;
-            trailx = self.xy.x() + self.radius;
-        }
-
-        if self.xy.y() > 0.0 {
-            leady = self.xy.y() + self.radius;
-            traily = self.xy.y() - self.radius;
-        } else {
-            leady = self.xy.y() - self.radius;
-            traily = self.xy.y() + self.radius;
-        }
-
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
+        // A single BSP trace varies from 5 to 15 recursions.
+        // Regular Doom maps have 4 to 100 or so lines in a sector
+        // SIGIL wad has 4000+ lines per map (approx),
+        // 3 recursions = average 25 depth total
+        // subsectors crossed = average 2
+        // lines per subsector = average 4
+        // Lines to check = 4~
         let mut bsp_trace = BSPTrace::new(
-            Vec2::new(trailx, traily),
-            Vec2::new(leadx, leady) + self.momxy,
+            Vec2::new(left, bottom),
+            Vec2::new(right, top),
             level.map_data.start_node(),
         );
-        bsp_trace.find_ssect_intercepts(&level.map_data);
+        let mut count = 0;
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
         bsp_trace.set_line(
-            Vec2::new(leadx, traily),
-            Vec2::new(leadx, traily) + self.momxy,
+            Vec2::new(left, top),
+            Vec2::new(right, bottom),
         );
-        bsp_trace.find_ssect_intercepts(&level.map_data);
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
         bsp_trace.set_line(
-            Vec2::new(trailx, leady),
-            Vec2::new(trailx, leady) + self.momxy,
+            Vec2::new(left, bottom),
+            Vec2::new(left, top),
         );
-        bsp_trace.find_ssect_intercepts(&level.map_data);
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
+        bsp_trace.set_line(
+            Vec2::new(right, bottom),
+            Vec2::new(right, top),
+        );
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+
+        bsp_trace.set_line(
+            Vec2::new(right, top),
+            Vec2::new(left, top),
+        );
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+
+        bsp_trace.set_line(
+            Vec2::new(right, bottom),
+            Vec2::new(left, bottom),
+        );
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+        //dbg!(count);
+
+        let segs = level.map_data.get_segments();
         for n in bsp_trace.intercepted_nodes() {
             let ssect = &sub_sectors[*n as usize];
             let start = ssect.start_seg as usize;
@@ -212,44 +216,13 @@ impl MapObject {
                 }
             }
         }
+        // for seg in level.map_data.get_linedefs().iter() {
+        //         if !self.pit_check_line(&tmbbox, ctrl, &seg) {
+        //             return false;
+        //         }
+        //     }
 
         true
-    }
-
-    pub fn correct_position(&mut self, level: &Level) {
-        let left = self.xy.x() - self.radius;
-        let right = self.xy.x() + self.radius;
-        let top = self.xy.y() + self.radius;
-        let bottom = self.xy.y() - self.radius;
-
-        let mut bsp_trace = BSPTrace::new(Vec2::new(left, top), Vec2::new(right, bottom), level.map_data.start_node());
-        bsp_trace.find_ssect_intercepts(&level.map_data);
-
-        bsp_trace.set_line(Vec2::new(right, top), Vec2::new(left, bottom));
-        bsp_trace.find_ssect_intercepts(&level.map_data);
-
-        let segs = level.map_data.get_segments();
-        let sub_sectors = level.map_data.get_subsectors();
-
-        for n in bsp_trace.intercepted_nodes() {
-            let ssect = &sub_sectors[*n as usize];
-            let start = ssect.start_seg as usize;
-            let end = start + ssect.seg_count as usize;
-            for seg in &segs[start..end] {
-                if seg.backsector.is_none() {
-                    if let Some(shit) = circle_to_line_intercept_basic(self.xy, self.radius, *seg.v1, *seg.v2) {
-                        dbg!(shit);
-                        self.xy = self.xy + shit;
-                    }
-                    // if let Some(shit) = circle_point_intersect(self.xy, self.radius, *seg.v1) {
-                    //     self.xy = self.xy + self.momxy.normalize() * shit;
-                    // }
-                    // if let Some(shit) = circle_point_intersect(self.xy, self.radius, *seg.v2) {
-                    //     self.xy = self.xy + self.momxy.normalize() * shit;
-                    // }
-                }
-            }
-        }
     }
 
     /// PIT_CheckLine
@@ -354,23 +327,59 @@ impl MapObject {
                 return;
             }
 
+            // tail to front, centered
+            let mut bsp_trace = BSPTrace::new(
+            Vec2::new(trailx, traily),
+            Vec2::new(leadx, leady) + self.momxy,
+            level.map_data.start_node(),
+            );
+            let mut count = 0;
+            bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+            // outside edges
+            bsp_trace.set_line(
+                Vec2::new(trailx, leady),
+                Vec2::new(trailx, leady) + self.momxy,
+            );
+            bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+
+            bsp_trace.set_line(
+                Vec2::new(leadx, traily),
+                Vec2::new(leadx, traily) + self.momxy,
+            );
+            bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+            // leading edges
+            bsp_trace.set_line(
+                Vec2::new(leadx, leady) + self.momxy,
+                Vec2::new(trailx, leady) + self.momxy,
+            );
+            bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+
+            bsp_trace.set_line(
+                Vec2::new(leadx, leady) + self.momxy,
+                Vec2::new(leadx, traily) + self.momxy,
+            );
+            bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+
             path_traverse(
                 Vec2::new(leadx, leady),
                 Vec2::new(leadx, leady) + self.momxy,
                 level,
                 |intercept| self.slide_traverse(intercept),
+                &mut bsp_trace,
             );
             path_traverse(
                 Vec2::new(trailx, leady),
                 Vec2::new(trailx, leady) + self.momxy,
                 level,
                 |intercept| self.slide_traverse(intercept),
+                &mut &mut bsp_trace,
             );
             path_traverse(
                 Vec2::new(leadx, traily),
                 Vec2::new(leadx, traily) + self.momxy,
                 level,
                 |intercept| self.slide_traverse(intercept),
+                &mut &mut bsp_trace,
             );
 
             if self.best_slide.best_slide_frac == 2.0 {
@@ -384,8 +393,8 @@ impl MapObject {
                 let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
                 if !self.p_try_move(self.xy.x() + slide_move.x(), self.xy.y() + slide_move.y(), level) {
                     self.stair_step(level);
-                    return;
                 }
+                return;
             }
 
             // Now continue along the wall.

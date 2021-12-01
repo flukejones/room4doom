@@ -410,7 +410,9 @@ impl BSPTrace {
     pub fn find_ssect_intercepts<'a>(
         &mut self,
         map: &MapData,
+        count: &mut u32,
     ) {
+        *count += 1;
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)){
                 self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);}
@@ -426,12 +428,12 @@ impl BSPTrace {
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
             self.node_id = node.child_index[side1];
-            self.find_ssect_intercepts(map);
+            self.find_ssect_intercepts(map, count);
             self.node_id = node.child_index[side2];
-            self.find_ssect_intercepts(map);
+            self.find_ssect_intercepts(map, count);
         } else {
             self.node_id = node.child_index[side1];
-            self.find_ssect_intercepts(map);
+            self.find_ssect_intercepts(map, count);
         }
     }
 
