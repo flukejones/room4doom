@@ -381,11 +381,7 @@ pub struct BSPTrace {
 }
 
 impl BSPTrace {
-    pub fn new(
-        origin: Vec2,
-        endpoint: Vec2,
-        node_id: u16,
-    ) -> Self {
+    pub fn new(origin: Vec2, endpoint: Vec2, node_id: u16) -> Self {
         Self {
             origin,
             endpoint,
@@ -394,9 +390,7 @@ impl BSPTrace {
         }
     }
 
-    pub fn set_line(&mut self,
-        origin: Vec2,
-        endpoint: Vec2) {
+    pub fn set_line(&mut self, origin: Vec2, endpoint: Vec2) {
         self.origin = origin;
         self.endpoint = endpoint;
     }
@@ -407,15 +401,12 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    pub fn find_ssect_intercepts<'a>(
-        &mut self,
-        map: &MapData,
-        count: &mut u32,
-    ) {
+    pub fn find_ssect_intercepts<'a>(&mut self, map: &MapData, count: &mut u32) {
         *count += 1;
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)){
-                self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);}
+            if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)) {
+                self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);
+            }
             return;
         }
         let node = &map.get_nodes()[self.node_id as usize];
@@ -444,8 +435,8 @@ impl BSPTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::{angle::Angle, level_data::map_data::BSPTrace};
     use crate::level_data::map_data::MapData;
+    use crate::{angle::Angle, level_data::map_data::BSPTrace};
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;

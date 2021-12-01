@@ -1,4 +1,12 @@
-use crate::{DPtr, level_data::{level::{self, Level}, map_data::BSPTrace, map_defs::{BBox, LineDef, SlopeType}}, p_local::{BestSlide, Intercept, Trace}};
+use crate::{
+    level_data::{
+        level::{self, Level},
+        map_data::BSPTrace,
+        map_defs::{BBox, LineDef, SlopeType},
+    },
+    p_local::{BestSlide, Intercept, Trace},
+    DPtr,
+};
 use glam::Vec2;
 use std::f32::EPSILON;
 
@@ -157,7 +165,13 @@ pub fn unit_vec_from(rotation: f32) -> Vec2 {
     Vec2::new(x, y)
 }
 
-pub fn path_traverse(origin: Vec2, endpoint: Vec2, level: &Level, trav: impl FnMut(&Intercept) -> bool, bsp_trace: &mut BSPTrace) -> bool {
+pub fn path_traverse(
+    origin: Vec2,
+    endpoint: Vec2,
+    level: &Level,
+    trav: impl FnMut(&Intercept) -> bool,
+    bsp_trace: &mut BSPTrace,
+) -> bool {
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
 
@@ -170,19 +184,23 @@ pub fn path_traverse(origin: Vec2, endpoint: Vec2, level: &Level, trav: impl FnM
         let end = start + ssect.seg_count as usize;
         for seg in &segs[start..end] {
             //if seg.linedef.point_on_side(&origin) != seg.linedef.point_on_side(&endpoint) {
-                // Add intercept
-                // PIT_AddLineIntercepts
-                if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts) {
-                    // early out on first intercept?
-                    return false;
-                }
+            // Add intercept
+            // PIT_AddLineIntercepts
+            if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts) {
+                // early out on first intercept?
+                return false;
+            }
             //}
         }
     }
     traverse_intercepts(&intercepts, 1.0, trav)
 }
 
-pub fn traverse_intercepts(intercepts: &Vec<Intercept>, max_frac: f32, mut trav: impl FnMut(&Intercept) -> bool) -> bool {
+pub fn traverse_intercepts(
+    intercepts: &Vec<Intercept>,
+    max_frac: f32,
+    mut trav: impl FnMut(&Intercept) -> bool,
+) -> bool {
     let mut dist = f32::MAX;
     let mut intercept = &Intercept::default();
     for i in intercepts {
@@ -204,7 +222,11 @@ pub fn traverse_intercepts(intercepts: &Vec<Intercept>, max_frac: f32, mut trav:
     true
 }
 
-pub fn add_line_intercepts(trace: &Trace, line: DPtr<LineDef>, intercepts: &mut Vec<Intercept>) -> bool {
+pub fn add_line_intercepts(
+    trace: &Trace,
+    line: DPtr<LineDef>,
+    intercepts: &mut Vec<Intercept>,
+) -> bool {
     let s1 = line.point_on_side(&trace.xy);
     let s2 = line.point_on_side(&(trace.xy + trace.dxy));
 
@@ -226,7 +248,11 @@ pub fn add_line_intercepts(trace: &Trace, line: DPtr<LineDef>, intercepts: &mut 
     // }
 
     // TODO: early out
-    intercepts.push(Intercept{ frac, line: Some(line), thing: None } );
+    intercepts.push(Intercept {
+        frac,
+        line: Some(line),
+        thing: None,
+    });
     true
 }
 
@@ -239,10 +265,8 @@ pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
     // Does things with fixed-point like this without much explanation:
     // den = FixedMul (v1->dy>>8,v2->dx) - FixedMul(v1->dx>>8,v2->dy);
     // why the shift right by 8?
-    let denominator = (v1.dxy.y() * v2.dxy.x())
-                         - (v1.dxy.x() * v2.dxy.y());
-    let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y()
-                         + (v2.xy.y() - v1.xy.y()) * v1.dxy.x();
+    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+    let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y() + (v2.xy.y() - v1.xy.y()) * v1.dxy.x();
 
     if denominator == EPSILON {
         return numerator1;

@@ -347,9 +347,7 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() == EPSILON
-            && self.momxy.y() == EPSILON
-        {
+        if self.momxy.x() == EPSILON && self.momxy.y() == EPSILON {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
