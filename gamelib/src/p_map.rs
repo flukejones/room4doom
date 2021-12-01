@@ -9,11 +9,14 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::{BestSlide, Intercept, MAXRADIUS, fixed_to_float};
+use crate::p_local::{fixed_to_float, BestSlide, Intercept, MAXRADIUS};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{PortalZ, box_on_line_side, circle_point_intersect, circle_to_line_intercept_basic, path_traverse};
-use crate::DPtr;
+use crate::p_map_util::{
+    box_on_line_side, circle_point_intersect, circle_to_line_intercept_basic, path_traverse,
+    PortalZ,
+};
 use crate::renderer::bsp;
+use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -174,34 +177,19 @@ impl MapObject {
         let mut count = 0;
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        bsp_trace.set_line(
-            Vec2::new(left, top),
-            Vec2::new(right, bottom),
-        );
+        bsp_trace.set_line(Vec2::new(left, top), Vec2::new(right, bottom));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        bsp_trace.set_line(
-            Vec2::new(left, bottom),
-            Vec2::new(left, top),
-        );
+        bsp_trace.set_line(Vec2::new(left, bottom), Vec2::new(left, top));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        bsp_trace.set_line(
-            Vec2::new(right, bottom),
-            Vec2::new(right, top),
-        );
+        bsp_trace.set_line(Vec2::new(right, bottom), Vec2::new(right, top));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        bsp_trace.set_line(
-            Vec2::new(right, top),
-            Vec2::new(left, top),
-        );
+        bsp_trace.set_line(Vec2::new(right, top), Vec2::new(left, top));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        bsp_trace.set_line(
-            Vec2::new(right, bottom),
-            Vec2::new(left, bottom),
-        );
+        bsp_trace.set_line(Vec2::new(right, bottom), Vec2::new(left, bottom));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
         //dbg!(count);
 
@@ -329,9 +317,9 @@ impl MapObject {
 
             // tail to front, centered
             let mut bsp_trace = BSPTrace::new(
-            Vec2::new(trailx, traily),
-            Vec2::new(leadx, leady) + self.momxy,
-            level.map_data.start_node(),
+                Vec2::new(trailx, traily),
+                Vec2::new(leadx, leady) + self.momxy,
+                level.map_data.start_node(),
             );
             let mut count = 0;
             bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
@@ -391,7 +379,11 @@ impl MapObject {
             self.best_slide.best_slide_frac -= 0.031250;
             if self.best_slide.best_slide_frac > 0.0 {
                 let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
-                if !self.p_try_move(self.xy.x() + slide_move.x(), self.xy.y() + slide_move.y(), level) {
+                if !self.p_try_move(
+                    self.xy.x() + slide_move.x(),
+                    self.xy.y() + slide_move.y(),
+                    level,
+                ) {
                     self.stair_step(level);
                 }
                 return;
@@ -447,7 +439,8 @@ impl MapObject {
             let portal = PortalZ::new(line);
             if portal.range < self.height // doesn't fit
                 || portal.top_z - self.z < self.height // mobj is too high
-                || portal.bottom_z - self.z > 24.0 // too big a step up
+                || portal.bottom_z - self.z > 24.0
+            // too big a step up
             {
                 self.blocking_intercept(intercept);
                 return false;

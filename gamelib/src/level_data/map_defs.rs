@@ -1,7 +1,7 @@
 use crate::angle::Angle;
 use crate::p_map_object::MapObject;
-use crate::DPtr;
 use crate::p_map_util::cross;
+use crate::DPtr;
 use glam::Vec2;
 use std::f32::EPSILON;
 
@@ -272,13 +272,12 @@ impl BlockMap {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use glam::Vec2;
 
     fn point_on_side(v1: Vec2, v2: Vec2, v: Vec2) -> usize {
-        let r = (v2.x() - v1.x())*(v.y() - v1.y()) - (v2.y() - v1.y())*(v.x() - v1.x());
+        let r = (v2.x() - v1.x()) * (v.y() - v1.y()) - (v2.y() - v1.y()) * (v.x() - v1.x());
         // dbg!(r);
         if r.is_sign_positive() {
             return 1; // Back side

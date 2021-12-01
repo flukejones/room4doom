@@ -2,7 +2,7 @@ use std::io::Lines;
 
 use glam::Vec2;
 
-use crate::{DPtr, level_data::map_defs::LineDef, p_map_object::MapObject};
+use crate::{level_data::map_defs::LineDef, p_map_object::MapObject, DPtr};
 
 /// P_MOBJ
 pub static ONFLOORZ: i32 = i32::MIN;
@@ -81,21 +81,18 @@ pub struct Trace {
 
 impl Trace {
     pub fn new(xy: Vec2, dxy: Vec2) -> Self {
-        Self {
-            xy,
-            dxy,
-        }
+        Self { xy, dxy }
     }
 }
 
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct Intercept {
     pub frac: f32,
     pub line: Option<DPtr<LineDef>>,
     pub thing: Option<DPtr<MapObject>>,
 }
 
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct BestSlide {
     pub best_slide_frac: f32,
     pub second_slide_frac: f32,
