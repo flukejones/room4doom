@@ -49,26 +49,19 @@ impl PortalZ {
     }
 }
 
+/// Returns -1 if the line runs through the box at all
 pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
-    let mut p1;
-    let mut p2;
+    let p1;
+    let p2;
 
     match ld.slopetype {
         SlopeType::Horizontal => {
             p1 = (tmbox.top > ld.v1.y()) as i32;
             p2 = (tmbox.bottom > ld.v1.y()) as i32;
-            if ld.delta.x() < 0.0 {
-                p1 ^= 1;
-                p2 ^= 1;
-            }
         }
         SlopeType::Vertical => {
             p1 = (tmbox.right > ld.v1.x()) as i32;
             p2 = (tmbox.left > ld.v1.x()) as i32;
-            if ld.delta.y() < 0.0 {
-                p1 ^= 1;
-                p2 ^= 1;
-            }
         }
         SlopeType::Positive => {
             p1 = ld.point_on_side(&Vec2::new(tmbox.left, tmbox.top)) as i32;
@@ -125,7 +118,7 @@ pub fn circle_to_line_intercept_basic(
     radius: f32,
     point1: Vec2,
     point2: Vec2,
-) -> Option<f32> {
+) -> Option<Vec2> {
     let lc = origin - point1;
     let d = point2 - point1;
     let p = project_vec2(lc, d);
@@ -133,7 +126,7 @@ pub fn circle_to_line_intercept_basic(
 
     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
         if p.length() < d.length() && p.dot(d) > EPSILON {
-            return Some(dist);
+            return Some((nearest - origin).normalize() * dist);
         }
     }
     None
@@ -149,11 +142,11 @@ fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
 }
 
 #[inline]
-fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
+pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {
-        return Some(radius - len);
+        return Some(len - radius);
     }
     None
 }
@@ -179,14 +172,14 @@ pub fn path_traverse(origin: Vec2, endpoint: Vec2, level: &Level, trav: impl FnM
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
         for seg in &segs[start..end] {
-            if seg.linedef.point_on_side(&origin) != seg.linedef.point_on_side(&endpoint) {
+            //if seg.linedef.point_on_side(&origin) != seg.linedef.point_on_side(&endpoint) {
                 // Add intercept
                 // PIT_AddLineIntercepts
                 if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts) {
                     // early out on first intercept?
                     return false;
                 }
-            }
+            //}
         }
     }
     traverse_intercepts(&intercepts, 1.0, trav)
@@ -224,12 +217,13 @@ pub fn add_line_intercepts(trace: &Trace, line: DPtr<LineDef>, intercepts: &mut 
     }
 
     let dl = Trace::new(*line.v1, line.delta);
-    let frac = intercept_vector (trace, &dl);
+    let frac = intercept_vector(trace, &dl);
 
     if frac < 0.0 {
         return true; // behind the source
     }
 
+    // Only works if the angles are translated to 0-180
     // if line.backsector.is_none() && frac < 1.0 {
     //     return false;
     // }
@@ -248,8 +242,6 @@ pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
     // Does things with fixed-point like this without much explanation:
     // den = FixedMul (v1->dy>>8,v2->dx) - FixedMul(v1->dx>>8,v2->dy);
     // why the shift right by 8?
-    let scale = 1.0;
-
     let denominator = (v1.dxy.y() * v2.dxy.x())
                          - (v1.dxy.x() * v2.dxy.y());
     let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y()
