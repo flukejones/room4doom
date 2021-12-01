@@ -1,7 +1,5 @@
 //!	Movement, collision handling.
 //!	Shooting and aiming.
-use std::f32::consts::{FRAC_2_PI, FRAC_PI_2, PI};
-
 use glam::Vec2;
 
 use crate::angle::Angle;
@@ -9,13 +7,12 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::{fixed_to_float, BestSlide, Intercept, MAXRADIUS};
+use crate::p_local::{BestSlide, Intercept, MAXRADIUS};
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{
-    box_on_line_side, circle_point_intersect, circle_to_line_intercept_basic, path_traverse,
+    box_on_line_side, path_traverse,
     PortalZ,
 };
-use crate::renderer::bsp;
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -385,8 +382,8 @@ impl MapObject {
                     level,
                 ) {
                     self.stair_step(level);
+                    return;
                 }
-                return;
             }
 
             // Now continue along the wall.
