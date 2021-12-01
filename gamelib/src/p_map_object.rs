@@ -401,6 +401,7 @@ impl MapObject {
             }
 
             if !self.p_try_move(ptryx, ptryy, level) {
+                self.correct_position(level);
                 if self.player.is_some() {
                     self.p_slide_move(level);
                 } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {

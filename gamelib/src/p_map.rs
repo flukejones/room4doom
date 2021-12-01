@@ -11,10 +11,9 @@ use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, fixed_to_float};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{
-    box_on_line_side, path_traverse, PortalZ,
-};
+use crate::p_map_util::{PortalZ, box_on_line_side, circle_point_intersect, circle_to_line_intercept_basic, path_traverse};
 use crate::DPtr;
+use crate::renderer::bsp;
 
 const MAXSPECIALCROSS: i32 = 8;
 
@@ -217,11 +216,44 @@ impl MapObject {
         true
     }
 
+    pub fn correct_position(&mut self, level: &Level) {
+        let left = self.xy.x() - self.radius;
+        let right = self.xy.x() + self.radius;
+        let top = self.xy.y() + self.radius;
+        let bottom = self.xy.y() - self.radius;
+
+        let mut bsp_trace = BSPTrace::new(Vec2::new(left, top), Vec2::new(right, bottom), level.map_data.start_node());
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        bsp_trace.set_line(Vec2::new(right, top), Vec2::new(left, bottom));
+        bsp_trace.find_ssect_intercepts(&level.map_data);
+
+        let segs = level.map_data.get_segments();
+        let sub_sectors = level.map_data.get_subsectors();
+
+        for n in bsp_trace.intercepted_nodes() {
+            let ssect = &sub_sectors[*n as usize];
+            let start = ssect.start_seg as usize;
+            let end = start + ssect.seg_count as usize;
+            for seg in &segs[start..end] {
+                if seg.backsector.is_none() {
+                    if let Some(shit) = circle_to_line_intercept_basic(self.xy, self.radius, *seg.v1, *seg.v2) {
+                        dbg!(shit);
+                        self.xy = self.xy + shit;
+                    }
+                    // if let Some(shit) = circle_point_intersect(self.xy, self.radius, *seg.v1) {
+                    //     self.xy = self.xy + self.momxy.normalize() * shit;
+                    // }
+                    // if let Some(shit) = circle_point_intersect(self.xy, self.radius, *seg.v2) {
+                    //     self.xy = self.xy + self.momxy.normalize() * shit;
+                    // }
+                }
+            }
+        }
+    }
+
     /// PIT_CheckLine
     /// Adjusts tmfloorz and tmceilingz as lines are contacted
-    ///
-    /// This has been adjusted to take a seg ref instead as the linedef info
-    /// is directly accessible.
     fn pit_check_line(
         &mut self,
         tmbbox: &BBox,
@@ -341,7 +373,7 @@ impl MapObject {
                 |intercept| self.slide_traverse(intercept),
             );
 
-            if self.best_slide.best_slide_frac == 1.0 {
+            if self.best_slide.best_slide_frac == 2.0 {
                 // The move most have hit the middle, so stairstep.
                 self.stair_step(level);
                 return;
@@ -437,18 +469,19 @@ impl MapObject {
             return;
         }
 
-        let side = line.point_on_side(slide_move);
-        let mut line_angle = Angle::from_vector(line.delta);
+        // let side = line.point_on_side(slide_move);
+        let line_angle = Angle::from_vector(line.delta);
         // if side == 1 {
-        //     line_angle += FRAC_PI_2;
+        //     //line_angle += FRAC_PI_2;
+        //     line_angle = Angle::from_vector(Vec2::new(line.delta.x() * -1.0, line.delta.y() * -1.0));
         // }
 
-        let mut move_angle = Angle::from_vector(*slide_move);
+        let move_angle = Angle::from_vector(*slide_move);
         // if move_angle.rad() > FRAC_PI_2 {
         //     move_angle -= FRAC_PI_2;
         // }
 
-        let mut delta_angle = move_angle - line_angle;
+        let delta_angle = move_angle - line_angle;
         // if delta_angle.rad() > FRAC_PI_2 {
         //     delta_angle += FRAC_PI_2;
         // }
