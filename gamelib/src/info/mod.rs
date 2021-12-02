@@ -1,10 +1,13 @@
+use enumn::N;
+
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 use crate::sounds::SfxEnum;
 
 pub mod map_object_info;
 pub mod states;
 
-#[derive(Debug, Copy, Clone)]
+#[repr(u16)]
+#[derive(Debug, Copy, Clone, N)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum SpriteNum {
     SPR_TROO,
@@ -154,7 +157,8 @@ impl Default for SpriteNum {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[repr(u16)]
+#[derive(Debug, Copy, Clone, N)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum StateNum {
     S_NULL,
@@ -1127,7 +1131,8 @@ pub enum StateNum {
     NUMSTATES,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[repr(u16)]
+#[derive(Debug, Copy, Clone, N)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum MapObjectType {
     MT_PLAYER,

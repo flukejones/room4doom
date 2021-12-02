@@ -12,6 +12,7 @@ wad = { path = "../wad" }
 sdl2 = "~0.34.0"
 glam = "0.8.5"
 gumdrop = "~0.7"
+enumn = "0.1.3"
 golem = { git = "https://github.com/flukejones/golem/" }
 
 [dev-dependencies]
