@@ -3,6 +3,10 @@
 /// respective utility functions, etc.
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
+use crate::info::MapObjectType;
+use crate::level_data::map_defs::LineDef;
+use crate::p_map_object::MapObject;
+use crate::DPtr;
 use std::ptr::NonNull;
 use wad::lumps::WadSector;
 
@@ -144,4 +148,49 @@ pub struct CeilingMove {
     // ID
     pub tag: i32,
     pub olddirection: i32,
+}
+
+/// P_CrossSpecialLine, trigger various actions when a line is crossed which has
+/// a non-zero special attached
+pub fn cross_special_line(side: i32, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+    let mut ok = false;
+
+    //  Triggers that other things can activate
+    if thing.player.is_none() {
+        // Things that should NOT trigger specials...
+        match thing.kind {
+            MapObjectType::MT_ROCKET
+            | MapObjectType::MT_PLASMA
+            | MapObjectType::MT_BFG
+            | MapObjectType::MT_TROOPSHOT
+            | MapObjectType::MT_HEADSHOT
+            | MapObjectType::MT_BRUISERSHOT => return,
+            _ => {}
+        }
+
+        if matches!(
+            line.special,
+            39    // TELEPORT TRIGGER
+            | 97  // TELEPORT RETRIGGER
+            | 125 // TELEPORT MONSTERONLY TRIGGER
+            | 126 // TELEPORT MONSTERONLY RETRIGGER
+            | 4   // RAISE DOOR
+            | 10  // PLAT DOWN-WAIT-UP-STAY TRIGGER
+            | 88 // PLAT DOWN-WAIT-UP-STAY RETRIGGER
+        ) {
+            ok = true;
+        }
+
+        if !ok {
+            return;
+        }
+    }
+
+    match line.special {
+        2 => {
+            //EV_DoDoor(line,open);
+            //line.special = 0;
+        }
+        _ => {}
+    }
 }

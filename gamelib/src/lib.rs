@@ -26,6 +26,7 @@ pub mod p_map_object;
 pub mod p_map_util;
 pub mod p_player_sprite;
 pub mod p_spec;
+pub mod p_switch;
 pub mod player;
 pub mod renderer;
 pub mod shaders;

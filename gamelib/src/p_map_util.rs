@@ -262,9 +262,6 @@ pub fn add_line_intercepts(
 /// This is only called by the addthings
 /// and addlines traversers.
 pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-    // Does things with fixed-point like this without much explanation:
-    // den = FixedMul (v1->dy>>8,v2->dx) - FixedMul(v1->dx>>8,v2->dy);
-    // why the shift right by 8?
     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
     let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y() + (v2.xy.y() - v1.xy.y()) * v1.dxy.x();
 

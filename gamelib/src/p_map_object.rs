@@ -157,7 +157,8 @@ pub struct MapObject {
     pub momz: f32,
     /// If == validcount, already checked.
     validcount: i32,
-    kind: u16,
+    /// The type of object
+    pub kind: MapObjectType,
     /// &mobjinfo[mobj.type]
     info: MapObjectInfo,
     pub tics: i32,
@@ -497,7 +498,7 @@ impl MapObject {
             mthing.x as f32,
             mthing.y as f32,
             ONFLOORZ,
-            MapObjectType::MT_PLAYER as u16,
+            MapObjectType::MT_PLAYER,
             level,
         );
         let mut mobj = &mut thinker.obj;
@@ -623,7 +624,7 @@ impl MapObject {
             z = ONFLOORZ;
         }
 
-        let mut thinker = MapObject::p_spawn_map_object(x, y, z, i, level);
+        let mut thinker = MapObject::p_spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
         let mobj = &mut thinker.obj;
         if mobj.tics > 0 {
             mobj.tics = 1 + ((p_random() as i32) % mobj.tics);
@@ -661,7 +662,7 @@ impl MapObject {
         x: f32,
         y: f32,
         mut z: i32,
-        kind: u16,
+        kind: MapObjectType,
         level: &mut Level,
     ) -> Thinker<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
