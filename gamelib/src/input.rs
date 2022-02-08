@@ -7,7 +7,7 @@ use sdl2::EventPump;
 
 use crate::{doom_def::WeaponType, tic_cmd::*};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct InputEvents {
     key_state: HashSet<Sc>,
     mouse_state: HashSet<Mb>,

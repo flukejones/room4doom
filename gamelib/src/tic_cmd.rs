@@ -67,7 +67,7 @@ pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
 /// Mainly movements/button commands per game tick,
 /// plus a checksum for internal state consistency.
 // G_BuildTiccmd
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Default, Copy, Clone)]
 pub struct TicCmd {
     /// *2048 for move
     pub forwardmove: i8,

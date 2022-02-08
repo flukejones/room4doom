@@ -1,5 +1,5 @@
 use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
-use std::fmt::{self, Debug};
+use std::fmt::{self};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
@@ -9,7 +9,7 @@ use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
 use crate::player::Player;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
     pub x: u32,
     pub thinker: NonNull<Thinker>,
@@ -46,7 +46,6 @@ const fn num_index_blocks(cap: usize) -> usize {
 }
 
 /// Bitmasking for array indexing to track which locations are used
-#[derive(Debug)]
 struct BitIndex {
     /// Which number of usize block to use, this is usable as an offset from a pointer
     /// for a region of memory used as n*usize
@@ -357,7 +356,6 @@ impl<'a> Iterator for IterLinksMut<'a> {
 }
 
 /// All map object thinkers need to be registered here
-#[derive(Debug)]
 #[repr(C)]
 pub enum ThinkerType {
     Test(TestObject),
@@ -365,13 +363,13 @@ pub enum ThinkerType {
 }
 
 impl ThinkerType {
-    pub fn bad_ref<'a, T>(&'a self) -> &'a T {
+    pub fn bad_ref<T>(&self) -> &T {
         let mut ptr = self as *const Self as usize;
         ptr += size_of::<u64>();
         unsafe { &*(ptr as *const T) }
     }
 
-    pub fn bad_mut<'a, T>(&'a mut self) -> &'a mut T {
+    pub fn bad_mut<T>(&mut self) -> &mut T {
         let mut ptr = self as *mut Self as usize;
         ptr += size_of::<u64>();
         unsafe { &mut *(ptr as *mut T) }
@@ -400,7 +398,6 @@ impl ThinkerType {
 /// The LinkedList style serves to give the Objects a way to find the next/prev of
 /// its neighbours and more, without having to pass in a ref to the Thinker container,
 /// or iterate over possible blank spots in memory.
-#[derive(Debug)]
 pub struct Thinker {
     prev: *mut Thinker,
     next: *mut Thinker,
@@ -426,6 +423,17 @@ impl Thinker {
             ActionF::None => false,
         };
         res
+    }
+}
+
+impl fmt::Debug for Thinker {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Thinker")
+            .field("prev", &(self.prev as usize))
+            .field("next", &(self.next as usize))
+            .field("object", &(self as *const Self as usize))
+            .field("func", &self.func)
+            .finish()
     }
 }
 
@@ -589,7 +597,6 @@ mod tests {
             ))
             .unwrap();
         unsafe {
-            dbg!(links.buf_ptr.as_ref().object.bad_ref::<TestObject>());
             assert_eq!(links.buf_ptr.as_ref().object.bad_ref::<TestObject>().x, 42);
             assert_eq!(
                 (*links.buf_ptr.as_ref().next)

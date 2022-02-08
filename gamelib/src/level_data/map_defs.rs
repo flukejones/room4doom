@@ -232,7 +232,7 @@ pub struct Node {
 /// collision-detection between moving things and walls.
 ///
 /// Each "block" is 128 square
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct BlockMap {
     /// Leftmost X coord
     pub x_origin: f32,
