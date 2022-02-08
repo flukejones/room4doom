@@ -1,4 +1,4 @@
-use crate::info::{MapObjectInfo, MapObjectType, StateNum, FRACUNIT};
+use crate::info::{MapObjectInfo, MapObjectType, StateNum};
 use crate::p_map_object::MapObjectFlag;
 use crate::sounds::SfxEnum;
 

@@ -1,3 +1,5 @@
+use crate::d_thinker::ThinkerType;
+use crate::level_data::level::Level;
 use crate::p_map_object::MapObjectFlag;
 use crate::renderer::bsp::point_to_angle_2;
 use crate::{p_map::p_radius_attack, p_map_object::MapObject};
@@ -241,7 +243,8 @@ pub fn a_scream<'t>(actor: &'t mut MapObject) {
     // S_StartSound(actor, sound);
 }
 
-pub fn a_pain<'t>(actor: &'t mut MapObject) {
+pub fn a_pain<'t>(actor: &mut ThinkerType, level: &mut Level) -> bool {
+    let actor = actor.bad_mut::<MapObject>();
     unimplemented!()
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);

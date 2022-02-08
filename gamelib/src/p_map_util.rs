@@ -1,16 +1,16 @@
 use crate::{
     level_data::{
-        level::{self, Level},
+        level::Level,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
-    p_local::{BestSlide, Intercept, Trace},
+    p_local::{Intercept, Trace},
     DPtr,
 };
 use glam::Vec2;
 use std::f32::EPSILON;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PortalZ {
     /// The lowest ceiling of the portal line
     pub top_z: f32,

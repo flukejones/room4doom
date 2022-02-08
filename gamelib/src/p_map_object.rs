@@ -1,5 +1,6 @@
 use std::ptr::NonNull;
 
+use crate::d_thinker::ThinkerType;
 use crate::level_data::level::Level;
 use crate::p_local::BestSlide;
 use glam::Vec2;
@@ -18,7 +19,7 @@ use crate::{
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{
-    d_thinker::{ActionFunc, Thinker},
+    d_thinker::{ActionF, Thinker},
     info::states::get_state,
 };
 use crate::{info::states::State, p_local::p_random, sounds::SfxEnum};
@@ -125,9 +126,9 @@ pub enum MapObjectFlag {
 
 #[derive(Debug)]
 pub struct MapObject {
-    /// Direct link to the `Thinker` that owns this `MapObject`. Required as
-    /// functions on a `MapObject` may need to change the thinker function
-    pub thinker: Option<NonNull<Thinker<MapObject>>>,
+    /// The MapObject owns the Thinker. If the MapObject moves at all then the
+    /// Thinker must have its link to
+    pub thinker: NonNull<Thinker>,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -195,73 +196,7 @@ pub struct MapObject {
     // struct mobj_s*	tracer;
 }
 
-impl Think for MapObject {
-    // TODO: P_MobjThinker
-    fn think(&mut self, level: &mut Level) -> bool {
-        // This is the P_MobjThinker commented out
-        // momentum movement
-        // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
-        // {
-        if self.momxy.x() != 0.0 || self.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
-        {
-            self.p_xy_movement(level);
-        }
-
-        if self.was_removed() {
-            return true; // mobj was removed
-        }
-
-        if (self.z.floor() - self.floorz.floor()).abs() > EPSILON || self.momz != 0.0 {
-            self.p_z_movement(level);
-            if self.was_removed() {
-                return true; // mobj was removed
-            }
-        }
-
-        // cycle through states,
-        // calling action functions at transitions
-        if self.tics != -1 {
-            self.tics -= 1;
-
-            // you can cycle through multiple states in a tic
-            if self.tics > 0 && !self.p_set_mobj_state(self.state.next_state) {
-                return true;
-            } // freed itself
-        } else {
-            // check for nightmare respawn
-            if self.flags & MapObjectFlag::MF_COUNTKILL as u32 == 0 {
-                return false;
-            }
-            if !level.respawn_monsters {
-                return false;
-            }
-            self.movecount += 1;
-
-            if self.movecount < 12 * TICRATE {
-                return false;
-            }
-            if (level.level_time & 31) != 0 {
-                return false;
-            }
-            if p_random() > 4 {
-                return false;
-            }
-            // TODO: P_NightmareRespawn(mobj);
-        }
-        false
-    }
-}
-
 impl MapObject {
-    fn was_removed(&self) -> bool {
-        if let Some(thinker) = self.thinker {
-            if let ActionFunc::None = unsafe { &thinker.as_ref().function } {
-                return true;
-            }
-        }
-        false
-    }
-
     /// P_ExplodeMissile
     pub fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
@@ -282,7 +217,7 @@ impl MapObject {
     }
 
     /// P_ZMovement
-    fn p_z_movement(&mut self, level: &mut Level) {
+    fn p_z_movement(&mut self, _level: &mut Level) {
         if self.player.is_some() && self.z < self.floorz {
             let player = self.player.as_mut().unwrap();
             unsafe {
@@ -416,7 +351,6 @@ impl MapObject {
         }
 
         // slow down
-
         if self.flags & (MapObjectFlag::MF_MISSILE as u32 | MapObjectFlag::MF_SKULLFLY as u32) != 0
         {
             return; // no friction for missiles ever
@@ -454,7 +388,7 @@ impl MapObject {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
                     // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
-                    //     self.p_set_mobj_state(StateNum::S_PLAY);
+                    self.p_set_mobj_state(StateNum::S_PLAY);
                     // }
                     self.momxy = Vec2::default();
                     return;
@@ -494,26 +428,28 @@ impl MapObject {
 
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
         // the Player object owns this.
-        let mut thinker = MapObject::p_spawn_map_object(
+        let mut mobj = MapObject::spawn_map_object(
             mthing.x as f32,
             mthing.y as f32,
             ONFLOORZ,
             MapObjectType::MT_PLAYER,
             level,
         );
-        let mut mobj = &mut thinker.obj;
 
         // set color translations for player sprites
+
+        let mobj_ptr_mut = unsafe { mobj.as_mut() };
         if mthing.kind > 1 {
-            mobj.flags =
-                mobj.flags as u32 | (mthing.kind as u32 - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
+            mobj_ptr_mut.flags = mobj_ptr_mut.flags as u32
+                | (mthing.kind as u32 - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
         }
 
         // TODO: check this angle stuff
-        mobj.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
-        mobj.health = player.health;
+        mobj_ptr_mut.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
+        mobj_ptr_mut.health = player.health;
+        mobj_ptr_mut.player = NonNull::new(player);
 
-        player.mobj = Some(thinker); // TODO: needs to be a pointer to this mapobject in a container which will not move/realloc
+        player.mobj = Some(mobj);
         player.player_state = PlayerState::PstLive;
         player.refire = 0;
         player.message = None;
@@ -522,12 +458,6 @@ impl MapObject {
         player.extralight = 0;
         player.fixedcolormap = 0;
         player.viewheight = VIEWHEIGHT;
-
-        let player_ptr = unsafe { NonNull::new_unchecked(player as *mut Player) };
-
-        if let Some(ref mut think) = player.mobj {
-            think.obj.player = Some(player_ptr);
-        }
 
         // // setup gun psprite
         // TODO: P_SetupPsprites(p);
@@ -624,8 +554,8 @@ impl MapObject {
             z = ONFLOORZ;
         }
 
-        let mut thinker = MapObject::p_spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
-        let mobj = &mut thinker.obj;
+        let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
+        let mobj = unsafe { mobj.as_mut() };
         if mobj.tics > 0 {
             mobj.tics = 1 + ((p_random() as i32) % mobj.tics);
         }
@@ -641,14 +571,6 @@ impl MapObject {
         if mthing.flags & MTF_AMBUSH != 0 {
             mobj.flags |= MapObjectFlag::MF_AMBUSH as u32;
         }
-
-        // P_AddThinker(&mobj->thinker);
-        if !level.add_thinker(thinker) {
-            panic!(
-                "P_SpawnMapThing: Could not spawn type {} at ({}, {}): out of memory",
-                mthing.kind, mthing.x, mthing.y
-            );
-        }
     }
 
     /// P_SpawnMobj
@@ -658,13 +580,13 @@ impl MapObject {
     ///
     // TODO: pass in a ref to the container so the obj can be added
     //  Doom calls an zmalloc function for this. Then pass a reference back for it
-    fn p_spawn_map_object(
+    fn spawn_map_object(
         x: f32,
         y: f32,
         mut z: i32,
         kind: MapObjectType,
         level: &mut Level,
-    ) -> Thinker<MapObject> {
+    ) -> NonNull<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize].clone();
 
@@ -691,9 +613,9 @@ impl MapObject {
             z = ceilingz - info.height as i32;
         }
 
-        let obj: MapObject = MapObject {
+        let mobj = MapObject {
             // The thinker should be non-zero and requires to be added to the linked list
-            thinker: None, // TODO: change after thinker container added
+            thinker: NonNull::dangling(), // TODO: change after thinker container added
             player: None,
             xy: Vec2::new(x, y),
             z: z as f32,
@@ -724,11 +646,25 @@ impl MapObject {
             kind,
         };
 
-        let mut thinker = Thinker::new(obj);
-        thinker.function = ActionFunc::None; //P_MobjThinker
+        // let ptr = unsafe {
+        //     NonNull::new_unchecked(level as *mut Level)
+        // };
+        let thinker =
+            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
-        thinker
+        if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
+            // P_AddThinker(&mobj->thinker);
+            unsafe {
+                return NonNull::new(ptr.as_mut().object().bad_mut::<MapObject>())
+                    .expect("spawn_map_object ptr creation failed");
+            }
+        }
+
+        panic!(
+            "P_SpawnMapThing: Could not spawn type {:?} at ({}, {}): out of memory",
+            kind, x, y
+        );
     }
 
     /// P_SetMobjState
@@ -739,7 +675,7 @@ impl MapObject {
             match state {
                 StateNum::S_NULL => {
                     self.state = get_state(state as usize); //(state_t *)S_NULL;
-                                                            //  P_RemoveMobj(mobj);
+                                                            // TODO: P_RemoveMobj(mobj);
                     return false;
                 }
                 _ => {
@@ -748,8 +684,10 @@ impl MapObject {
 
                     // Modified handling.
                     // Call action functions when the state is set
-                    let func = self.state.action.mobj_func();
-                    unsafe { (*func)(self) }
+                    // if self.state.action.is_some() {
+                    //     let func = self.state.action.mobj_func();
+                    //     unsafe { (*func)(self) }
+                    // }
 
                     self.tics = st.tics;
                     self.sprite = st.sprite;
@@ -769,5 +707,72 @@ impl MapObject {
         }
 
         return true;
+    }
+}
+
+impl Think for MapObject {
+    // TODO: P_MobjThinker
+    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
+        let this = object.bad_mut::<MapObject>();
+        // This is the P_MobjThinker commented out
+        // momentum movement
+        // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
+        // {
+        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
+        {
+            this.p_xy_movement(level);
+        }
+
+        // if self.was_removed() {
+        //     return true; // mobj was removed
+        // }
+
+        if (this.z.floor() - this.floorz.floor()).abs() > EPSILON || this.momz != 0.0 {
+            this.p_z_movement(level);
+        }
+
+        // cycle through states,
+        // calling action functions at transitions
+        if this.tics != -1 {
+            this.tics -= 1;
+
+            // you can cycle through multiple states in a tic
+            if this.tics > 0 && !this.p_set_mobj_state(this.state.next_state) {
+                return true;
+            } // freed itself
+        } else {
+            // check for nightmare respawn
+            if this.flags & MapObjectFlag::MF_COUNTKILL as u32 == 0 {
+                return false;
+            }
+            if !level.respawn_monsters {
+                return false;
+            }
+            this.movecount += 1;
+
+            if this.movecount < 12 * TICRATE {
+                return false;
+            }
+            if (level.level_time & 31) != 0 {
+                return false;
+            }
+            if p_random() > 4 {
+                return false;
+            }
+            // TODO: P_NightmareRespawn(mobj);
+        }
+        false
+    }
+
+    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
+        self.thinker = ptr;
+    }
+
+    fn thinker_ref(&self) -> &Thinker {
+        unsafe { self.thinker.as_ref() }
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { self.thinker.as_mut() }
     }
 }

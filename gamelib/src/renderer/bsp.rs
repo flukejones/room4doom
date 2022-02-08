@@ -3,7 +3,7 @@ use crate::level_data::map_data::{MapData, IS_SSECTOR_MASK};
 use crate::level_data::map_defs::{Segment, SubSector};
 use crate::p_map_object::MapObject;
 use crate::player::Player;
-use crate::renderer::defs::{ClipRange, DrawSeg};
+use crate::renderer::defs::ClipRange;
 use crate::renderer::segs::SegRender;
 use crate::renderer::RenderData;
 use glam::Vec2;
@@ -55,9 +55,10 @@ impl BspRenderer {
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
         // reject orthogonal back sides
-        let xy = player.mobj.as_ref().unwrap().obj.xy;
-        let angle = player.mobj.as_ref().unwrap().obj.angle;
+        let xy = mobj.xy;
+        let angle = mobj.angle;
 
         if !seg.is_facing_point(&xy) {
             return;
@@ -65,8 +66,8 @@ impl BspRenderer {
 
         let clipangle = Angle::new(FRAC_PI_4);
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&seg.v1, &player.mobj.as_ref().unwrap().obj);
-        let mut angle2 = vertex_angle_to_object(&seg.v2, &player.mobj.as_ref().unwrap().obj);
+        let mut angle1 = vertex_angle_to_object(&seg.v1, &mobj);
+        let mut angle2 = vertex_angle_to_object(&seg.v2, &mobj);
 
         let span = angle1 - angle2;
 
@@ -327,6 +328,8 @@ impl BspRenderer {
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
@@ -335,7 +338,6 @@ impl BspRenderer {
             return;
         }
 
-        let mobj = &player.mobj.as_ref().unwrap().obj;
         // otherwise get node
         let node = &map.get_nodes()[node_id as usize];
         // find which side the point is on
@@ -395,11 +397,8 @@ pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::Angle;
     use crate::level_data::map_data::MapData;
     use crate::renderer::bsp::IS_SSECTOR_MASK;
-    use glam::Vec2;
-    use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;
 
     #[test]

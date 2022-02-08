@@ -1,8 +1,5 @@
-use std::io::Lines;
-
-use glam::Vec2;
-
 use crate::{level_data::map_defs::LineDef, p_map_object::MapObject, DPtr};
+use glam::Vec2;
 
 /// P_MOBJ
 pub static ONFLOORZ: i32 = i32::MIN;
@@ -13,6 +10,11 @@ pub static MAXHEALTH: i32 = 100;
 pub static VIEWHEIGHT: f32 = 41.0;
 
 pub static MAXRADIUS: f32 = 32.0;
+
+pub const USERANGE: f32 = 64.0;
+
+// const FRACBITS: i32 = 16;
+// const FRACUNIT: f32 = (1 << FRACBITS) as f32;
 
 /// The Doom `FRACUNIT` is `1 << FRACBITS`
 pub const FRACUNIT: f32 = 65536.0; //(1 << FRACBITS) as f32;
@@ -85,7 +87,7 @@ impl Trace {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Intercept {
     pub frac: f32,
     pub line: Option<DPtr<LineDef>>,

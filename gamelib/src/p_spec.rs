@@ -12,7 +12,7 @@ use wad::lumps::WadSector;
 
 // P_LIGHTS
 pub struct FireFlicker {
-    pub thinker: Option<NonNull<Thinker<FireFlicker>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub count: i32,
     pub max_light: i32,
@@ -20,7 +20,7 @@ pub struct FireFlicker {
 }
 
 pub struct LightFlash {
-    pub thinker: Option<NonNull<Thinker<LightFlash>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub count: i32,
     pub max_light: i32,
@@ -30,7 +30,7 @@ pub struct LightFlash {
 }
 
 pub struct Strobe {
-    pub thinker: Option<NonNull<Thinker<Strobe>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub count: i32,
     pub min_light: i32,
@@ -40,7 +40,7 @@ pub struct Strobe {
 }
 
 pub struct Glow {
-    pub thinker: Option<NonNull<Thinker<Glow>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub min_light: i32,
     pub max_light: i32,
@@ -64,7 +64,7 @@ pub enum PlatType {
 }
 
 pub struct Platform {
-    pub thinker: Option<NonNull<Thinker<Platform>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub speed: f32,
     pub low: f32,
@@ -113,7 +113,7 @@ pub enum StairEnum {
 }
 
 pub struct FloorMove {
-    pub thinker: Option<NonNull<Thinker<FloorMove>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     kind: FloorEnum,
     pub speed: f32,
@@ -136,7 +136,7 @@ pub enum CeilingKind {
 }
 
 pub struct CeilingMove {
-    pub thinker: Option<NonNull<Thinker<FloorMove>>>,
+    pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
     pub kind: CeilingKind,
     pub bottomheight: f32,
@@ -148,6 +148,34 @@ pub struct CeilingMove {
     // ID
     pub tag: i32,
     pub olddirection: i32,
+}
+
+// P_DOORS
+//
+pub enum DoorKind {
+    vld_normal,
+    vld_close30ThenOpen,
+    vld_close,
+    vld_open,
+    vld_raiseIn5Mins,
+    vld_blazeRaise,
+    vld_blazeOpen,
+    vld_blazeClose,
+}
+
+pub struct VerticalDoor {
+    pub thinker: Option<Thinker>,
+    pub sector: NonNull<WadSector>,
+    pub kind: DoorKind,
+    pub topheight: f32,
+    pub speed: f32,
+    // 1 = up, 0 = waiting, -1 = down
+    pub direction: i32,
+    // tics to wait at the top
+    pub topwait: i32,
+    // (keep in case a door going down is reset)
+    // when it reaches 0, start going down
+    pub topcountdown: i32,
 }
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has

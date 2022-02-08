@@ -7,12 +7,10 @@ use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::{BestSlide, Intercept, MAXRADIUS};
+use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{
-    box_on_line_side, path_traverse,
-    PortalZ,
-};
+use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
+use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
@@ -489,6 +487,52 @@ impl MapObject {
         let new_dist = move_dist * delta_angle.cos();
 
         *slide_move = line_angle.unit() * new_dist;
+    }
+
+    /// P_UseLines
+    /// Looks for special lines in front of the player to activate.
+    pub fn use_lines(&mut self, level: &mut Level) {
+        let angle = self.angle.unit();
+
+        let origin = self.xy;
+        let endpoint = origin + angle * USERANGE;
+
+        let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut 0);
+
+        path_traverse(
+            origin,
+            endpoint,
+            level,
+            |intercept| self.use_traverse(intercept),
+            &mut bsp_trace,
+        );
+    }
+
+    pub fn use_traverse(&mut self, intercept: &Intercept) -> bool {
+        if let Some(line) = &intercept.line {
+            if line.special == 0 {
+                let portal = PortalZ::new(&line);
+                if portal.range <= 0.0 {
+                    // TODO: S_StartSound (usething, sfx_noway);
+                    // can't use through a wall
+                    println!("*unghf!*");
+                    return false;
+                }
+
+                // not a special line, but keep checking
+                return true;
+            }
+
+            let side = if line.point_on_side(&self.xy) == 1 {
+                1
+            } else {
+                0
+            };
+            p_use_special_line(side, line.clone(), self);
+        }
+        // can't use for than one special line in a row
+        false
     }
 }
 

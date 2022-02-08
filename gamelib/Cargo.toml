@@ -14,6 +14,7 @@ glam = "0.8.5"
 gumdrop = "~0.7"
 enumn = "0.1.3"
 golem = { git = "https://github.com/flukejones/golem/" }
+lump-vec = { git = "https://gitlab.com/flukejones/lump-vec" }
 
 [dev-dependencies]
 criterion = "~0.3"

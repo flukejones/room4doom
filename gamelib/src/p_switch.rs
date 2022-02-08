@@ -1,6 +1,12 @@
-use crate::{DPtr, flags::LineDefFlags, level_data::map_defs::LineDef, p_map_object::MapObject};
+use crate::{
+    flags::LineDefFlags, level_data::map_defs::LineDef, p_doors::ev_vertical_door,
+    p_map_object::MapObject, DPtr,
+};
 
-pub fn use_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject) -> bool {
+/// P_UseSpecialLine
+/// Called when a thing uses a special line.
+/// Only the front sides of lines are usable.
+pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
         // never open secret doors
@@ -8,16 +14,30 @@ pub fn use_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject) -
             return false;
         }
 
-        if !matches!(
-            line.special,
-            1     // MANUAL DOOR RAISE
-            | 32 // MANUAL BLUE
-            | 33  // MANUAL RED
-            | 34 // MANUAL YELLOW
-        ) {
+        if let 1    // MANUAL DOOR RAISE
+            | 32    // MANUAL BLUE
+            | 33    // MANUAL RED
+            | 34    // MANUAL YELLOW
+            = line.special {
             return false;
         }
     }
 
+    if let 1        // Vertical Door
+          | 26      // Blue Door/Locked
+          | 27      // Yellow Door /Locked
+          | 28      // Red Door /Locked
+
+          | 31      // Manual door open
+          | 32      // Blue locked door open
+          | 33      // Red locked door open
+          | 34      // Yellow locked door open
+
+          | 117     // Blazing door raise
+          | 118     // Blazing door open
+          = line.special {
+        ev_vertical_door(line, thing);
+        println!("*hydralic sounds*");
+    }
     false
 }

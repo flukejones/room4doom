@@ -1,13 +1,12 @@
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use sdl2::{render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     ptr::NonNull,
 };
 
-use crate::angle::{screen_to_x_view, Angle, CLASSIC_SCREEN_X_TO_VIEW};
+use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW};
 use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_defs::Segment;
-use crate::p_map_object::MapObject;
 use crate::player::Player;
 use crate::renderer::defs::{
     DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP,
@@ -149,15 +148,16 @@ impl SegRender {
         // if offsetangle > FRAC_PI_2 {
         //     offsetangle = FRAC_PI_2;
         // }
+        let mobj = unsafe { object.mobj.as_ref().unwrap().as_ref() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
-        let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), object.mobj.as_ref().unwrap().obj.xy); // verified correct
+        let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
 
         let mut ds_p = DrawSeg::new(NonNull::from(seg));
 
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
-        let view_angle = object.mobj.as_ref().unwrap().obj.angle;
+        let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
         let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degrees not rads
@@ -401,6 +401,8 @@ impl SegRender {
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+
         //
         // TESTING STUFF
         //
@@ -486,11 +488,7 @@ impl SegRender {
 
                     if mid >= yl {
                         // TODO: temporary?
-                        if seg
-                            .linedef
-                            .point_on_side(&player.mobj.as_ref().unwrap().obj.xy)
-                            == 0
-                        {
+                        if seg.linedef.point_on_side(&mobj.xy) == 0 {
                             canvas
                                 .draw_line((self.rw_x, yl as i32), (self.rw_x, mid as i32))
                                 .unwrap();
@@ -514,11 +512,7 @@ impl SegRender {
 
                     if mid <= yh {
                         // TODO: temporary?
-                        if seg
-                            .linedef
-                            .point_on_side(&player.mobj.as_ref().unwrap().obj.xy)
-                            == 0
-                        {
+                        if seg.linedef.point_on_side(&mobj.xy) == 0 {
                             canvas
                                 .draw_line((self.rw_x, yh as i32), (self.rw_x, mid as i32))
                                 .unwrap();
