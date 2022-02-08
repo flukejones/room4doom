@@ -36,7 +36,7 @@ pub static MAXMOVE: f32 = 30.0;
 pub static STOPSPEED: f32 = 0.0625; // 0x1000
 pub static FRICTION: f32 = 0.90625; // 0xE800
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
@@ -124,7 +124,6 @@ pub enum MapObjectFlag {
     MF_TRANSSHIFT = 26,
 }
 
-#[derive(Debug)]
 pub struct MapObject {
     /// The MapObject owns the Thinker. If the MapObject moves at all then the
     /// Thinker must have its link to

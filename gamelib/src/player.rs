@@ -39,7 +39,7 @@ pub enum PsprNum {
 }
 
 //// Player states.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum PlayerState {
     /// Playing or camping.
     PstLive,
@@ -62,7 +62,7 @@ enum Cheat {
 
 /// INTERMISSION
 /// Structure passed e.g. to WI_Start(wb)
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WBPlayerStruct {
     /// whether the player is in game
     pub inn: bool,
@@ -77,7 +77,7 @@ pub struct WBPlayerStruct {
 }
 
 /// parms for world level / intermission
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WBStartStruct {
     /// episode # (0-2)
     pub epsd: i32,

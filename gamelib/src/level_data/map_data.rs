@@ -13,7 +13,7 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MapExtents {
     pub min_vertex: Vec2,
     pub max_vertex: Vec2,
@@ -32,7 +32,6 @@ pub struct MapExtents {
 /// Access to the `Vec` arrays within is limited to immutable only to
 /// prevent unwanted removal of items, which *will* break references and
 /// segfault
-#[derive(Debug)]
 pub struct MapData {
     name: String,
     /// Things will be linked to/from each other in many ways, which means this array may

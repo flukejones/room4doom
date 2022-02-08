@@ -94,7 +94,7 @@ pub struct Intercept {
     pub thing: Option<DPtr<MapObject>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct BestSlide {
     pub best_slide_frac: f32,
     pub second_slide_frac: f32,

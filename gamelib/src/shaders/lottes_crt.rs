@@ -117,7 +117,7 @@ vec2 Dist(vec2 pos)
     pos = pos * color_texture_pow2_sz;
     return -((pos - floor(pos)) - vec2(0.5));
 }
-    
+
 // 1D Gaussian.
 float Gaus(float pos,float scale)
 {
@@ -180,7 +180,7 @@ vec3 Tri(vec2 pos)
     float wc = Scan(pos, 1.0);
     return a * wa + b * wb + c * wc;
 }
-    
+
 // Shadow mask.
 vec3 Mask(vec2 pos)
 {
@@ -193,10 +193,10 @@ vec3 Mask(vec2 pos)
         mask.r = maskLight;
     else if (pos.x < 0.666)
         mask.g = maskLight;
-    else 
+    else
         mask.b = maskLight;
     return mask;
-} 
+}
 
 ///////////////////////////////////////////////////////////////
 /// CRT GEOM FUNCTIONS ///
@@ -226,7 +226,7 @@ void main(void)
     vec2 pos = radialDistortion(texCoord);//CURVATURE
     //FINAL//
     gl_FragColor.rgb = Tri(pos) * Mask(gl_FragCoord.xy) * vec3(corner(pos));
-  
+
 #ifdef GAMMA_CONTRAST_BOOST
     gl_FragColor.rgb = brightMult*pow(gl_FragColor.rgb,gammaBoost )-vec3(blackClip);
 #endif
@@ -306,29 +306,37 @@ impl<'c> Renderer for LottesCRT<'c> {
             "color_texture_pow2_sz",
             UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
-        // MASK
-        // Scanline visibility
+
+        // MASK Scanline visibility
         self.crt_shader
             .set_uniform("hardScan", UniformValue::Float(-2.78))?; // -3.0 to -4.0
-                                                                   // CRT focus?
+
+        // CRT focus?
         self.crt_shader
             .set_uniform("hardPix", UniformValue::Float(-6.14))?; // -1 to -10
-                                                                  // brightMult needs to be increased as this decreases
+
+        // brightMult needs to be increased as this decreases
         self.crt_shader
-            .set_uniform("maskDark", UniformValue::Float(0.22))?; // 0.01 to 0.9
+            .set_uniform("maskDark", UniformValue::Float(0.32))?; // 0.01 to 0.9
+
         self.crt_shader
             .set_uniform("maskLight", UniformValue::Float(0.28))?;
+
         // GAMMA
         self.crt_shader
             .set_uniform("blackClip", UniformValue::Float(0.01))?;
+
         self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(4.1))?;
+            .set_uniform("brightMult", UniformValue::Float(3.5))?;
+
         // SHAPE
         self.crt_shader
-            .set_uniform("distortion", UniformValue::Float(0.1))?; // 0.1 to 0.3
+            .set_uniform("distortion", UniformValue::Float(0.07))?; // 0.05 to 0.3
+
         self.crt_shader
             .set_uniform("cornersize", UniformValue::Float(0.02))?; // 0.01 to 0.05
-                                                                    // Edge hardness
+
+        // Edge hardness
         self.crt_shader
             .set_uniform("cornersmooth", UniformValue::Float(170.0))?; // 70.0 to 170.0
 
