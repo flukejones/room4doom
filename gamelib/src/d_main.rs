@@ -150,7 +150,7 @@ pub fn d_doom_loop(
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
-    let ratio = wsize.1 as f32 * 1.3333;
+    let ratio = wsize.1 as f32 * 1.20;
     let xp = (wsize.0 as f32 - ratio) / 2.0;
     game.crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
 
@@ -161,8 +161,8 @@ pub fn d_doom_loop(
         game.crop_rect.height(),
     );
 
-    //let mut rend = Basic::new(&ctx);
     let mut rend = Basic::new(&ctx);
+    //let mut rend = LottesCRT::new(&ctx);
     //let mut rend = CGWGCRT::new(&ctx, game.crop_rect.width(), game.crop_rect.height());
     rend.set_tex_filter().unwrap();
 

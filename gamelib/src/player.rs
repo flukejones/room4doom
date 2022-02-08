@@ -1,4 +1,5 @@
 use std::f32::consts::FRAC_PI_2;
+use std::ptr::NonNull;
 
 use glam::Vec2;
 
@@ -7,6 +8,7 @@ const MAXBOB: f32 = 16.0; // 0x100000;
 
 use crate::level_data::level::Level;
 use crate::p_player_sprite::PspDef;
+use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{
     angle::Angle,
     doom_def::MAX_AMMO,
@@ -102,9 +104,8 @@ const NUM_AMMO: usize = AmmoType::NUMAMMO as usize;
 const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 
 /// player_t
-#[derive(Debug)]
 pub struct Player {
-    pub mobj: Option<Thinker<MapObject>>,
+    pub mobj: Option<NonNull<MapObject>>,
     pub player_state: PlayerState,
     pub cmd: TicCmd,
 
@@ -191,16 +192,15 @@ pub struct Player {
 
 impl Default for Player {
     fn default() -> Self {
-        Player::new(None)
+        Player::new()
     }
 }
 
 impl Player {
-    pub const fn new(mobj: Option<Thinker<MapObject>>, // TODO: should be a pointer
-    ) -> Player {
+    pub const fn new() -> Player {
         Player {
             viewz: 0.0,
-            mobj,
+            mobj: None,
 
             viewheight: 41.0,
             deltaviewheight: 1.0,
@@ -285,16 +285,18 @@ impl Player {
         }
     }
 
+    /// P_Thrust
+    /// Moves the given origin along a given angle.
     fn thrust(&mut self, angle: Angle, mv: i32) {
         // mv is in a fixed float format, we need to convert it
-        // TODO: make some of this constant later
         let mv = fixed_to_float(mv);
         let x = mv as f32 * angle.cos();
         let y = mv as f32 * angle.sin();
         let mxy = Vec2::new(x, y);
 
-        if let Some(ref mut thinker) = self.mobj {
-            thinker.obj.momxy += mxy;
+        if let Some(mobj) = self.mobj.as_mut() {
+            let mobj = unsafe { mobj.as_mut() };
+            mobj.momxy += mxy;
         }
     }
 
@@ -307,9 +309,10 @@ impl Player {
         // OPTIMIZE: tablify angle
         // Note: a LUT allows for effects
         //  like a ramp with low health.
-        if let Some(ref mut mobj) = self.mobj {
-            let x = mobj.obj.momxy.x();
-            let y = mobj.obj.momxy.y();
+        if let Some(mobj) = self.mobj.as_mut() {
+            let mobj = unsafe { mobj.as_mut() };
+            let x = mobj.momxy.x();
+            let y = mobj.momxy.y();
             self.bob = x * x + y * y;
 
             // Reduce precision
@@ -321,13 +324,13 @@ impl Player {
 
             // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
             if !self.onground {
-                self.viewz = mobj.obj.z + VIEWHEIGHT;
+                self.viewz = mobj.z + VIEWHEIGHT;
 
-                if self.viewz > mobj.obj.ceilingz - 4.0 {
-                    self.viewz = mobj.obj.ceilingz - 4.0;
+                if self.viewz > mobj.ceilingz - 4.0 {
+                    self.viewz = mobj.ceilingz - 4.0;
                 }
 
-                self.viewz = mobj.obj.z + self.viewheight;
+                self.viewz = mobj.z + self.viewheight;
             }
 
             // Need to shunt finesine left by 13 bits?
@@ -363,55 +366,67 @@ impl Player {
                 }
             }
 
-            self.viewz = mobj.obj.z + self.viewheight + bob;
+            self.viewz = mobj.z + self.viewheight + bob;
 
-            if self.viewz > mobj.obj.ceilingz - 4.0 {
-                self.viewz = mobj.obj.ceilingz - 4.0;
+            if self.viewz > mobj.ceilingz - 4.0 {
+                self.viewz = mobj.ceilingz - 4.0;
             }
         }
     }
 
+    /// P_MovePlayer
     fn move_player(&mut self) {
-        // TODO: Fix adjustments after fixing the tic timestep
-        if self.cmd.angleturn != 0 {
-            let a = bam_to_radian((self.cmd.angleturn as u32) << 16);
-            self.mobj.as_mut().unwrap().obj.angle += a;
-        }
+        if let Some(mut mobj) = self.mobj {
+            let mobj = unsafe { mobj.as_mut() };
 
-        self.onground = if let Some(think) = self.mobj.as_ref() {
-            think.obj.z <= think.obj.floorz
-        } else {
-            false
-        };
+            // TODO: Fix adjustments after fixing the tic timestep
+            if self.cmd.angleturn != 0 {
+                let a = bam_to_radian((self.cmd.angleturn as u32) << 16);
+                mobj.angle += a;
+            }
 
-        if self.cmd.forwardmove != 0 && self.onground {
-            let angle = self.mobj.as_mut().unwrap().obj.angle;
-            self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
-        }
+            self.onground = mobj.z <= mobj.floorz;
 
-        if self.cmd.sidemove != 0 && self.onground {
-            let angle = self.mobj.as_mut().unwrap().obj.angle;
-            self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
-        }
+            if self.cmd.forwardmove != 0 && self.onground {
+                let angle = mobj.angle;
+                self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
+            }
 
-        if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
-            if let Some(ref thinker) = self.mobj {
-                if thinker.obj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
-                    //P_SetMobjState (player->mo, S_PLAY_RUN1);
+            if self.cmd.sidemove != 0 && self.onground {
+                let angle = mobj.angle;
+                self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
+            }
+
+            if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
+                if mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
+                    mobj.p_set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
                 }
             }
         }
     }
 }
 
-impl Think for Player {
-    fn think(&mut self, level: &mut Level) -> bool {
+/// P_PlayerThink
+/// The Doom source has the thinker in a specific location in the object structs
+/// which enables a cast to t_thinker. We can't do that in rust so need to use the trait.
+impl Player {
+    pub fn think(&mut self, level: &mut Level) -> bool {
+        // TODO: not feature complete with P_PlayerThink
         self.move_player();
         self.calculate_height(level.level_time);
 
-        if let Some(ref mut mo) = self.mobj {
-            mo.think(level); // Player own the thinker, so make it think here
+        if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
+            if !self.usedown {
+                self.usedown = true;
+                if let Some(mut mobj) = self.mobj {
+                    let mobj = unsafe { mobj.as_mut() };
+                    mobj.use_lines(level);
+                }
+            }
+        } else {
+            self.usedown = false;
         }
+
         false
     }
 }
