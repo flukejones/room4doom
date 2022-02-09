@@ -21,46 +21,166 @@ pub struct LottesCRT<'c> {
 impl<'c> LottesCRT<'c> {
     pub fn new(ctx: &'c Context) -> Self {
         let shader = ShaderProgram::new(
-        ctx,
-        ShaderDescription {
-          uniforms:        &[
-              // Standard view stuff
-                Uniform::new("projMat", UniformType::Matrix(D4)),
-                Uniform::new("viewMat", UniformType::Matrix(D4)),
-                Uniform::new("modelMat", UniformType::Matrix(D4)),
-                //
-                Uniform::new("color_texture_sz", UniformType::Vector(NumberType::Float, D2)),
-                Uniform::new("color_texture_pow2_sz", UniformType::Vector(NumberType::Float, D2)),
-                //
-                Uniform::new("hardScan", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("hardPix", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("maskDark", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("maskLight", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("saturation", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("tint", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("blackClip", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("brightMult", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("distortion", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("cornersize", UniformType::Scalar(NumberType::Float)),
-                Uniform::new("cornersmooth", UniformType::Scalar(NumberType::Float)),
-              // The SDL bytes
-                Uniform::new("image", UniformType::Sampler2D),
-            ],
-            vertex_input:    &[
-                Attribute::new("position", AttributeType::Vector(D2)),
-                Attribute::new("vert_uv", AttributeType::Vector(D2)),
-            ],
-            vertex_shader:   r#"
-              void main() {
-                  gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
-                  texCoord = vert_uv;
-              }"#,
-            fragment_input:  &[Attribute::new(
-                "texCoord",
-                AttributeType::Vector(D2)
-              ),
-            ],
-            fragment_shader: r#"
+            ctx,
+            ShaderDescription {
+                uniforms: &[
+                    // Standard view stuff
+                    Uniform::new("projMat", UniformType::Matrix(D4)),
+                    Uniform::new("viewMat", UniformType::Matrix(D4)),
+                    Uniform::new("modelMat", UniformType::Matrix(D4)),
+                    //
+                    Uniform::new(
+                        "color_texture_sz",
+                        UniformType::Vector(NumberType::Float, D2),
+                    ),
+                    Uniform::new(
+                        "color_texture_pow2_sz",
+                        UniformType::Vector(NumberType::Float, D2),
+                    ),
+                    //
+                    Uniform::new("hardScan", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("hardPix", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("maskDark", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("maskLight", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("saturation", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("tint", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("blackClip", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("brightMult", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("distortion", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("cornersize", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("cornersmooth", UniformType::Scalar(NumberType::Float)),
+                    // The SDL bytes
+                    Uniform::new("image", UniformType::Sampler2D),
+                ],
+                vertex_input: &[
+                    Attribute::new("position", AttributeType::Vector(D2)),
+                    Attribute::new("vert_uv", AttributeType::Vector(D2)),
+                ],
+                vertex_shader: VERT,
+                fragment_input: &[Attribute::new("texCoord", AttributeType::Vector(D2))],
+                fragment_shader: FRAG,
+            },
+        )
+        .unwrap();
+
+        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
+        let look_at = Mat4::look_at_rh(
+            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        let mut vb = VertexBuffer::new(ctx).unwrap();
+        let mut eb = ElementBuffer::new(ctx).unwrap();
+        vb.set_data(&GL_QUAD);
+        eb.set_data(&GL_QUAD_INDICES);
+
+        Self {
+            ctx,
+            _quad: GL_QUAD,
+            indices: GL_QUAD_INDICES,
+            crt_shader: shader,
+            projection,
+            look_at,
+            texture: Texture::new(ctx).unwrap(),
+            vb,
+            eb,
+        }
+    }
+}
+
+impl<'c> Renderer for LottesCRT<'c> {
+    fn clear(&self) {
+        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
+        self.ctx.clear();
+    }
+
+    fn set_tex_filter(&self) -> Result<(), GolemError> {
+        self.texture.set_minification(TextureFilter::Nearest)?;
+        self.texture.set_magnification(TextureFilter::Linear)
+    }
+
+    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
+        self.texture
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
+    }
+
+    fn draw(&mut self) -> Result<(), GolemError> {
+        self.crt_shader.bind();
+        self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
+
+        self.crt_shader.set_uniform("image", UniformValue::Int(1))?;
+
+        self.crt_shader.set_uniform(
+            "projMat",
+            UniformValue::Matrix4(self.projection.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "viewMat",
+            UniformValue::Matrix4(self.look_at.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "modelMat",
+            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
+        )?;
+
+        // CRT settings
+        self.crt_shader.set_uniform(
+            "color_texture_sz",
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+        )?;
+
+        // size of color texture rounded up to power of 2
+        self.crt_shader.set_uniform(
+            "color_texture_pow2_sz",
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+        )?;
+
+        // MASK Scanline visibility
+        self.crt_shader
+            .set_uniform("hardScan", UniformValue::Float(-2.78))?; // -3.0 to -4.0
+
+        // CRT focus?
+        self.crt_shader
+            .set_uniform("hardPix", UniformValue::Float(-6.14))?; // -1 to -10
+
+        // brightMult needs to be increased as this decreases
+        self.crt_shader
+            .set_uniform("maskDark", UniformValue::Float(0.32))?; // 0.01 to 0.9
+
+        self.crt_shader
+            .set_uniform("maskLight", UniformValue::Float(0.28))?;
+
+        // GAMMA
+        self.crt_shader
+            .set_uniform("blackClip", UniformValue::Float(0.01))?;
+
+        self.crt_shader
+            .set_uniform("brightMult", UniformValue::Float(3.5))?;
+
+        // SHAPE
+        self.crt_shader
+            .set_uniform("distortion", UniformValue::Float(0.07))?; // 0.05 to 0.3
+
+        self.crt_shader
+            .set_uniform("cornersize", UniformValue::Float(0.02))?; // 0.01 to 0.05
+
+        // Edge hardness
+        self.crt_shader
+            .set_uniform("cornersmooth", UniformValue::Float(170.0))?; // 70.0 to 170.0
+
+        let bind_point = std::num::NonZeroU32::new(1).unwrap();
+        self.texture.set_active(bind_point);
+
+        unsafe {
+            self.crt_shader
+                .draw_prepared(0..self.indices.len(), GeometryMode::Triangles);
+        }
+        Ok(())
+    }
+}
+
+const FRAG: &str = r#"
 #pragma optimize (on)
 #pragma debug (off)
 
@@ -230,123 +350,10 @@ void main(void)
 #ifdef GAMMA_CONTRAST_BOOST
     gl_FragColor.rgb = brightMult*pow(gl_FragColor.rgb,gammaBoost )-vec3(blackClip);
 #endif
-}"#,
-        },
-      ).unwrap();
+}"#;
 
-        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
-        let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        );
-
-        let mut vb = VertexBuffer::new(ctx).unwrap();
-        let mut eb = ElementBuffer::new(ctx).unwrap();
-        vb.set_data(&GL_QUAD);
-        eb.set_data(&GL_QUAD_INDICES);
-
-        Self {
-            ctx,
-            _quad: GL_QUAD,
-            indices: GL_QUAD_INDICES,
-            crt_shader: shader,
-            projection,
-            look_at,
-            texture: Texture::new(ctx).unwrap(),
-            vb,
-            eb,
-        }
-    }
-}
-
-impl<'c> Renderer for LottesCRT<'c> {
-    fn clear(&self) {
-        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-        self.ctx.clear();
-    }
-
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
-        self.crt_shader.bind();
-        self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
-
-        self.crt_shader.set_uniform("image", UniformValue::Int(1))?;
-
-        self.crt_shader.set_uniform(
-            "projMat",
-            UniformValue::Matrix4(self.projection.to_cols_array()),
-        )?;
-        self.crt_shader.set_uniform(
-            "viewMat",
-            UniformValue::Matrix4(self.look_at.to_cols_array()),
-        )?;
-        self.crt_shader.set_uniform(
-            "modelMat",
-            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
-        )?;
-
-        // CRT settings
-        self.crt_shader.set_uniform(
-            "color_texture_sz",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
-        )?;
-
-        // size of color texture rounded up to power of 2
-        self.crt_shader.set_uniform(
-            "color_texture_pow2_sz",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
-        )?;
-
-        // MASK Scanline visibility
-        self.crt_shader
-            .set_uniform("hardScan", UniformValue::Float(-2.78))?; // -3.0 to -4.0
-
-        // CRT focus?
-        self.crt_shader
-            .set_uniform("hardPix", UniformValue::Float(-6.14))?; // -1 to -10
-
-        // brightMult needs to be increased as this decreases
-        self.crt_shader
-            .set_uniform("maskDark", UniformValue::Float(0.32))?; // 0.01 to 0.9
-
-        self.crt_shader
-            .set_uniform("maskLight", UniformValue::Float(0.28))?;
-
-        // GAMMA
-        self.crt_shader
-            .set_uniform("blackClip", UniformValue::Float(0.01))?;
-
-        self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(3.5))?;
-
-        // SHAPE
-        self.crt_shader
-            .set_uniform("distortion", UniformValue::Float(0.07))?; // 0.05 to 0.3
-
-        self.crt_shader
-            .set_uniform("cornersize", UniformValue::Float(0.02))?; // 0.01 to 0.05
-
-        // Edge hardness
-        self.crt_shader
-            .set_uniform("cornersmooth", UniformValue::Float(170.0))?; // 70.0 to 170.0
-
-        let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
-
-        unsafe {
-            self.crt_shader
-                .draw_prepared(0..self.indices.len(), GeometryMode::Triangles);
-        }
-        Ok(())
-    }
-}
+const VERT: &str = r#"
+void main() {
+    gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
+    texCoord = vert_uv;
+}"#;

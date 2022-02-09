@@ -21,34 +21,26 @@ pub struct Basic<'c> {
 impl<'c> Basic<'c> {
     pub fn new(ctx: &'c Context) -> Self {
         let shader = ShaderProgram::new(
-        ctx,
-        ShaderDescription {
-            vertex_input:    &[
-                Attribute::new("position", AttributeType::Vector(D2)),
-                Attribute::new("vert_uv", AttributeType::Vector(D2)),
-            ],
-            fragment_input:  &[Attribute::new(
-                "frag_uv",
-                AttributeType::Vector(D2),
-            )],
-            uniforms:        &[
-              // Standard view stuff
-                Uniform::new("projMat", UniformType::Matrix(D4)),
-                Uniform::new("viewMat", UniformType::Matrix(D4)),
-                Uniform::new("modelMat", UniformType::Matrix(D4)),
-              // The SDL bytes
-                Uniform::new("image", UniformType::Sampler2D),
-            ],
-            vertex_shader:   r#" void main() {
-                                gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
-                                frag_uv = vert_uv;
-                            }"#,
-            fragment_shader: r#" void main() {
-                                vec4 colour = texture(image, frag_uv);
-                                gl_FragColor = colour;
-                            }"#,
-        },
-    ).unwrap();
+            ctx,
+            ShaderDescription {
+                vertex_input: &[
+                    Attribute::new("position", AttributeType::Vector(D2)),
+                    Attribute::new("vert_uv", AttributeType::Vector(D2)),
+                ],
+                fragment_input: &[Attribute::new("frag_uv", AttributeType::Vector(D2))],
+                uniforms: &[
+                    // Standard view stuff
+                    Uniform::new("projMat", UniformType::Matrix(D4)),
+                    Uniform::new("viewMat", UniformType::Matrix(D4)),
+                    Uniform::new("modelMat", UniformType::Matrix(D4)),
+                    // The SDL bytes
+                    Uniform::new("image", UniformType::Sampler2D),
+                ],
+                vertex_shader: VERT,
+                fragment_shader: FRAG,
+            },
+        )
+        .unwrap();
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
         let look_at = Mat4::look_at_rh(
@@ -86,6 +78,7 @@ impl<'c> Renderer for Basic<'c> {
         self.texture.set_minification(TextureFilter::Nearest)?;
         self.texture.set_magnification(TextureFilter::Linear)
     }
+
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
         self.texture
             .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
@@ -96,7 +89,9 @@ impl<'c> Renderer for Basic<'c> {
         self.texture.set_active(bind_point);
 
         self.shader.bind();
+
         self.shader.set_uniform("image", UniformValue::Int(1))?;
+
         self.shader.set_uniform(
             "projMat",
             UniformValue::Matrix4(self.projection.to_cols_array()),
@@ -122,3 +117,15 @@ impl<'c> Renderer for Basic<'c> {
         Ok(())
     }
 }
+
+const VERT: &str = r#"
+void main() {
+    gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
+    frag_uv = vert_uv;
+}"#;
+
+const FRAG: &str = r#"
+void main() {
+    vec4 colour = texture(image, frag_uv);
+    gl_FragColor = colour;
+}"#;
