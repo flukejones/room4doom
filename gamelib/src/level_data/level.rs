@@ -1,5 +1,6 @@
 use std::ptr::NonNull;
 
+use log::debug;
 use wad::{lumps::WadThing, WadData};
 
 use crate::d_thinker::ThinkerAlloc;
@@ -114,7 +115,12 @@ impl Level {
         for thing in &thing_list {
             MapObject::p_spawn_map_thing(thing, &mut level, players, active_players);
         }
-        dbg!(&level.thinkers.len());
+
+        debug!("Level: thinkers = {}", &level.thinkers.len());
+        debug!("Level: skill = {:?}", &level.game_skill);
+        debug!("Level: episode = {}", &level.episode);
+        debug!("Level: map = {}", &level.game_map);
+        debug!("Level: player_starts = {:?}", &level.player_starts);
 
         // G_DoReborn
         // G_CheckSpot
@@ -130,7 +136,7 @@ impl Level {
 }
 
 /// P_Ticker
-pub fn ticker(game: &mut Game) {
+pub fn p_ticker(game: &mut Game) {
     if game.paused {
         return;
     }

@@ -9,6 +9,8 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
+use log::{LevelFilter, debug, info, error, warn, trace};
+use std::io::Write;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use wad::WadData;
 
@@ -79,6 +81,13 @@ pub struct Game {
 
 impl Game {
     pub fn new(mut options: GameOptions) -> Game {
+        let mut logger = env_logger::Builder::new();
+        logger
+            .target(env_logger::Target::Stdout)
+            .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
+            .filter(None, options.verbose)
+            .init();
+
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = matches!(options.skill, d_main::Skill::Nightmare);
 
@@ -86,19 +95,29 @@ impl Game {
 
         let (game_mode, game_mission, game_description) = identify_version(&wad);
 
+        debug!("Game: new mode = {:?}", game_mode);
         if game_mode == GameMode::Retail {
             if options.episode > 4 && options.pwad.is_none() {
+                warn!("Game: new: {:?} mode (no pwad) but episode {} is greater than 4", game_mode, options.episode);
                 options.episode = 4;
             }
         } else if game_mode == GameMode::Shareware {
             if options.episode > 1 {
+                warn!("Game: new: {:?} mode but episode {} is greater than 1", game_mode, options.episode);
                 options.episode = 1; // only start episode 1 on shareware
             }
             if options.map > 5 {
+                warn!("Game: init_new: {:?} mode but map {} is greater than 5", game_mode, options.map);
                 options.map = 5;
             }
         } else if options.episode > 3 {
+            warn!("Game: new: {:?} mode but episode {} is greater than 3", game_mode, options.episode);
             options.episode = 3;
+        }
+
+        if options.map > 9 && game_mode != GameMode::Commercial {
+            warn!("Game: init_new: {:?} mode but map {} is greater than 9", game_mode, options.map);
+            options.map = 9;
         }
 
         if let Some(ref pwad) = options.pwad {
@@ -112,10 +131,7 @@ impl Game {
             DOOM_VERSION / 100,
             DOOM_VERSION % 100
         );
-        println!("V_Init: allocate screens.");
-        println!("M_LoadDefaults: Load system defaults.");
-        println!("Z_Init: Init zone memory allocation daemon.");
-        println!("W_Init: Init WADfiles.");
+
         match game_mode {
             GameMode::Shareware => {
                 println!(
@@ -133,18 +149,10 @@ impl Game {
                 println!("                 Commercial product - do not distribute!");
                 println!("         Please report software piracy to the SPA: 1-800-388-PIR8");
                 println!(
-                    "==========================================================================="
+                    "===========================================================================\n"
                 );
             }
         }
-        println!("M_Init: Init miscellaneous info.");
-        println!("R_Init: Init DOOM refresh daemon - ");
-        println!("\nP_Init: Init Playloop state.");
-        println!("I_Init: Setting up machine state.");
-        println!("D_CheckNetGame: Checking network game status.");
-        println!("S_Init: Setting up sound.");
-        println!("HU_Init: Setting up heads up display.");
-        println!("ST_Init: Init status bar.");
 
         Game {
             wad_data: wad,
@@ -209,6 +217,8 @@ impl Game {
     }
 
     fn do_new_game(&mut self) {
+        debug!("Entered do_new_game");
+
         self.netgame = false;
         self.deathmatch = false;
         for i in 0..self.players.len() {
@@ -223,27 +233,35 @@ impl Game {
     }
 
     fn init_new(&mut self, skill: Skill, mut episode: u32, mut map: u32) {
+        debug!("Entered init_new");
+
         if self.paused {
             self.paused = false;
             // TODO: S_ResumeSound();
         }
 
-        // if self.game_mode == GameMode::Retail {
-        //     if episode > 4 {
-        //         episode = 4;
-        //     }
-        // } else if self.game_mode == GameMode::Shareware {
-        //     if episode > 1 {
-        //         episode = 1; // only start episode 1 on shareware
-        //     }
-        //     if map > 5 {
-        //         map = 5;
-        //     }
-        // } else if episode > 3 {
-        //     episode = 3;
-        // }
+        debug!("Game: init_new: mode = {:?}", self.game_mode);
+        if self.game_mode == GameMode::Retail {
+            if episode > 4 {
+                warn!("Game: init_new: {:?} mode but episode {} is greater than 4", self.game_mode, episode);
+                episode = 4;
+            }
+        } else if self.game_mode == GameMode::Shareware {
+            if episode > 1 {
+                warn!("Game: init_new: {:?} mode but episode {} is greater than 1", self.game_mode, episode);
+                episode = 1; // only start episode 1 on shareware
+            }
+            if map > 5 {
+                warn!("Game: init_new: {:?} mode but map {} is greater than 5", self.game_mode, map);
+                map = 5;
+            }
+        } else if episode > 3 {
+            warn!("Game: init_new: {:?} mode but episode {} is greater than 3", self.game_mode, episode);
+            episode = 3;
+        }
 
         if map > 9 && self.game_mode != GameMode::Commercial {
+            warn!("Game: init_new: {:?} mode but map {} is greater than 9", self.game_mode, map);
             map = 9;
         }
 
@@ -313,6 +331,7 @@ impl Game {
     }
 
     fn do_load_level(&mut self) {
+        debug!("Entered do_load_level");
         // TODO: check and set sky texture, function R_TextureNumForName
 
         if self.wipe_game_state == GameState::GS_LEVEL {
@@ -352,7 +371,7 @@ impl Game {
         self.level_start_tic = self.game_tic;
         level.game_tic = self.game_tic;
 
-        println!("Level started: E{} M{}", level.episode, level.game_map);
+        info!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
 
         // Player setup from P_SetupLevel
@@ -381,6 +400,7 @@ impl Game {
 
     /// G_Ticker
     pub fn ticker(&mut self) {
+        trace!("Entered ticker");
         // // do player reborns if needed
         // for (i = 0; i < MAXPLAYERS; i++)
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)
@@ -428,7 +448,7 @@ impl Game {
             _ => {}
         }
 
-        // get commands, check consistancy,
+        // TODO: get commands, check consistancy,
         // and build new consistancy check
         // buf = (gametic / ticdup) % BACKUPTICS;
 
@@ -475,8 +495,7 @@ impl Game {
 
         match self.game_state {
             GameState::GS_LEVEL => {
-                // P_Ticker(); // player movements, run thinkers etc
-                level::ticker(self);
+                level::p_ticker(self); // P_Ticker(); player movements, run thinkers etc
                 // ST_Ticker();
                 // AM_Ticker();
                 // HU_Ticker();

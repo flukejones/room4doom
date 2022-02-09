@@ -45,7 +45,8 @@ const fn num_index_blocks(cap: usize) -> usize {
     (cap + BITCOUNT - 1) / BITCOUNT
 }
 
-/// Bitmasking for array indexing to track which locations are used
+/// Bitmasking for array indexing to track which locations are used. A bitmask is
+/// used as it is very compact (we only need on/off bit per slot).
 struct BitIndex {
     /// Which number of usize block to use, this is usable as an offset from a pointer
     /// for a region of memory used as n*usize
@@ -148,6 +149,7 @@ impl ThinkerAlloc {
         self.capacity
     }
 
+    // TODO: change this to use bitshift counting instead of iteration?
     fn find_first_free(&self) -> Option<usize> {
         if self.len >= self.capacity {
             return None;
@@ -377,23 +379,20 @@ impl ThinkerType {
 }
 
 /// Thinkers *must* be contained in a structure that has **stable** memory locations.
-/// In Doom this is managed by Doom's custom allocator, where each location in memory
+/// In Doom this is managed by Doom's custom allocator `z_malloc`, where each location in memory
 /// also has a pointer to the locations 'owner'. When Doom does a defrag or any op
 /// that moves memory locations it also runs through the owners and updates their
-/// pointers. This isn't done in the Rust version.
+/// pointers. This isn't done in the Rust version as that introduces a lot of overhead
+/// and makes various things harder to do or harder to prove correct (if using unsafe).
 ///
 /// Another way to manager Thinkers in a volatile container like a Vec is to use `self.function`
 /// to mark for removal (same as Doom), then iterate over the container and only
 /// run thinkers not marked for removal, then remove marked thinkers after cycle.
 /// This method would have a big impact on iter speed though as there may be many
-/// 'dead' thinkers.
+/// 'dead' thinkers and it would also impact the order of thinkers, which then means
+/// recorded demo playback may be quite different to OG Doom.
 ///
 /// Inserting the `Thinker` in to the game is done in p_tick.c with `P_RunThinkers`.
-///
-/// On Drop the thinker will unlink itself from whereever it is in the link chain.
-///
-///  State should live in MapObject. State.action and Think.function are two
-///  different functions
 ///
 /// The LinkedList style serves to give the Objects a way to find the next/prev of
 /// its neighbours and more, without having to pass in a ref to the Thinker container,
