@@ -147,12 +147,7 @@ pub fn ticker(game: &mut Game) {
     if let Some(ref mut level) = game.level {
         for (i, player) in game.players.iter_mut().enumerate() {
             if game.player_in_game[i] && !player.think(level) {
-                // if let Some(mobj) = player.mobj.as_mut() {
-                //     unsafe {
-                //         let mobj = mobj.as_mut();
-                //         mobj.thinker.as_mut().think(level);
-                //     }
-                // }
+                // TODO: what to do with dead player?
             }
         }
 
@@ -162,13 +157,11 @@ pub fn ticker(game: &mut Game) {
                 thinker.set_action(ActionF::None);
             }
         }
+
+        level.level_time += 1;
     }
 
     // P_RunThinkers ();, this may need to remove thinkers..
     // P_UpdateSpecials ();
     // P_RespawnSpecials ();
-
-    if let Some(ref mut level) = game.level {
-        level.level_time += 1;
-    }
 }

@@ -30,8 +30,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 2);
 
-    let context =
-        Context::from_loader_function(|s| video_ctx.gl_get_proc_address(s) as *const _).unwrap();
+    let context = unsafe {
+        Context::from_glow(glow::Context::from_loader_function(|s| {
+            video_ctx.gl_get_proc_address(s) as *const _
+        }))
+        .unwrap()
+    };
 
     let game = Game::new(options);
 
