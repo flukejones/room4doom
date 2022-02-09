@@ -18,6 +18,7 @@ pub mod game;
 pub mod info;
 pub mod input;
 pub mod level_data;
+pub mod p_doors;
 pub mod p_enemy;
 pub mod p_lights;
 pub mod p_local;
@@ -94,11 +95,11 @@ impl<T> DPtr<T> {
     }
 }
 
-impl<T> DPtr<T> {
-    fn as_ptr(&self) -> *mut T {
-        self.p.as_ptr()
-    }
-}
+// impl<T> DPtr<T> {
+//     fn as_ptr(&self) -> *mut T {
+//         self.p.as_ptr()
+//     }
+// }
 
 impl<T> Clone for DPtr<T> {
     fn clone(&self) -> DPtr<T> {

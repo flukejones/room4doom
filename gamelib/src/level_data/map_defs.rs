@@ -1,6 +1,6 @@
 use crate::angle::Angle;
+use crate::d_thinker::Thinker;
 use crate::p_map_object::MapObject;
-use crate::p_map_util::cross;
 use crate::DPtr;
 use glam::Vec2;
 use std::f32::EPSILON;
@@ -46,7 +46,7 @@ pub struct Sector {
     // TODO: mobj_t*	thinglist;
 
     // thinker_t for reversable actions
-    // TODO: void*	specialdata;
+    pub specialdata: Option<Thinker>,
     pub lines: Vec<DPtr<LineDef>>,
 }
 
@@ -232,7 +232,7 @@ pub struct Node {
 /// collision-detection between moving things and walls.
 ///
 /// Each "block" is 128 square
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct BlockMap {
     /// Leftmost X coord
     pub x_origin: f32,

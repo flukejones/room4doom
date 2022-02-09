@@ -63,76 +63,7 @@ impl<'c> CGWGCRT<'c> {
                     Attribute::new("position", AttributeType::Vector(D2)),
                     Attribute::new("vert_uv", AttributeType::Vector(D2)),
                 ],
-                vertex_shader: r#"
-#define FIX(c) max(abs(c), 1e-5);
-
-float intersect(vec2 xy)
-{
-  float A = dot(xy,xy)+d*d;
-  float B = 2.0*(R*(dot(xy,sinangle)-d*cosangle.x*cosangle.y)-d*d);
-  float C = d*d + 2.0*R*d*cosangle.x*cosangle.y;
-  return (-B-sqrt(B*B-4.0*A*C))/(2.0*A);
-}
-
-vec2 bkwtrans(vec2 xy)
-{
-  float c = intersect(xy);
-  vec2 point = vec2(c)*xy;
-  point -= vec2(-R)*sinangle;
-  point /= vec2(R);
-  vec2 tang = sinangle/cosangle;
-  vec2 poc = point/cosangle;
-  float A = dot(tang,tang)+1.0;
-  float B = -2.0*dot(poc,tang);
-  float C = dot(poc,poc)-1.0;
-  float a = (-B+sqrt(B*B-4.0*A*C))/(2.0*A);
-  vec2 uv = (point-a*sinangle)/cosangle;
-  float r = R*acos(a);
-  return uv*r/sin(r/R);
-}
-
-vec2 fwtrans(vec2 uv)
-{
-  float r = FIX(sqrt(dot(uv,uv)));
-  uv *= sin(r/R)/r;
-  float x = 1.0-cos(r/R);
-  float D = d/R + x*cosangle.x*cosangle.y+dot(uv,sinangle);
-  return d*(uv*cosangle-x*sinangle)/D;
-}
-
-vec3 maxscale()
-{
-  vec2 c = bkwtrans(-R * sinangle / (1.0 + R/d*cosangle.x*cosangle.y));
-  vec2 a = vec2(0.5,0.5)*aspect;
-  vec2 lo = vec2(fwtrans(vec2(-a.x,c.y)).x,
-          fwtrans(vec2(c.x,-a.y)).y)/aspect;
-  vec2 hi = vec2(fwtrans(vec2(+a.x,c.y)).x,
-          fwtrans(vec2(c.x,+a.y)).y)/aspect;
-  return vec3((hi+lo)*aspect*0.5,max(hi.x-lo.x,hi.y-lo.y));
-}
-
-
-void main()
-{
-  // tilt angle in radians
-  // (behavior might be a bit wrong if both components are nonzero)
-  const vec2 angle = vec2(0.0,-0.0);
-
-  // Precalculate a bunch of useful values we'll need in the fragment
-  // shader.
-  sinangle = sin(angle);
-  cosangle = cos(angle);
-  stretch = maxscale();
-
-  // transform the texture coordinates
-  gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
-  texCoord = vert_uv;
-
-  ilfac = vec2(1.0,floor(inputSize.y/200.0));
-
-  // Resulting X pixel-coordinate of the pixel we're drawing.
-  mod_factor = texCoord.x * textureSize.x * outputSize.x / inputSize.x;			
-}"#,
+                vertex_shader: VERT,
                 fragment_input: &[
                     Attribute::new("texCoord", AttributeType::Vector(D2)),
                     Attribute::new("one", AttributeType::Vector(D2)),
@@ -142,7 +73,120 @@ void main()
                     Attribute::new("sinangle", AttributeType::Vector(D2)),
                     Attribute::new("cosangle", AttributeType::Vector(D2)),
                 ],
-                fragment_shader: r#"
+                fragment_shader: FRAG,
+            },
+        )
+        .unwrap();
+
+        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
+        let look_at = Mat4::look_at_rh(
+            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        let mut vb = VertexBuffer::new(ctx).unwrap();
+        let mut eb = ElementBuffer::new(ctx).unwrap();
+        vb.set_data(&GL_QUAD);
+        eb.set_data(&GL_QUAD_INDICES);
+
+        Self {
+            ctx,
+            _quad: GL_QUAD,
+            indices: GL_QUAD_INDICES,
+            crt_shader: crt,
+            crt_width,
+            crt_height,
+            projection,
+            look_at,
+            texture: Texture::new(ctx).unwrap(),
+            vb,
+            eb,
+        }
+    }
+}
+
+impl<'c> Renderer for CGWGCRT<'c> {
+    fn clear(&self) {
+        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
+        self.ctx.clear();
+    }
+
+    fn set_tex_filter(&self) -> Result<(), GolemError> {
+        self.texture.set_minification(TextureFilter::Nearest)?;
+        self.texture.set_magnification(TextureFilter::Linear)
+    }
+
+    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
+        self.texture
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
+    }
+
+    fn draw(&mut self) -> Result<(), GolemError> {
+        // Set the image to use
+        let bind_point = std::num::NonZeroU32::new(1).unwrap();
+        self.texture.set_active(bind_point);
+
+        self.crt_shader.bind();
+        self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
+
+        self.crt_shader.set_uniform("image", UniformValue::Int(1))?;
+
+        self.crt_shader.set_uniform(
+            "projMat",
+            UniformValue::Matrix4(self.projection.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "viewMat",
+            UniformValue::Matrix4(self.look_at.to_cols_array()),
+        )?;
+        self.crt_shader.set_uniform(
+            "modelMat",
+            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
+        )?;
+
+        self.crt_shader.set_uniform(
+            "inputSize",
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+        )?;
+
+        self.crt_shader.set_uniform(
+            "outputSize",
+            UniformValue::Vector2([self.crt_width as f32, self.crt_height as f32]),
+        )?;
+        self.crt_shader.set_uniform(
+            "textureSize",
+            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+        )?;
+
+        self.crt_shader
+            .set_uniform("CRTgamma", UniformValue::Float(1.9))?;
+        self.crt_shader
+            .set_uniform("monitorgamma", UniformValue::Float(2.4))?;
+        // distance from viewer
+        self.crt_shader.set_uniform("d", UniformValue::Float(1.5))?;
+        // radius of curvature - 2.0 to 3.0?
+        self.crt_shader.set_uniform("R", UniformValue::Float(2.3))?;
+        self.crt_shader
+            .set_uniform("cornersize", UniformValue::Float(0.02))?;
+        // border smoothness parameter
+        self.crt_shader
+            .set_uniform("cornersmooth", UniformValue::Float(80.0))?;
+
+        self.crt_shader
+            .set_uniform("overscan", UniformValue::Vector2([0.99, 0.99]))?;
+        self.crt_shader
+            .set_uniform("aspect", UniformValue::Vector2([1.0, 0.75]))?;
+
+        unsafe {
+            self.crt_shader
+                .draw_prepared(0..self.indices.len(), GeometryMode::Triangles);
+        }
+        Ok(())
+    }
+}
+
+const FRAG: &str = r#"
 // Comment the next line to disable interpolation in linear gamma (and gain speed).
 #define LINEAR_PROCESSING
 
@@ -339,7 +383,7 @@ void main()
           vec3(0.7, 1.0, 0.7),
           floor(mod(mod_factor, 2.0))
       );
-                  
+
   mul_res *= dotMaskWeights;
 
   // Convert the image gamma for display on our output device.
@@ -348,115 +392,75 @@ void main()
   // Color the texel.
   gl_FragColor = vec4(mul_res, 1.0);
 }
-"#,
-            },
-        )
-        .unwrap();
+"#;
 
-        let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
-        let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        );
+const VERT: &str = r#"
+#define FIX(c) max(abs(c), 1e-5);
 
-        let mut vb = VertexBuffer::new(ctx).unwrap();
-        let mut eb = ElementBuffer::new(ctx).unwrap();
-        vb.set_data(&GL_QUAD);
-        eb.set_data(&GL_QUAD_INDICES);
-
-        Self {
-            ctx,
-            _quad: GL_QUAD,
-            indices: GL_QUAD_INDICES,
-            crt_shader: crt,
-            crt_width,
-            crt_height,
-            projection,
-            look_at,
-            texture: Texture::new(ctx).unwrap(),
-            vb,
-            eb,
-        }
-    }
+float intersect(vec2 xy)
+{
+  float A = dot(xy,xy)+d*d;
+  float B = 2.0*(R*(dot(xy,sinangle)-d*cosangle.x*cosangle.y)-d*d);
+  float C = d*d + 2.0*R*d*cosangle.x*cosangle.y;
+  return (-B-sqrt(B*B-4.0*A*C))/(2.0*A);
 }
 
-impl<'c> Renderer for CGWGCRT<'c> {
-    fn clear(&self) {
-        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-        self.ctx.clear();
-    }
-
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
-        // Set the image to use
-        let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
-
-        self.crt_shader.bind();
-        self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
-
-        self.crt_shader.set_uniform("image", UniformValue::Int(1))?;
-
-        self.crt_shader.set_uniform(
-            "projMat",
-            UniformValue::Matrix4(self.projection.to_cols_array()),
-        )?;
-        self.crt_shader.set_uniform(
-            "viewMat",
-            UniformValue::Matrix4(self.look_at.to_cols_array()),
-        )?;
-        self.crt_shader.set_uniform(
-            "modelMat",
-            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
-        )?;
-
-        self.crt_shader.set_uniform(
-            "inputSize",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
-        )?;
-
-        self.crt_shader.set_uniform(
-            "outputSize",
-            UniformValue::Vector2([self.crt_width as f32, self.crt_height as f32]),
-        )?;
-        self.crt_shader.set_uniform(
-            "textureSize",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
-        )?;
-
-        self.crt_shader
-            .set_uniform("CRTgamma", UniformValue::Float(1.9))?;
-        self.crt_shader
-            .set_uniform("monitorgamma", UniformValue::Float(2.4))?;
-        // distance from viewer
-        self.crt_shader.set_uniform("d", UniformValue::Float(1.5))?;
-        // radius of curvature - 2.0 to 3.0?
-        self.crt_shader.set_uniform("R", UniformValue::Float(2.3))?;
-        self.crt_shader
-            .set_uniform("cornersize", UniformValue::Float(0.02))?;
-        // border smoothness parameter
-        self.crt_shader
-            .set_uniform("cornersmooth", UniformValue::Float(80.0))?;
-
-        self.crt_shader
-            .set_uniform("overscan", UniformValue::Vector2([0.99, 0.99]))?;
-        self.crt_shader
-            .set_uniform("aspect", UniformValue::Vector2([1.0, 0.75]))?;
-
-        unsafe {
-            self.crt_shader
-                .draw_prepared(0..self.indices.len(), GeometryMode::Triangles);
-        }
-        Ok(())
-    }
+vec2 bkwtrans(vec2 xy)
+{
+  float c = intersect(xy);
+  vec2 point = vec2(c)*xy;
+  point -= vec2(-R)*sinangle;
+  point /= vec2(R);
+  vec2 tang = sinangle/cosangle;
+  vec2 poc = point/cosangle;
+  float A = dot(tang,tang)+1.0;
+  float B = -2.0*dot(poc,tang);
+  float C = dot(poc,poc)-1.0;
+  float a = (-B+sqrt(B*B-4.0*A*C))/(2.0*A);
+  vec2 uv = (point-a*sinangle)/cosangle;
+  float r = R*acos(a);
+  return uv*r/sin(r/R);
 }
+
+vec2 fwtrans(vec2 uv)
+{
+  float r = FIX(sqrt(dot(uv,uv)));
+  uv *= sin(r/R)/r;
+  float x = 1.0-cos(r/R);
+  float D = d/R + x*cosangle.x*cosangle.y+dot(uv,sinangle);
+  return d*(uv*cosangle-x*sinangle)/D;
+}
+
+vec3 maxscale()
+{
+  vec2 c = bkwtrans(-R * sinangle / (1.0 + R/d*cosangle.x*cosangle.y));
+  vec2 a = vec2(0.5,0.5)*aspect;
+  vec2 lo = vec2(fwtrans(vec2(-a.x,c.y)).x,
+          fwtrans(vec2(c.x,-a.y)).y)/aspect;
+  vec2 hi = vec2(fwtrans(vec2(+a.x,c.y)).x,
+          fwtrans(vec2(c.x,+a.y)).y)/aspect;
+  return vec3((hi+lo)*aspect*0.5,max(hi.x-lo.x,hi.y-lo.y));
+}
+
+
+void main()
+{
+  // tilt angle in radians
+  // (behavior might be a bit wrong if both components are nonzero)
+  const vec2 angle = vec2(0.0,-0.0);
+
+  // Precalculate a bunch of useful values we'll need in the fragment
+  // shader.
+  sinangle = sin(angle);
+  cosangle = cos(angle);
+  stretch = maxscale();
+
+  // transform the texture coordinates
+  gl_Position = projMat * viewMat * modelMat * vec4(position, 0.0, 1.0);
+  texCoord = vert_uv;
+
+  ilfac = vec2(1.0,floor(inputSize.y/200.0));
+
+  // Resulting X pixel-coordinate of the pixel we're drawing.
+  mod_factor = texCoord.x * textureSize.x * outputSize.x / inputSize.x;
+}"#;

@@ -59,7 +59,7 @@ pub enum GameState {
     GS_DEMOSCREEN,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum GameAction {
     ga_nothing,
@@ -85,7 +85,7 @@ pub static MTF_HARD: u8 = 4;
 pub static MTF_AMBUSH: i16 = 8;
 
 /// Key cards.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Card {
     it_bluecard,
@@ -99,7 +99,7 @@ pub enum Card {
 }
 
 /// The defined weapons, including a marker indicating user has not changed weapon.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum WeaponType {
     wp_fist,
@@ -122,7 +122,7 @@ pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
 pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
 
 /// Ammunition types defined.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
@@ -139,7 +139,7 @@ pub enum AmmoType {
 }
 
 /// Power up artifacts.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum PowerType {
     pw_invulnerability,
@@ -154,7 +154,7 @@ pub enum PowerType {
 /// Power up durations,
 ///  how many seconds till expiration,
 ///  assuming TICRATE is 35 ticks/second.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum PowerDuration {
     INVULNTICS = (30 * TICRATE) as isize,
     INVISTICS = (61 * TICRATE) as isize,

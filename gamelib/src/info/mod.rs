@@ -1355,6 +1355,3 @@ impl MapObjectInfo {
         }
     }
 }
-
-const FRACBITS: i32 = 16;
-const FRACUNIT: f32 = (1 << FRACBITS) as f32;

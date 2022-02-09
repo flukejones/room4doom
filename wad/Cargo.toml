@@ -6,11 +6,12 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-#[dev-dependencies]
-#criterion = "~0.3"
-#gamelib = { path = "../gamelib" }
 
-#[[bench]]
-#name = "load_wads"
-#harness = false
-#path = "benches/wad_loading.rs"
+[dev-dependencies]
+criterion = "~0.3"
+gamelib = { path = "../gamelib" }
+
+[[bench]]
+name = "load_wads"
+harness = false
+path = "benches/wad_loading.rs"

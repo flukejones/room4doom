@@ -13,7 +13,7 @@ pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MapExtents {
     pub min_vertex: Vec2,
     pub max_vertex: Vec2,
@@ -32,7 +32,6 @@ pub struct MapExtents {
 /// Access to the `Vec` arrays within is limited to immutable only to
 /// prevent unwanted removal of items, which *will* break references and
 /// segfault
-#[derive(Debug)]
 pub struct MapData {
     name: String,
     /// Things will be linked to/from each other in many ways, which means this array may
@@ -179,6 +178,7 @@ impl MapData {
                 soundtraversed: 0,
                 blockbox: [0, 0, 0, 0],
                 validcount: 0,
+                specialdata: None,
                 lines: Vec::new(),
             })
             .collect();
@@ -473,13 +473,14 @@ mod tests {
         //     }
         // }
 
-        let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
+        let _endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
         let segs = map.get_segments();
         // wander around the coords of the subsector corner from player start
+        let mut count = 0;
         for x in 705..895 {
             for y in -3551..-3361 {
                 bsp_trace.origin = Vec2::new(x as f32, y as f32);
-                bsp_trace.find_ssect_intercepts(&map);
+                bsp_trace.find_ssect_intercepts(&map, &mut count);
 
                 // Sector the starting vector is in. 3 segs attached
                 let x = bsp_trace.intercepted_nodes().first().unwrap();

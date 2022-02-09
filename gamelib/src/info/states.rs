@@ -1,5 +1,5 @@
 use crate::info::{SpriteNum, StateNum};
-use crate::{d_thinker::ActionFunc, p_enemy::a_pain, p_player_sprite::a_punch};
+use crate::{d_thinker::ActionF, p_enemy::a_pain, p_player_sprite::a_punch};
 use std::fmt;
 
 pub struct State {
@@ -11,7 +11,7 @@ pub struct State {
     pub tics: i32,
     // void (*action) (): i32,
     /// An action callback to run on this state
-    pub action: ActionFunc,
+    pub action: ActionF,
     /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
     /// Don't know, Doom seems to set all to zero
@@ -25,7 +25,7 @@ impl State {
         sprite: SpriteNum,
         frame: i32,
         tics: i32,
-        action: ActionFunc,
+        action: ActionF,
         next_state: StateNum,
         misc1: i32,
         misc2: i32,
@@ -8778,7 +8778,7 @@ pub fn get_state(index: usize) -> State {
             SpriteNum::SPR_TROO,
             0,
             -1,
-            ActionFunc::None,
+            ActionF::None,
             StateNum::S_NULL,
             0,
             0,
@@ -8787,7 +8787,7 @@ pub fn get_state(index: usize) -> State {
             SpriteNum::SPR_PUNG,
             2,
             4,
-            ActionFunc::Player(&a_punch),
+            ActionF::Player(&a_punch),
             StateNum::S_PUNCH3,
             0,
             0,
@@ -8796,7 +8796,7 @@ pub fn get_state(index: usize) -> State {
             SpriteNum::SPR_PLAY,
             6,
             4,
-            ActionFunc::MapObject(&a_pain),
+            ActionF::Action1(a_pain),
             StateNum::S_PLAY,
             0,
             0,
@@ -8808,7 +8808,7 @@ pub fn get_state(index: usize) -> State {
             SpriteNum::SPR_TROO,
             0,
             -1,
-            ActionFunc::None,
+            ActionF::None,
             StateNum::S_NULL,
             0,
             0,

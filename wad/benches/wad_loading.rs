@@ -1,24 +1,23 @@
+use std::{path::PathBuf, str::FromStr};
+
 use criterion::*;
 use wad::wad::WadData;
 
 fn bench_doom1(b: &mut Bencher, _i: &u32) {
     b.iter(|| {
-        let mut wad = WadData::new("../doom1.wad");
-        wad.read_directories();
+        let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     });
 }
 
 fn bench_doom(b: &mut Bencher, _i: &u32) {
     b.iter(|| {
-        let mut wad = WadData::new("../doom.wad");
-        wad.read_directories();
+        let mut wad = WadData::new(PathBuf::from_str("../doom.wad").unwrap());
     });
 }
 
 fn bench_doom2(b: &mut Bencher, _i: &u32) {
     b.iter(|| {
-        let mut wad = WadData::new("../doom2.wad");
-        wad.read_directories();
+        let mut wad = WadData::new(PathBuf::from_str("../doom2.wad").unwrap());
     });
 }
 

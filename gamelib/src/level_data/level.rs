@@ -1,5 +1,9 @@
+use std::ptr::NonNull;
+
+use log::debug;
 use wad::{lumps::WadThing, WadData};
 
+use crate::d_thinker::ThinkerAlloc;
 use crate::level_data::map_data::MapData;
 use crate::renderer::bsp::BspRenderer;
 use crate::renderer::plane::VisPlaneCtrl;
@@ -7,7 +11,7 @@ use crate::renderer::RenderData;
 use crate::{
     d_main::Skill,
     d_thinker::Think,
-    d_thinker::{ActionFunc, Thinker},
+    d_thinker::{ActionF, Thinker},
     doom_def::GameMode,
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
@@ -29,7 +33,7 @@ pub struct Level {
     pub r_data: RenderData,
     pub visplanes: VisPlaneCtrl,
     pub mobj_ctrl: SubSectorMinMax,
-    pub thinkers: Vec<Option<Thinker<MapObject>>>,
+    pub thinkers: ThinkerAlloc,
     max_thinker_capacity: usize,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
@@ -88,7 +92,7 @@ impl Level {
             visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
             mobj_ctrl: SubSectorMinMax::default(),
-            thinkers: Vec::with_capacity(thinker_count + 50),
+            thinkers: ThinkerAlloc::new(thinker_count + 500),
             max_thinker_capacity: thinker_count + 50,
             game_skill: skill,
             respawn_monsters,
@@ -111,7 +115,12 @@ impl Level {
         for thing in &thing_list {
             MapObject::p_spawn_map_thing(thing, &mut level, players, active_players);
         }
-        dbg!(&level.thinkers.len());
+
+        debug!("Level: thinkers = {}", &level.thinkers.len());
+        debug!("Level: skill = {:?}", &level.game_skill);
+        debug!("Level: episode = {}", &level.episode);
+        debug!("Level: map = {}", &level.game_map);
+        debug!("Level: player_starts = {:?}", &level.player_starts);
 
         // G_DoReborn
         // G_CheckSpot
@@ -120,46 +129,14 @@ impl Level {
         // TODO: P_InitThinkers();
     }
 
-    pub fn add_thinker(&mut self, thinker: Thinker<MapObject>) -> bool {
-        let mut index = 0;
-        for i in 0..self.thinkers.len() {
-            if self.thinkers[i].is_none() {
-                break;
-            }
-            index += 1;
-        }
-        if index < self.max_thinker_capacity {
-            if index < self.thinkers.len() {
-                self.thinkers[index] = Some(thinker);
-            } else {
-                self.thinkers.push(Some(thinker));
-            }
-            return true;
-        }
-
-        false
-    }
-
-    /// Clean out the inactive thinkers. This iterates the full allocation to find
-    /// thinkers with `None` action. The list is between 50-300 usually, depending
-    /// on the level.
-    pub fn clean_thinker_list(&mut self) {
-        for i in 0..self.thinkers.len() {
-            // Do not remove if already None, or if has Action
-            let status = self.thinkers[i].as_ref().map_or(false, |thinker| {
-                matches!(thinker.function, ActionFunc::None)
-            });
-            if status {
-                // An item must always be replaced in place to prevent realloc of vec
-                let mut thinker = self.thinkers[i].take().unwrap();
-                thinker.unlink();
-            }
-        }
+    pub fn add_thinker<T: Think>(&mut self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+        // TODO: do cleaning pass if can't insert
+        self.thinkers.push::<T>(thinker)
     }
 }
 
 /// P_Ticker
-pub fn ticker(game: &mut Game) {
+pub fn p_ticker(game: &mut Game) {
     if game.paused {
         return;
     }
@@ -172,23 +149,25 @@ pub fn ticker(game: &mut Game) {
     // }
 
     // Only run thinkers if a level is loaded
+
     if let Some(ref mut level) = game.level {
         for (i, player) in game.players.iter_mut().enumerate() {
-            if game.player_in_game[i] && player.think(level) {
-                if let Some(ref mut mobj) = player.mobj {
-                    mobj.unlink();
-                    mobj.function = ActionFunc::None;
-                }
+            if game.player_in_game[i] && !player.think(level) {
+                // TODO: what to do with dead player?
             }
         }
 
-        // P_RunThinkers ();, this may need to remove thinkers..
-        // P_UpdateSpecials ();
-        // P_RespawnSpecials ();
-
-        // TODO: trial removal of mobs
-        level.clean_thinker_list();
+        let l = unsafe { &mut *(level as *mut Level) };
+        for thinker in level.thinkers.iter_mut() {
+            if thinker.think(l) {
+                thinker.set_action(ActionF::None);
+            }
+        }
 
         level.level_time += 1;
     }
+
+    // P_RunThinkers ();, this may need to remove thinkers..
+    // P_UpdateSpecials ();
+    // P_RespawnSpecials ();
 }

@@ -60,7 +60,7 @@ impl DrawSeg {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct ClipRange {
     pub first: i32,
     pub last: i32,
