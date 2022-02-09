@@ -3,6 +3,7 @@ use std::{error::Error, fmt, str::FromStr};
 use golem::Context;
 
 use gumdrop::Options;
+use log::{info, debug, trace};
 use sdl2::{
     keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect, render::Canvas,
     surface::Surface, video::Window,
@@ -13,7 +14,7 @@ use crate::{
     doom_def::GameMode,
     game::Game,
     input::Input,
-    shaders::{basic::Basic, cgwg_crt::CGWGCRT, lottes_crt::LottesCRT, Renderer},
+    shaders::{basic::Basic, lottes_crt::LottesCRT, Renderer},
     timestep::TimeStep,
 };
 
@@ -65,6 +66,8 @@ impl FromStr for Skill {
 
 #[derive(Debug, Options)]
 pub struct GameOptions {
+    #[options(help = "verbose level: off, error, warn, info, debug", default = "warn")]
+    pub verbose: log::LevelFilter,
     #[options(no_short, help = "path to game WAD", default = "./doom1.wad")]
     pub iwad: String,
     #[options(no_short, help = "path to patch WAD")]
@@ -144,8 +147,9 @@ pub fn d_doom_loop(
     gl: Window,
     ctx: Context,
 ) -> Result<(), Box<dyn Error>> {
-    let mut timestep = TimeStep::new();
+    debug!("Entered d_doom_loop");
 
+    let mut timestep = TimeStep::new();
     let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
 
     // TODO: sort this block of stuff out
@@ -176,6 +180,7 @@ pub fn d_doom_loop(
 
         // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
+
         // TODO: S_UpdateSounds(players[consoleplayer].mo); // move positional sounds
         // Draw everything to the buffer
         d_display(&mut game, &mut render_buffer);
@@ -191,7 +196,7 @@ pub fn d_doom_loop(
         gl.gl_swap_window();
 
         if let Some(fps) = timestep.frame_rate() {
-            //println!("{:?}", fps);
+            info!("{:?}", fps);
         }
     }
     Ok(())
@@ -211,6 +216,7 @@ fn d_display(game: &mut Game, mut canvas: &mut Canvas<Surface>) {
 }
 
 fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
+    trace!("Entered try_run_tics");
     // TODO: net.c starts here
     input.update(); // D_ProcessEvents
 

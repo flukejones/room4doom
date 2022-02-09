@@ -1,11 +1,12 @@
+use std::{path::PathBuf, str::FromStr};
+
 use criterion::*;
 
-use gamelib::map_data::MapData;
+use gamelib::level_data::map_data::MapData;
 use wad::wad::WadData;
 
 fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
-    let mut wad = WadData::new("../doom1.wad");
-    wad.read_directories();
+    let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M1".to_owned());
     b.iter(|| {
         map.load(&wad);
@@ -13,8 +14,7 @@ fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
 }
 
 fn bench_load_e1m7(b: &mut Bencher, _i: &u32) {
-    let mut wad = WadData::new("../doom1.wad");
-    wad.read_directories();
+    let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M7".to_owned());
     b.iter(|| {
         map.load(&wad);

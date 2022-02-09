@@ -18,7 +18,7 @@ pub const ML_MAPPED: u32 = 256;
 
 // Game mode handling - identify IWAD version
 //  to handle IWAD dependend animations etc.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMode {
     Shareware,
     // DOOM 1 shareware, E1, M9
@@ -33,7 +33,7 @@ pub enum GameMode {
 }
 
 // Mission packs - might be useful for TC stuff?
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMission {
     Doom,
     // DOOM 1
@@ -49,7 +49,7 @@ pub enum GameMission {
 /// The current state of the game: whether we are
 /// playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum GameState {
     FORCE_WIPE = -1,

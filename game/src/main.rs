@@ -16,7 +16,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let options = GameOptions::parse_args_default_or_exit();
 
-    println!("{:?}", options);
     let mut window = video_ctx
         .window("DIIRDOOM", options.width, options.height)
         .position_centered()
