@@ -1,5 +1,5 @@
 use log::warn;
-use std::alloc::{alloc, dealloc, Layout, alloc_zeroed};
+use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
@@ -160,14 +160,16 @@ impl ThinkerAlloc {
                 (*inner_ptr).next = inner_ptr;
             } else {
                 let head = &mut *self.head;
-                // get tail from head and make sure its prev is the inserted node
-                (*head.next).prev = inner_ptr;
-                // inserted node's next must be tail (head next)
-                (*inner_ptr).next = head.next;
-                // head needs to link to inserted now
-                (*head).next = inner_ptr;
                 // and inserted previous link to last head
                 (*inner_ptr).prev = head;
+                // inserted node's next must be tail (head next)
+                (*inner_ptr).next = head.next;
+
+                // get tail from head and make sure its prev is the inserted node
+                (*head.next).prev = inner_ptr;
+                // head needs to link to inserted now
+                (*head).next = inner_ptr;
+
                 // set head
                 self.head = inner_ptr;
             }
@@ -199,10 +201,12 @@ impl ThinkerAlloc {
         let node;
         unsafe {
             let ptr = self.buf_ptr.as_ptr().add(idx);
-            tmp = ptr.read();
-            if tmp.is_none() {
-                return None;
+            let inner_ptr = (*ptr).as_mut().unwrap_unchecked() as *mut Thinker;
+            if inner_ptr == self.head {
+                self.head = (*inner_ptr).prev;
             }
+            tmp = ptr.read();
+            tmp.as_ref()?;
             node = tmp.unwrap();
             std::ptr::write(ptr, None);
         }
@@ -246,7 +250,7 @@ impl<'a> IterLinks<'a> {
     pub(crate) fn new(start: *mut Thinker) -> Self {
         Self {
             start,
-            current: start,
+            current: null_mut(),
             _phantom: PhantomData,
         }
     }
@@ -257,11 +261,14 @@ impl<'a> Iterator for IterLinks<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
+            if !self.current.is_null() && self.current == self.start {
+                return None;
+            } else if self.current.is_null() {
+                self.current = self.start;
+            }
+
             let current = self.current;
             self.current = (*self.current).next;
-            if self.current == self.start {
-                return None;
-            }
             Some(&(*current))
         }
     }
@@ -581,33 +588,20 @@ mod tests {
                 ActionF::None,
             ))
             .unwrap();
-        unsafe {
-            assert_eq!(
-                (*links.buf_ptr.as_ref())
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                42
-            );
-            assert_eq!(
-                (*(*links.buf_ptr.as_ref()).as_ref().unwrap_unchecked().next)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                666
-            );
-
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 666);
-            assert_eq!((*(*links.head).next).object.bad_ref::<TestObject>().x, 42);
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 42);
-        }
 
         links
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 123,
+                    thinker: NonNull::dangling(),
+                }),
+                ActionF::None,
+            ))
+            .unwrap();
+        links
+            .push::<TestObject>(TestObject::create_thinker(
+                ThinkerType::Test(TestObject {
+                    x: 333,
                     thinker: NonNull::dangling(),
                 }),
                 ActionF::None,
@@ -641,11 +635,32 @@ mod tests {
                     .x,
                 123
             );
+            assert_eq!(
+                (*(*(*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next).next).next)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                333
+            );
+            assert_eq!(
+                (*(*(*(*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next).next).next).next)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                42
+            );
             // back
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 123);
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 666);
+            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 333);
+            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
             assert_eq!(
                 (*(*(*links.head).prev).prev)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                666
+            );
+            assert_eq!(
+                (*(*(*(*links.head).prev).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
@@ -655,8 +670,27 @@ mod tests {
 
         links.remove(1);
         unsafe {
+            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 333);
+            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
+            assert_eq!(
+                (*(*(*links.head).prev).prev)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                42
+            );
+        }
+        links.remove(3);
+        unsafe {
             assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 123);
             assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 42);
+            assert_eq!(
+                (*(*(*links.head).prev).prev)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                123
+            );
         }
     }
 
@@ -693,6 +727,38 @@ mod tests {
             ActionF::None,
         ));
 
+        for (i, thinker) in links.iter().enumerate() {
+            if i == 0 {
+                assert_eq!(thinker.object.bad_ref::<TestObject>().x, 42);
+            }
+            if i == 1 {
+                assert_eq!(thinker.object.bad_ref::<TestObject>().x, 123);
+            }
+            if i == 2 {
+                assert_eq!(thinker.object.bad_ref::<TestObject>().x, 666);
+            }
+            if i == 3 {
+                assert_eq!(thinker.object.bad_ref::<TestObject>().x, 333);
+            }
+        }
+        unsafe {
+            assert_eq!(
+                (*links.buf_ptr.as_ptr().add(3))
+                    .as_ref()
+                    .unwrap()
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                333
+            );
+        }
+
+        assert_eq!(links.iter().count(), 4);
+
+        links.remove(3);
+        assert_eq!(links.len(), 3);
+        assert_eq!(links.iter().count(), 3);
+
         for (i, num) in links.iter().enumerate() {
             if i == 0 {
                 assert_eq!((*num).object.bad_ref::<TestObject>().x, 42);
@@ -703,47 +769,20 @@ mod tests {
             if i == 2 {
                 assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
             }
-            if i == 3 {
-                assert_eq!((*num).object.bad_ref::<TestObject>().x, 333);
+        }
+        //
+        links.remove(1);
+        assert_eq!(links.len(), 2);
+        assert_eq!(links.iter().count(), 2);
+
+        for (i, num) in links.iter().enumerate() {
+            if i == 0 {
+                assert_eq!((*num).object.bad_ref::<TestObject>().x, 42);
+            }
+            if i == 1 {
+                assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
             }
         }
-        unsafe{
-            assert_eq!((*links.buf_ptr.as_ptr().add(3)).as_ref().unwrap().object.bad_ref::<TestObject>().x, 333);
-        }
-
-        assert_eq!(links.iter().count(), 4);
-
-        links.remove(3);
-        assert_eq!(links.len(), 3);
-        assert_eq!(links.iter().count(), 3);
-
-        // for (i, num) in links.iter().enumerate() {
-        //     if i == 0 {
-        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 123);
-        //     }
-        //     if i == 1 {
-        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
-        //     }
-        //     if i == 2 {
-        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 333);
-        //     }
-        // }
-        // //
-        // links.remove(2);
-        // assert_eq!(links.len(), 2);
-        // assert_eq!(links.iter().count(), 2);
-        //
-        // for (i, num) in links.iter().enumerate() {
-        //     if i == 0 {
-        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 123);
-        //     }
-        //     if i == 1 {
-        //         dbg!(&*num);
-        //         dbg!(&(*num).object.bad_ref::<TestObject>().x);
-        //         assert_eq!(2, 3);
-        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
-        //     }
-        // }
     }
 
     #[test]
