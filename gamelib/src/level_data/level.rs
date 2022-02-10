@@ -10,8 +10,7 @@ use crate::renderer::plane::VisPlaneCtrl;
 use crate::renderer::RenderData;
 use crate::{
     d_main::Skill,
-    d_thinker::Think,
-    d_thinker::{ActionF, Thinker},
+    d_thinker::{Think, Thinker},
     doom_def::GameMode,
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
@@ -34,7 +33,6 @@ pub struct Level {
     pub visplanes: VisPlaneCtrl,
     pub mobj_ctrl: SubSectorMinMax,
     pub thinkers: ThinkerAlloc,
-    max_thinker_capacity: usize,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
     pub level_time: u32,
@@ -63,8 +61,8 @@ impl Level {
     pub fn setup_level(
         wad_data: &WadData,
         skill: Skill,
-        mut episode: u32,
-        mut map: u32,
+        episode: u32,
+        map: u32,
         game_mode: GameMode,
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
@@ -93,7 +91,6 @@ impl Level {
             bsp_renderer: BspRenderer::default(),
             mobj_ctrl: SubSectorMinMax::default(),
             thinkers: ThinkerAlloc::new(thinker_count + 500),
-            max_thinker_capacity: thinker_count + 50,
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
@@ -157,17 +154,24 @@ pub fn p_ticker(game: &mut Game) {
             }
         }
 
+        // this block is P_RunThinkers()
+        // TODO: maybe use direct linked list iter here so we can remove while iterating
         let l = unsafe { &mut *(level as *mut Level) };
+        let mut rm = Vec::with_capacity(level.thinkers.len());
         for thinker in level.thinkers.iter_mut() {
-            if thinker.think(l) {
-                thinker.set_action(ActionF::None);
+            if thinker.has_action() {
+                thinker.think(l);
+            } else {
+                rm.push(thinker.index());
             }
+        }
+        for idx in rm {
+            level.thinkers.remove(idx);
         }
 
         level.level_time += 1;
     }
 
-    // P_RunThinkers ();, this may need to remove thinkers..
     // P_UpdateSpecials ();
     // P_RespawnSpecials ();
 }

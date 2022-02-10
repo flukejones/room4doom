@@ -1,10 +1,9 @@
 use log::warn;
-use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
-use std::fmt::{self};
+use std::alloc::{alloc, dealloc, Layout};
 use std::marker::PhantomData;
-use std::mem;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
+use std::{fmt, mem};
 
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
@@ -67,7 +66,7 @@ impl ThinkerAlloc {
         unsafe {
             let size = capacity * size_of::<Option<Thinker>>();
             let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-            let buf_ptr = alloc_zeroed(layout) as *mut Option<Thinker>;
+            let buf_ptr = alloc(layout) as *mut Option<Thinker>;
 
             for i in 0..capacity {
                 (*buf_ptr.add(i)) = None;
@@ -128,7 +127,7 @@ impl ThinkerAlloc {
     /// # Safety:
     ///
     /// `<T>` must match the inner type of `Thinker`
-    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+    pub fn push<T: Think>(&mut self, mut thinker: Thinker) -> Option<NonNull<Thinker>> {
         if self.len == self.capacity {
             return None;
         }
@@ -148,6 +147,7 @@ impl ThinkerAlloc {
                     return None;
                 }
             }
+            thinker.index = idx;
             let root_ptr = self.buf_ptr.as_ptr().add(idx);
             ptr::write(root_ptr, Some(thinker));
 
@@ -346,6 +346,8 @@ impl ThinkerType {
 /// its neighbours and more, without having to pass in a ref to the Thinker container,
 /// or iterate over possible blank spots in memory.
 pub struct Thinker {
+    /// The index location in the allocation
+    index: usize,
     prev: *mut Thinker,
     next: *mut Thinker,
     object: ThinkerType,
@@ -353,8 +355,16 @@ pub struct Thinker {
 }
 
 impl Thinker {
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     pub fn object(&mut self) -> &mut ThinkerType {
         &mut self.object
+    }
+
+    pub fn has_action(&self) -> bool {
+        !matches!(self.func, ActionF::None)
     }
 
     pub fn set_action(&mut self, func: ActionF) {
@@ -384,15 +394,6 @@ impl fmt::Debug for Thinker {
     }
 }
 
-// impl Drop for Thinker {
-//     fn drop(&mut self) {
-//         // if this thinker has links in both directions then the thinkers at those
-//         // ends must be linked to this thinker, so we need to unlink those from
-//         // this thinker, and link them together
-//         // self.unlink();
-//     }
-// }
-
 #[derive(Clone)]
 pub enum ActionF {
     None, // actionf_v
@@ -415,6 +416,7 @@ pub trait Think {
     /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
     fn create_thinker(object: ThinkerType, func: ActionF) -> Thinker {
         Thinker {
+            index: 0,
             prev: null_mut(),
             next: null_mut(),
             object,
@@ -429,7 +431,7 @@ pub trait Think {
         false
     }
 
-    /// impl of this trait should return true *if* the thinker + object are to be removed
+    /// impl of this trait function should return true *if* the thinker + object are to be removed
     ///
     /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
     /// on the object and Null is used to track if the map object should be removed.
@@ -495,6 +497,7 @@ mod tests {
             &mut [false; 4],
         );
         let mut x = Thinker {
+            index: 0,
             prev: null_mut(),
             next: null_mut(),
             object: ThinkerType::Test(TestObject {
