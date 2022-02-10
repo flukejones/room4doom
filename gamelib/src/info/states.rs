@@ -8787,7 +8787,7 @@ pub fn get_state(index: usize) -> State {
             SpriteNum::SPR_PUNG,
             2,
             4,
-            ActionF::Player(&a_punch),
+            ActionF::Player(a_punch),
             StateNum::S_PUNCH3,
             0,
             0,
