@@ -175,10 +175,9 @@ pub fn path_traverse(
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
 
+    let segs = level.map_data.get_segments();
+    let sub_sectors = level.map_data.get_subsectors();
     for n in bsp_trace.intercepted_nodes() {
-        let segs = level.map_data.get_segments();
-        let sub_sectors = level.map_data.get_subsectors();
-
         let ssect = &sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;

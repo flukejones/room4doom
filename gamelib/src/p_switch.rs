@@ -1,12 +1,12 @@
 use crate::{
-    flags::LineDefFlags, level_data::map_defs::LineDef, p_doors::ev_vertical_door,
+    flags::LineDefFlags, level_data::{map_defs::LineDef, level::Level}, p_doors::ev_vertical_door,
     p_map_object::MapObject, DPtr,
 };
 
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
+pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject, level: &Level) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
         // never open secret doors
@@ -36,7 +36,7 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
           | 117     // Blazing door raise
           | 118     // Blazing door open
           = line.special {
-        ev_vertical_door(line, thing);
+        ev_vertical_door(line, thing, level);
         println!("*hydralic sounds*");
     }
     false

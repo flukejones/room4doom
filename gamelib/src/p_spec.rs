@@ -4,7 +4,7 @@
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use crate::info::MapObjectType;
-use crate::level_data::map_defs::LineDef;
+use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_map_object::MapObject;
 use crate::DPtr;
 use std::ptr::NonNull;
@@ -152,6 +152,7 @@ pub struct CeilingMove {
 
 // P_DOORS
 //
+#[derive(Debug, Clone, Copy)]
 pub enum DoorKind {
     vld_normal,
     vld_close30ThenOpen,
@@ -164,8 +165,8 @@ pub enum DoorKind {
 }
 
 pub struct VerticalDoor {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub kind: DoorKind,
     pub topheight: f32,
     pub speed: f32,

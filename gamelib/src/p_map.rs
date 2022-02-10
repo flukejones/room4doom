@@ -504,12 +504,12 @@ impl MapObject {
             origin,
             endpoint,
             level,
-            |intercept| self.use_traverse(intercept),
+            |intercept| self.use_traverse(intercept, level),
             &mut bsp_trace,
         );
     }
 
-    pub fn use_traverse(&mut self, intercept: &Intercept) -> bool {
+    pub fn use_traverse(&mut self, intercept: &Intercept, level: &Level) -> bool {
         if let Some(line) = &intercept.line {
             if line.special == 0 {
                 let portal = PortalZ::new(&line);
@@ -529,7 +529,7 @@ impl MapObject {
             } else {
                 0
             };
-            p_use_special_line(side, line.clone(), self);
+            p_use_special_line(side, line.clone(), self, level);
         }
         // can't use for than one special line in a row
         false

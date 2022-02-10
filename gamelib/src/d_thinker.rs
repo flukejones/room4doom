@@ -1,5 +1,5 @@
 use log::warn;
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, dealloc, Layout, alloc_zeroed};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
@@ -8,6 +8,7 @@ use std::{fmt, mem};
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
+use crate::p_spec::VerticalDoor;
 use crate::player::Player;
 
 #[derive(PartialEq, PartialOrd)]
@@ -66,7 +67,7 @@ impl ThinkerAlloc {
         unsafe {
             let size = capacity * size_of::<Option<Thinker>>();
             let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-            let buf_ptr = alloc(layout) as *mut Option<Thinker>;
+            let buf_ptr = alloc_zeroed(layout) as *mut Option<Thinker>;
 
             for i in 0..capacity {
                 (*buf_ptr.add(i)) = None;
@@ -194,33 +195,31 @@ impl ThinkerAlloc {
 
     pub fn take(&mut self, idx: usize) -> Option<Thinker> {
         debug_assert!(idx < self.capacity);
-        let mut tmp;
+        let tmp;
+        let node;
         unsafe {
             let ptr = self.buf_ptr.as_ptr().add(idx);
             tmp = ptr.read();
-
-            if mem::needs_drop::<Thinker>() {
-                std::ptr::drop_in_place(ptr);
+            if tmp.is_none() {
+                return None;
             }
-
-            std::ptr::write(self.buf_ptr.as_ptr().add(idx), None);
+            node = tmp.unwrap();
+            std::ptr::write(ptr, None);
         }
 
         self.len -= 1;
         self.next_free = idx; // reuse the slot on next insert
 
-        if let Some(node) = tmp.as_mut() {
-            let prev = node.prev;
-            let next = node.next;
+        let prev = node.prev;
+        let next = node.next;
 
-            unsafe {
-                (*next).prev = prev;
-                (*prev).next = next;
-            }
+        unsafe {
+            (*next).prev = prev;
+            (*prev).next = next;
         }
 
         self.maybe_reset_head();
-        tmp
+        Some(node)
     }
 
     /// Removes the entry at index
@@ -247,7 +246,7 @@ impl<'a> IterLinks<'a> {
     pub(crate) fn new(start: *mut Thinker) -> Self {
         Self {
             start,
-            current: null_mut(),
+            current: start,
             _phantom: PhantomData,
         }
     }
@@ -258,14 +257,11 @@ impl<'a> Iterator for IterLinks<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if !self.current.is_null() && self.current == self.start {
-                return None;
-            } else if self.current.is_null() {
-                self.current = self.start;
-            }
-
             let current = self.current;
             self.current = (*self.current).next;
+            if self.current == self.start {
+                return None;
+            }
             Some(&(*current))
         }
     }
@@ -310,6 +306,7 @@ impl<'a> Iterator for IterLinksMut<'a> {
 pub enum ThinkerType {
     Test(TestObject),
     Mobj(MapObject),
+    VDoor(VerticalDoor),
 }
 
 impl ThinkerType {
@@ -376,7 +373,7 @@ impl Thinker {
     pub fn think(&mut self, level: &mut Level) -> bool {
         let res = match self.func {
             ActionF::Action1(f) => (f)(&mut self.object, level),
-            ActionF::Player(_f) => todo!(),
+            ActionF::Player(_f) => false,
             ActionF::None => false,
         };
         res
@@ -398,7 +395,7 @@ impl fmt::Debug for Thinker {
 pub enum ActionF {
     None, // actionf_v
     Action1(fn(&mut ThinkerType, &mut Level) -> bool),
-    Player(*const dyn Fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
+    Player(fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
 }
 
 impl fmt::Debug for ActionF {
@@ -555,6 +552,9 @@ mod tests {
             assert!((*links.buf_ptr.as_ptr().add(1)).is_none());
             assert!((*links.buf_ptr.as_ptr().add(2)).is_none());
         }
+
+        links.remove(0);
+        assert_eq!(links.len(), 0);
     }
 
     #[test]
@@ -707,27 +707,30 @@ mod tests {
                 assert_eq!((*num).object.bad_ref::<TestObject>().x, 333);
             }
         }
+        unsafe{
+            assert_eq!((*links.buf_ptr.as_ptr().add(3)).as_ref().unwrap().object.bad_ref::<TestObject>().x, 333);
+        }
 
         assert_eq!(links.iter().count(), 4);
 
-        links.remove(0);
+        links.remove(3);
         assert_eq!(links.len(), 3);
         assert_eq!(links.iter().count(), 3);
 
-        for (i, num) in links.iter().enumerate() {
-            if i == 0 {
-                assert_eq!((*num).object.bad_ref::<TestObject>().x, 123);
-            }
-            if i == 1 {
-                assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
-            }
-            if i == 2 {
-                assert_eq!((*num).object.bad_ref::<TestObject>().x, 333);
-            }
-        }
-        //
-        links.remove(3);
-        assert_eq!(links.len(), 2);
+        // for (i, num) in links.iter().enumerate() {
+        //     if i == 0 {
+        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 123);
+        //     }
+        //     if i == 1 {
+        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 666);
+        //     }
+        //     if i == 2 {
+        //         assert_eq!((*num).object.bad_ref::<TestObject>().x, 333);
+        //     }
+        // }
+        // //
+        // links.remove(2);
+        // assert_eq!(links.len(), 2);
         // assert_eq!(links.iter().count(), 2);
         //
         // for (i, num) in links.iter().enumerate() {

@@ -126,9 +126,11 @@ impl Level {
         // TODO: P_InitThinkers();
     }
 
-    pub fn add_thinker<T: Think>(&mut self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+    pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
         // TODO: do cleaning pass if can't insert
-        self.thinkers.push::<T>(thinker)
+        let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
+        // Absolutely fucking with lifetimes here
+        unsafe { (*thinkers).push::<T>(thinker) }
     }
 }
 
@@ -166,6 +168,7 @@ pub fn p_ticker(game: &mut Game) {
             }
         }
         for idx in rm {
+            debug!("Removing: {idx}");
             level.thinkers.remove(idx);
         }
 

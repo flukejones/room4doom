@@ -644,13 +644,12 @@ impl MapObject {
             info,
             kind,
         };
-        
+
         let thinker =
             MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
         if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
-            // P_AddThinker(&mobj->thinker);
             unsafe {
                 return NonNull::new(ptr.as_mut().object().bad_mut::<MapObject>())
                     .expect("spawn_map_object ptr creation failed");
