@@ -3,7 +3,7 @@ use std::{error::Error, fmt, str::FromStr};
 use golem::Context;
 
 use gumdrop::Options;
-use log::{info, debug, trace};
+use log::{debug, info, trace};
 use sdl2::{
     keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect, render::Canvas,
     surface::Surface, video::Window,
@@ -66,7 +66,10 @@ impl FromStr for Skill {
 
 #[derive(Debug, Options)]
 pub struct GameOptions {
-    #[options(help = "verbose level: off, error, warn, info, debug", default = "warn")]
+    #[options(
+        help = "verbose level: off, error, warn, info, debug",
+        default = "warn"
+    )]
     pub verbose: log::LevelFilter,
     #[options(no_short, help = "path to game WAD", default = "./doom1.wad")]
     pub iwad: String,

@@ -9,9 +9,9 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use log::{LevelFilter, debug, info, error, warn, trace};
-use std::io::Write;
+use log::{debug, error, info, trace, warn, LevelFilter};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use std::io::Write;
 use wad::WadData;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
@@ -98,25 +98,40 @@ impl Game {
         debug!("Game: new mode = {:?}", game_mode);
         if game_mode == GameMode::Retail {
             if options.episode > 4 && options.pwad.is_none() {
-                warn!("Game: new: {:?} mode (no pwad) but episode {} is greater than 4", game_mode, options.episode);
+                warn!(
+                    "Game: new: {:?} mode (no pwad) but episode {} is greater than 4",
+                    game_mode, options.episode
+                );
                 options.episode = 4;
             }
         } else if game_mode == GameMode::Shareware {
             if options.episode > 1 {
-                warn!("Game: new: {:?} mode but episode {} is greater than 1", game_mode, options.episode);
+                warn!(
+                    "Game: new: {:?} mode but episode {} is greater than 1",
+                    game_mode, options.episode
+                );
                 options.episode = 1; // only start episode 1 on shareware
             }
             if options.map > 5 {
-                warn!("Game: init_new: {:?} mode but map {} is greater than 5", game_mode, options.map);
+                warn!(
+                    "Game: init_new: {:?} mode but map {} is greater than 5",
+                    game_mode, options.map
+                );
                 options.map = 5;
             }
         } else if options.episode > 3 {
-            warn!("Game: new: {:?} mode but episode {} is greater than 3", game_mode, options.episode);
+            warn!(
+                "Game: new: {:?} mode but episode {} is greater than 3",
+                game_mode, options.episode
+            );
             options.episode = 3;
         }
 
         if options.map > 9 && game_mode != GameMode::Commercial {
-            warn!("Game: init_new: {:?} mode but map {} is greater than 9", game_mode, options.map);
+            warn!(
+                "Game: init_new: {:?} mode but map {} is greater than 9",
+                game_mode, options.map
+            );
             options.map = 9;
         }
 
@@ -243,25 +258,40 @@ impl Game {
         debug!("Game: init_new: mode = {:?}", self.game_mode);
         if self.game_mode == GameMode::Retail {
             if episode > 4 {
-                warn!("Game: init_new: {:?} mode but episode {} is greater than 4", self.game_mode, episode);
+                warn!(
+                    "Game: init_new: {:?} mode but episode {} is greater than 4",
+                    self.game_mode, episode
+                );
                 episode = 4;
             }
         } else if self.game_mode == GameMode::Shareware {
             if episode > 1 {
-                warn!("Game: init_new: {:?} mode but episode {} is greater than 1", self.game_mode, episode);
+                warn!(
+                    "Game: init_new: {:?} mode but episode {} is greater than 1",
+                    self.game_mode, episode
+                );
                 episode = 1; // only start episode 1 on shareware
             }
             if map > 5 {
-                warn!("Game: init_new: {:?} mode but map {} is greater than 5", self.game_mode, map);
+                warn!(
+                    "Game: init_new: {:?} mode but map {} is greater than 5",
+                    self.game_mode, map
+                );
                 map = 5;
             }
         } else if episode > 3 {
-            warn!("Game: init_new: {:?} mode but episode {} is greater than 3", self.game_mode, episode);
+            warn!(
+                "Game: init_new: {:?} mode but episode {} is greater than 3",
+                self.game_mode, episode
+            );
             episode = 3;
         }
 
         if map > 9 && self.game_mode != GameMode::Commercial {
-            warn!("Game: init_new: {:?} mode but map {} is greater than 9", self.game_mode, map);
+            warn!(
+                "Game: init_new: {:?} mode but map {} is greater than 9",
+                self.game_mode, map
+            );
             map = 9;
         }
 
@@ -496,9 +526,9 @@ impl Game {
         match self.game_state {
             GameState::GS_LEVEL => {
                 level::p_ticker(self); // P_Ticker(); player movements, run thinkers etc
-                // ST_Ticker();
-                // AM_Ticker();
-                // HU_Ticker();
+                                       // ST_Ticker();
+                                       // AM_Ticker();
+                                       // HU_Ticker();
             }
             GameState::GS_INTERMISSION => {
                 //WI_Ticker();
