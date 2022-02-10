@@ -1,12 +1,20 @@
 use crate::{
-    flags::LineDefFlags, level_data::{map_defs::LineDef, level::Level}, p_doors::ev_vertical_door,
-    p_map_object::MapObject, DPtr,
+    flags::LineDefFlags,
+    level_data::{level::Level, map_defs::LineDef},
+    p_doors::ev_vertical_door,
+    p_map_object::MapObject,
+    DPtr,
 };
 
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject, level: &Level) -> bool {
+pub fn p_use_special_line(
+    side: i32,
+    line: DPtr<LineDef>,
+    thing: &MapObject,
+    level: &Level,
+) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
         // never open secret doors
