@@ -644,13 +644,9 @@ impl MapObject {
             info,
             kind,
         };
-
-        // let ptr = unsafe {
-        //     NonNull::new_unchecked(level as *mut Level)
-        // };
-        let mut thinker =
+        
+        let thinker =
             MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
-        thinker.set_action(ActionF::Action1(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
         if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
