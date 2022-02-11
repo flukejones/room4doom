@@ -30,7 +30,7 @@ const DEG_TO_RAD: f32 = 0.017453292; //PI / 180.0;
 
 /// Convert a BAM (Binary Angle Measure) to radians
 pub fn bam_to_radian(value: u32) -> f32 {
-    (value as f32 * 8.38190317e-8) * DEG_TO_RAD
+    (value as f32 * 8.381_903e-8) * DEG_TO_RAD
 }
 
 static mut RNDINDEX: usize = 0;
@@ -104,9 +104,10 @@ pub struct BestSlide {
 
 impl BestSlide {
     pub fn new() -> Self {
-        let mut b = Self::default();
-        b.best_slide_frac = 1.0;
-        b
+        BestSlide {
+            best_slide_frac: 1.0,
+            ..Default::default()
+        }
     }
 }
 

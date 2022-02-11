@@ -43,9 +43,7 @@ fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     if dy > dx {
         std::mem::swap(&mut dx, &mut dy);
     }
-
-    let dist = (dx.powi(2) + dy.powi(2)).sqrt();
-    dist
+    (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
 /// R_ScaleFromGlobalAngle

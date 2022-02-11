@@ -1,5 +1,5 @@
-///	Implements special effects:
-///	Texture animation, height or lighting changes according to adjacent sectors,
+/// Implements special effects:
+/// Texture animation, height or lighting changes according to adjacent sectors,
 /// respective utility functions, etc.
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
@@ -181,7 +181,7 @@ pub struct VerticalDoor {
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(side: i32, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate

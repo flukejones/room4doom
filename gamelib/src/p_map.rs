@@ -1,5 +1,5 @@
-//!	Movement, collision handling.
-//!	Shooting and aiming.
+//! Movement, collision handling.
+//! Shooting and aiming.
 use glam::Vec2;
 
 use crate::angle::Angle;
@@ -235,7 +235,7 @@ impl MapObject {
         // using `P_PointOnLineSide`
         // If both are same side then there is no intersection.
 
-        if box_on_line_side(&tmbbox, &ld) != -1 {
+        if box_on_line_side(tmbbox, ld) != -1 {
             return true;
         }
 
@@ -255,7 +255,7 @@ impl MapObject {
         }
 
         // Find the smallest/largest etc if group of line hits
-        let portal = PortalZ::new(&ld);
+        let portal = PortalZ::new(ld);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
             // TODO: ceilingline = ld;
@@ -270,7 +270,7 @@ impl MapObject {
         }
 
         if ld.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(&ld));
+            ctrl.spec_hits.push(DPtr::new(ld));
         }
 
         true
@@ -355,14 +355,14 @@ impl MapObject {
                 Vec2::new(trailx, leady) + self.momxy,
                 level,
                 |intercept| self.slide_traverse(intercept),
-                &mut &mut bsp_trace,
+                &mut bsp_trace,
             );
             path_traverse(
                 Vec2::new(leadx, traily),
                 Vec2::new(leadx, traily) + self.momxy,
                 level,
                 |intercept| self.slide_traverse(intercept),
-                &mut &mut bsp_trace,
+                &mut bsp_trace,
             );
 
             if self.best_slide.best_slide_frac == 2.0 {
@@ -512,7 +512,7 @@ impl MapObject {
     pub fn use_traverse(&mut self, intercept: &Intercept, level: &Level) -> bool {
         if let Some(line) = &intercept.line {
             if line.special == 0 {
-                let portal = PortalZ::new(&line);
+                let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
                     // TODO: S_StartSound (usething, sfx_noway);
                     // can't use through a wall

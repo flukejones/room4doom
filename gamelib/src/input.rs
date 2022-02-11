@@ -136,7 +136,7 @@ impl InputEvents {
         }
 
         for i in 0..WeaponType::NUMWEAPONS as u8 {
-            if let Some(key) = Sc::from_i32('1' as i32 + 1 as i32) {
+            if let Some(key) = Sc::from_i32('1' as i32 + 1) {
                 if self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
                     cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
@@ -222,15 +222,15 @@ impl Input {
     pub fn update(&mut self) {
         while let Some(event) = self.pump.poll_event() {
             match event {
-                Event::KeyDown { scancode, .. } => {
-                    if let Some(sc) = scancode {
-                        self.tic_events.set_kb(sc);
-                    }
+                Event::KeyDown {
+                    scancode: Some(sc), ..
+                } => {
+                    self.tic_events.set_kb(sc);
                 }
-                Event::KeyUp { scancode, .. } => {
-                    if let Some(sc) = scancode {
-                        self.tic_events.unset_kb(sc);
-                    }
+                Event::KeyUp {
+                    scancode: Some(sc), ..
+                } => {
+                    self.tic_events.unset_kb(sc);
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {
                     self.tic_events.set_mb(mouse_btn);

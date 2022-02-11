@@ -210,19 +210,13 @@ impl MapData {
                 let front = &self.get_sidedefs()[l.front_sidedef as usize];
 
                 let back_side = {
-                    if let Some(index) = l.back_sidedef {
-                        Some(DPtr::new(&self.get_sidedefs()[index as usize]))
-                    } else {
-                        None
-                    }
+                    l.back_sidedef
+                        .map(|index| DPtr::new(&self.get_sidedefs()[index as usize]))
                 };
 
                 let back_sector = {
-                    if let Some(index) = l.back_sidedef {
-                        Some(self.get_sidedefs()[index as usize].sector.clone())
-                    } else {
-                        None
-                    }
+                    l.back_sidedef
+                        .map(|index| self.get_sidedefs()[index as usize].sector.clone())
                 };
 
                 let dx = v2.x() - v1.x();
@@ -401,7 +395,7 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    pub fn find_ssect_intercepts<'a>(&mut self, map: &MapData, count: &mut u32) {
+    pub fn find_ssect_intercepts(&mut self, map: &MapData, count: &mut u32) {
         *count += 1;
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)) {

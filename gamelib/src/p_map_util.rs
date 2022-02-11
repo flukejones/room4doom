@@ -8,7 +8,6 @@ use crate::{
     DPtr,
 };
 use glam::Vec2;
-use std::f32::EPSILON;
 
 #[derive(Default, Debug)]
 pub struct PortalZ {
@@ -133,7 +132,7 @@ pub fn circle_to_line_intercept_basic(
     let nearest = point1 + p;
 
     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
-        if p.length() < d.length() && p.dot(d) > EPSILON {
+        if p.length() < d.length() && p.dot(d) > f32::EPSILON {
             return Some((nearest - origin).normalize() * dist);
         }
     }
@@ -196,7 +195,7 @@ pub fn path_traverse(
 }
 
 pub fn traverse_intercepts(
-    intercepts: &Vec<Intercept>,
+    intercepts: &[Intercept],
     max_frac: f32,
     mut trav: impl FnMut(&Intercept) -> bool,
 ) -> bool {
@@ -214,7 +213,7 @@ pub fn traverse_intercepts(
     }
 
     // PTR_SlideTraverse checks if the line is blocking and sets the BestSlide
-    if !trav(&intercept) {
+    if !trav(intercept) {
         return false;
     }
 
@@ -264,7 +263,7 @@ pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
     let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y() + (v2.xy.y() - v1.xy.y()) * v1.dxy.x();
 
-    if denominator == EPSILON {
+    if denominator == f32::EPSILON {
         return numerator1;
     }
 
