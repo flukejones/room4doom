@@ -1,9 +1,8 @@
-use log::warn;
-use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
+use std::alloc::{alloc, dealloc, Layout};
+use std::fmt;
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
-use std::{fmt, mem};
 
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
@@ -67,7 +66,7 @@ impl ThinkerAlloc {
         unsafe {
             let size = capacity * size_of::<Option<Thinker>>();
             let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-            let buf_ptr = alloc_zeroed(layout) as *mut Option<Thinker>;
+            let buf_ptr = alloc(layout) as *mut Option<Thinker>;
 
             for i in 0..capacity {
                 (*buf_ptr.add(i)) = None;
@@ -85,7 +84,7 @@ impl ThinkerAlloc {
 
     unsafe fn drop_item(&mut self, idx: usize) {
         debug_assert!(idx < self.capacity);
-        let ptr = self.buf_ptr.as_ptr().add(idx);
+        let ptr = self.ptr_for_idx(idx);
         if std::mem::needs_drop::<Thinker>() {
             ptr::drop_in_place(ptr);
         }
@@ -101,6 +100,10 @@ impl ThinkerAlloc {
 
     pub const fn capacity(&self) -> usize {
         self.capacity
+    }
+
+    fn ptr_for_idx(&self, idx: usize) -> *mut Option<Thinker> {
+        unsafe { self.buf_ptr.as_ptr().add(idx) }
     }
 
     fn find_first_free(&self, start: usize) -> Option<usize> {
@@ -135,25 +138,17 @@ impl ThinkerAlloc {
 
         let mut idx = self.next_free;
         unsafe {
-            let root_ptr = self.buf_ptr.as_ptr().add(idx);
+            let root_ptr = self.ptr_for_idx(idx);
             // Check if it's empty, if not, try to find a free slot
             if (*root_ptr).is_some() {
-                if let Some(slot) = self.find_first_free(self.next_free) {
-                    idx = slot;
-                } else {
-                    warn!(
-                        "ThinkerAlloc capacity of {} exceeded, can not push more Thinkers",
-                        self.capacity()
-                    );
-                    return None;
-                }
+                idx = self.find_first_free(self.next_free)?;
             }
             thinker.index = idx;
-            let root_ptr = self.buf_ptr.as_ptr().add(idx);
-            ptr::write(root_ptr, Some(thinker));
 
-            // then link
+            let root_ptr = self.ptr_for_idx(idx);
+            ptr::write(root_ptr, Some(thinker));
             let inner_ptr = (*root_ptr).as_mut().unwrap_unchecked() as *mut Thinker;
+
             if self.head.is_null() {
                 self.head = inner_ptr;
                 (*inner_ptr).prev = inner_ptr;
@@ -200,26 +195,22 @@ impl ThinkerAlloc {
         let tmp;
         let node;
         unsafe {
-            let ptr = self.buf_ptr.as_ptr().add(idx);
-            let inner_ptr = (*ptr).as_mut().unwrap_unchecked() as *mut Thinker;
+            let ptr = self.ptr_for_idx(idx);
+            let inner_ptr = (*ptr).as_mut()? as *mut _;
             if inner_ptr == self.head {
                 self.head = (*inner_ptr).prev;
             }
             tmp = ptr.read();
-            tmp.as_ref()?;
-            node = tmp.unwrap();
+            node = tmp?;
             std::ptr::write(ptr, None);
         }
 
         self.len -= 1;
         self.next_free = idx; // reuse the slot on next insert
 
-        let prev = node.prev;
-        let next = node.next;
-
         unsafe {
-            (*next).prev = prev;
-            (*prev).next = next;
+            (*node.next).prev = node.prev;
+            (*node.prev).next = node.next;
         }
 
         self.maybe_reset_head();
