@@ -93,6 +93,12 @@ impl<T> DPtr<T> {
     }
 }
 
+impl<T> PartialEq for DPtr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.p == other.p
+    }
+}
+
 // impl<T> DPtr<T> {
 //     fn as_ptr(&self) -> *mut T {
 //         self.p.as_ptr()
