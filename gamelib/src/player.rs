@@ -17,11 +17,7 @@ use crate::{
     p_local::VIEWHEIGHT,
 };
 use crate::{
-    d_thinker::{Think, Thinker},
-    info::SpriteNum,
-    p_local::bam_to_radian,
-    p_local::fixed_to_float,
-    p_map_object::MapObject,
+    info::SpriteNum, p_local::bam_to_radian, p_local::fixed_to_float, p_map_object::MapObject,
     tic_cmd::TicCmd,
 };
 
@@ -338,7 +334,7 @@ impl Player {
             let mut bob = 0.0;
             if self.head_bob {
                 let angle =
-                    ((3350528u32.overflowing_mul(level_time).0) & 67100672) as f32 * 8.38190317e-8;
+                    ((3350528u32.overflowing_mul(level_time).0) & 67100672) as f32 * 8.381_903e-8;
                 bob = self.bob / 2.0 * angle.cos(); // not sine!
             }
 
@@ -397,10 +393,10 @@ impl Player {
                 self.thrust(angle - FRAC_PI_2, self.cmd.sidemove as i32 * 2048);
             }
 
-            if self.cmd.forwardmove != 0 || self.cmd.sidemove != 0 {
-                if mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32 {
-                    mobj.p_set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
-                }
+            if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
+                && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
+            {
+                mobj.p_set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
             }
         }
     }

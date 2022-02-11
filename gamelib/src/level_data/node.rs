@@ -52,7 +52,7 @@ impl Node {
 
         // Super broadphase: check if we are in a BB, this will be true for each
         // progressively smaller BB (as the BSP splits down)
-        if self.point_in_bounds(&vec, side) {
+        if self.point_in_bounds(vec, side) {
             return true;
         }
 
@@ -80,7 +80,7 @@ impl Node {
         }
 
         // Fine phase, raycasting
-        self.ray_from_point_intersect(&vec, angle_rads, side)
+        self.ray_from_point_intersect(vec, angle_rads, side)
     }
 
     pub fn ray_from_point_intersect(&self, origin_v: &Vec2, origin_ang: f32, side: usize) -> bool {

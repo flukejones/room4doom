@@ -369,12 +369,11 @@ impl Thinker {
     /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then the function pointer is set to None
     /// to mark removal.
     pub fn think(&mut self, level: &mut Level) -> bool {
-        let res = match self.func {
+        match self.func {
             ActionF::Action1(f) => (f)(&mut self.object, level),
             ActionF::Player(_f) => false,
             ActionF::None => false,
-        };
-        res
+        }
     }
 }
 

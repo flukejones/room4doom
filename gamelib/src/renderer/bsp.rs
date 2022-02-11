@@ -66,8 +66,8 @@ impl BspRenderer {
 
         let clipangle = Angle::new(FRAC_PI_4);
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&seg.v1, &mobj);
-        let mut angle2 = vertex_angle_to_object(&seg.v2, &mobj);
+        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj);
+        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj);
 
         let span = angle1 - angle2;
 
@@ -141,7 +141,7 @@ impl BspRenderer {
                 && back_sector.lightlevel == front_sector.lightlevel
                 && seg.linedef.front_sidedef.midtexture == 0
             {
-                return;
+                // TODO: fill in this body
             }
         } else {
             self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
@@ -160,7 +160,7 @@ impl BspRenderer {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.get_segments()[i as usize];
-            self.add_line(object, &seg, r_data, canvas);
+            self.add_line(object, seg, r_data, canvas);
         }
     }
 
@@ -334,7 +334,7 @@ impl BspRenderer {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, &subsect, r_data, canvas);
+            self.draw_subsector(map, player, subsect, r_data, canvas);
             return;
         }
 

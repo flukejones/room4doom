@@ -3,7 +3,6 @@ use crate::d_thinker::Thinker;
 use crate::p_map_object::MapObject;
 use crate::DPtr;
 use glam::Vec2;
-use std::f32::EPSILON;
 
 #[derive(Debug)]
 pub enum SlopeType {
@@ -192,7 +191,7 @@ impl Segment {
 
         let d = (end.y() - start.y()) * (start.x() - point.x())
             - (end.x() - start.x()) * (start.y() - point.y());
-        if d <= EPSILON {
+        if d <= f32::EPSILON {
             return true;
         }
         false

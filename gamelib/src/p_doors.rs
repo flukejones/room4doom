@@ -111,7 +111,7 @@ pub fn ev_vertical_door(line: DPtr<LineDef>, thing: &MapObject, level: &Level) {
 }
 
 impl Think for VerticalDoor {
-    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
+    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
         let door = object.bad_mut::<VerticalDoor>();
         dbg!(door.kind);
         unsafe { door.thinker.as_mut().set_action(ActionF::None) };

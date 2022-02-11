@@ -29,7 +29,6 @@ use crate::{
     player::{Player, PlayerState},
 };
 use std::f32::consts::PI;
-use std::f32::EPSILON;
 
 static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 pub static MAXMOVE: f32 = 30.0;
@@ -282,7 +281,7 @@ impl MapObject {
 
     /// P_XYMovement
     fn p_xy_movement(&mut self, level: &mut Level) {
-        if self.momxy.x() == EPSILON && self.momxy.y() == EPSILON {
+        if self.momxy.x() == f32::EPSILON && self.momxy.y() == f32::EPSILON {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
@@ -366,7 +365,7 @@ impl MapObject {
                 || self.momxy.x() < -FRACUNIT_DIV4
                 || self.momxy.y() > FRACUNIT_DIV4
                 || self.momxy.y() < -FRACUNIT_DIV4)
-                && (self.floorz - self.subsector.sector.floorheight).abs() > EPSILON
+                && (self.floorz - self.subsector.sector.floorheight).abs() > f32::EPSILON
             {
                 return;
             }
@@ -379,7 +378,6 @@ impl MapObject {
         {
             if self.player.is_none() {
                 self.momxy = Vec2::default();
-                return;
             } else if let Some(player) = self.player {
                 if unsafe {
                     player.as_ref().cmd.forwardmove == 0 && player.as_ref().cmd.sidemove == 0
@@ -390,7 +388,6 @@ impl MapObject {
                     self.p_set_mobj_state(StateNum::S_PLAY);
                     // }
                     self.momxy = Vec2::default();
-                    return;
                 }
             }
         } else {
@@ -587,7 +584,7 @@ impl MapObject {
         level: &mut Level,
     ) -> NonNull<MapObject> {
         // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
-        let info = MOBJINFO[kind as usize].clone();
+        let info = MOBJINFO[kind as usize];
 
         // TODO: Nightmare reactiontimes?
         let reactiontime = if level.game_skill != Skill::Nightmare {
@@ -701,7 +698,7 @@ impl MapObject {
             }
         }
 
-        return true;
+        true
     }
 }
 
@@ -722,7 +719,7 @@ impl Think for MapObject {
         //     return true; // mobj was removed
         // }
 
-        if (this.z.floor() - this.floorz.floor()).abs() > EPSILON || this.momz != 0.0 {
+        if (this.z.floor() - this.floorz.floor()).abs() > f32::EPSILON || this.momz != 0.0 {
             this.p_z_movement(level);
         }
 

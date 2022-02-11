@@ -9,7 +9,7 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use log::{debug, error, info, trace, warn, LevelFilter};
+use log::{debug, info, trace, warn, LevelFilter};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::io::Write;
 use wad::WadData;
@@ -570,7 +570,7 @@ impl Game {
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
             level.bsp_renderer.render_bsp_node(
-                &map,
+                map,
                 player,
                 map.start_node(),
                 &mut level.r_data,

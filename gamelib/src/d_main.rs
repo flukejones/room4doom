@@ -14,7 +14,7 @@ use crate::{
     doom_def::GameMode,
     game::Game,
     input::Input,
-    shaders::{basic::Basic, lottes_crt::LottesCRT, Renderer},
+    shaders::{lottes_crt::LottesCRT, Renderer},
     timestep::TimeStep,
 };
 
@@ -207,9 +207,9 @@ pub fn d_doom_loop(
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-fn d_display(game: &mut Game, mut canvas: &mut Canvas<Surface>) {
+fn d_display(game: &mut Game, canvas: &mut Canvas<Surface>) {
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
-    game.render_player_view(&mut canvas);
+    game.render_player_view(canvas);
     //canvas.present();
 
     // // menus go directly to the screen
