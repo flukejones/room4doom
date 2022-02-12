@@ -1,3 +1,5 @@
+use log::warn;
+
 use crate::{
     flags::LineDefFlags,
     level_data::{level::Level, map_defs::LineDef},
@@ -27,25 +29,32 @@ pub fn p_use_special_line(
             | 33    // MANUAL RED
             | 34    // MANUAL YELLOW
             = line.special {
+            // Nothing
+        } else {
             return false;
         }
     }
 
-    if let 1        // Vertical Door
-          | 26      // Blue Door/Locked
-          | 27      // Yellow Door /Locked
-          | 28      // Red Door /Locked
+    match line.special {
+        1        // Vertical Door
+        | 26      // Blue Door/Locked
+        | 27      // Yellow Door /Locked
+        | 28      // Red Door /Locked
 
-          | 31      // Manual door open
-          | 32      // Blue locked door open
-          | 33      // Red locked door open
-          | 34      // Yellow locked door open
+        | 31      // Manual door open
+        | 32      // Blue locked door open
+        | 33      // Red locked door open
+        | 34      // Yellow locked door open
 
-          | 117     // Blazing door raise
-          | 118     // Blazing door open
-          = line.special {
-        ev_vertical_door(line, thing, level);
-        println!("*hydralic sounds*");
+        | 117     // Blazing door raise
+        | 118     // Blazing door open
+        => {
+            ev_vertical_door(line, thing, level);
+            println!("*hydralic sounds*");
+        }
+        _ => {
+            warn!("Invalid or unimplemented line special: {}", line.special);
+        }
     }
     false
 }

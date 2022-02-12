@@ -199,7 +199,7 @@ pub fn d_doom_loop(
         gl.gl_swap_window();
 
         if let Some(fps) = timestep.frame_rate() {
-            info!("{:?}", fps);
+            trace!("{:?}", fps);
         }
     }
     Ok(())

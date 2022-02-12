@@ -115,6 +115,13 @@ pub enum StairEnum {
     turbo16,
 }
 
+#[derive(Debug)]
+pub enum ResultE {
+    Ok,
+    Crushed,
+    PastDest,
+}
+
 pub struct FloorMove {
     pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,

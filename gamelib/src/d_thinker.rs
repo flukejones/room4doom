@@ -354,7 +354,11 @@ impl Thinker {
         self.index
     }
 
-    pub fn object(&mut self) -> &mut ThinkerType {
+    pub fn obj_ref(&self) -> &ThinkerType {
+        &self.object
+    }
+
+    pub fn obj_mut(&mut self) -> &mut ThinkerType {
         &mut self.object
     }
 

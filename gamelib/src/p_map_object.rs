@@ -648,7 +648,7 @@ impl MapObject {
         // P_AddThinker(&mobj->thinker);
         if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
             unsafe {
-                return NonNull::new(ptr.as_mut().object().bad_mut::<MapObject>())
+                return NonNull::new(ptr.as_mut().obj_mut().bad_mut::<MapObject>())
                     .expect("spawn_map_object ptr creation failed");
             }
         }

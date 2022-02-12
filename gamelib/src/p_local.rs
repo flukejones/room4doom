@@ -87,7 +87,7 @@ impl Trace {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Intercept {
     pub frac: f32,
     pub line: Option<DPtr<LineDef>>,

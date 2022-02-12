@@ -9,7 +9,7 @@ use crate::{
 };
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
-use log::{debug, info, trace, warn, LevelFilter};
+use log::{debug, info, trace, warn};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::io::Write;
 use wad::WadData;
