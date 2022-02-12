@@ -5,11 +5,10 @@ use crate::{
         map_defs::{BBox, LineDef, SlopeType},
     },
     p_local::{Intercept, Trace, FRACUNIT},
-    p_map::PT_EARLYOUT,
+    p_map::{PT_ADDLINES, PT_EARLYOUT},
     DPtr,
 };
 use glam::Vec2;
-use log::debug;
 
 #[derive(Default, Debug)]
 pub struct PortalZ {
@@ -180,15 +179,29 @@ pub fn path_traverse(
 
     let segs = level.map_data.segments();
     let sub_sectors = level.map_data.subsectors();
+    let mut lines: Vec<usize> = Vec::new();
     'wasd: for n in bsp_trace.intercepted_nodes() {
         let ssect = &sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
+
         for seg in &segs[start..end] {
+            let line = seg.linedef.clone();
+
+            for test in lines.iter() {
+                if *test == line.p as usize {
+                    continue;
+                }
+            }
+            lines.push(line.p as usize);
+
             // PIT_AddLineIntercepts
-            if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts, earlyout) {
-                // early out on first intercept?
-                break 'wasd;
+            if flags & PT_ADDLINES != 0 {
+                if !add_line_intercepts(&trace, line, &mut intercepts, earlyout) {
+                    // early out on first intercept?
+                    //break 'wasd;
+                    return false;
+                }
             }
         }
     }
@@ -213,9 +226,6 @@ pub fn traverse_intercepts(
                 dist = i.frac;
                 intercept = i;
             }
-        }
-        unsafe {
-            let line = (*intercept).line.as_ref().unwrap();
         }
 
         if dist > max_frac {
@@ -250,9 +260,11 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(*line.v1, line.delta);
-    let frac = line_line_intersection(trace.xy, trace.xy + trace.dxy, dl.xy, dl.xy + dl.dxy);
+    //let frac = intercept_vector(trace, &dl);
+    let frac = line_line_intersection(trace, &dl);
 
-    if frac < 0.0 {
+    if frac < 0.01 {
+        // Fine tuning this prevents some stickiness
         return true; // behind the source
     }
 
@@ -274,29 +286,29 @@ pub fn add_line_intercepts(
     true
 }
 
-// TODO: need two kinds of line intersection
-
-/// P_InterceptVector
-/// Returns the fractional intercept point
-/// along the first divline.
-/// This is only called by the addthings
-/// and addlines traversers.
+// /// P_InterceptVector
+// /// Returns the fractional intercept point
+// /// along the first divline.
+// /// This is only called by the addthings
+// /// and addlines traversers.
 // fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+//     // Doom does `v1->dy >> 8`, this is transforming the number to <sign>0.5
 //     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
 //     if denominator == f32::EPSILON {
 //         return 0.0;
 //     }
 
-//     let numerator1 = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+//     let numerator1 =
+//         ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
 //     numerator1 / denominator
 // }
 
-fn line_line_intersection(
-    mv1: Vec2, // line edge start
-    mv2: Vec2, // line edge end
-    lv1: Vec2, // line edge start
-    lv2: Vec2, // line edge end
-) -> f32 {
+fn line_line_intersection(v2: &Trace, v1: &Trace) -> f32 {
+    let mv1 = v2.xy; // line edge start
+    let mv2 = v2.xy + v2.dxy; // line edge end
+    let lv1 = v1.xy; // line edge start
+    let lv2 = v1.xy + v1.dxy; // line edge end
+
     let denominator =
         ((mv2.x() - mv1.x()) * (lv2.y() - lv1.y())) - ((mv2.y() - mv1.y()) * (lv2.x() - lv1.x()));
     let numerator1 =

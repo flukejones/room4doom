@@ -15,7 +15,7 @@ use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
-const PT_ADDLINES: i32 = 1;
+pub const PT_ADDLINES: i32 = 1;
 const PT_ADDTHINGS: i32 = 2;
 pub const PT_EARLYOUT: i32 = 4;
 
