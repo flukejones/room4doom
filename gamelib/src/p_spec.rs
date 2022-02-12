@@ -1,12 +1,15 @@
-///	Implements special effects:
-///	Texture animation, height or lighting changes according to adjacent sectors,
+/// Implements special effects:
+/// Texture animation, height or lighting changes according to adjacent sectors,
 /// respective utility functions, etc.
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
+use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
-use crate::level_data::map_defs::LineDef;
+use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_map_object::MapObject;
 use crate::DPtr;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::ptr::NonNull;
 use wad::lumps::WadSector;
 
@@ -112,6 +115,13 @@ pub enum StairEnum {
     turbo16,
 }
 
+#[derive(Debug)]
+pub enum ResultE {
+    Ok,
+    Crushed,
+    PastDest,
+}
+
 pub struct FloorMove {
     pub thinker: Option<Thinker>,
     pub sector: NonNull<WadSector>,
@@ -152,6 +162,7 @@ pub struct CeilingMove {
 
 // P_DOORS
 //
+#[derive(Debug, Clone, Copy)]
 pub enum DoorKind {
     vld_normal,
     vld_close30ThenOpen,
@@ -164,8 +175,8 @@ pub enum DoorKind {
 }
 
 pub struct VerticalDoor {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub kind: DoorKind,
     pub topheight: f32,
     pub speed: f32,
@@ -178,9 +189,22 @@ pub struct VerticalDoor {
     pub topcountdown: i32,
 }
 
+impl fmt::Debug for VerticalDoor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VerticalDoor")
+            .field("kind", &self.kind)
+            .field("topheight", &self.topheight)
+            .field("speed", &self.speed)
+            .field("direction", &self.direction)
+            .field("topwait", &self.topwait)
+            .field("topcountdown", &self.topcountdown)
+            .finish()
+    }
+}
+
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(side: i32, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -221,4 +245,29 @@ pub fn cross_special_line(side: i32, mut line: DPtr<LineDef>, thing: &mut MapObj
         }
         _ => {}
     }
+}
+
+fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
+    if line.flags & LineDefFlags::TwoSided as i16 == 0 {
+        return None;
+    }
+
+    if line.frontsector == sector {
+        return line.backsector.clone();
+    }
+
+    Some(line.frontsector.clone())
+}
+
+/// P_FindLowestFloorSurrounding
+pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
+    let mut height = f32::MAX;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.ceilingheight < height {
+                height = other.ceilingheight;
+            }
+        }
+    }
+    height
 }

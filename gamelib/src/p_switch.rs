@@ -1,12 +1,22 @@
+use log::warn;
+
 use crate::{
-    flags::LineDefFlags, level_data::map_defs::LineDef, p_doors::ev_vertical_door,
-    p_map_object::MapObject, DPtr,
+    flags::LineDefFlags,
+    level_data::{level::Level, map_defs::LineDef},
+    p_doors::ev_vertical_door,
+    p_map_object::MapObject,
+    DPtr,
 };
 
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
+pub fn p_use_special_line(
+    side: i32,
+    line: DPtr<LineDef>,
+    thing: &MapObject,
+    level: &Level,
+) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
         // never open secret doors
@@ -19,25 +29,32 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
             | 33    // MANUAL RED
             | 34    // MANUAL YELLOW
             = line.special {
+            // Nothing
+        } else {
             return false;
         }
     }
 
-    if let 1        // Vertical Door
-          | 26      // Blue Door/Locked
-          | 27      // Yellow Door /Locked
-          | 28      // Red Door /Locked
+    match line.special {
+        1        // Vertical Door
+        | 26      // Blue Door/Locked
+        | 27      // Yellow Door /Locked
+        | 28      // Red Door /Locked
 
-          | 31      // Manual door open
-          | 32      // Blue locked door open
-          | 33      // Red locked door open
-          | 34      // Yellow locked door open
+        | 31      // Manual door open
+        | 32      // Blue locked door open
+        | 33      // Red locked door open
+        | 34      // Yellow locked door open
 
-          | 117     // Blazing door raise
-          | 118     // Blazing door open
-          = line.special {
-        ev_vertical_door(line, thing);
-        println!("*hydralic sounds*");
+        | 117     // Blazing door raise
+        | 118     // Blazing door open
+        => {
+            ev_vertical_door(line, thing, level);
+            println!("*hydralic sounds*");
+        }
+        _ => {
+            warn!("Invalid or unimplemented line special: {}", line.special);
+        }
     }
     false
 }

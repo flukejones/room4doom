@@ -6,7 +6,6 @@ use angle::Angle;
 use glam::Vec2;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use std::ptr::NonNull;
 
 pub mod angle;
 pub mod d_main;
@@ -20,6 +19,7 @@ pub mod input;
 pub mod level_data;
 pub mod p_doors;
 pub mod p_enemy;
+pub mod p_floor;
 pub mod p_lights;
 pub mod p_local;
 pub mod p_map;
@@ -43,9 +43,7 @@ fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     if dy > dx {
         std::mem::swap(&mut dx, &mut dy);
     }
-
-    let dist = (dx.powi(2) + dy.powi(2)).sqrt();
-    dist
+    (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
 /// R_ScaleFromGlobalAngle
@@ -84,22 +82,26 @@ fn scale_from_view_angle(
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
 pub struct DPtr<T> {
-    p: NonNull<T>,
+    p: *mut T,
 }
 
 impl<T> DPtr<T> {
     fn new(t: &T) -> DPtr<T> {
         DPtr {
-            p: NonNull::from(t),
+            p: t as *const _ as *mut _,
         }
+    }
+
+    fn as_ptr(&self) -> *mut T {
+        self.p
     }
 }
 
-// impl<T> DPtr<T> {
-//     fn as_ptr(&self) -> *mut T {
-//         self.p.as_ptr()
-//     }
-// }
+impl<T> PartialEq for DPtr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.p == other.p
+    }
+}
 
 impl<T> Clone for DPtr<T> {
     fn clone(&self) -> DPtr<T> {
@@ -111,13 +113,25 @@ impl<T> Deref for DPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.p.as_ref() }
+        unsafe { &*self.p }
     }
 }
 
 impl<T> DerefMut for DPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { self.p.as_mut() }
+        unsafe { &mut *self.p }
+    }
+}
+
+impl<T> AsRef<T> for DPtr<T> {
+    fn as_ref(&self) -> &T {
+        unsafe { &*self.p }
+    }
+}
+
+impl<T> AsMut<T> for DPtr<T> {
+    fn as_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.p }
     }
 }
 

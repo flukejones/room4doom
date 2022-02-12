@@ -5,7 +5,7 @@ use criterion::*;
 use gamelib::level_data::map_data::MapData;
 use wad::wad::WadData;
 
-fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
+fn bench_load_e1m1(b: &mut Bencher) {
     let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M1".to_owned());
     b.iter(|| {
@@ -13,7 +13,7 @@ fn bench_load_e1m1(b: &mut Bencher, _i: &u32) {
     });
 }
 
-fn bench_load_e1m7(b: &mut Bencher, _i: &u32) {
+fn bench_load_e1m7(b: &mut Bencher) {
     let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M7".to_owned());
     b.iter(|| {
@@ -22,11 +22,10 @@ fn bench_load_e1m7(b: &mut Bencher, _i: &u32) {
 }
 
 fn bench(c: &mut Criterion) {
-    let fun = vec![
-        Fun::new("Load e1m1 from shareware", bench_load_e1m1),
-        Fun::new("Load e1m7 from shareware", bench_load_e1m7),
-    ];
-    c.bench_functions("Loading E1M1", fun, 10);
+    let mut group = c.benchmark_group("Loading E1M1");
+
+    group.bench_function("Load e1m1 from shareware", bench_load_e1m1);
+    group.bench_function("Load e1m7 from shareware", bench_load_e1m7);
 }
 
 criterion_group!(benches, bench,);

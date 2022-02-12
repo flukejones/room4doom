@@ -13,7 +13,6 @@ use crate::renderer::defs::{
 };
 use crate::renderer::RenderData;
 use crate::{point_to_dist, scale_from_view_angle};
-use std::f32::EPSILON;
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -408,11 +407,11 @@ impl SegRender {
         //
         let mut lightnum = seg.linedef.front_sidedef.sector.lightlevel as u8 >> 2;
 
-        if (seg.v1.y() - seg.v2.y()).abs() < EPSILON {
+        if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
             if lightnum > 5 {
                 lightnum -= 5;
             }
-        } else if (seg.v1.x() - seg.v2.x()).abs() < EPSILON && lightnum < 249 {
+        } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 249 {
             lightnum += 5;
         }
 

@@ -1,9 +1,10 @@
+use std::ptr::NonNull;
+
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use crate::p_map_object::MapObject;
 use crate::DPtr;
 use glam::Vec2;
-use std::f32::EPSILON;
 
 #[derive(Debug)]
 pub enum SlopeType {
@@ -46,7 +47,7 @@ pub struct Sector {
     // TODO: mobj_t*	thinglist;
 
     // thinker_t for reversable actions
-    pub specialdata: Option<Thinker>,
+    pub specialdata: Option<NonNull<Thinker>>,
     pub lines: Vec<DPtr<LineDef>>,
 }
 
@@ -192,7 +193,7 @@ impl Segment {
 
         let d = (end.y() - start.y()) * (start.x() - point.x())
             - (end.x() - start.x()) * (start.y() - point.y());
-        if d <= EPSILON {
+        if d <= f32::EPSILON {
             return true;
         }
         false

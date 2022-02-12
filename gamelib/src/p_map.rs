@@ -1,12 +1,13 @@
-//!	Movement, collision handling.
-//!	Shooting and aiming.
+//! Movement, collision handling.
+//! Shooting and aiming.
 use glam::Vec2;
+use log::debug;
 
 use crate::angle::Angle;
 use crate::flags::LineDefFlags;
 use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
-use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
+use crate::level_data::map_defs::{BBox, LineDef, Sector, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
@@ -14,6 +15,9 @@ use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
 const MAXSPECIALCROSS: i32 = 8;
+const PT_ADDLINES: i32 = 1;
+const PT_ADDTHINGS: i32 = 2;
+pub const PT_EARLYOUT: i32 = 4;
 
 /// The pupose of this struct is to record the highest and lowest points in a
 /// subsector. When a mob crosses a seg it may be between floor/ceiling heights.
@@ -154,7 +158,7 @@ impl MapObject {
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
-        let sub_sectors = level.map_data.get_subsectors();
+        let sub_sectors = level.map_data.subsectors();
 
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         // A single BSP trace varies from 5 to 15 recursions.
@@ -188,7 +192,7 @@ impl MapObject {
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
         //dbg!(count);
 
-        let segs = level.map_data.get_segments();
+        let segs = level.map_data.segments();
         for n in bsp_trace.intercepted_nodes() {
             let ssect = &sub_sectors[*n as usize];
             let start = ssect.start_seg as usize;
@@ -235,7 +239,7 @@ impl MapObject {
         // using `P_PointOnLineSide`
         // If both are same side then there is no intersection.
 
-        if box_on_line_side(&tmbbox, &ld) != -1 {
+        if box_on_line_side(tmbbox, ld) != -1 {
             return true;
         }
 
@@ -255,7 +259,7 @@ impl MapObject {
         }
 
         // Find the smallest/largest etc if group of line hits
-        let portal = PortalZ::new(&ld);
+        let portal = PortalZ::new(ld);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
             // TODO: ceilingline = ld;
@@ -270,7 +274,7 @@ impl MapObject {
         }
 
         if ld.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(&ld));
+            ctrl.spec_hits.push(DPtr::new(ld));
         }
 
         true
@@ -346,6 +350,7 @@ impl MapObject {
             path_traverse(
                 Vec2::new(leadx, leady),
                 Vec2::new(leadx, leady) + self.momxy,
+                PT_ADDLINES,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -353,16 +358,18 @@ impl MapObject {
             path_traverse(
                 Vec2::new(trailx, leady),
                 Vec2::new(trailx, leady) + self.momxy,
+                PT_ADDLINES,
                 level,
                 |intercept| self.slide_traverse(intercept),
-                &mut &mut bsp_trace,
+                &mut bsp_trace,
             );
             path_traverse(
                 Vec2::new(leadx, traily),
                 Vec2::new(leadx, traily) + self.momxy,
+                PT_ADDLINES,
                 level,
                 |intercept| self.slide_traverse(intercept),
-                &mut &mut bsp_trace,
+                &mut bsp_trace,
             );
 
             if self.best_slide.best_slide_frac == 2.0 {
@@ -495,7 +502,7 @@ impl MapObject {
         let angle = self.angle.unit();
 
         let origin = self.xy;
-        let endpoint = origin + angle * USERANGE;
+        let endpoint = origin + (angle * USERANGE);
 
         let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut 0);
@@ -503,16 +510,18 @@ impl MapObject {
         path_traverse(
             origin,
             endpoint,
+            PT_ADDLINES,
             level,
-            |intercept| self.use_traverse(intercept),
+            |intercept| self.use_traverse(intercept, level),
             &mut bsp_trace,
         );
     }
 
-    pub fn use_traverse(&mut self, intercept: &Intercept) -> bool {
+    /// PTR_UseTraverse
+    pub fn use_traverse(&mut self, intercept: &Intercept, level: &Level) -> bool {
         if let Some(line) = &intercept.line {
             if line.special == 0 {
-                let portal = PortalZ::new(&line);
+                let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
                     // TODO: S_StartSound (usething, sfx_noway);
                     // can't use through a wall
@@ -523,13 +532,19 @@ impl MapObject {
                 // not a special line, but keep checking
                 return true;
             }
+            debug!(
+                "Line {} special: {:?}, flags: {}",
+                line.as_ptr() as usize,
+                line.special,
+                line.flags
+            );
 
             let side = if line.point_on_side(&self.xy) == 1 {
                 1
             } else {
                 0
             };
-            p_use_special_line(side, line.clone(), self);
+            p_use_special_line(side, line.clone(), self, level);
         }
         // can't use for than one special line in a row
         false
@@ -553,4 +568,13 @@ pub fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32
     // for (y = yl; y <= yh; y++)
     // for (x = xl; x <= xh; x++)
     // P_BlockThingsIterator(x, y, PIT_RadiusAttack);
+}
+
+/// P_ChangeSector
+pub fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
+    let mut no_fit = false;
+
+    // TODO: re-check heights for all things near the moving sector
+
+    no_fit
 }

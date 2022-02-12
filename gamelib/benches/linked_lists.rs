@@ -35,7 +35,7 @@ fn load_and_iter(b: &mut Bencher) {
     b.iter(|| {
         let mut count = 0;
         for obj in links.iter_mut() {
-            count += obj.object().bad_ref::<TestObject>().x;
+            count += obj.obj_mut().bad_ref::<TestObject>().x;
         }
     });
 }
