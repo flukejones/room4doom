@@ -52,7 +52,8 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &Leve
     }
 
     // TODO: if the sector has an active thinker, use it
-
+    // sec = sides[line->sidenum[side ^ 1]].sector;
+    
     // new door thinker
     let mut door = VerticalDoor {
         thinker: NonNull::dangling(),
@@ -83,7 +84,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &Leve
         _ => {}
     }
 
-    door.topheight = find_lowest_ceiling_surrounding(line.frontsector.clone());
+    door.topheight = find_lowest_ceiling_surrounding(line.backsector.clone().unwrap());
     door.topheight -= 4.0;
 
     debug!("Activated door: {door:?}");
