@@ -4,7 +4,8 @@ use crate::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
-    p_local::{Intercept, Trace},
+    p_local::{Intercept, Trace, FRACUNIT},
+    p_map::{PT_ADDLINES, PT_EARLYOUT},
     DPtr,
 };
 use glam::Vec2;
@@ -28,7 +29,7 @@ impl PortalZ {
         }
 
         let front = &line.frontsector;
-        let back = line.backsector.as_ref().unwrap();
+        let back = unsafe { line.backsector.as_ref().unwrap_unchecked() };
 
         let mut ww = PortalZ {
             top_z: 0.0,
@@ -167,54 +168,78 @@ pub fn unit_vec_from(rotation: f32) -> Vec2 {
 pub fn path_traverse(
     origin: Vec2,
     endpoint: Vec2,
+    flags: i32,
     level: &Level,
     trav: impl FnMut(&Intercept) -> bool,
     bsp_trace: &mut BSPTrace,
 ) -> bool {
+    let earlyout = flags & PT_EARLYOUT != 0;
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
 
     let segs = level.map_data.segments();
     let sub_sectors = level.map_data.subsectors();
-    for n in bsp_trace.intercepted_nodes() {
+    let mut lines: Vec<usize> = Vec::new();
+    'wasd: for n in bsp_trace.intercepted_nodes() {
         let ssect = &sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
+
         for seg in &segs[start..end] {
-            //if seg.linedef.point_on_side(&origin) != seg.linedef.point_on_side(&endpoint) {
-            // Add intercept
-            // PIT_AddLineIntercepts
-            if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts) {
-                // early out on first intercept?
-                return false;
+            let line = seg.linedef.clone();
+
+            for test in lines.iter() {
+                if *test == line.p as usize {
+                    continue;
+                }
             }
-            //}
+            lines.push(line.p as usize);
+
+            // PIT_AddLineIntercepts
+            if flags & PT_ADDLINES != 0 {
+                if !add_line_intercepts(&trace, line, &mut intercepts, earlyout) {
+                    // early out on first intercept?
+                    //break 'wasd;
+                    return false;
+                }
+            }
         }
     }
-    traverse_intercepts(&intercepts, 1.0, trav)
+    traverse_intercepts(&mut intercepts, 1.0, trav)
 }
 
 pub fn traverse_intercepts(
-    intercepts: &[Intercept],
+    intercepts: &mut [Intercept],
     max_frac: f32,
     mut trav: impl FnMut(&Intercept) -> bool,
 ) -> bool {
-    let mut dist = f32::MAX;
-    let mut intercept = &Intercept::default();
-    for i in intercepts {
-        if i.frac < dist {
-            dist = i.frac;
-            intercept = i;
+    let mut intercept: *mut Intercept = unsafe { intercepts.get_unchecked_mut(0) };
+    let mut intercepts = Vec::from(intercepts);
+    let mut count = intercepts.len();
+
+    while count != 0 {
+        count -= 1;
+        let mut dist = f32::MAX;
+
+        for i in intercepts.iter_mut() {
+            if i.frac < dist {
+                dist = i.frac;
+                intercept = i;
+            }
         }
-    }
 
-    if dist > max_frac {
-        return false;
-    }
+        if dist > max_frac {
+            return true;
+        }
 
-    // PTR_SlideTraverse checks if the line is blocking and sets the BestSlide
-    if !trav(intercept) {
-        return false;
+        // PTR_SlideTraverse checks if the line is blocking and sets the BestSlide
+        unsafe {
+            if !trav(&*intercept) {
+                return false;
+            }
+
+            (*intercept).frac = f32::MAX;
+        }
     }
 
     true
@@ -224,6 +249,7 @@ pub fn add_line_intercepts(
     trace: &Trace,
     line: DPtr<LineDef>,
     intercepts: &mut Vec<Intercept>,
+    earlyout: bool,
 ) -> bool {
     let s1 = line.point_on_side(&trace.xy);
     let s2 = line.point_on_side(&(trace.xy + trace.dxy));
@@ -234,10 +260,16 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(*line.v1, line.delta);
-    let frac = intercept_vector(trace, &dl);
+    //let frac = intercept_vector(trace, &dl);
+    let frac = line_line_intersection(trace, &dl);
 
-    if frac < 0.0 {
+    if frac < 0.01 {
+        // Fine tuning this prevents some stickiness
         return true; // behind the source
+    }
+
+    if earlyout && frac < FRACUNIT && line.backsector.is_none() {
+        return false;
     }
 
     // Only works if the angles are translated to 0-180
@@ -254,20 +286,47 @@ pub fn add_line_intercepts(
     true
 }
 
-/// P_InterceptVector
-/// Returns the fractional intercept point
-/// along the first divline.
-/// This is only called by the addthings
-/// and addlines traversers.
-pub fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
-    let numerator1 = (v1.xy.x() - v2.xy.x()) * v1.dxy.y() + (v2.xy.y() - v1.xy.y()) * v1.dxy.x();
+// /// P_InterceptVector
+// /// Returns the fractional intercept point
+// /// along the first divline.
+// /// This is only called by the addthings
+// /// and addlines traversers.
+// fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+//     // Doom does `v1->dy >> 8`, this is transforming the number to <sign>0.5
+//     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+//     if denominator == f32::EPSILON {
+//         return 0.0;
+//     }
 
-    if denominator == f32::EPSILON {
-        return numerator1;
+//     let numerator1 =
+//         ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+//     numerator1 / denominator
+// }
+
+fn line_line_intersection(v2: &Trace, v1: &Trace) -> f32 {
+    let mv1 = v2.xy; // line edge start
+    let mv2 = v2.xy + v2.dxy; // line edge end
+    let lv1 = v1.xy; // line edge start
+    let lv2 = v1.xy + v1.dxy; // line edge end
+
+    let denominator =
+        ((mv2.x() - mv1.x()) * (lv2.y() - lv1.y())) - ((mv2.y() - mv1.y()) * (lv2.x() - lv1.x()));
+    let numerator1 =
+        ((mv1.y() - lv1.y()) * (lv2.x() - lv1.x())) - ((mv1.x() - lv1.x()) * (lv2.y() - lv1.y()));
+    let numerator2 =
+        ((mv1.y() - lv1.y()) * (mv2.x() - mv1.x())) - ((mv1.x() - lv1.x()) * (mv2.y() - mv1.y()));
+
+    if denominator == 0.0 {
+        return 0.0;
     }
 
-    numerator1 / denominator
+    let r = numerator1 / denominator;
+    let s = numerator2 / denominator;
+
+    if r < s {
+        return r;
+    }
+    s
 }
 
 #[cfg(test)]

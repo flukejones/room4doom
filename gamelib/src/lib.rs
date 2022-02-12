@@ -6,7 +6,6 @@ use angle::Angle;
 use glam::Vec2;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use std::ptr::NonNull;
 
 pub mod angle;
 pub mod d_main;
@@ -20,6 +19,7 @@ pub mod input;
 pub mod level_data;
 pub mod p_doors;
 pub mod p_enemy;
+pub mod p_floor;
 pub mod p_lights;
 pub mod p_local;
 pub mod p_map;
