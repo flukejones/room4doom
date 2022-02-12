@@ -53,7 +53,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &Leve
 
     // TODO: if the sector has an active thinker, use it
     // sec = sides[line->sidenum[side ^ 1]].sector;
-    
+
     // new door thinker
     let mut door = VerticalDoor {
         thinker: NonNull::dangling(),
@@ -114,10 +114,7 @@ impl Think for VerticalDoor {
                 if door.topcountdown == 0 {
                     match door.kind {
                         DoorKind::vld_normal => {
-                            debug!(
-                                "Door for sector {:?} should go down",
-                                door.sector.p.as_ptr()
-                            );
+                            debug!("Door for sector {:?} should go down", door.sector.as_ptr());
                             door.direction = -1;
                         }
                         _ => {
@@ -128,7 +125,7 @@ impl Think for VerticalDoor {
             }
             1 => {
                 // TODO: actually raise with T_MovePlane
-                debug!("Raise door for sector {:?}", door.sector.p.as_ptr());
+                debug!("Raise door for sector {:?}", door.sector.as_ptr());
             }
             _ => warn!("Invalid door direction of {}", door.direction),
         };

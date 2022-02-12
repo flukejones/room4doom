@@ -154,7 +154,7 @@ impl MapObject {
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
-        let sub_sectors = level.map_data.get_subsectors();
+        let sub_sectors = level.map_data.subsectors();
 
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         // A single BSP trace varies from 5 to 15 recursions.
@@ -188,7 +188,7 @@ impl MapObject {
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
         //dbg!(count);
 
-        let segs = level.map_data.get_segments();
+        let segs = level.map_data.segments();
         for n in bsp_trace.intercepted_nodes() {
             let ssect = &sub_sectors[*n as usize];
             let start = ssect.start_seg as usize;

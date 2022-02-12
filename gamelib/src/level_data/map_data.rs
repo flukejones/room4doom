@@ -99,32 +99,32 @@ impl MapData {
     }
 
     #[inline]
-    pub fn get_vertexes(&self) -> &[Vec2] {
+    pub fn vertexes(&self) -> &[Vec2] {
         &self.vertexes
     }
 
     #[inline]
-    pub fn get_linedefs(&self) -> &[LineDef] {
+    pub fn linedefs(&self) -> &[LineDef] {
         &self.linedefs
     }
 
     #[inline]
-    pub fn get_sectors(&self) -> &[Sector] {
+    pub fn sectors(&self) -> &[Sector] {
         &self.sectors
     }
 
     #[inline]
-    pub fn get_sidedefs(&self) -> &[SideDef] {
+    pub fn sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }
 
     #[inline]
-    pub fn get_subsectors(&self) -> &[SubSector] {
+    pub fn subsectors(&self) -> &[SubSector] {
         &self.subsectors
     }
 
     #[inline]
-    pub fn get_segments(&self) -> &[Segment] {
+    pub fn segments(&self) -> &[Segment] {
         &self.segments
     }
 
@@ -187,7 +187,7 @@ impl MapData {
         self.sidedefs = wad
             .sidedef_iter(&self.name)
             .map(|s| {
-                let sector = &self.get_sectors()[s.sector as usize];
+                let sector = &self.sectors()[s.sector as usize];
 
                 SideDef {
                     textureoffset: s.y_offset as f32,
@@ -204,19 +204,19 @@ impl MapData {
         self.linedefs = wad
             .linedef_iter(&self.name)
             .map(|l| {
-                let v1 = &self.get_vertexes()[l.start_vertex as usize];
-                let v2 = &self.get_vertexes()[l.end_vertex as usize];
+                let v1 = &self.vertexes()[l.start_vertex as usize];
+                let v2 = &self.vertexes()[l.end_vertex as usize];
 
-                let front = &self.get_sidedefs()[l.front_sidedef as usize];
+                let front = &self.sidedefs()[l.front_sidedef as usize];
 
                 let back_side = {
                     l.back_sidedef
-                        .map(|index| DPtr::new(&self.get_sidedefs()[index as usize]))
+                        .map(|index| DPtr::new(&self.sidedefs()[index as usize]))
                 };
 
                 let back_sector = {
                     l.back_sidedef
-                        .map(|index| self.get_sidedefs()[index as usize].sector.clone())
+                        .map(|index| self.sidedefs()[index as usize].sector.clone())
                 };
 
                 let dx = v2.x() - v1.x();
@@ -266,10 +266,10 @@ impl MapData {
         self.segments = wad
             .segment_iter(&self.name)
             .map(|s| {
-                let v1 = &self.get_vertexes()[s.start_vertex as usize];
-                let v2 = &self.get_vertexes()[s.end_vertex as usize];
+                let v1 = &self.vertexes()[s.start_vertex as usize];
+                let v2 = &self.vertexes()[s.end_vertex as usize];
 
-                let line = &self.get_linedefs()[s.linedef as usize];
+                let line = &self.linedefs()[s.linedef as usize];
                 let side = if s.direction == 0 {
                     line.front_sidedef.clone()
                 } else {
@@ -297,10 +297,7 @@ impl MapData {
         self.subsectors = wad
             .subsector_iter(&self.name)
             .map(|s| {
-                let sector = self.get_segments()[s.start_seg as usize]
-                    .sidedef
-                    .sector
-                    .clone();
+                let sector = self.segments()[s.start_seg as usize].sidedef.sector.clone();
                 SubSector {
                     sector,
                     seg_count: s.seg_count,
@@ -365,7 +362,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return DPtr::new(&self.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
+        return DPtr::new(&self.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
     }
 }
 
@@ -455,7 +452,7 @@ mod tests {
         // dbg!(&nodes.len());
         // dbg!(&nodes);
 
-        let sub_sect = map.get_subsectors();
+        let sub_sect = map.subsectors();
         // let segs = map.get_segments();
         // for x in nodes.iter() {
         //     //let x = nodes.last().unwrap();
@@ -470,7 +467,7 @@ mod tests {
         // }
 
         let _endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
-        let segs = map.get_segments();
+        let segs = map.segments();
         // wander around the coords of the subsector corner from player start
         let mut count = 0;
         for x in 705..895 {
@@ -546,7 +543,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let vertexes = map.get_vertexes();
+        let vertexes = map.vertexes();
         assert_eq!(vertexes[0].x() as i32, 1088);
         assert_eq!(vertexes[0].y() as i32, -3680);
         assert_eq!(vertexes[466].x() as i32, 2912);
@@ -560,7 +557,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let linedefs = map.get_linedefs();
+        let linedefs = map.linedefs();
 
         // Check links
         // LINEDEF->VERTEX
@@ -573,7 +570,7 @@ mod tests {
         // // LINEDEF->SIDEDEF->SECTOR
         assert_eq!(linedefs[2].front_sidedef.sector.ceilingheight, 72.0);
 
-        let segments = map.get_segments();
+        let segments = map.segments();
         // SEGMENT->VERTEX
         assert_eq!(segments[0].v1.x() as i32, 1552);
         assert_eq!(segments[0].v2.x() as i32, 1552);
@@ -596,7 +593,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let linedefs = map.get_linedefs();
+        let linedefs = map.linedefs();
         assert_eq!(linedefs[0].v1.x() as i32, 1088);
         assert_eq!(linedefs[0].v2.x() as i32, 1024);
         assert_eq!(linedefs[2].v1.x() as i32, 1088);
@@ -620,7 +617,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let sectors = map.get_sectors();
+        let sectors = map.sectors();
         assert_eq!(sectors[0].floorheight, 0.0);
         assert_eq!(sectors[0].ceilingheight, 72.0);
         assert_eq!(sectors[0].lightlevel, 160);
@@ -639,7 +636,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let sidedefs = map.get_sidedefs();
+        let sidedefs = map.sidedefs();
         assert_eq!(sidedefs[0].rowoffset, 0.0);
         assert_eq!(sidedefs[0].textureoffset, 0.0);
         assert_eq!(sidedefs[9].rowoffset, 0.0);
@@ -656,7 +653,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let segments = map.get_segments();
+        let segments = map.segments();
         assert_eq!(segments[0].v1.x() as i32, 1552);
         assert_eq!(segments[0].v2.x() as i32, 1552);
         assert_eq!(segments[731].v1.x() as i32, 3040);
@@ -667,7 +664,7 @@ mod tests {
         assert_eq!(segments[731].angle, Angle::new(PI));
         assert_eq!(segments[731].offset, 0.0);
 
-        let subsectors = map.get_subsectors();
+        let subsectors = map.subsectors();
         assert_eq!(subsectors[0].seg_count, 4);
         assert_eq!(subsectors[124].seg_count, 3);
         assert_eq!(subsectors[236].seg_count, 4);
