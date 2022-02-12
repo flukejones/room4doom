@@ -251,10 +251,12 @@ impl MapData {
             .collect();
 
         // Now map sectors to lines
-        // This is going to be required for collision checks
         for line in self.linedefs.iter_mut() {
             let mut sector = line.frontsector.clone();
             sector.lines.push(DPtr::new(line));
+            if let Some(mut sector) = line.backsector.clone() {
+                sector.lines.push(DPtr::new(line));
+            }
         }
 
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
