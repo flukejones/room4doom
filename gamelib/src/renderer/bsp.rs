@@ -159,7 +159,7 @@ impl BspRenderer {
     ) {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
-            let seg = &map.get_segments()[i as usize];
+            let seg = &map.segments()[i as usize];
             self.add_line(object, seg, r_data, canvas);
         }
     }
@@ -332,7 +332,7 @@ impl BspRenderer {
 
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             // It's a leaf node and is the index to a subsector
-            let subsect = &map.get_subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
+            let subsect = &map.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
             self.draw_subsector(map, player, subsect, r_data, canvas);
             return;
