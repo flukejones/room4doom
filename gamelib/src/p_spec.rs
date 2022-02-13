@@ -8,9 +8,10 @@ use crate::info::MapObjectType;
 use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_doors::ev_do_door;
+use crate::p_floor::ev_do_floor;
 use crate::p_map_object::MapObject;
-use crate::DPtr;
 use crate::p_plats::ev_do_platform;
+use crate::DPtr;
 use log::{debug, warn};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -292,7 +293,12 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObject, level: &mut Level) {
+pub fn cross_special_line(
+    side: usize,
+    mut line: DPtr<LineDef>,
+    thing: &MapObject,
+    level: &mut Level,
+) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -342,9 +348,22 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
             ev_do_door(line.clone(), DoorKind::vld_normal, level);
             line.special = 0;
         }
+        109 => {
+            debug!("line-special: vld_blazeOpen door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeOpen, level);
+            line.special = 0;
+        }
         88 => {
-            debug!("line-special: vld_normal platform!");
+            debug!("line-special: downWaitUpStay platform!");
             ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
+        }
+        36 => {
+            debug!("line-special: downWaitUpStay floor!");
+            ev_do_floor(line, FloorKind::turboLower, level);
+        }
+        38 => {
+            debug!("line-special: lowerFloorToLowest floor!");
+            ev_do_floor(line, FloorKind::lowerFloorToLowest, level);
         }
         _ => {
             warn!("Invalid or unimplemented line special: {}", line.special);
