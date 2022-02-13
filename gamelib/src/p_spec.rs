@@ -7,9 +7,11 @@ use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
 use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
+use crate::p_doors::ev_do_door;
 use crate::p_map_object::MapObject;
 use crate::DPtr;
-use log::debug;
+use crate::p_plats::ev_do_platform;
+use log::{debug, warn};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ptr::NonNull;
@@ -290,7 +292,7 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject, level: &Level) {
+pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObject, level: &mut Level) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -326,9 +328,26 @@ pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject,
 
     match line.special {
         2 => {
-            //EV_DoDoor(line,open);
-            //line.special = 0;
+            debug!("line-special: vld_open door!");
+            ev_do_door(line.clone(), DoorKind::vld_open, level);
+            line.special = 0;
         }
-        _ => {}
+        3 => {
+            debug!("line-special: vld_close door!");
+            ev_do_door(line.clone(), DoorKind::vld_close, level);
+            line.special = 0;
+        }
+        4 => {
+            debug!("line-special: vld_normal door!");
+            ev_do_door(line.clone(), DoorKind::vld_normal, level);
+            line.special = 0;
+        }
+        88 => {
+            debug!("line-special: vld_normal platform!");
+            ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
+        }
+        _ => {
+            warn!("Invalid or unimplemented line special: {}", line.special);
+        }
     }
 }

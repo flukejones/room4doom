@@ -11,6 +11,7 @@ use crate::level_data::map_defs::{BBox, LineDef, Sector, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
+use crate::p_spec::cross_special_line;
 use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
@@ -46,6 +47,9 @@ impl MapObject {
         if !self.p_check_position(self.xy, try_move, level) {
             return false;
         }
+
+        // Just willy-nilly breaking lifetimes
+        let lev = unsafe {&mut *(level as *mut Level)};
 
         let ctrl = &mut level.mobj_ctrl;
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
@@ -85,13 +89,13 @@ impl MapObject {
 
         // P_SetThingPosition (thing);
 
-        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) != 0 {
+        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(&self.xy);
                 let old_side = ld.point_on_side(&old_xy);
                 if side != old_side && ld.special != 0 {
-                    // TODO: P_CrossSpecialLine(ld - lines, oldside, thing);
+                    cross_special_line(old_side, ld.clone(), &self, lev)
                 }
             }
         }
@@ -274,7 +278,16 @@ impl MapObject {
         }
 
         if ld.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(ld));
+            for l in ctrl.spec_hits.iter() {
+                let ptr = DPtr::new(ld);
+                if l.p as usize != ptr.p as usize {
+                    ctrl.spec_hits.push(ptr);
+                    break;
+                }
+            }
+            if ctrl.spec_hits.is_empty() {
+                ctrl.spec_hits.push(DPtr::new(ld));
+            }
         }
 
         true
