@@ -9,6 +9,7 @@ use crate::{
     DPtr,
 };
 use glam::Vec2;
+use log::{debug, error};
 
 #[derive(Default, Debug)]
 pub struct PortalZ {
@@ -185,12 +186,12 @@ pub fn path_traverse(
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
 
-        for seg in &segs[start..end] {
+        'line: for seg in &segs[start..end] {
             let line = seg.linedef.clone();
 
             for test in lines.iter() {
                 if *test == line.p as usize {
-                    continue;
+                    continue 'line;
                 }
             }
             lines.push(line.p as usize);
@@ -232,7 +233,6 @@ pub fn traverse_intercepts(
             return true;
         }
 
-        // PTR_SlideTraverse checks if the line is blocking and sets the BestSlide
         unsafe {
             if !trav(&*intercept) {
                 return false;
@@ -260,11 +260,16 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(*line.v1, line.delta);
-    //let frac = intercept_vector(trace, &dl);
-    let frac = line_line_intersection(trace, &dl);
-
-    if frac < 0.01 {
-        // Fine tuning this prevents some stickiness
+    // TODO: Need a faster simpler way to see if trace is between line points
+    let r = line_line_intersection(trace, &dl);
+    // Skip if the trace doesn't intersect this line
+    if r.is_sign_negative() {
+        return true;
+    }
+    // Now check against line 'plane'
+    let frac = intercept_vector(trace, &dl);
+    
+    if frac.is_sign_negative() {
         return true; // behind the source
     }
 
@@ -286,22 +291,22 @@ pub fn add_line_intercepts(
     true
 }
 
-// /// P_InterceptVector
-// /// Returns the fractional intercept point
-// /// along the first divline.
-// /// This is only called by the addthings
-// /// and addlines traversers.
-// fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-//     // Doom does `v1->dy >> 8`, this is transforming the number to <sign>0.5
-//     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
-//     if denominator == f32::EPSILON {
-//         return 0.0;
-//     }
+/// P_InterceptVector
+/// Returns the fractional intercept point
+/// along the first divline.
+/// This is only called by the addthings
+/// and addlines traversers.
+fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+    // Doom does `v1->dy >> 8`, this is transforming the number to <sign>0.5
+    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+    if denominator == f32::EPSILON {
+        return 0.0;
+    }
 
-//     let numerator1 =
-//         ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
-//     numerator1 / denominator
-// }
+    let numerator1 =
+        ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+    numerator1 / denominator
+}
 
 fn line_line_intersection(v2: &Trace, v1: &Trace) -> f32 {
     let mv1 = v2.xy; // line edge start
