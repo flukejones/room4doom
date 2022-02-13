@@ -7,7 +7,7 @@ use std::ptr::{self, null_mut, NonNull};
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
-use crate::p_spec::VerticalDoor;
+use crate::p_spec::{FloorMove, Platform, VerticalDoor};
 use crate::player::Player;
 
 #[derive(PartialEq, PartialOrd)]
@@ -23,16 +23,12 @@ impl Think for TestObject {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
-        self.thinker = ptr
+    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+        self.thinker = ptr;
     }
 
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { self.thinker.as_ref() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { self.thinker.as_mut() }
+    fn thinker(&self) -> NonNull<Thinker> {
+        self.thinker
     }
 }
 
@@ -305,6 +301,8 @@ pub enum ThinkerType {
     Test(TestObject),
     Mobj(MapObject),
     VDoor(VerticalDoor),
+    FloorMove(FloorMove),
+    Platform(Platform),
 }
 
 impl ThinkerType {
@@ -442,9 +440,15 @@ pub trait Think {
     /// Implementer must store the pointer to the conatining Thinker
     fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>);
 
-    fn thinker_ref(&self) -> &Thinker;
+    fn thinker(&self) -> NonNull<Thinker>;
 
-    fn thinker_mut(&mut self) -> &mut Thinker;
+    fn thinker_ref(&self) -> &Thinker {
+        unsafe { self.thinker().as_ref() }
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { self.thinker().as_mut() }
+    }
 }
 
 #[cfg(test)]

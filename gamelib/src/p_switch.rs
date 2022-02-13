@@ -1,10 +1,11 @@
-use log::warn;
+use log::{debug, warn};
 
 use crate::{
     flags::LineDefFlags,
     level_data::{level::Level, map_defs::LineDef},
-    p_doors::ev_vertical_door,
+    p_doors::{ev_do_door, ev_vertical_door},
     p_map_object::MapObject,
+    p_plats::ev_do_platform,
     DPtr,
 };
 
@@ -15,7 +16,7 @@ pub fn p_use_special_line(
     side: i32,
     line: DPtr<LineDef>,
     thing: &MapObject,
-    level: &Level,
+    level: &mut Level,
 ) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
@@ -51,6 +52,86 @@ pub fn p_use_special_line(
         => {
             ev_vertical_door(line, thing, level);
             println!("*hydralic sounds*");
+        }
+        7 => {
+            // TODO: EV_BuildStairs
+            todo!("if (EV_BuildStairs(line, build8))
+			P_ChangeSwitchTexture(line, 0);");
+        }
+        9 => {
+            // TODO: EV_DoDonut
+            todo!("if (EV_DoDonut(line))
+			P_ChangeSwitchTexture(line, 0);");
+        }
+        11 => {
+            // TODO: P_ChangeSwitchTexture(line, 0);
+            level.do_exit_level();
+        }
+        29 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_normal, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        50 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_close, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        103 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_open, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        111 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeRaise, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        112 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeOpen, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        113 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeClose, level) {
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        42 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_close, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        61 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_open, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        63 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_normal, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        114 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeRaise, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        115 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeOpen, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        116 => {
+            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeClose, level) {
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        20 => {
+            debug!("Raise platform!");
+            if ev_do_platform(line, crate::p_spec::PlatKind::raiseToNearestAndChange, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
         }
         _ => {
             warn!("Invalid or unimplemented line special: {}", line.special);

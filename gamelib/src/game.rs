@@ -62,6 +62,7 @@ pub struct Game {
     totalitems: i32,
     /// for intermission
     totalsecret: i32,
+    secret_exit: bool,
 
     wminfo: WBStartStruct,
 
@@ -203,6 +204,7 @@ impl Game {
             totalkills: 0,
             totalitems: 0,
             totalsecret: 0,
+            secret_exit: false,
             wminfo: WBStartStruct::default(),
 
             netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
@@ -431,6 +433,12 @@ impl Game {
     /// G_Ticker
     pub fn ticker(&mut self) {
         trace!("Entered ticker");
+        if let Some(ref level) = self.level {
+            if let Some(action) = level.game_action {
+                self.game_action = action;
+                self.secret_exit = level.secret_exit;
+            }
+        }
         // // do player reborns if needed
         // for (i = 0; i < MAXPLAYERS; i++)
         // if (playeringame[i] && players[i].playerstate == PST_REBORN)

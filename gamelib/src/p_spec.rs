@@ -5,9 +5,11 @@ use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
+use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_map_object::MapObject;
 use crate::DPtr;
+use log::debug;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ptr::NonNull;
@@ -15,16 +17,16 @@ use wad::lumps::WadSector;
 
 // P_LIGHTS
 pub struct FireFlicker {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
 }
 
 pub struct LightFlash {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
@@ -33,8 +35,8 @@ pub struct LightFlash {
 }
 
 pub struct Strobe {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub count: i32,
     pub min_light: i32,
     pub max_light: i32,
@@ -43,22 +45,23 @@ pub struct Strobe {
 }
 
 pub struct Glow {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub min_light: i32,
     pub max_light: i32,
     pub direction: Angle,
 }
 
 // P_PLATS
-pub enum PlatEnum {
+pub enum PlatStatus {
     up,
     down,
     waiting,
     in_stasis,
 }
 
-pub enum PlatType {
+#[derive(Debug, Clone, Copy)]
+pub enum PlatKind {
     perpetualRaise,
     downWaitUpStay,
     raiseAndChange,
@@ -67,23 +70,23 @@ pub enum PlatType {
 }
 
 pub struct Platform {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub speed: f32,
     pub low: f32,
     pub high: f32,
     pub wait: i32,
     pub count: i32,
-    pub status: PlatEnum,
-    pub old_status: PlatEnum,
+    pub status: PlatStatus,
+    pub old_status: PlatStatus,
     pub crush: bool,
-    pub tag: i32,
-    pub plat_type: PlatType,
+    pub tag: i16,
+    pub kind: PlatKind,
 }
 
 // P_FLOOR
 //
-pub enum FloorEnum {
+pub enum FloorKind {
     /// lower floor to highest surrounding floor
     lowerFloor,
     /// lower floor to lowest surrounding floor
@@ -123,13 +126,13 @@ pub enum ResultE {
 }
 
 pub struct FloorMove {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
-    kind: FloorEnum,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
+    pub kind: FloorKind,
     pub speed: f32,
     pub crush: bool,
     pub direction: i32,
-    pub newspecial: i32,
+    pub newspecial: i16,
     pub texture: u8,
     pub floordestheight: f32,
 }
@@ -146,8 +149,8 @@ pub enum CeilingKind {
 }
 
 pub struct CeilingMove {
-    pub thinker: Option<Thinker>,
-    pub sector: NonNull<WadSector>,
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
     pub kind: CeilingKind,
     pub bottomheight: f32,
     pub topheight: f32,
@@ -202,9 +205,63 @@ impl fmt::Debug for VerticalDoor {
     }
 }
 
+fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
+    if line.flags & LineDefFlags::TwoSided as i16 == 0 {
+        return None;
+    }
+
+    if line.frontsector == sector {
+        return line.backsector.clone();
+    }
+
+    Some(line.frontsector.clone())
+}
+
+/// P_FindLowestFloorSurrounding
+pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
+    let mut height = f32::MAX;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.ceilingheight < height {
+                height = other.ceilingheight;
+            }
+        }
+    }
+    debug!("find_lowest_ceiling_surrounding: {height}");
+    height
+}
+
+/// P_FindLowestFloorSurrounding
+pub fn find_lowest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
+    let mut floor = sec.floorheight;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.floorheight < floor {
+                floor = other.floorheight;
+            }
+        }
+    }
+    debug!("find_lowest_floor_surrounding: {floor}");
+    floor
+}
+
+/// P_FindHighestFloorSurrounding
+pub fn find_highest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
+    let mut floor = f32::MIN;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.floorheight > floor {
+                floor = other.floorheight;
+            }
+        }
+    }
+    debug!("find_lowest_floor_surrounding: {floor}");
+    floor
+}
+
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject, level: &Level) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -245,29 +302,4 @@ pub fn cross_special_line(side: i32, line: DPtr<LineDef>, thing: &mut MapObject)
         }
         _ => {}
     }
-}
-
-fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
-    if line.flags & LineDefFlags::TwoSided as i16 == 0 {
-        return None;
-    }
-
-    if line.frontsector == sector {
-        return line.backsector.clone();
-    }
-
-    Some(line.frontsector.clone())
-}
-
-/// P_FindLowestFloorSurrounding
-pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
-    let mut height = f32::MAX;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.ceilingheight < height {
-                height = other.ceilingheight;
-            }
-        }
-    }
-    height
 }

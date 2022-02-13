@@ -115,6 +115,11 @@ impl MapData {
     }
 
     #[inline]
+    pub fn sectors_mut(&mut self) -> &mut [Sector] {
+        &mut self.sectors
+    }
+
+    #[inline]
     pub fn sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }

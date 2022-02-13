@@ -4,6 +4,7 @@ use log::debug;
 use wad::{lumps::WadThing, WadData};
 
 use crate::d_thinker::ThinkerAlloc;
+use crate::doom_def::GameAction;
 use crate::level_data::map_data::MapData;
 use crate::renderer::bsp::BspRenderer;
 use crate::renderer::plane::VisPlaneCtrl;
@@ -55,6 +56,10 @@ pub struct Level {
     pub totalitems: i32,
     /// for intermission
     pub totalsecret: i32,
+    /// To change the game state via switches in the level
+    pub game_action: Option<GameAction>,
+    /// Record how the level was exited
+    pub secret_exit: bool,
 }
 impl Level {
     /// P_SetupLevel
@@ -105,6 +110,8 @@ impl Level {
             totalkills: 0,
             totalitems: 0,
             totalsecret: 0,
+            game_action: None,
+            secret_exit: false,
         };
 
         let thing_list = (*level.map_data.get_things()).to_owned();
@@ -131,6 +138,12 @@ impl Level {
         let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
         // Absolutely fucking with lifetimes here
         unsafe { (*thinkers).push::<T>(thinker) }
+    }
+
+    pub fn do_exit_level(&mut self) {
+        debug!("Exited level");
+        self.secret_exit = false;
+        self.game_action = Some(GameAction::ga_completed);
     }
 }
 
