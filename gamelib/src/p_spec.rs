@@ -13,7 +13,6 @@ use log::debug;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ptr::NonNull;
-use wad::lumps::WadSector;
 
 // P_LIGHTS
 pub struct FireFlicker {
@@ -86,6 +85,7 @@ pub struct Platform {
 
 // P_FLOOR
 //
+#[derive(Debug, Clone, Copy)]
 pub enum FloorKind {
     /// lower floor to highest surrounding floor
     lowerFloor,
@@ -134,7 +134,7 @@ pub struct FloorMove {
     pub direction: i32,
     pub newspecial: i16,
     pub texture: u8,
-    pub floordestheight: f32,
+    pub destheight: f32,
 }
 
 // P_CEILNG
@@ -255,8 +255,37 @@ pub fn find_highest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
             }
         }
     }
-    debug!("find_lowest_floor_surrounding: {floor}");
+    debug!("find_highest_floor_surrounding: {floor}");
     floor
+}
+
+/// P_FindNextHighestFloor
+pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
+    let mut min;
+    let mut height = current;
+    let mut height_list = Vec::new();
+
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.floorheight > height {
+                height = other.floorheight;
+            }
+            height_list.push(other.floorheight);
+        }
+    }
+
+    if height_list.is_empty() {
+        return current;
+    }
+    min = height_list[0];
+
+    for height in height_list {
+        if height < min {
+            min = height;
+        }
+    }
+
+    min
 }
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has

@@ -4,8 +4,10 @@ use crate::{
     flags::LineDefFlags,
     level_data::{level::Level, map_defs::LineDef},
     p_doors::{ev_do_door, ev_vertical_door},
+    p_floor::ev_do_floor,
     p_map_object::MapObject,
     p_plats::ev_do_platform,
+    p_spec::{DoorKind, FloorKind, PlatKind},
     DPtr,
 };
 
@@ -68,73 +70,229 @@ pub fn p_use_special_line(
             level.do_exit_level();
         }
         29 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_normal, level) {
+            debug!("vld_normal door!");
+            if ev_do_door(line, DoorKind::vld_normal, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         50 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_close, level) {
+            debug!("vld_close door!");
+            if ev_do_door(line, DoorKind::vld_close, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         103 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_open, level) {
+            debug!("vld_open door!");
+            if ev_do_door(line, DoorKind::vld_open, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         111 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeRaise, level) {
+            debug!("vld_blazeRaise door!");
+            if ev_do_door(line, DoorKind::vld_blazeRaise, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         112 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeOpen, level) {
+            debug!("vld_blazeOpen door!");
+            if ev_do_door(line, DoorKind::vld_blazeOpen, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         113 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeClose, level) {
+            debug!("vld_blazeClose door!");
+            if ev_do_door(line, DoorKind::vld_blazeClose, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         42 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_close, level) {
+            debug!("vld_close door!");
+            if ev_do_door(line, DoorKind::vld_close, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         61 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_open, level) {
+            debug!("vld_open door!");
+            if ev_do_door(line, DoorKind::vld_open, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         63 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_normal, level) {
+            debug!("vld_normal door!");
+            if ev_do_door(line, DoorKind::vld_normal, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         114 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeRaise, level) {
+            debug!("vld_blazeRaise door!");
+            if ev_do_door(line, DoorKind::vld_blazeRaise, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         115 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeOpen, level) {
+            debug!("vld_blazeOpen door!");
+            if ev_do_door(line, DoorKind::vld_blazeOpen, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         116 => {
-            if ev_do_door(line, crate::p_spec::DoorKind::vld_blazeClose, level) {
+            debug!("vld_blazeClose door!");
+            if ev_do_door(line, DoorKind::vld_blazeClose, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
-        20 => {
-            debug!("Raise platform!");
-            if ev_do_platform(line, crate::p_spec::PlatKind::raiseToNearestAndChange, level){
+        14 => {
+            debug!("raiseAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseAndChange,32, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
+        15 => {
+            debug!("raiseAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseAndChange,24, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        20 => {
+            debug!("raiseToNearestAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseToNearestAndChange,0, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        21 => {
+            debug!("downWaitUpStay platform!");
+            if ev_do_platform(line, PlatKind::downWaitUpStay,0, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        62 => {
+            debug!("downWaitUpStay platform!");
+            if ev_do_platform(line, PlatKind::downWaitUpStay, 1, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        66 => {
+            debug!("raiseAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseAndChange, 24, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        67 => {
+            debug!("raiseAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseAndChange, 32, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        68 => {
+            debug!("raiseToNearestAndChange platform!");
+            if ev_do_platform(line, PlatKind::raiseToNearestAndChange, 0, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        122 => {
+            debug!("blazeDWUS platform!");
+            if ev_do_platform(line, PlatKind::blazeDWUS, 0, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        123 => {
+            debug!("blazeDWUS platform!");
+            if ev_do_platform(line, PlatKind::blazeDWUS, 0, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        18 => {
+            debug!("raiseFloorToNearest floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorToNearest, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        23 => {
+            debug!("lowerFloorToLowest floor!");
+            if ev_do_floor(line, FloorKind::lowerFloorToLowest, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        71 => {
+            debug!("turboLower floor!");
+            if ev_do_floor(line, FloorKind::turboLower, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        55 => {
+            debug!("raiseFloorCrush floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorCrush, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        101 => {
+            debug!("raiseFloor floor!");
+            if ev_do_floor(line, FloorKind::raiseFloor, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        102 => {
+            debug!("lowerFloor floor!");
+            if ev_do_floor(line, FloorKind::lowerFloor, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        131 => {
+            debug!("lowerFloor floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorTurbo, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        140 => {
+            debug!("lowerFloor floor!");
+            if ev_do_floor(line, FloorKind::raiseFloor512, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        45 => {
+            debug!("lowerFloor floor!");
+            if ev_do_floor(line, FloorKind::lowerFloor, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        60 => {
+            debug!("lowerFloorToLowest floor!");
+            if ev_do_floor(line, FloorKind::lowerFloorToLowest, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        64 => {
+            debug!("raiseFloor floor!");
+            if ev_do_floor(line, FloorKind::raiseFloor, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        65 => {
+            debug!("raiseFloorCrush floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorCrush, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        69 => {
+            debug!("raiseFloorToNearest floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorToNearest, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        70 => {
+            debug!("turboLower floor!");
+            if ev_do_floor(line, FloorKind::turboLower, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        132 => {
+            debug!("raiseFloorTurbo floor!");
+            if ev_do_floor(line, FloorKind::raiseFloorTurbo, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
         _ => {
-            warn!("Invalid or unimplemented line special: {}", line.special);
+            warn!("Invalid or unimplemented line switch: {}", line.special);
         }
     }
     false

@@ -7,16 +7,23 @@ use crate::{
     p_floor::move_plane,
     p_map_object::MapObject,
     p_spec::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding, PlatKind, PlatStatus,
-        Platform, ResultE,
+        find_highest_floor_surrounding, find_lowest_floor_surrounding, find_next_highest_floor,
+        PlatKind, PlatStatus, Platform, ResultE,
     },
     DPtr,
 };
 
+// TODO: active platform tracking? Seems to be required for "animated" platforms.
+
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
-pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level) -> bool {
+pub fn ev_do_platform(
+    mut line: DPtr<LineDef>,
+    kind: PlatKind,
+    amount: i32,
+    level: &mut Level,
+) -> bool {
     let mut ret = false;
 
     if matches!(kind, PlatKind::perpetualRaise) {
@@ -29,9 +36,9 @@ pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level
         .iter()
         .filter(|s| s.tag == line.tag)
     {
-        if sector.specialdata.is_some() {
-            continue;
-        }
+        // if sector.specialdata.is_some() {
+        //     continue;
+        // }
         ret = true;
 
         // Because we need to break lifetimes...
@@ -55,15 +62,21 @@ pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level
         match kind {
             PlatKind::raiseToNearestAndChange => {
                 platform.speed /= 2.0;
-                platform.high = find_highest_floor_surrounding(sec.clone());
-                // TODO: plat->high = P_FindNextHighestFloor(sec, sec->floorheight);
+                platform.high = find_next_highest_floor(sec.clone(), sec.floorheight);
                 platform.wait = 0;
                 platform.status = PlatStatus::up;
                 sec.special = 0;
                 // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
                 // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
             }
-            PlatKind::raiseAndChange => todo!(),
+            PlatKind::raiseAndChange => {
+                platform.speed /= 2.0;
+                platform.high = sec.floorheight + amount as f32;
+                platform.wait = 0;
+                platform.status = PlatStatus::up;
+                // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
+                // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
+            }
 
             PlatKind::perpetualRaise => {
                 platform.low = find_lowest_floor_surrounding(sec.clone());
@@ -97,7 +110,19 @@ pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level
                 platform.status = PlatStatus::down;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
-            PlatKind::blazeDWUS => todo!(),
+            PlatKind::blazeDWUS => {
+                platform.speed *= 8.0;
+                platform.low = find_lowest_floor_surrounding(sec.clone());
+
+                if platform.low > sec.floorheight {
+                    platform.low = sec.floorheight;
+                }
+
+                platform.high = sec.floorheight;
+                platform.wait = TICRATE * PLATWAIT;
+                platform.status = PlatStatus::down;
+                // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
+            }
         }
 
         let thinker = MapObject::create_thinker(
@@ -159,9 +184,15 @@ impl Think for Platform {
 
                         match platform.kind {
                             PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
+                                unsafe {
+                                    platform.thinker.as_mut().set_action(ActionF::None);
+                                }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
                             PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
+                                unsafe {
+                                    platform.thinker.as_mut().set_action(ActionF::None);
+                                }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
                             _ => {}
