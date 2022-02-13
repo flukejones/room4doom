@@ -49,7 +49,7 @@ impl MapObject {
         }
 
         // Just willy-nilly breaking lifetimes
-        let lev = unsafe {&mut *(level as *mut Level)};
+        let lev = unsafe { &mut *(level as *mut Level) };
 
         let ctrl = &mut level.mobj_ctrl;
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {

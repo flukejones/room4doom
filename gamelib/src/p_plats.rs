@@ -36,9 +36,10 @@ pub fn ev_do_platform(
         .iter()
         .filter(|s| s.tag == line.tag)
     {
-        // if sector.specialdata.is_some() {
-        //     continue;
-        // }
+        // TODO: track active platforms and reset sector special data
+        if sector.specialdata.is_some() {
+            continue;
+        }
         ret = true;
 
         // Because we need to break lifetimes...
@@ -62,7 +63,7 @@ pub fn ev_do_platform(
         match kind {
             PlatKind::raiseToNearestAndChange => {
                 platform.speed /= 2.0;
-                platform.high = find_next_highest_floor(sec.clone(), sec.floorheight);
+                platform.high = find_highest_floor_surrounding(sec.clone());
                 platform.wait = 0;
                 platform.status = PlatStatus::up;
                 sec.special = 0;
@@ -186,12 +187,14 @@ impl Think for Platform {
                             PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
                                 unsafe {
                                     platform.thinker.as_mut().set_action(ActionF::None);
+                                    platform.sector.specialdata = None; // TODO: remove when tracking active?
                                 }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
                             PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
                                 unsafe {
                                     platform.thinker.as_mut().set_action(ActionF::None);
+                                    platform.sector.specialdata = None; // TODO: remove when tracking active?
                                 }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
