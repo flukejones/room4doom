@@ -16,7 +16,7 @@ use crate::{
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
-pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level) -> bool {
+pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
     let mut ret = false;
 
     if matches!(kind, PlatKind::perpetualRaise) {
@@ -29,9 +29,9 @@ pub fn ev_do_platform(mut line: DPtr<LineDef>, kind: PlatKind, level: &mut Level
         .iter()
         .filter(|s| s.tag == line.tag)
     {
-        if sector.specialdata.is_some() {
-            continue;
-        }
+        // if sector.specialdata.is_some() {
+        //     continue;
+        // }
         ret = true;
 
         // Because we need to break lifetimes...
@@ -159,9 +159,15 @@ impl Think for Platform {
 
                         match platform.kind {
                             PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
+                                unsafe {
+                                    platform.thinker.as_mut().set_action(ActionF::None);
+                                }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
                             PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
+                                unsafe {
+                                    platform.thinker.as_mut().set_action(ActionF::None);
+                                }
                                 // TODO: P_RemoveActivePlat(plat);
                             }
                             _ => {}

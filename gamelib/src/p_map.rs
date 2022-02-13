@@ -522,12 +522,13 @@ impl MapObject {
     pub fn use_traverse(&mut self, intercept: &Intercept, level: &mut Level) -> bool {
         if let Some(line) = &intercept.line {
             if line.special == 0 {
+                // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
                     // TODO: S_StartSound (usething, sfx_noway);
                     // can't use through a wall
                     println!("*unghf!*");
-                    return false;
+                    //return false;
                 }
 
                 // not a special line, but keep checking

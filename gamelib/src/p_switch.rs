@@ -129,7 +129,13 @@ pub fn p_use_special_line(
         }
         20 => {
             debug!("Raise platform!");
-            if ev_do_platform(line, crate::p_spec::PlatKind::raiseToNearestAndChange, level){
+            if ev_do_platform(line, crate::p_spec::PlatKind::raiseToNearestAndChange,0, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        62 => {
+            debug!("Down platform!");
+            if ev_do_platform(line, crate::p_spec::PlatKind::downWaitUpStay, 1, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
