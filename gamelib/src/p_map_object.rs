@@ -756,15 +756,11 @@ impl Think for MapObject {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
         self.thinker = ptr;
     }
 
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { self.thinker.as_ref() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { self.thinker.as_mut() }
+    fn thinker(&self) -> NonNull<Thinker> {
+        self.thinker
     }
 }

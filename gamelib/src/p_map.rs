@@ -507,18 +507,19 @@ impl MapObject {
         let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut 0);
 
+        let lev = unsafe { &mut *(level as *mut Level) };
         path_traverse(
             origin,
             endpoint,
             PT_ADDLINES,
             level,
-            |intercept| self.use_traverse(intercept, level),
+            |intercept| self.use_traverse(intercept, lev),
             &mut bsp_trace,
         );
     }
 
     /// PTR_UseTraverse
-    pub fn use_traverse(&mut self, intercept: &Intercept, level: &Level) -> bool {
+    pub fn use_traverse(&mut self, intercept: &Intercept, level: &mut Level) -> bool {
         if let Some(line) = &intercept.line {
             if line.special == 0 {
                 let portal = PortalZ::new(line);

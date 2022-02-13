@@ -259,19 +259,26 @@ pub fn add_line_intercepts(
         return true;
     }
 
+    debug!(
+        "Line {} special: {:?}, flags: {}",
+        line.as_ptr() as usize,
+        line.special,
+        line.flags
+    );
+
     let dl = Trace::new(*line.v1, line.delta);
     // TODO: Need a faster simpler way to see if trace is between line points
-    let r = line_line_intersection(trace, &dl);
+    let frac = line_line_intersection(trace, &dl);
     // Skip if the trace doesn't intersect this line
-    if r.is_sign_negative() {
+    if frac < 0.01 {
         return true;
     }
-    // Now check against line 'plane'
-    let frac = intercept_vector(trace, &dl);
-    
-    if frac.is_sign_negative() {
-        return true; // behind the source
-    }
+    // // Now check against line 'plane'
+    // let frac = intercept_vector(trace, &dl);
+
+    // if frac.is_sign_negative() {
+    //     return true; // behind the source
+    // }
 
     if earlyout && frac < FRACUNIT && line.backsector.is_none() {
         return false;

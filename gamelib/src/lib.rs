@@ -25,6 +25,7 @@ pub mod p_local;
 pub mod p_map;
 pub mod p_map_object;
 pub mod p_map_util;
+pub mod p_plats;
 pub mod p_player_sprite;
 pub mod p_spec;
 pub mod p_switch;
