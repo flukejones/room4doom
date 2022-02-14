@@ -15,9 +15,9 @@ use crate::p_spec::cross_special_line;
 use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
-const MAXSPECIALCROSS: i32 = 8;
+//const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
-const PT_ADDTHINGS: i32 = 2;
+//const PT_ADDTHINGS: i32 = 2;
 pub const PT_EARLYOUT: i32 = 4;
 
 /// The pupose of this struct is to record the highest and lowest points in a
@@ -44,7 +44,7 @@ impl MapObject {
 
         level.mobj_ctrl.spec_hits.clear();
         level.mobj_ctrl.floatok = true;
-        if !self.p_check_position(self.xy, try_move, level) {
+        if !self.p_check_position( try_move, level) {
             return false;
         }
 
@@ -95,7 +95,7 @@ impl MapObject {
                 let side = ld.point_on_side(&self.xy);
                 let old_side = ld.point_on_side(&old_xy);
                 if side != old_side && ld.special != 0 {
-                    cross_special_line(old_side, ld.clone(), &self, lev)
+                    cross_special_line(old_side, ld.clone(), self, lev)
                 }
             }
         }
@@ -130,7 +130,7 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    fn p_check_position(&mut self, origin: Vec2, endpoint: Vec2, level: &mut Level) -> bool {
+    fn p_check_position(&mut self, endpoint: Vec2, level: &mut Level) -> bool {
         let left = endpoint.x() - self.radius;
         let right = endpoint.x() + self.radius;
         let top = endpoint.y() + self.radius;
@@ -207,11 +207,6 @@ impl MapObject {
                 }
             }
         }
-        // for seg in level.map_data.get_linedefs().iter() {
-        //         if !self.pit_check_line(&tmbbox, ctrl, &seg) {
-        //             return false;
-        //         }
-        //     }
 
         true
     }
@@ -364,6 +359,7 @@ impl MapObject {
                 Vec2::new(leadx, leady),
                 Vec2::new(leadx, leady) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -372,6 +368,7 @@ impl MapObject {
                 Vec2::new(trailx, leady),
                 Vec2::new(trailx, leady) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -380,6 +377,7 @@ impl MapObject {
                 Vec2::new(leadx, traily),
                 Vec2::new(leadx, traily) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -525,6 +523,7 @@ impl MapObject {
             origin,
             endpoint,
             PT_ADDLINES,
+            true,
             level,
             |intercept| self.use_traverse(intercept, lev),
             &mut bsp_trace,
@@ -534,32 +533,33 @@ impl MapObject {
     /// PTR_UseTraverse
     pub fn use_traverse(&mut self, intercept: &Intercept, level: &mut Level) -> bool {
         if let Some(line) = &intercept.line {
+            debug!(
+                "Line v1 x:{},y:{}, v2 x:{},y:{}, special: {:?} - self.x:{},y:{} - frac {}",
+                line.v1.x(),
+                line.v1.y(),
+                line.v2.x(),
+                line.v2.y(),
+                line.special,
+                self.xy.x() as i32,
+                self.xy.y() as i32,
+                intercept.frac,
+            );
+
             if line.special == 0 {
                 // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
                     // TODO: S_StartSound (usething, sfx_noway);
                     // can't use through a wall
-                    println!("*unghf!*");
-                    //return false;
+                    debug!("*UNNGFF!* Can't reach from this side");
+                    return false;
                 }
-
                 // not a special line, but keep checking
                 return true;
             }
-            debug!(
-                "Line {} special: {:?}, flags: {}",
-                line.as_ptr() as usize,
-                line.special,
-                line.flags
-            );
 
-            let side = if line.point_on_side(&self.xy) == 1 {
-                1
-            } else {
-                0
-            };
-            p_use_special_line(side, line.clone(), self, level);
+            let side = line.point_on_side(&self.xy);
+            p_use_special_line(side as i32, line.clone(), self, level);
         }
         // can't use for than one special line in a row
         false

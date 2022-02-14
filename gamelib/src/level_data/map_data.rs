@@ -42,8 +42,8 @@ pub struct MapData {
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
-    subsectors: Vec<SubSector>,
-    segments: Vec<Segment>,
+    pub subsectors: Vec<SubSector>,
+    pub segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
     blockmap: BlockMap,
@@ -132,6 +132,11 @@ impl MapData {
     #[inline]
     pub fn segments(&self) -> &[Segment] {
         &self.segments
+    }
+
+    #[inline]
+    pub fn segments_mut(&mut self) -> &mut [Segment] {
+        &mut self.segments
     }
 
     fn set_scale(&mut self) {
@@ -251,7 +256,7 @@ impl MapData {
                     back_sidedef: back_side,
                     frontsector: front.sector.clone(),
                     backsector: back_sector,
-                    validcount: 0,
+                    valid_count: 0,
                 }
             })
             .collect();

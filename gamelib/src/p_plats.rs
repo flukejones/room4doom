@@ -7,7 +7,7 @@ use crate::{
     p_floor::move_plane,
     p_map_object::MapObject,
     p_spec::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding, find_next_highest_floor,
+        find_highest_floor_surrounding, find_lowest_floor_surrounding,
         PlatKind, PlatStatus, Platform, ResultE,
     },
     DPtr,
@@ -19,7 +19,7 @@ const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
 pub fn ev_do_platform(
-    mut line: DPtr<LineDef>,
+    line: DPtr<LineDef>,
     kind: PlatKind,
     amount: i32,
     level: &mut Level,
@@ -166,40 +166,36 @@ impl Think for Platform {
                 if matches!(
                     platform.kind,
                     PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange
-                ) {
-                    if level.level_time & 7 == 0 {
-                        // TODO: if (!(leveltime&7))
-                        //  S_StartSound(&plat->sector->soundorg, sfx_stnmov);
-                    }
+                ) && level.level_time & 7 == 0 {
+                    // TODO: if (!(leveltime&7))
+                    //  S_StartSound(&plat->sector->soundorg, sfx_stnmov);
                 }
 
                 if matches!(res, ResultE::Crushed) && !platform.crush {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
-                } else {
-                    if matches!(res, ResultE::PastDest) {
-                        platform.count = platform.wait;
-                        platform.status = PlatStatus::waiting;
-                        // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
+                } else if matches!(res, ResultE::PastDest) {
+                    platform.count = platform.wait;
+                    platform.status = PlatStatus::waiting;
+                    // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
 
-                        match platform.kind {
-                            PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
-                                unsafe {
-                                    platform.thinker.as_mut().set_action(ActionF::None);
-                                    platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                }
-                                // TODO: P_RemoveActivePlat(plat);
+                    match platform.kind {
+                        PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
+                            unsafe {
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
+                                platform.sector.specialdata = None; // TODO: remove when tracking active?
                             }
-                            PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
-                                unsafe {
-                                    platform.thinker.as_mut().set_action(ActionF::None);
-                                    platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                }
-                                // TODO: P_RemoveActivePlat(plat);
-                            }
-                            _ => {}
+                            // TODO: P_RemoveActivePlat(plat);
                         }
+                        PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
+                            unsafe {
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
+                                platform.sector.specialdata = None; // TODO: remove when tracking active?
+                            }
+                            // TODO: P_RemoveActivePlat(plat);
+                        }
+                        _ => {}
                     }
                 }
             }

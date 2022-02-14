@@ -4,12 +4,11 @@ use crate::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
-    p_local::{Intercept, Trace, FRACUNIT},
+    p_local::{Intercept, Trace},
     p_map::{PT_ADDLINES, PT_EARLYOUT},
     DPtr,
 };
 use glam::Vec2;
-use log::{debug, error};
 
 #[derive(Default, Debug)]
 pub struct PortalZ {
@@ -170,7 +169,8 @@ pub fn path_traverse(
     origin: Vec2,
     endpoint: Vec2,
     flags: i32,
-    level: &Level,
+    line_to_line: bool,
+    level: &mut Level,
     trav: impl FnMut(&Intercept) -> bool,
     bsp_trace: &mut BSPTrace,
 ) -> bool {
@@ -178,31 +178,31 @@ pub fn path_traverse(
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
 
-    let segs = level.map_data.segments();
-    let sub_sectors = level.map_data.subsectors();
-    let mut lines: Vec<usize> = Vec::new();
-    'wasd: for n in bsp_trace.intercepted_nodes() {
+    let segs = &mut level.map_data.segments;
+    let sub_sectors = &mut level.map_data.subsectors;
+
+    level.valid_count += 1;
+    for n in bsp_trace.intercepted_nodes() {
         let ssect = &sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
 
-        'line: for seg in &segs[start..end] {
-            let line = seg.linedef.clone();
-
-            for test in lines.iter() {
-                if *test == line.p as usize {
-                    continue 'line;
-                }
+        for seg in &mut segs[start..end] {
+            if seg.linedef.valid_count == level.valid_count {
+                continue;
             }
-            lines.push(line.p as usize);
+            seg.linedef.valid_count = level.valid_count;
 
-            // PIT_AddLineIntercepts
-            if flags & PT_ADDLINES != 0 {
-                if !add_line_intercepts(&trace, line, &mut intercepts, earlyout) {
-                    // early out on first intercept?
-                    //break 'wasd;
-                    return false;
-                }
+            if flags & PT_ADDLINES != 0
+                && !add_line_intercepts(
+                    &trace,
+                    seg.linedef.clone(),
+                    &mut intercepts,
+                    earlyout,
+                    line_to_line,
+                )
+            {
+                return false; // early out
             }
         }
     }
@@ -223,7 +223,7 @@ pub fn traverse_intercepts(
         let mut dist = f32::MAX;
 
         for i in intercepts.iter_mut() {
-            if i.frac < dist {
+            if i.frac <= dist {
                 dist = i.frac;
                 intercept = i;
             }
@@ -245,11 +245,15 @@ pub fn traverse_intercepts(
     true
 }
 
+/// Check the line and add the intercept if valid
+///
+/// `line_to_line` is for "perfect" line-to-line collision (shot trace, use line etc)
 pub fn add_line_intercepts(
     trace: &Trace,
     line: DPtr<LineDef>,
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
+    line_to_line: bool,
 ) -> bool {
     let s1 = line.point_on_side(&trace.xy);
     let s2 = line.point_on_side(&(trace.xy + trace.dxy));
@@ -259,28 +263,19 @@ pub fn add_line_intercepts(
         return true;
     }
 
-    debug!(
-        "Line {} special: {:?}, flags: {}",
-        line.as_ptr() as usize,
-        line.special,
-        line.flags
-    );
-
-    let dl = Trace::new(*line.v1, line.delta);
-    // TODO: Need a faster simpler way to see if trace is between line points
-    let frac = line_line_intersection(trace, &dl);
+    let dl = Trace::new(*line.v1, (*line.v2) - (*line.v1));
+    let frac = if line_to_line {
+        line_line_intersection(&dl, trace)
+    } else {
+        // check against line 'plane', good for slides, not much else
+        line_line_intersection(trace, &dl)
+    };
     // Skip if the trace doesn't intersect this line
-    if frac < 0.01 {
+    if frac.is_sign_negative() {
         return true;
     }
-    // // Now check against line 'plane'
-    // let frac = intercept_vector(trace, &dl);
 
-    // if frac.is_sign_negative() {
-    //     return true; // behind the source
-    // }
-
-    if earlyout && frac < FRACUNIT && line.backsector.is_none() {
+    if earlyout && frac < 1.0 && line.backsector.is_none() {
         return false;
     }
 
@@ -298,47 +293,30 @@ pub fn add_line_intercepts(
     true
 }
 
+// fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+//     // Doom does `v1->dy >> 8`, this is  x * 0.00390625
+//     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+//     if denominator == f32::EPSILON {
+//         return 0.0;
+//     }
+//     let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+//     numerator / denominator
+// }
+
 /// P_InterceptVector
-/// Returns the fractional intercept point
-/// along the first divline.
-/// This is only called by the addthings
-/// and addlines traversers.
-fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-    // Doom does `v1->dy >> 8`, this is transforming the number to <sign>0.5
-    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
-    if denominator == f32::EPSILON {
-        return 0.0;
-    }
-
-    let numerator1 =
-        ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
-    numerator1 / denominator
-}
-
-fn line_line_intersection(v2: &Trace, v1: &Trace) -> f32 {
-    let mv1 = v2.xy; // line edge start
-    let mv2 = v2.xy + v2.dxy; // line edge end
-    let lv1 = v1.xy; // line edge start
-    let lv2 = v1.xy + v1.dxy; // line edge end
-
-    let denominator =
-        ((mv2.x() - mv1.x()) * (lv2.y() - lv1.y())) - ((mv2.y() - mv1.y()) * (lv2.x() - lv1.x()));
-    let numerator1 =
-        ((mv1.y() - lv1.y()) * (lv2.x() - lv1.x())) - ((mv1.x() - lv1.x()) * (lv2.y() - lv1.y()));
-    let numerator2 =
-        ((mv1.y() - lv1.y()) * (mv2.x() - mv1.x())) - ((mv1.x() - lv1.x()) * (mv2.y() - mv1.y()));
-
+/// Returns the fractional intercept point along the first divline.
+///
+/// The lines can be pictured as arg1 being an infinite plane, and arg2 being the line
+/// to check if intersected by the plane.
+///
+/// Good for perfect line intersection test
+fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
+    let denominator = (v2.dxy.x() * v1.dxy.y()) - (v2.dxy.y() * v1.dxy.x());
     if denominator == 0.0 {
         return 0.0;
     }
-
-    let r = numerator1 / denominator;
-    let s = numerator2 / denominator;
-
-    if r < s {
-        return r;
-    }
-    s
+    let numerator = ((v2.xy.y() - v1.xy.y()) * v2.dxy.x()) - ((v2.xy.x() - v1.xy.x()) * v2.dxy.y());
+    numerator / denominator
 }
 
 #[cfg(test)]
