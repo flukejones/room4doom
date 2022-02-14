@@ -60,6 +60,8 @@ pub struct Level {
     pub game_action: Option<GameAction>,
     /// Record how the level was exited
     pub secret_exit: bool,
+    /// Marker count for lines checked
+    pub valid_count: usize,
 }
 impl Level {
     /// P_SetupLevel
@@ -112,6 +114,7 @@ impl Level {
             totalsecret: 0,
             game_action: None,
             secret_exit: false,
+            valid_count: 0,
         };
 
         let thing_list = (*level.map_data.get_things()).to_owned();
@@ -176,7 +179,8 @@ pub fn p_ticker(game: &mut Game) {
         for thinker in level.thinkers.iter_mut() {
             if thinker.has_action() {
                 thinker.think(l);
-            } else {
+            }
+            if thinker.remove() {
                 rm.push(thinker.index());
             }
         }

@@ -306,7 +306,8 @@ impl Think for FloorMove {
                 //TODO: floor.sector.floorpic = floor.texture;
             }
 
-            floor.thinker_mut().set_action(ActionF::None);
+            floor.sector.specialdata = None;
+            floor.thinker_mut().set_action(ActionF::Remove);
         }
 
         true

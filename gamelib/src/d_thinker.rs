@@ -364,6 +364,10 @@ impl Thinker {
         !matches!(self.func, ActionF::None)
     }
 
+    pub fn remove(&self) -> bool {
+        matches!(self.func, ActionF::Remove)
+    }
+
     pub fn set_action(&mut self, func: ActionF) {
         self.func = func
     }
@@ -373,8 +377,9 @@ impl Thinker {
     pub fn think(&mut self, level: &mut Level) -> bool {
         match self.func {
             ActionF::Action1(f) => (f)(&mut self.object, level),
-            ActionF::Player(_f) => false,
-            ActionF::None => false,
+            ActionF::Player(_f) => true,
+            ActionF::None => true,
+            ActionF::Remove => false,
         }
     }
 }
@@ -393,6 +398,8 @@ impl fmt::Debug for Thinker {
 #[derive(Clone)]
 pub enum ActionF {
     None, // actionf_v
+    /// To have the thinker removed from the thinker list on next cleanup pass
+    Remove,
     Action1(fn(&mut ThinkerType, &mut Level) -> bool),
     Player(fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
 }
@@ -401,6 +408,7 @@ impl fmt::Debug for ActionF {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ActionF::None => f.debug_struct("None").finish(),
+            ActionF::Remove => f.debug_struct("Remove").finish(),
             ActionF::Action1(_) => f.debug_struct("Action1").finish(),
             ActionF::Player(_) => f.debug_struct("Player").finish(),
         }

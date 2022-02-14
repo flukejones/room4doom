@@ -700,16 +700,15 @@ impl MapObject {
 
         true
     }
+
+    // TODO: P_ThingHeightClip, called by PIT_ChangeSector
+    // TODO: PIT_ChangeSector, called in a loop by P_ChangeSector for each mobj in the sector
+    // TODO: P_RemoveMobj to handle destruction of the mobj, such as unlinking from sectors, stopping sounds, removing from thinker list
 }
 
 impl Think for MapObject {
-    // TODO: P_MobjThinker
     fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let this = object.bad_mut::<MapObject>();
-        // This is the P_MobjThinker commented out
-        // momentum movement
-        // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
-        // {
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
         {
             this.p_xy_movement(level);

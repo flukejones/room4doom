@@ -73,13 +73,15 @@ impl Think for VerticalDoor {
                             door.sector.specialdata = None;
                             // TODO: sound
                             unsafe {
-                                door.thinker.as_mut().set_action(ActionF::None);
+                                door.sector.specialdata = None;
+                                door.thinker.as_mut().set_action(ActionF::Remove);
                             }
                         }
                         DoorKind::vld_normal | DoorKind::vld_close => {
                             door.sector.specialdata = None;
                             unsafe {
-                                door.thinker.as_mut().set_action(ActionF::None);
+                                door.sector.specialdata = None;
+                                door.thinker.as_mut().set_action(ActionF::Remove);
                             }
                         }
                         DoorKind::vld_close30ThenOpen => {
@@ -112,7 +114,8 @@ impl Think for VerticalDoor {
                         | DoorKind::vld_open => {
                             door.sector.specialdata = None;
                             unsafe {
-                                door.thinker.as_mut().set_action(ActionF::None);
+                                door.sector.specialdata = None;
+                                door.thinker.as_mut().set_action(ActionF::Remove);
                             }
                         }
                         _ => {}
@@ -122,7 +125,7 @@ impl Think for VerticalDoor {
             _ => warn!("Invalid door direction of {}", door.direction),
         };
 
-        //unsafe { door.thinker.as_mut().set_action(ActionF::None) };
+        //unsafe { door.thinker.as_mut().set_action(ActionF::Remove) };
         true
     }
 
@@ -137,7 +140,7 @@ impl Think for VerticalDoor {
 
 /// EV_DoDoor
 /// Can affect multiple sectors via the sector tag
-pub fn ev_do_door(mut line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> bool {
+pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> bool {
     let mut ret = false;
     for sector in level
         .map_data
