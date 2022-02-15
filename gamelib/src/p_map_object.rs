@@ -1,8 +1,9 @@
-use std::ptr::NonNull;
+use std::ptr::{null_mut, NonNull};
 
 use crate::d_thinker::ThinkerType;
 use crate::level_data::level::Level;
 use crate::p_local::BestSlide;
+use crate::p_map_util::set_thing_position;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
@@ -35,7 +36,7 @@ pub static MAXMOVE: f32 = 30.0;
 pub static STOPSPEED: f32 = 0.0625; // 0x1000
 pub static FRICTION: f32 = 0.90625; // 0xE800
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
@@ -130,13 +131,6 @@ pub struct MapObject {
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
-    // More list: links in sector (if needed)
-    // struct mobj_s*	snext;
-    // struct mobj_s*	sprev;
-    // Interaction info, by BLOCKMAP.
-    // Links in blocks (if needed).
-    // struct mobj_s*	bnext;
-    // struct mobj_s*	bprev;
     // More drawing info: to determine current sprite.
     /// orientation
     pub angle: Angle,
@@ -144,7 +138,12 @@ pub struct MapObject {
     sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame: i32,
-    subsector: DPtr<SubSector>,
+    /// Link to the next object in this sector
+    pub s_next: *mut MapObject,
+    /// Link to the previous object in this sector
+    pub s_prev: *mut MapObject,
+    /// The subsector this object is currently in
+    pub subsector: *mut SubSector,
     /// The closest interval over all contacted Sectors.
     pub floorz: f32,
     pub ceilingz: f32,
@@ -195,6 +194,50 @@ pub struct MapObject {
 }
 
 impl MapObject {
+    fn new(
+        x: f32,
+        y: f32,
+        z: i32,
+        reactiontime: i32,
+        kind: MapObjectType,
+        info: MapObjectInfo,
+        state: State,
+    ) -> Self {
+        Self {
+            thinker: NonNull::dangling(), // TODO: change after thinker container added
+            player: None,
+            xy: Vec2::new(x, y),
+            z: z as f32,
+            angle: Angle::new(0.0),
+            sprite: state.sprite,
+            frame: state.frame,
+            floorz: 0.0,
+            ceilingz: 0.0,
+            radius: info.radius,
+            height: info.height,
+            momxy: Vec2::default(),
+            momz: 0.0,
+            validcount: 0,
+            flags: info.flags,
+            health: info.spawnhealth,
+            tics: state.tics,
+            movedir: 0,
+            movecount: 0,
+            best_slide: BestSlide::default(),
+            reactiontime,
+            threshold: 0,
+            lastlook: (p_random() as i32) % MAXPLAYERS as i32,
+            spawn_point: None,
+            target: None,
+            s_next: null_mut(),
+            s_prev: null_mut(),
+            subsector: null_mut(),
+            state,
+            info,
+            kind,
+        }
+    }
+
     /// P_ExplodeMissile
     pub fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
@@ -358,6 +401,8 @@ impl MapObject {
             return; // no friction when airborne
         }
 
+        let floorheight = unsafe { (*self.subsector).sector.floorheight };
+
         if self.flags & MapObjectFlag::MF_CORPSE as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
@@ -365,7 +410,7 @@ impl MapObject {
                 || self.momxy.x() < -FRACUNIT_DIV4
                 || self.momxy.y() > FRACUNIT_DIV4
                 || self.momxy.y() < -FRACUNIT_DIV4)
-                && (self.floorz - self.subsector.sector.floorheight).abs() > f32::EPSILON
+                && (self.floorz - floorheight).abs() > f32::EPSILON
             {
                 return;
             }
@@ -583,73 +628,43 @@ impl MapObject {
         kind: MapObjectType,
         level: &mut Level,
     ) -> NonNull<MapObject> {
-        // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize];
 
-        // TODO: Nightmare reactiontimes?
         let reactiontime = if level.game_skill != Skill::Nightmare {
             info.reactiontime
         } else {
-            info.reactiontime
+            0
         };
 
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
         let state = get_state(info.spawnstate as usize);
 
-        // // set subsector and/or block links
-        let sub_sector: DPtr<SubSector> = level.map_data.point_in_subsector(Vec2::new(x, y));
-
-        let floorz = sub_sector.sector.floorheight as i32;
-        let ceilingz = sub_sector.sector.ceilingheight as i32;
-
-        if z == ONFLOORZ {
-            z = floorz;
-        } else if z == ONCEILINGZ {
-            z = ceilingz - info.height as i32;
-        }
-
-        let mobj = MapObject {
-            // The thinker should be non-zero and requires to be added to the linked list
-            thinker: NonNull::dangling(), // TODO: change after thinker container added
-            player: None,
-            xy: Vec2::new(x, y),
-            z: z as f32,
-            angle: Angle::new(0.0),
-            sprite: state.sprite,
-            frame: state.frame,
-            floorz: floorz as f32,
-            ceilingz: ceilingz as f32,
-            radius: info.radius,
-            height: info.height,
-            momxy: Vec2::default(),
-            momz: 0.0,
-            validcount: 0,
-            flags: info.flags,
-            health: info.spawnhealth,
-            tics: state.tics,
-            movedir: 0,
-            movecount: 0,
-            best_slide: BestSlide::default(),
-            reactiontime,
-            threshold: 0,
-            lastlook: (p_random() as i32) % MAXPLAYERS as i32,
-            spawn_point: None,
-            target: None,
-            subsector: sub_sector,
-            state,
-            info,
-            kind,
-        };
+        let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state);
 
         let thinker =
             MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
-        if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<MapObject>(thinker) {
             unsafe {
-                return NonNull::new(ptr.as_mut().obj_mut().bad_mut::<MapObject>())
-                    .expect("spawn_map_object ptr creation failed");
+                // set subsector and/or block links
+                let thing = ptr.as_mut().obj_mut().bad_mut::<MapObject>();
+                // Sets the subsector link and links in sector
+                set_thing_position(thing, level);
+                if !thing.subsector.is_null() {
+                    // Now that we have a subsector this is safe
+                    let floorz = (*thing.subsector).sector.floorheight;
+                    let ceilingz = (*thing.subsector).sector.ceilingheight;
+
+                    if z == ONFLOORZ {
+                        thing.z = floorz;
+                    } else if z == ONCEILINGZ {
+                        thing.z = ceilingz - info.height;
+                    }
+                }
+
+                return NonNull::new(thing).expect("spawn_map_object ptr creation failed");
             }
         }
 
@@ -699,6 +714,47 @@ impl MapObject {
         }
 
         true
+    }
+
+    /// P_ThingHeightClip
+    // Takes a valid thing and adjusts the thing->floorz,
+    // thing->ceilingz, and possibly thing->z.
+    // This is called for all nearby monsters
+    // whenever a sector changes height.
+    // If the thing doesn't fit,
+    // the z will be set to the lowest value
+    // and false will be returned.
+    fn height_clip(&mut self) -> bool {
+        let on_floor = self.z == self.floorz;
+
+        // TODO: TEMPORARY TESTING THING HERE
+        unsafe {
+            self.floorz = (*self.subsector).sector.floorheight;
+            self.z = self.floorz;
+        }
+        // P_CheckPosition?
+        if on_floor {
+            self.z = self.floorz;
+        } else {
+            if self.z + self.height > self.ceilingz {
+                self.z = self.ceilingz - self.height;
+            }
+        }
+
+        if self.ceilingz - self.floorz < self.height {
+            return false;
+        }
+
+        true
+    }
+
+    /// PIT_ChangeSector
+    pub fn pit_change_sector(&mut self) -> bool {
+        if self.height_clip() {
+            return true;
+        }
+
+        false
     }
 
     // TODO: P_ThingHeightClip, called by PIT_ChangeSector

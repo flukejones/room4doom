@@ -16,7 +16,6 @@ use crate::{
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
-    p_map::SubSectorMinMax,
     p_map_object::MapObject,
     player::Player,
 };
@@ -32,7 +31,6 @@ pub struct Level {
     pub bsp_renderer: BspRenderer,
     pub r_data: RenderData,
     pub visplanes: VisPlaneCtrl,
-    pub mobj_ctrl: SubSectorMinMax,
     pub thinkers: ThinkerAlloc,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
@@ -96,7 +94,6 @@ impl Level {
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
-            mobj_ctrl: SubSectorMinMax::default(),
             thinkers: ThinkerAlloc::new(thinker_count + 500),
             game_skill: skill,
             respawn_monsters,
@@ -136,12 +133,12 @@ impl Level {
         // TODO: P_InitThinkers();
     }
 
-    pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
-        // TODO: do cleaning pass if can't insert
-        let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
-        // Absolutely fucking with lifetimes here
-        unsafe { (*thinkers).push::<T>(thinker) }
-    }
+    // pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+    //     // TODO: do cleaning pass if can't insert
+    //     let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
+    //     // Absolutely fucking with lifetimes here
+    //     unsafe { (*thinkers).push::<T>(thinker) }
+    // }
 
     pub fn do_exit_level(&mut self) {
         debug!("Exited level");
@@ -180,11 +177,11 @@ pub fn p_ticker(game: &mut Game) {
 
         // this block is P_RunThinkers()
         // TODO: maybe use direct linked list iter here so we can remove while iterating
-        let l = unsafe { &mut *(level as *mut Level) };
+        let lev = unsafe { &mut *(level as *mut Level) };
         let mut rm = Vec::with_capacity(level.thinkers.len());
         for thinker in level.thinkers.iter_mut() {
             if thinker.has_action() {
-                thinker.think(l);
+                thinker.think(lev);
             }
             if thinker.remove() {
                 rm.push(thinker.index());

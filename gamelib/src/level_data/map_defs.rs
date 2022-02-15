@@ -44,7 +44,7 @@ pub struct Sector {
     pub validcount: i32,
 
     // list of mobjs in sector
-    // TODO: mobj_t*	thinglist;
+    pub thinglist: *mut MapObject,
 
     // thinker_t for reversable actions
     pub specialdata: Option<NonNull<Thinker>>,

@@ -94,7 +94,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
             ActionF::Action1(CeilingMove::think),
         );
 
-        if let Some(mut ptr) = level.add_thinker::<CeilingMove>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<CeilingMove>(thinker) {
             unsafe {
                 ptr.as_mut()
                     .obj_mut()
