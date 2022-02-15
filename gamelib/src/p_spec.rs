@@ -7,6 +7,7 @@ use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
 use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
+use crate::p_ceiling::ev_do_ceiling;
 use crate::p_doors::ev_do_door;
 use crate::p_floor::ev_do_floor;
 use crate::p_map_object::MapObject;
@@ -141,7 +142,7 @@ pub struct FloorMove {
 }
 
 // P_CEILNG
-//
+#[derive(Debug, Clone, Copy)]
 pub enum CeilingKind {
     lowerToFloor,
     raiseToHighest,
@@ -162,7 +163,7 @@ pub struct CeilingMove {
     // 1 = up, 0 = waiting, -1 = down
     pub direction: i32,
     // ID
-    pub tag: i32,
+    pub tag: i16,
     pub olddirection: i32,
 }
 
@@ -220,7 +221,7 @@ fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sec
     Some(line.frontsector.clone())
 }
 
-/// P_FindLowestFloorSurrounding
+/// P_FindLowestCeilingSurrounding
 pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
     let mut height = f32::MAX;
     for line in &sec.lines {
@@ -231,6 +232,20 @@ pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
         }
     }
     debug!("find_lowest_ceiling_surrounding: {height}");
+    height
+}
+
+/// P_FindHighestCeilingSurrounding
+pub fn find_highest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
+    let mut height = f32::MAX;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.ceilingheight > height {
+                height = other.ceilingheight;
+            }
+        }
+    }
+    debug!("find_highest_ceiling_surrounding: {height}");
     height
 }
 
@@ -348,22 +363,228 @@ pub fn cross_special_line(
             ev_do_door(line.clone(), DoorKind::vld_normal, level);
             line.special = 0;
         }
+        16 => {
+            debug!("line-special: vld_close30ThenOpen door!");
+            ev_do_door(line.clone(), DoorKind::vld_close30ThenOpen, level);
+            line.special = 0;
+        }
+        108 => {
+            debug!("line-special: vld_blazeRaise door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeRaise, level);
+            line.special = 0;
+        }
         109 => {
             debug!("line-special: vld_blazeOpen door!");
             ev_do_door(line.clone(), DoorKind::vld_blazeOpen, level);
             line.special = 0;
         }
+        110 => {
+            debug!("line-special: vld_blazeClose door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeClose, level);
+            line.special = 0;
+        }
+        75 => {
+            debug!("line-special: vld_close door!");
+            ev_do_door(line.clone(), DoorKind::vld_close, level);
+        }
+        76 => {
+            debug!("line-special: vld_close30ThenOpen door!");
+            ev_do_door(line.clone(), DoorKind::vld_close30ThenOpen, level);
+        }
+        86 => {
+            debug!("line-special: vld_open door!");
+            ev_do_door(line.clone(), DoorKind::vld_open, level);
+        }
+        90 => {
+            debug!("line-special: vld_normal door!");
+            ev_do_door(line.clone(), DoorKind::vld_normal, level);
+        }
+        105 => {
+            debug!("line-special: vld_blazeRaise door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeRaise, level);
+        }
+        106 => {
+            debug!("line-special: vld_blazeOpen door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeOpen, level);
+        }
+        107 => {
+            debug!("line-special: vld_blazeClose door!");
+            ev_do_door(line.clone(), DoorKind::vld_blazeClose, level);
+        }
+
+        10 => {
+            debug!("line-special: downWaitUpStay platform!");
+            ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
+            line.special = 0;
+        }
+        22 => {
+            debug!("line-special: raiseToNearestAndChange platform!");
+            ev_do_platform(line.clone(), PlatKind::raiseToNearestAndChange, 0, level);
+            line.special = 0;
+        }
+        53 => {
+            debug!("line-special: perpetualRaise platform!");
+            ev_do_platform(line.clone(), PlatKind::perpetualRaise, 0, level);
+            line.special = 0;
+        }
+        121 => {
+            debug!("line-special: blazeDWUS platform!");
+            ev_do_platform(line.clone(), PlatKind::blazeDWUS, 0, level);
+            line.special = 0;
+        }
+        87 => {
+            debug!("line-special: perpetualRaise platform!");
+            ev_do_platform(line.clone(), PlatKind::perpetualRaise, 0, level);
+        }
         88 => {
             debug!("line-special: downWaitUpStay platform!");
             ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
         }
+        95 => {
+            debug!("line-special: raiseToNearestAndChange platform!");
+            ev_do_platform(line.clone(), PlatKind::raiseToNearestAndChange, 0, level);
+        }
+        120 => {
+            debug!("line-special: blazeDWUS platform!");
+            ev_do_platform(line.clone(), PlatKind::blazeDWUS, 0, level);
+        }
+        5 => {
+            debug!("line-special: raiseFloor floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseFloor, level);
+            line.special = 0;
+        }
+        19 => {
+            debug!("line-special: lowerFloor floor!");
+            ev_do_floor(line.clone(), FloorKind::lowerFloor, level);
+            line.special = 0;
+        }
+        30 => {
+            debug!("line-special: raiseToTexture floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseToTexture, level);
+            line.special = 0;
+        }
         36 => {
             debug!("line-special: downWaitUpStay floor!");
-            ev_do_floor(line, FloorKind::turboLower, level);
+            ev_do_floor(line.clone(), FloorKind::turboLower, level);
+            line.special = 0;
+        }
+        37 => {
+            debug!("line-special: lowerAndChange floor!");
+            ev_do_floor(line.clone(), FloorKind::lowerAndChange, level);
+            line.special = 0;
         }
         38 => {
             debug!("line-special: lowerFloorToLowest floor!");
+            ev_do_floor(line.clone(), FloorKind::lowerFloorToLowest, level);
+            line.special = 0;
+        }
+        56 => {
+            debug!("line-special: raiseFloorCrush floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseFloorCrush, level);
+            line.special = 0;
+        }
+        59 => {
+            debug!("line-special: raiseFloor24AndChange floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseFloor24AndChange, level);
+            line.special = 0;
+        }
+        119 => {
+            debug!("line-special: raiseFloorToNearest floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseFloorToNearest, level);
+            line.special = 0;
+        }
+        130 => {
+            debug!("line-special: raiseFloorTurbo floor!");
+            ev_do_floor(line.clone(), FloorKind::raiseFloorTurbo, level);
+            line.special = 0;
+        }
+        82 => {
+            debug!("line-special: raiseFloorTurbo floor!");
             ev_do_floor(line, FloorKind::lowerFloorToLowest, level);
+        }
+        83 => {
+            debug!("line-special: lowerFloor floor!");
+            ev_do_floor(line, FloorKind::lowerFloor, level);
+        }
+        84 => {
+            debug!("line-special: lowerAndChange floor!");
+            ev_do_floor(line, FloorKind::lowerAndChange, level);
+        }
+        91 => {
+            debug!("line-special: raiseFloor floor!");
+            ev_do_floor(line, FloorKind::raiseFloor, level);
+        }
+        92 => {
+            debug!("line-special: raiseFloor24 floor!");
+            ev_do_floor(line, FloorKind::raiseFloor24, level);
+        }
+        93 => {
+            debug!("line-special: raiseFloor24AndChange floor!");
+            ev_do_floor(line, FloorKind::raiseFloor24AndChange, level);
+        }
+        94 => {
+            debug!("line-special: raiseFloorCrush floor!");
+            ev_do_floor(line, FloorKind::raiseFloorCrush, level);
+        }
+        96 => {
+            debug!("line-special: raiseToTexture floor!");
+            ev_do_floor(line, FloorKind::raiseToTexture, level);
+        }
+        98 => {
+            debug!("line-special: turboLower floor!");
+            ev_do_floor(line, FloorKind::turboLower, level);
+        }
+        128 => {
+            debug!("line-special: raiseFloorToNearest floor!");
+            ev_do_floor(line, FloorKind::raiseFloorToNearest, level);
+        }
+        129 => {
+            debug!("line-special: raiseFloorTurbo floor!");
+            ev_do_floor(line, FloorKind::raiseFloorTurbo, level);
+        }
+        6 => {
+            debug!("line-special: fastCrushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::fastCrushAndRaise, level);
+            line.special = 0;
+        }
+        25 => {
+            debug!("line-special: crushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::crushAndRaise, level);
+            line.special = 0;
+        }
+        40 => {
+            debug!("line-special: raiseToHighest ceiling, floor!");
+            ev_do_ceiling(line.clone(), CeilingKind::raiseToHighest, level);
+            ev_do_floor(line.clone(), FloorKind::lowerFloorToLowest, level);
+            line.special = 0;
+        }
+        44 => {
+            debug!("line-special: lowerAndCrush ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::lowerAndCrush, level);
+            line.special = 0;
+        }
+        141 => {
+            debug!("line-special: silentCrushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::silentCrushAndRaise, level);
+            line.special = 0;
+        }
+        72 => {
+            debug!("line-special: silentCrushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::lowerAndCrush, level);
+        }
+        73 => {
+            debug!("line-special: crushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::crushAndRaise, level);
+        }
+        77 => {
+            debug!("line-special: fastCrushAndRaise ceiling!");
+            ev_do_ceiling(line.clone(), CeilingKind::fastCrushAndRaise, level);
+        }
+        52 => {
+            level.do_exit_level();
+        }
+        124 => {
+            level.do_secret_exit_level();
         }
         _ => {
             warn!("Invalid or unimplemented line special: {}", line.special);

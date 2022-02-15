@@ -7,8 +7,8 @@ use crate::{
     p_floor::move_plane,
     p_map_object::MapObject,
     p_spec::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding,
-        PlatKind, PlatStatus, Platform, ResultE,
+        find_highest_floor_surrounding, find_lowest_floor_surrounding, PlatKind, PlatStatus,
+        Platform, ResultE,
     },
     DPtr,
 };
@@ -18,12 +18,7 @@ use crate::{
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
-pub fn ev_do_platform(
-    line: DPtr<LineDef>,
-    kind: PlatKind,
-    amount: i32,
-    level: &mut Level,
-) -> bool {
+pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
     let mut ret = false;
 
     if matches!(kind, PlatKind::perpetualRaise) {
@@ -166,7 +161,8 @@ impl Think for Platform {
                 if matches!(
                     platform.kind,
                     PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange
-                ) && level.level_time & 7 == 0 {
+                ) && level.level_time & 7 == 0
+                {
                     // TODO: if (!(leveltime&7))
                     //  S_StartSound(&plat->sector->soundorg, sfx_stnmov);
                 }
