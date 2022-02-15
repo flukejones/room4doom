@@ -17,6 +17,7 @@ pub mod game;
 pub mod info;
 pub mod input;
 pub mod level_data;
+pub mod p_ceiling;
 pub mod p_doors;
 pub mod p_enemy;
 pub mod p_floor;

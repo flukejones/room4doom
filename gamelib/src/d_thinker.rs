@@ -7,7 +7,7 @@ use std::ptr::{self, null_mut, NonNull};
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
 use crate::p_player_sprite::PspDef;
-use crate::p_spec::{FloorMove, Platform, VerticalDoor};
+use crate::p_spec::{CeilingMove, FloorMove, Platform, VerticalDoor};
 use crate::player::Player;
 
 #[derive(PartialEq, PartialOrd)]
@@ -302,6 +302,7 @@ pub enum ThinkerType {
     Mobj(MapObject),
     VDoor(VerticalDoor),
     FloorMove(FloorMove),
+    CeilingMove(CeilingMove),
     Platform(Platform),
 }
 

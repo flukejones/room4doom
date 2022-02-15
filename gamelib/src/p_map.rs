@@ -44,7 +44,7 @@ impl MapObject {
 
         level.mobj_ctrl.spec_hits.clear();
         level.mobj_ctrl.floatok = true;
-        if !self.p_check_position( try_move, level) {
+        if !self.p_check_position(try_move, level) {
             return false;
         }
 

@@ -3,13 +3,16 @@ use log::{debug, warn};
 use crate::{
     flags::LineDefFlags,
     level_data::{level::Level, map_defs::LineDef},
+    p_ceiling::ev_do_ceiling,
     p_doors::{ev_do_door, ev_vertical_door},
     p_floor::ev_do_floor,
     p_map_object::MapObject,
     p_plats::ev_do_platform,
-    p_spec::{DoorKind, FloorKind, PlatKind},
+    p_spec::{CeilingKind, DoorKind, FloorKind, PlatKind},
     DPtr,
 };
+
+// P_ChangeSwitchTexture(line, 0);, 0 = switch, 1 = button
 
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
@@ -68,6 +71,10 @@ pub fn p_use_special_line(
         11 => {
             // TODO: P_ChangeSwitchTexture(line, 0);
             level.do_exit_level();
+        }
+        51 => {
+            // TODO: P_ChangeSwitchTexture(line, 0);
+            level.do_secret_exit_level();
         }
         29 => {
             debug!("line-switch: vld_normal door!");
@@ -288,6 +295,24 @@ pub fn p_use_special_line(
         132 => {
             debug!("line-switch: raiseFloorTurbo floor!");
             if ev_do_floor(line, FloorKind::raiseFloorTurbo, level){
+                // TODO: P_ChangeSwitchTexture(line, 1);
+            }
+        }
+        41 => {
+            debug!("line-switch: lowerToFloor ceiling!");
+            if ev_do_ceiling(line, CeilingKind::lowerToFloor, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        49 => {
+            debug!("line-switch: crushAndRaise ceiling!");
+            if ev_do_ceiling(line, CeilingKind::crushAndRaise, level){
+                // TODO: P_ChangeSwitchTexture(line, 0);
+            }
+        }
+        43 => {
+            debug!("line-switch: lowerToFloor ceiling!");
+            if ev_do_ceiling(line, CeilingKind::lowerToFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }

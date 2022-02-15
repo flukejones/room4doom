@@ -148,6 +148,12 @@ impl Level {
         self.secret_exit = false;
         self.game_action = Some(GameAction::ga_completed);
     }
+
+    pub fn do_secret_exit_level(&mut self) {
+        debug!("Secret exited level");
+        self.secret_exit = true;
+        self.game_action = Some(GameAction::ga_completed);
+    }
 }
 
 /// P_Ticker
