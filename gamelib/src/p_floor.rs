@@ -159,7 +159,7 @@ pub fn move_plane(
 }
 
 /// EV_DoFloor
-pub fn ev_do_floor(mut line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> bool {
+pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> bool {
     let mut ret = false;
 
     for sector in level
@@ -263,7 +263,7 @@ pub fn ev_do_floor(mut line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) 
             ActionF::Action1(FloorMove::think),
         );
 
-        if let Some(mut ptr) = level.add_thinker::<FloorMove>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
             unsafe {
                 ptr.as_mut()
                     .obj_mut()
@@ -279,7 +279,7 @@ pub fn ev_do_floor(mut line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) 
 }
 
 impl Think for FloorMove {
-    fn think(object: &mut ThinkerType, level: &mut crate::level_data::level::Level) -> bool {
+    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let floor = object.bad_mut::<FloorMove>();
         let res = move_plane(
             floor.sector.clone(),
@@ -313,7 +313,7 @@ impl Think for FloorMove {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
         self.thinker = ptr;
     }
 

@@ -126,7 +126,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
             ActionF::Action1(Platform::think),
         );
 
-        if let Some(mut ptr) = level.add_thinker::<Platform>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<Platform>(thinker) {
             unsafe {
                 ptr.as_mut()
                     .obj_mut()

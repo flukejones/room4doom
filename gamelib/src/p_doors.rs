@@ -211,7 +211,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
             ActionF::Action1(VerticalDoor::think),
         );
 
-        if let Some(mut ptr) = level.add_thinker::<VerticalDoor>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
             unsafe {
                 ptr.as_mut()
                     .obj_mut()
@@ -226,7 +226,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
     ret
 }
 
-pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &Level) {
+pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut Level) {
     if let Some(player) = thing.player {
         let player = unsafe { player.as_ref() };
         match line.special {
@@ -342,7 +342,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &Leve
         ActionF::Action1(VerticalDoor::think),
     );
 
-    if let Some(mut ptr) = level.add_thinker::<VerticalDoor>(thinker) {
+    if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
         unsafe {
             ptr.as_mut()
                 .obj_mut()

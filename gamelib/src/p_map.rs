@@ -10,7 +10,9 @@ use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, Sector, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
 use crate::p_map_object::{MapObject, MapObjectFlag};
-use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
+use crate::p_map_util::{
+    box_on_line_side, path_traverse, set_thing_position, unset_thing_position, PortalZ,
+};
 use crate::p_spec::cross_special_line;
 use crate::p_switch::p_use_special_line;
 use crate::DPtr;
@@ -38,20 +40,19 @@ impl MapObject {
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
     pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32, level: &mut Level) -> bool {
         // P_CrossSpecialLine
-        level.mobj_ctrl.floatok = false;
+        let mut ctrl = SubSectorMinMax::default();
+        ctrl.floatok = false;
 
         let try_move = Vec2::new(ptryx, ptryy);
 
-        level.mobj_ctrl.spec_hits.clear();
-        level.mobj_ctrl.floatok = true;
-        if !self.p_check_position(try_move, level) {
+        ctrl.floatok = true;
+        if !self.p_check_position(try_move, &mut ctrl, level) {
             return false;
         }
 
         // Just willy-nilly breaking lifetimes
         let lev = unsafe { &mut *(level as *mut Level) };
 
-        let ctrl = &mut level.mobj_ctrl;
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
@@ -79,7 +80,9 @@ impl MapObject {
 
         // the move is ok,
         // so link the thing into its new position
-        // P_UnsetThingPosition (thing);
+        unsafe {
+            unset_thing_position(self);
+        }
 
         let old_xy = self.xy;
 
@@ -87,7 +90,9 @@ impl MapObject {
         self.ceilingz = ctrl.max_ceil_z;
         self.xy = try_move;
 
-        // P_SetThingPosition (thing);
+        unsafe {
+            set_thing_position(self, level);
+        }
 
         if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) == 0 {
             for ld in &ctrl.spec_hits {
@@ -130,7 +135,12 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    fn p_check_position(&mut self, endpoint: Vec2, level: &mut Level) -> bool {
+    fn p_check_position(
+        &mut self,
+        endpoint: Vec2,
+        ctrl: &mut SubSectorMinMax,
+        level: &mut Level,
+    ) -> bool {
         let left = endpoint.x() - self.radius;
         let right = endpoint.x() + self.radius;
         let top = endpoint.y() + self.radius;
@@ -142,13 +152,14 @@ impl MapObject {
             right,
         };
 
-        let ctrl = &mut level.mobj_ctrl;
         let newsubsec = level.map_data.point_in_subsector(endpoint);
         // The base floor / ceiling is from the subsector
         // that contains the point.
-        ctrl.min_floor_z = newsubsec.sector.floorheight;
-        ctrl.max_dropoff = newsubsec.sector.floorheight;
-        ctrl.max_ceil_z = newsubsec.sector.ceilingheight;
+        unsafe {
+            ctrl.min_floor_z = (*newsubsec).sector.floorheight;
+            ctrl.max_dropoff = (*newsubsec).sector.floorheight;
+            ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
+        }
 
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
             return true;
@@ -590,6 +601,22 @@ pub fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
     let mut no_fit = false;
 
     // TODO: re-check heights for all things near the moving sector
+    // TODO: iterate over sector thinglist
+
+    if !sector.thinglist.is_null() {
+        let mut thing = sector.thinglist;
+        while !thing.is_null() {
+            unsafe {
+                debug!("Thing type {:?} is in affected sector", (*thing).kind);
+                (*thing).pit_change_sector();
+
+                if (*thing).s_next.is_null() || (*thing).s_next == thing {
+                    break;
+                }
+                thing = (*thing).s_next;
+            }
+        }
+    }
 
     no_fit
 }
