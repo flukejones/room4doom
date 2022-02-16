@@ -168,43 +168,6 @@ pub fn unit_vec_from(rotation: f32) -> Vec2 {
     Vec2::new(x, y)
 }
 
-/// P_UnsetThingPosition, unlink the thing from the sector
-///
-/// Thing must have had a SubSector set on creation.
-pub unsafe fn unset_thing_position(thing: &mut MapObject) {
-    if thing.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
-        if !thing.s_next.is_null() {
-            (*thing.s_next).s_prev = thing.s_prev; // could also be null
-        }
-        if !thing.s_prev.is_null() {
-            (*thing.s_prev).s_next = thing.s_prev;
-        } else {
-            (*thing.subsector).sector.thinglist = thing.s_next;
-        }
-    }
-}
-
-/// P_SetThingPosition, unlink the thing from the sector
-///
-/// Thing must have had a SubSector set on creation.
-pub unsafe fn set_thing_position(thing: &mut MapObject, level: &mut Level) {
-    let subsector = level.map_data.point_in_subsector(thing.xy);
-    thing.subsector = subsector;
-
-    if thing.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
-        let mut sector = (*thing.subsector).sector.clone();
-
-        thing.s_prev = null_mut();
-        thing.s_next = sector.thinglist; // could be null
-
-        if !sector.thinglist.is_null() {
-            (*sector.thinglist).s_prev = thing;
-        }
-
-        sector.thinglist = thing;
-    }
-}
-
 pub fn path_traverse(
     origin: Vec2,
     endpoint: Vec2,
