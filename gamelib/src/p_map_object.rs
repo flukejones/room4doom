@@ -1,8 +1,9 @@
-use std::ptr::NonNull;
+use std::ptr::{null_mut, NonNull};
 
 use crate::d_thinker::ThinkerType;
 use crate::level_data::level::Level;
-use crate::p_local::BestSlide;
+use crate::p_local::{p_subrandom, BestSlide};
+use crate::p_map::SubSectorMinMax;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
@@ -35,7 +36,7 @@ pub static MAXMOVE: f32 = 30.0;
 pub static STOPSPEED: f32 = 0.0625; // 0x1000
 pub static FRICTION: f32 = 0.90625; // 0xE800
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
@@ -130,13 +131,6 @@ pub struct MapObject {
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
-    // More list: links in sector (if needed)
-    // struct mobj_s*	snext;
-    // struct mobj_s*	sprev;
-    // Interaction info, by BLOCKMAP.
-    // Links in blocks (if needed).
-    // struct mobj_s*	bnext;
-    // struct mobj_s*	bprev;
     // More drawing info: to determine current sprite.
     /// orientation
     pub angle: Angle,
@@ -144,7 +138,12 @@ pub struct MapObject {
     sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame: i32,
-    subsector: DPtr<SubSector>,
+    /// Link to the next object in this sector
+    pub s_next: *mut MapObject,
+    /// Link to the previous object in this sector
+    pub s_prev: *mut MapObject,
+    /// The subsector this object is currently in
+    pub subsector: *mut SubSector,
     /// The closest interval over all contacted Sectors.
     pub floorz: f32,
     pub ceilingz: f32,
@@ -192,16 +191,65 @@ pub struct MapObject {
     spawn_point: Option<WadThing>,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
+    /// Every map object needs a link to the level structure to read various level
+    /// elements and possibly change some (sector links for example).
+    pub level: *mut Level,
 }
 
 impl MapObject {
+    fn new(
+        x: f32,
+        y: f32,
+        z: i32,
+        reactiontime: i32,
+        kind: MapObjectType,
+        info: MapObjectInfo,
+        state: State,
+        level: *mut Level,
+    ) -> Self {
+        Self {
+            thinker: NonNull::dangling(), // TODO: change after thinker container added
+            player: None,
+            xy: Vec2::new(x, y),
+            z: z as f32,
+            angle: Angle::new(0.0),
+            sprite: state.sprite,
+            frame: state.frame,
+            floorz: 0.0,
+            ceilingz: 0.0,
+            radius: info.radius,
+            height: info.height,
+            momxy: Vec2::default(),
+            momz: 0.0,
+            validcount: 0,
+            flags: info.flags,
+            health: info.spawnhealth,
+            tics: state.tics,
+            movedir: 0,
+            movecount: 0,
+            best_slide: BestSlide::default(),
+            reactiontime,
+            threshold: 0,
+            lastlook: p_random() % MAXPLAYERS as i32,
+            spawn_point: None,
+            target: None,
+            s_next: null_mut(),
+            s_prev: null_mut(),
+            subsector: null_mut(),
+            state,
+            info,
+            kind,
+            level,
+        }
+    }
+
     /// P_ExplodeMissile
     pub fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
         self.z = 0.0;
-        self.p_set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
+        self.set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
 
-        self.tics -= (p_random() & 3) as i32;
+        self.tics -= p_random() & 3;
 
         if self.tics < 1 {
             self.tics = 1;
@@ -215,7 +263,7 @@ impl MapObject {
     }
 
     /// P_ZMovement
-    fn p_z_movement(&mut self, _level: &mut Level) {
+    fn p_z_movement(&mut self) {
         if self.player.is_some() && self.z < self.floorz {
             let player = self.player.as_mut().unwrap();
             unsafe {
@@ -280,13 +328,13 @@ impl MapObject {
     }
 
     /// P_XYMovement
-    fn p_xy_movement(&mut self, level: &mut Level) {
+    fn p_xy_movement(&mut self) {
         if self.momxy.x() == f32::EPSILON && self.momxy.y() == f32::EPSILON {
             if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
                 self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
                 self.momxy = Vec2::default();
                 self.z = 0.0;
-                self.p_set_mobj_state(self.info.spawnstate);
+                self.set_mobj_state(self.info.spawnstate);
             }
             return;
         }
@@ -332,9 +380,9 @@ impl MapObject {
                 ymove = 0.0;
             }
 
-            if !self.p_try_move(ptryx, ptryy, level) {
+            if !self.p_try_move(ptryx, ptryy) {
                 if self.player.is_some() {
-                    self.p_slide_move(level);
+                    self.p_slide_move();
                 } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
                     // TODO: explode
                 } else {
@@ -358,6 +406,8 @@ impl MapObject {
             return; // no friction when airborne
         }
 
+        let floorheight = unsafe { (*self.subsector).sector.floorheight };
+
         if self.flags & MapObjectFlag::MF_CORPSE as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
@@ -365,7 +415,7 @@ impl MapObject {
                 || self.momxy.x() < -FRACUNIT_DIV4
                 || self.momxy.y() > FRACUNIT_DIV4
                 || self.momxy.y() < -FRACUNIT_DIV4)
-                && (self.floorz - self.subsector.sector.floorheight).abs() > f32::EPSILON
+                && (self.floorz - floorheight).abs() > f32::EPSILON
             {
                 return;
             }
@@ -385,7 +435,7 @@ impl MapObject {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
                     // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
-                    self.p_set_mobj_state(StateNum::S_PLAY);
+                    self.set_mobj_state(StateNum::S_PLAY);
                     // }
                     self.momxy = Vec2::default();
                 }
@@ -553,7 +603,7 @@ impl MapObject {
         let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
         let mobj = unsafe { mobj.as_mut() };
         if mobj.tics > 0 {
-            mobj.tics = 1 + ((p_random() as i32) % mobj.tics);
+            mobj.tics = 1 + (p_random() % mobj.tics);
         }
         if mobj.flags & MapObjectFlag::MF_COUNTKILL as u32 != 0 {
             level.totalkills += 1;
@@ -579,77 +629,47 @@ impl MapObject {
     fn spawn_map_object(
         x: f32,
         y: f32,
-        mut z: i32,
+        z: i32,
         kind: MapObjectType,
         level: &mut Level,
     ) -> NonNull<MapObject> {
-        // // memset(mobj, 0, sizeof(*mobj)); // zeroes out all fields
         let info = MOBJINFO[kind as usize];
 
-        // TODO: Nightmare reactiontimes?
         let reactiontime = if level.game_skill != Skill::Nightmare {
             info.reactiontime
         } else {
-            info.reactiontime
+            0
         };
 
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
         let state = get_state(info.spawnstate as usize);
 
-        // // set subsector and/or block links
-        let sub_sector: DPtr<SubSector> = level.map_data.point_in_subsector(Vec2::new(x, y));
-
-        let floorz = sub_sector.sector.floorheight as i32;
-        let ceilingz = sub_sector.sector.ceilingheight as i32;
-
-        if z == ONFLOORZ {
-            z = floorz;
-        } else if z == ONCEILINGZ {
-            z = ceilingz - info.height as i32;
-        }
-
-        let mobj = MapObject {
-            // The thinker should be non-zero and requires to be added to the linked list
-            thinker: NonNull::dangling(), // TODO: change after thinker container added
-            player: None,
-            xy: Vec2::new(x, y),
-            z: z as f32,
-            angle: Angle::new(0.0),
-            sprite: state.sprite,
-            frame: state.frame,
-            floorz: floorz as f32,
-            ceilingz: ceilingz as f32,
-            radius: info.radius,
-            height: info.height,
-            momxy: Vec2::default(),
-            momz: 0.0,
-            validcount: 0,
-            flags: info.flags,
-            health: info.spawnhealth,
-            tics: state.tics,
-            movedir: 0,
-            movecount: 0,
-            best_slide: BestSlide::default(),
-            reactiontime,
-            threshold: 0,
-            lastlook: (p_random() as i32) % MAXPLAYERS as i32,
-            spawn_point: None,
-            target: None,
-            subsector: sub_sector,
-            state,
-            info,
-            kind,
-        };
+        let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
         let thinker =
             MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
-        if let Some(mut ptr) = level.add_thinker::<MapObject>(thinker) {
+        if let Some(mut ptr) = level.thinkers.push::<MapObject>(thinker) {
             unsafe {
-                return NonNull::new(ptr.as_mut().obj_mut().bad_mut::<MapObject>())
-                    .expect("spawn_map_object ptr creation failed");
+                // set subsector and/or block links
+                let thing = ptr.as_mut().obj_mut().bad_mut::<MapObject>();
+                // Sets the subsector link and links in sector
+                thing.set_thing_position();
+                if !thing.subsector.is_null() {
+                    // Now that we have a subsector this is safe
+                    let floorz = (*thing.subsector).sector.floorheight;
+                    let ceilingz = (*thing.subsector).sector.ceilingheight;
+
+                    if z == ONFLOORZ {
+                        thing.z = floorz;
+                    } else if z == ONCEILINGZ {
+                        thing.z = ceilingz - info.height;
+                    }
+                }
+
+                return NonNull::new(thing).expect("spawn_map_object ptr creation failed");
             }
         }
 
@@ -660,7 +680,7 @@ impl MapObject {
     }
 
     /// P_SetMobjState
-    pub fn p_set_mobj_state(&mut self, mut state: StateNum) -> bool {
+    pub fn set_mobj_state(&mut self, mut state: StateNum) -> bool {
         let mut cycle_counter = 0;
 
         loop {
@@ -700,19 +720,155 @@ impl MapObject {
 
         true
     }
+
+    /// P_UnsetThingPosition, unlink the thing from the sector
+    ///
+    /// # Safety
+    /// Thing must have had a SubSector set on creation.
+    pub unsafe fn unset_thing_position(&mut self) {
+        if self.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
+            if !self.s_next.is_null() {
+                (*self.s_next).s_prev = self.s_prev; // could also be null
+            }
+            if !self.s_prev.is_null() {
+                (*self.s_prev).s_next = self.s_prev;
+            } else {
+                (*self.subsector).sector.thinglist = self.s_next;
+            }
+        }
+    }
+
+    /// P_SetThingPosition, unlink the thing from the sector
+    ///
+    /// # Safety
+    /// Thing must have had a SubSector set on creation.
+    pub unsafe fn set_thing_position(&mut self) {
+        let level = &mut *self.level;
+        let subsector = level.map_data.point_in_subsector(self.xy);
+        self.subsector = subsector;
+
+        if self.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
+            let mut sector = (*self.subsector).sector.clone();
+
+            self.s_prev = null_mut();
+            self.s_next = sector.thinglist; // could be null
+
+            if !sector.thinglist.is_null() {
+                (*sector.thinglist).s_prev = self;
+            }
+
+            sector.thinglist = self;
+        }
+    }
+
+    /// P_RemoveMobj
+    pub fn remove(&mut self) {
+        // TODO: nightmare respawns
+        /*
+        if ((mobj->flags & MF_SPECIAL) && !(mobj->flags & MF_DROPPED) &&
+            (mobj->type != MT_INV) && (mobj->type != MT_INS)) {
+            itemrespawnque[iquehead] = mobj->spawnpoint;
+            itemrespawntime[iquehead] = leveltime;
+            iquehead = (iquehead + 1) & (ITEMQUESIZE - 1);
+
+            // lose one off the end?
+            if (iquehead == iquetail)
+            iquetail = (iquetail + 1) & (ITEMQUESIZE - 1);
+        }
+        */
+        unsafe {
+            self.unset_thing_position();
+        }
+        // TODO: S_StopSound(mobj);
+        self.thinker_mut().set_action(ActionF::Remove);
+    }
+
+    /// P_ThingHeightClip
+    // Takes a valid thing and adjusts the thing->floorz, thing->ceilingz, and possibly thing->z.
+    // This is called for all nearby monsters whenever a sector changes height.
+    // If the thing doesn't fit, the z will be set to the lowest value and false will be returned.
+    fn height_clip(&mut self) -> bool {
+        let on_floor = self.z == self.floorz;
+
+        let mut ctrl = SubSectorMinMax::default();
+        self.p_check_position(self.xy, &mut ctrl);
+        self.floorz = ctrl.min_floor_z;
+        self.ceilingz = ctrl.max_ceil_z;
+
+        if on_floor {
+            self.z = self.floorz;
+        } else {
+            if self.z + self.height > self.ceilingz {
+                self.z = self.ceilingz - self.height;
+            }
+        }
+
+        if self.ceilingz - self.floorz < self.height {
+            return false;
+        }
+
+        true
+    }
+
+    /// PIT_ChangeSector
+    ///
+    /// Returns true to indicate checking should continue
+    pub fn pit_change_sector(&mut self, no_fit: &mut bool, crush_change: bool) -> bool {
+        if self.height_clip() {
+            return true;
+        }
+
+        if self.health <= 0 {
+            self.set_mobj_state(StateNum::S_GIBS);
+
+            // TODO: if (gameversion > exe_doom_1_2)
+            //  thing->flags &= ~MF_SOLID;
+
+            self.height = 0.0;
+            self.radius = 0.0;
+            return true;
+        }
+
+        // crunch dropped items
+        if self.flags & MapObjectFlag::MF_DROPPED as u32 != 0 {
+            self.remove();
+            return true;
+        }
+
+        if self.flags & MapObjectFlag::MF_SHOOTABLE as u32 == 0 {
+            // assume it is bloody gibs or something
+            return true;
+        }
+
+        *no_fit = true;
+
+        let level_time = unsafe { (*self.level).level_time };
+
+        if crush_change && level_time & 3 != 0 {
+            // TODO: P_DamageMobj(thing, NULL, NULL, 10);
+            let mut mobj = MapObject::spawn_map_object(
+                self.xy.x(),
+                self.xy.y(),
+                (self.z + self.height) as i32 / 2,
+                MapObjectType::MT_BLOOD,
+                unsafe { &mut *self.level },
+            );
+            unsafe {
+                mobj.as_mut().momxy.set_x(p_subrandom() as f32 * 0.00976562); // P_SubRandom() << 12;
+                mobj.as_mut().momxy.set_y(p_subrandom() as f32 * 0.00976562);
+            }
+        }
+
+        true
+    }
 }
 
 impl Think for MapObject {
-    // TODO: P_MobjThinker
     fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let this = object.bad_mut::<MapObject>();
-        // This is the P_MobjThinker commented out
-        // momentum movement
-        // if (mobj->momx || mobj->momy || (mobj->flags & MF_SKULLFLY))
-        // {
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
         {
-            this.p_xy_movement(level);
+            this.p_xy_movement();
         }
 
         // if self.was_removed() {
@@ -720,7 +876,7 @@ impl Think for MapObject {
         // }
 
         if (this.z.floor() - this.floorz.floor()).abs() > f32::EPSILON || this.momz != 0.0 {
-            this.p_z_movement(level);
+            this.p_z_movement();
         }
 
         // cycle through states,
@@ -729,7 +885,7 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics > 0 && !this.p_set_mobj_state(this.state.next_state) {
+            if this.tics > 0 && !this.set_mobj_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {
@@ -756,15 +912,11 @@ impl Think for MapObject {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
         self.thinker = ptr;
     }
 
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { self.thinker.as_ref() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { self.thinker.as_mut() }
+    fn thinker(&self) -> NonNull<Thinker> {
+        self.thinker
     }
 }

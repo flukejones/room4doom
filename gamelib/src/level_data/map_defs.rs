@@ -44,7 +44,7 @@ pub struct Sector {
     pub validcount: i32,
 
     // list of mobjs in sector
-    // TODO: mobj_t*	thinglist;
+    pub thinglist: *mut MapObject,
 
     // thinker_t for reversable actions
     pub specialdata: Option<NonNull<Thinker>>,
@@ -136,7 +136,7 @@ pub struct LineDef {
     pub backsector: Option<DPtr<Sector>>,
 
     // if == validcount, already checked
-    pub validcount: i32,
+    pub valid_count: usize,
     // thinker_t for reversable actions
     // TODO: void*	specialdata: Option<DPtr<Thinker>>,
 }

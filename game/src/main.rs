@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let options = GameOptions::parse_args_default_or_exit();
 
     let mut window = video_ctx
-        .window("DIIRDOOM", options.width, options.height)
+        .window("ROOM (Rusty DOOM)", options.width, options.height)
         .position_centered()
         .opengl()
         .hidden()

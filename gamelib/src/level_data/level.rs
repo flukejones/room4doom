@@ -4,6 +4,7 @@ use log::debug;
 use wad::{lumps::WadThing, WadData};
 
 use crate::d_thinker::ThinkerAlloc;
+use crate::doom_def::GameAction;
 use crate::level_data::map_data::MapData;
 use crate::renderer::bsp::BspRenderer;
 use crate::renderer::plane::VisPlaneCtrl;
@@ -15,7 +16,6 @@ use crate::{
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
-    p_map::SubSectorMinMax,
     p_map_object::MapObject,
     player::Player,
 };
@@ -31,7 +31,6 @@ pub struct Level {
     pub bsp_renderer: BspRenderer,
     pub r_data: RenderData,
     pub visplanes: VisPlaneCtrl,
-    pub mobj_ctrl: SubSectorMinMax,
     pub thinkers: ThinkerAlloc,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
@@ -55,6 +54,12 @@ pub struct Level {
     pub totalitems: i32,
     /// for intermission
     pub totalsecret: i32,
+    /// To change the game state via switches in the level
+    pub game_action: Option<GameAction>,
+    /// Record how the level was exited
+    pub secret_exit: bool,
+    /// Marker count for lines checked
+    pub valid_count: usize,
 }
 impl Level {
     /// P_SetupLevel
@@ -64,8 +69,6 @@ impl Level {
         episode: u32,
         map: u32,
         game_mode: GameMode,
-        players: &mut [Player],
-        active_players: &[bool; MAXPLAYERS],
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -84,12 +87,11 @@ impl Level {
 
         let thinker_count = map_data.get_things().len();
 
-        let mut level = Level {
+        let level = Level {
             map_data,
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
-            mobj_ctrl: SubSectorMinMax::default(),
             thinkers: ThinkerAlloc::new(thinker_count + 500),
             game_skill: skill,
             respawn_monsters,
@@ -105,19 +107,10 @@ impl Level {
             totalkills: 0,
             totalitems: 0,
             totalsecret: 0,
+            game_action: None,
+            secret_exit: false,
+            valid_count: 0,
         };
-
-        let thing_list = (*level.map_data.get_things()).to_owned();
-
-        for thing in &thing_list {
-            MapObject::p_spawn_map_thing(thing, &mut level, players, active_players);
-        }
-
-        debug!("Level: thinkers = {}", &level.thinkers.len());
-        debug!("Level: skill = {:?}", &level.game_skill);
-        debug!("Level: episode = {}", &level.episode);
-        debug!("Level: map = {}", &level.game_map);
-        debug!("Level: player_starts = {:?}", &level.player_starts);
 
         // G_DoReborn
         // G_CheckSpot
@@ -126,11 +119,23 @@ impl Level {
         // TODO: P_InitThinkers();
     }
 
-    pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
-        // TODO: do cleaning pass if can't insert
-        let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
-        // Absolutely fucking with lifetimes here
-        unsafe { (*thinkers).push::<T>(thinker) }
+    // pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+    //     // TODO: do cleaning pass if can't insert
+    //     let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
+    //     // Absolutely fucking with lifetimes here
+    //     unsafe { (*thinkers).push::<T>(thinker) }
+    // }
+
+    pub fn do_exit_level(&mut self) {
+        debug!("Exited level");
+        self.secret_exit = false;
+        self.game_action = Some(GameAction::ga_completed);
+    }
+
+    pub fn do_secret_exit_level(&mut self) {
+        debug!("Secret exited level");
+        self.secret_exit = true;
+        self.game_action = Some(GameAction::ga_completed);
     }
 }
 
@@ -158,12 +163,13 @@ pub fn p_ticker(game: &mut Game) {
 
         // this block is P_RunThinkers()
         // TODO: maybe use direct linked list iter here so we can remove while iterating
-        let l = unsafe { &mut *(level as *mut Level) };
+        let lev = unsafe { &mut *(level as *mut Level) };
         let mut rm = Vec::with_capacity(level.thinkers.len());
         for thinker in level.thinkers.iter_mut() {
             if thinker.has_action() {
-                thinker.think(l);
-            } else {
+                thinker.think(lev);
+            }
+            if thinker.remove() {
                 rm.push(thinker.index());
             }
         }

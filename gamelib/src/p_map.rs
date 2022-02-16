@@ -5,18 +5,18 @@ use log::debug;
 
 use crate::angle::Angle;
 use crate::flags::LineDefFlags;
-use crate::level_data::level::Level;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, Sector, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
 use crate::p_map_object::{MapObject, MapObjectFlag};
 use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
+use crate::p_spec::cross_special_line;
 use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
-const MAXSPECIALCROSS: i32 = 8;
-const PT_ADDLINES: i32 = 1;
-const PT_ADDTHINGS: i32 = 2;
+//const MAXSPECIALCROSS: i32 = 8;
+pub const PT_ADDLINES: i32 = 1;
+//const PT_ADDTHINGS: i32 = 2;
 pub const PT_EARLYOUT: i32 = 4;
 
 /// The pupose of this struct is to record the highest and lowest points in a
@@ -27,27 +27,25 @@ pub struct SubSectorMinMax {
     /// If "floatok" true, move would be ok
     /// if within "tmfloorz - tmceilingz".
     floatok: bool,
-    min_floor_z: f32,
-    max_ceil_z: f32,
+    pub min_floor_z: f32,
+    pub max_ceil_z: f32,
     max_dropoff: f32,
     spec_hits: Vec<DPtr<LineDef>>,
 }
 
 impl MapObject {
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32, level: &mut Level) -> bool {
+    pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
         // P_CrossSpecialLine
-        level.mobj_ctrl.floatok = false;
+        let mut ctrl = SubSectorMinMax::default();
 
         let try_move = Vec2::new(ptryx, ptryy);
 
-        level.mobj_ctrl.spec_hits.clear();
-        level.mobj_ctrl.floatok = true;
-        if !self.p_check_position(self.xy, try_move, level) {
+        ctrl.floatok = true;
+        if !self.p_check_position(try_move, &mut ctrl) {
             return false;
         }
 
-        let ctrl = &mut level.mobj_ctrl;
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
@@ -75,7 +73,9 @@ impl MapObject {
 
         // the move is ok,
         // so link the thing into its new position
-        // P_UnsetThingPosition (thing);
+        unsafe {
+            self.unset_thing_position();
+        }
 
         let old_xy = self.xy;
 
@@ -83,15 +83,17 @@ impl MapObject {
         self.ceilingz = ctrl.max_ceil_z;
         self.xy = try_move;
 
-        // P_SetThingPosition (thing);
+        unsafe {
+            self.set_thing_position();
+        }
 
-        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) != 0 {
+        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(&self.xy);
                 let old_side = ld.point_on_side(&old_xy);
                 if side != old_side && ld.special != 0 {
-                    // TODO: P_CrossSpecialLine(ld - lines, oldside, thing);
+                    cross_special_line(old_side, ld.clone(), self)
                 }
             }
         }
@@ -126,7 +128,7 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    fn p_check_position(&mut self, origin: Vec2, endpoint: Vec2, level: &mut Level) -> bool {
+    pub fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
         let left = endpoint.x() - self.radius;
         let right = endpoint.x() + self.radius;
         let top = endpoint.y() + self.radius;
@@ -138,13 +140,15 @@ impl MapObject {
             right,
         };
 
-        let ctrl = &mut level.mobj_ctrl;
+        let level = unsafe { &mut *self.level };
         let newsubsec = level.map_data.point_in_subsector(endpoint);
         // The base floor / ceiling is from the subsector
         // that contains the point.
-        ctrl.min_floor_z = newsubsec.sector.floorheight;
-        ctrl.max_dropoff = newsubsec.sector.floorheight;
-        ctrl.max_ceil_z = newsubsec.sector.ceilingheight;
+        unsafe {
+            ctrl.min_floor_z = (*newsubsec).sector.floorheight;
+            ctrl.max_dropoff = (*newsubsec).sector.floorheight;
+            ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
+        }
 
         if self.flags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
             return true;
@@ -203,11 +207,6 @@ impl MapObject {
                 }
             }
         }
-        // for seg in level.map_data.get_linedefs().iter() {
-        //         if !self.pit_check_line(&tmbbox, ctrl, &seg) {
-        //             return false;
-        //         }
-        //     }
 
         true
     }
@@ -274,7 +273,16 @@ impl MapObject {
         }
 
         if ld.special != 0 {
-            ctrl.spec_hits.push(DPtr::new(ld));
+            for l in ctrl.spec_hits.iter() {
+                let ptr = DPtr::new(ld);
+                if l.p as usize != ptr.p as usize {
+                    ctrl.spec_hits.push(ptr);
+                    break;
+                }
+            }
+            if ctrl.spec_hits.is_empty() {
+                ctrl.spec_hits.push(DPtr::new(ld));
+            }
         }
 
         true
@@ -282,7 +290,7 @@ impl MapObject {
 
     // P_SlideMove
     // Loop until get a good move or stopped
-    pub fn p_slide_move(&mut self, level: &mut Level) {
+    pub fn p_slide_move(&mut self) {
         // let ctrl = &mut level.mobj_ctrl;
         let mut hitcount = 0;
         self.best_slide = BestSlide::new();
@@ -308,9 +316,10 @@ impl MapObject {
             traily = self.xy.y() + self.radius;
         }
 
+        let level = unsafe { &mut *self.level };
         loop {
             if hitcount == 3 {
-                self.stair_step(level);
+                self.stair_step();
                 return;
             }
 
@@ -351,6 +360,7 @@ impl MapObject {
                 Vec2::new(leadx, leady),
                 Vec2::new(leadx, leady) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -359,6 +369,7 @@ impl MapObject {
                 Vec2::new(trailx, leady),
                 Vec2::new(trailx, leady) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -367,6 +378,7 @@ impl MapObject {
                 Vec2::new(leadx, traily),
                 Vec2::new(leadx, traily) + self.momxy,
                 PT_ADDLINES,
+                false,
                 level,
                 |intercept| self.slide_traverse(intercept),
                 &mut bsp_trace,
@@ -374,19 +386,15 @@ impl MapObject {
 
             if self.best_slide.best_slide_frac == 2.0 {
                 // The move most have hit the middle, so stairstep.
-                self.stair_step(level);
+                self.stair_step();
                 return;
             }
 
             self.best_slide.best_slide_frac -= 0.031250;
             if self.best_slide.best_slide_frac > 0.0 {
                 let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
-                if !self.p_try_move(
-                    self.xy.x() + slide_move.x(),
-                    self.xy.y() + slide_move.y(),
-                    level,
-                ) {
-                    self.stair_step(level);
+                if !self.p_try_move(self.xy.x() + slide_move.x(), self.xy.y() + slide_move.y()) {
+                    self.stair_step();
                     return;
                 }
             }
@@ -411,7 +419,7 @@ impl MapObject {
             self.momxy = slide_move;
 
             let endpoint = self.xy + slide_move;
-            if self.p_try_move(endpoint.x(), endpoint.y(), level) {
+            if self.p_try_move(endpoint.x(), endpoint.y()) {
                 return;
             }
 
@@ -455,10 +463,10 @@ impl MapObject {
         false
     }
 
-    pub fn stair_step(&mut self, level: &mut Level) {
+    pub fn stair_step(&mut self) {
         // Line might have hit the middle, end-on?
-        if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y(), level) {
-            self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y(), level);
+        if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y()) {
+            self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y());
         }
     }
 
@@ -498,11 +506,13 @@ impl MapObject {
 
     /// P_UseLines
     /// Looks for special lines in front of the player to activate.
-    pub fn use_lines(&mut self, level: &mut Level) {
+    pub fn use_lines(&mut self) {
         let angle = self.angle.unit();
 
         let origin = self.xy;
         let endpoint = origin + (angle * USERANGE);
+
+        let level = unsafe { &mut *self.level };
 
         let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut 0);
@@ -511,24 +521,37 @@ impl MapObject {
             origin,
             endpoint,
             PT_ADDLINES,
+            true,
             level,
-            |intercept| self.use_traverse(intercept, level),
+            |intercept| self.use_traverse(intercept),
             &mut bsp_trace,
         );
     }
 
     /// PTR_UseTraverse
-    pub fn use_traverse(&mut self, intercept: &Intercept, level: &Level) -> bool {
+    pub fn use_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
+            debug!(
+                "Line v1 x:{},y:{}, v2 x:{},y:{}, special: {:?} - self.x:{},y:{} - frac {}",
+                line.v1.x(),
+                line.v1.y(),
+                line.v2.x(),
+                line.v2.y(),
+                line.special,
+                self.xy.x() as i32,
+                self.xy.y() as i32,
+                intercept.frac,
+            );
+
             if line.special == 0 {
+                // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
                     // TODO: S_StartSound (usething, sfx_noway);
                     // can't use through a wall
-                    println!("*unghf!*");
+                    debug!("*UNNGFF!* Can't reach from this side");
                     return false;
                 }
-
                 // not a special line, but keep checking
                 return true;
             }
@@ -539,12 +562,8 @@ impl MapObject {
                 line.flags
             );
 
-            let side = if line.point_on_side(&self.xy) == 1 {
-                1
-            } else {
-                0
-            };
-            p_use_special_line(side, line.clone(), self, level);
+            let side = line.point_on_side(&self.xy);
+            p_use_special_line(side as i32, line.clone(), self);
         }
         // can't use for than one special line in a row
         false
@@ -575,6 +594,22 @@ pub fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
     let mut no_fit = false;
 
     // TODO: re-check heights for all things near the moving sector
+    // TODO: iterate over sector thinglist
+
+    if !sector.thinglist.is_null() {
+        let mut thing = sector.thinglist;
+        while !thing.is_null() {
+            unsafe {
+                debug!("Thing type {:?} is in affected sector", (*thing).kind);
+                (*thing).pit_change_sector(&mut no_fit, crunch);
+
+                if (*thing).s_next.is_null() || (*thing).s_next == thing {
+                    break;
+                }
+                thing = (*thing).s_next;
+            }
+        }
+    }
 
     no_fit
 }

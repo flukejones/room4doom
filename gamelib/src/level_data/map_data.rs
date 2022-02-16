@@ -1,3 +1,5 @@
+use std::ptr::null_mut;
+
 use crate::angle::Angle;
 use crate::level_data::map_defs::{
     BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
@@ -42,8 +44,8 @@ pub struct MapData {
     linedefs: Vec<LineDef>,
     sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
-    subsectors: Vec<SubSector>,
-    segments: Vec<Segment>,
+    pub subsectors: Vec<SubSector>,
+    pub segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
     blockmap: BlockMap,
@@ -115,6 +117,11 @@ impl MapData {
     }
 
     #[inline]
+    pub fn sectors_mut(&mut self) -> &mut [Sector] {
+        &mut self.sectors
+    }
+
+    #[inline]
     pub fn sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }
@@ -127,6 +134,11 @@ impl MapData {
     #[inline]
     pub fn segments(&self) -> &[Segment] {
         &self.segments
+    }
+
+    #[inline]
+    pub fn segments_mut(&mut self) -> &mut [Segment] {
+        &mut self.segments
     }
 
     fn set_scale(&mut self) {
@@ -181,6 +193,7 @@ impl MapData {
                 validcount: 0,
                 specialdata: None,
                 lines: Vec::new(),
+                thinglist: null_mut(),
             })
             .collect();
 
@@ -246,7 +259,7 @@ impl MapData {
                     back_sidedef: back_side,
                     frontsector: front.sector.clone(),
                     backsector: back_sector,
-                    validcount: 0,
+                    valid_count: 0,
                 }
             })
             .collect();
@@ -352,7 +365,7 @@ impl MapData {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn point_in_subsector(&self, point: Vec2) -> DPtr<SubSector> {
+    pub fn point_in_subsector(&mut self, point: Vec2) -> *mut SubSector {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -363,7 +376,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return DPtr::new(&self.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize]);
+        return &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _;
     }
 }
 
@@ -684,7 +697,9 @@ mod tests {
         let player = Vec2::new(1056.0, -3616.0);
         let subsector = map.point_in_subsector(player);
         //assert_eq!(subsector_id, Some(103));
-        assert_eq!(subsector.seg_count, 5);
-        assert_eq!(subsector.start_seg, 305);
+        unsafe {
+            assert_eq!((*subsector).seg_count, 5);
+            assert_eq!((*subsector).start_seg, 305);
+        }
     }
 }

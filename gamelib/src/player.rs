@@ -396,7 +396,7 @@ impl Player {
             if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
                 && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
             {
-                mobj.p_set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
+                mobj.set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
             }
         }
     }
@@ -416,7 +416,7 @@ impl Player {
                 self.usedown = true;
                 if let Some(mut mobj) = self.mobj {
                     let mobj = unsafe { mobj.as_mut() };
-                    mobj.use_lines(level);
+                    mobj.use_lines();
                 }
             }
         } else {
