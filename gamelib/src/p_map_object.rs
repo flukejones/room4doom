@@ -230,7 +230,7 @@ impl MapObject {
             best_slide: BestSlide::default(),
             reactiontime,
             threshold: 0,
-            lastlook: (p_random() as i32) % MAXPLAYERS as i32,
+            lastlook: p_random() % MAXPLAYERS as i32,
             spawn_point: None,
             target: None,
             s_next: null_mut(),
@@ -249,7 +249,7 @@ impl MapObject {
         self.z = 0.0;
         self.set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
 
-        self.tics -= (p_random() & 3) as i32;
+        self.tics -= p_random() & 3;
 
         if self.tics < 1 {
             self.tics = 1;
@@ -603,7 +603,7 @@ impl MapObject {
         let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
         let mobj = unsafe { mobj.as_mut() };
         if mobj.tics > 0 {
-            mobj.tics = 1 + ((p_random() as i32) % mobj.tics);
+            mobj.tics = 1 + (p_random() % mobj.tics);
         }
         if mobj.flags & MapObjectFlag::MF_COUNTKILL as u32 != 0 {
             level.totalkills += 1;

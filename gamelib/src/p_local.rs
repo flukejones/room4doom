@@ -36,7 +36,7 @@ pub fn bam_to_radian(value: u32) -> f32 {
 static mut RNDINDEX: usize = 0;
 static mut PRNDINDEX: usize = 0;
 
-pub const RNDTABLE: [u32; 256] = [
+pub const RNDTABLE: [i32; 256] = [
     0, 8, 109, 220, 222, 241, 149, 107, 75, 248, 254, 140, 16, 66, 74, 21, 211, 47, 80, 242, 154,
     27, 205, 128, 161, 89, 77, 36, 95, 110, 85, 48, 212, 140, 211, 249, 22, 79, 200, 50, 28, 188,
     52, 140, 202, 120, 68, 145, 62, 70, 184, 190, 91, 197, 152, 224, 149, 104, 25, 178, 252, 182,
@@ -52,17 +52,17 @@ pub const RNDTABLE: [u32; 256] = [
     84, 118, 222, 187, 136, 120, 163, 236, 249,
 ];
 
-pub fn p_random() -> u32 {
+pub fn p_random() -> i32 {
     unsafe {
         PRNDINDEX = (RNDTABLE[PRNDINDEX + 1] & 0xFF) as usize;
-        RNDTABLE[PRNDINDEX] as u32
+        RNDTABLE[PRNDINDEX]
     }
 }
 
-pub fn m_random() -> u32 {
+pub fn m_random() -> i32 {
     unsafe {
         RNDINDEX = (RNDTABLE[RNDINDEX + 1] & 0xFF) as usize;
-        RNDTABLE[RNDINDEX] as u32
+        RNDTABLE[RNDINDEX]
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::level_data::level;
 use crate::level_data::level::Level;
+use crate::p_map_object::MapObject;
 use crate::player::{Player, WBStartStruct};
 use crate::tic_cmd::TicCmd;
 use crate::{d_main, player::PlayerState};
@@ -389,22 +390,36 @@ impl Game {
         // TODO: starttime = I_GetTime();
         self.game_action = GameAction::ga_nothing;
 
-        let mut level = Level::setup_level(
+        let level = Level::setup_level(
             &self.wad_data,
             self.game_skill,
             self.game_episode,
             self.game_map,
             self.game_mode,
-            &mut self.players,
-            &self.player_in_game,
         );
-
-        level.game_tic = self.game_tic;
-        self.level_start_tic = self.game_tic;
-        level.game_tic = self.game_tic;
 
         info!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
+
+        if let Some(ref mut level) = self.level {
+            // Pointer stuff must be set up *AFTER* the level data has been allocated
+            // (it moves when punted to Some<Level>)
+            let thing_list = (*level.map_data.get_things()).to_owned();
+
+            for thing in &thing_list {
+                MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);
+            }
+
+            debug!("Level: thinkers = {}", &level.thinkers.len());
+            debug!("Level: skill = {:?}", &level.game_skill);
+            debug!("Level: episode = {}", &level.episode);
+            debug!("Level: map = {}", &level.game_map);
+            debug!("Level: player_starts = {:?}", &level.player_starts);
+
+            level.game_tic = self.game_tic;
+            self.level_start_tic = self.game_tic;
+            level.game_tic = self.game_tic;
+        }
 
         // Player setup from P_SetupLevel
         self.totalkills = 0;
