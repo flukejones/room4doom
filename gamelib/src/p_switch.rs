@@ -6,6 +6,7 @@ use crate::{
     p_ceiling::{ev_do_ceiling, CeilingKind},
     p_doors::{ev_do_door, ev_vertical_door, DoorKind},
     p_floor::{ev_do_floor, FloorKind},
+    p_lights::ev_turn_light_on,
     p_map_object::MapObject,
     p_platforms::{ev_do_platform, PlatKind},
     DPtr,
@@ -313,6 +314,16 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
             if ev_do_ceiling(line, CeilingKind::LowerToFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
+        }
+        138 => {
+            debug!("line-switch: turn light on!");
+            ev_turn_light_on(line, 255, level);
+            // TODO: P_ChangeSwitchTexture(line, 1);
+        }
+        139 => {
+            debug!("line-switch: turn light off!");
+            ev_turn_light_on(line, 35, level);
+            // TODO: P_ChangeSwitchTexture(line, 1);
         }
         _ => {
             warn!("Invalid or unimplemented line switch: {}", line.special);

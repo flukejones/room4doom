@@ -12,8 +12,7 @@ pub fn a_facetarget(actor: &mut MapObject) {
         let angle = point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
         actor.angle = angle;
 
-        if actor.target.unwrap().as_mut().flags & MobjFlag::SHADOW as u32
-            == MobjFlag::SHADOW as u32
+        if actor.target.unwrap().as_mut().flags & MobjFlag::SHADOW as u32 == MobjFlag::SHADOW as u32
         {
             // TODO: actor.angle += P_SubRandom() << 21;
         }

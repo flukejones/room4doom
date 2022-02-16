@@ -8,10 +8,7 @@ use crate::renderer::bsp::BspRenderer;
 use crate::renderer::plane::VisPlaneCtrl;
 use crate::renderer::RenderData;
 use crate::{
-    d_main::Skill,
-    doom_def::GameMode,
-    doom_def::MAXPLAYERS,
-    doom_def::MAX_DEATHMATCH_STARTS,
+    d_main::Skill, doom_def::GameMode, doom_def::MAXPLAYERS, doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
 };
 
@@ -59,20 +56,15 @@ pub struct Level {
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
     /// After `new()` the `load()` function should be called.
-    /// 
+    ///
     /// # Safety
     /// Because the `Level` uses ` ThinkerAlloc` internally the `Level` must not
     /// be moved by the owner after any thinkers are pushed to `ThinkerAlloc`.
     /// This applies to the map data also where `load()` should be called after
     /// the locations is set in concrete.
-    /// 
+    ///
     /// Doom method name is `P_SetupLevel`
-    pub unsafe fn new(
-        skill: Skill,
-        episode: u32,
-        map: u32,
-        game_mode: GameMode,
-    ) -> Self {
+    pub unsafe fn new(skill: Skill, episode: u32, map: u32, game_mode: GameMode) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
         let map_name = if game_mode == GameMode::Commercial {

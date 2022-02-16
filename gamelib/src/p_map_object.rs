@@ -376,8 +376,7 @@ impl MapObject {
         }
 
         // slow down
-        if self.flags & (MobjFlag::MISSILE as u32 | MobjFlag::SKULLFLY as u32) != 0
-        {
+        if self.flags & (MobjFlag::MISSILE as u32 | MobjFlag::SKULLFLY as u32) != 0 {
             return; // no friction for missiles ever
         }
 
@@ -465,8 +464,8 @@ impl MapObject {
 
         let mobj_ptr_mut = unsafe { mobj.as_mut() };
         if mthing.kind > 1 {
-            mobj_ptr_mut.flags = mobj_ptr_mut.flags as u32
-                | (mthing.kind as u32 - 1) << MobjFlag::TRANSSHIFT as u8;
+            mobj_ptr_mut.flags =
+                mobj_ptr_mut.flags as u32 | (mthing.kind as u32 - 1) << MobjFlag::TRANSSHIFT as u8;
         }
 
         // TODO: check this angle stuff
@@ -558,8 +557,7 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch && MOBJINFO[i as usize].flags & MobjFlag::NOTDMATCH as u32 != 0
-        {
+        if level.deathmatch && MOBJINFO[i as usize].flags & MobjFlag::NOTDMATCH as u32 != 0 {
             return;
         }
 
@@ -845,8 +843,7 @@ impl MapObject {
 impl Think for MapObject {
     fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let this = object.bad_mut::<MapObject>();
-        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0
-        {
+        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();
         }
 

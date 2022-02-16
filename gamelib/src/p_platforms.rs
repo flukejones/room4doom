@@ -128,6 +128,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
             PlatKind::DownWaitUpStay => {
+                dbg!("HERE");
                 platform.speed *= 4.0;
                 platform.low = find_lowest_floor_surrounding(sec.clone());
 

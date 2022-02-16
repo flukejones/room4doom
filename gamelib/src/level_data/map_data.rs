@@ -41,7 +41,7 @@ pub struct MapData {
     things: Vec<WadThing>,
     vertexes: Vec<Vec2>,
     linedefs: Vec<LineDef>,
-    sectors: Vec<Sector>,
+    pub sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
     pub subsectors: Vec<SubSector>,
     pub segments: Vec<Segment>,
@@ -184,7 +184,7 @@ impl MapData {
                 ceilingheight: s.ceil_height as f32,
                 floorpic: 0,   // TODO: lookup texture
                 ceilingpic: 0, // TODO: lookup texture
-                lightlevel: s.light_level,
+                lightlevel: s.light_level as i32,
                 special: s.kind,
                 tag: s.tag,
                 soundtraversed: 0,
