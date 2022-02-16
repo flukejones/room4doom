@@ -87,7 +87,10 @@ impl Level {
 
         let thinker_count = map_data.get_things().len();
 
-        let level = Level {
+        // G_DoReborn
+        // G_CheckSpot
+
+        Level {
             map_data,
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
@@ -110,12 +113,7 @@ impl Level {
             game_action: None,
             secret_exit: false,
             valid_count: 0,
-        };
-
-        // G_DoReborn
-        // G_CheckSpot
-
-        level
+        }
         // TODO: P_InitThinkers();
     }
 

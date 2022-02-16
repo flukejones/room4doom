@@ -149,151 +149,151 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
         }
         14 => {
             debug!("line-switch: raiseAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseAndChange,32, level){
+            if ev_do_platform(line, PlatKind::RaiseAndChange,32, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         15 => {
             debug!("line-switch: raiseAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseAndChange,24, level){
+            if ev_do_platform(line, PlatKind::RaiseAndChange,24, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         20 => {
             debug!("line-switch: raiseToNearestAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseToNearestAndChange,0, level){
+            if ev_do_platform(line, PlatKind::RaiseToNearestAndChange,0, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         21 => {
             debug!("line-switch: downWaitUpStay platform!");
-            if ev_do_platform(line, PlatKind::downWaitUpStay,0, level){
+            if ev_do_platform(line, PlatKind::DownWaitUpStay,0, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         62 => {
             debug!("line-switch: downWaitUpStay platform!");
-            if ev_do_platform(line, PlatKind::downWaitUpStay, 1, level){
+            if ev_do_platform(line, PlatKind::DownWaitUpStay, 1, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         66 => {
             debug!("line-switch: raiseAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseAndChange, 24, level){
+            if ev_do_platform(line, PlatKind::RaiseAndChange, 24, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         67 => {
             debug!("line-switch: raiseAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseAndChange, 32, level){
+            if ev_do_platform(line, PlatKind::RaiseAndChange, 32, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         68 => {
             debug!("line-switch: raiseToNearestAndChange platform!");
-            if ev_do_platform(line, PlatKind::raiseToNearestAndChange, 0, level){
+            if ev_do_platform(line, PlatKind::RaiseToNearestAndChange, 0, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         122 => {
             debug!("line-switch: blazeDWUS platform!");
-            if ev_do_platform(line, PlatKind::blazeDWUS, 0, level){
+            if ev_do_platform(line, PlatKind::BlazeDWUS, 0, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         123 => {
             debug!("line-switch: blazeDWUS platform!");
-            if ev_do_platform(line, PlatKind::blazeDWUS, 0, level){
+            if ev_do_platform(line, PlatKind::BlazeDWUS, 0, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         18 => {
             debug!("line-switch: raiseFloorToNearest floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorToNearest, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorToNearest, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         23 => {
             debug!("line-switch: lowerFloorToLowest floor!");
-            if ev_do_floor(line, FloorKind::lowerFloorToLowest, level){
+            if ev_do_floor(line, FloorKind::LowerFloorToLowest, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         71 => {
             debug!("line-switch: turboLower floor!");
-            if ev_do_floor(line, FloorKind::turboLower, level){
+            if ev_do_floor(line, FloorKind::TurboLower, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         55 => {
             debug!("line-switch: raiseFloorCrush floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorCrush, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorCrush, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         101 => {
             debug!("line-switch: raiseFloor floor!");
-            if ev_do_floor(line, FloorKind::raiseFloor, level){
+            if ev_do_floor(line, FloorKind::RaiseFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         102 => {
             debug!("line-switch: lowerFloor floor!");
-            if ev_do_floor(line, FloorKind::lowerFloor, level){
+            if ev_do_floor(line, FloorKind::LowerFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         131 => {
             debug!("line-switch: lowerFloor floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorTurbo, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorTurbo, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         140 => {
             debug!("line-switch: lowerFloor floor!");
-            if ev_do_floor(line, FloorKind::raiseFloor512, level){
+            if ev_do_floor(line, FloorKind::RaiseFloor512, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         45 => {
             debug!("line-switch: lowerFloor floor!");
-            if ev_do_floor(line, FloorKind::lowerFloor, level){
+            if ev_do_floor(line, FloorKind::LowerFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         60 => {
             debug!("line-switch: lowerFloorToLowest floor!");
-            if ev_do_floor(line, FloorKind::lowerFloorToLowest, level){
+            if ev_do_floor(line, FloorKind::LowerFloorToLowest, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         64 => {
             debug!("line-switch: raiseFloor floor!");
-            if ev_do_floor(line, FloorKind::raiseFloor, level){
+            if ev_do_floor(line, FloorKind::RaiseFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         65 => {
             debug!("line-switch: raiseFloorCrush floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorCrush, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorCrush, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         69 => {
             debug!("line-switch: raiseFloorToNearest floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorToNearest, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorToNearest, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         70 => {
             debug!("line-switch: turboLower floor!");
-            if ev_do_floor(line, FloorKind::turboLower, level){
+            if ev_do_floor(line, FloorKind::TurboLower, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         132 => {
             debug!("line-switch: raiseFloorTurbo floor!");
-            if ev_do_floor(line, FloorKind::raiseFloorTurbo, level){
+            if ev_do_floor(line, FloorKind::RaiseFloorTurbo, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }

@@ -16,7 +16,6 @@ use crate::{
     info::MapObjectInfo,
     p_local::FRACUNIT_DIV4,
     p_local::ONCEILINGZ,
-    DPtr,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
 use crate::{

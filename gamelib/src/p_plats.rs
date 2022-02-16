@@ -21,7 +21,7 @@ const PLATWAIT: i32 = 3;
 pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
     let mut ret = false;
 
-    if matches!(kind, PlatKind::perpetualRaise) {
+    if matches!(kind, PlatKind::PerpetualRaise) {
         // TODO: P_ActivateInStasis(line->tag);
     }
 
@@ -48,33 +48,33 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
             high: 0.0,
             wait: 0,
             count: 0,
-            status: PlatStatus::in_stasis,
-            old_status: PlatStatus::in_stasis,
+            status: PlatStatus::InStasis,
+            old_status: PlatStatus::InStasis,
             crush: false,
             tag: line.tag,
             kind,
         };
 
         match kind {
-            PlatKind::raiseToNearestAndChange => {
+            PlatKind::RaiseToNearestAndChange => {
                 platform.speed /= 2.0;
                 platform.high = find_highest_floor_surrounding(sec.clone());
                 platform.wait = 0;
-                platform.status = PlatStatus::up;
+                platform.status = PlatStatus::Up;
                 sec.special = 0;
                 // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
                 // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
             }
-            PlatKind::raiseAndChange => {
+            PlatKind::RaiseAndChange => {
                 platform.speed /= 2.0;
                 platform.high = sec.floorheight + amount as f32;
                 platform.wait = 0;
-                platform.status = PlatStatus::up;
+                platform.status = PlatStatus::Up;
                 // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
                 // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
             }
 
-            PlatKind::perpetualRaise => {
+            PlatKind::PerpetualRaise => {
                 platform.low = find_lowest_floor_surrounding(sec.clone());
 
                 if platform.low > sec.floorheight {
@@ -89,11 +89,11 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
                 platform.wait = TICRATE * PLATWAIT;
 
-                platform.status = PlatStatus::down;
+                platform.status = PlatStatus::Down;
                 // TODO: plat->status = P_Random() & 1;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
-            PlatKind::downWaitUpStay => {
+            PlatKind::DownWaitUpStay => {
                 platform.speed *= 4.0;
                 platform.low = find_lowest_floor_surrounding(sec.clone());
 
@@ -103,10 +103,10 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
                 platform.high = sec.floorheight;
                 platform.wait = TICRATE * PLATWAIT;
-                platform.status = PlatStatus::down;
+                platform.status = PlatStatus::Down;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
-            PlatKind::blazeDWUS => {
+            PlatKind::BlazeDWUS => {
                 platform.speed *= 8.0;
                 platform.low = find_lowest_floor_surrounding(sec.clone());
 
@@ -116,7 +116,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
                 platform.high = sec.floorheight;
                 platform.wait = TICRATE * PLATWAIT;
-                platform.status = PlatStatus::down;
+                platform.status = PlatStatus::Down;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
         }
@@ -148,7 +148,7 @@ impl Think for Platform {
     ) -> bool {
         let platform = object.bad_mut::<Platform>();
         match platform.status {
-            PlatStatus::up => {
+            PlatStatus::Up => {
                 let res = move_plane(
                     platform.sector.clone(),
                     platform.speed,
@@ -160,7 +160,7 @@ impl Think for Platform {
 
                 if matches!(
                     platform.kind,
-                    PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange
+                    PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange
                 ) && level.level_time & 7 == 0
                 {
                     // TODO: if (!(leveltime&7))
@@ -169,22 +169,22 @@ impl Think for Platform {
 
                 if matches!(res, ResultE::Crushed) && !platform.crush {
                     platform.count = platform.wait;
-                    platform.status = PlatStatus::waiting;
+                    platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
                 } else if matches!(res, ResultE::PastDest) {
                     platform.count = platform.wait;
-                    platform.status = PlatStatus::waiting;
+                    platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
 
                     match platform.kind {
-                        PlatKind::blazeDWUS | PlatKind::downWaitUpStay => {
+                        PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
                             unsafe {
                                 platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
-                        PlatKind::raiseAndChange | PlatKind::raiseToNearestAndChange => {
+                        PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
                                 platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
@@ -195,7 +195,7 @@ impl Think for Platform {
                     }
                 }
             }
-            PlatStatus::down => {
+            PlatStatus::Down => {
                 let res = move_plane(
                     platform.sector.clone(),
                     platform.speed,
@@ -207,22 +207,22 @@ impl Think for Platform {
 
                 if matches!(res, ResultE::PastDest) {
                     platform.count = platform.wait;
-                    platform.status = PlatStatus::waiting;
+                    platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
                 }
             }
-            PlatStatus::waiting => {
+            PlatStatus::Waiting => {
                 platform.count -= 1;
                 if platform.count == 0 {
                     if platform.sector.floorheight == platform.low {
-                        platform.status = PlatStatus::up;
+                        platform.status = PlatStatus::Up;
                     } else {
-                        platform.status = PlatStatus::down;
+                        platform.status = PlatStatus::Down;
                     }
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
                 }
             }
-            PlatStatus::in_stasis => {}
+            PlatStatus::InStasis => {}
         }
 
         true

@@ -188,15 +188,15 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
         };
 
         match kind {
-            FloorKind::lowerFloor => {
+            FloorKind::LowerFloor => {
                 floor.direction = -1;
                 floor.destheight = find_highest_floor_surrounding(sec.clone());
             }
-            FloorKind::lowerFloorToLowest => {
+            FloorKind::LowerFloorToLowest => {
                 floor.direction = -1;
                 floor.destheight = find_lowest_floor_surrounding(sec.clone());
             }
-            FloorKind::turboLower => {
+            FloorKind::TurboLower => {
                 floor.direction = -1;
                 floor.speed *= 4.0;
                 floor.destheight = find_highest_floor_surrounding(sec.clone());
@@ -207,21 +207,21 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                     floor.destheight += 8.0;
                 }
             }
-            FloorKind::raiseFloor => {
+            FloorKind::RaiseFloor => {
                 floor.direction = 1;
                 floor.destheight = find_lowest_ceiling_surrounding(sec.clone());
                 if floor.destheight > sec.ceilingheight {
                     floor.destheight = sec.ceilingheight;
                 }
-                if matches!(kind, FloorKind::raiseFloorCrush) {
+                if matches!(kind, FloorKind::RaiseFloorCrush) {
                     floor.destheight -= 8.0;
                 }
             }
-            FloorKind::raiseFloorToNearest => {
+            FloorKind::RaiseFloorToNearest => {
                 floor.direction = 1;
                 floor.destheight = find_next_highest_floor(sec.clone(), sec.floorheight);
             }
-            FloorKind::raiseToTexture => {
+            FloorKind::RaiseToTexture => {
                 // TODO: int minsize = INT_MAX;
                 let mut min = sec.floorheight;
                 floor.direction = 1;
@@ -232,25 +232,25 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                 }
                 floor.destheight = sec.floorheight + min;
             }
-            FloorKind::lowerAndChange => todo!(),
-            FloorKind::raiseFloor24 => {
+            FloorKind::LowerAndChange => todo!(),
+            FloorKind::RaiseFloor24 => {
                 floor.direction = 1;
                 floor.destheight = sec.floorheight + 24.0;
             }
-            FloorKind::raiseFloor24AndChange => {
+            FloorKind::RaiseFloor24andChange => {
                 floor.direction = 1;
                 floor.destheight = sec.floorheight + 24.0;
                 sec.floorpic = line.frontsector.floorpic;
                 sec.special = line.frontsector.special;
             }
-            FloorKind::raiseFloorCrush => floor.crush = true,
-            FloorKind::raiseFloorTurbo => {
+            FloorKind::RaiseFloorCrush => floor.crush = true,
+            FloorKind::RaiseFloorTurbo => {
                 floor.direction = 1;
                 floor.speed *= 4.0;
                 floor.destheight = find_next_highest_floor(sec.clone(), sec.floorheight);
             }
-            FloorKind::donutRaise => todo!(),
-            FloorKind::raiseFloor512 => {
+            FloorKind::DonutRaise => todo!(),
+            FloorKind::RaiseFloor512 => {
                 floor.direction = 1;
                 floor.destheight = sec.floorheight + 512.0;
             }
@@ -298,8 +298,8 @@ impl Think for FloorMove {
         if matches!(res, ResultE::PastDest) {
             floor.sector.specialdata = None;
 
-            if floor.direction == 1 && matches!(floor.kind, FloorKind::donutRaise)
-                || floor.direction == -1 && matches!(floor.kind, FloorKind::lowerAndChange)
+            if floor.direction == 1 && matches!(floor.kind, FloorKind::DonutRaise)
+                || floor.direction == -1 && matches!(floor.kind, FloorKind::LowerAndChange)
             {
                 floor.sector.special = floor.newspecial;
                 //TODO: floor.sector.floorpic = floor.texture;

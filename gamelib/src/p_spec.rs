@@ -5,7 +5,6 @@ use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
-use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_ceiling::ev_do_ceiling;
 use crate::p_doors::ev_do_door;
@@ -57,19 +56,19 @@ pub struct Glow {
 
 // P_PLATS
 pub enum PlatStatus {
-    up,
-    down,
-    waiting,
-    in_stasis,
+    Up,
+    Down,
+    Waiting,
+    InStasis,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum PlatKind {
-    perpetualRaise,
-    downWaitUpStay,
-    raiseAndChange,
-    raiseToNearestAndChange,
-    blazeDWUS,
+    PerpetualRaise,
+    DownWaitUpStay,
+    RaiseAndChange,
+    RaiseToNearestAndChange,
+    BlazeDWUS,
 }
 
 pub struct Platform {
@@ -92,34 +91,39 @@ pub struct Platform {
 #[derive(Debug, Clone, Copy)]
 pub enum FloorKind {
     /// lower floor to highest surrounding floor
-    lowerFloor,
+    LowerFloor,
     /// lower floor to lowest surrounding floor
-    lowerFloorToLowest,
+    LowerFloorToLowest,
     /// lower floor to highest surrounding floor VERY FAST
-    turboLower,
+    TurboLower,
     /// raise floor to lowest surrounding CEILING
-    raiseFloor,
+    RaiseFloor,
     /// raise floor to next highest surrounding floor
-    raiseFloorToNearest,
-    /// raise floor to shortest height texture around it
-    raiseToTexture,
-    /// lower floor to lowest surrounding floor
-    ///  and change floorpic
-    lowerAndChange,
-    raiseFloor24,
-    raiseFloor24AndChange,
-    raiseFloorCrush,
+    RaiseFloorToNearest,
+    /// raise floor to shortest height with same texture around it
+    RaiseToTexture,
+    /// lower floor to lowest surrounding floor and change floorpic
+    LowerAndChange,
+    /// Raise floor 24 units from start
+    RaiseFloor24,
+    /// Raise floor 24 units from start and change texture
+    RaiseFloor24andChange,
+    /// Raise floor and crush all entities on it
+    RaiseFloorCrush,
     /// raise to next highest floor, turbo-speed
-    raiseFloorTurbo,
-    donutRaise,
-    raiseFloor512,
+    RaiseFloorTurbo,
+    /// Do donuts
+    DonutRaise,
+    /// Raise floor 512 units from start
+    RaiseFloor512,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum StairEnum {
     /// slowly build by 8
-    build8,
+    Build8,
     /// quickly build by 16
-    turbo16,
+    Turbo16,
 }
 
 #[derive(Debug)]
@@ -413,133 +417,133 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
 
         10 => {
             debug!("line-special: downWaitUpStay platform!");
-            ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
+            ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
             line.special = 0;
         }
         22 => {
             debug!("line-special: raiseToNearestAndChange platform!");
-            ev_do_platform(line.clone(), PlatKind::raiseToNearestAndChange, 0, level);
+            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
             line.special = 0;
         }
         53 => {
             debug!("line-special: perpetualRaise platform!");
-            ev_do_platform(line.clone(), PlatKind::perpetualRaise, 0, level);
+            ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
             line.special = 0;
         }
         121 => {
             debug!("line-special: blazeDWUS platform!");
-            ev_do_platform(line.clone(), PlatKind::blazeDWUS, 0, level);
+            ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
             line.special = 0;
         }
         87 => {
             debug!("line-special: perpetualRaise platform!");
-            ev_do_platform(line.clone(), PlatKind::perpetualRaise, 0, level);
+            ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
         }
         88 => {
             debug!("line-special: downWaitUpStay platform!");
-            ev_do_platform(line.clone(), PlatKind::downWaitUpStay, 0, level);
+            ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
         }
         95 => {
             debug!("line-special: raiseToNearestAndChange platform!");
-            ev_do_platform(line.clone(), PlatKind::raiseToNearestAndChange, 0, level);
+            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
         }
         120 => {
             debug!("line-special: blazeDWUS platform!");
-            ev_do_platform(line.clone(), PlatKind::blazeDWUS, 0, level);
+            ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
         }
         5 => {
             debug!("line-special: raiseFloor floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseFloor, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
             line.special = 0;
         }
         19 => {
             debug!("line-special: lowerFloor floor!");
-            ev_do_floor(line.clone(), FloorKind::lowerFloor, level);
+            ev_do_floor(line.clone(), FloorKind::LowerFloor, level);
             line.special = 0;
         }
         30 => {
             debug!("line-special: raiseToTexture floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseToTexture, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseToTexture, level);
             line.special = 0;
         }
         36 => {
             debug!("line-special: downWaitUpStay floor!");
-            ev_do_floor(line.clone(), FloorKind::turboLower, level);
+            ev_do_floor(line.clone(), FloorKind::TurboLower, level);
             line.special = 0;
         }
         37 => {
             debug!("line-special: lowerAndChange floor!");
-            ev_do_floor(line.clone(), FloorKind::lowerAndChange, level);
+            ev_do_floor(line.clone(), FloorKind::LowerAndChange, level);
             line.special = 0;
         }
         38 => {
             debug!("line-special: lowerFloorToLowest floor!");
-            ev_do_floor(line.clone(), FloorKind::lowerFloorToLowest, level);
+            ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         56 => {
             debug!("line-special: raiseFloorCrush floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseFloorCrush, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloorCrush, level);
             line.special = 0;
         }
         59 => {
             debug!("line-special: raiseFloor24AndChange floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseFloor24AndChange, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloor24andChange, level);
             line.special = 0;
         }
         119 => {
             debug!("line-special: raiseFloorToNearest floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseFloorToNearest, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloorToNearest, level);
             line.special = 0;
         }
         130 => {
             debug!("line-special: raiseFloorTurbo floor!");
-            ev_do_floor(line.clone(), FloorKind::raiseFloorTurbo, level);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloorTurbo, level);
             line.special = 0;
         }
         82 => {
             debug!("line-special: raiseFloorTurbo floor!");
-            ev_do_floor(line, FloorKind::lowerFloorToLowest, level);
+            ev_do_floor(line, FloorKind::LowerFloorToLowest, level);
         }
         83 => {
             debug!("line-special: lowerFloor floor!");
-            ev_do_floor(line, FloorKind::lowerFloor, level);
+            ev_do_floor(line, FloorKind::LowerFloor, level);
         }
         84 => {
             debug!("line-special: lowerAndChange floor!");
-            ev_do_floor(line, FloorKind::lowerAndChange, level);
+            ev_do_floor(line, FloorKind::LowerAndChange, level);
         }
         91 => {
             debug!("line-special: raiseFloor floor!");
-            ev_do_floor(line, FloorKind::raiseFloor, level);
+            ev_do_floor(line, FloorKind::RaiseFloor, level);
         }
         92 => {
             debug!("line-special: raiseFloor24 floor!");
-            ev_do_floor(line, FloorKind::raiseFloor24, level);
+            ev_do_floor(line, FloorKind::RaiseFloor24, level);
         }
         93 => {
             debug!("line-special: raiseFloor24AndChange floor!");
-            ev_do_floor(line, FloorKind::raiseFloor24AndChange, level);
+            ev_do_floor(line, FloorKind::RaiseFloor24andChange, level);
         }
         94 => {
             debug!("line-special: raiseFloorCrush floor!");
-            ev_do_floor(line, FloorKind::raiseFloorCrush, level);
+            ev_do_floor(line, FloorKind::RaiseFloorCrush, level);
         }
         96 => {
             debug!("line-special: raiseToTexture floor!");
-            ev_do_floor(line, FloorKind::raiseToTexture, level);
+            ev_do_floor(line, FloorKind::RaiseToTexture, level);
         }
         98 => {
             debug!("line-special: turboLower floor!");
-            ev_do_floor(line, FloorKind::turboLower, level);
+            ev_do_floor(line, FloorKind::TurboLower, level);
         }
         128 => {
             debug!("line-special: raiseFloorToNearest floor!");
-            ev_do_floor(line, FloorKind::raiseFloorToNearest, level);
+            ev_do_floor(line, FloorKind::RaiseFloorToNearest, level);
         }
         129 => {
             debug!("line-special: raiseFloorTurbo floor!");
-            ev_do_floor(line, FloorKind::raiseFloorTurbo, level);
+            ev_do_floor(line, FloorKind::RaiseFloorTurbo, level);
         }
         6 => {
             debug!("line-special: fastCrushAndRaise ceiling!");
@@ -554,7 +558,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
         40 => {
             debug!("line-special: raiseToHighest ceiling, floor!");
             ev_do_ceiling(line.clone(), CeilingKind::raiseToHighest, level);
-            ev_do_floor(line.clone(), FloorKind::lowerFloorToLowest, level);
+            ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         44 => {
