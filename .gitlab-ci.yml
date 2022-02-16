@@ -9,7 +9,7 @@ image: rust:1.58
 stages:
     - test
     - rustfmt
-    - pages
+    - deploy
 
 test:
   <<: *rust_cache
