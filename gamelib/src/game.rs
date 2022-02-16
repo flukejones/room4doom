@@ -1,6 +1,7 @@
 use crate::level_data::level;
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
+use crate::p_specials::spawn_specials;
 use crate::player::{Player, WBStartStruct};
 use crate::tic_cmd::TicCmd;
 use crate::{d_main, player::PlayerState};
@@ -411,6 +412,7 @@ impl Game {
             for thing in &thing_list {
                 MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);
             }
+            spawn_specials(level);
 
             debug!("Level: thinkers = {}", &level.thinkers.len());
             debug!("Level: skill = {:?}", &level.game_skill);

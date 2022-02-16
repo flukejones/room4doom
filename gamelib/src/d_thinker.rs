@@ -8,6 +8,7 @@ use crate::level_data::level::Level;
 use crate::p_ceiling::CeilingMove;
 use crate::p_doors::VerticalDoor;
 use crate::p_floor::FloorMove;
+use crate::p_lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
 use crate::p_map_object::MapObject;
 use crate::p_platforms::Platform;
 use crate::p_player_sprite::PspDef;
@@ -294,6 +295,10 @@ pub enum ThinkerType {
     FloorMove(FloorMove),
     CeilingMove(CeilingMove),
     Platform(Platform),
+    LightFlash(LightFlash),
+    StrobeFlash(StrobeFlash),
+    FireFlicker(FireFlicker),
+    Glow(Glow),
 }
 
 impl Debug for ThinkerType {
@@ -305,6 +310,10 @@ impl Debug for ThinkerType {
             Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
             Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
             Self::Platform(_) => f.debug_tuple("Platform").finish(),
+            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
+            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
+            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
+            Self::Glow(_) => f.debug_tuple("Glow").finish(),
         }
     }
 }

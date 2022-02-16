@@ -24,7 +24,7 @@ pub struct Sector {
     pub floorpic: i16,
     /// Is a tag or index to patch
     pub ceilingpic: i16,
-    pub lightlevel: i16,
+    pub lightlevel: i32,
     pub special: i16,
     pub tag: i16,
 

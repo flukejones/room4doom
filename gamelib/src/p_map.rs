@@ -52,15 +52,12 @@ impl MapObject {
             }
             ctrl.floatok = true;
 
-            if self.flags & MobjFlag::TELEPORT as u32 == 0
-                && ctrl.max_ceil_z - self.z < self.height
+            if self.flags & MobjFlag::TELEPORT as u32 == 0 && ctrl.max_ceil_z - self.z < self.height
             {
                 return false; // mobj must lower itself to fit
             }
 
-            if self.flags & MobjFlag::TELEPORT as u32 == 0
-                && ctrl.min_floor_z - self.z > 24.0
-            {
+            if self.flags & MobjFlag::TELEPORT as u32 == 0 && ctrl.min_floor_z - self.z > 24.0 {
                 return false; // too big a step up
             }
 

@@ -1,18 +1,23 @@
 //! Implements special effects:
 //! Texture animation, height or lighting changes according to adjacent sectors,
-//! respective utility functions.
+//! respective utility functions. Line Tag handling. Line and Sector triggers.
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
+use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
 use crate::p_doors::{ev_do_door, DoorKind};
 use crate::p_floor::{ev_do_floor, FloorKind};
+use crate::p_lights::{
+    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
+    LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
+};
 use crate::p_map_object::MapObject;
 use crate::p_platforms::{ev_do_platform, PlatKind};
 use crate::DPtr;
 use log::{debug, error, warn};
 
-fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
+pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as i16 == 0 {
         return None;
     }
@@ -22,6 +27,32 @@ fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sec
     }
 
     Some(line.frontsector.clone())
+}
+
+/// P_FindMinSurroundingLight
+pub fn find_min_light_surrounding(sec: DPtr<Sector>, max: i32) -> i32 {
+    let mut min = max;
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.lightlevel < min {
+                min = other.lightlevel;
+            }
+        }
+    }
+    debug!("find_min_light_surrounding: {min}");
+    min
+}
+
+pub fn find_max_light_surrounding(sec: DPtr<Sector>, mut max: i32) -> i32 {
+    for line in &sec.lines {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
+            if other.lightlevel > max {
+                max = other.lightlevel;
+            }
+        }
+    }
+    debug!("find_max_light_surrounding: {max}");
+    max
 }
 
 /// P_FindLowestCeilingSurrounding
@@ -382,7 +413,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
         }
 
         10 => {
-            debug!("line-special: downWaitUpStay platform!");
+            debug!("line-special 10: downWaitUpStay platform!");
             ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
             line.special = 0;
         }
@@ -406,7 +437,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
             ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
         }
         88 => {
-            debug!("line-special: downWaitUpStay platform!");
+            debug!("line-special 88: downWaitUpStay platform!");
             ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
         }
         95 => {
@@ -433,7 +464,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
             line.special = 0;
         }
         36 => {
-            debug!("line-special: downWaitUpStay floor!");
+            debug!("line-special: TurboLower floor!");
             ev_do_floor(line.clone(), FloorKind::TurboLower, level);
             line.special = 0;
         }
@@ -555,8 +586,100 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
         124 => {
             level.do_secret_exit_level();
         }
+        12 => {
+            debug!("line-special: turn light on nearest bright!");
+            ev_turn_light_on(line.clone(), 0, level);
+            line.special = 0;
+        }
+        13 => {
+            debug!("line-special: turn light on 255!");
+            ev_turn_light_on(line.clone(), 255, level);
+            line.special = 0;
+        }
+        35 => {
+            debug!("line-special: turn light off!");
+            ev_turn_light_on(line.clone(), 35, level);
+            line.special = 0;
+        }
+        79 => {
+            debug!("line-special: turn light off!");
+            ev_turn_light_on(line.clone(), 35, level);
+        }
+        80 => {
+            debug!("line-special: turn light on nearest bright!");
+            ev_turn_light_on(line, 0, level);
+        }
+        81 => {
+            debug!("line-special: turn light on 255!");
+            ev_turn_light_on(line, 255, level);
+        }
+        17 => {
+            debug!("line-special: start light strobe");
+            ev_start_light_strobing(line.clone(), level);
+            line.special = 0;
+        }
+        104 => {
+            debug!("line-special: turn lights off in sector tag");
+            ev_turn_tag_lights_off(line.clone(), level);
+            line.special = 0;
+        }
         _ => {
             warn!("Invalid or unimplemented line special: {}", line.special);
+        }
+    }
+}
+
+pub fn spawn_specials(level: &mut Level) {
+    let level_iter = unsafe { &mut *(level as *mut Level) };
+    for sector in level_iter
+        .map_data
+        .sectors
+        .iter_mut()
+        .filter(|s| s.special != 0)
+    {
+        match sector.special {
+            1 => {
+                debug!("sector-special: light flicker!");
+                LightFlash::spawn(sector, level);
+            }
+            2 => {
+                debug!("sector-special: strobe fast!");
+                StrobeFlash::spawn(sector, FASTDARK, false, level);
+            }
+            3 => {
+                debug!("sector-special: strobe slow!");
+                StrobeFlash::spawn(sector, SLOWDARK, false, level);
+            }
+            4 => {
+                debug!("sector-special: strobe fast death/slime!");
+                StrobeFlash::spawn(sector, FASTDARK, false, level);
+                sector.special = 4;
+            }
+            9 => {
+                level.totalsecret += 1;
+            }
+            12 => {
+                debug!("sector-special: strobe slow!");
+                StrobeFlash::spawn(sector, SLOWDARK, true, level);
+            }
+            13 => {
+                debug!("sector-special: strobe fast!");
+                StrobeFlash::spawn(sector, FASTDARK, true, level);
+            }
+            17 => {
+                debug!("sector-special: fire flicker!");
+                FireFlicker::spawn(sector, level);
+            }
+            8 => {
+                debug!("sector-special: glowing light!");
+                Glow::spawn(sector, level);
+            }
+            _ => {
+                warn!(
+                    "Invalid or unimplemented sector special spawner: {}",
+                    sector.special
+                );
+            }
         }
     }
 }
