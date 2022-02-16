@@ -73,6 +73,11 @@ pub fn m_clear_random() {
     }
 }
 
+pub fn p_subrandom() -> i32 {
+    let r = p_random() as i32;
+    r - p_random() as i32
+}
+
 /// Used in path tracing for intercepts
 /// Is divline + trace types
 #[derive(Debug)]

@@ -509,6 +509,7 @@ impl Game {
 
         // check for special buttons
         for i in 0..MAXPLAYERS {
+            #[allow(clippy::if_same_then_else)]
             if self.player_in_game[i]
                 && self.players[i].cmd.buttons & TIC_CMD_BUTTONS.bt_special > 0
             {

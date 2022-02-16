@@ -1,5 +1,5 @@
 use std::alloc::{alloc, dealloc, Layout};
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
@@ -34,14 +34,14 @@ impl Think for TestObject {
 
 pub struct ThinkerAlloc {
     /// The main AllocPool buffer
-    buf_ptr: NonNull<Option<Thinker>>,
+    buf_ptr: *mut Option<Thinker>,
     /// Total capacity. Not possible to allocate over this.
     capacity: usize,
     /// Actual used AllocPool
     len: usize,
     /// The next free slot to insert in
     next_free: usize,
-    head: *mut Thinker,
+    pub tail: *mut Thinker,
 }
 
 impl Drop for ThinkerAlloc {
@@ -52,7 +52,7 @@ impl Drop for ThinkerAlloc {
             }
             let size = self.capacity * size_of::<Option<Thinker>>();
             let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-            dealloc(self.buf_ptr.as_ptr() as *mut _, layout);
+            dealloc(self.buf_ptr as *mut _, layout);
         }
     }
 }
@@ -69,11 +69,11 @@ impl ThinkerAlloc {
             }
 
             Self {
-                buf_ptr: NonNull::new_unchecked(buf_ptr),
+                buf_ptr,
                 capacity,
                 len: 0,
                 next_free: 0,
-                head: null_mut(),
+                tail: null_mut(),
             }
         }
     }
@@ -99,7 +99,7 @@ impl ThinkerAlloc {
     }
 
     fn ptr_for_idx(&self, idx: usize) -> *mut Option<Thinker> {
-        unsafe { self.buf_ptr.as_ptr().add(idx) }
+        unsafe { self.buf_ptr.add(idx) }
     }
 
     fn find_first_free(&self, start: usize) -> Option<usize> {
@@ -107,7 +107,7 @@ impl ThinkerAlloc {
             return None;
         }
 
-        let mut ptr = unsafe { self.buf_ptr.as_ptr().add(start) };
+        let mut ptr = unsafe { self.buf_ptr.add(start) };
         for idx in start..self.capacity {
             unsafe {
                 ptr = ptr.add(1);
@@ -145,24 +145,16 @@ impl ThinkerAlloc {
             ptr::write(root_ptr, Some(thinker));
             let inner_ptr = (*root_ptr).as_mut().unwrap_unchecked() as *mut Thinker;
 
-            if self.head.is_null() {
-                self.head = inner_ptr;
-                (*inner_ptr).prev = inner_ptr;
-                (*inner_ptr).next = inner_ptr;
+            if self.tail.is_null() {
+                self.tail = inner_ptr;
+                (*self.tail).prev = self.tail;
+                (*self.tail).next = self.tail;
             } else {
-                let head = &mut *self.head;
-                // and inserted previous link to last head
-                (*inner_ptr).prev = head;
-                // inserted node's next must be tail (head next)
-                (*inner_ptr).next = head.next;
+                (*inner_ptr).prev = (*self.tail).prev;
+                (*inner_ptr).next = self.tail;
 
-                // get tail from head and make sure its prev is the inserted node
-                (*head.next).prev = inner_ptr;
-                // head needs to link to inserted now
-                (*head).next = inner_ptr;
-
-                // set head
-                self.head = inner_ptr;
+                (*(*self.tail).prev).next = inner_ptr;
+                (*self.tail).prev = inner_ptr;
             }
 
             (*inner_ptr)
@@ -182,48 +174,40 @@ impl ThinkerAlloc {
     /// Ensure head is null if the pool is zero length
     fn maybe_reset_head(&mut self) {
         if self.len == 0 {
-            self.head = null_mut();
+            self.tail = null_mut();
         }
-    }
-
-    pub fn take(&mut self, idx: usize) -> Option<Thinker> {
-        debug_assert!(idx < self.capacity);
-        let tmp;
-        let node;
-        unsafe {
-            let ptr = self.ptr_for_idx(idx);
-            let inner_ptr = (*ptr).as_mut()? as *mut _;
-            if inner_ptr == self.head {
-                self.head = (*inner_ptr).prev;
-            }
-            tmp = ptr.read();
-            node = tmp?;
-            std::ptr::write(ptr, None);
-        }
-
-        self.len -= 1;
-        self.next_free = idx; // reuse the slot on next insert
-
-        unsafe {
-            (*node.next).prev = node.prev;
-            (*node.prev).next = node.next;
-        }
-
-        self.maybe_reset_head();
-        Some(node)
     }
 
     /// Removes the entry at index
     pub fn remove(&mut self, idx: usize) {
-        self.take(idx);
+        debug_assert!(idx < self.capacity);
+
+        unsafe {
+            let root_ptr = self.ptr_for_idx(idx);
+            let inner_ptr = (*root_ptr).as_mut().unwrap() as *mut Thinker;
+            let next = (*inner_ptr).next;
+            let prev = (*inner_ptr).prev;
+
+            (*next).prev = prev;
+            (*prev).next = next;
+
+            if inner_ptr == self.tail {
+                self.tail = prev;
+            }
+
+            self.len -= 1;
+            self.next_free = idx; // reuse the slot on next insert
+            self.maybe_reset_head();
+            std::ptr::write(root_ptr, None);
+        }
     }
 
     pub fn iter(&self) -> IterLinks {
-        IterLinks::new(unsafe { (*self.head).next })
+        IterLinks::new(self.tail)
     }
 
     pub fn iter_mut(&mut self) -> IterLinksMut {
-        IterLinksMut::new(unsafe { (*self.head).next })
+        IterLinksMut::new(self.tail)
     }
 }
 
@@ -304,6 +288,19 @@ pub enum ThinkerType {
     FloorMove(FloorMove),
     CeilingMove(CeilingMove),
     Platform(Platform),
+}
+
+impl Debug for ThinkerType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Test(arg0) => f.debug_tuple("Test").finish(),
+            Self::Mobj(arg0) => f.debug_tuple("Mobj").finish(),
+            Self::VDoor(arg0) => f.debug_tuple("VDoor").finish(),
+            Self::FloorMove(arg0) => f.debug_tuple("FloorMove").finish(),
+            Self::CeilingMove(arg0) => f.debug_tuple("CeilingMove").finish(),
+            Self::Platform(arg0) => f.debug_tuple("Platform").finish(),
+        }
+    }
 }
 
 impl ThinkerType {
@@ -550,21 +547,21 @@ mod tests {
                 ActionF::None,
             ))
             .unwrap();
-        assert!(!links.head.is_null());
+        assert!(!links.tail.is_null());
         assert_eq!(links.len(), 1);
         unsafe {
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 42);
+            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
         }
 
         unsafe {
-            dbg!(&*links.buf_ptr.as_ptr().add(0));
-            dbg!(&*links.buf_ptr.as_ptr().add(1));
-            dbg!(&*links.buf_ptr.as_ptr().add(2));
-            dbg!(&*links.buf_ptr.as_ptr().add(62));
+            dbg!(&*links.buf_ptr.add(0));
+            dbg!(&*links.buf_ptr.add(1));
+            dbg!(&*links.buf_ptr.add(2));
+            dbg!(&*links.buf_ptr.add(62));
 
-            assert!((*links.buf_ptr.as_ptr().add(0)).is_some());
-            assert!((*links.buf_ptr.as_ptr().add(1)).is_none());
-            assert!((*links.buf_ptr.as_ptr().add(2)).is_none());
+            assert!((*links.buf_ptr.add(0)).is_some());
+            assert!((*links.buf_ptr.add(1)).is_none());
+            assert!((*links.buf_ptr.add(2)).is_none());
         }
 
         links.remove(0);
@@ -584,7 +581,7 @@ mod tests {
                 ActionF::None,
             ))
             .unwrap();
-        assert!(!links.head.is_null());
+        assert!(!links.tail.is_null());
 
         links
             .push::<TestObject>(TestObject::create_thinker(
@@ -618,9 +615,7 @@ mod tests {
         unsafe {
             // forward
             assert_eq!(
-                links
-                    .buf_ptr
-                    .as_ref()
+                (*links.buf_ptr)
                     .as_ref()
                     .unwrap_unchecked()
                     .object
@@ -629,74 +624,74 @@ mod tests {
                 42
             );
             assert_eq!(
-                (*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next)
+                (*(*links.buf_ptr).as_ref().unwrap_unchecked().next)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 666
             );
             assert_eq!(
-                (*(*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next).next)
+                (*(*(*links.buf_ptr).as_ref().unwrap_unchecked().next).next)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 123
             );
             assert_eq!(
-                (*(*(*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next).next).next)
+                (*(*(*(*links.buf_ptr).as_ref().unwrap_unchecked().next).next).next)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 333
             );
             assert_eq!(
-                (*(*(*(*links.buf_ptr.as_ref().as_ref().unwrap_unchecked().next).next).next).next)
+                (*(*(*(*(*links.buf_ptr).as_ref().unwrap_unchecked().next).next).next).next)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 42
             );
             // back
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 333);
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
+            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.head).prev).prev)
+                (*(*(*links.tail).prev).prev)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                123
+            );
+            assert_eq!(
+                (*(*(*(*links.tail).prev).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 666
             );
-            assert_eq!(
-                (*(*(*(*links.head).prev).prev).prev)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                42
-            );
         }
 
         links.remove(1);
         unsafe {
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 333);
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
+            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.head).prev).prev)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                42
-            );
-        }
-        links.remove(3);
-        unsafe {
-            assert_eq!((*links.head).object.bad_ref::<TestObject>().x, 123);
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 42);
-            assert_eq!(
-                (*(*(*links.head).prev).prev)
+                (*(*(*links.tail).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 123
+            );
+        }
+        links.remove(3);
+        unsafe {
+            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 123);
+            assert_eq!(
+                (*(*(*links.tail).prev).prev)
+                    .object
+                    .bad_ref::<TestObject>()
+                    .x,
+                42
             );
         }
     }
@@ -750,7 +745,7 @@ mod tests {
         }
         unsafe {
             assert_eq!(
-                (*links.buf_ptr.as_ptr().add(3))
+                (*links.buf_ptr.add(3))
                     .as_ref()
                     .unwrap()
                     .object

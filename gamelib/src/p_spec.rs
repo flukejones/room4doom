@@ -308,12 +308,7 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 
 /// P_CrossSpecialLine, trigger various actions when a line is crossed which has
 /// a non-zero special attached
-pub fn cross_special_line(
-    side: usize,
-    mut line: DPtr<LineDef>,
-    thing: &MapObject,
-    level: &mut Level,
-) {
+pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -347,6 +342,10 @@ pub fn cross_special_line(
         }
     }
 
+    if thing.level.is_null() {
+        panic!("Thing had a bad level pointer");
+    }
+    let level = unsafe { &mut *thing.level };
     match line.special {
         2 => {
             debug!("line-special: vld_open door!");

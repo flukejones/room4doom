@@ -298,10 +298,9 @@ impl Think for FloorMove {
         if matches!(res, ResultE::PastDest) {
             floor.sector.specialdata = None;
 
-            if floor.direction == 1 && matches!(floor.kind, FloorKind::donutRaise) {
-                floor.sector.special = floor.newspecial;
-                //TODO: floor.sector.floorpic = floor.texture;
-            } else if floor.direction == -1 && matches!(floor.kind, FloorKind::lowerAndChange) {
+            if floor.direction == 1 && matches!(floor.kind, FloorKind::donutRaise)
+                || floor.direction == -1 && matches!(floor.kind, FloorKind::lowerAndChange)
+            {
                 floor.sector.special = floor.newspecial;
                 //TODO: floor.sector.floorpic = floor.texture;
             }

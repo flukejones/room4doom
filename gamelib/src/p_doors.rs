@@ -219,6 +219,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                     .set_thinker_ptr(ptr);
 
                 sec.specialdata = Some(ptr);
+                dbg!("here");
             }
         }
     }
