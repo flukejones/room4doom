@@ -5,7 +5,7 @@ use criterion::*;
 use gamelib::d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ThinkerType};
 
 fn push_100_000(b: &mut Bencher) {
-    let mut links = ThinkerAlloc::new(100000);
+    let mut links = unsafe { ThinkerAlloc::new(100000) };
     b.iter(|| {
         for i in 0..100000 {
             links.push::<TestObject>(TestObject::create_thinker(
@@ -20,7 +20,7 @@ fn push_100_000(b: &mut Bencher) {
 }
 
 fn load_and_iter(b: &mut Bencher) {
-    let mut links = ThinkerAlloc::new(100000);
+    let mut links = unsafe { ThinkerAlloc::new(100000) };
 
     for i in 0..100000 {
         links.push::<TestObject>(TestObject::create_thinker(
@@ -33,9 +33,9 @@ fn load_and_iter(b: &mut Bencher) {
     }
 
     b.iter(|| {
-        let mut count = 0;
+        let mut _count = 0;
         for obj in links.iter_mut() {
-            count += obj.obj_mut().bad_ref::<TestObject>().x;
+            _count += obj.obj_mut().bad_ref::<TestObject>().x;
         }
     });
 }

@@ -7,7 +7,6 @@ use crate::level_data::map_defs::{
 use crate::p_local::bam_to_radian;
 use crate::DPtr;
 use glam::Vec2;
-use log::debug;
 use wad::{lumps::*, WadData};
 
 use super::map_defs::BlockMap;

@@ -35,6 +35,8 @@ impl Think for TestObject {
     }
 }
 
+/// A custom allocation for `Thinker` objects. This intends to keep them in a contiguous
+/// zone of memory.
 pub struct ThinkerAlloc {
     /// The main AllocPool buffer
     buf_ptr: *mut Option<Thinker>,
@@ -61,23 +63,23 @@ impl Drop for ThinkerAlloc {
 }
 
 impl ThinkerAlloc {
-    pub fn new(capacity: usize) -> Self {
-        unsafe {
-            let size = capacity * size_of::<Option<Thinker>>();
-            let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-            let buf_ptr = alloc(layout) as *mut Option<Thinker>;
+    /// # Safety
+    /// Once allocated the owner of this `ThinkerAlloc` must not move.
+    pub unsafe fn new(capacity: usize) -> Self {
+        let size = capacity * size_of::<Option<Thinker>>();
+        let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
+        let buf_ptr = alloc(layout) as *mut Option<Thinker>;
 
-            for i in 0..capacity {
-                buf_ptr.add(i).write(None);
-            }
+        for i in 0..capacity {
+            buf_ptr.add(i).write(None);
+        }
 
-            Self {
-                buf_ptr,
-                capacity,
-                len: 0,
-                next_free: 0,
-                tail: null_mut(),
-            }
+        Self {
+            buf_ptr,
+            capacity,
+            len: 0,
+            next_free: 0,
+            tail: null_mut(),
         }
     }
 
@@ -499,13 +501,14 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let mut l = Level::setup_level(
-            &wad,
-            crate::d_main::Skill::Baby,
-            1,
-            1,
-            crate::doom_def::GameMode::Shareware,
-        );
+        let mut l = unsafe {
+            Level::new(
+                crate::d_main::Skill::Baby,
+                1,
+                1,
+                crate::doom_def::GameMode::Shareware,
+            )
+        };
         let mut x = Thinker {
             index: 0,
             prev: null_mut(),
@@ -521,19 +524,19 @@ mod tests {
 
         let ptr = NonNull::from(&mut x);
         x.object.bad_mut::<TestObject>().set_thinker_ptr(ptr);
-        assert!(x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l),);
+        assert!(x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l));
     }
 
     #[test]
     fn allocate() {
-        let links = ThinkerAlloc::new(64);
+        let links = unsafe { ThinkerAlloc::new(64) };
         assert_eq!(links.len(), 0);
         assert_eq!(links.capacity(), 64);
     }
 
     #[test]
     fn push_1() {
-        let mut links = ThinkerAlloc::new(64);
+        let mut links = unsafe { ThinkerAlloc::new(64) };
         assert_eq!(links.len(), 0);
         assert_eq!(links.capacity(), 64);
 
@@ -569,7 +572,7 @@ mod tests {
 
     #[test]
     fn check_next_prev_links() {
-        let mut links = ThinkerAlloc::new(64);
+        let mut links = unsafe { ThinkerAlloc::new(64) };
 
         links
             .push::<TestObject>(TestObject::create_thinker(
@@ -697,7 +700,7 @@ mod tests {
 
     #[test]
     fn link_iter_and_removes() {
-        let mut links = ThinkerAlloc::new(64);
+        let mut links = unsafe { ThinkerAlloc::new(64) };
 
         links.push::<TestObject>(TestObject::create_thinker(
             ThinkerType::Test(TestObject {
@@ -788,7 +791,7 @@ mod tests {
 
     #[test]
     fn link_iter_mut_and_map() {
-        let mut links = ThinkerAlloc::new(64);
+        let mut links = unsafe { ThinkerAlloc::new(64) };
 
         links.push::<TestObject>(TestObject::create_thinker(
             ThinkerType::Test(TestObject {
@@ -850,7 +853,7 @@ mod tests {
 
     #[test]
     fn link_iter_mutate() {
-        let mut links = ThinkerAlloc::new(64);
+        let mut links = unsafe { ThinkerAlloc::new(64) };
 
         links.push::<TestObject>(TestObject::create_thinker(
             ThinkerType::Test(TestObject {

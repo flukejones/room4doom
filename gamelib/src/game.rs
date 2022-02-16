@@ -390,18 +390,20 @@ impl Game {
         // TODO: starttime = I_GetTime();
         self.game_action = GameAction::ga_nothing;
 
-        let level = Level::setup_level(
-            &self.wad_data,
-            self.game_skill,
-            self.game_episode,
-            self.game_map,
-            self.game_mode,
-        );
+        let level = unsafe {
+            Level::new(
+                self.game_skill,
+                self.game_episode,
+                self.game_map,
+                self.game_mode,
+            )
+        };
 
         info!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
 
         if let Some(ref mut level) = self.level {
+            level.load(&self.wad_data);
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
             let thing_list = (*level.map_data.get_things()).to_owned();
