@@ -1,19 +1,59 @@
+//! Door movement thinker, controls open/close, locked.
+
 use log::{debug, error, warn};
+use std::fmt::{self, Formatter};
 use std::ptr::NonNull;
 
 use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
 use crate::doom_def::TICRATE;
 use crate::level_data::level::Level;
-use crate::p_floor::move_plane;
-use crate::p_spec::{find_lowest_ceiling_surrounding, DoorKind, ResultE};
-use crate::{
-    doom_def::Card, level_data::map_defs::LineDef, p_map_object::MapObject, p_spec::VerticalDoor,
-    DPtr,
-};
+use crate::level_data::map_defs::Sector;
+use crate::p_specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
+use crate::{doom_def::Card, level_data::map_defs::LineDef, p_map_object::MapObject, DPtr};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;
 const VDOORSPEED: f32 = 2.0;
+
+#[derive(Debug, Clone, Copy)]
+pub enum DoorKind {
+    Normal,
+    Close30ThenOpen,
+    Close,
+    Open,
+    RaiseIn5Mins,
+    BlazeRaise,
+    BlazeOpen,
+    BlazeClose,
+}
+
+pub struct VerticalDoor {
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
+    pub kind: DoorKind,
+    pub topheight: f32,
+    pub speed: f32,
+    // 1 = up, 0 = waiting, -1 = down
+    pub direction: i32,
+    // tics to wait at the top
+    pub topwait: i32,
+    // (keep in case a door going down is reset)
+    // when it reaches 0, start going down
+    pub topcountdown: i32,
+}
+
+impl fmt::Debug for VerticalDoor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VerticalDoor")
+            .field("kind", &self.kind)
+            .field("topheight", &self.topheight)
+            .field("speed", &self.speed)
+            .field("direction", &self.direction)
+            .field("topwait", &self.topwait)
+            .field("topcountdown", &self.topcountdown)
+            .finish()
+    }
+}
 
 impl Think for VerticalDoor {
     fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
@@ -25,13 +65,13 @@ impl Think for VerticalDoor {
                 if door.topcountdown == 0 {
                     debug!("Door for sector {:?} should go down", door.sector.as_ptr());
                     match door.kind {
-                        DoorKind::vld_blazeRaise => {
+                        DoorKind::BlazeRaise => {
                             door.direction = -1;
                         }
-                        DoorKind::vld_normal => {
+                        DoorKind::Normal => {
                             door.direction = -1;
                         }
-                        DoorKind::vld_close30ThenOpen => {
+                        DoorKind::Close30ThenOpen => {
                             door.direction = -1;
                         }
                         _ => {
@@ -46,9 +86,9 @@ impl Think for VerticalDoor {
                 if door.topcountdown == 0 {
                     debug!("Door for sector {:?} should go up", door.sector.as_ptr());
                     match door.kind {
-                        DoorKind::vld_raiseIn5Mins => {
+                        DoorKind::RaiseIn5Mins => {
                             door.direction = 1;
-                            door.kind = DoorKind::vld_normal;
+                            door.kind = DoorKind::Normal;
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -67,9 +107,9 @@ impl Think for VerticalDoor {
                     door.direction,
                 );
 
-                if matches!(res, ResultE::PastDest) {
+                if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
-                        DoorKind::vld_blazeRaise | DoorKind::vld_blazeClose => {
+                        DoorKind::BlazeRaise | DoorKind::BlazeClose => {
                             door.sector.specialdata = None;
                             // TODO: sound
                             unsafe {
@@ -77,14 +117,14 @@ impl Think for VerticalDoor {
                                 door.thinker.as_mut().set_action(ActionF::Remove);
                             }
                         }
-                        DoorKind::vld_normal | DoorKind::vld_close => {
+                        DoorKind::Normal | DoorKind::Close => {
                             door.sector.specialdata = None;
                             unsafe {
                                 door.sector.specialdata = None;
                                 door.thinker.as_mut().set_action(ActionF::Remove);
                             }
                         }
-                        DoorKind::vld_close30ThenOpen => {
+                        DoorKind::Close30ThenOpen => {
                             door.direction = 0;
                             door.topcountdown = TICRATE * 30;
                         }
@@ -103,15 +143,13 @@ impl Think for VerticalDoor {
                     door.direction,
                 );
 
-                if matches!(res, ResultE::PastDest) {
+                if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
-                        DoorKind::vld_blazeRaise | DoorKind::vld_normal => {
+                        DoorKind::BlazeRaise | DoorKind::Normal => {
                             door.direction = 0; // wait at top
                             door.topcountdown = door.topwait;
                         }
-                        DoorKind::vld_close30ThenOpen
-                        | DoorKind::vld_blazeOpen
-                        | DoorKind::vld_open => {
+                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => {
                             door.sector.specialdata = None;
                             unsafe {
                                 door.sector.specialdata = None;
@@ -168,7 +206,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
         let top = find_lowest_ceiling_surrounding(sec.clone());
         match kind {
-            DoorKind::vld_normal | DoorKind::vld_open => {
+            DoorKind::Normal | DoorKind::Open => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = 1;
@@ -176,7 +214,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                     // TODO: S_StartSound(&door->sector->soundorg, sfx_doropn);
                 }
             }
-            DoorKind::vld_blazeRaise | DoorKind::vld_blazeOpen => {
+            DoorKind::BlazeRaise | DoorKind::BlazeOpen => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = 1;
@@ -185,19 +223,19 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                     // TODO: S_StartSound(&door->sector->soundorg, sfx_bdopn);
                 }
             }
-            DoorKind::vld_blazeClose => {
+            DoorKind::BlazeClose => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = -1;
                 door.speed *= 4.0;
                 // TODO: S_StartSound(&door->sector->soundorg, sfx_bdcls);
             }
-            DoorKind::vld_close30ThenOpen => {
+            DoorKind::Close30ThenOpen => {
                 door.topheight = sec.ceilingheight;
                 door.direction = -1;
                 // TODO: S_StartSound(&door->sector->soundorg, sfx_dorcls);
             }
-            DoorKind::vld_close => {
+            DoorKind::Close => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = -1;
@@ -307,7 +345,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     let mut door = VerticalDoor {
         thinker: NonNull::dangling(),
         sector: sec.clone(),
-        kind: DoorKind::vld_normal,
+        kind: DoorKind::Normal,
         topheight: 0.0,
         speed: VDOORSPEED,
         direction: 1,
@@ -316,17 +354,17 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     };
 
     match line.special {
-        1 | 26 | 27 | 28 => door.kind = DoorKind::vld_normal,
+        1 | 26 | 27 | 28 => door.kind = DoorKind::Normal,
         31 | 32 | 33 | 34 => {
-            door.kind = DoorKind::vld_open;
+            door.kind = DoorKind::Open;
             line.special = 0;
         }
         117 => {
-            door.kind = DoorKind::vld_blazeRaise;
+            door.kind = DoorKind::BlazeRaise;
             door.speed = VDOOR * 2.0;
         }
         118 => {
-            door.kind = DoorKind::vld_blazeOpen;
+            door.kind = DoorKind::BlazeOpen;
             line.special = 0;
             door.speed = VDOOR * 2.0;
         }

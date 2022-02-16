@@ -3,12 +3,11 @@ use log::{debug, warn};
 use crate::{
     flags::LineDefFlags,
     level_data::map_defs::LineDef,
-    p_ceiling::ev_do_ceiling,
-    p_doors::{ev_do_door, ev_vertical_door},
-    p_floor::ev_do_floor,
+    p_ceiling::{ev_do_ceiling, CeilingKind},
+    p_doors::{ev_do_door, ev_vertical_door, DoorKind},
+    p_floor::{ev_do_floor, FloorKind},
     p_map_object::MapObject,
-    p_plats::ev_do_platform,
-    p_spec::{CeilingKind, DoorKind, FloorKind, PlatKind},
+    p_platforms::{ev_do_platform, PlatKind},
     DPtr,
 };
 
@@ -77,73 +76,73 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
         }
         29 => {
             debug!("line-switch: vld_normal door!");
-            if ev_do_door(line, DoorKind::vld_normal, level) {
+            if ev_do_door(line, DoorKind::Normal, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         50 => {
             debug!("line-switch: vld_close door!");
-            if ev_do_door(line, DoorKind::vld_close, level) {
+            if ev_do_door(line, DoorKind::Close, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         103 => {
             debug!("line-switch: vld_open door!");
-            if ev_do_door(line, DoorKind::vld_open, level) {
+            if ev_do_door(line, DoorKind::Open, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         111 => {
             debug!("line-switch: vld_blazeRaise door!");
-            if ev_do_door(line, DoorKind::vld_blazeRaise, level) {
+            if ev_do_door(line, DoorKind::BlazeRaise, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         112 => {
             debug!("line-switch: vld_blazeOpen door!");
-            if ev_do_door(line, DoorKind::vld_blazeOpen, level) {
+            if ev_do_door(line, DoorKind::BlazeOpen, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         113 => {
             debug!("line-switch: vld_blazeClose door!");
-            if ev_do_door(line, DoorKind::vld_blazeClose, level) {
+            if ev_do_door(line, DoorKind::BlazeClose, level) {
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         42 => {
             debug!("line-switch: vld_close door!");
-            if ev_do_door(line, DoorKind::vld_close, level) {
+            if ev_do_door(line, DoorKind::Close, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         61 => {
             debug!("line-switch: vld_open door!");
-            if ev_do_door(line, DoorKind::vld_open, level) {
+            if ev_do_door(line, DoorKind::Open, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         63 => {
             debug!("line-switch: vld_normal door!");
-            if ev_do_door(line, DoorKind::vld_normal, level) {
+            if ev_do_door(line, DoorKind::Normal, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         114 => {
             debug!("line-switch: vld_blazeRaise door!");
-            if ev_do_door(line, DoorKind::vld_blazeRaise, level) {
+            if ev_do_door(line, DoorKind::BlazeRaise, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         115 => {
             debug!("line-switch: vld_blazeOpen door!");
-            if ev_do_door(line, DoorKind::vld_blazeOpen, level) {
+            if ev_do_door(line, DoorKind::BlazeOpen, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
         116 => {
             debug!("line-switch: vld_blazeClose door!");
-            if ev_do_door(line, DoorKind::vld_blazeClose, level) {
+            if ev_do_door(line, DoorKind::BlazeClose, level) {
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }
@@ -299,19 +298,19 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
         }
         41 => {
             debug!("line-switch: lowerToFloor ceiling!");
-            if ev_do_ceiling(line, CeilingKind::lowerToFloor, level){
+            if ev_do_ceiling(line, CeilingKind::LowerToFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         49 => {
             debug!("line-switch: crushAndRaise ceiling!");
-            if ev_do_ceiling(line, CeilingKind::crushAndRaise, level){
+            if ev_do_ceiling(line, CeilingKind::CrushAndRaise, level){
                 // TODO: P_ChangeSwitchTexture(line, 0);
             }
         }
         43 => {
             debug!("line-switch: lowerToFloor ceiling!");
-            if ev_do_ceiling(line, CeilingKind::lowerToFloor, level){
+            if ev_do_ceiling(line, CeilingKind::LowerToFloor, level){
                 // TODO: P_ChangeSwitchTexture(line, 1);
             }
         }

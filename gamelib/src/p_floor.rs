@@ -1,8 +1,5 @@
-// T_MovePlane
-
+//! Floor movement thinker: raise, lower, crusher
 use std::ptr::NonNull;
-
-use log::{debug, error};
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
@@ -10,11 +7,10 @@ use crate::{
         level::Level,
         map_defs::{LineDef, Sector},
     },
-    p_map::change_sector,
     p_map_object::MapObject,
-    p_spec::{
+    p_specials::{
         find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
-        find_lowest_floor_surrounding, find_next_highest_floor, FloorKind, FloorMove, ResultE,
+        find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
     },
     DPtr,
 };
@@ -22,140 +18,56 @@ use crate::{
 const FLOORSPEED: f32 = 1.0;
 const ML_TWOSIDED: i16 = 4;
 
-pub fn move_plane(
-    mut sector: DPtr<Sector>,
-    speed: f32,
-    dest: f32,
-    crush: bool,
-    floor_or_ceiling: i32,
-    direction: i32,
-) -> ResultE {
-    match floor_or_ceiling {
-        0 => {
-            // FLOOR
-            match direction {
-                -1 => {
-                    // DOWN
-                    debug!(
-                        "move_plane: floor: down: {} to {} at speed {}",
-                        sector.floorheight, dest, speed
-                    );
-                    if sector.floorheight - speed < dest {
-                        let last_pos = sector.floorheight;
-                        sector.floorheight = dest;
+#[derive(Debug, Clone, Copy)]
+pub enum FloorKind {
+    /// lower floor to highest surrounding floor
+    LowerFloor,
+    /// lower floor to lowest surrounding floor
+    LowerFloorToLowest,
+    /// lower floor to highest surrounding floor VERY FAST
+    TurboLower,
+    /// raise floor to lowest surrounding CEILING
+    RaiseFloor,
+    /// raise floor to next highest surrounding floor
+    RaiseFloorToNearest,
+    /// raise floor to shortest height with same texture around it
+    RaiseToTexture,
+    /// lower floor to lowest surrounding floor and change floorpic
+    LowerAndChange,
+    /// Raise floor 24 units from start
+    RaiseFloor24,
+    /// Raise floor 24 units from start and change texture
+    RaiseFloor24andChange,
+    /// Raise floor and crush all entities on it
+    RaiseFloorCrush,
+    /// raise to next highest floor, turbo-speed
+    RaiseFloorTurbo,
+    /// Do donuts
+    DonutRaise,
+    /// Raise floor 512 units from start
+    RaiseFloor512,
+}
 
-                        if change_sector(sector.clone(), crush) {
-                            sector.floorheight = last_pos;
-                            change_sector(sector, crush);
-                        }
-                        return ResultE::PastDest;
-                    } else {
-                        // COULD GET CRUSHED
-                        let last_pos = sector.floorheight;
-                        sector.floorheight -= speed;
+/// Very special kind of thinker used specifically for building a set of stairs
+/// that raises one-by-one.
+#[derive(Debug, Clone, Copy)]
+pub enum StairEnum {
+    /// slowly build by 8
+    Build8,
+    /// quickly build by 16
+    Turbo16,
+}
 
-                        if change_sector(sector.clone(), crush) {
-                            if crush {
-                                return ResultE::Crushed;
-                            }
-                            sector.floorheight = last_pos;
-                            change_sector(sector, crush);
-                            return ResultE::Crushed;
-                        }
-                    }
-                }
-                1 => {
-                    // UP
-                    debug!(
-                        "move_plane: floor: up: {} to {} at speed {}",
-                        sector.floorheight, dest, speed
-                    );
-                    if sector.floorheight + speed > dest {
-                        let last_pos = sector.floorheight;
-                        sector.floorheight = dest;
-
-                        if change_sector(sector.clone(), crush) {
-                            sector.floorheight = last_pos;
-                            change_sector(sector, crush);
-                        }
-                        return ResultE::PastDest;
-                    } else {
-                        let last_pos = sector.floorheight;
-                        sector.floorheight += speed;
-                        if change_sector(sector.clone(), crush) {
-                            if crush {
-                                return ResultE::Crushed;
-                            }
-                            sector.floorheight = last_pos;
-                            change_sector(sector, crush);
-                            return ResultE::Crushed;
-                        }
-                    }
-                }
-                _ => error!("Invalid floor direction: {}", direction),
-            }
-        }
-        1 => {
-            // CEILING
-            match direction {
-                -1 => {
-                    // DOWN
-                    debug!(
-                        "move_plane: ceiling: down: {} to {} at speed {}",
-                        sector.ceilingheight, dest, speed
-                    );
-                    if sector.ceilingheight - speed < dest {
-                        let last_pos = sector.ceilingheight;
-                        sector.ceilingheight = dest;
-
-                        if change_sector(sector.clone(), crush) {
-                            sector.ceilingheight = last_pos;
-                            change_sector(sector, crush);
-                        }
-                        return ResultE::PastDest;
-                    } else {
-                        // COULD GET CRUSHED
-                        let last_pos = sector.ceilingheight;
-                        sector.ceilingheight -= speed;
-
-                        if change_sector(sector.clone(), crush) {
-                            if crush {
-                                return ResultE::Crushed;
-                            }
-                            sector.ceilingheight = last_pos;
-                            change_sector(sector, crush);
-                            return ResultE::Crushed;
-                        }
-                    }
-                }
-                1 => {
-                    // UP
-                    debug!(
-                        "move_plane: ceiling: up: {} to {} at speed {}",
-                        sector.ceilingheight, dest, speed
-                    );
-                    if sector.ceilingheight + speed > dest {
-                        let last_pos = sector.ceilingheight;
-                        sector.ceilingheight = dest;
-
-                        if change_sector(sector.clone(), crush) {
-                            sector.ceilingheight = last_pos;
-                            change_sector(sector, crush);
-                        }
-                        return ResultE::PastDest;
-                    } else {
-                        //let last_pos = sector.ceilingheight;
-                        sector.ceilingheight += speed;
-                        change_sector(sector, crush);
-                    }
-                }
-                _ => error!("Invalid ceiling direction: {}", direction),
-            }
-        }
-        _ => error!("Invalid floor_or_ceiling: {}", floor_or_ceiling),
-    }
-
-    ResultE::Ok
+pub struct FloorMove {
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
+    pub kind: FloorKind,
+    pub speed: f32,
+    pub crush: bool,
+    pub direction: i32,
+    pub newspecial: i16,
+    pub texture: u8,
+    pub destheight: f32,
 }
 
 /// EV_DoFloor
@@ -295,7 +207,7 @@ impl Think for FloorMove {
             //  S_StartSound(&floor->sector->soundorg, sfx_stnmov);
         }
 
-        if matches!(res, ResultE::PastDest) {
+        if matches!(res, PlaneResult::PastDest) {
             floor.sector.specialdata = None;
 
             if floor.direction == 1 && matches!(floor.kind, FloorKind::DonutRaise)

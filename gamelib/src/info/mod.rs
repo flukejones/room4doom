@@ -1,3 +1,7 @@
+//! All the absurd amounts of map object info, states, sprites for states etc etc
+//!
+//! TODO: Autogenerate this from the input once finalised.
+
 use enumn::N;
 
 /// All game information, such as demon types, weapons and how much damage they do, items etc

@@ -1,19 +1,19 @@
 use crate::d_thinker::ThinkerType;
 use crate::level_data::level::Level;
-use crate::p_map_object::MapObjectFlag;
+use crate::p_map_object::MobjFlag;
 use crate::renderer::bsp::point_to_angle_2;
 use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {
-    actor.flags &= !(MapObjectFlag::MF_AMBUSH as u32);
+    actor.flags &= !(MobjFlag::AMBUSH as u32);
 
     unsafe {
         let angle = point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
         actor.angle = angle;
 
-        if actor.target.unwrap().as_mut().flags & MapObjectFlag::MF_SHADOW as u32
-            == MapObjectFlag::MF_SHADOW as u32
+        if actor.target.unwrap().as_mut().flags & MobjFlag::SHADOW as u32
+            == MobjFlag::SHADOW as u32
         {
             // TODO: actor.angle += P_SubRandom() << 21;
         }
@@ -56,7 +56,7 @@ pub fn a_chase(actor: &mut MapObject) {
     // actor->angle += ANG90 / 2;
     // }
     //
-    // if (!actor->target || !(actor->target->flags & MF_SHOOTABLE))
+    // if (!actor->target || !(actor->target->flags & SHOOTABLE))
     // {
     // // look for a new target
     // if (P_LookForPlayers(actor, true))
@@ -67,9 +67,9 @@ pub fn a_chase(actor: &mut MapObject) {
     // }
     //
     // // do not attack twice in a row
-    // if (actor->flags & MF_JUSTATTACKED)
+    // if (actor->flags & JUSTATTACKED)
     // {
-    // actor->flags &= ~MF_JUSTATTACKED;
+    // actor->flags &= ~JUSTATTACKED;
     // if (gameskill != sk_nightmare && !fastparm)
     // P_NewChaseDir(actor);
     // return;
@@ -97,7 +97,7 @@ pub fn a_chase(actor: &mut MapObject) {
     // goto nomissile;
     //
     // P_SetMobjState(actor, actor->info->missilestate);
-    // actor->flags |= MF_JUSTATTACKED;
+    // actor->flags |= JUSTATTACKED;
     // return;
     // }
     //
@@ -131,11 +131,11 @@ pub fn a_look(_actor: &mut MapObject) {
     // actor->threshold = 0; // any shot will wake up
     // targ = actor->subsector->sector->soundtarget;
     //
-    // if (targ && (targ->flags & MF_SHOOTABLE))
+    // if (targ && (targ->flags & SHOOTABLE))
     // {
     // actor->target = targ;
     //
-    // if (actor->flags & MF_AMBUSH)
+    // if (actor->flags & AMBUSH)
     // {
     // if (P_CheckSight(actor, actor->target))
     // goto seeyou;
@@ -252,7 +252,7 @@ pub fn a_pain(actor: &mut ThinkerType, level: &mut Level) -> bool {
 
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
-    actor.flags &= !(MapObjectFlag::MF_SOLID as u32);
+    actor.flags &= !(MobjFlag::SOLID as u32);
 
     // So change this if corpse objects
     // are meant to be obstacles.

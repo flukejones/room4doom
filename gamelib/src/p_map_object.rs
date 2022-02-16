@@ -1,3 +1,6 @@
+//! The bulk of map objects. Things like monsters, giblets, rockets and plasma
+//! shots etc. Items. Anything that needs to move.
+
 use std::ptr::{null_mut, NonNull};
 
 use crate::d_thinker::ThinkerType;
@@ -36,91 +39,68 @@ pub static STOPSPEED: f32 = 0.0625; // 0x1000
 pub static FRICTION: f32 = 0.90625; // 0xE800
 
 #[derive(Debug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum MapObjectFlag {
+pub enum MobjFlag {
     /// Call P_SpecialThing when touched.
-    MF_SPECIAL = 1,
+    SPECIAL = 1,
     /// Blocks.
-    MF_SOLID = 2,
+    SOLID = 2,
     /// Can be hit.
-    MF_SHOOTABLE = 4,
+    SHOOTABLE = 4,
     /// Don't use the sector links (invisible but touchable).
-    MF_NOSECTOR = 8,
+    NOSECTOR = 8,
     /// Don't use the block links (inert but displayable)
-    MF_NOBLOCKMAP = 16,
-
+    NOBLOCKMAP = 16,
     /// Not to be activated by sound, deaf monster.
-    MF_AMBUSH = 32,
+    AMBUSH = 32,
     /// Will try to attack right back.
-    MF_JUSTHIT = 64,
+    JUSTHIT = 64,
     /// Will take at least one step before attacking.
-    MF_JUSTATTACKED = 128,
-    /// On level spawning (initial position),
-    ///  hang from ceiling instead of stand on floor.
-    MF_SPAWNCEILING = 256,
-    /// Don't apply gravity (every tic),
-    ///  that is, object will float, keeping current height
+    JUSTATTACKED = 128,
+    /// On level spawning (initial position), hang from ceiling instead of stand on floor.
+    SPAWNCEILING = 256,
+    /// Don't apply gravity (every tic), that is, object will float, keeping current height
     ///  or changing it actively.
-    MF_NOGRAVITY = 512,
-
-    /// Movement flags.
+    NOGRAVITY = 512,
     /// This allows jumps from high places.
-    MF_DROPOFF = 0x400,
+    DROPOFF = 0x400,
     /// For players, will pick up items.
-    MF_PICKUP = 0x800,
+    PICKUP = 0x800,
     /// Player cheat. ???
-    MF_NOCLIP = 0x1000,
+    NOCLIP = 0x1000,
     /// Player: keep info about sliding along walls.
-    MF_SLIDE = 0x2000,
-    /// Allow moves to any height, no gravity.
-    /// For active floaters, e.g. cacodemons, pain elementals.
-    MF_FLOAT = 0x4000,
-    /// Don't cross lines
-    ///   ??? or look at heights on teleport.
-    MF_TELEPORT = 0x8000,
-    /// Don't hit same species, explode on block.
-    /// Player missiles as well as fireballs of various kinds.
-    MF_MISSILE = 0x10000,
-    /// Dropped by a demon, not level spawned.
-    /// E.g. ammo clips dropped by dying former humans.
-    MF_DROPPED = 0x20000,
-    /// Use fuzzy draw (shadow demons or spectres),
-    ///  temporary player invisibility powerup.
-    MF_SHADOW = 0x40000,
-    /// Flag: don't bleed when shot (use puff),
-    ///  barrels and shootable furniture shall not bleed.
-    MF_NOBLOOD = 0x80000,
-    /// Don't stop moving halfway off a step,
-    ///  that is, have dead bodies slide down all the way.
-    MF_CORPSE = 0x100000,
-    /// Floating to a height for a move, ???
-    ///  don't auto float to target's height.
-    MF_INFLOAT = 0x200000,
-
-    /// On kill, count this enemy object
-    ///  towards intermission kill total.
+    SLIDE = 0x2000,
+    /// Allow moves to any height, no gravity. For active floaters, e.g. cacodemons, pain elementals.
+    FLOAT = 0x4000,
+    /// Don't cross lines ??? or look at heights on teleport.
+    TELEPORT = 0x8000,
+    /// Don't hit same species, explode on block. Player missiles as well as fireballs of various kinds.
+    MISSILE = 0x10000,
+    /// Dropped by a demon, not level spawned. E.g. ammo clips dropped by dying former humans.
+    DROPPED = 0x20000,
+    /// Use fuzzy draw (shadow demons or spectres),  temporary player invisibility powerup.
+    SHADOW = 0x40000,
+    /// Flag: don't bleed when shot (use puff),  barrels and shootable furniture shall not bleed.
+    NOBLOOD = 0x80000,
+    /// Don't stop moving halfway off a step, that is, have dead bodies slide down all the way.
+    CORPSE = 0x100000,
+    /// Floating to a height for a move, ??? don't auto float to target's height.
+    INFLOAT = 0x200000,
+    /// On kill, count this enemy object towards intermission kill total.
     /// Happy gathering.
-    MF_COUNTKILL = 0x400000,
-
-    /// On picking up, count this item object
-    ///  towards intermission item total.
-    MF_COUNTITEM = 0x800000,
-
-    /// Special handling: skull in flight.
-    /// Neither a cacodemon nor a missile.
-    MF_SKULLFLY = 0x1000000,
-
-    /// Don't spawn this object
-    ///  in death match mode (e.g. key cards).
-    MF_NOTDMATCH = 0x2000000,
-
+    COUNTKILL = 0x400000,
+    /// On picking up, count this item object towards intermission item total.
+    COUNTITEM = 0x800000,
+    /// Special handling: skull in flight. Neither a cacodemon nor a missile.
+    SKULLFLY = 0x1000000,
+    /// Don't spawn this object in death match mode (e.g. key cards).
+    NOTDMATCH = 0x2000000,
     /// Player sprites in multiplayer modes are modified
     ///  using an internal color lookup table for re-indexing.
     /// If 0x4 0x8 or 0xc,
     ///  use a translation table for player colormaps
-    MF_TRANSLATION = 0xc000000,
+    TRANSLATION = 0xc000000,
     /// Hmm ???.
-    MF_TRANSSHIFT = 26,
+    TRANSSHIFT = 26,
 }
 
 pub struct MapObject {
@@ -254,7 +234,7 @@ impl MapObject {
             self.tics = 1;
         }
 
-        self.flags &= !(MapObjectFlag::MF_MISSILE as u32);
+        self.flags &= !(MobjFlag::MISSILE as u32);
 
         if self.info.deathsound != SfxEnum::sfx_None {
             // TODO: S_StartSound (mo, mo->info->deathsound);
@@ -275,9 +255,9 @@ impl MapObject {
         // adjust height
         self.z += self.momz;
 
-        if self.flags & MapObjectFlag::MF_FLOAT as u32 != 0 && self.target.is_some() {
+        if self.flags & MobjFlag::FLOAT as u32 != 0 && self.target.is_some() {
             // TODO: float down towards target if too close
-            // if (!(mo->flags & MF_SKULLFLY) && !(mo->flags & MF_INFLOAT))
+            // if (!(mo->flags & SKULLFLY) && !(mo->flags & INFLOAT))
             // {
             //     dist = P_AproxDistance(mo->x - mo->target->x,
             //                         mo->y - mo->target->y);
@@ -296,7 +276,7 @@ impl MapObject {
         if self.z <= self.floorz {
             // hit the floor
             // TODO: The lost soul correction for old demos
-            if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
+            if self.flags & MobjFlag::SKULLFLY as u32 != 0 {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
@@ -317,7 +297,7 @@ impl MapObject {
             }
 
             self.z = self.floorz;
-        } else if self.flags & MapObjectFlag::MF_NOGRAVITY as u32 == 0 {
+        } else if self.flags & MobjFlag::NOGRAVITY as u32 == 0 {
             if self.momz == 0.0 {
                 self.momz = -1.0 * 2.0;
             } else {
@@ -329,8 +309,8 @@ impl MapObject {
     /// P_XYMovement
     fn p_xy_movement(&mut self) {
         if self.momxy.x() == f32::EPSILON && self.momxy.y() == f32::EPSILON {
-            if self.flags & MapObjectFlag::MF_SKULLFLY as u32 != 0 {
-                self.flags &= !(MapObjectFlag::MF_SKULLFLY as u32);
+            if self.flags & MobjFlag::SKULLFLY as u32 != 0 {
+                self.flags &= !(MobjFlag::SKULLFLY as u32);
                 self.momxy = Vec2::default();
                 self.z = 0.0;
                 self.set_mobj_state(self.info.spawnstate);
@@ -382,7 +362,7 @@ impl MapObject {
             if !self.p_try_move(ptryx, ptryy) {
                 if self.player.is_some() {
                     self.p_slide_move();
-                } else if self.flags & MapObjectFlag::MF_MISSILE as u32 != 0 {
+                } else if self.flags & MobjFlag::MISSILE as u32 != 0 {
                     // TODO: explode
                 } else {
                     self.momxy.set_x(0.0);
@@ -396,7 +376,7 @@ impl MapObject {
         }
 
         // slow down
-        if self.flags & (MapObjectFlag::MF_MISSILE as u32 | MapObjectFlag::MF_SKULLFLY as u32) != 0
+        if self.flags & (MobjFlag::MISSILE as u32 | MobjFlag::SKULLFLY as u32) != 0
         {
             return; // no friction for missiles ever
         }
@@ -407,7 +387,7 @@ impl MapObject {
 
         let floorheight = unsafe { (*self.subsector).sector.floorheight };
 
-        if self.flags & MapObjectFlag::MF_CORPSE as u32 != 0 {
+        if self.flags & MobjFlag::CORPSE as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
             if (self.momxy.x() > FRACUNIT_DIV4
@@ -486,7 +466,7 @@ impl MapObject {
         let mobj_ptr_mut = unsafe { mobj.as_mut() };
         if mthing.kind > 1 {
             mobj_ptr_mut.flags = mobj_ptr_mut.flags as u32
-                | (mthing.kind as u32 - 1) << MapObjectFlag::MF_TRANSSHIFT as u8;
+                | (mthing.kind as u32 - 1) << MobjFlag::TRANSSHIFT as u8;
         }
 
         // TODO: check this angle stuff
@@ -578,13 +558,13 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjectFlag::MF_NOTDMATCH as u32 != 0
+        if level.deathmatch && MOBJINFO[i as usize].flags & MobjFlag::NOTDMATCH as u32 != 0
         {
             return;
         }
 
         // TODO: don't spawn any monsters if -nomonsters
-        // if (nomonsters && (i == MT_SKULL || (mobjinfo[i].flags & MF_COUNTKILL)))
+        // if (nomonsters && (i == MT_SKULL || (mobjinfo[i].flags & COUNTKILL)))
         // {
         //     return;
         // }
@@ -593,7 +573,7 @@ impl MapObject {
         let y = mthing.y as f32;
         let z;
 
-        if MOBJINFO[i as usize].flags & MapObjectFlag::MF_SPAWNCEILING as u32 != 0 {
+        if MOBJINFO[i as usize].flags & MobjFlag::SPAWNCEILING as u32 != 0 {
             z = ONCEILINGZ;
         } else {
             z = ONFLOORZ;
@@ -604,17 +584,17 @@ impl MapObject {
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
-        if mobj.flags & MapObjectFlag::MF_COUNTKILL as u32 != 0 {
+        if mobj.flags & MobjFlag::COUNTKILL as u32 != 0 {
             level.totalkills += 1;
         }
-        if mobj.flags & MapObjectFlag::MF_COUNTITEM as u32 != 0 {
+        if mobj.flags & MobjFlag::COUNTITEM as u32 != 0 {
             level.totalitems += 1;
         }
 
         // TODO: check the angle is correct
         mobj.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
         if mthing.flags & MTF_AMBUSH != 0 {
-            mobj.flags |= MapObjectFlag::MF_AMBUSH as u32;
+            mobj.flags |= MobjFlag::AMBUSH as u32;
         }
     }
 
@@ -725,7 +705,7 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub unsafe fn unset_thing_position(&mut self) {
-        if self.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
+        if self.flags & MobjFlag::NOSECTOR as u32 == 0 {
             if !self.s_next.is_null() {
                 (*self.s_next).s_prev = self.s_prev; // could also be null
             }
@@ -746,7 +726,7 @@ impl MapObject {
         let subsector = level.map_data.point_in_subsector(self.xy);
         self.subsector = subsector;
 
-        if self.flags & MapObjectFlag::MF_NOSECTOR as u32 == 0 {
+        if self.flags & MobjFlag::NOSECTOR as u32 == 0 {
             let mut sector = (*self.subsector).sector.clone();
 
             self.s_prev = null_mut();
@@ -764,7 +744,7 @@ impl MapObject {
     pub fn remove(&mut self) {
         // TODO: nightmare respawns
         /*
-        if ((mobj->flags & MF_SPECIAL) && !(mobj->flags & MF_DROPPED) &&
+        if ((mobj->flags & SPECIAL) && !(mobj->flags & DROPPED) &&
             (mobj->type != MT_INV) && (mobj->type != MT_INS)) {
             itemrespawnque[iquehead] = mobj->spawnpoint;
             itemrespawntime[iquehead] = leveltime;
@@ -821,7 +801,7 @@ impl MapObject {
             self.set_mobj_state(StateNum::S_GIBS);
 
             // TODO: if (gameversion > exe_doom_1_2)
-            //  thing->flags &= ~MF_SOLID;
+            //  thing->flags &= ~SOLID;
 
             self.height = 0.0;
             self.radius = 0.0;
@@ -829,12 +809,12 @@ impl MapObject {
         }
 
         // crunch dropped items
-        if self.flags & MapObjectFlag::MF_DROPPED as u32 != 0 {
+        if self.flags & MobjFlag::DROPPED as u32 != 0 {
             self.remove();
             return true;
         }
 
-        if self.flags & MapObjectFlag::MF_SHOOTABLE as u32 == 0 {
+        if self.flags & MobjFlag::SHOOTABLE as u32 == 0 {
             // assume it is bloody gibs or something
             return true;
         }
@@ -865,7 +845,7 @@ impl MapObject {
 impl Think for MapObject {
     fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let this = object.bad_mut::<MapObject>();
-        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MapObjectFlag::MF_SKULLFLY as u32 != 0
+        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0
         {
             this.p_xy_movement();
         }
@@ -889,7 +869,7 @@ impl Think for MapObject {
             } // freed itself
         } else {
             // check for nightmare respawn
-            if this.flags & MapObjectFlag::MF_COUNTKILL as u32 == 0 {
+            if this.flags & MobjFlag::COUNTKILL as u32 == 0 {
                 return false;
             }
             if !level.respawn_monsters {

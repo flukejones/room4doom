@@ -1,217 +1,16 @@
-/// Implements special effects:
-/// Texture animation, height or lighting changes according to adjacent sectors,
-/// respective utility functions, etc.
-use crate::angle::Angle;
-use crate::d_thinker::Thinker;
+//! Implements special effects:
+//! Texture animation, height or lighting changes according to adjacent sectors,
+//! respective utility functions.
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
 use crate::level_data::map_defs::{LineDef, Sector};
-use crate::p_ceiling::ev_do_ceiling;
-use crate::p_doors::ev_do_door;
-use crate::p_floor::ev_do_floor;
+use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
+use crate::p_doors::{ev_do_door, DoorKind};
+use crate::p_floor::{ev_do_floor, FloorKind};
 use crate::p_map_object::MapObject;
-use crate::p_plats::ev_do_platform;
+use crate::p_platforms::{ev_do_platform, PlatKind};
 use crate::DPtr;
-use log::{debug, warn};
-use std::fmt;
-use std::fmt::{Debug, Formatter};
-use std::ptr::NonNull;
-
-// P_LIGHTS
-pub struct FireFlicker {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub count: i32,
-    pub max_light: i32,
-    pub min_light: i32,
-}
-
-pub struct LightFlash {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub count: i32,
-    pub max_light: i32,
-    pub min_light: i32,
-    pub max_time: i32,
-    pub min_time: i32,
-}
-
-pub struct Strobe {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub count: i32,
-    pub min_light: i32,
-    pub max_light: i32,
-    pub dark_time: i32,
-    pub bright_time: i32,
-}
-
-pub struct Glow {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub min_light: i32,
-    pub max_light: i32,
-    pub direction: Angle,
-}
-
-// P_PLATS
-pub enum PlatStatus {
-    Up,
-    Down,
-    Waiting,
-    InStasis,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PlatKind {
-    PerpetualRaise,
-    DownWaitUpStay,
-    RaiseAndChange,
-    RaiseToNearestAndChange,
-    BlazeDWUS,
-}
-
-pub struct Platform {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub speed: f32,
-    pub low: f32,
-    pub high: f32,
-    pub wait: i32,
-    pub count: i32,
-    pub status: PlatStatus,
-    pub old_status: PlatStatus,
-    pub crush: bool,
-    pub tag: i16,
-    pub kind: PlatKind,
-}
-
-// P_FLOOR
-//
-#[derive(Debug, Clone, Copy)]
-pub enum FloorKind {
-    /// lower floor to highest surrounding floor
-    LowerFloor,
-    /// lower floor to lowest surrounding floor
-    LowerFloorToLowest,
-    /// lower floor to highest surrounding floor VERY FAST
-    TurboLower,
-    /// raise floor to lowest surrounding CEILING
-    RaiseFloor,
-    /// raise floor to next highest surrounding floor
-    RaiseFloorToNearest,
-    /// raise floor to shortest height with same texture around it
-    RaiseToTexture,
-    /// lower floor to lowest surrounding floor and change floorpic
-    LowerAndChange,
-    /// Raise floor 24 units from start
-    RaiseFloor24,
-    /// Raise floor 24 units from start and change texture
-    RaiseFloor24andChange,
-    /// Raise floor and crush all entities on it
-    RaiseFloorCrush,
-    /// raise to next highest floor, turbo-speed
-    RaiseFloorTurbo,
-    /// Do donuts
-    DonutRaise,
-    /// Raise floor 512 units from start
-    RaiseFloor512,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum StairEnum {
-    /// slowly build by 8
-    Build8,
-    /// quickly build by 16
-    Turbo16,
-}
-
-#[derive(Debug)]
-pub enum ResultE {
-    Ok,
-    Crushed,
-    PastDest,
-}
-
-pub struct FloorMove {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub kind: FloorKind,
-    pub speed: f32,
-    pub crush: bool,
-    pub direction: i32,
-    pub newspecial: i16,
-    pub texture: u8,
-    pub destheight: f32,
-}
-
-// P_CEILNG
-#[derive(Debug, Clone, Copy)]
-pub enum CeilingKind {
-    lowerToFloor,
-    raiseToHighest,
-    lowerAndCrush,
-    crushAndRaise,
-    fastCrushAndRaise,
-    silentCrushAndRaise,
-}
-
-pub struct CeilingMove {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub kind: CeilingKind,
-    pub bottomheight: f32,
-    pub topheight: f32,
-    pub speed: f32,
-    pub crush: bool,
-    // 1 = up, 0 = waiting, -1 = down
-    pub direction: i32,
-    // ID
-    pub tag: i16,
-    pub olddirection: i32,
-}
-
-// P_DOORS
-//
-#[derive(Debug, Clone, Copy)]
-pub enum DoorKind {
-    vld_normal,
-    vld_close30ThenOpen,
-    vld_close,
-    vld_open,
-    vld_raiseIn5Mins,
-    vld_blazeRaise,
-    vld_blazeOpen,
-    vld_blazeClose,
-}
-
-pub struct VerticalDoor {
-    pub thinker: NonNull<Thinker>,
-    pub sector: DPtr<Sector>,
-    pub kind: DoorKind,
-    pub topheight: f32,
-    pub speed: f32,
-    // 1 = up, 0 = waiting, -1 = down
-    pub direction: i32,
-    // tics to wait at the top
-    pub topwait: i32,
-    // (keep in case a door going down is reset)
-    // when it reaches 0, start going down
-    pub topcountdown: i32,
-}
-
-impl fmt::Debug for VerticalDoor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("VerticalDoor")
-            .field("kind", &self.kind)
-            .field("topheight", &self.topheight)
-            .field("speed", &self.speed)
-            .field("direction", &self.direction)
-            .field("topwait", &self.topwait)
-            .field("topcountdown", &self.topcountdown)
-            .finish()
-    }
-}
+use log::{debug, error, warn};
 
 fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as i16 == 0 {
@@ -310,8 +109,175 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
     min
 }
 
-/// P_CrossSpecialLine, trigger various actions when a line is crossed which has
-/// a non-zero special attached
+/// P_ChangeSector
+fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
+    let mut no_fit = false;
+
+    if !sector.thinglist.is_null() {
+        let mut thing = sector.thinglist;
+        while !thing.is_null() {
+            unsafe {
+                debug!("Thing type {:?} is in affected sector", (*thing).kind);
+                (*thing).pit_change_sector(&mut no_fit, crunch);
+
+                if (*thing).s_next.is_null() || (*thing).s_next == thing {
+                    break;
+                }
+                thing = (*thing).s_next;
+            }
+        }
+    }
+
+    no_fit
+}
+
+/// The result of raising a plane. `PastDest` = stop, `Crushed` = should crush all in sector
+#[derive(Debug, Clone, Copy)]
+pub enum PlaneResult {
+    Ok,
+    Crushed,
+    PastDest,
+}
+
+pub fn move_plane(
+    mut sector: DPtr<Sector>,
+    speed: f32,
+    dest: f32,
+    crush: bool,
+    floor_or_ceiling: i32,
+    direction: i32,
+) -> PlaneResult {
+    match floor_or_ceiling {
+        0 => {
+            // FLOOR
+            match direction {
+                -1 => {
+                    // DOWN
+                    debug!(
+                        "move_plane: floor: down: {} to {} at speed {}",
+                        sector.floorheight, dest, speed
+                    );
+                    if sector.floorheight - speed < dest {
+                        let last_pos = sector.floorheight;
+                        sector.floorheight = dest;
+
+                        if change_sector(sector.clone(), crush) {
+                            sector.floorheight = last_pos;
+                            change_sector(sector, crush);
+                        }
+                        return PlaneResult::PastDest;
+                    } else {
+                        // COULD GET CRUSHED
+                        let last_pos = sector.floorheight;
+                        sector.floorheight -= speed;
+
+                        if change_sector(sector.clone(), crush) {
+                            if crush {
+                                return PlaneResult::Crushed;
+                            }
+                            sector.floorheight = last_pos;
+                            change_sector(sector, crush);
+                            return PlaneResult::Crushed;
+                        }
+                    }
+                }
+                1 => {
+                    // UP
+                    debug!(
+                        "move_plane: floor: up: {} to {} at speed {}",
+                        sector.floorheight, dest, speed
+                    );
+                    if sector.floorheight + speed > dest {
+                        let last_pos = sector.floorheight;
+                        sector.floorheight = dest;
+
+                        if change_sector(sector.clone(), crush) {
+                            sector.floorheight = last_pos;
+                            change_sector(sector, crush);
+                        }
+                        return PlaneResult::PastDest;
+                    } else {
+                        let last_pos = sector.floorheight;
+                        sector.floorheight += speed;
+                        if change_sector(sector.clone(), crush) {
+                            if crush {
+                                return PlaneResult::Crushed;
+                            }
+                            sector.floorheight = last_pos;
+                            change_sector(sector, crush);
+                            return PlaneResult::Crushed;
+                        }
+                    }
+                }
+                _ => error!("Invalid floor direction: {}", direction),
+            }
+        }
+        1 => {
+            // CEILING
+            match direction {
+                -1 => {
+                    // DOWN
+                    debug!(
+                        "move_plane: ceiling: down: {} to {} at speed {}",
+                        sector.ceilingheight, dest, speed
+                    );
+                    if sector.ceilingheight - speed < dest {
+                        let last_pos = sector.ceilingheight;
+                        sector.ceilingheight = dest;
+
+                        if change_sector(sector.clone(), crush) {
+                            sector.ceilingheight = last_pos;
+                            change_sector(sector, crush);
+                        }
+                        return PlaneResult::PastDest;
+                    } else {
+                        // COULD GET CRUSHED
+                        let last_pos = sector.ceilingheight;
+                        sector.ceilingheight -= speed;
+
+                        if change_sector(sector.clone(), crush) {
+                            if crush {
+                                return PlaneResult::Crushed;
+                            }
+                            sector.ceilingheight = last_pos;
+                            change_sector(sector, crush);
+                            return PlaneResult::Crushed;
+                        }
+                    }
+                }
+                1 => {
+                    // UP
+                    debug!(
+                        "move_plane: ceiling: up: {} to {} at speed {}",
+                        sector.ceilingheight, dest, speed
+                    );
+                    if sector.ceilingheight + speed > dest {
+                        let last_pos = sector.ceilingheight;
+                        sector.ceilingheight = dest;
+
+                        if change_sector(sector.clone(), crush) {
+                            sector.ceilingheight = last_pos;
+                            change_sector(sector, crush);
+                        }
+                        return PlaneResult::PastDest;
+                    } else {
+                        //let last_pos = sector.ceilingheight;
+                        sector.ceilingheight += speed;
+                        change_sector(sector, crush);
+                    }
+                }
+                _ => error!("Invalid ceiling direction: {}", direction),
+            }
+        }
+        _ => error!("Invalid floor_or_ceiling: {}", floor_or_ceiling),
+    }
+
+    PlaneResult::Ok
+}
+
+/// Trigger various actions when a line is crossed which has a non-zero special attached
+///
+/// Doom function name is `P_CrossSpecialLine`
 pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObject) {
     let mut ok = false;
 
@@ -353,66 +319,66 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
     match line.special {
         2 => {
             debug!("line-special: vld_open door!");
-            ev_do_door(line.clone(), DoorKind::vld_open, level);
+            ev_do_door(line.clone(), DoorKind::Open, level);
             line.special = 0;
         }
         3 => {
             debug!("line-special: vld_close door!");
-            ev_do_door(line.clone(), DoorKind::vld_close, level);
+            ev_do_door(line.clone(), DoorKind::Close, level);
             line.special = 0;
         }
         4 => {
             debug!("line-special: vld_normal door!");
-            ev_do_door(line.clone(), DoorKind::vld_normal, level);
+            ev_do_door(line.clone(), DoorKind::Normal, level);
             line.special = 0;
         }
         16 => {
             debug!("line-special: vld_close30ThenOpen door!");
-            ev_do_door(line.clone(), DoorKind::vld_close30ThenOpen, level);
+            ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
             line.special = 0;
         }
         108 => {
             debug!("line-special: vld_blazeRaise door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeRaise, level);
+            ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
             line.special = 0;
         }
         109 => {
             debug!("line-special: vld_blazeOpen door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeOpen, level);
+            ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
             line.special = 0;
         }
         110 => {
             debug!("line-special: vld_blazeClose door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeClose, level);
+            ev_do_door(line.clone(), DoorKind::BlazeClose, level);
             line.special = 0;
         }
         75 => {
             debug!("line-special: vld_close door!");
-            ev_do_door(line.clone(), DoorKind::vld_close, level);
+            ev_do_door(line.clone(), DoorKind::Close, level);
         }
         76 => {
             debug!("line-special: vld_close30ThenOpen door!");
-            ev_do_door(line.clone(), DoorKind::vld_close30ThenOpen, level);
+            ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
         }
         86 => {
             debug!("line-special: vld_open door!");
-            ev_do_door(line.clone(), DoorKind::vld_open, level);
+            ev_do_door(line.clone(), DoorKind::Open, level);
         }
         90 => {
             debug!("line-special: vld_normal door!");
-            ev_do_door(line.clone(), DoorKind::vld_normal, level);
+            ev_do_door(line.clone(), DoorKind::Normal, level);
         }
         105 => {
             debug!("line-special: vld_blazeRaise door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeRaise, level);
+            ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
         }
         106 => {
             debug!("line-special: vld_blazeOpen door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeOpen, level);
+            ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
         }
         107 => {
             debug!("line-special: vld_blazeClose door!");
-            ev_do_door(line.clone(), DoorKind::vld_blazeClose, level);
+            ev_do_door(line.clone(), DoorKind::BlazeClose, level);
         }
 
         10 => {
@@ -547,41 +513,41 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
         }
         6 => {
             debug!("line-special: fastCrushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::fastCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
             line.special = 0;
         }
         25 => {
             debug!("line-special: crushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::crushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
             line.special = 0;
         }
         40 => {
             debug!("line-special: raiseToHighest ceiling, floor!");
-            ev_do_ceiling(line.clone(), CeilingKind::raiseToHighest, level);
+            ev_do_ceiling(line.clone(), CeilingKind::RaiseToHighest, level);
             ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         44 => {
             debug!("line-special: lowerAndCrush ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::lowerAndCrush, level);
+            ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
             line.special = 0;
         }
         141 => {
             debug!("line-special: silentCrushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::silentCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilingKind::SilentCrushAndRaise, level);
             line.special = 0;
         }
         72 => {
             debug!("line-special: silentCrushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::lowerAndCrush, level);
+            ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
         }
         73 => {
             debug!("line-special: crushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::crushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
         }
         77 => {
             debug!("line-special: fastCrushAndRaise ceiling!");
-            ev_do_ceiling(line.clone(), CeilingKind::fastCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
         }
         52 => {
             level.do_exit_level();
