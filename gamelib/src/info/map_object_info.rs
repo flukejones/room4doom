@@ -1,5 +1,5 @@
 use crate::info::{MapObjectInfo, MapObjectType, StateNum};
-use crate::p_map_object::MapObjectFlag;
+use crate::p_map_object::MobjFlag;
 use crate::sounds::SfxEnum;
 
 /// This variable exists only to help create the mobs array
@@ -29,11 +29,11 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_PICKUP as u32
-            | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::PICKUP as u32
+            | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -59,9 +59,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_POSS_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -87,9 +87,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_POSS_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -115,9 +115,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         500,                   // mass
         0,                     // damage
         SfxEnum::sfx_vilact,   // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_NULL,      // raisestate
     ),
     MapObjectInfo::new(
@@ -143,7 +143,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -169,9 +169,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         500,                    // mass
         0,                      // damage
         SfxEnum::sfx_skeact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_SKEL_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -197,10 +197,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                   // mass
         10,                    // damage
         SfxEnum::sfx_None,     // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,      // raisestate
     ),
     MapObjectInfo::new(
@@ -226,7 +226,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -252,9 +252,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_posact,   // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_FATT_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -280,10 +280,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                   // mass
         8,                     // damage
         SfxEnum::sfx_None,     // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,      // raisestate
     ),
     MapObjectInfo::new(
@@ -309,9 +309,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_POSS_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -337,9 +337,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_bgact,     // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_TROO_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -365,9 +365,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_SARG_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -393,10 +393,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_SHADOW as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::SHADOW as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_SARG_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -422,11 +422,11 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_FLOAT as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::FLOAT as u32
+            | MobjFlag::NOGRAVITY as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_HEAD_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -452,9 +452,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_BOSS_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -480,10 +480,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                  // mass
         8,                    // damage
         SfxEnum::sfx_None,    // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,     // raisestate
     ),
     MapObjectInfo::new(
@@ -509,9 +509,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_BOS2_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -537,10 +537,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         50,                     // mass
         3,                      // damage
         SfxEnum::sfx_dmact,     // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_FLOAT as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::FLOAT as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -566,9 +566,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         1000,                  // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_NULL,      // raisestate
     ),
     MapObjectInfo::new(
@@ -594,9 +594,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         600,                    // mass
         0,                      // damage
         SfxEnum::sfx_bspact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_BSPI_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -622,9 +622,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         1000,                   // mass
         0,                      // damage
         SfxEnum::sfx_dmact,     // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -650,11 +650,11 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         400,                   // mass
         0,                     // damage
         SfxEnum::sfx_dmact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_FLOAT as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::FLOAT as u32
+            | MobjFlag::NOGRAVITY as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_PAIN_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -680,9 +680,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_posact,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_SSWV_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
@@ -708,11 +708,11 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         10000000,             // mass
         0,                    // damage
         SfxEnum::sfx_None,    // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_COUNTKILL as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::COUNTKILL as u32, // flags
         StateNum::S_NULL,     // raisestate
     ),
     MapObjectInfo::new(
@@ -738,7 +738,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         10000000,                                                            // mass
         0,                                                                   // damage
         SfxEnum::sfx_None,                                                   // activesound
-        MapObjectFlag::MF_SOLID as u32 | MapObjectFlag::MF_SHOOTABLE as u32, // flags
+        MobjFlag::SOLID as u32 | MobjFlag::SHOOTABLE as u32, // flags
         StateNum::S_NULL,                                                    // raisestate
     ),
     MapObjectInfo::new(
@@ -764,7 +764,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                     // mass
         0,                                                                       // damage
         SfxEnum::sfx_None,                                                       // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOSECTOR as u32, // flags
         StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
@@ -790,7 +790,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                     // mass
         0,                                                                       // damage
         SfxEnum::sfx_None,                                                       // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOSECTOR as u32, // flags
         StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
@@ -816,11 +816,11 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                 // mass
         3,                   // damage
         SfxEnum::sfx_None,   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32
-            | MapObjectFlag::MF_NOCLIP as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32
+            | MobjFlag::NOCLIP as u32, // flags
         StateNum::S_NULL,    // raisestate
     ),
     MapObjectInfo::new(
@@ -846,7 +846,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -872,9 +872,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                 // mass
         0,                   // damage
         SfxEnum::sfx_None,   // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SHOOTABLE as u32
-            | MapObjectFlag::MF_NOBLOOD as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SHOOTABLE as u32
+            | MobjFlag::NOBLOOD as u32, // flags
         StateNum::S_NULL,    // raisestate
     ),
     MapObjectInfo::new(
@@ -900,10 +900,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                 // mass
         3,                   // damage
         SfxEnum::sfx_None,   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,    // raisestate
     ),
     MapObjectInfo::new(
@@ -929,10 +929,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                 // mass
         5,                   // damage
         SfxEnum::sfx_None,   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,    // raisestate
     ),
     MapObjectInfo::new(
@@ -958,10 +958,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                  // mass
         20,                   // damage
         SfxEnum::sfx_None,    // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,     // raisestate
     ),
     MapObjectInfo::new(
@@ -987,10 +987,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                  // mass
         5,                    // damage
         SfxEnum::sfx_None,    // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,     // raisestate
     ),
     MapObjectInfo::new(
@@ -1016,10 +1016,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                 // mass
         100,                 // damage
         SfxEnum::sfx_None,   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,    // raisestate
     ),
     MapObjectInfo::new(
@@ -1045,10 +1045,10 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         5,                      // damage
         SfxEnum::sfx_None,      // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32
-            | MapObjectFlag::MF_MISSILE as u32
-            | MapObjectFlag::MF_DROPOFF as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32
+            | MobjFlag::MISSILE as u32
+            | MobjFlag::DROPOFF as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -1074,7 +1074,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -1100,7 +1100,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32, // flags
         StateNum::S_NULL,                    // raisestate
     ),
     MapObjectInfo::new(
@@ -1126,7 +1126,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -1152,7 +1152,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -1178,7 +1178,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                     // mass
         0,                                                                       // damage
         SfxEnum::sfx_None,                                                       // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOSECTOR as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOSECTOR as u32, // flags
         StateNum::S_NULL,                                                        // raisestate
     ),
     MapObjectInfo::new(
@@ -1204,7 +1204,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                      // mass
         0,                                                                        // damage
         SfxEnum::sfx_None,                                                        // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                         // raisestate
     ),
     MapObjectInfo::new(
@@ -1230,7 +1230,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1256,7 +1256,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1282,7 +1282,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1308,7 +1308,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1334,7 +1334,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1360,7 +1360,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1386,7 +1386,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1412,7 +1412,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1438,7 +1438,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1464,7 +1464,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_NOTDMATCH as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::NOTDMATCH as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1490,7 +1490,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1516,7 +1516,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1542,7 +1542,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1568,7 +1568,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1594,7 +1594,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1620,7 +1620,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1646,7 +1646,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1672,7 +1672,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1698,7 +1698,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1724,7 +1724,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                   // mass
         0,                                                                     // damage
         SfxEnum::sfx_None,                                                     // activesound
-        MapObjectFlag::MF_SPECIAL as u32 | MapObjectFlag::MF_COUNTITEM as u32, // flags
+        MobjFlag::SPECIAL as u32 | MobjFlag::COUNTITEM as u32, // flags
         StateNum::S_NULL,                                                      // raisestate
     ),
     MapObjectInfo::new(
@@ -1750,7 +1750,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1776,7 +1776,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1802,7 +1802,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1828,7 +1828,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1854,7 +1854,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1880,7 +1880,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1906,7 +1906,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1932,7 +1932,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1958,7 +1958,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -1984,7 +1984,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2010,7 +2010,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2036,7 +2036,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2062,7 +2062,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2088,7 +2088,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2114,7 +2114,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2140,7 +2140,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                              // mass
         0,                                // damage
         SfxEnum::sfx_None,                // activesound
-        MapObjectFlag::MF_SPECIAL as u32, // flags
+        MobjFlag::SPECIAL as u32, // flags
         StateNum::S_NULL,                 // raisestate
     ),
     MapObjectInfo::new(
@@ -2166,7 +2166,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2192,7 +2192,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2218,7 +2218,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2244,7 +2244,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2270,7 +2270,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2296,7 +2296,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2322,7 +2322,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2348,7 +2348,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2374,7 +2374,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2400,7 +2400,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2426,7 +2426,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2452,7 +2452,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2478,7 +2478,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2504,7 +2504,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2530,7 +2530,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2556,7 +2556,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2582,7 +2582,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2608,7 +2608,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2634,7 +2634,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2660,7 +2660,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2712,7 +2712,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -2738,9 +2738,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,         // raisestate
     ),
     MapObjectInfo::new(
@@ -2766,9 +2766,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,  // raisestate
     ),
     MapObjectInfo::new(
@@ -2794,9 +2794,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,  // raisestate
     ),
     MapObjectInfo::new(
@@ -2822,9 +2822,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,  // raisestate
     ),
     MapObjectInfo::new(
@@ -2850,9 +2850,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,               // mass
         0,                 // damage
         SfxEnum::sfx_None, // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,  // raisestate
     ),
     MapObjectInfo::new(
@@ -2878,7 +2878,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                        // mass
         0,                                                                          // damage
         SfxEnum::sfx_None,                                                          // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SPAWNCEILING as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
@@ -2904,7 +2904,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                        // mass
         0,                                                                          // damage
         SfxEnum::sfx_None,                                                          // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SPAWNCEILING as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
@@ -2930,7 +2930,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                        // mass
         0,                                                                          // damage
         SfxEnum::sfx_None,                                                          // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SPAWNCEILING as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
@@ -2956,7 +2956,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                        // mass
         0,                                                                          // damage
         SfxEnum::sfx_None,                                                          // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SPAWNCEILING as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
@@ -2982,7 +2982,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                                                        // mass
         0,                                                                          // damage
         SfxEnum::sfx_None,                                                          // activesound
-        MapObjectFlag::MF_SPAWNCEILING as u32 | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SPAWNCEILING as u32 | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,                                                           // raisestate
     ),
     MapObjectInfo::new(
@@ -3242,7 +3242,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3294,7 +3294,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3320,7 +3320,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3346,7 +3346,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3372,7 +3372,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3398,7 +3398,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3424,7 +3424,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                            // mass
         0,                              // damage
         SfxEnum::sfx_None,              // activesound
-        MapObjectFlag::MF_SOLID as u32, // flags
+        MobjFlag::SOLID as u32, // flags
         StateNum::S_NULL,               // raisestate
     ),
     MapObjectInfo::new(
@@ -3450,9 +3450,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -3478,9 +3478,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,         // raisestate
     ),
     MapObjectInfo::new(
@@ -3506,9 +3506,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                     // mass
         0,                       // damage
         SfxEnum::sfx_None,       // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,        // raisestate
     ),
     MapObjectInfo::new(
@@ -3534,9 +3534,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                    // mass
         0,                      // damage
         SfxEnum::sfx_None,      // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,       // raisestate
     ),
     MapObjectInfo::new(
@@ -3562,9 +3562,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                     // mass
         0,                       // damage
         SfxEnum::sfx_None,       // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,        // raisestate
     ),
     MapObjectInfo::new(
@@ -3590,9 +3590,9 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                      // mass
         0,                        // damage
         SfxEnum::sfx_None,        // activesound
-        MapObjectFlag::MF_SOLID as u32
-            | MapObjectFlag::MF_SPAWNCEILING as u32
-            | MapObjectFlag::MF_NOGRAVITY as u32, // flags
+        MobjFlag::SOLID as u32
+            | MobjFlag::SPAWNCEILING as u32
+            | MobjFlag::NOGRAVITY as u32, // flags
         StateNum::S_NULL,         // raisestate
     ),
     MapObjectInfo::new(
@@ -3618,7 +3618,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32, // flags
         StateNum::S_NULL,                    // raisestate
     ),
     MapObjectInfo::new(
@@ -3644,7 +3644,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32, // flags
         StateNum::S_NULL,                    // raisestate
     ),
     MapObjectInfo::new(
@@ -3670,7 +3670,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         100,                                 // mass
         0,                                   // damage
         SfxEnum::sfx_None,                   // activesound
-        MapObjectFlag::MF_NOBLOCKMAP as u32, // flags
+        MobjFlag::NOBLOCKMAP as u32, // flags
         StateNum::S_NULL,                    // raisestate
     ),
 ];

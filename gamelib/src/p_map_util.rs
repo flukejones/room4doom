@@ -1,3 +1,5 @@
+//! Many helper functions related to traversing the map, crossing or finding lines.
+
 use crate::{
     level_data::{
         level::Level,

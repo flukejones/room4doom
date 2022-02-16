@@ -1,15 +1,16 @@
-use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
+use std::alloc::{alloc, dealloc, Layout};
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
 
-use log::{debug, trace};
-
 use crate::level_data::level::Level;
+use crate::p_ceiling::CeilingMove;
+use crate::p_doors::VerticalDoor;
+use crate::p_floor::FloorMove;
 use crate::p_map_object::MapObject;
+use crate::p_platforms::Platform;
 use crate::p_player_sprite::PspDef;
-use crate::p_spec::{CeilingMove, FloorMove, Platform, VerticalDoor};
 use crate::player::Player;
 
 #[derive(PartialEq, PartialOrd)]

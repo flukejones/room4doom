@@ -1,14 +1,16 @@
+//! Platform movement thinker: raise and lower. Can be crushers and can be repeating movements.
 use std::ptr::NonNull;
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     doom_def::TICRATE,
-    level_data::{level::Level, map_defs::LineDef},
-    p_floor::move_plane,
+    level_data::{
+        level::Level,
+        map_defs::{LineDef, Sector},
+    },
     p_map_object::MapObject,
-    p_spec::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding, PlatKind, PlatStatus,
-        Platform, ResultE,
+    p_specials::{
+        find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
     },
     DPtr,
 };
@@ -17,6 +19,38 @@ use crate::{
 
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
+
+#[derive(Debug, Clone, Copy)]
+pub enum PlatStatus {
+    Up,
+    Down,
+    Waiting,
+    InStasis,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PlatKind {
+    PerpetualRaise,
+    DownWaitUpStay,
+    RaiseAndChange,
+    RaiseToNearestAndChange,
+    BlazeDWUS,
+}
+
+pub struct Platform {
+    pub thinker: NonNull<Thinker>,
+    pub sector: DPtr<Sector>,
+    pub speed: f32,
+    pub low: f32,
+    pub high: f32,
+    pub wait: i32,
+    pub count: i32,
+    pub status: PlatStatus,
+    pub old_status: PlatStatus,
+    pub crush: bool,
+    pub tag: i16,
+    pub kind: PlatKind,
+}
 
 pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
     let mut ret = false;
@@ -167,11 +201,11 @@ impl Think for Platform {
                     //  S_StartSound(&plat->sector->soundorg, sfx_stnmov);
                 }
 
-                if matches!(res, ResultE::Crushed) && !platform.crush {
+                if matches!(res, PlaneResult::Crushed) && !platform.crush {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
-                } else if matches!(res, ResultE::PastDest) {
+                } else if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
@@ -205,7 +239,7 @@ impl Think for Platform {
                     -1,
                 );
 
-                if matches!(res, ResultE::PastDest) {
+                if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
                     // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);

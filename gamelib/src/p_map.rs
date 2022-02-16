@@ -1,16 +1,16 @@
-//! Movement, collision handling.
-//! Shooting and aiming.
+//! Almost all of the mthods here are on `MapObject`.
+//! Movement, collision handling. Shooting and aiming.
 use glam::Vec2;
 use log::debug;
 
 use crate::angle::Angle;
 use crate::flags::LineDefFlags;
 use crate::level_data::map_data::BSPTrace;
-use crate::level_data::map_defs::{BBox, LineDef, Sector, SlopeType};
+use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
 use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
-use crate::p_map_object::{MapObject, MapObjectFlag};
+use crate::p_map_object::{MapObject, MobjFlag};
 use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
-use crate::p_spec::cross_special_line;
+use crate::p_specials::cross_special_line;
 use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
@@ -46,25 +46,25 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjectFlag::MF_NOCLIP as u32 == 0 {
+        if self.flags & MobjFlag::NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
 
-            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0
+            if self.flags & MobjFlag::TELEPORT as u32 == 0
                 && ctrl.max_ceil_z - self.z < self.height
             {
                 return false; // mobj must lower itself to fit
             }
 
-            if self.flags & MapObjectFlag::MF_TELEPORT as u32 == 0
+            if self.flags & MobjFlag::TELEPORT as u32 == 0
                 && ctrl.min_floor_z - self.z > 24.0
             {
                 return false; // too big a step up
             }
 
-            if self.flags & (MapObjectFlag::MF_DROPOFF as u32 | MapObjectFlag::MF_FLOAT as u32) == 0
+            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) == 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -87,7 +87,7 @@ impl MapObject {
             self.set_thing_position();
         }
 
-        if self.flags & (MapObjectFlag::MF_TELEPORT as u32 | MapObjectFlag::MF_NOCLIP as u32) == 0 {
+        if self.flags & (MobjFlag::TELEPORT as u32 | MobjFlag::NOCLIP as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(&self.xy);
@@ -110,7 +110,7 @@ impl MapObject {
     //   (doesn't need to be related to the mobj_t->x,y)
     //
     // during:
-    //  special things are touched if MF_PICKUP
+    //  special things are touched if PICKUP
     //  early out on solid lines?
     //
     // out:
@@ -150,7 +150,7 @@ impl MapObject {
             ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
         }
 
-        if self.flags & MapObjectFlag::MF_NOCLIP as u32 != 0 {
+        if self.flags & MobjFlag::NOCLIP as u32 != 0 {
             return true;
         }
 
@@ -247,7 +247,7 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjectFlag::MF_MISSILE as u32 == 0 {
+        if self.flags & MobjFlag::MISSILE as u32 == 0 {
             if ld.flags & LineDefFlags::Blocking as i16 != 0 {
                 return false; // explicitly blocking everything
             }
@@ -581,29 +581,4 @@ pub fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32
     // for (y = yl; y <= yh; y++)
     // for (x = xl; x <= xh; x++)
     // P_BlockThingsIterator(x, y, PIT_RadiusAttack);
-}
-
-/// P_ChangeSector
-pub fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
-    let mut no_fit = false;
-
-    // TODO: re-check heights for all things near the moving sector
-    // TODO: iterate over sector thinglist
-
-    if !sector.thinglist.is_null() {
-        let mut thing = sector.thinglist;
-        while !thing.is_null() {
-            unsafe {
-                debug!("Thing type {:?} is in affected sector", (*thing).kind);
-                (*thing).pit_change_sector(&mut no_fit, crunch);
-
-                if (*thing).s_next.is_null() || (*thing).s_next == thing {
-                    break;
-                }
-                thing = (*thing).s_next;
-            }
-        }
-    }
-
-    no_fit
 }
