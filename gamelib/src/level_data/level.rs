@@ -69,8 +69,6 @@ impl Level {
         episode: u32,
         map: u32,
         game_mode: GameMode,
-        players: &mut [Player],
-        active_players: &[bool; MAXPLAYERS],
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -89,7 +87,7 @@ impl Level {
 
         let thinker_count = map_data.get_things().len();
 
-        let mut level = Level {
+        let level = Level {
             map_data,
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
@@ -113,18 +111,6 @@ impl Level {
             secret_exit: false,
             valid_count: 0,
         };
-
-        let thing_list = (*level.map_data.get_things()).to_owned();
-
-        for thing in &thing_list {
-            MapObject::p_spawn_map_thing(thing, &mut level, players, active_players);
-        }
-
-        debug!("Level: thinkers = {}", &level.thinkers.len());
-        debug!("Level: skill = {:?}", &level.game_skill);
-        debug!("Level: episode = {}", &level.episode);
-        debug!("Level: map = {}", &level.game_map);
-        debug!("Level: player_starts = {:?}", &level.player_starts);
 
         // G_DoReborn
         // G_CheckSpot

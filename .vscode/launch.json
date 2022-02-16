@@ -1,0 +1,160 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'wad'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=wad"
+                ],
+                "filter": {
+                    "name": "wad",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'load_wads'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=load_wads",
+                    "--package=wad"
+                ],
+                "filter": {
+                    "name": "load_wads",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'load_map'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=load_map",
+                    "--package=wad"
+                ],
+                "filter": {
+                    "name": "load_map",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug 'diirdoom'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=diirdoom"
+                ],
+                "filter": {
+                    "name": "diirdoom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "./doom1.wad",
+                "-w",
+                "1024",
+                "-h",
+                "768",
+                "-e1",
+                "-m3",
+                "-v",
+                "trace"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug release 'diirdoom'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--release",
+                    "--bin=diirdoom"
+                ],
+                "filter": {
+                    "name": "diirdoom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "./doom1.wad",
+                "-w",
+                "1024",
+                "-h",
+                "768",
+                "-e1",
+                "-m3",
+                "-v",
+                "trace"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'diirdoom'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=diirdoom",
+                    "--package=game"
+                ],
+                "filter": {
+                    "name": "diirdoom",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'vec2d'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=vec2d"
+                ],
+                "filter": {
+                    "name": "vec2d",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

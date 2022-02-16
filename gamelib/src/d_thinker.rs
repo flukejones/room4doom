@@ -1,8 +1,10 @@
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
+
+use log::{debug, trace};
 
 use crate::level_data::level::Level;
 use crate::p_map_object::MapObject;
@@ -65,7 +67,7 @@ impl ThinkerAlloc {
             let buf_ptr = alloc(layout) as *mut Option<Thinker>;
 
             for i in 0..capacity {
-                (*buf_ptr.add(i)) = None;
+                buf_ptr.add(i).write(None);
             }
 
             Self {
@@ -163,7 +165,7 @@ impl ThinkerAlloc {
                 .set_thinker_ptr(NonNull::new_unchecked(inner_ptr));
 
             self.len += 1;
-            if self.next_free < self.capacity - 1 {
+            if self.next_free < self.capacity {
                 self.next_free += 1;
             }
 
@@ -281,6 +283,7 @@ impl<'a> Iterator for IterLinksMut<'a> {
 
 /// All map object thinkers need to be registered here
 #[repr(C)]
+#[allow(clippy::large_enum_variant)]
 pub enum ThinkerType {
     Test(TestObject),
     Mobj(MapObject),
@@ -293,12 +296,12 @@ pub enum ThinkerType {
 impl Debug for ThinkerType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Test(arg0) => f.debug_tuple("Test").finish(),
-            Self::Mobj(arg0) => f.debug_tuple("Mobj").finish(),
-            Self::VDoor(arg0) => f.debug_tuple("VDoor").finish(),
-            Self::FloorMove(arg0) => f.debug_tuple("FloorMove").finish(),
-            Self::CeilingMove(arg0) => f.debug_tuple("CeilingMove").finish(),
-            Self::Platform(arg0) => f.debug_tuple("Platform").finish(),
+            Self::Test(_) => f.debug_tuple("Test").finish(),
+            Self::Mobj(_) => f.debug_tuple("Mobj").finish(),
+            Self::VDoor(_) => f.debug_tuple("VDoor").finish(),
+            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
+            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
+            Self::Platform(_) => f.debug_tuple("Platform").finish(),
         }
     }
 }
@@ -501,8 +504,6 @@ mod tests {
             1,
             1,
             crate::doom_def::GameMode::Shareware,
-            &mut [],
-            &mut [false; 4],
         );
         let mut x = Thinker {
             index: 0,
@@ -515,14 +516,11 @@ mod tests {
             func: ActionF::Action1(TestObject::think),
         };
 
-        assert_eq!(x.think(&mut l), true);
+        assert!(x.think(&mut l));
 
         let ptr = NonNull::from(&mut x);
         x.object.bad_mut::<TestObject>().set_thinker_ptr(ptr);
-        assert_eq!(
-            x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l),
-            true
-        );
+        assert!(x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l),);
     }
 
     #[test]

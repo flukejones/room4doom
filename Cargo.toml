@@ -1,2 +1,16 @@
 [workspace]
 members = ["wad", "game", "gamelib"]
+
+[profile.release]
+lto = true
+debug = false
+opt-level = 3
+panic = "abort"
+
+[profile.dev]
+debug = false
+opt-level = 1
+
+[profile.bench]
+debug = false
+opt-level = 3
