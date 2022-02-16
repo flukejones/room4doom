@@ -1,5 +1,3 @@
-use std::ptr::NonNull;
-
 use log::debug;
 use wad::{lumps::WadThing, WadData};
 
@@ -11,13 +9,10 @@ use crate::renderer::plane::VisPlaneCtrl;
 use crate::renderer::RenderData;
 use crate::{
     d_main::Skill,
-    d_thinker::{Think, Thinker},
     doom_def::GameMode,
     doom_def::MAXPLAYERS,
     doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
-    p_map_object::MapObject,
-    player::Player,
 };
 
 /// The level is considered a `World` or sorts. One that exists only
@@ -62,9 +57,17 @@ pub struct Level {
     pub valid_count: usize,
 }
 impl Level {
-    /// P_SetupLevel
-    pub fn setup_level(
-        wad_data: &WadData,
+    /// Set up a complete level including difficulty, spawns, players etc.
+    /// After `new()` the `load()` function should be called.
+    /// 
+    /// # Safety
+    /// Because the `Level` uses ` ThinkerAlloc` internally the `Level` must not
+    /// be moved by the owner after any thinkers are pushed to `ThinkerAlloc`.
+    /// This applies to the map data also where `load()` should be called after
+    /// the locations is set in concrete.
+    /// 
+    /// Doom method name is `P_SetupLevel`
+    pub unsafe fn new(
         skill: Skill,
         episode: u32,
         map: u32,
@@ -82,8 +85,7 @@ impl Level {
             format!("E{}M{}", episode, map)
         };
 
-        let mut map_data = MapData::new(map_name);
-        map_data.load(wad_data);
+        let map_data = MapData::new(map_name);
 
         let thinker_count = map_data.get_things().len();
 
@@ -95,7 +97,7 @@ impl Level {
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
-            thinkers: ThinkerAlloc::new(thinker_count + 500),
+            thinkers: unsafe { ThinkerAlloc::new(thinker_count + 500) },
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
@@ -115,6 +117,10 @@ impl Level {
             valid_count: 0,
         }
         // TODO: P_InitThinkers();
+    }
+
+    pub fn load(&mut self, wad_data: &WadData) {
+        self.map_data.load(wad_data);
     }
 
     // pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {

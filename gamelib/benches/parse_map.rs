@@ -6,7 +6,7 @@ use gamelib::level_data::map_data::MapData;
 use wad::wad::WadData;
 
 fn bench_load_e1m1(b: &mut Bencher) {
-    let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
+    let wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M1".to_owned());
     b.iter(|| {
         map.load(&wad);
@@ -14,7 +14,7 @@ fn bench_load_e1m1(b: &mut Bencher) {
 }
 
 fn bench_load_e1m7(b: &mut Bencher) {
-    let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
+    let wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     let mut map = MapData::new("E1M7".to_owned());
     b.iter(|| {
         map.load(&wad);
