@@ -555,12 +555,6 @@ impl MapObject {
                 // not a special line, but keep checking
                 return true;
             }
-            debug!(
-                "Line {} special: {:?}, flags: {}",
-                line.as_ptr() as usize,
-                line.special,
-                line.flags
-            );
 
             let side = line.point_on_side(&self.xy);
             p_use_special_line(side as i32, line.clone(), self);

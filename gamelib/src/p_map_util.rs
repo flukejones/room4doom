@@ -1,18 +1,14 @@
-use std::ptr::null_mut;
-
 use crate::{
     level_data::{
         level::Level,
         map_data::BSPTrace,
-        map_defs::{BBox, LineDef, SlopeType, SubSector},
+        map_defs::{BBox, LineDef, SlopeType},
     },
     p_local::{Intercept, Trace},
     p_map::{PT_ADDLINES, PT_EARLYOUT},
-    p_map_object::{MapObject, MapObjectFlag},
     DPtr,
 };
 use glam::Vec2;
-use log::debug;
 
 #[derive(Default, Debug)]
 pub struct PortalZ {
@@ -280,10 +276,6 @@ pub fn add_line_intercepts(
     }
 
     if earlyout && frac < 1.0 && line.backsector.is_none() {
-        return false;
-    }
-
-    if earlyout && frac < FRACUNIT && line.backsector.is_none() {
         return false;
     }
 
