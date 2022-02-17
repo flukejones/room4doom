@@ -15,7 +15,7 @@ use crate::p_lights::{
 use crate::p_map_object::MapObject;
 use crate::p_platforms::{ev_do_platform, PlatKind};
 use crate::DPtr;
-use log::{debug, error, warn};
+use log::{debug, error, warn, trace};
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as i16 == 0 {
@@ -184,7 +184,7 @@ pub fn move_plane(
             match direction {
                 -1 => {
                     // DOWN
-                    debug!(
+                    trace!(
                         "move_plane: floor: down: {} to {} at speed {}",
                         sector.floorheight, dest, speed
                     );
@@ -214,7 +214,7 @@ pub fn move_plane(
                 }
                 1 => {
                     // UP
-                    debug!(
+                    trace!(
                         "move_plane: floor: up: {} to {} at speed {}",
                         sector.floorheight, dest, speed
                     );
@@ -248,7 +248,7 @@ pub fn move_plane(
             match direction {
                 -1 => {
                     // DOWN
-                    debug!(
+                    trace!(
                         "move_plane: ceiling: down: {} to {} at speed {}",
                         sector.ceilingheight, dest, speed
                     );
@@ -278,7 +278,7 @@ pub fn move_plane(
                 }
                 1 => {
                     // UP
-                    debug!(
+                    trace!(
                         "move_plane: ceiling: up: {} to {} at speed {}",
                         sector.ceilingheight, dest, speed
                     );
