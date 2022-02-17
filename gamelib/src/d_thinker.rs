@@ -1,10 +1,7 @@
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, dealloc, Layout, alloc_zeroed};
 use std::fmt::{self, Debug};
-use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
-
-use log::error;
 
 use crate::level_data::level::Level;
 use crate::p_ceiling::CeilingMove;
@@ -42,7 +39,7 @@ impl Think for TestObject {
 /// zone of memory.
 pub struct ThinkerAlloc {
     /// The main AllocPool buffer
-    buf_ptr: *mut Option<Thinker>,
+    buf_ptr: *mut Thinker,
     /// Total capacity. Not possible to allocate over this.
     capacity: usize,
     /// Actual used AllocPool
@@ -58,8 +55,8 @@ impl Drop for ThinkerAlloc {
             for idx in 0..self.capacity {
                 self.drop_item(idx);
             }
-            let size = self.capacity * size_of::<Option<Thinker>>();
-            let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
+            let size = self.capacity * size_of::<Thinker>();
+            let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
             dealloc(self.buf_ptr as *mut _, layout);
         }
     }
@@ -69,13 +66,19 @@ impl ThinkerAlloc {
     /// # Safety
     /// Once allocated the owner of this `ThinkerAlloc` must not move.
     pub unsafe fn new(capacity: usize) -> Self {
-        let size = capacity * size_of::<Option<Thinker>>();
-        let layout = Layout::from_size_align_unchecked(size, align_of::<Option<Thinker>>());
-        let buf_ptr = alloc(layout) as *mut Option<Thinker>;
+        let size = capacity * size_of::<Thinker>();
+        let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
+        let buf_ptr = alloc_zeroed(layout) as *mut Thinker;
 
-        for i in 0..capacity {
-            buf_ptr.add(i).write(None);
-        }
+        // for n in 0..capacity {
+        //     buf_ptr.add(n).write(Thinker {
+        //         index: 0,
+        //         prev: null_mut(),
+        //         next: null_mut(),
+        //         object: TestObject{ x: 0, thinker: NonNull::dangling() },
+        //         func: ActionF::None,
+        //     })
+        // }
 
         Self {
             buf_ptr,
@@ -83,6 +86,27 @@ impl ThinkerAlloc {
             len: 0,
             next_free: 0,
             tail: null_mut(),
+        }
+    }
+
+    pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
+        let mut current = self.tail;
+        let mut next;
+
+        loop {
+            if (*current).remove() {
+                dbg!(self.len);
+                next = (*current).next;
+                self.remove(current);
+            } else {
+                (*current).think(level);
+                next = (*current).next;
+            }
+            current = next;
+
+            if current == self.tail {
+                return;
+            }
         }
     }
 
@@ -106,7 +130,7 @@ impl ThinkerAlloc {
         self.capacity
     }
 
-    fn ptr_for_idx(&self, idx: usize) -> *mut Option<Thinker> {
+    fn ptr_for_idx(&self, idx: usize) -> *mut Thinker {
         unsafe { self.buf_ptr.add(idx) }
     }
 
@@ -118,14 +142,14 @@ impl ThinkerAlloc {
         let mut ptr = unsafe { self.buf_ptr.add(start) };
         for idx in start..self.capacity {
             unsafe {
-                ptr = ptr.add(1);
-                if (*ptr).is_none() {
+                if matches!((*ptr).func, ActionF::None) {
                     return Some(idx);
                 }
+                ptr = ptr.add(1);
             }
         }
 
-        self.find_first_free(0)
+        panic!("No more thnker slots");
     }
 
     /// Push an item to the Lump. Returns the index the item was pushed to if
@@ -140,42 +164,35 @@ impl ThinkerAlloc {
             return None;
         }
 
-        let mut idx = self.next_free;
+        let idx = self.find_first_free(self.next_free)?;
         unsafe {
-            let root_ptr = self.ptr_for_idx(idx);
-            // Check if it's empty, if not, try to find a free slot
-            if (*root_ptr).is_some() {
-                idx = self.find_first_free(self.next_free)?;
-            }
             thinker.index = idx;
 
             let root_ptr = self.ptr_for_idx(idx);
-            ptr::write(root_ptr, Some(thinker));
-            let inner_ptr = (*root_ptr).as_mut().unwrap_unchecked() as *mut Thinker;
+            ptr::write(root_ptr, thinker);
 
             if self.tail.is_null() {
-                self.tail = inner_ptr;
+                self.tail = root_ptr;
                 (*self.tail).prev = self.tail;
                 (*self.tail).next = self.tail;
             } else {
-                (*inner_ptr).next = (*self.tail).next;
-                (*inner_ptr).prev = self.tail;
-
-                (*(*self.tail).next).prev = inner_ptr;
-                (*self.tail).next = inner_ptr;
+                (*(*self.tail).prev).next = root_ptr;
+                (*root_ptr).next = self.tail;
+                (*root_ptr).prev = (*self.tail).prev;
+                (*self.tail).prev = root_ptr;
             }
 
-            (*inner_ptr)
+            (*root_ptr)
                 .object
                 .bad_mut::<T>()
-                .set_thinker_ptr(NonNull::new_unchecked(inner_ptr));
+                .set_thinker_ptr(NonNull::new_unchecked(root_ptr));
 
             self.len += 1;
             if self.next_free < self.capacity {
                 self.next_free += 1;
             }
 
-            Some(NonNull::new_unchecked(inner_ptr))
+            Some(NonNull::new_unchecked(root_ptr))
         }
     }
 
@@ -187,103 +204,16 @@ impl ThinkerAlloc {
     }
 
     /// Removes the entry at index
-    pub fn remove(&mut self, idx: usize) {
-        debug_assert!(idx < self.capacity);
-
+    pub fn remove(&mut self, t: *mut Thinker) {
         unsafe {
-            let root_ptr = self.ptr_for_idx(idx);
-            if (*root_ptr).is_none() {
-                error!("TRIED TO REMOVE INVALID THINKER!");
-                return;
-            }
-            let inner_ptr = (*root_ptr).as_mut().unwrap() as *mut Thinker;
-            (*(*inner_ptr).next).prev = (*inner_ptr).prev;
-            (*(*inner_ptr).prev).next = (*inner_ptr).next;
-
-            if inner_ptr == self.tail {
-                self.tail = (*self.tail).prev;
-            }
+            (*t).set_action(ActionF::None);
+            (*(*t).next).prev = (*t).prev;
+            (*(*t).prev).next = (*t).next;
 
             self.len -= 1;
-            self.next_free = idx; // reuse the slot on next insert
+            self.next_free = (*t).index; // reuse the slot on next insert
             self.maybe_reset_head();
-            std::ptr::write(root_ptr, None);
-        }
-    }
-
-    pub fn iter(&self) -> IterLinks {
-        IterLinks::new(self.tail)
-    }
-
-    pub fn iter_mut(&mut self) -> IterLinksMut {
-        IterLinksMut::new(self.tail)
-    }
-}
-
-pub struct IterLinks<'a> {
-    start: *mut Thinker,
-    current: *mut Thinker,
-    _phantom: PhantomData<&'a Thinker>,
-}
-
-impl<'a> IterLinks<'a> {
-    pub(crate) fn new(start: *mut Thinker) -> Self {
-        Self {
-            start,
-            current: null_mut(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a> Iterator for IterLinks<'a> {
-    type Item = &'a Thinker;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            if !self.current.is_null() && self.current == self.start {
-                return None;
-            } else if self.current.is_null() {
-                self.current = self.start;
-            }
-
-            let current = self.current;
-            self.current = (*self.current).next;
-            Some(&(*current))
-        }
-    }
-}
-
-pub struct IterLinksMut<'a> {
-    start: *mut Thinker,
-    current: *mut Thinker,
-    _phantom: PhantomData<&'a Thinker>,
-}
-
-impl<'a> IterLinksMut<'a> {
-    pub(crate) fn new(start: *mut Thinker) -> Self {
-        Self {
-            start,
-            current: null_mut(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a> Iterator for IterLinksMut<'a> {
-    type Item = &'a mut Thinker;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            if self.current == self.start {
-                return None;
-            } else if self.current.is_null() {
-                self.current = self.start;
-            }
-
-            let current = self.current;
-            self.current = (*self.current).next;
-            Some(&mut (*current))
+            //std::ptr::write(t as *mut Option<Thinker>, None);
         }
     }
 }

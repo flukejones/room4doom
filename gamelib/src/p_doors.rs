@@ -116,12 +116,10 @@ impl Think for VerticalDoor {
                                 // TODO: sound
                             }
                         }
-                        DoorKind::Normal | DoorKind::Close => {
-                            unsafe {
-                                door.sector.specialdata = None;
-                                door.thinker.as_mut().set_action(ActionF::Remove);
-                            }
-                        }
+                        DoorKind::Normal | DoorKind::Close => unsafe {
+                            door.sector.specialdata = None;
+                            door.thinker.as_mut().set_action(ActionF::Remove);
+                        },
                         DoorKind::Close30ThenOpen => {
                             door.direction = 0;
                             door.topcountdown = TICRATE * 30;
@@ -147,12 +145,10 @@ impl Think for VerticalDoor {
                             door.direction = 0; // wait at top
                             door.topcountdown = door.topwait;
                         }
-                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => {
-                            unsafe {
-                                door.sector.specialdata = None;
-                                door.thinker.as_mut().set_action(ActionF::Remove);
-                            }
-                        }
+                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => unsafe {
+                            door.sector.specialdata = None;
+                            door.thinker.as_mut().set_action(ActionF::Remove);
+                        },
                         _ => {}
                     }
                 }
