@@ -208,8 +208,6 @@ impl Think for FloorMove {
         }
 
         if matches!(res, PlaneResult::PastDest) {
-            floor.sector.specialdata = None;
-
             if floor.direction == 1 && matches!(floor.kind, FloorKind::DonutRaise)
                 || floor.direction == -1 && matches!(floor.kind, FloorKind::LowerAndChange)
             {

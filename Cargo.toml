@@ -8,8 +8,8 @@ opt-level = 3
 panic = "abort"
 
 [profile.dev]
-debug = false
-opt-level = 1
+debug = true
+opt-level = 0
 
 [profile.bench]
 debug = false

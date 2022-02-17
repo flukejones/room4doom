@@ -214,15 +214,15 @@ impl Think for Platform {
                     match platform.kind {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
                             unsafe {
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }

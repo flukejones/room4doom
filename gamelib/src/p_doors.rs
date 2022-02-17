@@ -110,15 +110,13 @@ impl Think for VerticalDoor {
                 if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
-                            door.sector.specialdata = None;
-                            // TODO: sound
                             unsafe {
                                 door.sector.specialdata = None;
                                 door.thinker.as_mut().set_action(ActionF::Remove);
+                                // TODO: sound
                             }
                         }
                         DoorKind::Normal | DoorKind::Close => {
-                            door.sector.specialdata = None;
                             unsafe {
                                 door.sector.specialdata = None;
                                 door.thinker.as_mut().set_action(ActionF::Remove);
@@ -150,7 +148,6 @@ impl Think for VerticalDoor {
                             door.topcountdown = door.topwait;
                         }
                         DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => {
-                            door.sector.specialdata = None;
                             unsafe {
                                 door.sector.specialdata = None;
                                 door.thinker.as_mut().set_action(ActionF::Remove);
@@ -163,7 +160,6 @@ impl Think for VerticalDoor {
             _ => warn!("Invalid door direction of {}", door.direction),
         };
 
-        //unsafe { door.thinker.as_mut().set_action(ActionF::Remove) };
         true
     }
 

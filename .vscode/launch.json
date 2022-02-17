@@ -77,15 +77,14 @@
             },
             "args": [
                 "--iwad",
-                "./doom1.wad",
+                "/home/luke/DOOM/doom2.wad",
                 "-w",
                 "1024",
                 "-h",
                 "768",
-                "-e1",
-                "-m3",
+                "-m4",
                 "-v",
-                "trace"
+                "debug"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -114,7 +113,7 @@
                 "-e1",
                 "-m3",
                 "-v",
-                "trace"
+                "debug"
             ],
             "cwd": "${workspaceFolder}"
         },
