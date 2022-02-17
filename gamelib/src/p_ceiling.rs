@@ -189,15 +189,15 @@ impl Think for CeilingMove {
                         },
                         CeilingKind::CrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                         }
                         CeilingKind::FastCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                         }
                         CeilingKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                             //TODO: S_StartSound(&ceiling->sector->soundorg, sfx_pstop);
                         }
                         _ => {}

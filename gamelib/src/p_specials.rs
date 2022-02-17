@@ -569,7 +569,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
             line.special = 0;
         }
         72 => {
-            debug!("line-special: silentCrushAndRaise ceiling!");
+            debug!("line-special: LowerAndCrush ceiling!");
             ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
         }
         73 => {
