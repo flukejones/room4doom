@@ -161,10 +161,10 @@ pub fn p_ticker(game: &mut Game) {
         // TODO: maybe use direct linked list iter here so we can remove while iterating
         let lev = unsafe { &mut *(level as *mut Level) };
         let mut rm = Vec::with_capacity(level.thinkers.len());
+
+        // TODO: can't modify linked list when iterating as the iter holds state that can't be updated
         for thinker in level.thinkers.iter_mut() {
-            if thinker.has_action() {
-                thinker.think(lev);
-            }
+            thinker.think(lev);
             if thinker.remove() {
                 rm.push(thinker.index());
             }

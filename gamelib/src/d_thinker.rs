@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
 
+use log::error;
+
 use crate::level_data::level::Level;
 use crate::p_ceiling::CeilingMove;
 use crate::p_doors::VerticalDoor;
@@ -156,11 +158,11 @@ impl ThinkerAlloc {
                 (*self.tail).prev = self.tail;
                 (*self.tail).next = self.tail;
             } else {
-                (*inner_ptr).prev = (*self.tail).prev;
-                (*inner_ptr).next = self.tail;
+                (*inner_ptr).next = (*self.tail).next;
+                (*inner_ptr).prev = self.tail;
 
-                (*(*self.tail).prev).next = inner_ptr;
-                (*self.tail).prev = inner_ptr;
+                (*(*self.tail).next).prev = inner_ptr;
+                (*self.tail).next = inner_ptr;
             }
 
             (*inner_ptr)
@@ -190,15 +192,16 @@ impl ThinkerAlloc {
 
         unsafe {
             let root_ptr = self.ptr_for_idx(idx);
+            if (*root_ptr).is_none() {
+                error!("TRIED TO REMOVE INVALID THINKER!");
+                return;
+            }
             let inner_ptr = (*root_ptr).as_mut().unwrap() as *mut Thinker;
-            let next = (*inner_ptr).next;
-            let prev = (*inner_ptr).prev;
-
-            (*next).prev = prev;
-            (*prev).next = next;
+            (*(*inner_ptr).next).prev = (*inner_ptr).prev;
+            (*(*inner_ptr).prev).next = (*inner_ptr).next;
 
             if inner_ptr == self.tail {
-                self.tail = prev;
+                self.tail = (*self.tail).prev;
             }
 
             self.len -= 1;
@@ -272,7 +275,7 @@ impl<'a> Iterator for IterLinksMut<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if !self.current.is_null() && self.current == self.start {
+            if self.current == self.start {
                 return None;
             } else if self.current.is_null() {
                 self.current = self.start;
