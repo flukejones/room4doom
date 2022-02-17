@@ -1,7 +1,9 @@
-use std::alloc::{alloc, dealloc, Layout, alloc_zeroed};
+use std::alloc::{alloc_zeroed, dealloc, Layout, alloc};
 use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
+
+use log::{debug, info};
 
 use crate::level_data::level::Level;
 use crate::p_ceiling::CeilingMove;
@@ -68,17 +70,17 @@ impl ThinkerAlloc {
     pub unsafe fn new(capacity: usize) -> Self {
         let size = capacity * size_of::<Thinker>();
         let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
-        let buf_ptr = alloc_zeroed(layout) as *mut Thinker;
+        let buf_ptr = alloc(layout) as *mut Thinker;
 
-        // for n in 0..capacity {
-        //     buf_ptr.add(n).write(Thinker {
-        //         index: 0,
-        //         prev: null_mut(),
-        //         next: null_mut(),
-        //         object: TestObject{ x: 0, thinker: NonNull::dangling() },
-        //         func: ActionF::None,
-        //     })
-        // }
+        for n in 0..capacity {
+            buf_ptr.add(n).write(Thinker {
+                index: 0,
+                prev: null_mut(),
+                next: null_mut(),
+                object: ThinkerType::Test(TestObject{ x: 0, thinker: NonNull::dangling() }),
+                func: ActionF::None,
+            })
+        }
 
         Self {
             buf_ptr,
@@ -89,18 +91,19 @@ impl ThinkerAlloc {
         }
     }
 
-    pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
+    pub fn run_thinkers(&mut self, level: &mut Level) {
         let mut current = self.tail;
         let mut next;
 
         loop {
-            if (*current).remove() {
-                dbg!(self.len);
-                next = (*current).next;
-                self.remove(current);
-            } else {
-                (*current).think(level);
-                next = (*current).next;
+            unsafe {
+                if (*current).remove() {
+                    next = (*current).next;
+                    self.remove(&mut *current);
+                } else {
+                    (*current).think(level);
+                    next = (*current).next;
+                }
             }
             current = next;
 
@@ -152,9 +155,7 @@ impl ThinkerAlloc {
         panic!("No more thnker slots");
     }
 
-    /// Push an item to the Lump. Returns the index the item was pushed to if
-    /// successful. This index can be used to remove the item, if you want to
-    /// accurately remove the pushed item you should store this somewhere.
+    /// Push an item to the `ThinkerAlloc`. Returns the pointer to the Thinker.
     ///
     /// # Safety:
     ///
@@ -165,6 +166,7 @@ impl ThinkerAlloc {
         }
 
         let idx = self.find_first_free(self.next_free)?;
+        debug!("Adding Thinker of type {:?}", thinker.object);
         unsafe {
             thinker.index = idx;
 
@@ -204,16 +206,16 @@ impl ThinkerAlloc {
     }
 
     /// Removes the entry at index
-    pub fn remove(&mut self, t: *mut Thinker) {
+    pub fn remove(&mut self, thinker: &mut Thinker) {
+        debug!("Removing Thinker of type {:?}", thinker.object);
         unsafe {
-            (*t).set_action(ActionF::None);
-            (*(*t).next).prev = (*t).prev;
-            (*(*t).prev).next = (*t).next;
+            thinker.set_action(ActionF::None);
+            (*thinker.next).prev = (*thinker).prev;
+            (*thinker.prev).next = (*thinker).next;
 
             self.len -= 1;
-            self.next_free = (*t).index; // reuse the slot on next insert
+            self.next_free = (*thinker).index; // reuse the slot on next insert
             self.maybe_reset_head();
-            //std::ptr::write(t as *mut Option<Thinker>, None);
         }
     }
 }
