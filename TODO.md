@@ -1,2 +1,6 @@
-[x] - Fix Doom II map 4. There seems to be something causing a thinker list invalid ref?
-[ ] - Get the occasional crash from thinker slots running out before level start?
+[x] - FIXED: Fix Doom II map 4. There seems to be something causing a thinker list invalid ref?
+[x] - FIXED: Get the occasional crash from thinker slots running out before level start?
+
+[ ] - Implement EV_BuildStairs
+[ ] - Implement P_DamageMobj
+[ ] - Implement texture read and prep for use

@@ -51,7 +51,7 @@ pub enum FloorKind {
 /// Very special kind of thinker used specifically for building a set of stairs
 /// that raises one-by-one.
 #[derive(Debug, Clone, Copy)]
-pub enum StairEnum {
+pub enum StairKind {
     /// slowly build by 8
     Build8,
     /// quickly build by 16
@@ -229,4 +229,136 @@ impl Think for FloorMove {
     fn thinker(&self) -> NonNull<Thinker> {
         self.thinker
     }
+}
+
+pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) -> bool {
+    let mut ret = false;
+    let mut speed;
+    let mut height;
+    let mut stair_size;
+
+    for sector in level
+        .map_data
+        .sectors()
+        .iter()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+
+        let mut floor = FloorMove {
+            thinker: NonNull::dangling(),
+            sector: DPtr::new(sector),
+            kind: FloorKind::LowerFloor,
+            speed: FLOORSPEED,
+            crush: false,
+            direction: 1,
+            newspecial: 0,
+            texture: sector.floorpic as u8,
+            destheight: 0.0,
+        };
+
+        match kind {
+            StairKind::Build8 => {
+                speed = FLOORSPEED / 4.0;
+                stair_size = 8.0;
+            }
+            StairKind::Turbo16 => {
+                speed = FLOORSPEED * 8.0;
+                stair_size = 16.0;
+            }
+        }
+        floor.speed = speed;
+        height = sector.floorheight + stair_size;
+        floor.destheight = height;
+
+        // Because we need to break lifetimes...
+        let mut sec = DPtr::new(sector);
+
+        let thinker = MapObject::create_thinker(
+            ThinkerType::FloorMove(floor),
+            ActionF::Action1(FloorMove::think),
+        );
+
+        if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
+            unsafe {
+                ptr.as_mut()
+                    .obj_mut()
+                    .bad_mut::<FloorMove>()
+                    .set_thinker_ptr(ptr);
+
+                sec.specialdata = Some(ptr);
+            }
+        }
+
+        let texture = sec.floorpic;
+
+        loop {
+            let mut ok = false;
+
+            for line in level
+                .map_data
+                .linedefs()
+                .iter()
+                .filter(|s| s.flags & ML_TWOSIDED != 0)
+            {
+                // Lines need to be in the same sector, can check this with the pointer
+                let mut tsec = line.frontsector.clone();
+
+                if tsec != sec {
+                    continue;
+                }
+                tsec = line.backsector.as_ref().unwrap().clone();
+
+                if tsec.floorpic != texture {
+                    continue;
+                }
+
+                height += stair_size;
+                if tsec.specialdata.is_some() {
+                    continue;
+                }
+                sec = tsec;
+
+                // New thinker
+                let floor = FloorMove {
+                    thinker: NonNull::dangling(),
+                    sector: sec.clone(),
+                    kind: FloorKind::LowerFloor,
+                    speed,
+                    crush: false,
+                    direction: 1,
+                    newspecial: 0,
+                    texture: sector.floorpic as u8,
+                    destheight: height,
+                };
+
+                let thinker = MapObject::create_thinker(
+                    ThinkerType::FloorMove(floor),
+                    ActionF::Action1(FloorMove::think),
+                );
+
+                if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                    unsafe {
+                        ptr.as_mut()
+                            .obj_mut()
+                            .bad_mut::<FloorMove>()
+                            .set_thinker_ptr(ptr);
+
+                        sec.specialdata = Some(ptr);
+                    }
+                }
+
+                ok = true;
+                break;
+            }
+
+            if !ok {
+                break;
+            }
+        }
+    }
+
+    ret
 }

@@ -1,4 +1,4 @@
-use std::alloc::{alloc_zeroed, dealloc, Layout, alloc};
+use std::alloc::{alloc, alloc_zeroed, dealloc, Layout};
 use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
@@ -47,7 +47,7 @@ pub struct ThinkerAlloc {
     /// Actual used AllocPool
     len: usize,
     /// The next free slot to insert in
-    next_free: usize,
+    next_free: *mut Thinker,
     pub tail: *mut Thinker,
 }
 
@@ -72,12 +72,12 @@ impl ThinkerAlloc {
         let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
         let buf_ptr = alloc(layout) as *mut Thinker;
 
+        // Need to initialise everything to a blank slate
         for n in 0..capacity {
             buf_ptr.add(n).write(Thinker {
-                index: 0,
                 prev: null_mut(),
                 next: null_mut(),
-                object: ThinkerType::Test(TestObject{ x: 0, thinker: NonNull::dangling() }),
+                object: ThinkerType::None,
                 func: ActionF::None,
             })
         }
@@ -86,7 +86,7 @@ impl ThinkerAlloc {
             buf_ptr,
             capacity,
             len: 0,
-            next_free: 0,
+            next_free: buf_ptr,
             tail: null_mut(),
         }
     }
@@ -137,18 +137,22 @@ impl ThinkerAlloc {
         unsafe { self.buf_ptr.add(idx) }
     }
 
-    fn find_first_free(&self, start: usize) -> Option<usize> {
+    fn find_first_free(&self, mut ptr: *mut Thinker) -> Option<*mut Thinker> {
         if self.len >= self.capacity {
             return None;
         }
 
-        let mut ptr = unsafe { self.buf_ptr.add(start) };
-        for idx in start..self.capacity {
+        loop {
             unsafe {
-                if matches!((*ptr).func, ActionF::None) {
-                    return Some(idx);
+                if matches!((*ptr).func, ActionF::None)
+                    && matches!((*ptr).object, ThinkerType::None)
+                {
+                    return Some(ptr);
                 }
                 ptr = ptr.add(1);
+            }
+            if ptr == self.buf_ptr {
+                break;
             }
         }
 
@@ -160,17 +164,14 @@ impl ThinkerAlloc {
     /// # Safety:
     ///
     /// `<T>` must match the inner type of `Thinker`
-    pub fn push<T: Think>(&mut self, mut thinker: Thinker) -> Option<NonNull<Thinker>> {
+    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<NonNull<Thinker>> {
         if self.len == self.capacity {
             return None;
         }
 
-        let idx = self.find_first_free(self.next_free)?;
+        let root_ptr = self.find_first_free(self.next_free)?;
         debug!("Adding Thinker of type {:?}", thinker.object);
         unsafe {
-            thinker.index = idx;
-
-            let root_ptr = self.ptr_for_idx(idx);
             ptr::write(root_ptr, thinker);
 
             if self.tail.is_null() {
@@ -190,9 +191,6 @@ impl ThinkerAlloc {
                 .set_thinker_ptr(NonNull::new_unchecked(root_ptr));
 
             self.len += 1;
-            if self.next_free < self.capacity {
-                self.next_free += 1;
-            }
 
             Some(NonNull::new_unchecked(root_ptr))
         }
@@ -209,12 +207,13 @@ impl ThinkerAlloc {
     pub fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker of type {:?}", thinker.object);
         unsafe {
-            thinker.set_action(ActionF::None);
+            thinker.func = ActionF::None;
+            thinker.object = ThinkerType::None;
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
 
             self.len -= 1;
-            self.next_free = (*thinker).index; // reuse the slot on next insert
+            self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
         }
     }
@@ -234,6 +233,7 @@ pub enum ThinkerType {
     StrobeFlash(StrobeFlash),
     FireFlicker(FireFlicker),
     Glow(Glow),
+    None,
 }
 
 impl Debug for ThinkerType {
@@ -249,6 +249,7 @@ impl Debug for ThinkerType {
             Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
             Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
             Self::Glow(_) => f.debug_tuple("Glow").finish(),
+            Self::None => f.debug_tuple("None - this shouldn't ever be seen").finish(),
         }
     }
 }
@@ -287,8 +288,6 @@ impl ThinkerType {
 /// its neighbours and more, without having to pass in a ref to the Thinker container,
 /// or iterate over possible blank spots in memory.
 pub struct Thinker {
-    /// The index location in the allocation
-    index: usize,
     prev: *mut Thinker,
     next: *mut Thinker,
     object: ThinkerType,
@@ -296,10 +295,6 @@ pub struct Thinker {
 }
 
 impl Thinker {
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
     pub fn obj_ref(&self) -> &ThinkerType {
         &self.object
     }
@@ -368,7 +363,6 @@ pub trait Think {
     /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
     fn create_thinker(object: ThinkerType, func: ActionF) -> Thinker {
         Thinker {
-            index: 0,
             prev: null_mut(),
             next: null_mut(),
             object,
