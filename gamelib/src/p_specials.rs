@@ -7,7 +7,7 @@ use crate::level_data::level::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
 use crate::p_doors::{ev_do_door, DoorKind};
-use crate::p_floor::{ev_do_floor, FloorKind};
+use crate::p_floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
 use crate::p_lights::{
     ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
     LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
@@ -15,7 +15,7 @@ use crate::p_lights::{
 use crate::p_map_object::MapObject;
 use crate::p_platforms::{ev_do_platform, PlatKind};
 use crate::DPtr;
-use log::{debug, error, warn, trace};
+use log::{debug, error, trace, warn};
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as i16 == 0 {
@@ -186,7 +186,9 @@ pub fn move_plane(
                     // DOWN
                     trace!(
                         "move_plane: floor: down: {} to {} at speed {}",
-                        sector.floorheight, dest, speed
+                        sector.floorheight,
+                        dest,
+                        speed
                     );
                     if sector.floorheight - speed < dest {
                         let last_pos = sector.floorheight;
@@ -216,7 +218,9 @@ pub fn move_plane(
                     // UP
                     trace!(
                         "move_plane: floor: up: {} to {} at speed {}",
-                        sector.floorheight, dest, speed
+                        sector.floorheight,
+                        dest,
+                        speed
                     );
                     if sector.floorheight + speed > dest {
                         let last_pos = sector.floorheight;
@@ -250,7 +254,9 @@ pub fn move_plane(
                     // DOWN
                     trace!(
                         "move_plane: ceiling: down: {} to {} at speed {}",
-                        sector.ceilingheight, dest, speed
+                        sector.ceilingheight,
+                        dest,
+                        speed
                     );
                     if sector.ceilingheight - speed < dest {
                         let last_pos = sector.ceilingheight;
@@ -280,7 +286,9 @@ pub fn move_plane(
                     // UP
                     trace!(
                         "move_plane: ceiling: up: {} to {} at speed {}",
-                        sector.ceilingheight, dest, speed
+                        sector.ceilingheight,
+                        dest,
+                        speed
                     );
                     if sector.ceilingheight + speed > dest {
                         let last_pos = sector.ceilingheight;
@@ -349,235 +357,253 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
     let level = unsafe { &mut *thing.level };
     match line.special {
         2 => {
-            debug!("line-special: vld_open door!");
+            debug!("line-special #{}: vld_open door!", line.special);
             ev_do_door(line.clone(), DoorKind::Open, level);
             line.special = 0;
         }
         3 => {
-            debug!("line-special: vld_close door!");
+            debug!("line-special #{}: vld_close door!", line.special);
             ev_do_door(line.clone(), DoorKind::Close, level);
             line.special = 0;
         }
         4 => {
-            debug!("line-special: vld_normal door!");
+            debug!("line-special #{}: vld_normal door!", line.special);
             ev_do_door(line.clone(), DoorKind::Normal, level);
             line.special = 0;
         }
         16 => {
-            debug!("line-special: vld_close30ThenOpen door!");
+            debug!("line-special #{}: vld_close30ThenOpen door!", line.special);
             ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
             line.special = 0;
         }
         108 => {
-            debug!("line-special: vld_blazeRaise door!");
+            debug!("line-special #{}: vld_blazeRaise door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
             line.special = 0;
         }
         109 => {
-            debug!("line-special: vld_blazeOpen door!");
+            debug!("line-special #{}: vld_blazeOpen door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
             line.special = 0;
         }
         110 => {
-            debug!("line-special: vld_blazeClose door!");
+            debug!("line-special #{}: vld_blazeClose door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeClose, level);
             line.special = 0;
         }
         75 => {
-            debug!("line-special: vld_close door!");
+            debug!("line-special #{}: vld_close door!", line.special);
             ev_do_door(line.clone(), DoorKind::Close, level);
         }
         76 => {
-            debug!("line-special: vld_close30ThenOpen door!");
+            debug!("line-special #{}: vld_close30ThenOpen door!", line.special);
             ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
         }
         86 => {
-            debug!("line-special: vld_open door!");
+            debug!("line-special #{}: vld_open door!", line.special);
             ev_do_door(line.clone(), DoorKind::Open, level);
         }
         90 => {
-            debug!("line-special: vld_normal door!");
+            debug!("line-special #{}: vld_normal door!", line.special);
             ev_do_door(line.clone(), DoorKind::Normal, level);
         }
         105 => {
-            debug!("line-special: vld_blazeRaise door!");
+            debug!("line-special #{}: vld_blazeRaise door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
         }
         106 => {
-            debug!("line-special: vld_blazeOpen door!");
+            debug!("line-special #{}: vld_blazeOpen door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
         }
         107 => {
-            debug!("line-special: vld_blazeClose door!");
+            debug!("line-special #{}: vld_blazeClose door!", line.special);
             ev_do_door(line.clone(), DoorKind::BlazeClose, level);
         }
 
         10 => {
-            debug!("line-special 10: downWaitUpStay platform!");
+            debug!("line-special #{}: downWaitUpStay platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
             line.special = 0;
         }
         22 => {
-            debug!("line-special: raiseToNearestAndChange platform!");
+            debug!(
+                "line-special #{}: raiseToNearestAndChange platform!",
+                line.special
+            );
             ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
             line.special = 0;
         }
         53 => {
-            debug!("line-special: perpetualRaise platform!");
+            debug!("line-special #{}: perpetualRaise platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
             line.special = 0;
         }
         121 => {
-            debug!("line-special: blazeDWUS platform!");
+            debug!("line-special #{}: blazeDWUS platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
             line.special = 0;
         }
         87 => {
-            debug!("line-special: perpetualRaise platform!");
+            debug!("line-special #{}: perpetualRaise platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
         }
         88 => {
-            debug!("line-special 88: downWaitUpStay platform!");
+            debug!("line-special #{}: downWaitUpStay platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
         }
         95 => {
-            debug!("line-special: raiseToNearestAndChange platform!");
+            debug!(
+                "line-special #{}: raiseToNearestAndChange platform!",
+                line.special
+            );
             ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
         }
         120 => {
-            debug!("line-special: blazeDWUS platform!");
+            debug!("line-special #{}: blazeDWUS platform!", line.special);
             ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
         }
         5 => {
-            debug!("line-special: raiseFloor floor!");
+            debug!("line-special #{}: raiseFloor floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
             line.special = 0;
         }
         19 => {
-            debug!("line-special: lowerFloor floor!");
+            debug!("line-special #{}: lowerFloor floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::LowerFloor, level);
             line.special = 0;
         }
         30 => {
-            debug!("line-special: raiseToTexture floor!");
+            debug!("line-special #{}: raiseToTexture floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseToTexture, level);
             line.special = 0;
         }
         36 => {
-            debug!("line-special: TurboLower floor!");
+            debug!("line-special #{}: TurboLower floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::TurboLower, level);
             line.special = 0;
         }
         37 => {
-            debug!("line-special: lowerAndChange floor!");
+            debug!("line-special #{}: lowerAndChange floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::LowerAndChange, level);
             line.special = 0;
         }
         38 => {
-            debug!("line-special: lowerFloorToLowest floor!");
+            debug!("line-special #{}: lowerFloorToLowest floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         56 => {
-            debug!("line-special: raiseFloorCrush floor!");
+            debug!("line-special #{}: raiseFloorCrush floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseFloorCrush, level);
             line.special = 0;
         }
         59 => {
-            debug!("line-special: raiseFloor24AndChange floor!");
+            debug!(
+                "line-special #{}: raiseFloor24AndChange floor!",
+                line.special
+            );
             ev_do_floor(line.clone(), FloorKind::RaiseFloor24andChange, level);
             line.special = 0;
         }
         119 => {
-            debug!("line-special: raiseFloorToNearest floor!");
+            debug!("line-special #{}: raiseFloorToNearest floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseFloorToNearest, level);
             line.special = 0;
         }
         130 => {
-            debug!("line-special: raiseFloorTurbo floor!");
+            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseFloorTurbo, level);
             line.special = 0;
         }
         82 => {
-            debug!("line-special: raiseFloorTurbo floor!");
+            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
             ev_do_floor(line, FloorKind::LowerFloorToLowest, level);
         }
         83 => {
-            debug!("line-special: lowerFloor floor!");
+            debug!("line-special #{}: lowerFloor floor!", line.special);
             ev_do_floor(line, FloorKind::LowerFloor, level);
         }
         84 => {
-            debug!("line-special: lowerAndChange floor!");
+            debug!("line-special #{}: lowerAndChange floor!", line.special);
             ev_do_floor(line, FloorKind::LowerAndChange, level);
         }
         91 => {
-            debug!("line-special: raiseFloor floor!");
+            debug!("line-special #{}: raiseFloor floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseFloor, level);
         }
         92 => {
-            debug!("line-special: raiseFloor24 floor!");
+            debug!("line-special #{}: raiseFloor24 floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseFloor24, level);
         }
         93 => {
-            debug!("line-special: raiseFloor24AndChange floor!");
+            debug!(
+                "line-special #{}: raiseFloor24AndChange floor!",
+                line.special
+            );
             ev_do_floor(line, FloorKind::RaiseFloor24andChange, level);
         }
         94 => {
-            debug!("line-special: raiseFloorCrush floor!");
+            debug!("line-special #{}: raiseFloorCrush floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseFloorCrush, level);
         }
         96 => {
-            debug!("line-special: raiseToTexture floor!");
+            debug!("line-special #{}: raiseToTexture floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseToTexture, level);
         }
         98 => {
-            debug!("line-special: turboLower floor!");
+            debug!("line-special #{}: turboLower floor!", line.special);
             ev_do_floor(line, FloorKind::TurboLower, level);
         }
         128 => {
-            debug!("line-special: raiseFloorToNearest floor!");
+            debug!("line-special #{}: raiseFloorToNearest floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseFloorToNearest, level);
         }
         129 => {
-            debug!("line-special: raiseFloorTurbo floor!");
+            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
             ev_do_floor(line, FloorKind::RaiseFloorTurbo, level);
         }
         6 => {
-            debug!("line-special: fastCrushAndRaise ceiling!");
+            debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
             line.special = 0;
         }
         25 => {
-            debug!("line-special: crushAndRaise ceiling!");
+            debug!("line-special #{}: crushAndRaise ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
             line.special = 0;
         }
         40 => {
-            debug!("line-special: raiseToHighest ceiling, floor!");
+            debug!(
+                "line-special #{}: raiseToHighest ceiling, floor!",
+                line.special
+            );
             ev_do_ceiling(line.clone(), CeilingKind::RaiseToHighest, level);
             ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         44 => {
-            debug!("line-special: lowerAndCrush ceiling!");
+            debug!("line-special #{}: lowerAndCrush ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
             line.special = 0;
         }
         141 => {
-            debug!("line-special: silentCrushAndRaise ceiling!");
+            debug!(
+                "line-special #{}: silentCrushAndRaise ceiling!",
+                line.special
+            );
             ev_do_ceiling(line.clone(), CeilingKind::SilentCrushAndRaise, level);
             line.special = 0;
         }
         72 => {
-            debug!("line-special: LowerAndCrush ceiling!");
+            debug!("line-special #{}: LowerAndCrush ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
         }
         73 => {
-            debug!("line-special: crushAndRaise ceiling!");
+            debug!("line-special #{}: crushAndRaise ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
         }
         77 => {
-            debug!("line-special: fastCrushAndRaise ceiling!");
+            debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
             ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
         }
         52 => {
@@ -587,41 +613,110 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObjec
             level.do_secret_exit_level();
         }
         12 => {
-            debug!("line-special: turn light on nearest bright!");
+            debug!(
+                "line-special #{}: turn light on nearest bright!",
+                line.special
+            );
             ev_turn_light_on(line.clone(), 0, level);
             line.special = 0;
         }
         13 => {
-            debug!("line-special: turn light on 255!");
+            debug!("line-special #{}: turn light on 255!", line.special);
             ev_turn_light_on(line.clone(), 255, level);
             line.special = 0;
         }
         35 => {
-            debug!("line-special: turn light off!");
+            debug!("line-special #{}: turn light off!", line.special);
             ev_turn_light_on(line.clone(), 35, level);
             line.special = 0;
         }
         79 => {
-            debug!("line-special: turn light off!");
+            debug!("line-special #{}: turn light off!", line.special);
             ev_turn_light_on(line.clone(), 35, level);
         }
         80 => {
-            debug!("line-special: turn light on nearest bright!");
+            debug!(
+                "line-special #{}: turn light on nearest bright!",
+                line.special
+            );
             ev_turn_light_on(line, 0, level);
         }
         81 => {
-            debug!("line-special: turn light on 255!");
+            debug!("line-special #{}: turn light on 255!", line.special);
             ev_turn_light_on(line, 255, level);
         }
         17 => {
-            debug!("line-special: start light strobe");
+            debug!("line-special #{}: start light strobe!", line.special);
             ev_start_light_strobing(line.clone(), level);
             line.special = 0;
         }
         104 => {
-            debug!("line-special: turn lights off in sector tag");
+            debug!(
+                "line-special #{}: turn lights off in sector tag!",
+                line.special
+            );
             ev_turn_tag_lights_off(line.clone(), level);
             line.special = 0;
+        }
+        8 => {
+            debug!("line-special #{}: build 8 stair steps", line.special);
+            ev_build_stairs(line.clone(), StairKind::Build8, level);
+            line.special = 0;
+        }
+        100 => {
+            debug!("line-special #{}: build 16 stair steps turbo", line.special);
+            ev_build_stairs(line.clone(), StairKind::Turbo16, level);
+            line.special = 0;
+        }
+        125 => {
+            // TELEPORT MonsterONLY
+            if thing.player.is_none() {
+                // EV_Teleport
+                line.special = 0;
+            }
+            error!(
+                "line-special #{}: EV_Teleport not implemented",
+                line.special
+            );
+        }
+        39 => {
+            error!(
+                "line-special #{}: EV_Teleport not implemented",
+                line.special
+            );
+            line.special = 0;
+        }
+        54 => {
+            error!(
+                "line-special #{}: EV_StopPlat not implemented",
+                line.special
+            );
+            line.special = 0;
+        }
+        89 => {
+            error!(
+                "line-special #{}: EV_StopPlat not implemented",
+                line.special
+            );
+        }
+        97 => {
+            error!(
+                "line-special #{}: EV_Teleport not implemented",
+                line.special
+            );
+        }
+        126 => {
+            // TELEPORT MonsterONLY
+            if thing.player.is_none() {
+                // EV_Teleport
+            }
+            error!(
+                "line-special #{}: EV_Teleport not implemented",
+                line.special
+            );
+        }
+        114 | 103 => {
+            // Ignore. It's a switch
         }
         _ => {
             warn!("Invalid or unimplemented line special: {}", line.special);
@@ -639,19 +734,22 @@ pub fn spawn_specials(level: &mut Level) {
     {
         match sector.special {
             1 => {
-                debug!("sector-special: light flicker!");
+                debug!("sector-special #{}: light flicker!", sector.special);
                 LightFlash::spawn(sector, level);
             }
             2 => {
-                debug!("sector-special: strobe fast!");
+                debug!("sector-special #{}: strobe fast!", sector.special);
                 StrobeFlash::spawn(sector, FASTDARK, false, level);
             }
             3 => {
-                debug!("sector-special: strobe slow!");
+                debug!("sector-special #{}: strobe slow!", sector.special);
                 StrobeFlash::spawn(sector, SLOWDARK, false, level);
             }
             4 => {
-                debug!("sector-special: strobe fast death/slime!");
+                debug!(
+                    "sector-special #{}: strobe fast death/slime!",
+                    sector.special
+                );
                 StrobeFlash::spawn(sector, FASTDARK, false, level);
                 sector.special = 4;
             }
@@ -659,20 +757,26 @@ pub fn spawn_specials(level: &mut Level) {
                 level.totalsecret += 1;
             }
             12 => {
-                debug!("sector-special: strobe slow!");
+                debug!("sector-special #{}: strobe slow!", sector.special);
                 StrobeFlash::spawn(sector, SLOWDARK, true, level);
             }
             13 => {
-                debug!("sector-special: strobe fast!");
+                debug!("sector-special #{}: strobe fast!", sector.special);
                 StrobeFlash::spawn(sector, FASTDARK, true, level);
             }
             17 => {
-                debug!("sector-special: fire flicker!");
+                debug!("sector-special #{}: fire flicker!", sector.special);
                 FireFlicker::spawn(sector, level);
             }
             8 => {
-                debug!("sector-special: glowing light!");
+                debug!("sector-special #{}: glowing light!", sector.special);
                 Glow::spawn(sector, level);
+            }
+            14 => {
+                error!(
+                    "sector-special #{}: P_SpawnDoorRaiseIn5Mins not implemented",
+                    sector.special
+                );
             }
             _ => {
                 warn!(

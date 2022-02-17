@@ -1,16 +1,79 @@
-use log::{debug, warn};
+use log::{debug, error, warn};
 
 use crate::{
     flags::LineDefFlags,
     level_data::map_defs::LineDef,
     p_ceiling::{ev_do_ceiling, CeilingKind},
     p_doors::{ev_do_door, ev_vertical_door, DoorKind},
-    p_floor::{ev_do_floor, FloorKind},
+    p_floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
     p_lights::ev_turn_light_on,
     p_map_object::MapObject,
     p_platforms::{ev_do_platform, PlatKind},
     DPtr,
 };
+
+struct SwitchSwitch {
+    name1: &'static str,
+    name2: &'static str,
+    episode: i32,
+}
+
+impl SwitchSwitch {
+    const fn new(name1: &'static str, name2: &'static str, episode: i32) -> Self {
+        SwitchSwitch {
+            name1,
+            name2,
+            episode,
+        }
+    }
+}
+
+// CHANGE THE TEXTURE OF A WALL SWITCH TO ITS OPPOSITE
+const alphSwitchList: [SwitchSwitch; 40] = [
+    // Doom shareware episode 1 switches
+    SwitchSwitch::new("SW1BRCOM", "SW2BRCOM", 1),
+    SwitchSwitch::new("SW1BRN1", "SW2BRN1", 1),
+    SwitchSwitch::new("SW1BRN2", "SW2BRN2", 1),
+    SwitchSwitch::new("SW1BRNGN", "SW2BRNGN", 1),
+    SwitchSwitch::new("SW1BROWN", "SW2BROWN", 1),
+    SwitchSwitch::new("SW1COMM", "SW2COMM", 1),
+    SwitchSwitch::new("SW1COMP", "SW2COMP", 1),
+    SwitchSwitch::new("SW1DIRT", "SW2DIRT", 1),
+    SwitchSwitch::new("SW1EXIT", "SW2EXIT", 1),
+    SwitchSwitch::new("SW1GRAY", "SW2GRAY", 1),
+    SwitchSwitch::new("SW1GRAY1", "SW2GRAY1", 1),
+    SwitchSwitch::new("SW1METAL", "SW2METAL", 1),
+    SwitchSwitch::new("SW1PIPE", "SW2PIPE", 1),
+    SwitchSwitch::new("SW1SLAD", "SW2SLAD", 1),
+    SwitchSwitch::new("SW1STARG", "SW2STARG", 1),
+    SwitchSwitch::new("SW1STON1", "SW2STON1", 1),
+    SwitchSwitch::new("SW1STON2", "SW2STON2", 1),
+    SwitchSwitch::new("SW1STONE", "SW2STONE", 1),
+    SwitchSwitch::new("SW1STRTN", "SW2STRTN", 1),
+    // Doom registered episodes 2&3 switches
+    SwitchSwitch::new("SW1BLUE", "SW2BLUE", 2),
+    SwitchSwitch::new("SW1CMT", "SW2CMT", 2),
+    SwitchSwitch::new("SW1GARG", "SW2GARG", 2),
+    SwitchSwitch::new("SW1GSTON", "SW2GSTON", 2),
+    SwitchSwitch::new("SW1HOT", "SW2HOT", 2),
+    SwitchSwitch::new("SW1LION", "SW2LION", 2),
+    SwitchSwitch::new("SW1SATYR", "SW2SATYR", 2),
+    SwitchSwitch::new("SW1SKIN", "SW2SKIN", 2),
+    SwitchSwitch::new("SW1VINE", "SW2VINE", 2),
+    SwitchSwitch::new("SW1WOOD", "SW2WOOD", 2),
+    // Doom II switches
+    SwitchSwitch::new("SW1PANEL", "SW2PANEL", 3),
+    SwitchSwitch::new("SW1ROCK", "SW2ROCK", 3),
+    SwitchSwitch::new("SW1MET2", "SW2MET2", 3),
+    SwitchSwitch::new("SW1WDMET", "SW2WDMET", 3),
+    SwitchSwitch::new("SW1BRIK", "SW2BRIK", 3),
+    SwitchSwitch::new("SW1MOD1", "SW2MOD1", 3),
+    SwitchSwitch::new("SW1ZIM", "SW2ZIM", 3),
+    SwitchSwitch::new("SW1STON6", "SW2STON6", 3),
+    SwitchSwitch::new("SW1TEK", "SW2TEK", 3),
+    SwitchSwitch::new("SW1MARB", "SW2MARB", 3),
+    SwitchSwitch::new("SW1SKULL", "SW2SKULL", 3),
+];
 
 // P_ChangeSwitchTexture(line, 0);, 0 = switch, 1 = button
 
@@ -55,17 +118,6 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
         | 118     // Blazing door open
         => {
             ev_vertical_door(line, thing, level);
-            println!("*hydralic sounds*");
-        }
-        7 => {
-            // TODO: EV_BuildStairs
-            todo!("if (EV_BuildStairs(line, build8))
-			P_ChangeSwitchTexture(line, 0);");
-        }
-        9 => {
-            // TODO: EV_DoDonut
-            todo!("if (EV_DoDonut(line))
-			P_ChangeSwitchTexture(line, 0);");
         }
         11 => {
             // TODO: P_ChangeSwitchTexture(line, 0);
@@ -323,6 +375,34 @@ pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> 
         139 => {
             debug!("line-switch: turn light off!");
             ev_turn_light_on(line, 35, level);
+            // TODO: P_ChangeSwitchTexture(line, 1);
+        }
+        7 => {
+            debug!(
+                "line-switch #{}: build 8 stair steps",
+                line.special
+            );
+            ev_build_stairs(line.clone(), StairKind::Build8, level);
+            // TODO: P_ChangeSwitchTexture(line, 0);
+        }
+        127 => {
+            debug!(
+                "line-switch #{}: build 16 stair steps turbo",
+                line.special
+            );
+            ev_build_stairs(line.clone(), StairKind::Turbo16, level);
+            // TODO: P_ChangeSwitchTexture(line, 0);
+        }
+        9 => {
+            error!("line-special #{}: EV_DoDonut not implemented", line.special);
+            // TODO: P_ChangeSwitchTexture(line, 0);
+        }
+        133 | 135 | 137 => {
+            error!("line-special #{}: EV_DoLockedDoor not implemented", line.special);
+            // TODO: P_ChangeSwitchTexture(line, 0);
+        }
+        99 | 134 | 136 => {
+            error!("line-special #{}: EV_DoLockedDoor not implemented", line.special);
             // TODO: P_ChangeSwitchTexture(line, 1);
         }
         _ => {
