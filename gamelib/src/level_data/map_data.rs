@@ -375,7 +375,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        return &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _;
+        &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _
     }
 }
 

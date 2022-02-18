@@ -8,6 +8,7 @@ use crate::{
         level::Level,
         map_defs::{LineDef, Sector},
     },
+    p_local::p_random,
     p_map_object::MapObject,
     p_specials::{
         find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
@@ -123,12 +124,15 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
                 platform.wait = TICRATE * PLATWAIT;
 
-                platform.status = PlatStatus::Down;
+                platform.status = if (p_random() & 1) == 0 {
+                    PlatStatus::Up
+                } else {
+                    PlatStatus::Down
+                };
                 // TODO: plat->status = P_Random() & 1;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
             PlatKind::DownWaitUpStay => {
-                dbg!("HERE");
                 platform.speed *= 4.0;
                 platform.low = find_lowest_floor_surrounding(sec.clone());
 

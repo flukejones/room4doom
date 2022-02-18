@@ -82,3 +82,10 @@ impl TimeStep {
         None
     }
 }
+
+impl Default for TimeStep {
+    // shutup clippy!
+    fn default() -> Self {
+        Self::new()
+    }
+}

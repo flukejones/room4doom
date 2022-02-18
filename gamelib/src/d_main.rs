@@ -3,7 +3,7 @@ use std::{error::Error, fmt, str::FromStr};
 use golem::Context;
 
 use gumdrop::Options;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use sdl2::{
     keyboard::Scancode, pixels::Color, pixels::PixelFormatEnum, rect::Rect, render::Canvas,
     surface::Surface, video::Window,
