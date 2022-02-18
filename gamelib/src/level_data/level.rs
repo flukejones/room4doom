@@ -61,7 +61,8 @@ impl Level {
     /// Because the `Level` uses ` ThinkerAlloc` internally the `Level` must not
     /// be moved by the owner after any thinkers are pushed to `ThinkerAlloc`.
     /// This applies to the map data also where `load()` should be called after
-    /// the locations is set in concrete.
+    /// the locations is set in concrete. Other common tasks to do after `new()`
+    /// are spawning specials, things.
     ///
     /// Doom method name is `P_SetupLevel`
     pub unsafe fn new(skill: Skill, episode: u32, map: u32, game_mode: GameMode) -> Self {
@@ -89,7 +90,7 @@ impl Level {
             r_data: RenderData::default(),
             visplanes: VisPlaneCtrl::default(),
             bsp_renderer: BspRenderer::default(),
-            thinkers: unsafe { ThinkerAlloc::new(thinker_count + 500) },
+            thinkers: ThinkerAlloc::new(thinker_count + 500),
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
@@ -160,11 +161,11 @@ pub fn p_ticker(game: &mut Game) {
         unsafe {
             let lev = &mut *(level as *mut Level);
             level.thinkers.run_thinkers(lev);
+
+            // P_UpdateSpecials ();
+            // P_RespawnSpecials ();
         }
 
         level.level_time += 1;
     }
-
-    // P_UpdateSpecials ();
-    // P_RespawnSpecials ();
 }

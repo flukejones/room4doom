@@ -246,6 +246,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         if sector.specialdata.is_some() {
             continue;
         }
+        ret = true;
 
         let mut floor = FloorMove {
             thinker: NonNull::dangling(),
