@@ -1136,7 +1136,7 @@ pub enum StateNum {
 }
 
 #[repr(u16)]
-#[derive(Debug, Copy, Clone, N)]
+#[derive(Debug, Copy, Clone, N, PartialEq, PartialOrd)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum MapObjectType {
     MT_PLAYER,
