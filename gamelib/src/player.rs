@@ -21,6 +21,8 @@ use crate::{
     tic_cmd::TicCmd,
 };
 
+pub const CF_GODMODE: i32 = 2;
+
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,
 /// coordinates are given for a 320*200 view screen.
@@ -131,7 +133,7 @@ pub struct Player {
 
     /// Frags, kills of other players.
     pub frags: [i32; MAXPLAYERS as usize],
-    readyweapon: WeaponType,
+    pub readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
@@ -146,7 +148,7 @@ pub struct Player {
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
-    cheats: i32,
+    pub cheats: i32,
 
     /// Refired shots are less accurate.
     pub refire: i32,
@@ -164,7 +166,7 @@ pub struct Player {
     pub bonuscount: i32,
 
     // Who did damage (NULL for floors/ceilings).
-    //mobj_t*		attacker;
+    pub attacker: Option<*mut MapObject>,
     /// So gun flashes light up areas.
     pub extralight: i32,
 
@@ -197,6 +199,7 @@ impl Player {
         Player {
             viewz: 0.0,
             mobj: None,
+            attacker: None,
 
             viewheight: 41.0,
             deltaviewheight: 1.0,

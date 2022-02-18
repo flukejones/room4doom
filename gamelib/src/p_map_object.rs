@@ -137,7 +137,7 @@ pub struct MapObject {
     /// The type of object
     pub kind: MapObjectType,
     /// &mobjinfo[mobj.type]
-    info: MapObjectInfo,
+    pub info: MapObjectInfo,
     pub tics: i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
@@ -154,7 +154,7 @@ pub struct MapObject {
     pub best_slide: BestSlide,
     /// Thing being chased/attacked (or NULL),
     /// also the originator for missiles.
-    pub target: Option<NonNull<MapObject>>,
+    pub target: Option<*mut MapObject>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     pub reactiontime: i32,
