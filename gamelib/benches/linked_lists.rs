@@ -19,7 +19,7 @@ fn push_100_000(b: &mut Bencher) {
                     x: i,
                     thinker: NonNull::dangling(),
                 }),
-                ActionF::Test,
+                ActionF::None,
             ));
         }
     });
@@ -40,7 +40,7 @@ fn load_and_iter(b: &mut Bencher) {
                 x: i,
                 thinker: NonNull::dangling(),
             }),
-            ActionF::Test,
+            ActionF::None,
         ));
     }
 

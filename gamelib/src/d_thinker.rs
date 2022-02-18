@@ -3,7 +3,7 @@ use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut, NonNull};
 
-use log::debug;
+use log::{debug, error};
 
 use crate::level_data::level::Level;
 use crate::p_ceiling::CeilingMove;
@@ -78,7 +78,7 @@ impl ThinkerAlloc {
                 prev: null_mut(),
                 next: null_mut(),
                 object: ThinkerType::None,
-                func: ActionF::None,
+                func: ActionF::Free,
             })
         }
 
@@ -144,9 +144,7 @@ impl ThinkerAlloc {
 
         loop {
             unsafe {
-                if matches!((*ptr).func, ActionF::None)
-                    && matches!((*ptr).object, ThinkerType::None)
-                {
+                if matches!((*ptr).func, ActionF::Free) {
                     return Some(ptr);
                 }
                 ptr = ptr.add(1);
@@ -168,8 +166,8 @@ impl ThinkerAlloc {
         if self.len == self.capacity {
             return None;
         }
-        if matches!(thinker.func, ActionF::None) {
-            panic!("Can't push a thinker with ActionF::None as the function wrapper");
+        if matches!(thinker.func, ActionF::Free) {
+            panic!("Can't push a thinker with ActionF::Free as the function wrapper");
         }
 
         let root_ptr = self.find_first_free(self.next_free)?;
@@ -211,7 +209,7 @@ impl ThinkerAlloc {
     pub fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker of type {:?}", thinker.object);
         unsafe {
-            thinker.func = ActionF::None;
+            thinker.func = ActionF::Free;
             thinker.object = ThinkerType::None;
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
@@ -323,10 +321,15 @@ impl Thinker {
     /// to mark removal.
     pub fn think(&mut self, level: &mut Level) -> bool {
         match self.func {
-            ActionF::Action1(f) => (f)(&mut self.object, level),
+            ActionF::Thinker(f) => (f)(&mut self.object, level),
             ActionF::Player(_f) => true,
-            ActionF::None | ActionF::Test => true,
+            ActionF::None => true,
             ActionF::Remove => false,
+            ActionF::Free => false,
+            ActionF::Actor(_) => {
+                error!("Actor function shouldn't be called from Thinker");
+                true
+            }
         }
     }
 }
@@ -345,22 +348,24 @@ impl fmt::Debug for Thinker {
 #[derive(Clone)]
 pub enum ActionF {
     /// The slot in memory is "empty"
+    Free,
+    /// For a state with no action
     None,
     /// To have the thinker removed from the thinker list on next cleanup pass
     Remove,
-    /// Purely for testing without an action
-    Test,
-    Action1(fn(&mut ThinkerType, &mut Level) -> bool),
+    Thinker(fn(&mut ThinkerType, &mut Level) -> bool),
+    Actor(fn(&mut MapObject)),
     Player(fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
 }
 
 impl fmt::Debug for ActionF {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ActionF::Test => f.debug_struct("Test").finish(),
+            ActionF::Free => f.debug_struct("Free").finish(),
             ActionF::None => f.debug_struct("None").finish(),
             ActionF::Remove => f.debug_struct("Remove").finish(),
-            ActionF::Action1(_) => f.debug_struct("Action1").finish(),
+            ActionF::Thinker(_) => f.debug_struct("Thinker").finish(),
+            ActionF::Actor(_) => f.debug_struct("Actor").finish(),
             ActionF::Player(_) => f.debug_struct("Player").finish(),
         }
     }
@@ -462,7 +467,7 @@ mod tests {
                 x: 42,
                 thinker: NonNull::dangling(),
             }),
-            func: ActionF::Action1(TestObject::think),
+            func: ActionF::Thinker(TestObject::think),
         };
 
         assert!(x.think(&mut l));

@@ -34,7 +34,7 @@ impl FireFlicker {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FireFlicker(light),
-            ActionF::Action1(FireFlicker::think),
+            ActionF::Thinker(FireFlicker::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<FireFlicker>(thinker) {
@@ -102,7 +102,7 @@ impl LightFlash {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::LightFlash(light),
-            ActionF::Action1(LightFlash::think),
+            ActionF::Thinker(LightFlash::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<LightFlash>(thinker) {
@@ -174,7 +174,7 @@ impl StrobeFlash {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::StrobeFlash(light),
-            ActionF::Action1(StrobeFlash::think),
+            ActionF::Thinker(StrobeFlash::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
@@ -237,7 +237,7 @@ impl Glow {
         };
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Glow(light), ActionF::Action1(Glow::think));
+            MapObject::create_thinker(ThinkerType::Glow(light), ActionF::Thinker(Glow::think));
 
         if let Some(mut ptr) = level.thinkers.push::<Glow>(thinker) {
             unsafe {

@@ -4,12 +4,15 @@
 use std::ptr::{null_mut, NonNull};
 
 use crate::d_thinker::ThinkerType;
+use crate::info::states::STATES;
 use crate::level_data::level::Level;
 use crate::p_local::{p_subrandom, BestSlide};
 use crate::p_map::SubSectorMinMax;
 use glam::Vec2;
+use log::error;
 use wad::lumps::WadThing;
 
+use crate::d_thinker::{ActionF, Thinker};
 use crate::info::StateNum;
 use crate::level_data::map_defs::SubSector;
 use crate::{
@@ -21,10 +24,6 @@ use crate::{
     p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
-use crate::{
-    d_thinker::{ActionF, Thinker},
-    info::states::get_state,
-};
 use crate::{info::states::State, p_local::p_random, sounds::SfxEnum};
 use crate::{
     info::{MapObjectType, SpriteNum},
@@ -142,7 +141,7 @@ pub struct MapObject {
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
-    pub state: State,
+    pub state: &'static State,
     pub flags: u32,
     pub health: i32,
     /// Movement direction, movement generation (zig-zagging).
@@ -183,7 +182,7 @@ impl MapObject {
         reactiontime: i32,
         kind: MapObjectType,
         info: MapObjectInfo,
-        state: State,
+        state: &'static State,
         level: *mut Level,
     ) -> Self {
         Self {
@@ -226,7 +225,7 @@ impl MapObject {
     pub fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
         self.z = 0.0;
-        self.set_mobj_state(MOBJINFO[self.kind as usize].deathstate);
+        self.set_state(MOBJINFO[self.kind as usize].deathstate);
 
         self.tics -= p_random() & 3;
 
@@ -313,7 +312,7 @@ impl MapObject {
                 self.flags &= !(MobjFlag::SKULLFLY as u32);
                 self.momxy = Vec2::default();
                 self.z = 0.0;
-                self.set_mobj_state(self.info.spawnstate);
+                self.set_state(self.info.spawnstate);
             }
             return;
         }
@@ -413,7 +412,7 @@ impl MapObject {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
                     // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
-                    self.set_mobj_state(StateNum::S_PLAY);
+                    self.set_state(StateNum::S_PLAY);
                     // }
                     self.momxy = Vec2::default();
                 }
@@ -620,12 +619,12 @@ impl MapObject {
 
         // // do not set the state with P_SetMobjState,
         // // because action routines can not be called yet
-        let state = get_state(info.spawnstate as usize);
+        let state = &STATES[info.spawnstate as usize];
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Action1(MapObject::think));
+            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Thinker(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
         if let Some(mut ptr) = level.thinkers.push::<MapObject>(thinker) {
@@ -657,43 +656,43 @@ impl MapObject {
     }
 
     /// P_SetMobjState
-    pub fn set_mobj_state(&mut self, mut state: StateNum) -> bool {
-        let mut cycle_counter = 0;
+    pub fn set_state(&mut self, state: StateNum) -> bool {
+        // Using the Heretic/Hexen style, no loop
 
-        loop {
-            match state {
-                StateNum::S_NULL => {
-                    self.state = get_state(state as usize); //(state_t *)S_NULL;
-                                                            // TODO: P_RemoveMobj(mobj);
-                    return false;
-                }
-                _ => {
-                    let st = get_state(state as usize);
-                    state = st.next_state;
-
-                    // Modified handling.
-                    // Call action functions when the state is set
-                    // if self.state.action.is_some() {
-                    //     let func = self.state.action.mobj_func();
-                    //     unsafe { (*func)(self) }
-                    // }
-
-                    self.tics = st.tics;
-                    self.sprite = st.sprite;
-                    self.frame = st.frame;
-                    self.state = st;
-                }
-            }
-
-            cycle_counter += 1;
-            if cycle_counter > MOBJ_CYCLE_LIMIT {
-                println!("P_SetMobjState: Infinite state cycle detected!");
-            }
-
-            if self.tics <= 0 {
-                break;
-            }
+        // let mut cycle_counter = 0;
+        // loop {
+        if matches!(state, StateNum::S_NULL) {
+            self.state = &STATES[StateNum::S_NULL as usize]; //(state_t *)S_NULL;
+            self.remove();
+            return false;
         }
+
+        let st = &STATES[state as usize];
+
+        self.state = st;
+        self.tics = st.tics;
+        self.sprite = st.sprite;
+        self.frame = st.frame;
+
+        // Modified handling.
+        // Call action functions when the state is set
+        if let ActionF::Actor(f) = st.action {
+            f(self);
+        }
+
+        //     state = st.next_state;
+        //     cycle_counter += 1;
+        //     if cycle_counter > MOBJ_CYCLE_LIMIT {
+        //         panic!(
+        //             "P_SetMobjState: Infinite state cycle detected! {:?}",
+        //             self.info
+        //         );
+        //     }
+
+        //     if self.tics != 0 {
+        //         break;
+        //     }
+        // }
 
         true
     }
@@ -796,7 +795,7 @@ impl MapObject {
         }
 
         if self.health <= 0 {
-            self.set_mobj_state(StateNum::S_GIBS);
+            self.set_state(StateNum::S_GIBS);
 
             // TODO: if (gameversion > exe_doom_1_2)
             //  thing->flags &= ~SOLID;
@@ -845,11 +844,11 @@ impl Think for MapObject {
         let this = object.bad_mut::<MapObject>();
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();
-        }
 
-        // if self.was_removed() {
-        //     return true; // mobj was removed
-        // }
+            if this.thinker_ref().remove() {
+                return true; // mobj was removed
+            }
+        }
 
         if (this.z.floor() - this.floorz.floor()).abs() > f32::EPSILON || this.momz != 0.0 {
             this.p_z_movement();
@@ -861,7 +860,7 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics > 0 && !this.set_mobj_state(this.state.next_state) {
+            if this.tics > 0 && !this.set_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {

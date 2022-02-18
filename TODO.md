@@ -4,3 +4,4 @@
 [ ] - Implement P_DamageMobj
 [ ] - P_KillMobj
 [ ] - Implement texture read and prep for use
+[ ] - E3M4 crushers

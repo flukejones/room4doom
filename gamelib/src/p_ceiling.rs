@@ -117,7 +117,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
         let thinker = MapObject::create_thinker(
             ThinkerType::CeilingMove(ceiling),
-            ActionF::Action1(CeilingMove::think),
+            ActionF::Thinker(CeilingMove::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<CeilingMove>(thinker) {

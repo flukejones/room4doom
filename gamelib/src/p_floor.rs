@@ -172,7 +172,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FloorMove(floor),
-            ActionF::Action1(FloorMove::think),
+            ActionF::Thinker(FloorMove::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
@@ -279,7 +279,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FloorMove(floor),
-            ActionF::Action1(FloorMove::think),
+            ActionF::Thinker(FloorMove::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
@@ -337,7 +337,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
                 let thinker = MapObject::create_thinker(
                     ThinkerType::FloorMove(floor),
-                    ActionF::Action1(FloorMove::think),
+                    ActionF::Thinker(FloorMove::think),
                 );
 
                 if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
