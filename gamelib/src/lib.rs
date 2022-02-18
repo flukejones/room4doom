@@ -21,6 +21,7 @@ pub mod p_ceiling;
 pub mod p_doors;
 pub mod p_enemy;
 pub mod p_floor;
+pub mod p_interaction;
 pub mod p_lights;
 pub mod p_local;
 pub mod p_map;

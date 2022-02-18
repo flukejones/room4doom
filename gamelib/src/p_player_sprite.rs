@@ -1,4 +1,4 @@
-use crate::{info::states::State, player::Player};
+use crate::{info::states::State, p_map_object::MapObject, player::Player};
 
 /// From P_PSPR
 #[derive(Debug)]
@@ -112,4 +112,8 @@ pub fn a_light1(actor: &mut Player, _pspr: &mut PspDef) {
 
 pub fn a_light2(actor: &mut Player, _pspr: &mut PspDef) {
     actor.extralight = 2;
+}
+
+pub fn a_bfgspray(actor: &mut MapObject) {
+    unimplemented!()
 }

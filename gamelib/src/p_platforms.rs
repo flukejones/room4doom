@@ -8,6 +8,7 @@ use crate::{
         level::Level,
         map_defs::{LineDef, Sector},
     },
+    p_local::p_random,
     p_map_object::MapObject,
     p_specials::{
         find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
@@ -123,7 +124,11 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
                 platform.wait = TICRATE * PLATWAIT;
 
-                platform.status = PlatStatus::Down;
+                platform.status = if (p_random() & 1) == 0 {
+                    PlatStatus::Up
+                } else {
+                    PlatStatus::Down
+                };
                 // TODO: plat->status = P_Random() & 1;
                 // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
             }
@@ -157,7 +162,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
         let thinker = MapObject::create_thinker(
             ThinkerType::Platform(platform),
-            ActionF::Action1(Platform::think),
+            ActionF::Thinker(Platform::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<Platform>(thinker) {
@@ -213,15 +218,15 @@ impl Think for Platform {
                     match platform.kind {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
                             unsafe {
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
+                                platform.thinker.as_mut().set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }

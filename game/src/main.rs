@@ -50,9 +50,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         window.set_bordered(false);
     }
 
-    sdl_ctx.mouse().show_cursor(false);
-    sdl_ctx.mouse().set_relative_mouse_mode(true);
-    sdl_ctx.mouse().capture(true);
+    // sdl_ctx.mouse().show_cursor(false);
+    // sdl_ctx.mouse().set_relative_mouse_mode(true);
+    // sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, context)
 }

@@ -5,19 +5,19 @@ use wad::wad::WadData;
 
 fn bench_doom1(b: &mut Bencher) {
     b.iter(|| {
-        let mut wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
+        let mut _wad = WadData::new(PathBuf::from_str("../doom1.wad").unwrap());
     });
 }
 
 fn bench_doom(b: &mut Bencher) {
     b.iter(|| {
-        let mut wad = WadData::new(PathBuf::from_str("../doom.wad").unwrap());
+        let mut _wad = WadData::new(PathBuf::from_str("../doom.wad").unwrap());
     });
 }
 
 fn bench_doom2(b: &mut Bencher) {
     b.iter(|| {
-        let mut wad = WadData::new(PathBuf::from_str("../doom2.wad").unwrap());
+        let mut _wad = WadData::new(PathBuf::from_str("../doom2.wad").unwrap());
     });
 }
 

@@ -117,7 +117,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
         let thinker = MapObject::create_thinker(
             ThinkerType::CeilingMove(ceiling),
-            ActionF::Action1(CeilingMove::think),
+            ActionF::Thinker(CeilingMove::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<CeilingMove>(thinker) {
@@ -189,15 +189,15 @@ impl Think for CeilingMove {
                         },
                         CeilingKind::CrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                         }
                         CeilingKind::FastCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                         }
                         CeilingKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
-                            ceiling.direction = -1;
+                            ceiling.direction = 1;
                             //TODO: S_StartSound(&ceiling->sector->soundorg, sfx_pstop);
                         }
                         _ => {}

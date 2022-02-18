@@ -110,20 +110,16 @@ impl Think for VerticalDoor {
                 if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
-                            door.sector.specialdata = None;
-                            // TODO: sound
                             unsafe {
                                 door.sector.specialdata = None;
                                 door.thinker.as_mut().set_action(ActionF::Remove);
+                                // TODO: sound
                             }
                         }
-                        DoorKind::Normal | DoorKind::Close => {
+                        DoorKind::Normal | DoorKind::Close => unsafe {
                             door.sector.specialdata = None;
-                            unsafe {
-                                door.sector.specialdata = None;
-                                door.thinker.as_mut().set_action(ActionF::Remove);
-                            }
-                        }
+                            door.thinker.as_mut().set_action(ActionF::Remove);
+                        },
                         DoorKind::Close30ThenOpen => {
                             door.direction = 0;
                             door.topcountdown = TICRATE * 30;
@@ -149,13 +145,10 @@ impl Think for VerticalDoor {
                             door.direction = 0; // wait at top
                             door.topcountdown = door.topwait;
                         }
-                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => {
+                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => unsafe {
                             door.sector.specialdata = None;
-                            unsafe {
-                                door.sector.specialdata = None;
-                                door.thinker.as_mut().set_action(ActionF::Remove);
-                            }
-                        }
+                            door.thinker.as_mut().set_action(ActionF::Remove);
+                        },
                         _ => {}
                     }
                 }
@@ -163,7 +156,6 @@ impl Think for VerticalDoor {
             _ => warn!("Invalid door direction of {}", door.direction),
         };
 
-        //unsafe { door.thinker.as_mut().set_action(ActionF::Remove) };
         true
     }
 
@@ -246,7 +238,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
         let thinker = MapObject::create_thinker(
             ThinkerType::VDoor(door),
-            ActionF::Action1(VerticalDoor::think),
+            ActionF::Thinker(VerticalDoor::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
@@ -377,7 +369,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     debug!("Activated door: {door:?}");
     let thinker = MapObject::create_thinker(
         ThinkerType::VDoor(door),
-        ActionF::Action1(VerticalDoor::think),
+        ActionF::Thinker(VerticalDoor::think),
     );
 
     if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {

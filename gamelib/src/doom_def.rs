@@ -99,7 +99,7 @@ pub enum Card {
 }
 
 /// The defined weapons, including a marker indicating user has not changed weapon.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 #[allow(non_camel_case_types)]
 pub enum WeaponType {
     wp_fist,
