@@ -238,7 +238,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
         let thinker = MapObject::create_thinker(
             ThinkerType::VDoor(door),
-            ActionF::Action1(VerticalDoor::think),
+            ActionF::Thinker(VerticalDoor::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
@@ -369,7 +369,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     debug!("Activated door: {door:?}");
     let thinker = MapObject::create_thinker(
         ThinkerType::VDoor(door),
-        ActionF::Action1(VerticalDoor::think),
+        ActionF::Thinker(VerticalDoor::think),
     );
 
     if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {

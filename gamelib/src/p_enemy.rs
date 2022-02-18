@@ -1,5 +1,3 @@
-use crate::d_thinker::ThinkerType;
-use crate::level_data::level::Level;
 use crate::p_map_object::MobjFlag;
 use crate::renderer::bsp::point_to_angle_2;
 use crate::{p_map::p_radius_attack, p_map_object::MapObject};
@@ -8,13 +6,14 @@ use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 pub fn a_facetarget(actor: &mut MapObject) {
     actor.flags &= !(MobjFlag::AMBUSH as u32);
 
-    unsafe {
-        let angle = point_to_angle_2(&actor.xy, &actor.target.unwrap().as_mut().xy);
-        actor.angle = angle;
+    if let Some(target) = actor.target {
+        unsafe {
+            let angle = point_to_angle_2(&actor.xy, &(*target).xy);
+            actor.angle = angle;
 
-        if actor.target.unwrap().as_mut().flags & MobjFlag::SHADOW as u32 == MobjFlag::SHADOW as u32
-        {
-            // TODO: actor.angle += P_SubRandom() << 21;
+            if (*target).flags & MobjFlag::SHADOW as u32 == MobjFlag::SHADOW as u32 {
+                // TODO: actor.angle += P_SubRandom() << 21;
+            }
         }
     }
 }
@@ -30,16 +29,21 @@ pub fn a_chase(actor: &mut MapObject) {
     if actor.threshold > 0 {
         if
         // TODO: gameversion > exe_doom_1_2 &&
-        actor.target.is_none()
-            || (actor.target.is_some() && unsafe { actor.target.unwrap().as_ref().health <= 0 })
-        {
-            actor.threshold = 0;
+        actor.target.is_none() || actor.target.is_some() {
+            // unsafe { actor.target.as_ref().unwrap().health <= 0 }
+            if let Some(target) = actor.target {
+                unsafe {
+                    if (*target).health <= 0 {
+                        actor.threshold = 0;
+                    }
+                }
+            }
         } else {
             actor.threshold -= 1;
         }
     }
 
-    unimplemented!()
+    actor.set_state(actor.info.spawnstate);
     //
 
     //
@@ -123,8 +127,7 @@ pub fn a_chase(actor: &mut MapObject) {
 }
 
 /// Stay in state until a player is sighted.
-pub fn a_look(_actor: &mut MapObject) {
-    unimplemented!()
+pub fn a_look(actor: &mut MapObject) {
     // mobj_t *targ;
     //
     // actor->threshold = 0; // any shot will wake up
@@ -180,10 +183,11 @@ pub fn a_look(_actor: &mut MapObject) {
     // }
     //
     // P_SetMobjState(actor, actor->info->seestate);
+    // actor.set_state(actor.info.seestate);
 }
 
 pub fn a_fire(_actor: &mut MapObject) {
-    unimplemented!()
+    unimplemented!();
     // mobj_t *dest;
     // mobj_t *target;
     // unsigned an;
@@ -208,7 +212,6 @@ pub fn a_fire(_actor: &mut MapObject) {
 }
 
 pub fn a_scream(_actor: &mut MapObject) {
-    unimplemented!()
     // int sound;
     //
     // switch (actor->info->deathsound)
@@ -242,13 +245,6 @@ pub fn a_scream(_actor: &mut MapObject) {
     // S_StartSound(actor, sound);
 }
 
-pub fn a_pain(actor: &mut ThinkerType, level: &mut Level) -> bool {
-    let actor = actor.bad_mut::<MapObject>();
-    unimplemented!()
-    // if (actor->info->painsound)
-    // S_StartSound(actor, actor->info->painsound);
-}
-
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
     actor.flags &= !(MobjFlag::SOLID as u32);
@@ -258,15 +254,190 @@ pub fn a_fall(actor: &mut MapObject) {
 }
 
 pub fn a_explode(actor: &mut MapObject) {
-    if let Some(mut target) = actor.target {
-        // just casually breaking lifetimes
-        let target = unsafe { target.as_mut() };
-        p_radius_attack(actor, target, 128.0);
+    if let Some(target) = actor.target {
+        unsafe {
+            p_radius_attack(actor, &mut *target, 128.0);
+        }
     }
 }
 
 pub fn a_xscream(_actor: &mut MapObject) {
-    unimplemented!()
+    unimplemented!();
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
+}
+
+pub fn a_keendie(_actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_hoof(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_metal(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_babymetal(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_brainawake(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_braindie(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_brainspit(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_brainpain(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_brainscream(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_brainexplode(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_spawnfly(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_spawnsound(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_vilestart(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_vilechase(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_viletarget(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_vileattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_posattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_sposattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_cposattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_bspiattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_skullattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_headattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_sargattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_bruisattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_cposrefire(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_cyberattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_troopattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_pain(actor: &mut MapObject) {
+    unimplemented!();
+    // if (actor->info->painsound)
+    // S_StartSound(actor, actor->info->painsound);
+}
+
+pub fn a_painattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_paindie(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_fatattack(actor: &mut MapObject) {
+    unimplemented!();
+}
+pub fn a_fatattack1(actor: &mut MapObject) {
+    unimplemented!();
+}
+pub fn a_fatattack2(actor: &mut MapObject) {
+    unimplemented!();
+}
+pub fn a_fatattack3(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_fatraise(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_spidrefire(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_bossdeath(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_skelwhoosh(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_skelfist(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_skelmissile(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_tracer(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_startfire(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_firecrackle(actor: &mut MapObject) {
+    unimplemented!();
+}
+
+pub fn a_playerscream(actor: &mut MapObject) {
+    unimplemented!();
 }

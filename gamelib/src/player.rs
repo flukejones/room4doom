@@ -399,7 +399,7 @@ impl Player {
             if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
                 && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
             {
-                mobj.set_mobj_state(crate::info::StateNum::S_PLAY_RUN1);
+                mobj.set_state(crate::info::StateNum::S_PLAY_RUN1);
             }
         }
     }

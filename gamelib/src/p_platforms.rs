@@ -162,7 +162,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
         let thinker = MapObject::create_thinker(
             ThinkerType::Platform(platform),
-            ActionF::Action1(Platform::think),
+            ActionF::Thinker(Platform::think),
         );
 
         if let Some(mut ptr) = level.thinkers.push::<Platform>(thinker) {
