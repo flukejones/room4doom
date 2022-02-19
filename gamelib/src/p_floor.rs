@@ -144,7 +144,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                 }
                 floor.destheight = sec.floorheight + min;
             }
-            FloorKind::LowerAndChange => todo!(),
+            FloorKind::LowerAndChange => todo!("LowerAndChange"),
             FloorKind::RaiseFloor24 => {
                 floor.direction = 1;
                 floor.destheight = sec.floorheight + 24.0;
