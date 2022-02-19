@@ -4,8 +4,8 @@ use std::ptr::null_mut;
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     level_data::{
-        Level,
         map_defs::{LineDef, Sector},
+        Level,
     },
     p_map_object::MapObject,
     p_specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},

@@ -1,8 +1,8 @@
-use std::ptr::{null_mut};
+use std::ptr::null_mut;
 
 use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
-use crate::level_data::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
+use crate::level_data::Level;
 use crate::p_local::p_random;
 use crate::p_map_object::MapObject;
 use crate::p_specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector};

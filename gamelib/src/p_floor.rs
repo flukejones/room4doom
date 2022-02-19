@@ -1,11 +1,11 @@
 //! Floor movement thinker: raise, lower, crusher
-use std::ptr::{null_mut};
+use std::ptr::null_mut;
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     level_data::{
-        Level,
         map_defs::{LineDef, Sector},
+        Level,
     },
     p_map_object::MapObject,
     p_specials::{

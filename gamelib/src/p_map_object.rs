@@ -11,7 +11,7 @@ use glam::Vec2;
 use wad::lumps::WadThing;
 
 use crate::d_thinker::{ActionF, Thinker};
-use crate::info::{StateNum, STATES, State};
+use crate::info::{State, StateNum, STATES};
 use crate::level_data::map_defs::SubSector;
 use crate::{
     angle::Angle,
@@ -22,12 +22,12 @@ use crate::{
     p_local::ONCEILINGZ,
 };
 use crate::{d_thinker::Think, info::MOBJINFO};
-use crate::{p_local::p_random, sounds::SfxEnum};
 use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
     player::{Player, PlayerState},
 };
+use crate::{p_local::p_random, sounds::SfxEnum};
 use std::f32::consts::PI;
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;

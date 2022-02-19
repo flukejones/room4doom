@@ -2,9 +2,9 @@
 
 use crate::{
     level_data::{
-        Level,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
+        Level,
     },
     p_local::{Intercept, Trace},
     p_map::{PT_ADDLINES, PT_EARLYOUT},

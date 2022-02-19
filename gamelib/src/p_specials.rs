@@ -3,8 +3,8 @@
 //! respective utility functions. Line Tag handling. Line and Sector triggers.
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
-use crate::level_data::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
+use crate::level_data::Level;
 use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
 use crate::p_doors::{ev_do_door, DoorKind};
 use crate::p_floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
