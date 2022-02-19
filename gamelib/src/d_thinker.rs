@@ -336,7 +336,7 @@ pub struct Thinker {
 }
 
 impl Thinker {
-    pub fn obj_type(&self ) -> &ThinkerType {
+    pub fn obj_type(&self) -> &ThinkerType {
         &self.object
     }
 
@@ -423,8 +423,10 @@ mod tests {
     use wad::WadData;
 
     use crate::{
+        d_main::Skill,
         d_thinker::{ActionF, TestObject, Think, Thinker, ThinkerType},
-        level_data::{Level, map_data::MapData}, doom_def::GameMode, d_main::Skill,
+        doom_def::GameMode,
+        level_data::{map_data::MapData, Level},
     };
 
     use super::ThinkerAlloc;
@@ -456,14 +458,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let mut l = unsafe {
-            Level::new(
-                Skill::Baby,
-                1,
-                1,
-                GameMode::Shareware,
-            )
-        };
+        let mut l = unsafe { Level::new(Skill::Baby, 1, 1, GameMode::Shareware) };
         let mut x = Thinker {
             prev: null_mut(),
             next: null_mut(),

@@ -6,7 +6,7 @@ use gamelib::{
     d_main,
     d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ThinkerType},
     doom_def,
-    level_data::{Level, map_data::MapData},
+    level_data::{map_data::MapData, Level},
 };
 use wad::WadData;
 
