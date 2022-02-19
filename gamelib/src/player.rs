@@ -6,7 +6,8 @@ use glam::Vec2;
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;
 
-use crate::level_data::level::Level;
+use crate::info::StateNum;
+use crate::level_data::Level;
 use crate::p_player_sprite::PspDef;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{
@@ -399,7 +400,7 @@ impl Player {
             if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
                 && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
             {
-                mobj.set_state(crate::info::StateNum::S_PLAY_RUN1);
+                mobj.set_state(StateNum::S_PLAY_RUN1);
             }
         }
     }

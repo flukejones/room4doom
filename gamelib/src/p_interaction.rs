@@ -3,7 +3,7 @@ use glam::Vec2;
 use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
-    info::{states::STATES, MapObjectType},
+    info::{STATES, MapObjectType},
     p_local::p_random,
     p_map_object::{MapObject, MobjFlag},
     player::CF_GODMODE,

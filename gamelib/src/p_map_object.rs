@@ -4,16 +4,14 @@
 use std::ptr::{null_mut, NonNull};
 
 use crate::d_thinker::ThinkerType;
-use crate::info::states::STATES;
-use crate::level_data::level::Level;
+use crate::level_data::Level;
 use crate::p_local::{p_subrandom, BestSlide};
 use crate::p_map::SubSectorMinMax;
 use glam::Vec2;
-use log::error;
 use wad::lumps::WadThing;
 
 use crate::d_thinker::{ActionF, Thinker};
-use crate::info::StateNum;
+use crate::info::{StateNum, STATES, State};
 use crate::level_data::map_defs::SubSector;
 use crate::{
     angle::Angle,
@@ -23,8 +21,8 @@ use crate::{
     p_local::FRACUNIT_DIV4,
     p_local::ONCEILINGZ,
 };
-use crate::{d_thinker::Think, info::map_object_info::MOBJINFO};
-use crate::{info::states::State, p_local::p_random, sounds::SfxEnum};
+use crate::{d_thinker::Think, info::MOBJINFO};
+use crate::{p_local::p_random, sounds::SfxEnum};
 use crate::{
     info::{MapObjectType, SpriteNum},
     p_local::{ONFLOORZ, VIEWHEIGHT},
@@ -32,7 +30,7 @@ use crate::{
 };
 use std::f32::consts::PI;
 
-static MOBJ_CYCLE_LIMIT: u32 = 1000000;
+//static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 pub static MAXMOVE: f32 = 30.0;
 pub static STOPSPEED: f32 = 0.0625; // 0x1000
 pub static FRICTION: f32 = 0.90625; // 0xE800
@@ -105,7 +103,7 @@ pub enum MobjFlag {
 pub struct MapObject {
     /// The MapObject owns the Thinker. If the MapObject moves at all then the
     /// Thinker must have its link to
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -186,7 +184,7 @@ impl MapObject {
         level: *mut Level,
     ) -> Self {
         Self {
-            thinker: NonNull::dangling(), // TODO: change after thinker container added
+            thinker: null_mut(),
             player: None,
             xy: Vec2::new(x, y),
             z: z as f32,
@@ -624,13 +622,13 @@ impl MapObject {
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Thinker(MapObject::think));
+            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Think(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
-        if let Some(mut ptr) = level.thinkers.push::<MapObject>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
             unsafe {
                 // set subsector and/or block links
-                let thing = ptr.as_mut().obj_mut().bad_mut::<MapObject>();
+                let thing = (*ptr).obj_mut::<MapObject>();
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
@@ -887,11 +885,11 @@ impl Think for MapObject {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }

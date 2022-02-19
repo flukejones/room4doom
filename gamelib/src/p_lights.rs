@@ -1,7 +1,7 @@
-use std::ptr::NonNull;
+use std::ptr::{null_mut};
 
 use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
-use crate::level_data::level::Level;
+use crate::level_data::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_local::p_random;
 use crate::p_map_object::MapObject;
@@ -13,7 +13,7 @@ pub const FASTDARK: i32 = 15;
 pub const SLOWDARK: i32 = 35;
 
 pub struct FireFlicker {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
@@ -25,7 +25,7 @@ impl FireFlicker {
     pub fn spawn(sector: &mut Sector, level: &mut Level) {
         sector.special = 0;
         let light = FireFlicker {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             count: 4,
             max_light: sector.lightlevel,
@@ -34,15 +34,12 @@ impl FireFlicker {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FireFlicker(light),
-            ActionF::Thinker(FireFlicker::think),
+            ActionF::Think(FireFlicker::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<FireFlicker>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<FireFlicker>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<FireFlicker>()
-                    .set_thinker_ptr(ptr);
+                (*ptr).set_obj_thinker_ptr::<FireFlicker>(ptr);
             }
         }
     }
@@ -67,17 +64,17 @@ impl Think for FireFlicker {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
 
 pub struct LightFlash {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
@@ -91,7 +88,7 @@ impl LightFlash {
     pub fn spawn(sector: &mut Sector, level: &mut Level) {
         sector.special = 0;
         let light = LightFlash {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             count: (p_random() & 64) + 1,
             max_light: sector.lightlevel,
@@ -102,15 +99,12 @@ impl LightFlash {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::LightFlash(light),
-            ActionF::Thinker(LightFlash::think),
+            ActionF::Think(LightFlash::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<LightFlash>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<LightFlash>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<LightFlash>()
-                    .set_thinker_ptr(ptr);
+                (*ptr).set_obj_thinker_ptr::<LightFlash>(ptr);
             }
         }
     }
@@ -135,17 +129,17 @@ impl Think for LightFlash {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
 
 pub struct StrobeFlash {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub count: i32,
     pub min_light: i32,
@@ -159,7 +153,7 @@ impl StrobeFlash {
     pub fn spawn(sector: &mut Sector, fast_or_slow: i32, in_sync: bool, level: &mut Level) {
         sector.special = 0;
         let mut light = StrobeFlash {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             count: if in_sync { (p_random() & 7) + 1 } else { 1 },
             min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel),
@@ -174,15 +168,12 @@ impl StrobeFlash {
 
         let thinker = MapObject::create_thinker(
             ThinkerType::StrobeFlash(light),
-            ActionF::Thinker(StrobeFlash::think),
+            ActionF::Think(StrobeFlash::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<StrobeFlash>()
-                    .set_thinker_ptr(ptr);
+                (*ptr).set_obj_thinker_ptr::<StrobeFlash>(ptr);
             }
         }
     }
@@ -207,17 +198,17 @@ impl Think for StrobeFlash {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
 
 pub struct Glow {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub min_light: i32,
     pub max_light: i32,
@@ -229,7 +220,7 @@ impl Glow {
     pub fn spawn(sector: &mut Sector, level: &mut Level) {
         sector.special = 0;
         let light = Glow {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             max_light: sector.lightlevel,
             min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel),
@@ -237,14 +228,11 @@ impl Glow {
         };
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Glow(light), ActionF::Thinker(Glow::think));
+            MapObject::create_thinker(ThinkerType::Glow(light), ActionF::Think(Glow::think));
 
-        if let Some(mut ptr) = level.thinkers.push::<Glow>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<Glow>()
-                    .set_thinker_ptr(ptr);
+                (*ptr).set_obj_thinker_ptr::<Glow>(ptr);
             }
         }
     }
@@ -276,11 +264,11 @@ impl Think for Glow {
         false
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }

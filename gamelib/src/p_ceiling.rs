@@ -1,10 +1,10 @@
 //! Ceiling movement thinker: raise, lower, crusher
-use std::ptr::NonNull;
+use std::ptr::null_mut;
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     level_data::{
-        level::Level,
+        Level,
         map_defs::{LineDef, Sector},
     },
     p_map_object::MapObject,
@@ -25,7 +25,7 @@ pub enum CeilingKind {
 }
 
 pub struct CeilingMove {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub kind: CeilingKind,
     pub bottomheight: f32,
@@ -68,7 +68,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
         let mut sec = DPtr::new(sector);
 
         let mut ceiling = CeilingMove {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             kind,
             speed: CEILSPEED,
@@ -117,16 +117,12 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
         let thinker = MapObject::create_thinker(
             ThinkerType::CeilingMove(ceiling),
-            ActionF::Thinker(CeilingMove::think),
+            ActionF::Think(CeilingMove::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<CeilingMove>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<CeilingMove>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<CeilingMove>()
-                    .set_thinker_ptr(ptr);
-
+                (*ptr).set_obj_thinker_ptr::<CeilingMove>(ptr);
                 sec.specialdata = Some(ptr);
             }
         }
@@ -136,7 +132,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 }
 
 impl Think for CeilingMove {
-    fn think(object: &mut ThinkerType, level: &mut crate::level_data::level::Level) -> bool {
+    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let ceiling = object.bad_mut::<CeilingMove>();
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
@@ -158,7 +154,7 @@ impl Think for CeilingMove {
                     match ceiling.kind {
                         CeilingKind::RaiseToHighest => unsafe {
                             ceiling.sector.specialdata = None;
-                            ceiling.thinker.as_mut().set_action(ActionF::Remove);
+                            (*ceiling.thinker).set_action(ActionF::Remove);
                         },
                         CeilingKind::CrushAndRaise | CeilingKind::FastCrushAndRaise => {
                             ceiling.direction = -1;
@@ -185,7 +181,7 @@ impl Think for CeilingMove {
                     match ceiling.kind {
                         CeilingKind::LowerToFloor | CeilingKind::LowerAndCrush => unsafe {
                             ceiling.sector.specialdata = None;
-                            ceiling.thinker.as_mut().set_action(ActionF::Remove);
+                            (*ceiling.thinker).set_action(ActionF::Remove);
                         },
                         CeilingKind::CrushAndRaise => {
                             ceiling.speed = CEILSPEED;
@@ -219,11 +215,11 @@ impl Think for CeilingMove {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }

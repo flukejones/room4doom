@@ -1,4 +1,4 @@
-use crate::{info::states::State, p_map_object::MapObject, player::Player};
+use crate::{info::State, p_map_object::MapObject, player::Player};
 
 /// From P_PSPR
 #[derive(Debug)]

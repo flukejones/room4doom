@@ -1,12 +1,12 @@
 //! Platform movement thinker: raise and lower. Can be crushers and can be repeating movements.
-use std::ptr::NonNull;
+use std::ptr::null_mut;
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     doom_def::TICRATE,
     level_data::{
-        level::Level,
         map_defs::{LineDef, Sector},
+        Level,
     },
     p_local::p_random,
     p_map_object::MapObject,
@@ -39,7 +39,7 @@ pub enum PlatKind {
 }
 
 pub struct Platform {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub speed: f32,
     pub low: f32,
@@ -76,7 +76,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         let mut sec = DPtr::new(sector);
 
         let mut platform = Platform {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             speed: PLATSPEED,
             low: 0.0,
@@ -162,16 +162,12 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
         let thinker = MapObject::create_thinker(
             ThinkerType::Platform(platform),
-            ActionF::Thinker(Platform::think),
+            ActionF::Think(Platform::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<Platform>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<Platform>()
-                    .set_thinker_ptr(ptr);
-
+                (*ptr).set_obj_thinker_ptr::<Platform>(ptr);
                 sec.specialdata = Some(ptr);
             }
         }
@@ -181,10 +177,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 }
 
 impl Think for Platform {
-    fn think(
-        object: &mut crate::d_thinker::ThinkerType,
-        level: &mut crate::level_data::level::Level,
-    ) -> bool {
+    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
         let platform = object.bad_mut::<Platform>();
         match platform.status {
             PlatStatus::Up => {
@@ -219,14 +212,14 @@ impl Think for Platform {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
                             unsafe {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
+                                (*platform.thinker).set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                platform.thinker.as_mut().set_action(ActionF::Remove);
+                                (*platform.thinker).set_action(ActionF::Remove);
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
@@ -267,11 +260,11 @@ impl Think for Platform {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }

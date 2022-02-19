@@ -1,10 +1,10 @@
 //! Floor movement thinker: raise, lower, crusher
-use std::ptr::NonNull;
+use std::ptr::{null_mut};
 
 use crate::{
     d_thinker::{ActionF, Think, Thinker, ThinkerType},
     level_data::{
-        level::Level,
+        Level,
         map_defs::{LineDef, Sector},
     },
     p_map_object::MapObject,
@@ -59,7 +59,7 @@ pub enum StairKind {
 }
 
 pub struct FloorMove {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub kind: FloorKind,
     pub speed: f32,
@@ -88,7 +88,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
         let mut sec = DPtr::new(sector);
 
         let mut floor = FloorMove {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             kind,
             speed: FLOORSPEED,
@@ -135,7 +135,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
             }
             FloorKind::RaiseToTexture => {
                 // TODO: int minsize = INT_MAX;
-                let mut min = sec.floorheight;
+                let min = sec.floorheight;
                 floor.direction = 1;
                 for line in sec.lines.iter() {
                     if line.flags & ML_TWOSIDED != 0 {
@@ -172,16 +172,12 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FloorMove(floor),
-            ActionF::Thinker(FloorMove::think),
+            ActionF::Think(FloorMove::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<FloorMove>()
-                    .set_thinker_ptr(ptr);
-
+                (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
                 sec.specialdata = Some(ptr);
             }
         }
@@ -222,11 +218,11 @@ impl Think for FloorMove {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
@@ -249,7 +245,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         ret = true;
 
         let mut floor = FloorMove {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             kind: FloorKind::LowerFloor,
             speed: FLOORSPEED,
@@ -279,16 +275,12 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
         let thinker = MapObject::create_thinker(
             ThinkerType::FloorMove(floor),
-            ActionF::Thinker(FloorMove::think),
+            ActionF::Think(FloorMove::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<FloorMove>()
-                    .set_thinker_ptr(ptr);
-
+                (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
                 sec.specialdata = Some(ptr);
             }
         }
@@ -324,7 +316,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
                 // New thinker
                 let floor = FloorMove {
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                     sector: sec.clone(),
                     kind: FloorKind::LowerFloor,
                     speed,
@@ -337,16 +329,12 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
                 let thinker = MapObject::create_thinker(
                     ThinkerType::FloorMove(floor),
-                    ActionF::Thinker(FloorMove::think),
+                    ActionF::Think(FloorMove::think),
                 );
 
-                if let Some(mut ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                     unsafe {
-                        ptr.as_mut()
-                            .obj_mut()
-                            .bad_mut::<FloorMove>()
-                            .set_thinker_ptr(ptr);
-
+                        (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
                         sec.specialdata = Some(ptr);
                     }
                 }

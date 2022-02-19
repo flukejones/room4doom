@@ -7,8 +7,11 @@ use enumn::N;
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 use crate::sounds::SfxEnum;
 
-pub mod map_object_info;
-pub mod states;
+mod map_object_info;
+mod states;
+
+pub use map_object_info::*;
+pub use states::*;
 
 #[repr(u16)]
 #[derive(Debug, Copy, Clone, N)]
@@ -1306,6 +1309,7 @@ pub struct MapObjectInfo {
     pub raisestate: StateNum,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl MapObjectInfo {
     pub const fn new(
         doomednum: i32,
