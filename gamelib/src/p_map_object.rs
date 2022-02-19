@@ -3,7 +3,7 @@
 
 use std::ptr::{null_mut, NonNull};
 
-use crate::d_thinker::ThinkerType;
+use crate::d_thinker::ObjectType;
 use crate::level_data::Level;
 use crate::p_local::{p_subrandom, BestSlide};
 use crate::p_map::SubSectorMinMax;
@@ -622,7 +622,7 @@ impl MapObject {
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Mobj(mobj), ActionF::Think(MapObject::think));
+            MapObject::create_thinker(ObjectType::Mobj(mobj), ActionF::Think(MapObject::think));
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
@@ -838,7 +838,7 @@ impl MapObject {
 }
 
 impl Think for MapObject {
-    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let this = object.bad_mut::<MapObject>();
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();

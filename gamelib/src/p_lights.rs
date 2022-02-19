@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
+use crate::d_thinker::{ActionF, Think, Thinker, ObjectType};
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::level_data::Level;
 use crate::p_local::p_random;
@@ -33,7 +33,7 @@ impl FireFlicker {
         };
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::FireFlicker(light),
+            ObjectType::FireFlicker(light),
             ActionF::Think(FireFlicker::think),
         );
 
@@ -46,7 +46,7 @@ impl FireFlicker {
 }
 
 impl Think for FireFlicker {
-    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
         let mut light = object.bad_mut::<FireFlicker>();
         light.count -= 1;
         if light.count != 0 {
@@ -98,7 +98,7 @@ impl LightFlash {
         };
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::LightFlash(light),
+            ObjectType::LightFlash(light),
             ActionF::Think(LightFlash::think),
         );
 
@@ -111,7 +111,7 @@ impl LightFlash {
 }
 
 impl Think for LightFlash {
-    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
         let mut light = object.bad_mut::<LightFlash>();
         light.count -= 1;
         if light.count != 0 {
@@ -167,7 +167,7 @@ impl StrobeFlash {
         }
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::StrobeFlash(light),
+            ObjectType::StrobeFlash(light),
             ActionF::Think(StrobeFlash::think),
         );
 
@@ -180,7 +180,7 @@ impl StrobeFlash {
 }
 
 impl Think for StrobeFlash {
-    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
         let mut light = object.bad_mut::<StrobeFlash>();
         light.count -= 1;
         if light.count != 0 {
@@ -228,7 +228,7 @@ impl Glow {
         };
 
         let thinker =
-            MapObject::create_thinker(ThinkerType::Glow(light), ActionF::Think(Glow::think));
+            MapObject::create_thinker(ObjectType::Glow(light), ActionF::Think(Glow::think));
 
         if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
             unsafe {
@@ -241,7 +241,7 @@ impl Glow {
 const GLOWSPEED: i32 = 8;
 
 impl Think for Glow {
-    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
         let mut light = object.bad_mut::<Glow>();
         match light.direction {
             -1 => {
