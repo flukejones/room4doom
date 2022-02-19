@@ -4,7 +4,7 @@ use criterion::*;
 
 use gamelib::{
     d_main,
-    d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ObjectType},
+    d_thinker::{ObjectType, TestObject, Think, ThinkerAlloc},
     doom_def,
     level_data::{map_data::MapData, Level},
 };
@@ -19,7 +19,7 @@ fn push_100_000(b: &mut Bencher) {
                     x: i,
                     thinker: null_mut(),
                 }),
-                ActionF::None,
+                TestObject::think,
             ));
         }
     });
@@ -40,7 +40,7 @@ fn load_and_iter(b: &mut Bencher) {
                 x: i,
                 thinker: null_mut(),
             }),
-            ActionF::None,
+            TestObject::think,
         ));
     }
 

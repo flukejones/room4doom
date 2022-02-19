@@ -2,7 +2,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ActionF, Think, Thinker, ObjectType},
+    d_thinker::{ObjectType, Think, Thinker},
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
@@ -115,10 +115,8 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
         ret = true;
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::CeilingMove(ceiling),
-            ActionF::Think(CeilingMove::think),
-        );
+        let thinker =
+            MapObject::create_thinker(ObjectType::CeilingMove(ceiling), CeilingMove::think);
 
         if let Some(ptr) = level.thinkers.push::<CeilingMove>(thinker) {
             unsafe {
@@ -154,7 +152,7 @@ impl Think for CeilingMove {
                     match ceiling.kind {
                         CeilingKind::RaiseToHighest => unsafe {
                             ceiling.sector.specialdata = None;
-                            (*ceiling.thinker).set_action(ActionF::Remove);
+                            (*ceiling.thinker).mark_remove();
                         },
                         CeilingKind::CrushAndRaise | CeilingKind::FastCrushAndRaise => {
                             ceiling.direction = -1;
@@ -181,7 +179,7 @@ impl Think for CeilingMove {
                     match ceiling.kind {
                         CeilingKind::LowerToFloor | CeilingKind::LowerAndCrush => unsafe {
                             ceiling.sector.specialdata = None;
-                            (*ceiling.thinker).set_action(ActionF::Remove);
+                            (*ceiling.thinker).mark_remove();
                         },
                         CeilingKind::CrushAndRaise => {
                             ceiling.speed = CEILSPEED;

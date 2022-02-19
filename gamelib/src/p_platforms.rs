@@ -2,7 +2,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ActionF, Think, Thinker, ObjectType},
+    d_thinker::{ObjectType, Think, Thinker},
     doom_def::TICRATE,
     level_data::{
         map_defs::{LineDef, Sector},
@@ -160,10 +160,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
             }
         }
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::Platform(platform),
-            ActionF::Think(Platform::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::Platform(platform), Platform::think);
 
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             unsafe {
@@ -212,14 +209,14 @@ impl Think for Platform {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
                             unsafe {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                (*platform.thinker).set_action(ActionF::Remove);
+                                (*platform.thinker).mark_remove();
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                (*platform.thinker).set_action(ActionF::Remove);
+                                (*platform.thinker).mark_remove();
                             }
                             // TODO: P_RemoveActivePlat(plat);
                         }

@@ -3,7 +3,7 @@ use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
 
-use log::{debug, error};
+use log::debug;
 
 use crate::level_data::Level;
 use crate::p_ceiling::CeilingMove;
@@ -12,8 +12,6 @@ use crate::p_floor::FloorMove;
 use crate::p_lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
 use crate::p_map_object::MapObject;
 use crate::p_platforms::Platform;
-use crate::p_player_sprite::PspDef;
-use crate::player::Player;
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -77,8 +75,8 @@ impl ThinkerAlloc {
             buf_ptr.add(n).write(Thinker {
                 prev: null_mut(),
                 next: null_mut(),
-                object: ObjectType::None,
-                func: ActionF::Free,
+                object: ObjectType::Free,
+                func: Thinker::placeholder,
             })
         }
 
@@ -97,7 +95,7 @@ impl ThinkerAlloc {
 
         loop {
             unsafe {
-                if current.remove() {
+                if current.should_remove() {
                     next = &mut *current.next;
                     self.remove(&mut *current);
                 } else {
@@ -144,7 +142,7 @@ impl ThinkerAlloc {
 
         loop {
             unsafe {
-                if matches!((*ptr).func, ActionF::Free) {
+                if matches!((*ptr).object, ObjectType::Free) {
                     return Some(ptr);
                 }
                 ptr = ptr.add(1);
@@ -166,7 +164,7 @@ impl ThinkerAlloc {
         if self.len == self.capacity {
             return None;
         }
-        if matches!(thinker.func, ActionF::Free) {
+        if matches!(thinker.object, ObjectType::Free) {
             panic!("Can't push a thinker with ActionF::Free as the function wrapper");
         }
 
@@ -207,8 +205,7 @@ impl ThinkerAlloc {
     pub fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker of type {:?}", thinker.object);
         unsafe {
-            thinker.func = ActionF::Free;
-            thinker.object = ObjectType::None;
+            thinker.object = ObjectType::Free;
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
 
@@ -216,95 +213,6 @@ impl ThinkerAlloc {
             self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
         }
-    }
-}
-
-/// Every map object should implement this trait
-pub trait Think {
-    /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
-    fn create_thinker(object: ObjectType, func: ActionF) -> Thinker {
-        Thinker {
-            prev: null_mut(),
-            next: null_mut(),
-            object,
-            func,
-        }
-    }
-
-    fn set_thinker_action(&mut self, action: ActionF) {
-        self.thinker_mut().func = action
-    }
-
-    /// impl of this trait function should return true *if* the thinker + object are to be removed
-    ///
-    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
-    /// on the object and Null is used to track if the map object should be removed.
-    ///
-    /// **NOTE:**
-    ///
-    /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool;
-
-    /// Implementer must store the pointer to the conatining Thinker
-    fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
-
-    fn thinker(&self) -> *mut Thinker;
-
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { &*self.thinker() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { &mut *self.thinker() }
-    }
-}
-
-/// All map object thinkers need to be registered here
-#[repr(C)]
-#[allow(clippy::large_enum_variant)]
-pub enum ObjectType {
-    Test(TestObject),
-    Mobj(MapObject),
-    VDoor(VerticalDoor),
-    FloorMove(FloorMove),
-    CeilingMove(CeilingMove),
-    Platform(Platform),
-    LightFlash(LightFlash),
-    StrobeFlash(StrobeFlash),
-    FireFlicker(FireFlicker),
-    Glow(Glow),
-    None,
-}
-
-impl Debug for ObjectType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Test(_) => f.debug_tuple("Test").finish(),
-            Self::Mobj(_) => f.debug_tuple("Mobj").finish(),
-            Self::VDoor(_) => f.debug_tuple("VDoor").finish(),
-            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
-            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
-            Self::Platform(_) => f.debug_tuple("Platform").finish(),
-            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
-            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
-            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
-            Self::Glow(_) => f.debug_tuple("Glow").finish(),
-            Self::None => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
-        }
-    }
-}
-
-impl ObjectType {
-    pub fn bad_ref<T>(&self) -> &T {
-        let mut ptr = self as *const Self as usize;
-        ptr += size_of::<u64>();
-        unsafe { &*(ptr as *const T) }
-    }
-
-    pub fn bad_mut<T>(&mut self) -> &mut T {
-        let mut ptr = self as *mut Self as usize;
-        ptr += size_of::<u64>();
-        unsafe { &mut *(ptr as *mut T) }
     }
 }
 
@@ -331,7 +239,7 @@ pub struct Thinker {
     prev: *mut Thinker,
     next: *mut Thinker,
     object: ObjectType,
-    func: ActionF,
+    func: fn(&mut ObjectType, &mut Level) -> bool,
 }
 
 impl Thinker {
@@ -347,15 +255,15 @@ impl Thinker {
         self.object.bad_mut::<T>()
     }
 
-    pub fn has_action(&self) -> bool {
-        !matches!(self.func, ActionF::None)
+    pub fn should_remove(&self) -> bool {
+        matches!(self.object, ObjectType::Remove)
     }
 
-    pub fn remove(&self) -> bool {
-        matches!(self.func, ActionF::Remove)
+    pub fn mark_remove(&mut self) {
+        self.object = ObjectType::Remove;
     }
 
-    pub fn set_action(&mut self, func: ActionF) {
+    pub fn set_action(&mut self, func: fn(&mut ObjectType, &mut Level) -> bool) {
         self.func = func
     }
 
@@ -363,20 +271,15 @@ impl Thinker {
         self.object.bad_mut::<T>().set_thinker_ptr(ptr);
     }
 
-    /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then the function pointer is set to None
-    /// to mark removal.
+    /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then it should be
+    /// marked for removal
     pub fn think(&mut self, level: &mut Level) -> bool {
-        match self.func {
-            ActionF::Think(f) => (f)(&mut self.object, level),
-            ActionF::Player(_f) => true,
-            ActionF::None => true,
-            ActionF::Remove => false,
-            ActionF::Free => false,
-            ActionF::Actor(_) => {
-                error!("Actor function shouldn't be called from Thinker");
-                true
-            }
-        }
+        (self.func)(&mut self.object, level)
+    }
+
+    /// Empty function purely for ThinkerAlloc init
+    fn placeholder(_: &mut ObjectType, _: &mut Level) -> bool {
+        false
     }
 }
 
@@ -386,37 +289,106 @@ impl fmt::Debug for Thinker {
             .field("prev", &(self.prev as usize))
             .field("next", &(self.next as usize))
             .field("object", &(self as *const Self as usize))
-            .field("func", &self.func)
             .finish()
     }
 }
 
-#[derive(Clone)]
-pub enum ActionF {
-    /// Pointer to a function that can operate on the `ThinkerType` enum
-    Think(fn(&mut ObjectType, &mut Level) -> bool),
-    /// Pointer to a function that operates on `MapObject`'s. Much of the gamplay uses this (items, monsters etc)
-    Actor(fn(&mut MapObject)),
-    /// Pointer to a function that operates on the `Player`, usually also requiring a sprite definition
-    Player(fn(&mut Player, &mut PspDef)),
-    /// For a state with no action
-    None,
-    /// To have the thinker removed from the thinker list on next cleanup pass
+/// Every map object should implement this trait
+pub trait Think {
+    /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
+    fn create_thinker(
+        object: ObjectType,
+        func: fn(&mut ObjectType, &mut Level) -> bool,
+    ) -> Thinker {
+        Thinker {
+            prev: null_mut(),
+            next: null_mut(),
+            object,
+            func,
+        }
+    }
+
+    fn set_thinker_action(&mut self, func: fn(&mut ObjectType, &mut Level) -> bool) {
+        self.thinker_mut().func = func
+    }
+
+    /// impl of this trait function should return true *if* the thinker + object are to be removed
+    ///
+    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
+    /// on the object and Null is used to track if the map object should be removed.
+    ///
+    /// **NOTE:**
+    ///
+    /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
+    fn think(object: &mut ObjectType, level: &mut Level) -> bool;
+
+    /// Implementer must store the pointer to the conatining Thinker
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
+
+    fn thinker(&self) -> *mut Thinker;
+
+    fn thinker_ref(&self) -> &Thinker {
+        unsafe { &*self.thinker() }
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker() }
+    }
+}
+
+/// All map object thinkers need to be registered here. If the object has pointees then these must be dealt
+/// with before setting `ObjectType::Remove`.
+#[repr(C)]
+#[allow(clippy::large_enum_variant)]
+pub enum ObjectType {
+    Test(TestObject),
+    Mobj(MapObject),
+    VDoor(VerticalDoor),
+    FloorMove(FloorMove),
+    CeilingMove(CeilingMove),
+    Platform(Platform),
+    LightFlash(LightFlash),
+    StrobeFlash(StrobeFlash),
+    FireFlicker(FireFlicker),
+    Glow(Glow),
+    /// The thinker function should set to this when the linked-list node
+    /// and memory is no-longer required. On thinker run it will be set to
+    /// `Free` and unlinked.
     Remove,
-    /// The slot in memory is "empty"
+    /// Used to mark a `ThinkerAlloc` slot as free to be re-used.
     Free,
 }
 
-impl fmt::Debug for ActionF {
+impl Debug for ObjectType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ActionF::Free => f.debug_struct("Free").finish(),
-            ActionF::None => f.debug_struct("None").finish(),
-            ActionF::Remove => f.debug_struct("Remove").finish(),
-            ActionF::Think(_) => f.debug_struct("Thinker").finish(),
-            ActionF::Actor(_) => f.debug_struct("Actor").finish(),
-            ActionF::Player(_) => f.debug_struct("Player").finish(),
+            Self::Test(_) => f.debug_tuple("Test").finish(),
+            Self::Mobj(_) => f.debug_tuple("Mobj").finish(),
+            Self::VDoor(_) => f.debug_tuple("VDoor").finish(),
+            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
+            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
+            Self::Platform(_) => f.debug_tuple("Platform").finish(),
+            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
+            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
+            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
+            Self::Glow(_) => f.debug_tuple("Glow").finish(),
+            Self::Remove => f.debug_tuple("Remove").finish(),
+            Self::Free => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
         }
+    }
+}
+
+impl ObjectType {
+    pub fn bad_ref<T>(&self) -> &T {
+        let mut ptr = self as *const Self as usize;
+        ptr += size_of::<u64>();
+        unsafe { &*(ptr as *const T) }
+    }
+
+    pub fn bad_mut<T>(&mut self) -> &mut T {
+        let mut ptr = self as *mut Self as usize;
+        ptr += size_of::<u64>();
+        unsafe { &mut *(ptr as *mut T) }
     }
 }
 
@@ -426,7 +398,7 @@ mod tests {
 
     use crate::{
         d_main::Skill,
-        d_thinker::{ActionF, TestObject, Think, Thinker, ObjectType},
+        d_thinker::{ObjectType, TestObject, Think, Thinker},
         doom_def::GameMode,
         level_data::{map_data::MapData, Level},
     };
@@ -468,7 +440,7 @@ mod tests {
                 x: 42,
                 thinker: null_mut(),
             }),
-            func: ActionF::Think(TestObject::think),
+            func: TestObject::think,
         };
 
         assert!(x.think(&mut l));
@@ -493,11 +465,8 @@ mod tests {
 
         let think = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Test(TestObject {
-                    x: 42,
-                    thinker: null_mut(),
-                }),
-                ActionF::Remove,
+                ObjectType::Remove,
+                TestObject::think,
             ))
             .unwrap();
         assert!(!links.tail.is_null());
@@ -512,9 +481,9 @@ mod tests {
             dbg!(&*links.buf_ptr.add(2));
             dbg!(&*links.buf_ptr.add(62));
 
-            assert!(matches!((*links.buf_ptr.add(0)).func, ActionF::Remove));
-            assert!(matches!((*links.buf_ptr.add(1)).func, ActionF::Free));
-            assert!(matches!((*links.buf_ptr.add(2)).func, ActionF::Free));
+            assert!(matches!((*links.buf_ptr.add(0)).object, ObjectType::Remove));
+            assert!(matches!((*links.buf_ptr.add(1)).object, ObjectType::Free));
+            assert!(matches!((*links.buf_ptr.add(2)).object, ObjectType::Free));
 
             links.remove(&mut *think);
             assert_eq!(links.len(), 0);
@@ -527,11 +496,8 @@ mod tests {
 
         links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Test(TestObject {
-                    x: 42,
-                    thinker: null_mut(),
-                }),
-                ActionF::None,
+                ObjectType::Remove,
+                TestObject::think,
             ))
             .unwrap();
         assert!(!links.tail.is_null());
@@ -542,7 +508,7 @@ mod tests {
                     x: 666,
                     thinker: null_mut(),
                 }),
-                ActionF::None,
+                TestObject::think,
             ))
             .unwrap();
 
@@ -552,7 +518,7 @@ mod tests {
                     x: 123,
                     thinker: null_mut(),
                 }),
-                ActionF::None,
+                TestObject::think,
             ))
             .unwrap();
         let three = links
@@ -561,7 +527,7 @@ mod tests {
                     x: 333,
                     thinker: null_mut(),
                 }),
-                ActionF::None,
+                TestObject::think,
             ))
             .unwrap();
 

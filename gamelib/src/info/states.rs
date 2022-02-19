@@ -1,7 +1,9 @@
 use crate::info::{SpriteNum, StateNum};
 use crate::p_enemy::a_chase;
-use crate::{d_thinker::ActionF, p_enemy::*, p_player_sprite::*};
+use crate::{p_enemy::*, p_player_sprite::*};
 use std::fmt;
+
+use super::ActionF;
 
 pub struct State {
     /// Sprite to use

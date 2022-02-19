@@ -2,16 +2,38 @@
 //!
 //! TODO: Autogenerate this from the input once finalised.
 
+use std::fmt;
+
 use enumn::N;
 
 /// All game information, such as demon types, weapons and how much damage they do, items etc
-use crate::sounds::SfxEnum;
+use crate::{p_map_object::MapObject, p_player_sprite::PspDef, player::Player, sounds::SfxEnum};
 
 mod map_object_info;
 mod states;
 
 pub use map_object_info::*;
 pub use states::*;
+
+#[derive(Clone)]
+pub enum ActionF {
+    /// Pointer to a function that operates on `MapObject`'s. Much of the gamplay uses this (items, monsters etc)
+    Actor(fn(&mut MapObject)),
+    /// Pointer to a function that operates on the `Player`, usually also requiring a sprite definition
+    Player(fn(&mut Player, &mut PspDef)),
+    /// For a state with no action
+    None,
+}
+
+impl fmt::Debug for ActionF {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ActionF::None => f.debug_struct("None").finish(),
+            ActionF::Actor(_) => f.debug_struct("Actor").finish(),
+            ActionF::Player(_) => f.debug_struct("Player").finish(),
+        }
+    }
+}
 
 #[repr(u16)]
 #[derive(Debug, Copy, Clone, N)]
