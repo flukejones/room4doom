@@ -203,7 +203,7 @@ impl ThinkerAlloc {
     /// Removes the entry at index. Sets both func + object to None values to indicate
     /// the slot is "empty".
     pub fn remove(&mut self, thinker: &mut Thinker) {
-        debug!("Removing Thinker of type {:?}", thinker.object);
+        debug!("Removing Thinker: {:?}", thinker);
         unsafe {
             thinker.object = ObjectType::Free;
             (*thinker.next).prev = (*thinker).prev;
@@ -286,10 +286,10 @@ impl Thinker {
 impl fmt::Debug for Thinker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Thinker")
-            .field("prev", &(self.prev as usize))
-            .field("next", &(self.next as usize))
-            .field("object", &(self as *const Self as usize))
-            .finish()
+            .field("prev", &(self.prev))
+            .field("next", &(self.next))
+            .field("object", &(self as *const Self))
+            .finish_non_exhaustive()
     }
 }
 
