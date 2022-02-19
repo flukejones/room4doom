@@ -472,7 +472,7 @@ mod tests {
         assert!(!links.tail.is_null());
         assert_eq!(links.len(), 1);
         unsafe {
-            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert!((*links.tail).should_remove());
         }
 
         unsafe {
@@ -533,7 +533,7 @@ mod tests {
 
         unsafe {
             // forward
-            assert_eq!((*links.buf_ptr).object.bad_ref::<TestObject>().x, 42);
+            assert!((*links.buf_ptr).should_remove());
             assert_eq!(
                 (*(*links.buf_ptr).next).object.bad_ref::<TestObject>().x,
                 666
@@ -552,15 +552,9 @@ mod tests {
                     .x,
                 333
             );
-            assert_eq!(
-                (*(*(*(*(*links.buf_ptr).next).next).next).next)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                42
-            );
+            assert!((*(*(*(*(*links.buf_ptr).next).next).next).next).should_remove());
             // back
-            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert!((*links.tail).should_remove());
             assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
                 (*(*(*links.tail).prev).prev)
@@ -579,7 +573,7 @@ mod tests {
         }
         unsafe {
             links.remove(&mut *one);
-            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert!((*links.tail).should_remove());
             assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
                 (*(*(*links.tail).prev).prev)
@@ -592,15 +586,9 @@ mod tests {
 
         unsafe {
             links.remove(&mut *three);
-            assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
+            assert!((*links.tail).should_remove());
             assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 123);
-            assert_eq!(
-                (*(*(*links.tail).prev).prev)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
-                42
-            );
+            assert!((*(*(*links.tail).prev).prev).should_remove());
         }
     }
 
