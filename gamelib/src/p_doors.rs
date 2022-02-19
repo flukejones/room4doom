@@ -4,7 +4,7 @@ use log::{debug, error, warn};
 use std::fmt::{self, Formatter};
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ActionF, Think, Thinker, ObjectType};
+use crate::d_thinker::{ObjectType, Think, Thinker};
 use crate::doom_def::TICRATE;
 use crate::level_data::map_defs::Sector;
 use crate::level_data::Level;
@@ -112,13 +112,13 @@ impl Think for VerticalDoor {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
                             unsafe {
                                 door.sector.specialdata = None;
-                                (*door.thinker).set_action(ActionF::Remove);
+                                (*door.thinker).mark_remove();
                                 // TODO: sound
                             }
                         }
                         DoorKind::Normal | DoorKind::Close => unsafe {
                             door.sector.specialdata = None;
-                            (*door.thinker).set_action(ActionF::Remove);
+                            (*door.thinker).mark_remove();
                         },
                         DoorKind::Close30ThenOpen => {
                             door.direction = 0;
@@ -147,7 +147,7 @@ impl Think for VerticalDoor {
                         }
                         DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => unsafe {
                             door.sector.specialdata = None;
-                            (*door.thinker).set_action(ActionF::Remove);
+                            (*door.thinker).mark_remove();
                         },
                         _ => {}
                     }
@@ -236,10 +236,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
             _ => {}
         }
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::VDoor(door),
-            ActionF::Think(VerticalDoor::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::VDoor(door), VerticalDoor::think);
 
         if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
             unsafe {
@@ -364,10 +361,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     door.topheight -= 4.0;
 
     debug!("Activated door: {door:?}");
-    let thinker = MapObject::create_thinker(
-        ObjectType::VDoor(door),
-        ActionF::Think(VerticalDoor::think),
-    );
+    let thinker = MapObject::create_thinker(ObjectType::VDoor(door), VerticalDoor::think);
 
     if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
         unsafe {

@@ -2,7 +2,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ActionF, Think, Thinker, ObjectType},
+    d_thinker::{ObjectType, Think, Thinker},
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
@@ -170,10 +170,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
         ret = true;
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::FloorMove(floor),
-            ActionF::Think(FloorMove::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             unsafe {
@@ -212,7 +209,7 @@ impl Think for FloorMove {
             }
 
             floor.sector.specialdata = None;
-            floor.thinker_mut().set_action(ActionF::Remove);
+            floor.thinker_mut().mark_remove();
         }
 
         true
@@ -273,10 +270,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         // Because we need to break lifetimes...
         let mut sec = DPtr::new(sector);
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::FloorMove(floor),
-            ActionF::Think(FloorMove::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             unsafe {
@@ -327,10 +321,8 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                     destheight: height,
                 };
 
-                let thinker = MapObject::create_thinker(
-                    ObjectType::FloorMove(floor),
-                    ActionF::Think(FloorMove::think),
-                );
+                let thinker =
+                    MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
                 if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                     unsafe {

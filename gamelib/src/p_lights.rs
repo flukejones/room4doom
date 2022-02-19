@@ -1,6 +1,6 @@
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ActionF, Think, Thinker, ObjectType};
+use crate::d_thinker::{ObjectType, Think, Thinker};
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::level_data::Level;
 use crate::p_local::p_random;
@@ -32,10 +32,7 @@ impl FireFlicker {
             min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel) + 16,
         };
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::FireFlicker(light),
-            ActionF::Think(FireFlicker::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::FireFlicker(light), FireFlicker::think);
 
         if let Some(ptr) = level.thinkers.push::<FireFlicker>(thinker) {
             unsafe {
@@ -97,10 +94,7 @@ impl LightFlash {
             min_time: 7,
         };
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::LightFlash(light),
-            ActionF::Think(LightFlash::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::LightFlash(light), LightFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<LightFlash>(thinker) {
             unsafe {
@@ -166,10 +160,7 @@ impl StrobeFlash {
             light.min_light = 0;
         }
 
-        let thinker = MapObject::create_thinker(
-            ObjectType::StrobeFlash(light),
-            ActionF::Think(StrobeFlash::think),
-        );
+        let thinker = MapObject::create_thinker(ObjectType::StrobeFlash(light), StrobeFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
             unsafe {
@@ -227,8 +218,7 @@ impl Glow {
             direction: -1,
         };
 
-        let thinker =
-            MapObject::create_thinker(ObjectType::Glow(light), ActionF::Think(Glow::think));
+        let thinker = MapObject::create_thinker(ObjectType::Glow(light), Glow::think);
 
         if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
             unsafe {

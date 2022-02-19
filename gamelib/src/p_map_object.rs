@@ -10,8 +10,8 @@ use crate::p_map::SubSectorMinMax;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
-use crate::d_thinker::{ActionF, Thinker};
-use crate::info::{State, StateNum, STATES};
+use crate::d_thinker::Thinker;
+use crate::info::{ActionF, State, StateNum, STATES};
 use crate::level_data::map_defs::SubSector;
 use crate::{
     angle::Angle,
@@ -621,8 +621,7 @@ impl MapObject {
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
-        let thinker =
-            MapObject::create_thinker(ObjectType::Mobj(mobj), ActionF::Think(MapObject::think));
+        let thinker = MapObject::create_thinker(ObjectType::Mobj(mobj), MapObject::think);
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
@@ -754,7 +753,7 @@ impl MapObject {
             self.unset_thing_position();
         }
         // TODO: S_StopSound(mobj);
-        self.thinker_mut().set_action(ActionF::Remove);
+        self.thinker_mut().mark_remove();
     }
 
     /// P_ThingHeightClip
@@ -843,7 +842,7 @@ impl Think for MapObject {
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();
 
-            if this.thinker_ref().remove() {
+            if this.thinker_ref().should_remove() {
                 return true; // mobj was removed
             }
         }
