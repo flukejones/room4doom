@@ -1,5 +1,4 @@
-use crate::level_data::level;
-use crate::level_data::level::Level;
+use crate::level_data::{Level, p_ticker};
 use crate::p_map_object::MapObject;
 use crate::p_specials::spawn_specials;
 use crate::player::{Player, WBStartStruct};
@@ -553,7 +552,7 @@ impl Game {
 
         match self.game_state {
             GameState::GS_LEVEL => {
-                level::p_ticker(self); // P_Ticker(); player movements, run thinkers etc
+                p_ticker(self); // P_Ticker(); player movements, run thinkers etc
                                        // ST_Ticker();
                                        // AM_Ticker();
                                        // HU_Ticker();

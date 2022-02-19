@@ -2,7 +2,7 @@
 
 use crate::{
     level_data::{
-        level::Level,
+        Level,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },

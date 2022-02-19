@@ -2,12 +2,12 @@
 
 use log::{debug, error, warn};
 use std::fmt::{self, Formatter};
-use std::ptr::NonNull;
+use std::ptr::null_mut;
 
 use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
 use crate::doom_def::TICRATE;
-use crate::level_data::level::Level;
 use crate::level_data::map_defs::Sector;
+use crate::level_data::Level;
 use crate::p_specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
 use crate::{doom_def::Card, level_data::map_defs::LineDef, p_map_object::MapObject, DPtr};
 
@@ -28,7 +28,7 @@ pub enum DoorKind {
 }
 
 pub struct VerticalDoor {
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
     pub kind: DoorKind,
     pub topheight: f32,
@@ -112,13 +112,13 @@ impl Think for VerticalDoor {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
                             unsafe {
                                 door.sector.specialdata = None;
-                                door.thinker.as_mut().set_action(ActionF::Remove);
+                                (*door.thinker).set_action(ActionF::Remove);
                                 // TODO: sound
                             }
                         }
                         DoorKind::Normal | DoorKind::Close => unsafe {
                             door.sector.specialdata = None;
-                            door.thinker.as_mut().set_action(ActionF::Remove);
+                            (*door.thinker).set_action(ActionF::Remove);
                         },
                         DoorKind::Close30ThenOpen => {
                             door.direction = 0;
@@ -147,7 +147,7 @@ impl Think for VerticalDoor {
                         }
                         DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => unsafe {
                             door.sector.specialdata = None;
-                            door.thinker.as_mut().set_action(ActionF::Remove);
+                            (*door.thinker).set_action(ActionF::Remove);
                         },
                         _ => {}
                     }
@@ -159,11 +159,11 @@ impl Think for VerticalDoor {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
@@ -186,7 +186,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
         ret = true;
         let mut door = VerticalDoor {
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
             sector: DPtr::new(sector),
             kind,
             topheight: 0.0,
@@ -238,15 +238,12 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
         let thinker = MapObject::create_thinker(
             ThinkerType::VDoor(door),
-            ActionF::Thinker(VerticalDoor::think),
+            ActionF::Think(VerticalDoor::think),
         );
 
-        if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
             unsafe {
-                ptr.as_mut()
-                    .obj_mut()
-                    .bad_mut::<VerticalDoor>()
-                    .set_thinker_ptr(ptr);
+                (*ptr).set_obj_thinker_ptr::<VerticalDoor>(ptr);
 
                 sec.specialdata = Some(ptr);
             }
@@ -307,9 +304,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     let mut sec = line.backsector.clone().unwrap();
 
     // if the sector has an active thinker, use it
-    if let Some(mut data) = sec.specialdata {
+    if let Some(data) = sec.specialdata {
         // TODO:
-        let mut door = unsafe { data.as_mut().obj_mut().bad_mut::<VerticalDoor>() };
+        let mut door = unsafe { (*data).obj_mut::<VerticalDoor>() };
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -319,9 +316,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker_ref().obj_ref(), ThinkerType::VDoor(_)) {
+                    if matches!(door.thinker_ref().obj_type(), ThinkerType::VDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker_ref().obj_ref(), ThinkerType::VDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker_ref().obj_type(), ThinkerType::VDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;
@@ -335,7 +332,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     }
 
     let mut door = VerticalDoor {
-        thinker: NonNull::dangling(),
+        thinker: null_mut(),
         sector: sec.clone(),
         kind: DoorKind::Normal,
         topheight: 0.0,
@@ -369,15 +366,12 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     debug!("Activated door: {door:?}");
     let thinker = MapObject::create_thinker(
         ThinkerType::VDoor(door),
-        ActionF::Thinker(VerticalDoor::think),
+        ActionF::Think(VerticalDoor::think),
     );
 
-    if let Some(mut ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
+    if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
         unsafe {
-            ptr.as_mut()
-                .obj_mut()
-                .bad_mut::<VerticalDoor>()
-                .set_thinker_ptr(ptr);
+            (*ptr).set_obj_thinker_ptr::<VerticalDoor>(ptr);
 
             sec.specialdata = Some(ptr);
         }

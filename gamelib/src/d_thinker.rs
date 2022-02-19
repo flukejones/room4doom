@@ -1,11 +1,11 @@
 use std::alloc::{alloc, dealloc, Layout};
 use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
-use std::ptr::{self, null_mut, NonNull};
+use std::ptr::{self, null_mut};
 
 use log::{debug, error};
 
-use crate::level_data::level::Level;
+use crate::level_data::Level;
 use crate::p_ceiling::CeilingMove;
 use crate::p_doors::VerticalDoor;
 use crate::p_floor::FloorMove;
@@ -18,7 +18,7 @@ use crate::player::Player;
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
     pub x: u32,
-    pub thinker: NonNull<Thinker>,
+    pub thinker: *mut Thinker,
 }
 
 impl Think for TestObject {
@@ -28,11 +28,11 @@ impl Think for TestObject {
         true
     }
 
-    fn set_thinker_ptr(&mut self, ptr: std::ptr::NonNull<Thinker>) {
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> NonNull<Thinker> {
+    fn thinker(&self) -> *mut Thinker {
         self.thinker
     }
 }
@@ -77,7 +77,7 @@ impl ThinkerAlloc {
             buf_ptr.add(n).write(Thinker {
                 prev: null_mut(),
                 next: null_mut(),
-                object: ThinkerType::None,
+                object: ThinkerType::Free,
                 func: ActionF::Free,
             })
         }
@@ -92,22 +92,22 @@ impl ThinkerAlloc {
     }
 
     pub fn run_thinkers(&mut self, level: &mut Level) {
-        let mut current = self.tail;
+        let mut current = unsafe { &mut *self.tail };
         let mut next;
 
         loop {
             unsafe {
-                if (*current).remove() {
-                    next = (*current).next;
+                if current.remove() {
+                    next = &mut *current.next;
                     self.remove(&mut *current);
                 } else {
-                    (*current).think(level);
-                    next = (*current).next;
+                    current.think(level);
+                    next = &mut *current.next;
                 }
             }
             current = next;
 
-            if current == self.tail {
+            if ptr::eq(current, self.tail) {
                 return;
             }
         }
@@ -162,7 +162,7 @@ impl ThinkerAlloc {
     /// # Safety:
     ///
     /// `<T>` must match the inner type of `Thinker`
-    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<NonNull<Thinker>> {
+    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<*mut Thinker> {
         if self.len == self.capacity {
             return None;
         }
@@ -172,29 +172,27 @@ impl ThinkerAlloc {
 
         let root_ptr = self.find_first_free(self.next_free)?;
         debug!("Adding Thinker of type {:?}", thinker.object);
-        unsafe {
-            ptr::write(root_ptr, thinker);
+        unsafe { ptr::write(root_ptr, thinker) };
+        let mut current = unsafe { &mut *root_ptr };
 
-            if self.tail.is_null() {
-                self.tail = root_ptr;
-                (*self.tail).prev = self.tail;
-                (*self.tail).next = self.tail;
-            } else {
-                (*(*self.tail).prev).next = root_ptr;
-                (*root_ptr).next = self.tail;
-                (*root_ptr).prev = (*self.tail).prev;
-                (*self.tail).prev = root_ptr;
+        if self.tail.is_null() {
+            self.tail = root_ptr;
+            let mut tail = unsafe { &mut *self.tail };
+            tail.prev = tail;
+            tail.next = tail;
+        } else {
+            let mut tail = unsafe { &mut *self.tail };
+            unsafe {
+                (*tail.prev).next = root_ptr;
             }
-
-            (*root_ptr)
-                .object
-                .bad_mut::<T>()
-                .set_thinker_ptr(NonNull::new_unchecked(root_ptr));
-
-            self.len += 1;
-
-            Some(NonNull::new_unchecked(root_ptr))
+            current.next = tail;
+            current.prev = tail.prev;
+            tail.prev = root_ptr;
         }
+
+        current.object.bad_mut::<T>().set_thinker_ptr(root_ptr);
+        self.len += 1;
+        Some(root_ptr)
     }
 
     /// Ensure head is null if the pool is zero length
@@ -210,7 +208,7 @@ impl ThinkerAlloc {
         debug!("Removing Thinker of type {:?}", thinker.object);
         unsafe {
             thinker.func = ActionF::Free;
-            thinker.object = ThinkerType::None;
+            thinker.object = ThinkerType::Free;
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
 
@@ -218,6 +216,46 @@ impl ThinkerAlloc {
             self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
         }
+    }
+}
+
+/// Every map object should implement this trait
+pub trait Think {
+    /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
+    fn create_thinker(object: ThinkerType, func: ActionF) -> Thinker {
+        Thinker {
+            prev: null_mut(),
+            next: null_mut(),
+            object,
+            func,
+        }
+    }
+
+    fn set_thinker_action(&mut self, action: ActionF) {
+        self.thinker_mut().func = action
+    }
+
+    /// impl of this trait function should return true *if* the thinker + object are to be removed
+    ///
+    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
+    /// on the object and Null is used to track if the map object should be removed.
+    ///
+    /// **NOTE:**
+    ///
+    /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
+    fn think(object: &mut ThinkerType, level: &mut Level) -> bool;
+
+    /// Implementer must store the pointer to the conatining Thinker
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
+
+    fn thinker(&self) -> *mut Thinker;
+
+    fn thinker_ref(&self) -> &Thinker {
+        unsafe { &*self.thinker() }
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker() }
     }
 }
 
@@ -235,7 +273,8 @@ pub enum ThinkerType {
     StrobeFlash(StrobeFlash),
     FireFlicker(FireFlicker),
     Glow(Glow),
-    None,
+    /// The slot in memory is "empty"
+    Free,
 }
 
 impl Debug for ThinkerType {
@@ -251,7 +290,7 @@ impl Debug for ThinkerType {
             Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
             Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
             Self::Glow(_) => f.debug_tuple("Glow").finish(),
-            Self::None => f.debug_tuple("None - this shouldn't ever be seen").finish(),
+            Self::Free => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
         }
     }
 }
@@ -297,12 +336,16 @@ pub struct Thinker {
 }
 
 impl Thinker {
-    pub fn obj_ref(&self) -> &ThinkerType {
+    pub fn obj_type(&self ) -> &ThinkerType {
         &self.object
     }
 
-    pub fn obj_mut(&mut self) -> &mut ThinkerType {
-        &mut self.object
+    pub fn obj_ref<T: Think>(&self) -> &T {
+        self.object.bad_ref::<T>()
+    }
+
+    pub fn obj_mut<T: Think>(&mut self) -> &mut T {
+        self.object.bad_mut::<T>()
     }
 
     pub fn has_action(&self) -> bool {
@@ -317,11 +360,15 @@ impl Thinker {
         self.func = func
     }
 
+    pub fn set_obj_thinker_ptr<T: Think>(&mut self, ptr: *mut Thinker) {
+        self.object.bad_mut::<T>().set_thinker_ptr(ptr);
+    }
+
     /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then the function pointer is set to None
     /// to mark removal.
     pub fn think(&mut self, level: &mut Level) -> bool {
         match self.func {
-            ActionF::Thinker(f) => (f)(&mut self.object, level),
+            ActionF::Think(f) => (f)(&mut self.object, level),
             ActionF::Player(_f) => true,
             ActionF::None => true,
             ActionF::Remove => false,
@@ -353,7 +400,7 @@ pub enum ActionF {
     None,
     /// To have the thinker removed from the thinker list on next cleanup pass
     Remove,
-    Thinker(fn(&mut ThinkerType, &mut Level) -> bool),
+    Think(fn(&mut ThinkerType, &mut Level) -> bool),
     Actor(fn(&mut MapObject)),
     Player(fn(&mut Player, &mut PspDef)), // P_SetPsprite runs this
 }
@@ -364,53 +411,10 @@ impl fmt::Debug for ActionF {
             ActionF::Free => f.debug_struct("Free").finish(),
             ActionF::None => f.debug_struct("None").finish(),
             ActionF::Remove => f.debug_struct("Remove").finish(),
-            ActionF::Thinker(_) => f.debug_struct("Thinker").finish(),
+            ActionF::Think(_) => f.debug_struct("Thinker").finish(),
             ActionF::Actor(_) => f.debug_struct("Actor").finish(),
             ActionF::Player(_) => f.debug_struct("Player").finish(),
         }
-    }
-}
-
-/// Every map object should implement this trait
-pub trait Think {
-    /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
-    fn create_thinker(object: ThinkerType, func: ActionF) -> Thinker {
-        Thinker {
-            prev: null_mut(),
-            next: null_mut(),
-            object,
-            func,
-        }
-    }
-
-    fn state(&self) -> bool {
-        if let ActionF::None = self.thinker_ref().func {
-            return true;
-        }
-        false
-    }
-
-    /// impl of this trait function should return true *if* the thinker + object are to be removed
-    ///
-    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
-    /// on the object and Null is used to track if the map object should be removed.
-    ///
-    /// **NOTE:**
-    ///
-    /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
-    fn think(object: &mut ThinkerType, level: &mut Level) -> bool;
-
-    /// Implementer must store the pointer to the conatining Thinker
-    fn set_thinker_ptr(&mut self, ptr: NonNull<Thinker>);
-
-    fn thinker(&self) -> NonNull<Thinker>;
-
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { self.thinker().as_ref() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { self.thinker().as_mut() }
     }
 }
 
@@ -420,17 +424,17 @@ mod tests {
 
     use crate::{
         d_thinker::{ActionF, TestObject, Think, Thinker, ThinkerType},
-        level_data::{level::Level, map_data::MapData},
+        level_data::{Level, map_data::MapData}, doom_def::GameMode, d_main::Skill,
     };
 
     use super::ThinkerAlloc;
-    use std::ptr::{null_mut, NonNull};
+    use std::ptr::null_mut;
 
     #[test]
     fn bad_stuff() {
         let mut x = ThinkerType::Test(TestObject {
             x: 42,
-            thinker: NonNull::dangling(),
+            thinker: null_mut(),
         });
 
         if let ThinkerType::Test(f) = &x {
@@ -454,10 +458,10 @@ mod tests {
 
         let mut l = unsafe {
             Level::new(
-                crate::d_main::Skill::Baby,
+                Skill::Baby,
                 1,
                 1,
-                crate::doom_def::GameMode::Shareware,
+                GameMode::Shareware,
             )
         };
         let mut x = Thinker {
@@ -465,14 +469,14 @@ mod tests {
             next: null_mut(),
             object: ThinkerType::Test(TestObject {
                 x: 42,
-                thinker: NonNull::dangling(),
+                thinker: null_mut(),
             }),
-            func: ActionF::Thinker(TestObject::think),
+            func: ActionF::Think(TestObject::think),
         };
 
         assert!(x.think(&mut l));
 
-        let ptr = NonNull::from(&mut x);
+        let ptr = &mut x as *mut Thinker;
         x.object.bad_mut::<TestObject>().set_thinker_ptr(ptr);
         assert!(x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l));
     }
@@ -490,11 +494,11 @@ mod tests {
         assert_eq!(links.len(), 0);
         assert_eq!(links.capacity(), 64);
 
-        let mut think = links
+        let think = links
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 42,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::Remove,
             ))
@@ -512,10 +516,10 @@ mod tests {
             dbg!(&*links.buf_ptr.add(62));
 
             assert!(matches!((*links.buf_ptr.add(0)).func, ActionF::Remove));
-            assert!(matches!((*links.buf_ptr.add(1)).func, ActionF::Remove));
-            assert!(matches!((*links.buf_ptr.add(2)).func, ActionF::Remove));
+            assert!(matches!((*links.buf_ptr.add(1)).func, ActionF::Free));
+            assert!(matches!((*links.buf_ptr.add(2)).func, ActionF::Free));
 
-            links.remove(think.as_mut());
+            links.remove(&mut *think);
             assert_eq!(links.len(), 0);
         }
     }
@@ -528,18 +532,18 @@ mod tests {
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 42,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::None,
             ))
             .unwrap();
         assert!(!links.tail.is_null());
 
-        let mut one = links
+        let one = links
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 666,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::None,
             ))
@@ -549,16 +553,16 @@ mod tests {
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 123,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::None,
             ))
             .unwrap();
-        let mut three = links
+        let three = links
             .push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: 333,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::None,
             ))
@@ -611,7 +615,7 @@ mod tests {
             );
         }
         unsafe {
-            links.remove(one.as_mut());
+            links.remove(&mut *one);
             assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
             assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
@@ -624,7 +628,7 @@ mod tests {
         }
 
         unsafe {
-            links.remove(three.as_mut());
+            links.remove(&mut *three);
             assert_eq!((*links.tail).object.bad_ref::<TestObject>().x, 42);
             assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 123);
             assert_eq!(
@@ -644,28 +648,28 @@ mod tests {
     //     links.push::<TestObject>(TestObject::create_thinker(
     //         ThinkerType::Test(TestObject {
     //             x: 42,
-    //             thinker: NonNull::dangling(),
+    //             thinker: null_mut(),
     //         }),
     //         ActionF::None,
     //     ));
     //     links.push::<TestObject>(TestObject::create_thinker(
     //         ThinkerType::Test(TestObject {
     //             x: 123,
-    //             thinker: NonNull::dangling(),
+    //             thinker: null_mut(),
     //         }),
     //         ActionF::None,
     //     ));
     //     links.push::<TestObject>(TestObject::create_thinker(
     //         ThinkerType::Test(TestObject {
     //             x: 666,
-    //             thinker: NonNull::dangling(),
+    //             thinker: null_mut(),
     //         }),
     //         ActionF::None,
     //     ));
     //     links.push::<TestObject>(TestObject::create_thinker(
     //         ThinkerType::Test(TestObject {
     //             x: 333,
-    //             thinker: NonNull::dangling(),
+    //             thinker: null_mut(),
     //         }),
     //         ActionF::None,
     //     ));

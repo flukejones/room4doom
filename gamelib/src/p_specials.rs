@@ -3,7 +3,7 @@
 //! respective utility functions. Line Tag handling. Line and Sector triggers.
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
-use crate::level_data::level::Level;
+use crate::level_data::Level;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
 use crate::p_doors::{ev_do_door, DoorKind};
@@ -317,7 +317,7 @@ pub fn move_plane(
 /// Trigger various actions when a line is crossed which has a non-zero special attached
 ///
 /// Doom function name is `P_CrossSpecialLine`
-pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &MapObject) {
+pub fn cross_special_line(_side: usize, mut line: DPtr<LineDef>, thing: &MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate

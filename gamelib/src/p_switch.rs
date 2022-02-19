@@ -80,7 +80,7 @@ const alphSwitchList: [SwitchSwitch; 40] = [
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
+pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
     //  Switches that other things can activate
     if thing.player.is_none() {
         // never open secret doors

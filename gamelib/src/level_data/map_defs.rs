@@ -1,5 +1,3 @@
-use std::ptr::NonNull;
-
 use crate::angle::Angle;
 use crate::d_thinker::Thinker;
 use crate::p_map_object::MapObject;
@@ -47,7 +45,7 @@ pub struct Sector {
     pub thinglist: *mut MapObject,
 
     // thinker_t for reversable actions
-    pub specialdata: Option<NonNull<Thinker>>,
+    pub specialdata: Option<*mut Thinker>,
     pub lines: Vec<DPtr<LineDef>>,
 }
 

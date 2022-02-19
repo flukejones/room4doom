@@ -1,4 +1,4 @@
-use std::ptr::NonNull;
+use std::ptr::null_mut;
 
 use criterion::*;
 
@@ -6,7 +6,7 @@ use gamelib::{
     d_main,
     d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ThinkerType},
     doom_def,
-    level_data::{level::Level, map_data::MapData},
+    level_data::{Level, map_data::MapData},
 };
 use wad::WadData;
 
@@ -17,7 +17,7 @@ fn push_100_000(b: &mut Bencher) {
             links.push::<TestObject>(TestObject::create_thinker(
                 ThinkerType::Test(TestObject {
                     x: i,
-                    thinker: NonNull::dangling(),
+                    thinker: null_mut(),
                 }),
                 ActionF::None,
             ));
@@ -38,7 +38,7 @@ fn load_and_iter(b: &mut Bencher) {
         links.push::<TestObject>(TestObject::create_thinker(
             ThinkerType::Test(TestObject {
                 x: i,
-                thinker: NonNull::dangling(),
+                thinker: null_mut(),
             }),
             ActionF::None,
         ));
