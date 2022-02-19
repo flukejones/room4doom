@@ -4,7 +4,7 @@ use criterion::*;
 
 use gamelib::{
     d_main,
-    d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ThinkerType},
+    d_thinker::{ActionF, TestObject, Think, ThinkerAlloc, ObjectType},
     doom_def,
     level_data::{map_data::MapData, Level},
 };
@@ -15,7 +15,7 @@ fn push_100_000(b: &mut Bencher) {
     b.iter(|| {
         for i in 0..10000 {
             links.push::<TestObject>(TestObject::create_thinker(
-                ThinkerType::Test(TestObject {
+                ObjectType::Test(TestObject {
                     x: i,
                     thinker: null_mut(),
                 }),
@@ -36,7 +36,7 @@ fn load_and_iter(b: &mut Bencher) {
 
     for i in 0..10000 {
         links.push::<TestObject>(TestObject::create_thinker(
-            ThinkerType::Test(TestObject {
+            ObjectType::Test(TestObject {
                 x: i,
                 thinker: null_mut(),
             }),

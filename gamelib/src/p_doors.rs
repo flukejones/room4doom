@@ -4,7 +4,7 @@ use log::{debug, error, warn};
 use std::fmt::{self, Formatter};
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ActionF, Think, Thinker, ThinkerType};
+use crate::d_thinker::{ActionF, Think, Thinker, ObjectType};
 use crate::doom_def::TICRATE;
 use crate::level_data::map_defs::Sector;
 use crate::level_data::Level;
@@ -56,7 +56,7 @@ impl fmt::Debug for VerticalDoor {
 }
 
 impl Think for VerticalDoor {
-    fn think(object: &mut ThinkerType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
         let door = object.bad_mut::<VerticalDoor>();
 
         match door.direction {
@@ -237,7 +237,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
         }
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::VDoor(door),
+            ObjectType::VDoor(door),
             ActionF::Think(VerticalDoor::think),
         );
 
@@ -316,9 +316,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker_ref().obj_type(), ThinkerType::VDoor(_)) {
+                    if matches!(door.thinker_ref().obj_type(), ObjectType::VDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker_ref().obj_type(), ThinkerType::VDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker_ref().obj_type(), ObjectType::VDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;
@@ -365,7 +365,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
 
     debug!("Activated door: {door:?}");
     let thinker = MapObject::create_thinker(
-        ThinkerType::VDoor(door),
+        ObjectType::VDoor(door),
         ActionF::Think(VerticalDoor::think),
     );
 

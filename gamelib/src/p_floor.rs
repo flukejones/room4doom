@@ -2,7 +2,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ActionF, Think, Thinker, ThinkerType},
+    d_thinker::{ActionF, Think, Thinker, ObjectType},
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
@@ -171,7 +171,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
         ret = true;
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::FloorMove(floor),
+            ObjectType::FloorMove(floor),
             ActionF::Think(FloorMove::think),
         );
 
@@ -187,7 +187,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 }
 
 impl Think for FloorMove {
-    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let floor = object.bad_mut::<FloorMove>();
         let res = move_plane(
             floor.sector.clone(),
@@ -274,7 +274,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         let mut sec = DPtr::new(sector);
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::FloorMove(floor),
+            ObjectType::FloorMove(floor),
             ActionF::Think(FloorMove::think),
         );
 
@@ -328,7 +328,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                 };
 
                 let thinker = MapObject::create_thinker(
-                    ThinkerType::FloorMove(floor),
+                    ObjectType::FloorMove(floor),
                     ActionF::Think(FloorMove::think),
                 );
 

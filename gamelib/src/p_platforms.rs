@@ -2,7 +2,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ActionF, Think, Thinker, ThinkerType},
+    d_thinker::{ActionF, Think, Thinker, ObjectType},
     doom_def::TICRATE,
     level_data::{
         map_defs::{LineDef, Sector},
@@ -161,7 +161,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         }
 
         let thinker = MapObject::create_thinker(
-            ThinkerType::Platform(platform),
+            ObjectType::Platform(platform),
             ActionF::Think(Platform::think),
         );
 
@@ -177,7 +177,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 }
 
 impl Think for Platform {
-    fn think(object: &mut ThinkerType, level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let platform = object.bad_mut::<Platform>();
         match platform.status {
             PlatStatus::Up => {
