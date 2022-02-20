@@ -1,3 +1,4 @@
+use std::marker::PhantomPinned;
 use std::ptr::null_mut;
 
 use crate::{
@@ -49,6 +50,7 @@ pub struct MapData {
     nodes: Vec<Node>,
     blockmap: BlockMap,
     start_node: u16,
+    _pinned: PhantomPinned,
 }
 
 impl MapData {
@@ -66,6 +68,7 @@ impl MapData {
             nodes: Vec::new(),
             blockmap: BlockMap::default(),
             start_node: 0,
+            _pinned: PhantomPinned,
         }
     }
 

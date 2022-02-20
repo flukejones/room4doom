@@ -1,3 +1,5 @@
+use std::marker::PhantomPinned;
+
 use log::debug;
 use wad::{lumps::WadThing, WadData};
 
@@ -44,6 +46,7 @@ pub struct Level {
     pub secret_exit: bool,
     /// Marker count for lines checked
     pub valid_count: usize,
+    _pinned: PhantomPinned,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -97,8 +100,8 @@ impl Level {
             game_action: None,
             secret_exit: false,
             valid_count: 0,
+            _pinned: PhantomPinned,
         }
-        // TODO: P_InitThinkers();
     }
 
     pub fn load(&mut self, wad_data: &WadData) {

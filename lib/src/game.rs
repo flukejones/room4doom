@@ -392,7 +392,7 @@ impl Game {
         // TODO: starttime = I_GetTime();
         self.game_action = GameAction::ga_nothing;
 
-        let level = unsafe {
+        let mut level = unsafe {
             Level::new(
                 self.game_skill,
                 self.game_episode,
@@ -401,30 +401,35 @@ impl Game {
             )
         };
 
+        level.load(&self.wad_data);
+        // Pointer stuff must be set up *AFTER* the level data has been allocated
+        // (it moves when punted to Some<Level>)
+        // TODO: testing effect of PhantomPinned
+        let thing_list = level.map_data.get_things().to_owned();
+
+        for thing in &thing_list {
+            MapObject::p_spawn_map_thing(
+                thing,
+                &mut level,
+                &mut self.players,
+                &self.player_in_game,
+            );
+        }
+        spawn_specials(&mut level);
+        // TODO: P_InitThinkers();
+
+        debug!("Level: thinkers = {}", &level.thinkers.len());
+        debug!("Level: skill = {:?}", &level.game_skill);
+        debug!("Level: episode = {}", &level.episode);
+        debug!("Level: map = {}", &level.game_map);
+        debug!("Level: player_starts = {:?}", &level.player_starts);
+
+        level.game_tic = self.game_tic;
+        self.level_start_tic = self.game_tic;
+        level.game_tic = self.game_tic;
+
         info!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
-
-        if let Some(ref mut level) = self.level {
-            level.load(&self.wad_data);
-            // Pointer stuff must be set up *AFTER* the level data has been allocated
-            // (it moves when punted to Some<Level>)
-            let thing_list = (*level.map_data.get_things()).to_owned();
-
-            for thing in &thing_list {
-                MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);
-            }
-            spawn_specials(level);
-
-            debug!("Level: thinkers = {}", &level.thinkers.len());
-            debug!("Level: skill = {:?}", &level.game_skill);
-            debug!("Level: episode = {}", &level.episode);
-            debug!("Level: map = {}", &level.game_map);
-            debug!("Level: player_starts = {:?}", &level.player_starts);
-
-            level.game_tic = self.game_tic;
-            self.level_start_tic = self.game_tic;
-            level.game_tic = self.game_tic;
-        }
 
         // Player setup from P_SetupLevel
         self.totalkills = 0;
