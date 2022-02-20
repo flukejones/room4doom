@@ -1,5 +1,6 @@
 use std::alloc::{alloc, dealloc, Layout};
 use std::fmt::{self, Debug};
+use std::marker::PhantomPinned;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
 
@@ -47,6 +48,7 @@ pub struct ThinkerAlloc {
     /// The next free slot to insert in
     next_free: *mut Thinker,
     pub tail: *mut Thinker,
+    _pinned: PhantomPinned,
 }
 
 impl Drop for ThinkerAlloc {
@@ -86,6 +88,7 @@ impl ThinkerAlloc {
             len: 0,
             next_free: buf_ptr,
             tail: null_mut(),
+            _pinned: PhantomPinned,
         }
     }
 
