@@ -1,0 +1,49 @@
+app-id: org.ljones.Room
+runtime: org.freedesktop.Platform
+runtime-version: '21.08'
+sdk: org.freedesktop.Sdk
+command: diirdoom
+finish-args:
+  - --device=all
+  #- --filesystem=xdg-pictures/veloren:create
+  - --filesystem=home
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --socket=wayland
+modules:
+  - name: rust-nightly
+    build-options:
+      no-debuginfo: true
+    buildsystem: simple
+    build-commands:
+      - ./install.sh --prefix=/app --without=rust-docs --disable-ldconfig --verbose
+    cleanup:
+      - '*'
+    sources:
+      - type: archive
+        only-arches: [x86_64]
+        url: https://static.rust-lang.org/dist/2021-12-19/rust-nightly-x86_64-unknown-linux-gnu.tar.xz
+        sha256: 2897b98440c2f44a14391195b9ed17ec564ea89b671fc4b3d4fddaf1ed51c029
+        x-checker-data:
+          type: html
+          url: https://gitlab.com/veloren/veloren/-/raw/master/rust-toolchain
+          version-pattern: nightly-(\d\d\d\d-\d\d-\d\d)
+          url-template: https://static.rust-lang.org/dist/$version/rust-nightly-x86_64-unknown-linux-gnu.tar.xz
+
+  - name: diirdoom
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/diirdoom/cargo
+        #RUSTFLAGS: --error-format=short --remap-path-prefix =../
+        RUST_BACKTRACE: "1"
+    buildsystem: simple
+    build-commands:
+      - cargo --offline build --release
+      - install -D -m 755 ./target/release/diirdoom -t /app/bin/
+      - install -D -m 755 ./doom1.wad -t /app/bin/
+    sources:
+      - type: dir
+        path: ./
