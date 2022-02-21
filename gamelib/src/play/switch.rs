@@ -1,16 +1,17 @@
+//! Doom source name `p_switch`
+
 use log::{debug, error, warn};
 
-use crate::{
-    flags::LineDefFlags,
-    level_data::map_defs::LineDef,
-    p_ceiling::{ev_do_ceiling, CeilingKind},
-    p_doors::{ev_do_door, ev_vertical_door, DoorKind},
-    p_floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
-    p_lights::ev_turn_light_on,
-    p_map_object::MapObject,
-    p_platforms::{ev_do_platform, PlatKind},
-    DPtr,
+use super::{
+    ceiling::{ev_do_ceiling, CeilingKind},
+    doors::{ev_do_door, ev_vertical_door, DoorKind},
+    floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
+    lights::ev_turn_light_on,
+    map_object::MapObject,
+    platforms::{ev_do_platform, PlatKind},
 };
+
+use crate::{flags::LineDefFlags, level_data::map_defs::LineDef, DPtr};
 
 struct SwitchSwitch {
     name1: &'static str,

@@ -1,17 +1,20 @@
-//! Almost all of the mthods here are on `MapObject`.
+//! Almost all of the methods here are on `MapObject`.
 //! Movement, collision handling. Shooting and aiming.
 use glam::Vec2;
 use log::debug;
+
+use super::{
+    utilities::{BestSlide, Intercept, MAXRADIUS, USERANGE},
+    map_object::{MapObject, MobjFlag},
+    utilities::{box_on_line_side, path_traverse, PortalZ},
+    specials::cross_special_line,
+    switch::p_use_special_line,
+};
 
 use crate::angle::Angle;
 use crate::flags::LineDefFlags;
 use crate::level_data::map_data::BSPTrace;
 use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::p_local::{BestSlide, Intercept, MAXRADIUS, USERANGE};
-use crate::p_map_object::{MapObject, MobjFlag};
-use crate::p_map_util::{box_on_line_side, path_traverse, PortalZ};
-use crate::p_specials::cross_special_line;
-use crate::p_switch::p_use_special_line;
 use crate::DPtr;
 
 //const MAXSPECIALCROSS: i32 = 8;

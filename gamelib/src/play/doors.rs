@@ -1,15 +1,20 @@
 //! Door movement thinker, controls open/close, locked.
+//!
+//! Doom source name `p_doors`
 
 use log::{debug, error, warn};
 use std::fmt::{self, Formatter};
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ObjectType, Think, Thinker};
 use crate::doom_def::TICRATE;
 use crate::level_data::map_defs::Sector;
 use crate::level_data::Level;
-use crate::p_specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
-use crate::{doom_def::Card, level_data::map_defs::LineDef, p_map_object::MapObject, DPtr};
+use crate::play::specials::{move_plane, PlaneResult};
+use crate::{doom_def::Card, level_data::map_defs::LineDef, DPtr};
+
+use super::d_thinker::{Thinker, Think, ObjectType};
+use super::map_object::MapObject;
+use super::specials::find_lowest_ceiling_surrounding;
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;

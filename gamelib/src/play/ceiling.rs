@@ -1,16 +1,17 @@
 //! Ceiling movement thinker: raise, lower, crusher
+//!
+//! Doom source name `p_ceiling`
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ObjectType, Think, Thinker},
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    p_map_object::MapObject,
-    p_specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
     DPtr,
 };
+
+use super::{d_thinker::{Thinker, ObjectType, Think}, specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult}, map_object::MapObject};
 
 const CEILSPEED: f32 = 1.0;
 

@@ -1,12 +1,17 @@
-use glam::Vec2;
+//! Doom source name `p_inter`
 
+use glam::Vec2;
+use log::debug;
+
+use super::{
+    utilities::p_random,
+    map_object::{MapObject, MobjFlag},
+    player::CF_GODMODE,
+};
 use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
     info::{MapObjectType, STATES},
-    p_local::p_random,
-    p_map_object::{MapObject, MobjFlag},
-    player::CF_GODMODE,
     renderer::bsp::point_to_angle_2,
 };
 
@@ -72,6 +77,7 @@ impl MapObject {
         }
 
         if let Some(mut player) = self.player {
+            debug!("Player taking damage");
             unsafe {
                 let mut player = player.as_mut();
 
@@ -120,6 +126,7 @@ impl MapObject {
                 // Tactile feedback thing removed here
             }
         }
+        debug!("Damage is {damage}");
 
         self.health -= damage;
         if self.health <= 0 {

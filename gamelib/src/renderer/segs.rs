@@ -7,7 +7,7 @@ use std::{
 use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW};
 use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
 use crate::level_data::map_defs::Segment;
-use crate::player::Player;
+use crate::play::player::Player;
 use crate::renderer::defs::{
     DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP,
 };

@@ -1,19 +1,25 @@
 //! Implements special effects:
 //! Texture animation, height or lighting changes according to adjacent sectors,
 //! respective utility functions. Line Tag handling. Line and Sector triggers.
+//!
+//! Doom source name `p_spec`
+
+use super::{
+    ceiling::{ev_do_ceiling, CeilingKind},
+    doors::{ev_do_door, DoorKind},
+    floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
+    lights::{
+        ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
+        LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
+    },
+    map_object::MapObject,
+    platforms::{ev_do_platform, PlatKind},
+};
+
 use crate::flags::LineDefFlags;
 use crate::info::MapObjectType;
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::level_data::Level;
-use crate::p_ceiling::{ev_do_ceiling, CeilingKind};
-use crate::p_doors::{ev_do_door, DoorKind};
-use crate::p_floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
-use crate::p_lights::{
-    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
-    LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
-};
-use crate::p_map_object::MapObject;
-use crate::p_platforms::{ev_do_platform, PlatKind};
 use crate::DPtr;
 use log::{debug, error, trace, warn};
 
@@ -148,7 +154,7 @@ fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
         let mut thing = sector.thinglist;
         while !thing.is_null() {
             unsafe {
-                debug!("Thing type {:?} is in affected sector", (*thing).kind);
+                trace!("Thing type {:?} is in affected sector", (*thing).kind);
                 (*thing).pit_change_sector(&mut no_fit, crunch);
 
                 if (*thing).s_next.is_null() || (*thing).s_next == thing {

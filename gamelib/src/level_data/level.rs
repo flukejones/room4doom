@@ -1,9 +1,9 @@
 use log::debug;
 use wad::{lumps::WadThing, WadData};
 
-use crate::d_thinker::ThinkerAlloc;
 use crate::doom_def::GameAction;
 use crate::level_data::map_data::MapData;
+use crate::play::d_thinker::ThinkerAlloc;
 use crate::renderer::bsp::BspRenderer;
 use crate::renderer::plane::VisPlaneCtrl;
 use crate::renderer::RenderData;

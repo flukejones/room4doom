@@ -1,6 +1,8 @@
-use crate::p_map_object::MobjFlag;
+//! Doom source name `p_enemy`
+
+use super::{map_object::{MapObject, MobjFlag}, movement::p_radius_attack};
+
 use crate::renderer::bsp::point_to_angle_2;
-use crate::{p_map::p_radius_attack, p_map_object::MapObject};
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {
@@ -376,7 +378,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
 }
 
 pub fn a_pain(actor: &mut MapObject) {
-    unimplemented!();
+    dbg!("PAAAAIN!");
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
