@@ -1,11 +1,11 @@
 use std::collections::hash_set::HashSet;
 
+use doom_lib::doom_def::WeaponType;
+use doom_lib::tic_cmd::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode as Sc;
 use sdl2::mouse::MouseButton as Mb;
 use sdl2::EventPump;
-
-use crate::{doom_def::WeaponType, tic_cmd::*};
 
 #[derive(Default, Clone)]
 pub struct InputEvents {

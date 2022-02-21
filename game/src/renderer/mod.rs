@@ -1,4 +1,5 @@
-use crate::angle::Angle;
+use doom_lib::angle::Angle;
+
 use crate::renderer::defs::DrawSeg;
 use crate::renderer::portals::PortalClip;
 

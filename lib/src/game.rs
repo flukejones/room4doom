@@ -7,14 +7,10 @@ use crate::play::{
     specials::spawn_specials,
     utilities::m_clear_random,
 };
-use crate::renderer::bsp::BspRenderer;
-use crate::renderer::plane::VisPlaneCtrl;
-use crate::renderer::RenderData;
 use crate::tic_cmd::TicCmd;
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::io::Write;
 use wad::WadData;
 
@@ -23,12 +19,6 @@ pub struct Game {
     /// Contains the full wad file
     wad_data: WadData,
     pub level: Option<Level>,
-
-    bsp_renderer: BspRenderer,
-    r_data: RenderData,
-    visplanes: VisPlaneCtrl,
-
-    pub crop_rect: Rect,
 
     running: bool,
     // Game locals
@@ -182,12 +172,6 @@ impl Game {
         Game {
             wad_data: wad,
             level: None,
-            crop_rect: Rect::new(0, 0, 1, 1),
-
-            r_data: RenderData::default(),
-            visplanes: VisPlaneCtrl::default(),
-            bsp_renderer: BspRenderer::default(),
-
             running: true,
 
             players: [
@@ -581,40 +565,6 @@ impl Game {
             GameState::FORCE_WIPE => {
                 // do a wipe
             }
-        }
-    }
-
-    /// D_Display
-    // TODO: Move
-    pub fn render_player_view(&mut self, canvas: &mut Canvas<Surface>) {
-        if !self.player_in_game[0] {
-            return;
-        }
-
-        if let Some(ref mut level) = self.level {
-            let map = &level.map_data;
-
-            let player = &mut self.players[self.consoleplayer];
-
-            self.visplanes.clear_planes();
-            self.bsp_renderer.clear_clip_segs();
-            self.r_data.clear_data();
-            // The state machine will handle which state renders to the surface
-            //self.states.render(dt, &mut self.canvas);
-
-            let colour = sdl2::pixels::Color::RGBA(90, 80, 80, 255);
-            canvas.set_draw_color(colour);
-            canvas.fill_rect(Rect::new(0, 0, 320, 100)).unwrap();
-            let colour = sdl2::pixels::Color::RGBA(90, 90, 90, 255);
-            canvas.set_draw_color(colour);
-            canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
-            self.bsp_renderer.render_bsp_node(
-                map,
-                player,
-                map.start_node(),
-                &mut self.r_data,
-                canvas,
-            );
         }
     }
 }

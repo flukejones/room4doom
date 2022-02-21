@@ -3,9 +3,8 @@
 use super::{
     map_object::{MapObject, MobjFlag},
     movement::p_radius_attack,
+    utilities::point_to_angle_2,
 };
-
-use crate::renderer::bsp::point_to_angle_2;
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {

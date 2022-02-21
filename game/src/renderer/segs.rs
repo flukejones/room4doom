@@ -1,18 +1,20 @@
+use doom_lib::{
+    angle::Angle,
+    doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED},
+    level_data::map_defs::Segment,
+    play::player::Player,
+};
 use sdl2::{render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     ptr::NonNull,
 };
 
-use crate::angle::{Angle, CLASSIC_SCREEN_X_TO_VIEW};
-use crate::doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED};
-use crate::level_data::map_defs::Segment;
-use crate::play::player::Player;
-use crate::renderer::defs::{
-    DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP,
-};
 use crate::renderer::RenderData;
-use crate::{point_to_dist, scale_from_view_angle};
+use crate::{
+    renderer::defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+    utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW},
+};
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -70,48 +72,6 @@ pub struct SegRender {
 }
 
 impl SegRender {
-    pub fn new() -> Self {
-        SegRender {
-            segtextured: false,
-            /// False if the back side is the same plane.
-            markfloor: false,
-            markceiling: false,
-            maskedtexture: false,
-            // Texture ID's
-            toptexture: 0,
-            bottomtexture: 0,
-            midtexture: 0,
-            //
-            rw_normalangle: Angle::default(),
-            // regular wall
-            rw_x: 0,
-            rw_stopx: 0,
-            rw_centerangle: Angle::default(),
-            rw_offset: 0.0,
-            rw_distance: 0.0, // In R_ScaleFromGlobalAngle? Compute when needed
-            rw_scale: 0.0,
-            rw_scalestep: 0.0,
-            rw_midtexturemid: 0.0,
-            rw_toptexturemid: 0.0,
-            rw_bottomtexturemid: 0.0,
-
-            pixhigh: 0.0,
-            pixlow: 0.0,
-            pixhighstep: 0.0,
-            pixlowstep: 0.0,
-
-            topfrac: 0.0,
-            topstep: 0.0,
-            bottomfrac: 0.0,
-            bottomstep: 0.0,
-
-            worldtop: 0.0,
-            worldbottom: 0.0,
-            worldhigh: 0.0,
-            worldlow: 0.0,
-        }
-    }
-
     /// R_StoreWallRange - r_segs
     pub fn store_wall_range(
         &mut self,

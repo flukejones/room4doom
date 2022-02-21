@@ -14,7 +14,7 @@ const GL_QUAD: [f32; 16] = [
 
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-pub trait Renderer {
+pub trait Drawer {
     fn clear(&self);
 
     fn set_tex_filter(&self) -> Result<(), GolemError>;

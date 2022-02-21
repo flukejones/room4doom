@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use crate::level_data::map_defs::Segment;
+use doom_lib::level_data::map_defs::Segment;
 
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;
