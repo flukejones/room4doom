@@ -1,20 +1,32 @@
 // #![feature(const_fn_floating_point_arithmetic)]
 
-use std::f32::consts::PI;
-use std::fmt;
-use std::ops::{Deref, DerefMut};
+use std::{
+    f32::consts::PI,
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
-pub mod angle;
-pub mod d_main;
-pub mod doom_def;
-pub mod errors;
-pub mod flags;
-pub mod game;
-pub mod info;
-pub mod level_data;
-pub mod play;
-pub mod sounds;
+mod angle;
+mod d_main;
+mod doom_def;
+mod errors;
+mod flags;
+mod game;
+mod info;
+mod level_data;
+mod play;
+mod sounds;
 pub mod tic_cmd;
+
+pub use angle::Angle;
+pub use d_main::GameOptions;
+pub use doom_def::{WeaponType, ML_DONTPEGBOTTOM, ML_MAPPED};
+pub use game::Game;
+pub use level_data::{
+    map_data::{MapData, IS_SSECTOR_MASK},
+    map_defs::{Segment, SubSector},
+};
+pub use play::{map_object::MapObject, player::Player};
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us

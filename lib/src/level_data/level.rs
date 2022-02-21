@@ -1,12 +1,12 @@
 use log::debug;
 use wad::{lumps::WadThing, WadData};
 
-use crate::doom_def::GameAction;
-use crate::level_data::map_data::MapData;
-use crate::play::d_thinker::ThinkerAlloc;
 use crate::{
-    d_main::Skill, doom_def::GameMode, doom_def::MAXPLAYERS, doom_def::MAX_DEATHMATCH_STARTS,
+    d_main::Skill,
+    doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     game::Game,
+    level_data::map_data::MapData,
+    play::d_thinker::ThinkerAlloc,
 };
 
 /// The level is considered a `World` or sorts. One that exists only

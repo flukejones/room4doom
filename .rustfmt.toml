@@ -1,0 +1,7 @@
+max_width = 100
+imports_granularity = "Crate"
+reorder_imports = true
+reorder_modules = true
+use_field_init_shorthand = true
+remove_nested_parens = true
+edition = "2021"

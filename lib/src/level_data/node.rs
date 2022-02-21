@@ -2,8 +2,7 @@ use std::f32::consts::PI;
 
 use crate::level_data::map_defs::Node;
 
-use crate::play::utilities::ray_to_line_intersect;
-use crate::radian_range;
+use crate::{play::utilities::ray_to_line_intersect, radian_range};
 use glam::Vec2;
 
 impl Node {

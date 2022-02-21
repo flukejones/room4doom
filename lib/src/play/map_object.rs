@@ -18,15 +18,13 @@ use crate::level_data::Level;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
-use crate::info::MOBJINFO;
-use crate::info::{ActionF, MapObjectType, SpriteNum, State, StateNum, STATES};
-use crate::level_data::map_defs::SubSector;
-use crate::sounds::SfxEnum;
 use crate::{
     angle::Angle,
     d_main::Skill,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
-    info::MapObjectInfo,
+    info::{ActionF, MapObjectInfo, MapObjectType, SpriteNum, State, StateNum, MOBJINFO, STATES},
+    level_data::map_defs::SubSector,
+    sounds::SfxEnum,
 };
 use std::f32::consts::PI;
 

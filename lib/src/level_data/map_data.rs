@@ -1,11 +1,11 @@
 use std::ptr::null_mut;
 
-use crate::angle::Angle;
-use crate::level_data::map_defs::{
-    BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
+use crate::{
+    angle::Angle,
+    level_data::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
+    play::utilities::bam_to_radian,
+    DPtr,
 };
-use crate::play::utilities::bam_to_radian;
-use crate::DPtr;
 use glam::Vec2;
 use wad::{lumps::*, WadData};
 
@@ -441,8 +441,10 @@ impl BSPTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::level_data::map_data::MapData;
-    use crate::{angle::Angle, level_data::map_data::BSPTrace};
+    use crate::{
+        angle::Angle,
+        level_data::map_data::{BSPTrace, MapData},
+    };
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;

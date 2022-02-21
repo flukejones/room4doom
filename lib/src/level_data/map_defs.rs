@@ -1,7 +1,8 @@
-use crate::angle::Angle;
-use crate::play::d_thinker::Thinker;
-use crate::play::map_object::MapObject;
-use crate::DPtr;
+use crate::{
+    angle::Angle,
+    play::{d_thinker::Thinker, map_object::MapObject},
+    DPtr,
+};
 use glam::Vec2;
 
 #[derive(Debug)]

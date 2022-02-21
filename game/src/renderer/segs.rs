@@ -1,18 +1,15 @@
-use doom_lib::{
-    angle::Angle,
-    doom_def::{ML_DONTPEGBOTTOM, ML_MAPPED},
-    level_data::map_defs::Segment,
-    play::player::Player,
-};
+use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_MAPPED};
 use sdl2::{render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     ptr::NonNull,
 };
 
-use crate::renderer::RenderData;
 use crate::{
-    renderer::defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+    renderer::{
+        defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+        RenderData,
+    },
     utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW},
 };
 

@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
-use doom_lib::angle::Angle;
+use doom_lib::Angle;
 use glam::Vec2;
 
 // pub fn player_dist_to_screen() -> f32 {

@@ -1,5 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
-use std::ptr::NonNull;
+use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
 
 use glam::Vec2;
 
@@ -9,15 +8,13 @@ use super::{
     utilities::{bam_to_radian, fixed_to_float, MAXHEALTH, VIEWHEIGHT},
 };
 
-use crate::info::StateNum;
-use crate::level_data::Level;
-use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{
     angle::Angle,
-    doom_def::MAX_AMMO,
-    doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
+    doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS, MAX_AMMO},
+    info::{SpriteNum, StateNum},
+    level_data::Level,
+    tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
 };
-use crate::{info::SpriteNum, tic_cmd::TicCmd};
 
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;

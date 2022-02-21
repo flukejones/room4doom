@@ -1,5 +1,4 @@
-use std::fmt;
-use std::time::Instant;
+use std::{fmt, time::Instant};
 
 const MS_PER_UPDATE: f32 = 28.57;
 

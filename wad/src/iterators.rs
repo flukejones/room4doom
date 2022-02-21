@@ -1,5 +1,4 @@
-use crate::lumps::*;
-use crate::{Lumps, WadData};
+use crate::{lumps::*, Lumps, WadData};
 use std::marker::PhantomData;
 
 pub struct LumpIter<T, F: Fn(usize) -> T> {
@@ -261,8 +260,7 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::lumps::WadThing;
-    use crate::wad::WadData;
+    use crate::{lumps::WadThing, wad::WadData};
 
     #[test]
     fn things_iter() {

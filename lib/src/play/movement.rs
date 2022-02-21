@@ -7,15 +7,20 @@ use super::{
     map_object::{MapObject, MobjFlag},
     specials::cross_special_line,
     switch::p_use_special_line,
-    utilities::{box_on_line_side, path_traverse, PortalZ},
-    utilities::{BestSlide, Intercept, MAXRADIUS, USERANGE},
+    utilities::{
+        box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ, MAXRADIUS, USERANGE,
+    },
 };
 
-use crate::angle::Angle;
-use crate::flags::LineDefFlags;
-use crate::level_data::map_data::BSPTrace;
-use crate::level_data::map_defs::{BBox, LineDef, SlopeType};
-use crate::DPtr;
+use crate::{
+    angle::Angle,
+    flags::LineDefFlags,
+    level_data::{
+        map_data::BSPTrace,
+        map_defs::{BBox, LineDef, SlopeType},
+    },
+    DPtr,
+};
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
