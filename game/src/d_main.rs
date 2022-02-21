@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use doom_lib::game::Game;
+use doom_lib::Game;
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,

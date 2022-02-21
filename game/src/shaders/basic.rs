@@ -1,8 +1,7 @@
 use std::f32::consts::FRAC_PI_4;
 
 use glam::{Mat4, Vec3};
-use golem::Dimension::*;
-use golem::*;
+use golem::{Dimension::*, *};
 
 use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
 

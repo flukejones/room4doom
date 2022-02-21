@@ -16,11 +16,15 @@ use super::{
     platforms::{ev_do_platform, PlatKind},
 };
 
-use crate::flags::LineDefFlags;
-use crate::info::MapObjectType;
-use crate::level_data::map_defs::{LineDef, Sector};
-use crate::level_data::Level;
-use crate::DPtr;
+use crate::{
+    flags::LineDefFlags,
+    info::MapObjectType,
+    level_data::{
+        map_defs::{LineDef, Sector},
+        Level,
+    },
+    DPtr,
+};
 use log::{debug, error, trace, warn};
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {

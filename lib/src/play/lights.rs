@@ -2,9 +2,13 @@
 
 use std::ptr::null_mut;
 
-use crate::level_data::map_defs::{LineDef, Sector};
-use crate::level_data::Level;
-use crate::DPtr;
+use crate::{
+    level_data::{
+        map_defs::{LineDef, Sector},
+        Level,
+    },
+    DPtr,
+};
 
 use super::{
     d_thinker::{ObjectType, Think, Thinker},

@@ -6,7 +6,7 @@
 [ ] - Implement texture read and prep for use
 [X] - FIXED: they work I guess: E3M4 crushers
 
-Split the gameplay out in to a crate. The gameplay requires:
-- `p_` files, these are things like thinkers, objects (mobj, lights, sector movers).
-- the level data
-- the info (state, sprite etc)
+Game and doom-lib are now separate crates with these criteria:
+- "game" controls input and ticcmd, rendering, and menu display
+- "game" will also check state and show appropriate screens (like demo, intermission, menus)
+- "doom-lib" is pure gamestate - things like level control, map objects, thinkers etc.

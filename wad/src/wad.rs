@@ -1,7 +1,4 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::{fmt, str};
+use std::{fmt, fs::File, io::prelude::*, path::PathBuf, str};
 
 use crate::lumps::WadBlockMap;
 
@@ -307,8 +304,7 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::wad::WadData;
-    use crate::Lumps;
+    use crate::{wad::WadData, Lumps};
 
     #[test]
     fn load_wad() {

@@ -1,7 +1,9 @@
-use std::alloc::{alloc, dealloc, Layout};
-use std::fmt::{self, Debug};
-use std::mem::{align_of, size_of};
-use std::ptr::{self, null_mut};
+use std::{
+    alloc::{alloc, dealloc, Layout},
+    fmt::{self, Debug},
+    mem::{align_of, size_of},
+    ptr::{self, null_mut},
+};
 
 use log::debug;
 

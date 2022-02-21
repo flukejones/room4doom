@@ -3,18 +3,26 @@
 //! Doom source name `p_doors`
 
 use log::{debug, error, warn};
-use std::fmt::{self, Formatter};
-use std::ptr::null_mut;
+use std::{
+    fmt::{self, Formatter},
+    ptr::null_mut,
+};
 
-use crate::doom_def::TICRATE;
-use crate::level_data::map_defs::Sector;
-use crate::level_data::Level;
-use crate::play::specials::{move_plane, PlaneResult};
-use crate::{doom_def::Card, level_data::map_defs::LineDef, DPtr};
+use crate::{
+    doom_def::{Card, TICRATE},
+    level_data::{
+        map_defs::{LineDef, Sector},
+        Level,
+    },
+    play::specials::{move_plane, PlaneResult},
+    DPtr,
+};
 
-use super::d_thinker::{ObjectType, Think, Thinker};
-use super::map_object::MapObject;
-use super::specials::find_lowest_ceiling_surrounding;
+use super::{
+    d_thinker::{ObjectType, Think, Thinker},
+    map_object::MapObject,
+    specials::find_lowest_ceiling_surrounding,
+};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;

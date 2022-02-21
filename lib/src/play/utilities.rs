@@ -1,10 +1,12 @@
 //! Many helper functions related to traversing the map, crossing or finding lines.
 
-use super::map_object::MapObject;
-use super::movement::{PT_ADDLINES, PT_EARLYOUT};
+use super::{
+    map_object::MapObject,
+    movement::{PT_ADDLINES, PT_EARLYOUT},
+};
 
-use crate::angle::Angle;
 use crate::{
+    angle::Angle,
     level_data::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},

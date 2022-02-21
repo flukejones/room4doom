@@ -1,7 +1,6 @@
-use doom_lib::angle::Angle;
+use doom_lib::Angle;
 
-use crate::renderer::defs::DrawSeg;
-use crate::renderer::portals::PortalClip;
+use crate::renderer::{defs::DrawSeg, portals::PortalClip};
 
 pub mod bsp;
 pub mod defs;

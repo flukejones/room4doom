@@ -1,7 +1,7 @@
 use gumdrop::Options;
 use std::{error::Error, fmt, str::FromStr};
 
-use crate::{doom_def::GameMission, doom_def::GameMode};
+use crate::doom_def::{GameMission, GameMode};
 
 #[derive(Debug)]
 pub enum DoomArgError {

@@ -9,9 +9,9 @@ use std::error::Error;
 
 use d_main::d_doom_loop;
 use golem::*;
-use gumdrop::Options;
 
-use doom_lib::{d_main::GameOptions, game::Game};
+use doom_lib::{Game, GameOptions};
+use gumdrop::Options;
 use input::Input;
 
 /// The main `game` crate should take care of initialising a few things
