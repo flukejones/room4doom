@@ -1,6 +1,6 @@
 use crate::{
     d_main,
-    d_main::{GameOptions, Skill},
+    d_main::{DoomOptions, Skill},
     doom_def::*,
     level_data::{p_ticker, Level},
     play::{
@@ -19,7 +19,7 @@ use wad::WadData;
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     /// Contains the full wad file
-    wad_data: WadData,
+    pub wad_data: WadData,
     pub level: Option<Level>,
 
     running: bool,
@@ -78,11 +78,11 @@ pub struct Game {
     usergame: bool,
 
     /// The options the game exe was started with
-    pub game_options: GameOptions,
+    pub options: DoomOptions,
 }
 
 impl Game {
-    pub fn new(mut options: GameOptions) -> Game {
+    pub fn new(mut options: DoomOptions) -> Game {
         let mut logger = env_logger::Builder::new();
         logger
             .target(env_logger::Target::Stdout)
@@ -213,7 +213,7 @@ impl Game {
             game_mission,
             wipe_game_state: GameState::GS_LEVEL,
             usergame: false,
-            game_options: options,
+            options,
         }
     }
 
@@ -298,7 +298,7 @@ impl Game {
 
         m_clear_random();
 
-        if skill == Skill::Nightmare || self.game_options.respawn_parm {
+        if skill == Skill::Nightmare || self.options.respawn_parm {
             self.respawn_monsters = true;
         } else {
             self.respawn_monsters = false;

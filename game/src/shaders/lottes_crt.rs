@@ -64,7 +64,7 @@ impl<'c> LottesCRT<'c> {
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
         let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 2.42),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
@@ -141,32 +141,32 @@ impl<'c> Drawer for LottesCRT<'c> {
 
         // CRT focus?
         self.crt_shader
-            .set_uniform("hardPix", UniformValue::Float(-6.14))?; // -1 to -10
+            .set_uniform("hardPix", UniformValue::Float(-4.14))?; // -1 to -10
 
         // brightMult needs to be increased as this decreases
         self.crt_shader
-            .set_uniform("maskDark", UniformValue::Float(0.32))?; // 0.01 to 0.9
+            .set_uniform("maskDark", UniformValue::Float(0.1))?; // 0.01 to 0.9
 
         self.crt_shader
-            .set_uniform("maskLight", UniformValue::Float(0.28))?;
+            .set_uniform("maskLight", UniformValue::Float(1.0))?;
 
         // GAMMA
         self.crt_shader
-            .set_uniform("blackClip", UniformValue::Float(0.01))?;
+            .set_uniform("blackClip", UniformValue::Float(-0.00))?;
 
         self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(3.5))?;
+            .set_uniform("brightMult", UniformValue::Float(4.5))?;
 
         // SHAPE
         self.crt_shader
             .set_uniform("distortion", UniformValue::Float(0.07))?; // 0.05 to 0.3
 
         self.crt_shader
-            .set_uniform("cornersize", UniformValue::Float(0.02))?; // 0.01 to 0.05
+            .set_uniform("cornersize", UniformValue::Float(0.022))?; // 0.01 to 0.05
 
         // Edge hardness
         self.crt_shader
-            .set_uniform("cornersmooth", UniformValue::Float(170.0))?; // 70.0 to 170.0
+            .set_uniform("cornersmooth", UniformValue::Float(70.0))?; // 70.0 to 170.0
 
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
         self.texture.set_active(bind_point);

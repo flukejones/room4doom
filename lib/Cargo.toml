@@ -23,8 +23,3 @@ criterion = "~0.3"
 name = "load_map"
 harness = false
 path = "benches/parse_map.rs"
-
-[[bench]]
-name = "linked_lists"
-harness = false
-path = "benches/linked_lists.rs"

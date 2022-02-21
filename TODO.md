@@ -6,6 +6,9 @@
 [ ] - Implement texture read and prep for use
 [X] - FIXED: they work I guess: E3M4 crushers
 
+[ ] - Load textures
+[ ] - Load sprites
+
 Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display
 - "game" will also check state and show appropriate screens (like demo, intermission, menus)

@@ -79,7 +79,7 @@ impl<'c> Cgwgcrt<'c> {
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
         let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 2.42),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
@@ -113,7 +113,7 @@ impl<'c> Drawer for Cgwgcrt<'c> {
 
     fn set_tex_filter(&self) -> Result<(), GolemError> {
         self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
+        self.texture.set_magnification(TextureFilter::Nearest)
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
@@ -165,7 +165,7 @@ impl<'c> Drawer for Cgwgcrt<'c> {
         // distance from viewer
         self.crt_shader.set_uniform("d", UniformValue::Float(1.5))?;
         // radius of curvature - 2.0 to 3.0?
-        self.crt_shader.set_uniform("R", UniformValue::Float(2.3))?;
+        self.crt_shader.set_uniform("R", UniformValue::Float(3.3))?;
         self.crt_shader
             .set_uniform("cornersize", UniformValue::Float(0.02))?;
         // border smoothness parameter
@@ -175,7 +175,7 @@ impl<'c> Drawer for Cgwgcrt<'c> {
         self.crt_shader
             .set_uniform("overscan", UniformValue::Vector2([0.99, 0.99]))?;
         self.crt_shader
-            .set_uniform("aspect", UniformValue::Vector2([1.0, 0.75]))?;
+            .set_uniform("aspect", UniformValue::Vector2([0.8, 1.0]))?;
 
         unsafe {
             self.crt_shader

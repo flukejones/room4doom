@@ -1,8 +1,30 @@
+use std::str::FromStr;
+
 use golem::GolemError;
 
 pub mod basic;
 pub mod cgwg_crt;
 pub mod lottes_crt;
+
+#[derive(Debug, Clone, Copy)]
+pub enum Shaders {
+    Basic,
+    Lottes,
+    Cgwg,
+}
+
+impl FromStr for Shaders {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "basic" => Ok(Shaders::Basic),
+            "lottes" => Ok(Shaders::Lottes),
+            "cgwg" => Ok(Shaders::Cgwg),
+            _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Doh!")),
+        }
+    }
+}
 
 const GL_QUAD: [f32; 16] = [
     // position         vert_uv
