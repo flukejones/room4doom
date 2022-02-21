@@ -4,7 +4,7 @@ use criterion::*;
 
 use gamelib::{
     d_main,
-    d_thinker::{ObjectType, TestObject, Think, ThinkerAlloc},
+    play::d_thinker::{ObjectType, TestObject, Think, ThinkerAlloc},
     doom_def,
     level_data::{map_data::MapData, Level},
 };

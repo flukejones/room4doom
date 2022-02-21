@@ -1,17 +1,23 @@
 //! Platform movement thinker: raise and lower. Can be crushers and can be repeating movements.
+//!
+//! Doom source name `p_plats`
+
 use std::ptr::null_mut;
 
-use crate::{
+use super::{
     d_thinker::{ObjectType, Think, Thinker},
+    utilities::p_random,
+    map_object::MapObject,
+    specials::{
+        find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
+    },
+};
+
+use crate::{
     doom_def::TICRATE,
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
-    },
-    p_local::p_random,
-    p_map_object::MapObject,
-    p_specials::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
     },
     DPtr,
 };

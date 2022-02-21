@@ -1,19 +1,17 @@
 //! Floor movement thinker: raise, lower, crusher
+//!
+//! Doom source name `p_floor`
 use std::ptr::null_mut;
 
 use crate::{
-    d_thinker::{ObjectType, Think, Thinker},
     level_data::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    p_map_object::MapObject,
-    p_specials::{
-        find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
-        find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
-    },
     DPtr,
 };
+
+use super::{d_thinker::{Thinker, ObjectType, Think}, specials::{find_highest_floor_surrounding, find_lowest_floor_surrounding, find_lowest_ceiling_surrounding, find_next_highest_floor, move_plane, PlaneResult}, map_object::MapObject};
 
 const FLOORSPEED: f32 = 1.0;
 const ML_TWOSIDED: i16 = 4;

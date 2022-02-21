@@ -1,13 +1,13 @@
+use crate::d_main;
+use crate::d_main::{GameOptions, Skill};
 use crate::level_data::{p_ticker, Level};
-use crate::p_map_object::MapObject;
-use crate::p_specials::spawn_specials;
-use crate::player::{Player, WBStartStruct};
-use crate::tic_cmd::TicCmd;
-use crate::{d_main, player::PlayerState};
-use crate::{
-    d_main::{GameOptions, Skill},
-    p_local::m_clear_random,
+use crate::play::{
+    map_object::MapObject,
+    player::{Player, PlayerState, WBStartStruct},
+    specials::spawn_specials,
+    utilities::m_clear_random,
 };
+use crate::tic_cmd::TicCmd;
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
 use log::{debug, info, trace, warn};

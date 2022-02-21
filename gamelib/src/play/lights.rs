@@ -1,12 +1,17 @@
+//! Doom source name `p_lights`
+
 use std::ptr::null_mut;
 
-use crate::d_thinker::{ObjectType, Think, Thinker};
 use crate::level_data::map_defs::{LineDef, Sector};
 use crate::level_data::Level;
-use crate::p_local::p_random;
-use crate::p_map_object::MapObject;
-use crate::p_specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector};
 use crate::DPtr;
+
+use super::{
+    d_thinker::{ObjectType, Think, Thinker},
+    utilities::p_random,
+    map_object::MapObject,
+    specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector},
+};
 
 const STROBEBRIGHT: i32 = 5;
 pub const FASTDARK: i32 = 15;

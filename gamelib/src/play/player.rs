@@ -3,25 +3,24 @@ use std::ptr::NonNull;
 
 use glam::Vec2;
 
-/// 16 pixels of bob
-const MAXBOB: f32 = 16.0; // 0x100000;
+use super::{
+    utilities::{bam_to_radian, fixed_to_float, MAXHEALTH, VIEWHEIGHT},
+    map_object::MapObject,
+    player_sprite::PspDef,
+};
 
 use crate::info::StateNum;
 use crate::level_data::Level;
-use crate::p_player_sprite::PspDef;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{
     angle::Angle,
     doom_def::MAX_AMMO,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS},
-    p_local::MAXHEALTH,
-    p_local::VIEWHEIGHT,
 };
-use crate::{
-    info::SpriteNum, p_local::bam_to_radian, p_local::fixed_to_float, p_map_object::MapObject,
-    tic_cmd::TicCmd,
-};
+use crate::{info::SpriteNum, tic_cmd::TicCmd};
 
+/// 16 pixels of bob
+const MAXBOB: f32 = 16.0; // 0x100000;
 pub const CF_GODMODE: i32 = 2;
 
 /// Overlay psprites are scaled shapes

@@ -5,13 +5,15 @@ use std::ptr::{self, null_mut};
 
 use log::debug;
 
+use super::{
+    ceiling::CeilingMove,
+    doors::VerticalDoor,
+    floor::FloorMove,
+    lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
+    map_object::MapObject,
+    platforms::Platform,
+};
 use crate::level_data::Level;
-use crate::p_ceiling::CeilingMove;
-use crate::p_doors::VerticalDoor;
-use crate::p_floor::FloorMove;
-use crate::p_lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
-use crate::p_map_object::MapObject;
-use crate::p_platforms::Platform;
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -398,12 +400,12 @@ mod tests {
 
     use crate::{
         d_main::Skill,
-        d_thinker::{ObjectType, TestObject, Think, Thinker},
         doom_def::GameMode,
         level_data::{map_data::MapData, Level},
+        play::d_thinker::{Think, Thinker},
     };
 
-    use super::ThinkerAlloc;
+    use super::{ObjectType, TestObject, ThinkerAlloc};
     use std::ptr::null_mut;
 
     #[test]

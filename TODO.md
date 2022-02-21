@@ -4,4 +4,9 @@
 [ ] - Implement P_DamageMobj
 [ ] - P_KillMobj
 [ ] - Implement texture read and prep for use
-[ ] - E3M4 crushers
+[X] - FIXED: they work I guess: E3M4 crushers
+
+Split the gameplay out in to a crate. The gameplay requires:
+- `p_` files, these are things like thinkers, objects (mobj, lights, sector movers).
+- the level data
+- the info (state, sprite etc)

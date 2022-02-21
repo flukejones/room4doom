@@ -1,8 +1,8 @@
 use crate::angle::Angle;
 use crate::level_data::map_data::{MapData, IS_SSECTOR_MASK};
 use crate::level_data::map_defs::{Segment, SubSector};
-use crate::p_map_object::MapObject;
-use crate::player::Player;
+use crate::play::map_object::MapObject;
+use crate::play::player::Player;
 use crate::renderer::defs::ClipRange;
 use crate::renderer::segs::SegRender;
 use crate::renderer::RenderData;

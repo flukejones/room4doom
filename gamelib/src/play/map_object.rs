@@ -1,33 +1,31 @@
 //! The bulk of map objects. Things like monsters, giblets, rockets and plasma
 //! shots etc. Items. Anything that needs to move.
+//!
+//! Doom source name `p_mobj`
 
 use std::ptr::{null_mut, NonNull};
 
-use crate::d_thinker::ObjectType;
+use super::{
+    d_thinker::{ObjectType, Think, Thinker},
+    utilities::{p_random, p_subrandom, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT},
+    movement::SubSectorMinMax,
+    player::{Player, PlayerState},
+};
+
 use crate::level_data::Level;
-use crate::p_local::{p_subrandom, BestSlide};
-use crate::p_map::SubSectorMinMax;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
-use crate::d_thinker::Thinker;
-use crate::info::{ActionF, State, StateNum, STATES};
+use crate::info::MOBJINFO;
+use crate::info::{ActionF, State, StateNum, STATES, MapObjectType, SpriteNum};
 use crate::level_data::map_defs::SubSector;
+use crate::sounds::SfxEnum;
 use crate::{
     angle::Angle,
     d_main::Skill,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
     info::MapObjectInfo,
-    p_local::FRACUNIT_DIV4,
-    p_local::ONCEILINGZ,
 };
-use crate::{d_thinker::Think, info::MOBJINFO};
-use crate::{
-    info::{MapObjectType, SpriteNum},
-    p_local::{ONFLOORZ, VIEWHEIGHT},
-    player::{Player, PlayerState},
-};
-use crate::{p_local::p_random, sounds::SfxEnum};
 use std::f32::consts::PI;
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
@@ -770,10 +768,8 @@ impl MapObject {
 
         if on_floor {
             self.z = self.floorz;
-        } else {
-            if self.z + self.height > self.ceilingz {
-                self.z = self.ceilingz - self.height;
-            }
+        } else if self.z + self.height > self.ceilingz {
+            self.z = self.ceilingz - self.height;
         }
 
         if self.ceilingz - self.floorz < self.height {
@@ -817,8 +813,10 @@ impl MapObject {
 
         let level_time = unsafe { (*self.level).level_time };
 
-        if crush_change && level_time & 3 != 0 {
-            // TODO: P_DamageMobj(thing, NULL, NULL, 10);
+        // TODO: why level_time&3 ?
+        if crush_change && level_time != 0 {
+            dbg!("Crush");
+            self.p_take_damage(None, None, 10);
             let mut mobj = MapObject::spawn_map_object(
                 self.xy.x(),
                 self.xy.y(),
