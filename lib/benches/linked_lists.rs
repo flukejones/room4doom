@@ -2,10 +2,8 @@ use std::ptr::null_mut;
 
 use criterion::*;
 
-use doom_lib::{
-    play::d_thinker::{ObjectType, TestObject, Think, ThinkerAlloc},
-    MapData,
-};
+use doom_lib::{Game, GameOptions, MapData};
+use gumdrop::Options;
 use wad::WadData;
 
 fn push_100_000(b: &mut Bencher) {
@@ -28,8 +26,7 @@ fn load_and_iter(b: &mut Bencher) {
     let mut map = MapData::new("E1M1".to_owned());
     map.load(&wad);
 
-    let mut level = unsafe { Level::new(d_main::Skill::Baby, 1, 1, doom_def::GameMode::Shareware) };
-
+    let game = Game::new(GameOptions::parse_args_default(&[]).unwrap());
     let mut links = unsafe { ThinkerAlloc::new(10000) };
 
     for i in 0..10000 {
@@ -44,7 +41,7 @@ fn load_and_iter(b: &mut Bencher) {
 
     b.iter(|| {
         let mut _count = 0;
-        links.run_thinkers(&mut level);
+        links.run_thinkers(&mut game.level.unwrap());
     });
 }
 

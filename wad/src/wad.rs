@@ -7,7 +7,7 @@ use crate::lumps::WadBlockMap;
 /// in `self.wad_dirs` then combine this index with a `LumpIndex`
 /// variant to get a specific lump.
 #[allow(dead_code)]
-pub enum Lumps {
+pub enum MapLump {
     /// Position and angle for all monster, powerup and spawn location
     Things = 1,
     /// An array of lines referencing two vertices (Two vertexes are connected
@@ -41,20 +41,20 @@ pub enum Lumps {
     Count,
 }
 
-impl ToString for Lumps {
+impl ToString for MapLump {
     fn to_string(&self) -> String {
         match self {
-            Lumps::Things => "THINGS".to_string(),
-            Lumps::LineDefs => "LINEDEFS".to_string(),
-            Lumps::SideDefs => "SIDEDEFS".to_string(),
-            Lumps::Vertexes => "VERTEXES".to_string(),
-            Lumps::Segs => "SEGS".to_string(),
-            Lumps::SSectors => "SSECTORS".to_string(),
-            Lumps::Nodes => "NODES".to_string(),
-            Lumps::Sectors => "SECTORS".to_string(),
-            Lumps::Reject => "REJECT".to_string(),
-            Lumps::Blockmap => "BLOCKMAP".to_string(),
-            Lumps::Count => "COUNT".to_string(),
+            MapLump::Things => "THINGS".to_string(),
+            MapLump::LineDefs => "LINEDEFS".to_string(),
+            MapLump::SideDefs => "SIDEDEFS".to_string(),
+            MapLump::Vertexes => "VERTEXES".to_string(),
+            MapLump::Segs => "SEGS".to_string(),
+            MapLump::SSectors => "SSECTORS".to_string(),
+            MapLump::Nodes => "NODES".to_string(),
+            MapLump::Sectors => "SECTORS".to_string(),
+            MapLump::Reject => "REJECT".to_string(),
+            MapLump::Blockmap => "BLOCKMAP".to_string(),
+            MapLump::Count => "COUNT".to_string(),
         }
     }
 }
@@ -108,20 +108,20 @@ impl fmt::Debug for WadHeader {
 ///
 pub struct LumpInfo {
     /// The offset in bytes where the lump data starts
-    pub lump_offset: usize,
+    pub offset: usize,
     /// The size in bytes of the lump referenced
-    pub lump_size: usize,
+    pub size: usize,
     /// Name for the lump data
-    pub lump_name: String,
+    pub name: String,
     /// The Index in to `WadData.file_data`
-    pub file_handle: usize,
+    pub handle: usize,
 }
 impl fmt::Debug for LumpInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "\nWadDirectory {{\n  lump_name: {},\n  lump_size: {},\n  lump_offset: {},\n}}",
-            &self.lump_name, self.lump_size, self.lump_offset
+            &self.name, self.size, self.offset
         )
     }
 }
@@ -186,8 +186,12 @@ impl WadData {
         self.cache_lumps(self.file_data.len() - 1);
     }
 
-    pub fn read_byte(&self, offset: usize, file: &[u8]) -> i16 {
-        file[offset] as i16
+    pub fn read_byte(&self, offset: usize, file: &[u8]) -> u8 {
+        file[offset]
+    }
+
+    pub fn read_byte_i8(&self, offset: usize, file: &[u8]) -> i8 {
+        file[offset] as i8
     }
 
     pub fn read_2_bytes(&self, offset: usize, file: &[u8]) -> i16 {
@@ -242,12 +246,13 @@ impl WadData {
         let file = &self.file_data[file_idx];
 
         LumpInfo {
-            file_handle: file_idx,
-            lump_offset: self.read_4_bytes(offset, file) as usize,
-            lump_size: self.read_4_bytes(offset + 4, file) as usize,
-            lump_name: str::from_utf8(&n)
+            handle: file_idx,
+            offset: self.read_4_bytes(offset, file) as usize,
+            size: self.read_4_bytes(offset + 4, file) as usize,
+            name: str::from_utf8(&n)
                 .expect("Invalid lump name")
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}')
+                .to_ascii_uppercase() // better to address this early to avoid many casts later
                 .to_owned(),
         }
     }
@@ -263,9 +268,20 @@ impl WadData {
         }
     }
 
-    pub fn find_lump_for_map_or_panic(&self, map_name: &str, lump: Lumps) -> &LumpInfo {
-        for (idx, info) in self.lump_info.iter().enumerate() {
-            if info.lump_name == map_name {
+    /// Find a general lump by name
+    pub fn find_lump_or_panic(&self, name: &str) -> &LumpInfo {
+        for info in self.lump_info.iter().rev() {
+            if info.name == name.to_ascii_uppercase() {
+                return info;
+            }
+        }
+        panic!("Could not find {}", name);
+    }
+
+    /// Find the map name and adds the desired lump offset
+    pub fn find_lump_for_map_or_panic(&self, map_name: &str, lump: MapLump) -> &LumpInfo {
+        for (idx, info) in self.lump_info.iter().enumerate().rev() {
+            if info.name == map_name.to_ascii_uppercase() {
                 return &self.lump_info[idx + lump as usize];
             }
         }
@@ -274,7 +290,7 @@ impl WadData {
 
     pub fn lump_exists(&self, lump_name: &str) -> bool {
         for lump in self.lump_info.iter().rev() {
-            if lump.lump_name == lump_name {
+            if lump.name == lump_name.to_ascii_uppercase() {
                 return true;
             }
         }
@@ -282,12 +298,12 @@ impl WadData {
     }
 
     pub fn read_blockmap(&self, map_name: &str) -> WadBlockMap {
-        let info = self.find_lump_for_map_or_panic(map_name, Lumps::Blockmap);
-        let file = &self.file_data[info.file_handle];
-        let offset = info.lump_offset;
+        let info = self.find_lump_for_map_or_panic(map_name, MapLump::Blockmap);
+        let file = &self.file_data[info.handle];
+        let offset = info.offset;
 
-        let mut lines = Vec::with_capacity(info.lump_size);
-        for i in (offset..offset + info.lump_size).step_by(2) {
+        let mut lines = Vec::with_capacity(info.size);
+        for i in (offset..offset + info.size).step_by(2) {
             lines.push(self.read_2_bytes(i, file));
         }
 
@@ -304,7 +320,11 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::{wad::WadData, Lumps};
+    use crate::{
+        lumps::{WadPalette, WadPatch},
+        wad::WadData,
+        MapLump,
+    };
 
     #[test]
     fn load_wad() {
@@ -370,15 +390,15 @@ mod tests {
     #[test]
     fn find_e1m1_things() {
         let wad = WadData::new("../doom1.wad".into());
-        let things_lump = wad.find_lump_for_map_or_panic("E1M1", Lumps::Things);
-        assert_eq!(things_lump.lump_name, "THINGS");
+        let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Things);
+        assert_eq!(things_lump.name, "THINGS");
     }
 
     #[test]
     fn find_e1m1_blockmap() {
         let wad = WadData::new("../doom1.wad".into());
-        let things_lump = wad.find_lump_for_map_or_panic("E1M1", Lumps::Blockmap);
-        assert_eq!(things_lump.lump_name, "BLOCKMAP");
+        let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Blockmap);
+        assert_eq!(things_lump.name, "BLOCKMAP");
 
         let blockmap = wad.read_blockmap("E1M1");
         assert_eq!(blockmap.x_origin, -768 + -8); // -776 confirmed, needs conversion to float
@@ -583,8 +603,43 @@ mod tests {
     #[test]
     fn find_e1m2_vertexes() {
         let wad = WadData::new("../doom1.wad".into());
-        let things_lump = wad.find_lump_for_map_or_panic("E1M2", Lumps::Vertexes);
-        assert_eq!(things_lump.lump_name, Lumps::Vertexes.to_string());
+        let things_lump = wad.find_lump_for_map_or_panic("E1M2", MapLump::Vertexes);
+        assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
+    }
+
+    #[test]
+    fn find_texture_lump() {
+        let wad = WadData::new("../doom1.wad".into());
+        let _tex = wad.find_lump_or_panic("TEXTURE1");
+        assert_eq!(_tex.name, "TEXTURE1");
+        assert_eq!(_tex.size, 9234);
+        assert_eq!(_tex.offset, 977748);
+    }
+
+    #[test]
+    fn find_playpal_lump() {
+        let wad = WadData::new("../doom1.wad".into());
+        let pal_lump = wad.find_lump_or_panic("PLAYPAL");
+        assert_eq!(pal_lump.name, "PLAYPAL");
+        assert_eq!(pal_lump.size, 10752);
+        assert_eq!(pal_lump.offset, 12);
+    }
+
+    #[test]
+    fn check_image_patch() {
+        let wad = WadData::new("../doom1.wad".into());
+        let lump = wad.find_lump_or_panic("WALL01_7");
+        assert_eq!(lump.name, "WALL01_7");
+        assert_eq!(lump.size, 1304);
+        assert_eq!(lump.offset, 3256112);
+
+        let patch = WadPatch::from_lump(lump, &wad);
+
+        assert_eq!(patch.columns[0].y_offset, 0);
+        assert_eq!(patch.columns[15].y_offset, 255);
+        assert_eq!(patch.columns[15].pixels.len(), 0);
+        //let end = wad.read_byte(col_start + len as usize + 1, file);
+        //assert_eq!(end, 255);
     }
 
     #[test]
@@ -600,11 +655,11 @@ mod tests {
         assert_eq!(headers[0].wad_type(), "IWAD");
         assert_eq!(headers[1].wad_type(), "PWAD");
 
-        let things_lump = wad.find_lump_for_map_or_panic("E3M2", Lumps::Vertexes);
-        assert_eq!(things_lump.lump_name, Lumps::Vertexes.to_string());
+        let things_lump = wad.find_lump_for_map_or_panic("E3M2", MapLump::Vertexes);
+        assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
 
-        let things_lump = wad.find_lump_for_map_or_panic("E5M1", Lumps::Vertexes);
-        assert_eq!(things_lump.lump_name, Lumps::Vertexes.to_string());
+        let things_lump = wad.find_lump_for_map_or_panic("E5M1", MapLump::Vertexes);
+        assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
 
         let mut iter = wad.thing_iter("E5M1");
         // All verified with SLADE

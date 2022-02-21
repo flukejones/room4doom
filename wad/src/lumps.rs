@@ -12,7 +12,127 @@
 
 use std::str;
 
-//pub use crate::nodes::IS_SSECTOR_MASK;
+use crate::{LumpInfo, WadData};
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct WadColour {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl WadColour {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct WadPalette(pub [WadColour; 256]);
+
+impl WadPalette {
+    pub fn new() -> Self {
+        Self([WadColour::default(); 256])
+    }
+}
+
+impl Default for WadPalette {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WadPatch {
+    pub width: u16,
+    pub height: u16,
+    pub left_offset: i16,
+    pub top_offset: i16,
+    pub columns: Vec<WadPatchCol>,
+}
+
+impl WadPatch {
+    pub fn from_lump(lump: &LumpInfo, wad: &WadData) -> Self {
+        let file = &wad.file_data[lump.handle];
+        let width = wad.read_2_bytes(lump.offset, file) as u16;
+
+        let mut columns = Vec::new();
+        for q in 0..width {
+            let mut offset =
+                lump.offset + wad.read_4_bytes((lump.offset + 8) + 4 * q as usize, file) as usize;
+            loop {
+                let y_offset = wad.read_byte(offset, file) as u32;
+                if y_offset == 255 {
+                    columns.push(WadPatchCol {
+                        y_offset,
+                        pixels: Vec::new(),
+                    });
+                    break;
+                }
+
+                offset += 1;
+                let len = wad.read_byte(offset, file) as u32;
+                offset += 1;
+                columns.push(WadPatchCol {
+                    y_offset,
+                    pixels: (0..len)
+                        .map(|_| {
+                            offset += 1;
+                            wad.read_byte(offset as usize, file) as usize
+                        })
+                        .collect(),
+                });
+
+                offset += 2;
+            }
+        }
+
+        WadPatch {
+            width,
+            height: wad.read_2_bytes(lump.offset + 2, file) as u16,
+            left_offset: wad.read_2_bytes(lump.offset + 4, file),
+            top_offset: wad.read_2_bytes(lump.offset + 6, file),
+            columns,
+        }
+    }
+}
+
+/// A column of pixels. Each `pixel` is an index in to the palette to fetch colour.
+/// There can be multiple of `WadPatchCol` in a column, and the column itself is
+/// ended only when `y_offset` is `0xFF`.
+#[derive(Debug, Clone)]
+pub struct WadPatchCol {
+    /// Determines where on the column the pixel stream starts.
+    /// An 0xFF terminates the patch data.
+    pub y_offset: u32,
+    /// Every `usize` here is an index in to the play palette
+    pub pixels: Vec<usize>,
+}
+
+/// Contains all the data required to compose a full texture from a series of
+/// patches.
+#[derive(Debug, Clone)]
+pub struct WadTexture {
+    /// Texture name
+    pub name: String,
+    /// Full width of the composed texture
+    pub width: u32,
+    /// Full height of the composed texture
+    pub height: u32,
+    /// Collection of `WadTexPatch` which determine where a patch is positioned
+    /// in the texture.
+    pub patches: Vec<WadTexPatch>,
+}
+
+/// Position of a patch, and which patch (via indexto PNAMES) to use.
+#[derive(Debug, Clone)]
+pub struct WadTexPatch {
+    /// Left start position
+    pub origin_x: i32,
+    /// Top start position
+    pub origin_y: i32,
+    pub patch_index: usize,
+}
 
 /// A `Thing` describes only the position, type, and angle + spawn flags
 ///
@@ -464,5 +584,165 @@ impl WadBlockMap {
             line_indexes: lines,
             blockmap_offset: blockmap_idx,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::WadData;
+
+    #[test]
+    fn texture1_header_0() {
+        let wad = WadData::new("../doom1.wad".into());
+        let lump = wad.find_lump_or_panic("TEXTURE1");
+        assert_eq!(lump.name, "TEXTURE1");
+        assert_eq!(lump.size, 9234);
+        assert_eq!(lump.offset, 977748);
+
+        let file = &wad.file_data[lump.handle];
+        let tex_count = wad.read_4_bytes(lump.offset, file);
+        assert_eq!(tex_count, 125);
+
+        let mut tex_offsets = Vec::new();
+        for i in 0..tex_count as usize {
+            tex_offsets
+                .push(lump.offset + wad.read_4_bytes(lump.offset + 4 + 4 * i, file) as usize);
+        }
+
+        // Read texture name
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[tex_offsets[0] + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "AASTINKY");
+
+        // offset + 4, ignored
+        let tex0_width = wad.read_2_bytes(tex_offsets[0] + 12, file);
+        let tex0_height = wad.read_2_bytes(tex_offsets[0] + 14, file);
+        assert_eq!(tex0_width, 24);
+        assert_eq!(tex0_height, 72);
+        // offset + 4, ignored
+        // Patch count tells how many blocks of 10 bytes to read
+        let tex0_patch_count = wad.read_2_bytes(tex_offsets[0] + 20, file);
+        assert_eq!(tex0_patch_count, 2);
+
+        // Multiple blocks (n = patch_count)
+        // And then patch_count * block of 10 bytes
+        // Each block is a patch layout to form the texture
+        let tex0_h_offset = wad.read_2_bytes(tex_offsets[0] + 22, file);
+        let tex0_v_offset = wad.read_2_bytes(tex_offsets[0] + 24, file);
+        // Patch from PNAMES index
+        let tex0_p_index = wad.read_2_bytes(tex_offsets[0] + 26, file);
+        assert_eq!(tex0_h_offset, 0);
+        assert_eq!(tex0_v_offset, 0);
+        assert_eq!(tex0_p_index, 0);
+
+        let tex0_h_offset = wad.read_2_bytes(tex_offsets[0] + 22 + 10, file);
+        let tex0_v_offset = wad.read_2_bytes(tex_offsets[0] + 24 + 10, file);
+        let tex0_p_index = wad.read_2_bytes(tex_offsets[0] + 26 + 10, file);
+        assert_eq!(tex0_h_offset, 12);
+        assert_eq!(tex0_v_offset, -6);
+        assert_eq!(tex0_p_index, 0);
+
+        // The last in the list
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[tex_offsets[tex_count as usize - 1] + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "TEKWALL5");
+    }
+
+    #[test]
+    fn pnames_array() {
+        let wad = WadData::new("../doom1.wad".into());
+        let lump = wad.find_lump_or_panic("PNAMES");
+        assert_eq!(lump.name, "PNAMES");
+        assert_eq!(lump.size, 2804);
+        assert_eq!(lump.offset, 986984);
+
+        let file = &wad.file_data[lump.handle];
+
+        let patch_count = wad.read_4_bytes(lump.offset, file);
+        assert_eq!(patch_count, 350);
+
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[lump.offset + 4 + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "WALL00_3");
+
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[lump.offset + 4 + 8 + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "W13_1");
+
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[lump.offset + 4 + 16 + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "DOOR2_1");
+    }
+
+    #[test]
+    #[ignore = "Registered Doom only"]
+    fn texture2_header() {
+        let wad = WadData::new("../doom.wad".into());
+        let lump = wad.find_lump_or_panic("TEXTURE2");
+        assert_eq!(lump.name, "TEXTURE2");
+        assert_eq!(lump.size, 8036);
+        assert_eq!(lump.offset, 3690828);
+
+        let file = &wad.file_data[lump.handle];
+        let tex_count = wad.read_4_bytes(lump.offset, file);
+        assert_eq!(tex_count, 162);
+
+        let mut tex_offsets = Vec::new();
+        for i in 0..tex_count as usize {
+            tex_offsets
+                .push(lump.offset + wad.read_4_bytes(lump.offset + 4 + 4 * i, file) as usize);
+        }
+
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[tex_offsets[0] + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "ASHWALL");
+
+        let mut n = [0u8; 8]; // length is 8 slots total
+        for (i, slot) in n.iter_mut().enumerate() {
+            *slot = file[tex_offsets[tex_count as usize - 1] + i];
+        }
+        let name = std::str::from_utf8(&n)
+            .expect("Invalid lump name")
+            .trim_end_matches('\u{0}')
+            .to_owned();
+        assert_eq!(name.as_str(), "WOODSKUL");
+
+        //assert_eq!(lump.offset as i32 + tex_offsets[0], lump.offset as i32 + 4);
     }
 }

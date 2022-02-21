@@ -12,3 +12,8 @@ rs_game_framework.iws
 **/target
 doom.wad
 doom2.wad
+
+.flatpak-builder/
+SDL2.dll
+cargo-sources.json
+player_movement_test.wad

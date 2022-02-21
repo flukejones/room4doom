@@ -43,7 +43,7 @@ impl<'c> Basic<'c> {
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
         let look_at = Mat4::look_at_rh(
-            Vec3::new(0.0, 0.0, 2.5),
+            Vec3::new(0.0, 0.0, 2.42),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
@@ -75,7 +75,7 @@ impl<'c> Drawer for Basic<'c> {
 
     fn set_tex_filter(&self) -> Result<(), GolemError> {
         self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
+        self.texture.set_magnification(TextureFilter::Nearest)
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {

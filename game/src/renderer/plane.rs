@@ -1,4 +1,4 @@
-use crate::renderer::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
+use super::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
 
 pub struct VisPlaneCtrl {
     // Here comes the obnoxious "visplane".

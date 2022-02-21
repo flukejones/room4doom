@@ -19,7 +19,7 @@ mod sounds;
 pub mod tic_cmd;
 
 pub use angle::Angle;
-pub use d_main::GameOptions;
+pub use d_main::{DoomOptions, Shaders, Skill};
 pub use doom_def::{WeaponType, ML_DONTPEGBOTTOM, ML_MAPPED};
 pub use game::Game;
 pub use level_data::{
@@ -27,6 +27,8 @@ pub use level_data::{
     map_defs::{Segment, SubSector},
 };
 pub use play::{map_object::MapObject, player::Player};
+
+pub use log;
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
