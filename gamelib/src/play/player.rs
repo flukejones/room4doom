@@ -4,9 +4,9 @@ use std::ptr::NonNull;
 use glam::Vec2;
 
 use super::{
-    utilities::{bam_to_radian, fixed_to_float, MAXHEALTH, VIEWHEIGHT},
     map_object::MapObject,
     player_sprite::PspDef,
+    utilities::{bam_to_radian, fixed_to_float, MAXHEALTH, VIEWHEIGHT},
 };
 
 use crate::info::StateNum;

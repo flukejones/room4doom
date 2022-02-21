@@ -7,9 +7,11 @@ use std::ptr::{null_mut, NonNull};
 
 use super::{
     d_thinker::{ObjectType, Think, Thinker},
-    utilities::{p_random, p_subrandom, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT},
     movement::SubSectorMinMax,
     player::{Player, PlayerState},
+    utilities::{
+        p_random, p_subrandom, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT,
+    },
 };
 
 use crate::level_data::Level;
@@ -17,7 +19,7 @@ use glam::Vec2;
 use wad::lumps::WadThing;
 
 use crate::info::MOBJINFO;
-use crate::info::{ActionF, State, StateNum, STATES, MapObjectType, SpriteNum};
+use crate::info::{ActionF, MapObjectType, SpriteNum, State, StateNum, STATES};
 use crate::level_data::map_defs::SubSector;
 use crate::sounds::SfxEnum;
 use crate::{

@@ -8,9 +8,9 @@ use crate::DPtr;
 
 use super::{
     d_thinker::{ObjectType, Think, Thinker},
-    utilities::p_random,
     map_object::MapObject,
     specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector},
+    utilities::p_random,
 };
 
 const STROBEBRIGHT: i32 = 5;

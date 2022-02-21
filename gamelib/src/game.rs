@@ -7,6 +7,9 @@ use crate::play::{
     specials::spawn_specials,
     utilities::m_clear_random,
 };
+use crate::renderer::bsp::BspRenderer;
+use crate::renderer::plane::VisPlaneCtrl;
+use crate::renderer::RenderData;
 use crate::tic_cmd::TicCmd;
 use crate::{doom_def::*, tic_cmd::TIC_CMD_BUTTONS};
 use d_main::identify_version;
@@ -20,6 +23,11 @@ pub struct Game {
     /// Contains the full wad file
     wad_data: WadData,
     pub level: Option<Level>,
+
+    bsp_renderer: BspRenderer,
+    r_data: RenderData,
+    visplanes: VisPlaneCtrl,
+
     pub crop_rect: Rect,
 
     running: bool,
@@ -175,6 +183,10 @@ impl Game {
             wad_data: wad,
             level: None,
             crop_rect: Rect::new(0, 0, 1, 1),
+
+            r_data: RenderData::default(),
+            visplanes: VisPlaneCtrl::default(),
+            bsp_renderer: BspRenderer::default(),
 
             running: true,
 
@@ -584,9 +596,9 @@ impl Game {
 
             let player = &mut self.players[self.consoleplayer];
 
-            level.visplanes.clear_planes();
-            level.bsp_renderer.clear_clip_segs();
-            level.r_data.clear_data();
+            self.visplanes.clear_planes();
+            self.bsp_renderer.clear_clip_segs();
+            self.r_data.clear_data();
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 
@@ -596,11 +608,11 @@ impl Game {
             let colour = sdl2::pixels::Color::RGBA(90, 90, 90, 255);
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
-            level.bsp_renderer.render_bsp_node(
+            self.bsp_renderer.render_bsp_node(
                 map,
                 player,
                 map.start_node(),
-                &mut level.r_data,
+                &mut self.r_data,
                 canvas,
             );
         }

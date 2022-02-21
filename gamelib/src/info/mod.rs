@@ -6,7 +6,7 @@ use std::fmt;
 
 use enumn::N;
 
-use crate::play::{map_object::MapObject, player_sprite::PspDef, player::Player};
+use crate::play::{map_object::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 use crate::sounds::SfxEnum;
 

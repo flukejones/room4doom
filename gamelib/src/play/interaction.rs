@@ -4,9 +4,9 @@ use glam::Vec2;
 use log::debug;
 
 use super::{
-    utilities::p_random,
     map_object::{MapObject, MobjFlag},
     player::CF_GODMODE,
+    utilities::p_random,
 };
 use crate::{
     d_main::Skill,

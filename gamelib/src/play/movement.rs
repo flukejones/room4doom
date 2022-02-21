@@ -4,11 +4,11 @@ use glam::Vec2;
 use log::debug;
 
 use super::{
-    utilities::{BestSlide, Intercept, MAXRADIUS, USERANGE},
     map_object::{MapObject, MobjFlag},
-    utilities::{box_on_line_side, path_traverse, PortalZ},
     specials::cross_special_line,
     switch::p_use_special_line,
+    utilities::{box_on_line_side, path_traverse, PortalZ},
+    utilities::{BestSlide, Intercept, MAXRADIUS, USERANGE},
 };
 
 use crate::angle::Angle;
