@@ -11,7 +11,11 @@ use crate::{
     DPtr,
 };
 
-use super::{d_thinker::{Thinker, ObjectType, Think}, specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult}, map_object::MapObject};
+use super::{
+    d_thinker::{ObjectType, Think, Thinker},
+    map_object::MapObject,
+    specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
+};
 
 const CEILSPEED: f32 = 1.0;
 

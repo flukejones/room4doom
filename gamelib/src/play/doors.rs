@@ -12,7 +12,7 @@ use crate::level_data::Level;
 use crate::play::specials::{move_plane, PlaneResult};
 use crate::{doom_def::Card, level_data::map_defs::LineDef, DPtr};
 
-use super::d_thinker::{Thinker, Think, ObjectType};
+use super::d_thinker::{ObjectType, Think, Thinker};
 use super::map_object::MapObject;
 use super::specials::find_lowest_ceiling_surrounding;
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::play::{player_sprite::*, enemy::*};
+use crate::play::{enemy::*, player_sprite::*};
 
 use super::{ActionF, SpriteNum, StateNum};
 

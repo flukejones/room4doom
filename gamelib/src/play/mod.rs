@@ -7,10 +7,10 @@
 pub mod d_thinker; // required by level data
 pub mod enemy; // required by states
 pub mod map_object; // info, level data, game, bsp
-pub mod utilities; // level data node
+pub mod player;
 pub mod player_sprite; // info/states
 pub mod specials; // game
-pub mod player; // many places
+pub mod utilities; // level data node // many places
 
 mod ceiling;
 mod doors;

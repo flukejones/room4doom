@@ -4,8 +4,8 @@ use crate::angle::Angle;
 use crate::level_data::map_defs::{
     BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
 };
-use crate::DPtr;
 use crate::play::utilities::bam_to_radian;
+use crate::DPtr;
 use glam::Vec2;
 use wad::{lumps::*, WadData};
 

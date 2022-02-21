@@ -4,9 +4,6 @@ use wad::{lumps::WadThing, WadData};
 use crate::doom_def::GameAction;
 use crate::level_data::map_data::MapData;
 use crate::play::d_thinker::ThinkerAlloc;
-use crate::renderer::bsp::BspRenderer;
-use crate::renderer::plane::VisPlaneCtrl;
-use crate::renderer::RenderData;
 use crate::{
     d_main::Skill, doom_def::GameMode, doom_def::MAXPLAYERS, doom_def::MAX_DEATHMATCH_STARTS,
     game::Game,
@@ -16,13 +13,8 @@ use crate::{
 /// while the player is in it. Another benefit of this structure is
 /// it makes it easier for all involved thinkers and functions to
 /// work with the data, as much of it is interlinked.
-///
-/// In some ways this is the "P" module
 pub struct Level {
     pub map_data: MapData,
-    pub bsp_renderer: BspRenderer,
-    pub r_data: RenderData,
-    pub visplanes: VisPlaneCtrl,
     pub thinkers: ThinkerAlloc,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
@@ -87,9 +79,6 @@ impl Level {
 
         Level {
             map_data,
-            r_data: RenderData::default(),
-            visplanes: VisPlaneCtrl::default(),
-            bsp_renderer: BspRenderer::default(),
             thinkers: ThinkerAlloc::new(thinker_count + 500),
             game_skill: skill,
             respawn_monsters,

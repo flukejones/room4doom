@@ -11,7 +11,14 @@ use crate::{
     DPtr,
 };
 
-use super::{d_thinker::{Thinker, ObjectType, Think}, specials::{find_highest_floor_surrounding, find_lowest_floor_surrounding, find_lowest_ceiling_surrounding, find_next_highest_floor, move_plane, PlaneResult}, map_object::MapObject};
+use super::{
+    d_thinker::{ObjectType, Think, Thinker},
+    map_object::MapObject,
+    specials::{
+        find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
+        find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
+    },
+};
 
 const FLOORSPEED: f32 = 1.0;
 const ML_TWOSIDED: i16 = 4;

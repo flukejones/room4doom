@@ -1,6 +1,9 @@
 //! Doom source name `p_enemy`
 
-use super::{map_object::{MapObject, MobjFlag}, movement::p_radius_attack};
+use super::{
+    map_object::{MapObject, MobjFlag},
+    movement::p_radius_attack,
+};
 
 use crate::renderer::bsp::point_to_angle_2;
 
