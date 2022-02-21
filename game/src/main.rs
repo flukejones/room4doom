@@ -1,9 +1,18 @@
+mod d_main;
+mod input;
+mod renderer;
+mod shaders;
+mod timestep;
+mod utilities;
+
 use std::error::Error;
 
+use d_main::d_doom_loop;
 use golem::*;
 use gumdrop::Options;
 
-use doom_lib::{d_main::d_doom_loop, d_main::GameOptions, game::Game, input::Input};
+use doom_lib::{d_main::GameOptions, game::Game};
+use input::Input;
 
 /// The main `game` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {

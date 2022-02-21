@@ -12,7 +12,7 @@ use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
     info::{MapObjectType, STATES},
-    renderer::bsp::point_to_angle_2,
+    play::utilities::point_to_angle_2,
 };
 
 impl MapObject {

@@ -4,7 +4,7 @@ use glam::{Mat4, Vec3};
 use golem::Dimension::*;
 use golem::*;
 
-use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
+use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
 
 pub struct Basic<'c> {
     ctx: &'c Context,
@@ -68,7 +68,7 @@ impl<'c> Basic<'c> {
     }
 }
 
-impl<'c> Renderer for Basic<'c> {
+impl<'c> Drawer for Basic<'c> {
     fn clear(&self) {
         self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
         self.ctx.clear();

@@ -1,11 +1,11 @@
-use crate::angle::Angle;
-use crate::level_data::map_data::{MapData, IS_SSECTOR_MASK};
-use crate::level_data::map_defs::{Segment, SubSector};
-use crate::play::map_object::MapObject;
-use crate::play::player::Player;
 use crate::renderer::defs::ClipRange;
 use crate::renderer::segs::SegRender;
 use crate::renderer::RenderData;
+use doom_lib::angle::Angle;
+use doom_lib::level_data::map_data::{MapData, IS_SSECTOR_MASK};
+use doom_lib::level_data::map_defs::{Segment, SubSector};
+use doom_lib::play::map_object::MapObject;
+use doom_lib::play::player::Player;
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
@@ -397,8 +397,7 @@ pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use crate::level_data::map_data::MapData;
-    use crate::renderer::bsp::IS_SSECTOR_MASK;
+    use doom_lib::level_data::map_data::{MapData, IS_SSECTOR_MASK};
     use wad::WadData;
 
     #[test]

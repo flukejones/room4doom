@@ -4,7 +4,7 @@ use glam::{Mat4, Vec3};
 use golem::Dimension::*;
 use golem::*;
 
-use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
+use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
 
 /// CRT shader
 /// ```
@@ -18,7 +18,7 @@ use super::{Renderer, GL_QUAD, GL_QUAD_INDICES};
 ///  *  any later version.
 ///  */
 /// ```
-pub struct CGWGCRT<'c> {
+pub struct Cgwgcrt<'c> {
     ctx: &'c Context,
     _quad: [f32; 16],
     indices: [u32; 6],
@@ -32,7 +32,7 @@ pub struct CGWGCRT<'c> {
     eb: ElementBuffer,
 }
 
-impl<'c> CGWGCRT<'c> {
+impl<'c> Cgwgcrt<'c> {
     pub fn new(ctx: &'c Context, crt_width: u32, crt_height: u32) -> Self {
         let crt = ShaderProgram::new(
             ctx,
@@ -106,7 +106,7 @@ impl<'c> CGWGCRT<'c> {
     }
 }
 
-impl<'c> Renderer for CGWGCRT<'c> {
+impl<'c> Drawer for Cgwgcrt<'c> {
     fn clear(&self) {
         self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
         self.ctx.clear();

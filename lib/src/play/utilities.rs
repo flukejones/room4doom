@@ -3,6 +3,7 @@
 use super::map_object::MapObject;
 use super::movement::{PT_ADDLINES, PT_EARLYOUT};
 
+use crate::angle::Angle;
 use crate::{
     level_data::{
         map_data::BSPTrace,
@@ -231,6 +232,12 @@ pub fn ray_to_line_intersect(
         return Some(t1);
     }
     None
+}
+
+pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+    let x = point1.x() - point2.x();
+    let y = point1.y() - point2.y();
+    Angle::new(y.atan2(x))
 }
 
 pub struct Slide {
