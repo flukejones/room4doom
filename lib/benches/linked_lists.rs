@@ -2,7 +2,7 @@ use std::ptr::null_mut;
 
 use criterion::*;
 
-use gamelib::{
+use doom_lib::{
     d_main, doom_def,
     level_data::{map_data::MapData, Level},
     play::d_thinker::{ObjectType, TestObject, Think, ThinkerAlloc},
