@@ -10,7 +10,10 @@ use sdl2::{
     surface::Surface,
     video::Window,
 };
-use wad::lumps::{WadPalette, WadPatch};
+use wad::{
+    lumps::{WadPalette, WadPatch},
+    WadData,
+};
 
 use crate::{
     input::Input,
@@ -28,10 +31,10 @@ struct Renderer {
 }
 
 impl Renderer {
-    fn new() -> Self {
+    fn new(wad: &WadData) -> Self {
         Self {
             bsp_renderer: BspRenderer::default(),
-            r_data: RenderData::default(),
+            r_data: RenderData::new(wad),
             visplanes: VisPlaneCtrl::default(),
             crop_rect: Rect::new(0, 0, 1, 1),
         }
@@ -80,7 +83,7 @@ pub fn d_doom_loop(
     ctx: Context,
     options: GameOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let mut renderer = Renderer::new();
+    let mut renderer = Renderer::new(&game.wad_data);
 
     let mut timestep = TimeStep::new();
     let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
@@ -150,7 +153,11 @@ pub fn d_doom_loop(
             }
         }
         if options.texture_test {
-            texture_cycle_test(&game.get_texture(tex_num), &game, &mut render_buffer);
+            texture_cycle_test(
+                &renderer.r_data.get_texture(tex_num),
+                &renderer,
+                &mut render_buffer,
+            );
         }
 
         let pix = render_buffer
@@ -186,7 +193,7 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if tex_num < game.num_textures() - 1 {
+                if tex_num < renderer.r_data.num_textures() - 1 {
                     tex_num += 1;
                 } else {
                     tex_num = 0;
@@ -310,13 +317,13 @@ fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surfa
     }
 }
 
-fn texture_cycle_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surface>) {
+fn texture_cycle_test(texture: &Texture, rend: &Renderer, canvas: &mut Canvas<Surface>) {
     let width = texture.len() as u32;
     let height = texture[0].len() as u32;
 
     let xs = ((canvas.surface().width() - width) / 2) as i32;
     let ys = ((canvas.surface().height() - height) / 2) as i32;
-    let pal = game.get_palette(0);
+    let pal = rend.r_data.get_palette(0);
 
     for (x_pos, column) in texture.iter().enumerate() {
         for (y_pos, idx) in column.iter().enumerate() {

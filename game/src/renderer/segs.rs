@@ -350,6 +350,7 @@ impl SegRender {
         self.render_seg_loop(object, seg, rdata, canvas);
     }
 
+    /// Doom function name `R_RenderSegLoop`
     fn render_seg_loop(
         &mut self,
         player: &Player,
@@ -427,6 +428,34 @@ impl SegRender {
             }
 
             if self.midtexture != 0 && yh > yl {
+                let texture = &rdata.textures[seg.linedef.front_sidedef.midtexture as usize];
+
+                let x = if (self.rw_x as usize / 3) < texture.len() {
+                    self.rw_x as usize / 3
+                } else {
+                    0
+                };
+
+                let y = if (yl as usize) < texture[x].len() {
+                    yl as usize
+                } else {
+                    0
+                };
+
+                let px = texture[x][y];
+                let colour = if px != usize::MAX {
+                    let colour = &rdata.get_palette(0)[px];
+                    sdl2::pixels::Color::RGBA(
+                        colour.r + lightnum - (z >> 2) as u8,
+                        colour.g + lightnum - (z >> 2) as u8,
+                        colour.b + lightnum - (z >> 2) as u8,
+                        255,
+                    )
+                } else {
+                    colour // sdl2::pixels::Color::RGBA(0, 0, 0, 0)
+                };
+                canvas.set_draw_color(colour);
+
                 canvas
                     .draw_line((self.rw_x, yl as i32), (self.rw_x, yh as i32))
                     .unwrap();
