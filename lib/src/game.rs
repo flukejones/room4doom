@@ -25,9 +25,6 @@ pub struct Game {
     /// Contains the full wad file
     pub wad_data: WadData,
     pub level: Option<Level>,
-    palettes: Vec<WadPalette>,
-    /// Indexing is [texture num][x][y]
-    textures: Vec<Texture>,
 
     running: bool,
     // Game locals
@@ -178,18 +175,9 @@ impl Game {
             }
         }
 
-        let palettes = wad.playpal_iter().collect();
-        let patches: Vec<WadPatch> = wad.patches_iter().collect();
-        let textures: Vec<Texture> = wad
-            .texture_iter()
-            .map(|tex| compose_texture(tex, &patches))
-            .collect();
-
         Game {
             wad_data: wad,
             level: None,
-            palettes,
-            textures,
             running: true,
 
             players: [
@@ -231,18 +219,6 @@ impl Game {
             usergame: false,
             options,
         }
-    }
-
-    pub fn get_palette(&self, num: usize) -> &[WadColour] {
-        &self.palettes[num].0
-    }
-
-    pub fn get_texture(&self, num: usize) -> &Texture {
-        &self.textures[num]
-    }
-
-    pub fn num_textures(&self) -> usize {
-        self.textures.len()
     }
 
     /// G_InitNew
@@ -597,29 +573,4 @@ impl Game {
             }
         }
     }
-}
-
-fn compose_texture(texture: WadTexture, patches: &[WadPatch]) -> Texture {
-    let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
-
-    for patch_pos in &texture.patches {
-        let patch = &patches[patch_pos.patch_index];
-        // draw patch
-        let mut x_pos = patch_pos.origin_x;
-        for c in patch.columns.iter() {
-            if x_pos == texture.width as i32 {
-                break;
-            }
-            for (y, p) in c.pixels.iter().enumerate() {
-                let y_pos = y as i32 + patch_pos.origin_y + c.y_offset as i32;
-                if y_pos > 0 && y_pos < texture.height as i32 && x_pos > 0 {
-                    compose[x_pos as usize][y_pos as usize] = *p;
-                }
-            }
-            if c.y_offset == 255 {
-                x_pos += 1;
-            }
-        }
-    }
-    compose
 }
