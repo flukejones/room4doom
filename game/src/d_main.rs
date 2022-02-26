@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use doom_lib::Game;
+use doom_lib::{Game, Texture};
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,
@@ -10,7 +10,7 @@ use sdl2::{
     surface::Surface,
     video::Window,
 };
-use wad::lumps::{WadPalette, WadPatch, WadTexture};
+use wad::lumps::{WadPalette, WadPatch};
 
 use crate::{
     input::Input,
@@ -121,11 +121,6 @@ pub fn d_doom_loop(
     } else {
         None
     };
-    let textures: Option<Vec<WadTexture>> = if options.texture_test {
-        Some(game.wad_data.texture_iter().collect())
-    } else {
-        None
-    };
 
     loop {
         if !game.running() {
@@ -155,11 +150,7 @@ pub fn d_doom_loop(
             }
         }
         if options.texture_test {
-            if let Some(images) = &images {
-                if let Some(textures) = &textures {
-                    texture_cycle_test(&textures[tex_num], images, &mut game, &mut render_buffer);
-                }
-            }
+            texture_cycle_test(&game.get_texture(tex_num), &game, &mut render_buffer);
         }
 
         let pix = render_buffer
@@ -195,12 +186,10 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if let Some(tex) = &textures {
-                    if tex_num < tex.len() - 1 {
-                        tex_num += 1;
-                    } else {
-                        tex_num = 0;
-                    }
+                if tex_num < game.num_textures() - 1 {
+                    tex_num += 1;
+                } else {
+                    tex_num = 0;
                 }
             }
         }
@@ -321,38 +310,24 @@ fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surfa
     }
 }
 
-fn texture_cycle_test(
-    texture: &WadTexture,
-    patches: &[WadPatch],
-    game: &mut Game,
-    canvas: &mut Canvas<Surface>,
-) {
-    let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
+fn texture_cycle_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surface>) {
+    let width = texture.len() as u32;
+    let height = texture[0].len() as u32;
 
-    let xs = ((canvas.surface().width() - texture.width) / 2) as i32;
-    let ys = ((canvas.surface().height() - texture.height) / 2) as i32;
+    let xs = ((canvas.surface().width() - width) / 2) as i32;
+    let ys = ((canvas.surface().height() - height) / 2) as i32;
+    let pal = game.get_palette(0);
 
-    for patch_pos in &texture.patches {
-        let patch = &patches[patch_pos.patch_index];
-        // draw patch
-        let mut x_pos = patch_pos.origin_x;
-        for c in patch.columns.iter() {
-            if x_pos == texture.width as i32 {
-                break;
+    for (x_pos, column) in texture.iter().enumerate() {
+        for (y_pos, idx) in column.iter().enumerate() {
+            if *idx >= pal.len() {
+                continue;
             }
-            for (y, p) in c.pixels.iter().enumerate() {
-                let y_pos = y as i32 + patch_pos.origin_y + c.y_offset as i32;
-                if y_pos > 0 && y_pos < texture.height as i32 {
-                    let colour = pals[0].0[*p];
-                    canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-                    canvas
-                        .fill_rect(Rect::new(xs + x_pos, ys + y_pos, 1, 1))
-                        .unwrap();
-                }
-            }
-            if c.y_offset == 255 {
-                x_pos += 1;
-            }
+            let colour = pal[*idx];
+            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
+            canvas
+                .fill_rect(Rect::new(xs + x_pos as i32, ys + y_pos as i32, 1, 1))
+                .unwrap();
         }
     }
 }

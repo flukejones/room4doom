@@ -275,7 +275,7 @@ impl WadData {
                 return info;
             }
         }
-        panic!("Could not find {}", name);
+        panic!("Could not find lump {}", name);
     }
 
     /// Find the map name and adds the desired lump offset
@@ -285,7 +285,7 @@ impl WadData {
                 return &self.lump_info[idx + lump as usize];
             }
         }
-        panic!("Could not find {}", map_name);
+        panic!("Could not find lump {}", map_name);
     }
 
     pub fn lump_exists(&self, lump_name: &str) -> bool {
@@ -320,11 +320,7 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        lumps::{WadPalette, WadPatch},
-        wad::WadData,
-        MapLump,
-    };
+    use crate::{lumps::WadPatch, wad::WadData, MapLump};
 
     #[test]
     fn load_wad() {
