@@ -196,6 +196,11 @@ impl MapData {
             })
             .collect();
 
+        let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
+        if wad.lump_exists("TEXTURE2") {
+            let mut pnames2: Vec<WadTexture> = wad.texture_iter("TEXTURE2").collect();
+            tex_order.append(&mut pnames2);
+        }
         // Sidedefs
         self.sidedefs = wad
             .sidedef_iter(&self.name)
@@ -205,9 +210,18 @@ impl MapData {
                 SideDef {
                     textureoffset: s.y_offset as f32,
                     rowoffset: s.x_offset as f32,
-                    toptexture: if s.upper_tex.is_empty() { 0 } else { 1 },
-                    bottomtexture: if s.lower_tex.is_empty() { 0 } else { 1 },
-                    midtexture: if s.middle_tex.is_empty() { 0 } else { 1 },
+                    toptexture: tex_order
+                        .iter()
+                        .position(|n| n.name == s.upper_tex)
+                        .unwrap_or(usize::MAX),
+                    bottomtexture: tex_order
+                        .iter()
+                        .position(|n| n.name == s.lower_tex)
+                        .unwrap_or(usize::MAX),
+                    midtexture: tex_order
+                        .iter()
+                        .position(|n| n.name == s.middle_tex)
+                        .unwrap_or(usize::MAX),
                     sector: DPtr::new(sector),
                 }
             })

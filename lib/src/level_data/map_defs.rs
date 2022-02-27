@@ -58,11 +58,10 @@ pub struct SideDef {
     // add this to the calculated texture top
     pub rowoffset: f32,
 
-    // Texture indices.
-    // We do not maintain names here.
-    pub toptexture: i16,
-    pub bottomtexture: i16,
-    pub midtexture: i16,
+    // TODO: link to textures by pointer?
+    pub toptexture: usize,
+    pub bottomtexture: usize,
+    pub midtexture: usize,
 
     // Sector the SideDef is facing.
     pub sector: DPtr<Sector>,
