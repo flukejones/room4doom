@@ -37,6 +37,10 @@ impl Angle {
         self.0.cos()
     }
 
+    pub fn tan(&self) -> f32 {
+        self.0.tan()
+    }
+
     pub fn unit(&self) -> Vec2 {
         let (y, x) = self.0.sin_cos();
         Vec2::new(x, y)

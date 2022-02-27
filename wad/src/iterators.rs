@@ -120,8 +120,8 @@ impl WadData {
 
     /// Producer for the base texture data. This returns `WadTexture` which includes data
     /// on how the patches are put together to form a texture.
-    pub fn texture_iter(&self) -> LumpIter<WadTexture, impl Fn(usize) -> WadTexture + '_> {
-        let info = self.find_lump_or_panic("TEXTURE1");
+    pub fn texture_iter(&self, name: &str) -> LumpIter<WadTexture, impl Fn(usize) -> WadTexture + '_> {
+        let info = self.find_lump_or_panic(name);
         let item_size = 4;
         let file = &self.file_data[info.handle];
 

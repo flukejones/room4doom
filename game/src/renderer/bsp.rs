@@ -114,7 +114,7 @@ impl BspRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
+                self.clip_solid_seg(x1, x2, seg, player, r_data, canvas);
                 return;
             }
 
@@ -123,7 +123,7 @@ impl BspRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, r_data, canvas);
+                self.clip_portal_seg(x1, x2, seg, player, r_data, canvas);
                 return;
             }
 
@@ -133,12 +133,12 @@ impl BspRenderer {
             if back_sector.ceilingpic == front_sector.ceilingpic
                 && back_sector.floorpic == front_sector.floorpic
                 && back_sector.lightlevel == front_sector.lightlevel
-                && seg.linedef.front_sidedef.midtexture == 0
+                && seg.linedef.front_sidedef.midtexture == usize::MAX
             {
                 // TODO: fill in this body
             }
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
+            self.clip_solid_seg(x1, x2, seg, player, r_data, canvas);
         }
     }
 
@@ -241,7 +241,7 @@ impl BspRenderer {
         // There is a fragment after *next.
         r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
         // Adjust the clip size.
-        //self.solidsegs[start].last = last;
+        self.solidsegs[start].last = last;
 
         //crunch
         self.crunch(start, next);

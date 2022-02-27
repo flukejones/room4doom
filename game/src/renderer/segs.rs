@@ -1,5 +1,5 @@
 use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_MAPPED};
-use sdl2::{render::Canvas, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     ptr::NonNull,
@@ -80,11 +80,11 @@ impl SegRender {
         canvas: &mut Canvas<Surface>,
     ) {
         // Keep original Doom behaviour here
-        if rdata.drawsegs.len() >= MAXDRAWSEGS {
+        if rdata.drawsegs.len() > MAXDRAWSEGS {
             return;
         }
 
-        if start >= 320 || start > stop {
+        if start > 320 || start > stop {
             println!("Bad R_RenderWallRange: {} to {}", start, stop);
             return;
         }
@@ -129,7 +129,7 @@ impl SegRender {
         ds_p.x1 = start;
         self.rw_x = start;
         ds_p.x2 = stop;
-        self.rw_stopx = stop + 1;
+        self.rw_stopx = stop;
 
         // testing draws
         self.rw_scalestep = (scale2 - self.rw_scale) / (stop - start) as f32;
@@ -254,7 +254,7 @@ impl SegRender {
 
             if sidedef.midtexture != 0 {
                 self.maskedtexture = true;
-                ds_p.maskedtexturecol = sidedef.midtexture;
+                ds_p.maskedtexturecol = sidedef.midtexture as i16;
                 // TODO: ds_p->maskedtexturecol = maskedtexturecol = lastopening - rw_x;
                 // lastopening += rw_stopx - rw_x;
             }
@@ -268,7 +268,7 @@ impl SegRender {
         if self.segtextured {
             offsetangle = self.rw_normalangle - rdata.rw_angle1;
 
-            if offsetangle.rad() > PI {
+            if offsetangle.rad() >= PI {
                 offsetangle = -offsetangle;
             } else if offsetangle.rad() > FRAC_PI_2 {
                 offsetangle = Angle::new(FRAC_PI_2);
@@ -321,7 +321,7 @@ impl SegRender {
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 100.0 - (self.worldtop * self.rw_scale);
+        self.topfrac = 101.0 - (self.worldtop * self.rw_scale);
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
@@ -363,7 +363,7 @@ impl SegRender {
         //
         // TESTING STUFF
         //
-        let mut lightnum = seg.linedef.front_sidedef.sector.lightlevel as u8 >> 2;
+        let mut lightnum = seg.linedef.front_sidedef.sector.lightlevel as u8;
 
         if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
             if lightnum > 5 {
@@ -373,25 +373,17 @@ impl SegRender {
             lightnum += 5;
         }
 
-        let z = seg.sidedef.sector.floorheight.abs() as u8 / 2;
-
-        let colour = sdl2::pixels::Color::RGBA(
-            100 + (self.midtexture * 5) as u8 + lightnum - (z >> 2) as u8,
-            100 + (self.toptexture * 5) as u8 + lightnum - (z >> 2) as u8,
-            100 + (self.bottomtexture * 5) as u8 + lightnum - (z >> 2) as u8,
-            255,
-        );
-        canvas.set_draw_color(colour);
-
         // R_RenderSegLoop
         let mut yl;
         let mut yh;
         let mut top;
         let mut bottom;
         let mut mid;
+        let mut angle;
+        let mut texture_column = 0;
         while self.rw_x < self.rw_stopx {
             yl = self.topfrac + 1.0;
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
@@ -423,42 +415,27 @@ impl SegRender {
                 }
             }
 
-            if !self.segtextured {
-                continue;
+            if self.segtextured {
+                angle = self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize];
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as usize;
+                dbg!(texture_column);
+                //continue;
             }
 
-            if self.midtexture != 0 && yh > yl {
-                let texture = &rdata.textures[seg.linedef.front_sidedef.midtexture as usize];
-
-                let x = if (self.rw_x as usize / 3) < texture.len() {
-                    self.rw_x as usize / 3
-                } else {
-                    0
+            if self.midtexture != 0 && yh >= yl {
+                if seg.linedef.front_sidedef.midtexture != usize::MAX {
+                    let texture = &rdata.textures[seg.linedef.front_sidedef.midtexture];
+                    basic_draw_test(
+                        texture,
+                        texture_column as usize,
+                        lightnum,
+                        self.rw_x as usize,
+                        yl as usize,
+                        yh as usize,
+                        rdata,
+                        canvas,
+                    );
                 };
-
-                let y = if (yl as usize) < texture[x].len() {
-                    yl as usize
-                } else {
-                    0
-                };
-
-                let px = texture[x][y];
-                let colour = if px != usize::MAX {
-                    let colour = &rdata.get_palette(0)[px];
-                    sdl2::pixels::Color::RGBA(
-                        colour.r + lightnum - (z >> 2) as u8,
-                        colour.g + lightnum - (z >> 2) as u8,
-                        colour.b + lightnum - (z >> 2) as u8,
-                        255,
-                    )
-                } else {
-                    colour // sdl2::pixels::Color::RGBA(0, 0, 0, 0)
-                };
-                canvas.set_draw_color(colour);
-
-                canvas
-                    .draw_line((self.rw_x, yl as i32), (self.rw_x, yh as i32))
-                    .unwrap();
 
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] = SCREENHEIGHT as f32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
@@ -472,11 +449,20 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        // TODO: temporary?
                         if seg.linedef.point_on_side(&mobj.xy) == 0 {
-                            canvas
-                                .draw_line((self.rw_x, yl as i32), (self.rw_x, mid as i32))
-                                .unwrap();
+                            if seg.linedef.front_sidedef.toptexture != usize::MAX {
+                                let texture = &rdata.textures[seg.linedef.front_sidedef.toptexture];
+                                basic_draw_test(
+                                    texture,
+                                    texture_column as usize,
+                                    lightnum,
+                                    self.rw_x as usize,
+                                    yl as usize,
+                                    mid as usize,
+                                    rdata,
+                                    canvas,
+                                );
+                            }
                         }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
@@ -496,11 +482,21 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        // TODO: temporary?
                         if seg.linedef.point_on_side(&mobj.xy) == 0 {
-                            canvas
-                                .draw_line((self.rw_x, yh as i32), (self.rw_x, mid as i32))
-                                .unwrap();
+                            if seg.linedef.front_sidedef.bottomtexture != usize::MAX {
+                                let texture =
+                                    &rdata.textures[seg.linedef.front_sidedef.bottomtexture];
+                                basic_draw_test(
+                                    texture,
+                                    texture_column as usize,
+                                    lightnum,
+                                    self.rw_x as usize,
+                                    mid as usize,
+                                    yh as usize,
+                                    rdata,
+                                    canvas,
+                                );
+                            }
                         }
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
@@ -533,5 +529,35 @@ impl SegRender {
         //     canvas.draw_line((self.rw_x, yl), (self.rw_x, yh)).unwrap();
         //     count -= 1;
         // }
+    }
+}
+
+fn basic_draw_test(
+    texture: &Vec<Vec<usize>>,
+    texture_column: usize,
+    lightnum: u8,
+    rw_x: usize,
+    yl: usize,
+    yh: usize,
+    rdata: &RenderData,
+    canvas: &mut Canvas<Surface>,
+) {
+    let scale = (lightnum as f32 / 255.0);
+    for n in yl..=yh as usize {
+        let px = texture[texture_column % texture.len()][n % texture[0].len()];
+        if px != usize::MAX {
+            let colour = &rdata.get_palette(0)[px];
+            let colour = sdl2::pixels::Color::RGBA(
+                (colour.r as f32 * scale) as u8,
+                (colour.g as f32 * scale) as u8,
+                (colour.b as f32 * scale) as u8,
+                255,
+            );
+            canvas.set_draw_color(colour);
+
+            canvas
+                .fill_rect(Rect::new(rw_x as i32, n as i32, 2, 2))
+                .unwrap();
+        }
     }
 }

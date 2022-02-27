@@ -43,10 +43,17 @@ impl RenderData {
     pub fn new(wad: &WadData) -> Self {
         let palettes = wad.playpal_iter().collect();
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
-        let textures: Vec<Texture> = wad
-            .texture_iter()
+        let mut textures: Vec<Texture> = wad
+            .texture_iter("TEXTURE1")
             .map(|tex| Self::compose_texture(tex, &patches))
             .collect();
+        if wad.lump_exists("TEXTURE2") {
+            let mut textures2: Vec<Texture> = wad
+            .texture_iter("TEXTURE2")
+            .map(|tex| Self::compose_texture(tex, &patches))
+            .collect();
+            textures.append(&mut textures2);
+        }
 
         Self {
             rw_angle1: Angle::default(),
