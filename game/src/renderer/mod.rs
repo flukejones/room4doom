@@ -49,9 +49,9 @@ impl RenderData {
             .collect();
         if wad.lump_exists("TEXTURE2") {
             let mut textures2: Vec<Texture> = wad
-            .texture_iter("TEXTURE2")
-            .map(|tex| Self::compose_texture(tex, &patches))
-            .collect();
+                .texture_iter("TEXTURE2")
+                .map(|tex| Self::compose_texture(tex, &patches))
+                .collect();
             textures.append(&mut textures2);
         }
 
