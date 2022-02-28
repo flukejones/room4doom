@@ -241,12 +241,16 @@ impl SegRender {
                 // TODO: texture stuff
                 //  toptexture = texturetranslation[sidedef->toptexture];
                 self.toptexture = sidedef.toptexture as i32;
+
+                self.rw_toptexturemid = self.worldtop;
             }
 
             if self.worldlow > self.worldbottom {
                 // TODO: texture stuff
                 //  bottomtexture = texturetranslation[sidedef->bottomtexture];
                 self.bottomtexture = sidedef.bottomtexture as i32;
+
+                self.rw_bottomtexturemid = self.worldlow;
             }
 
             self.rw_toptexturemid += sidedef.rowoffset;
@@ -319,7 +323,7 @@ impl SegRender {
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 101.0 - (self.worldtop * self.rw_scale);
+        self.topfrac = 100.0 - (self.worldtop * self.rw_scale);
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
@@ -413,10 +417,13 @@ impl SegRender {
                 }
             }
 
+            let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle =
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as usize;
+
+                dc_iscale = 1.0 / self.rw_scale;
                 //continue;
             }
 
@@ -427,9 +434,11 @@ impl SegRender {
                     basic_draw_test(
                         texture_column,
                         lightnum,
-                        self.rw_x as usize,
-                        yl as usize,
-                        yh as usize,
+                        dc_iscale,
+                        self.rw_x,
+                        self.rw_midtexturemid,
+                        yl as i32,
+                        yh as i32,
                         rdata,
                         canvas,
                     );
@@ -455,9 +464,11 @@ impl SegRender {
                             basic_draw_test(
                                 texture_column,
                                 lightnum,
-                                self.rw_x as usize,
-                                yl as usize,
-                                mid as usize,
+                                dc_iscale,
+                                self.rw_x,
+                                self.rw_toptexturemid,
+                                yl as i32,
+                                mid as i32,
                                 rdata,
                                 canvas,
                             );
@@ -488,9 +499,11 @@ impl SegRender {
                             basic_draw_test(
                                 texture_column,
                                 lightnum,
-                                self.rw_x as usize,
-                                mid as usize,
-                                yh as usize,
+                                dc_iscale,
+                                self.rw_x,
+                                self.rw_bottomtexturemid,
+                                mid as i32,
+                                yh as i32,
                                 rdata,
                                 canvas,
                             );
@@ -533,19 +546,24 @@ fn get_column(texture: &[Vec<usize>], texture_column: usize) -> &[usize] {
     &texture[texture_column & (texture.len() - 1)]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn basic_draw_test(
     texture_column: &[usize],
     lightnum: u8,
-    rw_x: usize,
-    yl: usize,
-    yh: usize,
+    fracstep: f32,
+    dc_x: i32,
+    dc_texturemid: f32,
+    yl: i32,
+    yh: i32,
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
     let scale = lightnum as f32 / 255.0;
 
-    for n in yl..=yh as usize {
-        let px = texture_column[n & (texture_column.len() - 1)];
+    let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
+
+    for n in yl..=yh {
+        let px = texture_column[frac as usize & (texture_column.len() - 1)];
         if px != usize::MAX {
             let colour = &rdata.get_palette(0)[px];
             let colour = sdl2::pixels::Color::RGBA(
@@ -557,8 +575,10 @@ fn basic_draw_test(
             canvas.set_draw_color(colour);
 
             canvas
-                .fill_rect(Rect::new(rw_x as i32, n as i32, 2, 2))
+                .fill_rect(Rect::new(dc_x as i32, n as i32, 1, 1))
                 .unwrap();
         }
+
+        frac += fracstep;
     }
 }
