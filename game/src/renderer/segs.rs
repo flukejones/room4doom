@@ -108,7 +108,7 @@ impl SegRender {
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
         let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), mobj.xy); // verified correct
-        self.rw_distance = hyp * distangle.sin(); // COrrect??? Seems to be...
+        self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         let mut ds_p = DrawSeg::new(NonNull::from(seg));
 
@@ -268,21 +268,19 @@ impl SegRender {
         if self.segtextured {
             offsetangle = self.rw_normalangle - rdata.rw_angle1;
 
-            if offsetangle.rad() >= PI {
-                offsetangle = -offsetangle;
-            } else if offsetangle.rad() > FRAC_PI_2 {
-                offsetangle = Angle::new(FRAC_PI_2);
-            }
+            // if offsetangle.rad() > PI {
+            //     offsetangle = -offsetangle;
+            // }
+            // dbg!(offsetangle);
 
-            let sine = offsetangle.sin();
-            self.rw_offset = hyp * sine;
+            self.rw_offset = hyp * offsetangle.sin();
 
-            if self.rw_offset - rdata.rw_angle1.rad() < PI {
+            if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
                 self.rw_offset = -self.rw_offset;
             }
 
             self.rw_offset += sidedef.textureoffset + seg.offset;
-            self.rw_centerangle = Angle::new(FRAC_PI_2) + view_angle - self.rw_normalangle;
+            self.rw_centerangle = view_angle - self.rw_normalangle;
 
             // TODO: calculate light table
             //  use different light tables
@@ -416,18 +414,18 @@ impl SegRender {
             }
 
             if self.segtextured {
-                angle = self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize];
+                angle =
+                    self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as usize;
-                dbg!(texture_column);
                 //continue;
             }
 
             if self.midtexture != 0 && yh >= yl {
                 if seg.linedef.front_sidedef.midtexture != usize::MAX {
                     let texture = &rdata.textures[seg.linedef.front_sidedef.midtexture];
+                    let texture_column = get_column(texture, texture_column);
                     basic_draw_test(
-                        texture,
-                        texture_column as usize,
+                        texture_column,
                         lightnum,
                         self.rw_x as usize,
                         yl as usize,
@@ -449,20 +447,20 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        if seg.linedef.point_on_side(&mobj.xy) == 0 {
-                            if seg.linedef.front_sidedef.toptexture != usize::MAX {
-                                let texture = &rdata.textures[seg.linedef.front_sidedef.toptexture];
-                                basic_draw_test(
-                                    texture,
-                                    texture_column as usize,
-                                    lightnum,
-                                    self.rw_x as usize,
-                                    yl as usize,
-                                    mid as usize,
-                                    rdata,
-                                    canvas,
-                                );
-                            }
+                        if seg.linedef.point_on_side(&mobj.xy) == 0
+                            && seg.linedef.front_sidedef.toptexture != usize::MAX
+                        {
+                            let texture = &rdata.textures[seg.linedef.front_sidedef.toptexture];
+                            let texture_column = get_column(texture, texture_column);
+                            basic_draw_test(
+                                texture_column,
+                                lightnum,
+                                self.rw_x as usize,
+                                yl as usize,
+                                mid as usize,
+                                rdata,
+                                canvas,
+                            );
                         }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
@@ -482,21 +480,20 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        if seg.linedef.point_on_side(&mobj.xy) == 0 {
-                            if seg.linedef.front_sidedef.bottomtexture != usize::MAX {
-                                let texture =
-                                    &rdata.textures[seg.linedef.front_sidedef.bottomtexture];
-                                basic_draw_test(
-                                    texture,
-                                    texture_column as usize,
-                                    lightnum,
-                                    self.rw_x as usize,
-                                    mid as usize,
-                                    yh as usize,
-                                    rdata,
-                                    canvas,
-                                );
-                            }
+                        if seg.linedef.point_on_side(&mobj.xy) == 0
+                            && seg.linedef.front_sidedef.bottomtexture != usize::MAX
+                        {
+                            let texture = &rdata.textures[seg.linedef.front_sidedef.bottomtexture];
+                            let texture_column = get_column(texture, texture_column);
+                            basic_draw_test(
+                                texture_column,
+                                lightnum,
+                                self.rw_x as usize,
+                                mid as usize,
+                                yh as usize,
+                                rdata,
+                                canvas,
+                            );
                         }
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
@@ -532,9 +529,12 @@ impl SegRender {
     }
 }
 
+fn get_column(texture: &[Vec<usize>], texture_column: usize) -> &[usize] {
+    &texture[texture_column & (texture.len() - 1)]
+}
+
 fn basic_draw_test(
-    texture: &Vec<Vec<usize>>,
-    texture_column: usize,
+    texture_column: &[usize],
     lightnum: u8,
     rw_x: usize,
     yl: usize,
@@ -542,9 +542,10 @@ fn basic_draw_test(
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
-    let scale = (lightnum as f32 / 255.0);
+    let scale = lightnum as f32 / 255.0;
+
     for n in yl..=yh as usize {
-        let px = texture[texture_column % texture.len()][n % texture[0].len()];
+        let px = texture_column[n & (texture_column.len() - 1)];
         if px != usize::MAX {
             let colour = &rdata.get_palette(0)[px];
             let colour = sdl2::pixels::Color::RGBA(
