@@ -205,7 +205,7 @@ impl BspRenderer {
                 next = self.new_end;
                 self.new_end += 1;
 
-                while next != 0 && next != start {
+                while next != start {
                     self.solidsegs[next] = self.solidsegs[next - 1];
                     next -= 1;
                 }
@@ -216,7 +216,15 @@ impl BspRenderer {
             }
 
             // There is a fragment above *start.
-            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+            // TODO: this causes a glitch?
+            r_segs.store_wall_range(
+                first,
+                self.solidsegs[start].first - 1,
+                seg,
+                object,
+                r_data,
+                canvas,
+            );
             // Now adjust the clip size.
             self.solidsegs[start].first = first;
         }
@@ -227,8 +235,15 @@ impl BspRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - 1 && next + 1 < self.solidsegs.len() {
-            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+        while last >= self.solidsegs[next + 1].first - 1 {
+            r_segs.store_wall_range(
+                self.solidsegs[next].last + 1,
+                self.solidsegs[next + 1].first - 1,
+                seg,
+                object,
+                r_data,
+                canvas,
+            );
 
             next += 1;
 
@@ -239,7 +254,14 @@ impl BspRenderer {
         }
 
         // There is a fragment after *next.
-        r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+        r_segs.store_wall_range(
+            self.solidsegs[next].last + 1,
+            last,
+            seg,
+            object,
+            r_data,
+            canvas,
+        );
         // Adjust the clip size.
         self.solidsegs[start].last = last;
 
@@ -260,7 +282,6 @@ impl BspRenderer {
         canvas: &mut Canvas<Surface>,
     ) {
         let mut r_segs = SegRender::default();
-        let mut next;
 
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -277,7 +298,14 @@ impl BspRenderer {
             }
 
             // There is a fragment above *start.
-            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+            r_segs.store_wall_range(
+                first,
+                self.solidsegs[start].first - 1,
+                seg,
+                object,
+                r_data,
+                canvas,
+            );
         }
 
         // Bottom contained in start?
@@ -285,19 +313,32 @@ impl BspRenderer {
             return;
         }
 
-        next = start;
-        while last >= self.solidsegs[next].first && next < self.solidsegs.len() {
-            r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+        while last >= self.solidsegs[start + 1].first - 1 {
+            r_segs.store_wall_range(
+                self.solidsegs[start].last + 1,
+                self.solidsegs[start + 1].first - 1,
+                seg,
+                object,
+                r_data,
+                canvas,
+            );
 
-            next += 1;
+            start += 1;
 
-            if last <= self.solidsegs[next].last {
+            if last <= self.solidsegs[start].last {
                 return;
             }
         }
 
         // There is a fragment after *next.
-        r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+        r_segs.store_wall_range(
+            self.solidsegs[start].last + 1,
+            last,
+            seg,
+            object,
+            r_data,
+            canvas,
+        );
     }
 
     fn crunch(&mut self, mut start: usize, mut next: usize) {

@@ -208,8 +208,8 @@ impl MapData {
                 let sector = &self.sectors()[s.sector as usize];
 
                 SideDef {
-                    textureoffset: s.y_offset as f32,
-                    rowoffset: s.x_offset as f32,
+                    textureoffset: s.x_offset as f32,
+                    rowoffset: s.y_offset as f32,
                     toptexture: tex_order
                         .iter()
                         .position(|n| n.name == s.upper_tex)

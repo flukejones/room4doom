@@ -20,7 +20,7 @@ pub mod tic_cmd;
 
 pub use angle::Angle;
 pub use d_main::{DoomOptions, Shaders, Skill};
-pub use doom_def::{WeaponType, ML_DONTPEGBOTTOM, ML_MAPPED};
+pub use doom_def::{WeaponType, ML_DONTPEGBOTTOM, ML_DONTPEGTOP, ML_MAPPED};
 pub use game::Game;
 pub use level_data::{
     map_data::{MapData, IS_SSECTOR_MASK},
