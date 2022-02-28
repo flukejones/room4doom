@@ -78,7 +78,7 @@ impl RenderData {
                 }
                 for (y, p) in c.pixels.iter().enumerate() {
                     let y_pos = y as i32 + patch_pos.origin_y + c.y_offset as i32;
-                    if y_pos > 0 && y_pos < texture.height as i32 && x_pos > 0 {
+                    if y_pos >= 0 && y_pos < texture.height as i32 && x_pos >= 0 {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
                 }

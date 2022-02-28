@@ -12,7 +12,7 @@ pub const MAXPLAYERS: usize = 4;
 pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
 pub const BACKUPTICS: usize = 12;
-
+pub const ML_DONTPEGTOP: u32 = 8;
 pub const ML_DONTPEGBOTTOM: u32 = 16;
 pub const ML_MAPPED: u32 = 256;
 

@@ -1,4 +1,4 @@
-use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_MAPPED};
+use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_DONTPEGTOP, ML_MAPPED};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
@@ -84,9 +84,8 @@ impl SegRender {
             return;
         }
 
-        if start > 320 || start > stop {
-            println!("Bad R_RenderWallRange: {} to {}", start, stop);
-            return;
+        if start >= 320 || start > stop {
+            panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
         // These need only be locally defined to make some things easier
@@ -121,18 +120,17 @@ impl SegRender {
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
         let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
-        let scale2 =
+        ds_p.scale2 =
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
         ds_p.scale1 = self.rw_scale;
-        ds_p.scale2 = scale2;
         ds_p.x1 = start;
         self.rw_x = start;
         ds_p.x2 = stop;
         self.rw_stopx = stop;
 
         // testing draws
-        self.rw_scalestep = (scale2 - self.rw_scale) / (stop - start) as f32;
+        self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start) as f32;
         ds_p.scalestep = self.rw_scalestep;
 
         // calculate texture boundaries
@@ -146,7 +144,6 @@ impl SegRender {
         // These are all zeroed to start with, thanks rust.
         // midtexture = toptexture = bottomtexture = maskedtexture = 0;
 
-        let vtop = 0.0;
         if seg.backsector.is_none() {
             // single sided line
             // TODO: Need to R_InitTextures and figure out where to put this
@@ -154,9 +151,11 @@ impl SegRender {
             self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
             self.markceiling = true;
-            if linedef.flags & ML_DONTPEGBOTTOM as i16 != 0 {
-                // TODO: textureheight
-                //vtop = seg.sidedef.sector.floor_height + textureheight[seg.sidedef.middle_tex];
+            if linedef.flags & ML_DONTPEGBOTTOM as i16 != 0 && seg.sidedef.midtexture != usize::MAX
+            {
+                let texture = &rdata.textures[seg.sidedef.midtexture];
+                let texture_column = get_column(texture, 0);
+                let vtop = frontsector.floorheight + texture_column.len() as f32;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
                 // top of texture at top
@@ -242,7 +241,16 @@ impl SegRender {
                 //  toptexture = texturetranslation[sidedef->toptexture];
                 self.toptexture = sidedef.toptexture as i32;
 
-                self.rw_toptexturemid = self.worldtop;
+                if linedef.flags as u32 & ML_DONTPEGTOP != 0 {
+                    self.rw_toptexturemid = self.worldtop;
+                } else if seg.sidedef.toptexture != usize::MAX {
+                    let texture = &rdata.textures[seg.sidedef.toptexture];
+                    let texture_column = get_column(texture, 0);
+                    let vtop = frontsector.ceilingheight + texture_column.len() as f32;
+                    self.rw_toptexturemid = vtop - viewz;
+                } else {
+                    self.rw_toptexturemid = self.worldtop;
+                }
             }
 
             if self.worldlow > self.worldbottom {
@@ -250,7 +258,11 @@ impl SegRender {
                 //  bottomtexture = texturetranslation[sidedef->bottomtexture];
                 self.bottomtexture = sidedef.bottomtexture as i32;
 
-                self.rw_bottomtexturemid = self.worldlow;
+                if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 {
+                    self.rw_bottomtexturemid = self.worldtop;
+                } else {
+                    self.rw_bottomtexturemid = self.worldlow;
+                }
             }
 
             self.rw_toptexturemid += sidedef.rowoffset;
@@ -279,9 +291,9 @@ impl SegRender {
 
             self.rw_offset = hyp * offsetangle.sin();
 
-            if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
-                self.rw_offset = -self.rw_offset;
-            }
+            //if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
+            self.rw_offset = -self.rw_offset;
+            //}
 
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = view_angle - self.rw_normalangle;
@@ -365,7 +377,7 @@ impl SegRender {
         //
         // TESTING STUFF
         //
-        let mut lightnum = seg.linedef.front_sidedef.sector.lightlevel as u8;
+        let mut lightnum = seg.sidedef.sector.lightlevel as u8;
 
         if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
             if lightnum > 5 {
@@ -383,7 +395,7 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0;
-        while self.rw_x < self.rw_stopx {
+        while self.rw_x <= self.rw_stopx {
             yl = self.topfrac + 1.0;
             if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
@@ -428,8 +440,8 @@ impl SegRender {
             }
 
             if self.midtexture != 0 && yh >= yl {
-                if seg.linedef.front_sidedef.midtexture != usize::MAX {
-                    let texture = &rdata.textures[seg.linedef.front_sidedef.midtexture];
+                if seg.sidedef.midtexture != usize::MAX {
+                    let texture = &rdata.textures[seg.sidedef.midtexture];
                     let texture_column = get_column(texture, texture_column);
                     basic_draw_test(
                         texture_column,
@@ -457,9 +469,9 @@ impl SegRender {
 
                     if mid >= yl {
                         if seg.linedef.point_on_side(&mobj.xy) == 0
-                            && seg.linedef.front_sidedef.toptexture != usize::MAX
+                            && seg.sidedef.toptexture != usize::MAX
                         {
-                            let texture = &rdata.textures[seg.linedef.front_sidedef.toptexture];
+                            let texture = &rdata.textures[seg.sidedef.toptexture];
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
@@ -492,9 +504,9 @@ impl SegRender {
 
                     if mid <= yh {
                         if seg.linedef.point_on_side(&mobj.xy) == 0
-                            && seg.linedef.front_sidedef.bottomtexture != usize::MAX
+                            && seg.sidedef.bottomtexture != usize::MAX
                         {
-                            let texture = &rdata.textures[seg.linedef.front_sidedef.bottomtexture];
+                            let texture = &rdata.textures[seg.sidedef.bottomtexture];
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
@@ -559,25 +571,30 @@ fn basic_draw_test(
     canvas: &mut Canvas<Surface>,
 ) {
     let scale = lightnum as f32 / 255.0;
-
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
 
     for n in yl..=yh {
-        let px = texture_column[frac as usize & (texture_column.len() - 1)];
-        if px != usize::MAX {
+        if frac as usize & 127 > texture_column.len() - 1 {
+            return;
+        }
+        let px = texture_column[frac as usize & 127];
+        let colour = if px == usize::MAX {
+            // ERROR COLOUR
+            sdl2::pixels::Color::RGBA(255, 0, 0, 255)
+        } else {
             let colour = &rdata.get_palette(0)[px];
-            let colour = sdl2::pixels::Color::RGBA(
+            sdl2::pixels::Color::RGBA(
                 (colour.r as f32 * scale) as u8,
                 (colour.g as f32 * scale) as u8,
                 (colour.b as f32 * scale) as u8,
                 255,
-            );
-            canvas.set_draw_color(colour);
+            )
+        };
 
-            canvas
-                .fill_rect(Rect::new(dc_x as i32, n as i32, 1, 1))
-                .unwrap();
-        }
+        canvas.set_draw_color(colour);
+        canvas
+            .fill_rect(Rect::new(dc_x as i32, n as i32, 1, 1))
+            .unwrap();
 
         frac += fracstep;
     }

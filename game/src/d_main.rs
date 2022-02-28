@@ -153,8 +153,8 @@ pub fn d_doom_loop(
             }
         }
         if options.texture_test {
-            texture_cycle_test(
-                &renderer.r_data.get_texture(tex_num),
+            texture_select_test(
+                renderer.r_data.get_texture(tex_num),
                 &renderer,
                 &mut render_buffer,
             );
@@ -317,7 +317,7 @@ fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surfa
     }
 }
 
-fn texture_cycle_test(texture: &Texture, rend: &Renderer, canvas: &mut Canvas<Surface>) {
+fn texture_select_test(texture: &Texture, rend: &Renderer, canvas: &mut Canvas<Surface>) {
     let width = texture.len() as u32;
     let height = texture[0].len() as u32;
 
