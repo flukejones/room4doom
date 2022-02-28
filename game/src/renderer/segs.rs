@@ -146,16 +146,17 @@ impl SegRender {
 
         if seg.backsector.is_none() {
             // single sided line
-            // TODO: Need to R_InitTextures and figure out where to put this
-            //self.midtexture = texturetranslation[sidedef.middle_tex];
             self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
             self.markceiling = true;
-            if linedef.flags & ML_DONTPEGBOTTOM as i16 != 0 && seg.sidedef.midtexture != usize::MAX
+            if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 && seg.sidedef.midtexture != usize::MAX
             {
                 let texture = &rdata.textures[seg.sidedef.midtexture];
                 let texture_column = get_column(texture, 0);
-                let vtop = frontsector.floorheight + texture_column.len() as f32;
+                let mut vtop = frontsector.floorheight + texture_column.len() as f32;
+                if vtop < frontsector.floorheight + frontsector.ceilingheight {
+                    vtop = frontsector.floorheight + frontsector.ceilingheight
+                }
                 self.rw_midtexturemid = vtop - viewz;
             } else {
                 // top of texture at top
@@ -246,7 +247,7 @@ impl SegRender {
                 } else if seg.sidedef.toptexture != usize::MAX {
                     let texture = &rdata.textures[seg.sidedef.toptexture];
                     let texture_column = get_column(texture, 0);
-                    let vtop = frontsector.ceilingheight + texture_column.len() as f32;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - viewz;
                 } else {
                     self.rw_toptexturemid = self.worldtop;
@@ -396,8 +397,8 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
         while self.rw_x <= self.rw_stopx {
-            yl = self.topfrac + 1.0;
-            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+            yl = self.topfrac - 1.0;
+            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
@@ -439,7 +440,7 @@ impl SegRender {
                 //continue;
             }
 
-            if self.midtexture != 0 && yh >= yl {
+            if self.midtexture != 0 {
                 if seg.sidedef.midtexture != usize::MAX {
                     let texture = &rdata.textures[seg.sidedef.midtexture];
                     let texture_column = get_column(texture, texture_column);
