@@ -15,6 +15,6 @@ sdl2 = "~0.34.0"
 glam = "0.8.5"
 gumdrop = "~0.7"
 rand = "*"
-gamelib = { path = "../gamelib" }
+doom-lib = { path = "../lib" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }

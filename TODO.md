@@ -4,4 +4,12 @@
 [ ] - Implement P_DamageMobj
 [ ] - P_KillMobj
 [ ] - Implement texture read and prep for use
-[ ] - E3M4 crushers
+[X] - FIXED: they work I guess: E3M4 crushers
+
+[ ] - Load textures
+[ ] - Load sprites
+
+Game and doom-lib are now separate crates with these criteria:
+- "game" controls input and ticcmd, rendering, and menu display
+- "game" will also check state and show appropriate screens (like demo, intermission, menus)
+- "doom-lib" is pure gamestate - things like level control, map objects, thinkers etc.
