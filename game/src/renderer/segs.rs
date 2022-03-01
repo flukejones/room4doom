@@ -66,6 +66,11 @@ pub struct SegRender {
     worldbottom: f32,
     worldhigh: f32,
     worldlow: f32,
+
+    /// Lightmap index
+    wall_lights: usize,
+    /// Index to the colourmap sof wall_lights to use
+    colourmap: usize,
 }
 
 impl SegRender {
@@ -321,13 +326,16 @@ impl SegRender {
             // }
             let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
 
-            if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
-                if lightnum > 5 {
-                    lightnum -= 5;
+            if seg.v1.y() == seg.v2.y() {
+                if lightnum > 1 {
+                    lightnum -= 1;
                 }
-            } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 249 {
-                lightnum += 5;
+            } else if (seg.v1.x() == seg.v2.x()) && lightnum < 15 {
+                lightnum += 1;
+                // walllights = scalelight[lightnum];, where scalelight = lighttable_t *[16][48]
             }
+            //wall_lights = rdata.get_lightscale(lightnum as usize).to_owned();
+            self.wall_lights = lightnum as usize;
         }
 
         // if a floor / ceiling plane is on the wrong side
@@ -384,29 +392,6 @@ impl SegRender {
     ) {
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
 
-        //
-        // TESTING STUFF
-        // store_wall_range sets up the walllights via this block
-        let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
-
-        if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
-            if lightnum > 1 {
-                lightnum -= 1;
-            }
-        } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 15 {
-            lightnum += 1;
-            // walllights = scalelight[lightnum];, where scalelight = lighttable_t *[16][48]
-        }
-        let wall_lights = rdata.get_lightscale(lightnum as usize);
-
-        // Select colourmap to use (max should be 48)
-        let mut index = (self.rw_scale * 16.0) as usize;
-        if index > 31 {
-            index = 31;
-        }
-        // dc_colourmap = walllights
-        let colourmap = wall_lights[index].to_owned();
-
         // R_RenderSegLoop
         let mut yl;
         let mut yh;
@@ -455,8 +440,15 @@ impl SegRender {
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as usize;
 
+                // Select colourmap to use (max should be 48)
+                let mut index = (self.rw_scale * 17.0) as usize;
+                dbg!(index);
+                if index > 47 {
+                    index = 47;
+                }
+                self.colourmap = index;
+
                 dc_iscale = 1.0 / self.rw_scale;
-                //continue;
             }
 
             if self.midtexture != 0 {
@@ -465,7 +457,7 @@ impl SegRender {
                     let texture_column = get_column(texture, texture_column);
                     basic_draw_test(
                         texture_column,
-                        &colourmap,
+                        &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
@@ -495,7 +487,7 @@ impl SegRender {
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
-                                &colourmap,
+                                &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
@@ -530,7 +522,7 @@ impl SegRender {
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
-                                &colourmap,
+                                &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_bottomtexturemid,
@@ -597,8 +589,7 @@ fn basic_draw_test(
         if frac as usize & 127 > texture_column.len() - 1 {
             return;
         }
-        let px = texture_column[frac as usize & 127];
-        let px = colourmap[px];
+        let px = colourmap[texture_column[frac as usize & 127]];
         let colour = if px == usize::MAX {
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
@@ -608,9 +599,7 @@ fn basic_draw_test(
         };
 
         canvas.set_draw_color(colour);
-        canvas
-            .fill_rect(Rect::new(dc_x as i32, n as i32, 1, 1))
-            .unwrap();
+        canvas.fill_rect(Rect::new(dc_x, n, 1, 1)).unwrap();
 
         frac += fracstep;
     }
