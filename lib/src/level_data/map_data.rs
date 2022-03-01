@@ -685,10 +685,10 @@ mod tests {
         let sidedefs = map.sidedefs();
         assert_eq!(sidedefs[0].rowoffset, 0.0);
         assert_eq!(sidedefs[0].textureoffset, 0.0);
-        assert_eq!(sidedefs[9].rowoffset, 0.0);
-        assert_eq!(sidedefs[9].textureoffset, 48.0);
-        assert_eq!(sidedefs[647].rowoffset, 4.0);
-        assert_eq!(sidedefs[647].textureoffset, 0.0);
+        assert_eq!(sidedefs[9].rowoffset, 48.0);
+        assert_eq!(sidedefs[9].textureoffset, 0.0);
+        assert_eq!(sidedefs[647].rowoffset, 0.0);
+        assert_eq!(sidedefs[647].textureoffset, 4.0);
     }
 
     #[test]
