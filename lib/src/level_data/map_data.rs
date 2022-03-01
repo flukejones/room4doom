@@ -215,15 +215,15 @@ impl MapData {
                     rowoffset: s.y_offset as f32,
                     toptexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.upper_tex)
+                        .position(|n| n.name == s.upper_tex.to_ascii_uppercase())
                         .unwrap_or(usize::MAX),
                     bottomtexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.lower_tex)
+                        .position(|n| n.name == s.lower_tex.to_ascii_uppercase())
                         .unwrap_or(usize::MAX),
                     midtexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.middle_tex)
+                        .position(|n| n.name == s.middle_tex.to_ascii_uppercase())
                         .unwrap_or(usize::MAX),
                     sector: DPtr::new(sector),
                 }
@@ -381,7 +381,7 @@ impl MapData {
     }
 
     /// R_PointInSubsector - r_main
-    pub fn point_in_subsector(&mut self, point: Vec2) -> *mut SubSector {
+    pub fn point_in_subsector_mut(&mut self, point: Vec2) -> *mut SubSector {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -393,6 +393,20 @@ impl MapData {
         }
 
         &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _
+    }
+
+    pub fn point_in_subsector_ref(&self, point: Vec2) -> *const SubSector {
+        let mut node_id = self.start_node();
+        let mut node;
+        let mut side;
+
+        while node_id & IS_SSECTOR_MASK == 0 {
+            node = &self.get_nodes()[node_id as usize];
+            side = node.point_on_side(&point);
+            node_id = node.child_index[side];
+        }
+
+        &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *const _
     }
 }
 
@@ -713,7 +727,7 @@ mod tests {
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);
-        let subsector = map.point_in_subsector(player);
+        let subsector = map.point_in_subsector_mut(player);
         //assert_eq!(subsector_id, Some(103));
         unsafe {
             assert_eq!((*subsector).seg_count, 5);

@@ -424,11 +424,11 @@ pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     Angle::new(y.atan2(x))
 }
 
-pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
-    let x = point1.x() - point2.x();
-    let y = point1.y() - point2.y();
-    Angle::new(y.atan2(x))
-}
+// pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+//     let x = point1.x() - point2.x();
+//     let y = point1.y() - point2.y();
+//     Angle::new(y.atan2(x))
+// }
 
 #[cfg(test)]
 mod tests {

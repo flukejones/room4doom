@@ -158,6 +158,7 @@ impl WadData {
                 }
                 let name = std::str::from_utf8(&n)
                     .expect("Invalid lump name")
+                    .to_ascii_uppercase()
                     .trim_end_matches('\u{0}')
                     .to_owned();
 

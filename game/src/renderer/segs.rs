@@ -125,8 +125,6 @@ impl SegRender {
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
         let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
-        ds_p.scale2 =
-            scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -134,9 +132,15 @@ impl SegRender {
         ds_p.x2 = stop;
         self.rw_stopx = stop;
 
-        // testing draws
-        self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start) as f32;
-        ds_p.scalestep = self.rw_scalestep;
+        if stop > start {
+            ds_p.scale2 =
+                scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
+
+            self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start) as f32;
+            ds_p.scalestep = self.rw_scalestep;
+        } else {
+            ds_p.scale2 = ds_p.scale1;
+        }
 
         // calculate texture boundaries
         //  and decide if floor / ceiling marks are needed
@@ -157,7 +161,7 @@ impl SegRender {
             if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 && seg.sidedef.midtexture != usize::MAX
             {
                 let texture = &rdata.textures[seg.sidedef.midtexture];
-                let texture_column = get_column(texture, 0);
+                let texture_column = get_column(texture, 0.0);
                 let mut vtop = frontsector.floorheight + texture_column.len() as f32;
                 if vtop < frontsector.floorheight + frontsector.ceilingheight {
                     vtop = frontsector.floorheight + frontsector.ceilingheight
@@ -217,7 +221,10 @@ impl SegRender {
             // 	{ worldtop = worldhigh; }
 
             // Checks to see if panes need updating?
-            if self.worldlow != self.worldbottom || backsector.floorpic != frontsector.floorpic {
+            if self.worldlow != self.worldbottom
+                || backsector.floorpic != frontsector.floorpic
+                || backsector.lightlevel != frontsector.lightlevel
+            {
                 self.markfloor = true;
             } else {
                 // same plane on both sides
@@ -243,27 +250,20 @@ impl SegRender {
             }
 
             if self.worldhigh < self.worldtop {
-                // TODO: texture stuff
-                //  toptexture = texturetranslation[sidedef->toptexture];
                 self.toptexture = sidedef.toptexture as i32;
-
+                // TODO: update to use LineDefFlags enum
                 if linedef.flags as u32 & ML_DONTPEGTOP != 0 {
                     self.rw_toptexturemid = self.worldtop;
                 } else if seg.sidedef.toptexture != usize::MAX {
                     let texture = &rdata.textures[seg.sidedef.toptexture];
-                    let texture_column = get_column(texture, 0);
+                    let texture_column = get_column(texture, 0.0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - viewz;
-                } else {
-                    self.rw_toptexturemid = self.worldtop;
                 }
             }
 
             if self.worldlow > self.worldbottom {
-                // TODO: texture stuff
-                //  bottomtexture = texturetranslation[sidedef->bottomtexture];
                 self.bottomtexture = sidedef.bottomtexture as i32;
-
                 if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 {
                     self.rw_bottomtexturemid = self.worldtop;
                 } else {
@@ -289,52 +289,29 @@ impl SegRender {
 
         if self.segtextured {
             offsetangle = self.rw_normalangle - rdata.rw_angle1;
-
-            // if offsetangle.rad() > PI {
+            // dbg!(offsetangle.rad());
+            // if offsetangle.rad() > PI * 2.0 {
             //     offsetangle = -offsetangle;
             // }
-            // dbg!(offsetangle);
-
             self.rw_offset = hyp * offsetangle.sin();
 
-            //if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
+            // if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
             self.rw_offset = -self.rw_offset;
-            //}
+            //  }
 
             self.rw_offset += sidedef.textureoffset + seg.offset;
+
             self.rw_centerangle = view_angle - self.rw_normalangle;
 
-            // TODO: calculate light table
-            //  use different light tables
-            //  for horizontal / vertical / diagonal
-            // OPTIMIZE: get rid of LIGHTSEGSHIFT globally
-            // if (!fixedcolormap)
-            // {
-            //     lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT) + extralight;
-            //
-            //     if (curline->v1->y == curline->v2->y)
-            //     lightnum--;
-            //     else if (curline->v1->x == curline->v2->x)
-            //     lightnum++;
-            //
-            //     if (lightnum < 0)
-            //     walllights = scalelight[0];
-            //     else if (lightnum >= LIGHTLEVELS)
-            //     walllights = scalelight[LIGHTLEVELS - 1];
-            //     else
-            //     walllights = scalelight[lightnum];
-            // }
+            // Find a suitable light-table
             let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
-
             if seg.v1.y() == seg.v2.y() {
                 if lightnum > 1 {
                     lightnum -= 1;
                 }
             } else if (seg.v1.x() == seg.v2.x()) && lightnum < 15 {
                 lightnum += 1;
-                // walllights = scalelight[lightnum];, where scalelight = lighttable_t *[16][48]
             }
-            //wall_lights = rdata.get_lightscale(lightnum as usize).to_owned();
             self.wall_lights = lightnum as usize;
         }
 
@@ -399,7 +376,7 @@ impl SegRender {
         let mut bottom;
         let mut mid;
         let mut angle;
-        let mut texture_column = 0;
+        let mut texture_column = 0.0;
         while self.rw_x <= self.rw_stopx {
             yl = self.topfrac - 1.0;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
@@ -438,11 +415,12 @@ impl SegRender {
             if self.segtextured {
                 angle =
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as usize;
+                // angle =
+                //     self.rw_centerangle + screen_to_x_view(self.rw_x);// * PI / 180.0;
+                texture_column = self.rw_offset - angle.tan() * self.rw_distance;
 
                 // Select colourmap to use (max should be 48)
                 let mut index = (self.rw_scale * 17.0) as usize;
-                dbg!(index);
                 if index > 47 {
                     index = 47;
                 }
@@ -455,7 +433,7 @@ impl SegRender {
                 if seg.sidedef.midtexture != usize::MAX {
                     let texture = &rdata.textures[seg.sidedef.midtexture];
                     let texture_column = get_column(texture, texture_column);
-                    basic_draw_test(
+                    draw_column(
                         texture_column,
                         &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                         dc_iscale,
@@ -485,7 +463,7 @@ impl SegRender {
                         {
                             let texture = &rdata.textures[seg.sidedef.toptexture];
                             let texture_column = get_column(texture, texture_column);
-                            basic_draw_test(
+                            draw_column(
                                 texture_column,
                                 &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                                 dc_iscale,
@@ -520,7 +498,7 @@ impl SegRender {
                         {
                             let texture = &rdata.textures[seg.sidedef.bottomtexture];
                             let texture_column = get_column(texture, texture_column);
-                            basic_draw_test(
+                            draw_column(
                                 texture_column,
                                 &rdata.get_lightscale(self.wall_lights)[self.colourmap],
                                 dc_iscale,
@@ -548,30 +526,20 @@ impl SegRender {
             self.bottomfrac += self.bottomstep;
         }
     }
-
-    /// A column is a vertical slice/span from a wall texture that,
-    ///  given the DOOM style restrictions on the view orientation,
-    ///  will always have constant z depth.
-    /// Thus a special case loop for very fast rendering can
-    ///  be used. It has also been used with Wolfenstein 3D.
-    fn draw_column(&self, yh: i32, yl: i32, canvas: &mut Canvas<Surface>) {
-        // let mut count = yh - yl;
-        // let mut frac = 0.0;
-        // let mut fracstep;
-        //
-        // while count != 0 {
-        //     canvas.draw_line((self.rw_x, yl), (self.rw_x, yh)).unwrap();
-        //     count -= 1;
-        // }
-    }
 }
 
-fn get_column(texture: &[Vec<usize>], texture_column: usize) -> &[usize] {
-    &texture[texture_column & (texture.len() - 1)]
+fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
+    let index = (texture_column as i32) & (texture.len() as i32 - 1);
+    &texture[index as usize]
 }
 
+/// A column is a vertical slice/span from a wall texture that,
+///  given the DOOM style restrictions on the view orientation,
+///  will always have constant z depth.
+/// Thus a special case loop for very fast rendering can
+///  be used. It has also been used with Wolfenstein 3D.
 #[allow(clippy::too_many_arguments)]
-fn basic_draw_test(
+fn draw_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
@@ -582,7 +550,6 @@ fn basic_draw_test(
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
-    //let scale = lightnum as f32 / 255.0;
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
 
     for n in yl..=yh {

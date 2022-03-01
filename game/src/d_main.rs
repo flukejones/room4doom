@@ -58,10 +58,29 @@ impl Renderer {
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 
-            let colour = sdl2::pixels::Color::RGBA(90, 80, 80, 255);
+            let sub_sect = unsafe {
+                game.level
+                    .as_ref()
+                    .unwrap()
+                    .map_data
+                    .point_in_subsector_ref(player.mobj.as_ref().unwrap().as_ref().xy)
+            };
+            let light_level = unsafe { (*sub_sect).sector.lightlevel };
+            let scale = light_level as f32 / 255.0;
+            let colour = sdl2::pixels::Color::RGBA(
+                (50.0 * scale) as u8,
+                (40.0 * scale) as u8,
+                (40.0 * scale) as u8,
+                255,
+            );
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(0, 0, 320, 100)).unwrap();
-            let colour = sdl2::pixels::Color::RGBA(90, 90, 90, 255);
+            let colour = sdl2::pixels::Color::RGBA(
+                (40.0 * scale) as u8,
+                (40.0 * scale) as u8,
+                (40.0 * scale) as u8,
+                255,
+            );
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
             self.bsp_renderer.render_bsp_node(

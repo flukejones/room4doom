@@ -5,8 +5,9 @@
 [ ] - P_KillMobj
 [ ] - Implement texture read and prep for use
 [X] - FIXED: they work I guess: E3M4 crushers
+[ ] - Doom2 M9 lift textures
 
-[ ] - Load textures
+[X] - Load textures
 [ ] - Load sprites
 
 Game and doom-lib are now separate crates with these criteria:
