@@ -5,7 +5,8 @@
 [ ] - P_KillMobj
 [ ] - Implement texture read and prep for use
 [X] - FIXED: they work I guess: E3M4 crushers
-[ ] - Doom2 M9 lift textures
+[X] - Doom2 M9 lift textures
+[ ] - upper of some textures are screwed
 
 [X] - Load textures
 [ ] - Load sprites

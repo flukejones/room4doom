@@ -81,8 +81,8 @@ pub fn scale_from_view_angle(
     static MAX_SCALEFACTOR: f32 = 64.0;
     static MIN_SCALEFACTOR: f32 = 0.00390625;
 
-    let anglea = Angle::new(FRAC_PI_2 + visangle.rad() - view_angle.rad()); // CORRECT
-    let angleb = Angle::new(FRAC_PI_2 + visangle.rad() - rw_normalangle.rad()); // CORRECT
+    let anglea = Angle::new(FRAC_PI_2 + (visangle.rad() - view_angle.rad())); // CORRECT
+    let angleb = Angle::new(FRAC_PI_2 + (visangle.rad() - rw_normalangle.rad())); // CORRECT
 
     let sinea = anglea.sin(); // not correct?
     let sineb = angleb.sin();
@@ -100,5 +100,6 @@ pub fn scale_from_view_angle(
     } else if MIN_SCALEFACTOR > scale {
         scale = MIN_SCALEFACTOR;
     }
+
     scale
 }
