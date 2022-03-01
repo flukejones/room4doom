@@ -271,6 +271,7 @@ impl SegRender {
                 }
             }
 
+            // TODO: how to deal with negative rowoffset
             self.rw_toptexturemid += sidedef.rowoffset;
             self.rw_bottomtexturemid += sidedef.rowoffset;
 
@@ -300,7 +301,6 @@ impl SegRender {
             //  }
 
             self.rw_offset += sidedef.textureoffset + seg.offset;
-
             self.rw_centerangle = view_angle - self.rw_normalangle;
 
             // Find a suitable light-table
@@ -330,7 +330,7 @@ impl SegRender {
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 100.0 - (self.worldtop * self.rw_scale);
+        self.topfrac = 100.0 - ((self.worldtop) * self.rw_scale);
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
@@ -378,7 +378,9 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0.0;
         while self.rw_x <= self.rw_stopx {
-            yl = self.topfrac - 1.0;
+            // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
+            // Whaaaat?
+            yl = self.topfrac; // + 1.0;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
@@ -411,7 +413,7 @@ impl SegRender {
                 }
             }
 
-            let mut dc_iscale = 0.0;
+            let mut dc_iscale = 1.0;
             if self.segtextured {
                 angle =
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
@@ -458,9 +460,7 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        if seg.linedef.point_on_side(&mobj.xy) == 0
-                            && seg.sidedef.toptexture != usize::MAX
-                        {
+                        if seg.sidedef.toptexture != usize::MAX {
                             let texture = &rdata.textures[seg.sidedef.toptexture];
                             let texture_column = get_column(texture, texture_column);
                             draw_column(
@@ -478,10 +478,10 @@ impl SegRender {
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl; // - 1.0;
+                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl; // - 1.0;
+                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
                 }
 
                 if self.bottomtexture != 0 {
@@ -513,10 +513,10 @@ impl SegRender {
 
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh;
+                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh - 1.0;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh;
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh - 1.0;
                 }
             }
 
@@ -551,6 +551,9 @@ fn draw_column(
     canvas: &mut Canvas<Surface>,
 ) {
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
+    if frac < 0.0 {
+        frac += (texture_column.len() - 1) as f32;
+    }
 
     for n in yl..=yh {
         if frac as usize & 127 > texture_column.len() - 1 {
