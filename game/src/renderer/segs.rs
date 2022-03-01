@@ -529,7 +529,11 @@ impl SegRender {
 }
 
 fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
-    let index = (texture_column as i32) & (texture.len() as i32 - 1);
+    let mut col = texture_column.ceil() as i32 - 1;
+    if col > texture.len() as i32 - 1 {
+        col -= 1;
+    }
+    let index = col & (texture.len() as i32 - 1);
     &texture[index as usize]
 }
 
@@ -552,14 +556,18 @@ fn draw_column(
 ) {
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
     if frac < 0.0 {
-        frac += (texture_column.len() - 1) as f32;
+        frac += (texture_column.len()) as f32;
     }
 
     for n in yl..=yh {
-        if frac as usize & 127 > texture_column.len() - 1 {
-            return;
+        let mut select = frac as usize & 127;
+        if select > texture_column.len() - 1 {
+            select -= texture_column.len();
+            if select > texture_column.len() - 1 {
+                select = texture_column.len() - 1;
+            }
         }
-        let px = colourmap[texture_column[frac as usize & 127]];
+        let px = colourmap[texture_column[select]];
         let colour = if px == usize::MAX {
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
