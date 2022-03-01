@@ -84,6 +84,21 @@ impl WadData {
         }
     }
 
+    pub fn colourmap_iter(&self) -> LumpIter<u8, impl Fn(usize) -> u8 + '_> {
+        let info = self.find_lump_or_panic("COLORMAP");
+        let item_size = 1;
+        let file = &self.file_data[info.handle];
+
+        LumpIter {
+            item_size,
+            item_count: info.size,
+            lump_offset: info.offset,
+            current: 0,
+            transformer: move |offset| self.read_byte(offset, file),
+            _phantom: Default::default(),
+        }
+    }
+
     pub fn pnames_iter(&self) -> LumpIter<String, impl Fn(usize) -> String + '_> {
         let info = self.find_lump_or_panic("PNAMES");
         let item_size = 8;
@@ -425,8 +440,7 @@ mod tests {
         assert_eq!(next.kind, 2);
         assert_eq!(next.flags, 7);
 
-        let collection: Vec<WadThing> = wad.thing_iter("E1M1").collect();
-        assert_eq!(collection.len(), 138);
+        assert_eq!(wad.thing_iter("E1M1").count(), 138);
     }
 
     #[test]
@@ -469,14 +483,13 @@ mod tests {
         let next = iter.next().unwrap();
         assert_eq!(next, "DOOR2_1");
 
-        let collection: Vec<String> = wad.pnames_iter().collect();
-        assert_eq!(collection.len(), 350);
+        assert_eq!(wad.pnames_iter().count(), 350);
     }
 
     #[test]
     fn texture_iter() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut iter = wad.texture_iter();
+        let mut iter = wad.texture_iter("TEXTURE1");
         // All verified with SLADE
 
         let next = iter.next().unwrap();
@@ -494,33 +507,26 @@ mod tests {
         let next = iter.next().unwrap();
         assert_eq!(next.name, "BIGDOOR2");
 
-        let collection: Vec<WadTexture> = wad.texture_iter().collect();
-        assert_eq!(collection.len(), 125);
+        assert_eq!(wad.texture_iter("TEXTURE1").count(), 125);
     }
 
     #[test]
     fn patches_doom1_iter() {
         let wad = WadData::new("../doom1.wad".into());
-        let iter: Vec<WadPatch> = wad.patches_iter().collect();
-
-        assert_eq!(iter.len(), 163);
+        assert_eq!(wad.patches_iter().count(), 163);
     }
 
     #[test]
     fn patches_doom_iter() {
         let wad = WadData::new("../doom.wad".into());
-        let iter: Vec<WadPatch> = wad.patches_iter().collect();
-
-        assert_eq!(iter.len(), 351);
+        assert_eq!(wad.patches_iter().count(), 351);
     }
 
     #[test]
     fn patches_doom2_iter() {
         // W94_1 is missing in DOOM2?
         let wad = WadData::new("../doom2.wad".into());
-        let iter: Vec<WadPatch> = wad.patches_iter().collect();
-
-        assert_eq!(iter.len(), 469);
+        assert_eq!(wad.patches_iter().count(), 469);
     }
 
     #[test]
@@ -549,14 +555,13 @@ mod tests {
         let next = iter.next().unwrap();
         assert_eq!(next, "RW22_2");
 
-        let collection: Vec<String> = wad.pnames_iter().collect();
-        assert_eq!(collection.len(), 469);
+        assert_eq!(wad.pnames_iter().count(), 469);
     }
 
     #[test]
     fn patches_doom1_tex19() {
         let wad = WadData::new("../doom1.wad".into());
-        let iter: Vec<WadTexture> = wad.texture_iter().collect();
+        let iter: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
 
         let patch = &iter[19];
@@ -571,5 +576,42 @@ mod tests {
         assert_eq!(patch.patches[0].origin_y, 0);
 
         assert_eq!(patch.patches[1].patch_index, 25);
+    }
+
+    #[test]
+    fn colormap_iter() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut iter = wad.colourmap_iter();
+        // All verified with SLADE
+
+        let next = iter.next().unwrap();
+        assert_eq!(next, 0);
+
+        let next = iter.next().unwrap();
+        assert_eq!(next, 1);
+
+        let next = iter.next().unwrap();
+        assert_eq!(next, 2);
+
+        assert_eq!(wad.colourmap_iter().count(), 8704);
+        assert_eq!(wad.colourmap_iter().count() / 256, 34);
+
+        let colourmap: Vec<u8> = wad.colourmap_iter().collect();
+
+        assert_eq!(colourmap[256], 0);
+        assert_eq!(colourmap[8 * 256], 0);
+        assert_eq!(colourmap[16 * 256], 0);
+
+        assert_eq!(colourmap[256 + 32], 33);
+        assert_eq!(colourmap[8 * 256 + 32], 36);
+        assert_eq!(colourmap[16 * 256 + 32], 15);
+
+        assert_eq!(colourmap[256 + 48], 49);
+        assert_eq!(colourmap[8 * 256 + 48], 89);
+        assert_eq!(colourmap[16 * 256 + 48], 98);
+
+        assert_eq!(colourmap[256 + 64], 64);
+        assert_eq!(colourmap[8 * 256 + 64], 69);
+        assert_eq!(colourmap[16 * 256 + 64], 74);
     }
 }
