@@ -12,6 +12,10 @@ pub mod plane;
 pub mod portals;
 pub mod segs;
 
+const LIGHTLEVELS: i32 = 16;
+const NUMCOLORMAPS: i32 = 32;
+const MAXLIGHTSCALE: i32 = 48;
+
 /// We store most of what is needed for rendering in various functions here to avoid
 /// having to pass too many things in args through multiple function calls. This
 /// is due to the Doom C relying a fair bit on global state.
@@ -35,6 +39,9 @@ pub struct RenderData {
 
     /// Colours for pixels
     palettes: Vec<WadPalette>,
+    // Usually 34 blocks of 256, each u8 being an index in to the palette
+    colourmap: Vec<Vec<usize>>,
+    lightscale: Vec<Vec<Vec<usize>>>,
     /// Indexing is [texture num][x][y]
     textures: Vec<Texture>,
 }
@@ -42,6 +49,46 @@ pub struct RenderData {
 impl RenderData {
     pub fn new(wad: &WadData) -> Self {
         let palettes = wad.playpal_iter().collect();
+        let colourmap: Vec<Vec<usize>> = wad
+            .colourmap_iter()
+            .map(|i| i as usize)
+            .collect::<Vec<usize>>()
+            .chunks(256)
+            .map(|v| v.to_owned())
+            .collect();
+
+        let lightscale = (0..LIGHTLEVELS)
+            .map(|i| {
+                let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+                (0..MAXLIGHTSCALE)
+                    .map(|j| {
+                        let mut level = startmap - j / 2;
+                        if level < 0 {
+                            level = 0;
+                        }
+                        if level >= NUMCOLORMAPS {
+                            level = NUMCOLORMAPS - 1;
+                        }
+                        colourmap[level as usize].to_owned()
+                    })
+                    .collect()
+            })
+            .collect();
+
+        for i in 0..LIGHTLEVELS {
+            // TODO: const LIGHTLEVELS
+            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+            for j in 0..MAXLIGHTSCALE {
+                let mut level = startmap - j / 2;
+                if level < 0 {
+                    level = 0;
+                }
+                if level >= NUMCOLORMAPS {
+                    level = NUMCOLORMAPS - 1;
+                }
+            }
+        }
+
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
         let mut textures: Vec<Texture> = wad
             .texture_iter("TEXTURE1")
@@ -61,6 +108,8 @@ impl RenderData {
             portal_clip: PortalClip::default(),
             ds_p: 0,
             palettes,
+            colourmap,
+            lightscale,
             textures,
         }
     }
@@ -92,6 +141,14 @@ impl RenderData {
 
     pub fn get_palette(&self, num: usize) -> &[WadColour] {
         &self.palettes[num].0
+    }
+
+    pub fn get_colourmap(&self, index: usize) -> &[usize] {
+        &self.colourmap[index]
+    }
+
+    pub fn get_lightscale(&self, index: usize) -> &Vec<Vec<usize>> {
+        &self.lightscale[index]
     }
 
     pub fn get_texture(&self, num: usize) -> &Texture {

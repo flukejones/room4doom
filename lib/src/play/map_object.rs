@@ -715,7 +715,7 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub unsafe fn set_thing_position(&mut self) {
         let level = &mut *self.level;
-        let subsector = level.map_data.point_in_subsector(self.xy);
+        let subsector = level.map_data.point_in_subsector_mut(self.xy);
         self.subsector = subsector;
 
         if self.flags & MobjFlag::NOSECTOR as u32 == 0 {

@@ -1,4 +1,3 @@
-use gumdrop::Options;
 use std::{error::Error, fmt, str::FromStr};
 
 use crate::doom_def::{GameMission, GameMode};
