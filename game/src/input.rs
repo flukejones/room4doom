@@ -18,12 +18,6 @@ impl InputEvents {
         i
     }
 
-    pub fn clear(&mut self) {
-        self.key_state.clear();
-        self.mouse_state.clear();
-        self.mouse_delta = (0, 0)
-    }
-
     pub fn is_kb_pressed(&self, s: Sc) -> bool {
         self.key_state.contains(&s)
     }
@@ -84,12 +78,7 @@ impl InputEvents {
             self.turn_held = 0;
         }
 
-        let turn_speed;
-        if self.turn_held < 6 {
-            turn_speed = 2;
-        } else {
-            turn_speed = speed;
-        }
+        let turn_speed = if self.turn_held < 6 { 2 } else { speed };
 
         if strafe {
             if self.is_kb_pressed(cfg.key_right) {
@@ -292,59 +281,5 @@ impl Default for InputConfig {
             mousebstrafe: Mb::Middle,
             mousebforward: Mb::Right,
         }
-    }
-}
-
-impl InputConfig {
-    pub fn key_right(&self) -> Sc {
-        self.key_right
-    }
-
-    pub fn key_left(&self) -> Sc {
-        self.key_left
-    }
-
-    pub fn key_up(&self) -> Sc {
-        self.key_up
-    }
-
-    pub fn key_down(&self) -> Sc {
-        self.key_down
-    }
-
-    pub fn key_strafeleft(&self) -> Sc {
-        self.key_strafeleft
-    }
-
-    pub fn key_straferight(&self) -> Sc {
-        self.key_straferight
-    }
-
-    pub fn key_fire(&self) -> Sc {
-        self.key_fire
-    }
-
-    pub fn key_use(&self) -> Sc {
-        self.key_use
-    }
-
-    pub fn key_strafe(&self) -> Sc {
-        self.key_strafe
-    }
-
-    pub fn key_speed(&self) -> Sc {
-        self.key_speed
-    }
-
-    pub fn mousebfire(&self) -> Mb {
-        self.mousebfire
-    }
-
-    pub fn mousebstrafe(&self) -> Mb {
-        self.mousebstrafe
-    }
-
-    pub fn mousebforward(&self) -> Mb {
-        self.mousebforward
     }
 }
