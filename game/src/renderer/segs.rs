@@ -319,6 +319,15 @@ impl SegRender {
             //     else
             //     walllights = scalelight[lightnum];
             // }
+            let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
+
+            if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
+                if lightnum > 5 {
+                    lightnum -= 5;
+                }
+            } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 249 {
+                lightnum += 5;
+            }
         }
 
         // if a floor / ceiling plane is on the wrong side
@@ -377,16 +386,26 @@ impl SegRender {
 
         //
         // TESTING STUFF
-        //
-        let mut lightnum = seg.sidedef.sector.lightlevel as u8;
+        // store_wall_range sets up the walllights via this block
+        let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
 
         if (seg.v1.y() - seg.v2.y()).abs() < f32::EPSILON {
-            if lightnum > 5 {
-                lightnum -= 5;
+            if lightnum > 1 {
+                lightnum -= 1;
             }
-        } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 249 {
-            lightnum += 5;
+        } else if (seg.v1.x() - seg.v2.x()).abs() < f32::EPSILON && lightnum < 15 {
+            lightnum += 1;
+            // walllights = scalelight[lightnum];, where scalelight = lighttable_t *[16][48]
         }
+        let wall_lights = rdata.get_lightscale(lightnum as usize);
+
+        // Select colourmap to use (max should be 48)
+        let mut index = (self.rw_scale * 16.0) as usize;
+        if index > 31 {
+            index = 31;
+        }
+        // dc_colourmap = walllights
+        let colourmap = wall_lights[index].to_owned();
 
         // R_RenderSegLoop
         let mut yl;
@@ -446,7 +465,7 @@ impl SegRender {
                     let texture_column = get_column(texture, texture_column);
                     basic_draw_test(
                         texture_column,
-                        lightnum,
+                        &colourmap,
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
@@ -476,7 +495,7 @@ impl SegRender {
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
-                                lightnum,
+                                &colourmap,
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
@@ -511,7 +530,7 @@ impl SegRender {
                             let texture_column = get_column(texture, texture_column);
                             basic_draw_test(
                                 texture_column,
-                                lightnum,
+                                &colourmap,
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_bottomtexturemid,
@@ -562,7 +581,7 @@ fn get_column(texture: &[Vec<usize>], texture_column: usize) -> &[usize] {
 #[allow(clippy::too_many_arguments)]
 fn basic_draw_test(
     texture_column: &[usize],
-    lightnum: u8,
+    colourmap: &[usize],
     fracstep: f32,
     dc_x: i32,
     dc_texturemid: f32,
@@ -571,7 +590,7 @@ fn basic_draw_test(
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
-    let scale = lightnum as f32 / 255.0;
+    //let scale = lightnum as f32 / 255.0;
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
 
     for n in yl..=yh {
@@ -579,17 +598,13 @@ fn basic_draw_test(
             return;
         }
         let px = texture_column[frac as usize & 127];
+        let px = colourmap[px];
         let colour = if px == usize::MAX {
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
         } else {
             let colour = &rdata.get_palette(0)[px];
-            sdl2::pixels::Color::RGBA(
-                (colour.r as f32 * scale) as u8,
-                (colour.g as f32 * scale) as u8,
-                (colour.b as f32 * scale) as u8,
-                255,
-            )
+            sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
         };
 
         canvas.set_draw_color(colour);
