@@ -252,8 +252,7 @@ impl WadData {
             name: str::from_utf8(&n)
                 .expect("Invalid lump name")
                 .trim_end_matches('\u{0}')
-                .to_ascii_uppercase() // better to address this early to avoid many casts later
-                .to_owned(),
+                .to_ascii_uppercase(), // better to address this early to avoid many casts later
         }
     }
 

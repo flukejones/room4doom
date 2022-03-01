@@ -1,5 +1,5 @@
 use crate::{lumps::*, MapLump, WadData};
-use std::{marker::PhantomData, thread::current};
+use std::marker::PhantomData;
 
 pub struct LumpIter<T, F: Fn(usize) -> T> {
     item_size: usize,
@@ -517,12 +517,14 @@ mod tests {
         assert_eq!(wad.patches_iter().count(), 163);
     }
 
+    #[ignore = "doom.wad is commercial"]
     #[test]
     fn patches_doom_iter() {
         let wad = WadData::new("../doom.wad".into());
         assert_eq!(wad.patches_iter().count(), 351);
     }
 
+    #[ignore = "doom2.wad is commercial"]
     #[test]
     fn patches_doom2_iter() {
         // W94_1 is missing in DOOM2?
@@ -530,8 +532,9 @@ mod tests {
         assert_eq!(wad.patches_iter().count(), 469);
     }
 
+    #[ignore = "doom2.wad is commercial"]
     #[test]
-    fn W94_1() {
+    fn w94_1() {
         // W94_1 has incorrect capitalisation as "w94_1"
         let wad = WadData::new("../doom2.wad".into());
         let lump = wad.find_lump_or_panic("W94_1");
@@ -541,6 +544,7 @@ mod tests {
         assert_eq!(lump.name, "W94_1");
     }
 
+    #[ignore = "doom2.wad is commercial"]
     #[test]
     fn pnames_doom2_iter() {
         let wad = WadData::new("../doom2.wad".into());
@@ -563,8 +567,6 @@ mod tests {
     fn patches_doom1_tex19() {
         let wad = WadData::new("../doom1.wad".into());
         let iter: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
-        let patches: Vec<WadPatch> = wad.patches_iter().collect();
-
         let patch = &iter[19];
 
         assert_eq!(patch.width, 128);
