@@ -8,12 +8,13 @@ use glam::Vec2;
 // }
 
 // pub fn screen_to_x_view(x: i32) -> f32 {
-//     let a = ((160.0 - x as f32) / player_dist_to_screen()).atan() * 180.0 / PI;
-//     if a < 0.0000001 {
-//         return 360.0 + a;
-//     }
+//     let a = ((160.0 - x as f32) / player_dist_to_screen()).atan();// * 180.0 / PI;
+//     // if a < 0.0000001 {
+//     //     return 360.0 + a;
+//     // }
 //     a
 // }
+
 #[allow(clippy::excessive_precision)]
 pub static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
     45.043945, 44.824219, 44.648437, 44.472656, 44.296875, 44.121094, 43.945312, 43.725586,

@@ -146,7 +146,7 @@ impl MapObject {
         };
 
         let level = unsafe { &mut *self.level };
-        let newsubsec = level.map_data.point_in_subsector(endpoint);
+        let newsubsec = level.map_data.point_in_subsector_mut(endpoint);
         // The base floor / ceiling is from the subsector
         // that contains the point.
         unsafe {
