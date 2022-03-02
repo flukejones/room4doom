@@ -341,8 +341,9 @@ impl SegRender {
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
+            // TODO: precision here causes some issues
             if self.worldlow > self.worldbottom {
-                self.pixlow = 100.0 - (self.worldlow * self.rw_scale);
+                self.pixlow = 101.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -561,11 +562,12 @@ fn draw_column(
 
     for n in yl..=yh {
         let mut select = frac as usize & 127;
-        if select > texture_column.len() - 1 {
-            select -= texture_column.len();
-            if select > texture_column.len() - 1 {
-                select = texture_column.len() - 1;
-            }
+        while select > texture_column.len() - 1 {
+            select -= texture_column.len() - 1;
+            // if select > texture_column.len() - 1 {
+            //     // TODO: check
+            //     select -= texture_column.len() - 1;
+            // }
         }
         let px = colourmap[texture_column[select]];
         let colour = if px == usize::MAX {
