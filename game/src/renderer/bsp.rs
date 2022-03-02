@@ -114,7 +114,7 @@ impl BspRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2, seg, player, r_data, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
                 return;
             }
 
@@ -123,7 +123,7 @@ impl BspRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2, seg, player, r_data, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, player, r_data, canvas);
                 return;
             }
 
@@ -138,7 +138,7 @@ impl BspRenderer {
                 // TODO: fill in this body
             }
         } else {
-            self.clip_solid_seg(x1, x2, seg, player, r_data, canvas);
+            self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
         }
     }
 
@@ -351,7 +351,7 @@ impl BspRenderer {
             start += 1;
             self.solidsegs[start] = self.solidsegs[next];
         }
-        self.new_end = start;
+        self.new_end = start + 1;
     }
 
     /// R_RenderBSPNode - r_bsp
@@ -393,7 +393,7 @@ pub fn angle_to_screen(mut radian: f32) -> i32 {
     let mut x;
 
     // Left side
-    let p = 160.0 / (FRAC_PI_4).tan();
+    let p = 160.9 / (FRAC_PI_4).tan();
     if radian > FRAC_PI_2 {
         radian -= FRAC_PI_2;
         let t = radian.tan();

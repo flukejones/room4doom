@@ -78,9 +78,6 @@ pub fn scale_from_view_angle(
     rw_distance: f32,
     view_angle: Angle,
 ) -> f32 {
-    static MAX_SCALEFACTOR: f32 = 64.0;
-    static MIN_SCALEFACTOR: f32 = 0.00390625;
-
     let anglea = Angle::new(FRAC_PI_2 + (visangle.rad() - view_angle.rad())); // CORRECT
     let angleb = Angle::new(FRAC_PI_2 + (visangle.rad() - rw_normalangle.rad())); // CORRECT
 
@@ -93,13 +90,5 @@ pub fn scale_from_view_angle(
     let num = p * sineb; // oof a bit
     let den = rw_distance * sinea;
 
-    let mut scale = num / den;
-
-    if scale > MAX_SCALEFACTOR {
-        scale = MAX_SCALEFACTOR;
-    } else if MIN_SCALEFACTOR > scale {
-        scale = MIN_SCALEFACTOR;
-    }
-
-    scale
+    num / den
 }

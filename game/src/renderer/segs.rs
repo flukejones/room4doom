@@ -327,20 +327,20 @@ impl SegRender {
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 100.0 - ((self.worldtop) * self.rw_scale);
+        self.topfrac = 101.0 - ((self.worldtop) * self.rw_scale); // 101.0 for all?
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
-        self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
+        self.bottomfrac = 101.0 - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
             if self.worldhigh < self.worldtop {
-                self.pixhigh = 100.0 - (self.worldhigh * self.rw_scale);
+                self.pixhigh = 101.0 - (self.worldhigh * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
             // TODO: precision here causes some issues
             if self.worldlow > self.worldbottom {
-                self.pixlow = 100.0 - (self.worldlow * self.rw_scale);
+                self.pixlow = 101.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -360,12 +360,12 @@ impl SegRender {
     /// Doom function name `R_RenderSegLoop`
     fn render_seg_loop(
         &mut self,
-        player: &Player,
+        _player: &Player,
         seg: &Segment,
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
-        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        const HEIGHTUNIT: f32 = 0.062485;
 
         // R_RenderSegLoop
         let mut yl;
@@ -378,7 +378,7 @@ impl SegRender {
         while self.rw_x <= self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac; // + 1.0;
+            yl = self.topfrac + HEIGHTUNIT; // + HEIGHTUNIT - 1
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
@@ -397,7 +397,7 @@ impl SegRender {
 
             yh = self.bottomfrac;
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize];
+                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
 
             if self.markfloor {
@@ -439,7 +439,7 @@ impl SegRender {
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
-                        yl as i32,
+                        yl as i32, // yl needed to be offset? Why?
                         yh as i32,
                         rdata,
                         canvas,
@@ -450,14 +450,14 @@ impl SegRender {
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
                 if self.toptexture != 0 {
-                    mid = self.pixhigh;
+                    mid = self.pixhigh - 1.0;
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.floorclip[self.rw_x as usize];
+                        mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                     }
 
-                    if mid >= yl {
+                    if mid > yl {
                         if seg.sidedef.toptexture != usize::MAX {
                             let texture = &rdata.textures[seg.sidedef.toptexture];
                             let texture_column = get_column(texture, texture_column);
@@ -467,8 +467,8 @@ impl SegRender {
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
-                                yl as i32,
-                                mid as i32,
+                                yl as i32, // -1 affects the top of lines without mid texture
+                                mid as i32 + 1,
                                 rdata,
                                 canvas,
                             );
@@ -483,7 +483,7 @@ impl SegRender {
                 }
 
                 if self.bottomtexture != 0 {
-                    mid = self.pixlow;
+                    mid = self.pixlow; // + HEIGHTUNIT; ? needed?
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
@@ -491,9 +491,7 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        if seg.linedef.point_on_side(&mobj.xy) == 0
-                            && seg.sidedef.bottomtexture != usize::MAX
-                        {
+                        if seg.sidedef.bottomtexture != usize::MAX {
                             let texture = &rdata.textures[seg.sidedef.bottomtexture];
                             let texture_column = get_column(texture, texture_column);
                             draw_column(
@@ -508,13 +506,12 @@ impl SegRender {
                                 canvas,
                             );
                         }
-
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh - 1.0;
+                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh - 1.0;
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
                 }
             }
 
@@ -557,12 +554,12 @@ fn draw_column(
     //     frac += (texture_column.len()) as f32;
     // }
 
-    for n in yl..=yh {
-        let mut select = frac as usize & 127;
-        while select > texture_column.len() - 1 {
-            select -= texture_column.len();
+    for n in yl..yh {
+        let mut select = frac as i32 & 127;
+        while select >= texture_column.len() as i32 {
+            select -= texture_column.len() as i32;
         }
-        let px = colourmap[texture_column[select]];
+        let px = colourmap[texture_column[select as usize]];
         let colour = if px == usize::MAX {
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)

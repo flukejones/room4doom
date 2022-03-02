@@ -7,7 +7,13 @@
 [X] - FIXED: they work I guess: E3M4 crushers
 [X] - Doom2 M9 lift textures
 [X] - upper of some textures are screwed
-[ ] - door in spawn area (behind) is drawn incorrectly
+[X] - door in spawn area (behind) is drawn incorrectly
+[ ] - map 24 Doom 2, texture to right of open area is bad
+[X] - map 1 SIGIL, texture in front is borked
+
+[-] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
+[ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
+[ ] - angle_to_screen has an impact on sizing and scale
 
 [X] - Load textures
 [ ] - Load sprites
