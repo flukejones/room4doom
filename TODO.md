@@ -6,7 +6,8 @@
 [ ] - Implement texture read and prep for use
 [X] - FIXED: they work I guess: E3M4 crushers
 [X] - Doom2 M9 lift textures
-[ ] - upper of some textures are screwed
+[X] - upper of some textures are screwed
+[ ] - door in spawn area (behind) is drawn incorrectly
 
 [X] - Load textures
 [ ] - Load sprites
