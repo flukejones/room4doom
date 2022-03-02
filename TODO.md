@@ -9,7 +9,9 @@
 [X] - upper of some textures are screwed
 [X] - door in spawn area (behind) is drawn incorrectly
 [ ] - map 24 Doom 2, texture to right of open area is bad
-[ ] - map 1 SIGIL, texture in front is borked
+[X] - map 1 SIGIL, texture in front is borked
+
+[ ] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 
 [X] - Load textures
 [ ] - Load sprites
