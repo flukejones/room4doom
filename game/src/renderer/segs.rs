@@ -491,8 +491,7 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        if seg.sidedef.bottomtexture != usize::MAX
-                        {
+                        if seg.sidedef.bottomtexture != usize::MAX {
                             let texture = &rdata.textures[seg.sidedef.bottomtexture];
                             let texture_column = get_column(texture, texture_column);
                             draw_column(
