@@ -7,7 +7,9 @@
 [X] - FIXED: they work I guess: E3M4 crushers
 [X] - Doom2 M9 lift textures
 [X] - upper of some textures are screwed
-[ ] - door in spawn area (behind) is drawn incorrectly
+[X] - door in spawn area (behind) is drawn incorrectly
+[ ] - map 24 Doom 2, texture to right of open area is bad
+[ ] - map 1 SIGIL, texture in front is borked
 
 [X] - Load textures
 [ ] - Load sprites

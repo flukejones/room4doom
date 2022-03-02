@@ -378,7 +378,7 @@ impl SegRender {
         while self.rw_x <= self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac; // + 1.0;
+            yl = self.topfrac + 1.0;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
@@ -397,7 +397,7 @@ impl SegRender {
 
             yh = self.bottomfrac;
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize];
+                yh = rdata.portal_clip.floorclip[self.rw_x as usize] + 1.0;
             }
 
             if self.markfloor {
@@ -557,12 +557,12 @@ fn draw_column(
     //     frac += (texture_column.len()) as f32;
     // }
 
-    for n in yl..=yh {
-        let mut select = frac as usize & 127;
-        while select > texture_column.len() - 1 {
-            select -= texture_column.len();
+    for n in yl..yh {
+        let mut select = frac as i32 & 127;
+        while select >= texture_column.len() as i32 {
+            select -= texture_column.len() as i32;
         }
-        let px = colourmap[texture_column[select]];
+        let px = colourmap[texture_column[select as usize]];
         let colour = if px == usize::MAX {
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
