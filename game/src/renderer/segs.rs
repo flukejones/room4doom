@@ -162,10 +162,7 @@ impl SegRender {
             {
                 let texture = &rdata.textures[seg.sidedef.midtexture];
                 let texture_column = get_column(texture, 0.0);
-                let mut vtop = frontsector.floorheight + texture_column.len() as f32;
-                if vtop < frontsector.floorheight + frontsector.ceilingheight {
-                    vtop = frontsector.floorheight + frontsector.ceilingheight
-                }
+                let vtop = frontsector.floorheight + texture_column.len() as f32;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
                 // top of texture at top
@@ -343,7 +340,7 @@ impl SegRender {
 
             // TODO: precision here causes some issues
             if self.worldlow > self.worldbottom {
-                self.pixlow = 101.0 - (self.worldlow * self.rw_scale);
+                self.pixlow = 100.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -556,18 +553,14 @@ fn draw_column(
     canvas: &mut Canvas<Surface>,
 ) {
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
-    if frac < 0.0 {
-        frac += (texture_column.len()) as f32;
-    }
+    // if frac < 0.0 {
+    //     frac += (texture_column.len()) as f32;
+    // }
 
     for n in yl..=yh {
         let mut select = frac as usize & 127;
         while select > texture_column.len() - 1 {
-            select -= texture_column.len() - 1;
-            // if select > texture_column.len() - 1 {
-            //     // TODO: check
-            //     select -= texture_column.len() - 1;
-            // }
+            select -= texture_column.len();
         }
         let px = colourmap[texture_column[select]];
         let colour = if px == usize::MAX {
