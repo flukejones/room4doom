@@ -16,6 +16,7 @@ pub const MAXVISPLANES: usize = 128;
 
 pub const MAXOPENINGS: usize = SCREENWIDTH * 64;
 
+#[derive(Debug, Clone, Copy)]
 pub struct DrawSeg {
     pub curline: NonNull<Segment>,
     pub x1: i32,
@@ -36,9 +37,13 @@ pub struct DrawSeg {
 
     // TODO: Pointers to lists for sprite clipping,
     //  all three adjusted so [x1] is first value.
-    pub sprtopclip: i16,
-    pub sprbottomclip: i16,
-    pub maskedtexturecol: i16,
+    /// Index in to visplanes.ceilingclip
+    pub sprtopclip: Option<i32>,
+    /// Index in to visplanes.floorclip
+    pub sprbottomclip: Option<i32>,
+
+    /// Keeps an index that is used to index in to `openings`
+    pub maskedtexturecol: i32,
 }
 
 impl DrawSeg {
@@ -53,8 +58,8 @@ impl DrawSeg {
             silhouette: 0,
             bsilheight: 0.0,
             tsilheight: 0.0,
-            sprtopclip: 0,
-            sprbottomclip: 0,
+            sprtopclip: None,
+            sprbottomclip: None,
             maskedtexturecol: 0,
         }
     }

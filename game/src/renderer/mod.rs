@@ -11,6 +11,7 @@ pub mod defs;
 pub mod plane;
 pub mod portals;
 pub mod segs;
+pub mod things;
 
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
@@ -161,5 +162,8 @@ impl RenderData {
 
     pub fn clear_data(&mut self) {
         self.portal_clip.clear();
+        self.drawsegs.clear();
+        self.ds_p = 0;
+        self.rw_angle1 = Angle::default();
     }
 }

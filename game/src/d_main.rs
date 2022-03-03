@@ -17,31 +17,33 @@ use wad::{
 
 use crate::{
     input::Input,
-    renderer::{bsp::BspRenderer, plane::VisPlaneCtrl, RenderData},
+    renderer::{bsp::BspRender, plane::VisPlaneRender, segs::SegRender, RenderData},
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     timestep::TimeStep,
     GameOptions,
 };
 
 struct Renderer {
-    bsp_renderer: BspRenderer,
+    bsp_renderer: BspRender,
     r_data: RenderData,
-    visplanes: VisPlaneCtrl,
+    visplanes: VisPlaneRender,
+    seg_renderer: SegRender,
     crop_rect: Rect,
 }
 
 impl Renderer {
     fn new(wad: &WadData) -> Self {
         Self {
-            bsp_renderer: BspRenderer::default(),
+            bsp_renderer: BspRender::default(),
             r_data: RenderData::new(wad),
-            visplanes: VisPlaneCtrl::default(),
+            visplanes: VisPlaneRender::default(),
+            seg_renderer: SegRender::default(),
             crop_rect: Rect::new(0, 0, 1, 1),
         }
     }
 
     /// D_Display
-    // TODO: Move
+    /// Doom function name `R_RenderPlayerView`
     pub fn render_player_view(&mut self, game: &Game, canvas: &mut Canvas<Surface>) {
         if !game.player_in_game[0] {
             return;
@@ -55,6 +57,7 @@ impl Renderer {
             self.visplanes.clear_planes();
             self.bsp_renderer.clear_clip_segs();
             self.r_data.clear_data();
+            self.seg_renderer = SegRender::default();
             // The state machine will handle which state renders to the surface
             //self.states.render(dt, &mut self.canvas);
 
@@ -83,13 +86,28 @@ impl Renderer {
             );
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
+
+            // TODO: netupdate
+
             self.bsp_renderer.render_bsp_node(
                 map,
                 player,
                 map.start_node(),
+                &mut self.visplanes,
                 &mut self.r_data,
                 canvas,
             );
+
+            // TODO: netupdate again
+            // TODO: drawplanes
+            // TODO: netupdate again
+            self.bsp_renderer.draw_masked(
+                player.viewz,
+                &mut self.visplanes,
+                &mut self.r_data,
+                canvas,
+            );
+            // TODO: netupdate again
         }
     }
 }

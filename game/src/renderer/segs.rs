@@ -1,4 +1,5 @@
 use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_DONTPEGTOP, ML_MAPPED};
+use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
@@ -12,6 +13,8 @@ use crate::{
     },
     utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW},
 };
+
+use super::plane::VisPlaneRender;
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -34,6 +37,8 @@ pub struct SegRender {
     markfloor: bool,
     markceiling: bool,
     maskedtexture: bool,
+    /// Index in to `openings` array
+    maskedtexturecol: i32,
     // Texture ID's
     toptexture: i32,
     bottomtexture: i32,
@@ -81,13 +86,21 @@ impl SegRender {
         stop: i32,
         seg: &Segment,
         object: &Player,
+        visplanes: &mut VisPlaneRender,
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        // bounds check before getting ref
+        if rdata.ds_p >= rdata.drawsegs.len() {
+            rdata.drawsegs.push(DrawSeg::new(NonNull::from(seg)));
+        }
+
         // Keep original Doom behaviour here
-        if rdata.drawsegs.len() > MAXDRAWSEGS {
+        if rdata.drawsegs.len() - 1 > MAXDRAWSEGS {
             return;
         }
+
+        let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
         if start >= 320 || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
@@ -114,8 +127,6 @@ impl SegRender {
         let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
-        let mut ds_p = DrawSeg::new(NonNull::from(seg));
-
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
         let view_angle = mobj.angle;
 
@@ -130,7 +141,7 @@ impl SegRender {
         ds_p.x1 = start;
         self.rw_x = start;
         ds_p.x2 = stop;
-        self.rw_stopx = stop;
+        self.rw_stopx = stop + 1;
 
         if stop > start {
             ds_p.scale2 =
@@ -150,8 +161,11 @@ impl SegRender {
         self.worldtop = frontsector.ceilingheight - viewz;
         self.worldbottom = frontsector.floorheight - viewz;
 
-        // These are all zeroed to start with, thanks rust.
-        // midtexture = toptexture = bottomtexture = maskedtexture = 0;
+        self.midtexture = 0;
+        self.toptexture = 0;
+        self.bottomtexture = 0;
+        self.maskedtexture = false;
+        self.maskedtexturecol = 0;
 
         if seg.backsector.is_none() {
             // single sided line
@@ -171,15 +185,16 @@ impl SegRender {
             self.rw_midtexturemid += seg.sidedef.rowoffset;
 
             ds_p.silhouette = SIL_BOTH;
-            // TODO: ds_p.sprtopclip = screenheightarray;
-            // TODO: ds_p.sprbottomclip = negonearray;
+            ds_p.sprtopclip = Some(0); // start of screenheightarray
+            ds_p.sprbottomclip = Some(0); // start of negonearray
             ds_p.bsilheight = f32::MAX;
-            ds_p.tsilheight = f32::MAX;
+            ds_p.tsilheight = f32::MIN;
         } else {
             let backsector = seg.backsector.as_ref().unwrap();
             // two sided line
             // TODO: when thing render started
-            //  ds_p->sprtopclip = ds_p->sprbottomclip = NULL;
+            ds_p.sprtopclip = None;
+            ds_p.sprbottomclip = None;
             ds_p.silhouette = SIL_NONE;
 
             if frontsector.floorheight > backsector.floorheight {
@@ -199,13 +214,13 @@ impl SegRender {
             }
 
             if backsector.ceilingheight <= frontsector.floorheight {
-                // TODO: ds_p->sprbottomclip = negonearray;
+                ds_p.sprbottomclip = Some(0); // start of negonearray
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
             }
 
             if backsector.floorheight >= frontsector.ceilingheight {
-                // TODO: ds_p->sprtopclip = screenheightarray;
+                ds_p.sprtopclip = Some(0);
                 ds_p.silhouette = SIL_TOP;
                 ds_p.bsilheight = f32::MIN;
             }
@@ -274,9 +289,11 @@ impl SegRender {
 
             if sidedef.midtexture != 0 {
                 self.maskedtexture = true;
-                ds_p.maskedtexturecol = sidedef.midtexture as i16;
-                // TODO: ds_p->maskedtexturecol = maskedtexturecol = lastopening - rw_x;
-                // lastopening += rw_stopx - rw_x;
+                // Set the indexes in to visplanes.openings
+                self.maskedtexturecol = visplanes.lastopening - self.rw_x;
+                ds_p.maskedtexturecol = self.maskedtexturecol;
+
+                visplanes.lastopening += self.rw_stopx - self.rw_x;
             }
         }
 
@@ -354,7 +371,55 @@ impl SegRender {
             // floorplane = R_CheckPlane(floorplane, self.rw_x, self.rw_stopx - 1);
         }
 
-        self.render_seg_loop(object, seg, rdata, canvas);
+        self.render_seg_loop(object, seg, visplanes, rdata, canvas);
+
+        let ds_p = &mut rdata.drawsegs[rdata.ds_p];
+        if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
+            for (i, n) in rdata
+                .portal_clip
+                .ceilingclip
+                .iter()
+                .skip(start as usize)
+                .enumerate()
+            {
+                visplanes.openings[visplanes.lastopening as usize + i] = *n;
+                if i as i32 > self.rw_stopx - start {
+                    break;
+                }
+            }
+            ds_p.sprtopclip = Some(visplanes.lastopening - start);
+            visplanes.lastopening += self.rw_stopx - start;
+        }
+
+        if (ds_p.silhouette & SIL_BOTTOM != 0 || self.maskedtexture) && ds_p.sprbottomclip.is_none()
+        {
+            for (i, n) in rdata
+                .portal_clip
+                .floorclip
+                .iter()
+                .skip(start as usize)
+                .enumerate()
+            {
+                visplanes.openings[visplanes.lastopening as usize + i] = *n;
+                if i as i32 > self.rw_stopx - start {
+                    break;
+                }
+            }
+            ds_p.sprbottomclip = Some(visplanes.lastopening - start);
+            visplanes.lastopening += self.rw_stopx - start;
+        }
+
+        if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
+            ds_p.silhouette |= SIL_TOP;
+            ds_p.tsilheight = f32::MIN;
+        }
+
+        if ds_p.silhouette & SIL_BOTTOM == 0 && self.maskedtexture {
+            ds_p.silhouette |= SIL_BOTTOM;
+            ds_p.bsilheight = f32::MAX;
+        }
+
+        rdata.ds_p += 1;
     }
 
     /// Doom function name `R_RenderSegLoop`
@@ -362,6 +427,7 @@ impl SegRender {
         &mut self,
         _player: &Player,
         seg: &Segment,
+        visplanes: &mut VisPlaneRender,
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -375,7 +441,7 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0.0;
-        while self.rw_x <= self.rw_stopx {
+        while self.rw_x < self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac + HEIGHTUNIT; // + HEIGHTUNIT - 1
@@ -513,6 +579,11 @@ impl SegRender {
                 } else if self.markfloor {
                     rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
                 }
+
+                if self.maskedtexture {
+                    visplanes.openings[(self.maskedtexturecol + self.rw_x) as usize] =
+                        texture_column;
+                }
             }
 
             self.rw_x += 1;
@@ -523,9 +594,9 @@ impl SegRender {
     }
 }
 
-fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
+pub fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
     let mut col = texture_column.ceil() as i32 - 1;
-    if col > texture.len() as i32 - 1 {
+    if col >= texture.len() as i32 {
         col -= 1;
     }
     let index = col & (texture.len() as i32 - 1);
@@ -538,7 +609,7 @@ fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
 /// Thus a special case loop for very fast rendering can
 ///  be used. It has also been used with Wolfenstein 3D.
 #[allow(clippy::too_many_arguments)]
-fn draw_column(
+pub fn draw_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
@@ -556,6 +627,11 @@ fn draw_column(
 
     for n in yl..yh {
         let mut select = frac as i32 & 127;
+        if select >= texture_column.len() as i32
+            || texture_column[select as usize] as usize == usize::MAX
+        {
+            continue;
+        }
         while select >= texture_column.len() as i32 {
             select -= texture_column.len() as i32;
         }
