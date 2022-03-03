@@ -1,6 +1,6 @@
 use super::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
 
-pub struct VisPlaneCtrl {
+pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
     pub visplanes: Vec<Visplane>,
     pub lastvisplane: usize,
@@ -9,9 +9,9 @@ pub struct VisPlaneCtrl {
     /// Index of current visplane in `self.visplanes` for ceiling
     pub ceilingplane: usize,
 
-    // ?
-    pub openings: [i16; MAXOPENINGS],
-    pub lastopening: usize,
+    /// Stores the column number of the texture required for this opening
+    pub openings: [f32; MAXOPENINGS],
+    pub lastopening: i32,
 
     pub floorclip: [i32; SCREENWIDTH],
     pub ceilingclip: [i32; SCREENWIDTH],
@@ -34,23 +34,23 @@ pub struct VisPlaneCtrl {
     pub cachedystep: [f32; SCREENHEIGHT],
 }
 
-impl Default for VisPlaneCtrl {
+impl Default for VisPlaneRender {
     fn default() -> Self {
-        VisPlaneCtrl::new()
+        VisPlaneRender::new()
     }
 }
 
-impl VisPlaneCtrl {
+impl VisPlaneRender {
     pub fn new() -> Self {
-        VisPlaneCtrl {
+        VisPlaneRender {
             visplanes: vec![Visplane::default(); MAXVISPLANES],
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: [0; MAXOPENINGS],
+            openings: [f32::MAX; MAXOPENINGS],
             lastopening: 0,
-            floorclip: [0; SCREENWIDTH],
-            ceilingclip: [0; SCREENWIDTH],
+            floorclip: [-1; SCREENWIDTH],
+            ceilingclip: [-1; SCREENWIDTH],
             spanstart: [0; SCREENHEIGHT],
             spanstop: [0; SCREENHEIGHT],
             planeheight: 0.0,

@@ -4,6 +4,8 @@ use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
+use super::plane::VisPlaneRender;
+
 const MAX_SEGS: usize = 32;
 
 // Need to sort out what is shared and what is not so that a data struct
@@ -34,18 +36,19 @@ const MAX_SEGS: usize = 32;
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 #[derive(Default)]
-pub struct BspRenderer {
+pub struct BspRender {
     /// index in to self.solidsegs
     new_end: usize,
     solidsegs: Vec<ClipRange>,
 }
 
-impl BspRenderer {
+impl BspRender {
     /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
         player: &Player,
         seg: &'a Segment,
+        visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -114,7 +117,7 @@ impl BspRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, player, visplanes, r_data, canvas);
                 return;
             }
 
@@ -123,7 +126,7 @@ impl BspRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, r_data, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, player, visplanes, r_data, canvas);
                 return;
             }
 
@@ -135,10 +138,11 @@ impl BspRenderer {
                 && back_sector.lightlevel == front_sector.lightlevel
                 && seg.linedef.front_sidedef.midtexture == usize::MAX
             {
-                // TODO: fill in this body
+                return;
             }
+            self.clip_portal_seg(x1, x2 - 1, seg, player, visplanes, r_data, canvas);
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, r_data, canvas);
+            self.clip_solid_seg(x1, x2 - 1, seg, player, visplanes, r_data, canvas);
         }
     }
 
@@ -148,13 +152,14 @@ impl BspRenderer {
         map: &MapData,
         object: &Player,
         subsect: &SubSector,
+        visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(object, seg, r_data, canvas);
+            self.add_line(object, seg, visplanes, r_data, canvas);
         }
     }
 
@@ -181,9 +186,14 @@ impl BspRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
+        visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
+        if *seg.v2 == Vec2::new(2888.0, -4192.0) && *seg.v1 == Vec2::new(2888.0, -4320.0) {
+            dbg!(seg.sidedef.midtexture);
+        }
+
         let mut r_segs = SegRender::default();
         let mut next;
 
@@ -200,7 +210,7 @@ impl BspRenderer {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
-                r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+                r_segs.store_wall_range(first, last, seg, object, visplanes, r_data, canvas);
 
                 next = self.new_end;
                 self.new_end += 1;
@@ -222,6 +232,7 @@ impl BspRenderer {
                 self.solidsegs[start].first - 1,
                 seg,
                 object,
+                visplanes,
                 r_data,
                 canvas,
             );
@@ -241,6 +252,7 @@ impl BspRenderer {
                 self.solidsegs[next + 1].first - 1,
                 seg,
                 object,
+                visplanes,
                 r_data,
                 canvas,
             );
@@ -259,6 +271,7 @@ impl BspRenderer {
             last,
             seg,
             object,
+            visplanes,
             r_data,
             canvas,
         );
@@ -278,6 +291,7 @@ impl BspRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
+        visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -293,7 +307,7 @@ impl BspRenderer {
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
-                r_segs.store_wall_range(first, last, seg, object, r_data, canvas);
+                r_segs.store_wall_range(first, last, seg, object, visplanes, r_data, canvas);
                 return;
             }
 
@@ -303,6 +317,7 @@ impl BspRenderer {
                 self.solidsegs[start].first - 1,
                 seg,
                 object,
+                visplanes,
                 r_data,
                 canvas,
             );
@@ -319,6 +334,7 @@ impl BspRenderer {
                 self.solidsegs[start + 1].first - 1,
                 seg,
                 object,
+                visplanes,
                 r_data,
                 canvas,
             );
@@ -336,6 +352,7 @@ impl BspRenderer {
             last,
             seg,
             object,
+            visplanes,
             r_data,
             canvas,
         );
@@ -360,6 +377,7 @@ impl BspRenderer {
         map: &MapData,
         player: &Player,
         node_id: u16,
+        visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -369,7 +387,7 @@ impl BspRenderer {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, subsect, r_data, canvas);
+            self.draw_subsector(map, player, subsect, visplanes, r_data, canvas);
             return;
         }
 
@@ -378,13 +396,27 @@ impl BspRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], r_data, canvas);
+        self.render_bsp_node(
+            map,
+            player,
+            node.child_index[side],
+            visplanes,
+            r_data,
+            canvas,
+        );
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(&mobj.xy, mobj.angle.rad(), FRAC_PI_4, side ^ 1) {
-            self.render_bsp_node(map, player, node.child_index[side ^ 1], r_data, canvas);
+            self.render_bsp_node(
+                map,
+                player,
+                node.child_index[side ^ 1],
+                visplanes,
+                r_data,
+                canvas,
+            );
         }
     }
 }
