@@ -520,7 +520,9 @@ impl MapObject {
         let level = unsafe { &mut *self.level };
 
         let mut bsp_trace = BSPTrace::new(origin, endpoint, level.map_data.start_node());
-        bsp_trace.find_ssect_intercepts(&level.map_data, &mut 0);
+        let mut count = 0;
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+        debug!("BSP: traversal count for use line: {count}");
 
         path_traverse(
             origin,

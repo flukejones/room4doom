@@ -380,7 +380,10 @@ impl BspRender {
         visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
+        count: &mut usize,
     ) {
+        *count += 1;
+
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
 
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
@@ -403,6 +406,7 @@ impl BspRender {
             visplanes,
             r_data,
             canvas,
+            count,
         );
 
         // Possibly divide back space.
@@ -416,6 +420,7 @@ impl BspRender {
                 visplanes,
                 r_data,
                 canvas,
+                count,
             );
         }
     }

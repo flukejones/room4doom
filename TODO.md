@@ -10,6 +10,7 @@
 [X] - door in spawn area (behind) is drawn incorrectly
 [ ] - map 24 Doom 2, texture to right of open area is bad
 [X] - map 1 SIGIL, texture in front is borked
+[ ] - e1m1 right lift upper texture not drawn
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
