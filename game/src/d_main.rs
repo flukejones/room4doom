@@ -1,6 +1,9 @@
 use std::error::Error;
 
-use doom_lib::{Game, Texture};
+use doom_lib::{
+    log::{debug, trace},
+    Game, Texture,
+};
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,
@@ -89,6 +92,7 @@ impl Renderer {
 
             // TODO: netupdate
 
+            let mut count = 0;
             self.bsp_renderer.render_bsp_node(
                 map,
                 player,
@@ -96,7 +100,9 @@ impl Renderer {
                 &mut self.visplanes,
                 &mut self.r_data,
                 canvas,
+                &mut count,
             );
+            trace!("BSP traversals for render: {count}");
 
             // TODO: netupdate again
             // TODO: drawplanes
