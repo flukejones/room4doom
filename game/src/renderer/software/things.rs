@@ -56,7 +56,7 @@ impl BspRender {
             let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
 
             // Select colourmap to use (max should be 48)
-            let mut colourmap = (spryscale * 17.0) as usize;
+            let mut colourmap = (spryscale * 15.8) as usize;
             if colourmap > 47 {
                 colourmap = 47;
             }
