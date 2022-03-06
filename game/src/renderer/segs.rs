@@ -102,7 +102,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start >= 320 || start > stop {
+        if start >= 320 || start < 0 || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -516,6 +516,11 @@ impl SegRender {
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
                 if self.toptexture != 0 {
+                    // #291                   #345
+                    if *seg.v2 == Vec2::new(-128.0, 320.0) && *seg.v1 == Vec2::new(-288.0, 320.0) {
+                        dbg!(seg.sidedef.toptexture);
+                    }
+
                     mid = self.pixhigh - 1.0;
                     self.pixhigh += self.pixhighstep;
 
@@ -595,7 +600,7 @@ impl SegRender {
 }
 
 pub fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
-    let mut col = texture_column.ceil() as i32 - 1;
+    let mut col = texture_column.ceil() as i32;
     if col >= texture.len() as i32 {
         col -= 1;
     }

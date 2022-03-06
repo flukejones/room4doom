@@ -281,7 +281,7 @@ pub struct WadSegment {
     /// The Linedef this segment travels along
     pub linedef: i16,
     /// The `side`, 0 = front/right, 1 = back/left
-    pub direction: i16,
+    pub side: i16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
     ///
@@ -304,7 +304,7 @@ impl WadSegment {
             end_vertex,
             angle,
             linedef,
-            direction,
+            side: direction,
             offset,
         }
     }
