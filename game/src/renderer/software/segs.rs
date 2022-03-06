@@ -6,12 +6,11 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::{
-    renderer::{
-        defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
-        RenderData,
-    },
-    utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW},
+use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
+
+use super::{
+    defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+    RenderData,
 };
 
 use super::plane::VisPlaneRender;
@@ -486,7 +485,7 @@ impl SegRender {
                 texture_column = self.rw_offset - angle.tan() * self.rw_distance;
 
                 // Select colourmap to use (max should be 48)
-                let mut index = (self.rw_scale * 17.0) as usize;
+                let mut index = (self.rw_scale * 15.8).round() as usize;
                 if index > 47 {
                     index = 47;
                 }

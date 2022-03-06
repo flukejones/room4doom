@@ -1,4 +1,4 @@
-use crate::renderer::{defs::ClipRange, segs::SegRender, RenderData};
+use super::{defs::ClipRange, segs::SegRender, RenderData};
 use doom_lib::{Angle, MapData, MapObject, Player, Sector, Segment, SubSector, IS_SSECTOR_MASK};
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};

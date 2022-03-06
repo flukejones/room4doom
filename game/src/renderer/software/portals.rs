@@ -1,7 +1,7 @@
 //! Vertical clipping for windows/portals, used in Segs render part
 //! which will have some of it's function split out to here.
 
-use crate::renderer::defs::{SCREENHEIGHT, SCREENWIDTH};
+use super::defs::{SCREENHEIGHT, SCREENWIDTH};
 
 pub struct PortalClip {
     /// Clip values are the solid pixel bounding the range.

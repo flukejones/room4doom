@@ -20,7 +20,7 @@ use wad::{
 
 use crate::{
     input::Input,
-    renderer::{bsp::BspRender, plane::VisPlaneRender, segs::SegRender, RenderData},
+    renderer::software::{bsp::BspRender, plane::VisPlaneRender, segs::SegRender, RenderData},
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     timestep::TimeStep,
     GameOptions,
