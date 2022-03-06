@@ -16,6 +16,7 @@ mod info;
 mod level_data;
 mod play;
 mod sounds;
+mod textures;
 pub mod tic_cmd;
 
 pub use angle::Angle;
@@ -25,8 +26,10 @@ pub use game::Game;
 pub use level_data::{
     map_data::{MapData, IS_SSECTOR_MASK},
     map_defs::{Sector, Segment, SubSector},
+    Level,
 };
 pub use play::{map_object::MapObject, player::Player};
+pub use textures::TextureData;
 
 pub use log;
 

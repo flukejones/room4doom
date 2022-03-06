@@ -1,9 +1,6 @@
 use std::error::Error;
 
-use doom_lib::{
-    log::{debug, trace},
-    Game, Texture,
-};
+use doom_lib::{Game, Texture};
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,
@@ -13,110 +10,15 @@ use sdl2::{
     surface::Surface,
     video::Window,
 };
-use wad::{
-    lumps::{WadPalette, WadPatch},
-    WadData,
-};
+use wad::lumps::{WadPalette, WadPatch};
 
 use crate::{
     input::Input,
-    renderer::software::{bsp::BspRender, plane::VisPlaneRender, segs::SegRender, RenderData},
+    renderer::{software::bsp::SoftwareRenderer, Renderer},
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     timestep::TimeStep,
     GameOptions,
 };
-
-struct Renderer {
-    bsp_renderer: BspRender,
-    r_data: RenderData,
-    visplanes: VisPlaneRender,
-    seg_renderer: SegRender,
-    crop_rect: Rect,
-}
-
-impl Renderer {
-    fn new(wad: &WadData) -> Self {
-        Self {
-            bsp_renderer: BspRender::default(),
-            r_data: RenderData::new(wad),
-            visplanes: VisPlaneRender::default(),
-            seg_renderer: SegRender::default(),
-            crop_rect: Rect::new(0, 0, 1, 1),
-        }
-    }
-
-    /// D_Display
-    /// Doom function name `R_RenderPlayerView`
-    pub fn render_player_view(&mut self, game: &Game, canvas: &mut Canvas<Surface>) {
-        if !game.player_in_game[0] {
-            return;
-        }
-
-        if let Some(ref level) = game.level {
-            let map = &level.map_data;
-
-            let player = &game.players[game.consoleplayer];
-
-            self.visplanes.clear_planes();
-            self.bsp_renderer.clear_clip_segs();
-            self.r_data.clear_data();
-            self.seg_renderer = SegRender::default();
-            // The state machine will handle which state renders to the surface
-            //self.states.render(dt, &mut self.canvas);
-
-            let sub_sect = unsafe {
-                game.level
-                    .as_ref()
-                    .unwrap()
-                    .map_data
-                    .point_in_subsector_ref(player.mobj.as_ref().unwrap().as_ref().xy)
-            };
-            let light_level = unsafe { (*sub_sect).sector.lightlevel };
-            let scale = light_level as f32 / 255.0;
-            let colour = sdl2::pixels::Color::RGBA(
-                (50.0 * scale) as u8,
-                (40.0 * scale) as u8,
-                (40.0 * scale) as u8,
-                255,
-            );
-            canvas.set_draw_color(colour);
-            canvas.fill_rect(Rect::new(0, 0, 320, 100)).unwrap();
-            let colour = sdl2::pixels::Color::RGBA(
-                (40.0 * scale) as u8,
-                (40.0 * scale) as u8,
-                (40.0 * scale) as u8,
-                255,
-            );
-            canvas.set_draw_color(colour);
-            canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
-
-            // TODO: netupdate
-
-            let mut count = 0;
-            self.bsp_renderer.render_bsp_node(
-                map,
-                player,
-                map.start_node(),
-                &mut self.visplanes,
-                &mut self.r_data,
-                canvas,
-                &mut count,
-            );
-            trace!("BSP traversals for render: {count}");
-
-            // TODO: netupdate again
-            // TODO: drawplanes
-            // TODO: netupdate again
-            self.bsp_renderer.draw_masked(
-                player.viewz,
-                &mut self.visplanes,
-                &mut self.r_data,
-                canvas,
-            );
-            // TODO: netupdate again
-        }
-    }
-}
 
 /// Never returns
 pub fn d_doom_loop(
@@ -126,7 +28,8 @@ pub fn d_doom_loop(
     ctx: Context,
     options: GameOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let mut renderer = Renderer::new(&game.wad_data);
+    // TODO: implement an openGL or Vulkan renderer
+    let mut renderer = SoftwareRenderer::new(&game.wad_data);
 
     let mut timestep = TimeStep::new();
     let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
@@ -135,24 +38,21 @@ pub fn d_doom_loop(
     let wsize = gl.drawable_size();
     let ratio = wsize.1 as f32 * 1.333333;
     let xp = (wsize.0 as f32 - ratio) / 2.0;
-    renderer.crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
+
+    let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
 
     ctx.set_viewport(
-        renderer.crop_rect.x() as u32,
-        renderer.crop_rect.y() as u32,
-        renderer.crop_rect.width(),
-        renderer.crop_rect.height(),
+        crop_rect.x() as u32,
+        crop_rect.y() as u32,
+        crop_rect.width(),
+        crop_rect.height(),
     );
 
     let mut shader: Box<dyn Drawer> = if let Some(shader) = options.shader {
         match shader {
             Shaders::Basic => Box::new(Basic::new(&ctx)),
             Shaders::Lottes => Box::new(LottesCRT::new(&ctx)),
-            Shaders::Cgwg => Box::new(Cgwgcrt::new(
-                &ctx,
-                renderer.crop_rect.width(),
-                renderer.crop_rect.height(),
-            )),
+            Shaders::Cgwg => Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
         }
     } else {
         Box::new(Basic::new(&ctx))
@@ -172,10 +72,6 @@ pub fn d_doom_loop(
         if !game.running() {
             break;
         }
-
-        render_buffer.set_draw_color(Color::RGBA(15, 0, 0, 0));
-        render_buffer.clear();
-
         // // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
 
@@ -197,8 +93,8 @@ pub fn d_doom_loop(
         }
         if options.texture_test {
             texture_select_test(
-                renderer.r_data.get_texture(tex_num),
-                &renderer,
+                renderer.r_data.texture_data.get_texture(tex_num),
+                &game,
                 &mut render_buffer,
             );
         }
@@ -236,7 +132,7 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if tex_num < renderer.r_data.num_textures() - 1 {
+                if tex_num < renderer.r_data.texture_data.num_textures() - 1 {
                     tex_num += 1;
                 } else {
                     tex_num = 0;
@@ -249,9 +145,18 @@ pub fn d_doom_loop(
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-fn d_display(rend: &mut Renderer, game: &Game, canvas: &mut Canvas<Surface>) {
+fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>) {
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
-    rend.render_player_view(game, canvas);
+
+    if let Some(ref level) = game.level {
+        if !game.player_in_game[0] {
+            return;
+        }
+
+        let player = &game.players[game.consoleplayer];
+        rend.render_player_view(player, level, canvas);
+    }
+
     //canvas.present();
 
     // // menus go directly to the screen
@@ -360,13 +265,14 @@ fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surfa
     }
 }
 
-fn texture_select_test(texture: &Texture, rend: &Renderer, canvas: &mut Canvas<Surface>) {
+fn texture_select_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surface>) {
     let width = texture.len() as u32;
     let height = texture[0].len() as u32;
+    let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = ((canvas.surface().width() - width) / 2) as i32;
     let ys = ((canvas.surface().height() - height) / 2) as i32;
-    let pal = rend.r_data.get_palette(0);
+    let pal = pals[0].0;
 
     for (x_pos, column) in texture.iter().enumerate() {
         for (y_pos, idx) in column.iter().enumerate() {

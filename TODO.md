@@ -20,6 +20,7 @@
 
 [X] - Load textures
 [ ] - Load sprites
+[ ] - fixed-colourmap (special effects)
 
 Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display

@@ -71,10 +71,8 @@ pub struct SegRender {
     worldhigh: f32,
     worldlow: f32,
 
-    /// Lightmap index
-    wall_lights: usize,
-    /// Index to the colourmap sof wall_lights to use
-    colourmap: usize,
+    /// Light level for the wall
+    wall_lights: i32,
 }
 
 impl SegRender {
@@ -101,7 +99,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start >= 320 || start < 0 || start > stop {
+        if !(0..320).contains(&start) || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -173,8 +171,7 @@ impl SegRender {
             self.markceiling = true;
             if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 && seg.sidedef.midtexture != usize::MAX
             {
-                let texture = &rdata.textures[seg.sidedef.midtexture];
-                let texture_column = get_column(texture, 0.0);
+                let texture_column = rdata.texture_data.get_column(seg.sidedef.midtexture, 0.0);
                 let vtop = frontsector.floorheight + texture_column.len() as f32;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
@@ -266,8 +263,7 @@ impl SegRender {
                 if linedef.flags as u32 & ML_DONTPEGTOP != 0 {
                     self.rw_toptexturemid = self.worldtop;
                 } else if seg.sidedef.toptexture != usize::MAX {
-                    let texture = &rdata.textures[seg.sidedef.toptexture];
-                    let texture_column = get_column(texture, 0.0);
+                    let texture_column = rdata.texture_data.get_column(seg.sidedef.toptexture, 0.0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - viewz;
                 }
@@ -316,16 +312,7 @@ impl SegRender {
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = view_angle - self.rw_normalangle;
 
-            // Find a suitable light-table
-            let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
-            if seg.v1.y() == seg.v2.y() {
-                if lightnum > 1 {
-                    lightnum -= 1;
-                }
-            } else if (seg.v1.x() == seg.v2.x()) && lightnum < 15 {
-                lightnum += 1;
-            }
-            self.wall_lights = lightnum as usize;
+            self.wall_lights = seg.sidedef.sector.lightlevel;
         }
 
         // if a floor / ceiling plane is on the wrong side
@@ -484,23 +471,22 @@ impl SegRender {
                 //     self.rw_centerangle + screen_to_x_view(self.rw_x);// * PI / 180.0;
                 texture_column = self.rw_offset - angle.tan() * self.rw_distance;
 
-                // Select colourmap to use (max should be 48)
-                let mut index = (self.rw_scale * 15.8).round() as usize;
-                if index > 47 {
-                    index = 47;
-                }
-                self.colourmap = index;
-
                 dc_iscale = 1.0 / self.rw_scale;
             }
 
             if self.midtexture != 0 {
                 if seg.sidedef.midtexture != usize::MAX {
-                    let texture = &rdata.textures[seg.sidedef.midtexture];
-                    let texture_column = get_column(texture, texture_column);
+                    let texture_column = rdata
+                        .texture_data
+                        .get_column(seg.sidedef.midtexture, texture_column);
                     draw_column(
                         texture_column,
-                        &rdata.get_lightscale(self.wall_lights)[self.colourmap],
+                        rdata.texture_data.get_light_colourmap(
+                            &seg.v1,
+                            &seg.v2,
+                            self.wall_lights,
+                            self.rw_scale,
+                        ),
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
@@ -529,11 +515,17 @@ impl SegRender {
 
                     if mid > yl {
                         if seg.sidedef.toptexture != usize::MAX {
-                            let texture = &rdata.textures[seg.sidedef.toptexture];
-                            let texture_column = get_column(texture, texture_column);
+                            let texture_column = rdata
+                                .texture_data
+                                .get_column(seg.sidedef.toptexture, texture_column);
                             draw_column(
                                 texture_column,
-                                &rdata.get_lightscale(self.wall_lights)[self.colourmap],
+                                rdata.texture_data.get_light_colourmap(
+                                    &seg.v1,
+                                    &seg.v2,
+                                    self.wall_lights,
+                                    self.rw_scale,
+                                ),
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
@@ -562,11 +554,17 @@ impl SegRender {
 
                     if mid <= yh {
                         if seg.sidedef.bottomtexture != usize::MAX {
-                            let texture = &rdata.textures[seg.sidedef.bottomtexture];
-                            let texture_column = get_column(texture, texture_column);
+                            let texture_column = rdata
+                                .texture_data
+                                .get_column(seg.sidedef.bottomtexture, texture_column);
                             draw_column(
                                 texture_column,
-                                &rdata.get_lightscale(self.wall_lights)[self.colourmap],
+                                rdata.texture_data.get_light_colourmap(
+                                    &seg.v1,
+                                    &seg.v2,
+                                    self.wall_lights,
+                                    self.rw_scale,
+                                ),
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_bottomtexturemid,
@@ -598,15 +596,6 @@ impl SegRender {
     }
 }
 
-pub fn get_column(texture: &[Vec<usize>], texture_column: f32) -> &[usize] {
-    let mut col = texture_column.ceil() as i32;
-    if col >= texture.len() as i32 {
-        col -= 1;
-    }
-    let index = col & (texture.len() as i32 - 1);
-    &texture[index as usize]
-}
-
 /// A column is a vertical slice/span from a wall texture that,
 ///  given the DOOM style restrictions on the view orientation,
 ///  will always have constant z depth.
@@ -625,9 +614,6 @@ pub fn draw_column(
     canvas: &mut Canvas<Surface>,
 ) {
     let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
-    // if frac < 0.0 {
-    //     frac += (texture_column.len()) as f32;
-    // }
 
     for n in yl..yh {
         let mut select = frac as i32 & 127;
@@ -644,7 +630,7 @@ pub fn draw_column(
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
         } else {
-            let colour = &rdata.get_palette(0)[px];
+            let colour = &rdata.texture_data.get_palette(0)[px];
             sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
         };
 
