@@ -1,5 +1,5 @@
 use crate::renderer::{defs::ClipRange, segs::SegRender, RenderData};
-use doom_lib::{Angle, MapData, MapObject, Player, Segment, SubSector, IS_SSECTOR_MASK};
+use doom_lib::{Angle, MapData, MapObject, Player, Sector, Segment, SubSector, IS_SSECTOR_MASK};
 use glam::Vec2;
 use sdl2::{render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
@@ -48,6 +48,7 @@ impl BspRender {
         &'a mut self,
         player: &Player,
         seg: &'a Segment,
+        front_sector: &'a Sector,
         visplanes: &mut VisPlaneRender,
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
@@ -109,10 +110,7 @@ impl BspRender {
             return;
         }
 
-        if let Some(back_sector) = &seg.linedef.back_sidedef {
-            let front_sector = &seg.linedef.front_sidedef.sector;
-            let back_sector = &back_sector.sector;
-
+        if let Some(back_sector) = &seg.backsector {
             // Doors. Block view
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
@@ -136,7 +134,7 @@ impl BspRender {
             if back_sector.ceilingpic == front_sector.ceilingpic
                 && back_sector.floorpic == front_sector.floorpic
                 && back_sector.lightlevel == front_sector.lightlevel
-                && seg.linedef.front_sidedef.midtexture == usize::MAX
+                && seg.sidedef.midtexture == usize::MAX
             {
                 return;
             }
@@ -157,9 +155,10 @@ impl BspRender {
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
+        let front_sector = &subsect.sector;
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(object, seg, visplanes, r_data, canvas);
+            self.add_line(object, seg, front_sector, visplanes, r_data, canvas);
         }
     }
 
@@ -190,10 +189,6 @@ impl BspRender {
         r_data: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
-        if *seg.v2 == Vec2::new(2888.0, -4192.0) && *seg.v1 == Vec2::new(2888.0, -4320.0) {
-            dbg!(seg.sidedef.midtexture);
-        }
-
         let mut r_segs = SegRender::default();
         let mut next;
 

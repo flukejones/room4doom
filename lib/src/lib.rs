@@ -24,7 +24,7 @@ pub use doom_def::{WeaponType, ML_DONTPEGBOTTOM, ML_DONTPEGTOP, ML_MAPPED};
 pub use game::Game;
 pub use level_data::{
     map_data::{MapData, IS_SSECTOR_MASK},
-    map_defs::{Segment, SubSector},
+    map_defs::{Sector, Segment, SubSector},
 };
 pub use play::{map_object::MapObject, player::Player};
 

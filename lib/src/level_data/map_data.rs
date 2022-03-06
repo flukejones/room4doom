@@ -299,13 +299,20 @@ impl MapData {
                 let v1 = &self.vertexes()[s.start_vertex as usize];
                 let v2 = &self.vertexes()[s.end_vertex as usize];
 
-                let line = &self.linedefs()[s.linedef as usize];
-                let side = if s.direction == 0 {
-                    line.front_sidedef.clone()
+                let ldef = &self.linedefs()[s.linedef as usize];
+
+                let frontsector;
+                let backsector;
+                let side;
+                // The front and back sectors interchange depending on BSP
+                if s.side == 0 {
+                    side = ldef.front_sidedef.clone();
+                    frontsector = ldef.frontsector.clone();
+                    backsector = ldef.backsector.clone();
                 } else {
-                    // Safe as this is not possible. If there is no back sidedef
-                    // then it defaults to the front
-                    line.back_sidedef.as_ref().unwrap().clone()
+                    side = ldef.back_sidedef.as_ref().unwrap().clone();
+                    frontsector = ldef.backsector.as_ref().unwrap().clone();
+                    backsector = Some(ldef.frontsector.clone());
                 };
 
                 let angle = bam_to_radian((s.angle as u32) << 16);
@@ -316,9 +323,9 @@ impl MapData {
                     offset: s.offset as f32,
                     angle: Angle::new(angle),
                     sidedef: side,
-                    linedef: DPtr::new(line),
-                    frontsector: line.frontsector.clone(),
-                    backsector: line.backsector.clone(),
+                    linedef: DPtr::new(ldef),
+                    frontsector,
+                    backsector,
                 }
             })
             .collect();
