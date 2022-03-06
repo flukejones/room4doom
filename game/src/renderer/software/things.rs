@@ -1,35 +1,27 @@
 use doom_lib::ML_DONTPEGBOTTOM;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
-use super::{bsp::BspRender, defs::DrawSeg, plane::VisPlaneRender, segs::get_column, RenderData};
+use super::{bsp::SoftwareRenderer, defs::DrawSeg, RenderData};
 
-impl BspRender {
-    pub fn draw_masked(
-        &self,
-        viewz: f32,
-        visplanes: &mut VisPlaneRender,
-        rdata: &mut RenderData,
-        canvas: &mut Canvas<Surface>,
-    ) {
+impl SoftwareRenderer {
+    pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
 
-        let segs: Vec<DrawSeg> = (&rdata.drawsegs).to_vec();
+        let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, visplanes, rdata, canvas);
+            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, canvas);
         }
 
         // todo: R_DrawPlayerSprites ();
     }
 
     pub fn render_masked_seg_range(
-        &self,
+        &mut self,
         viewz: f32,
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
-        visplanes: &mut VisPlaneRender,
-        rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
@@ -41,25 +33,10 @@ impl BspRender {
                 return;
             }
 
-            // Find a suitable light-table
-            let mut lightnum = seg.sidedef.sector.lightlevel as u8 >> 4;
-            if seg.v1.y() == seg.v2.y() {
-                if lightnum > 1 {
-                    lightnum -= 1;
-                }
-            } else if (seg.v1.x() == seg.v2.x()) && lightnum < 15 {
-                lightnum += 1;
-            }
-            let wall_lights = lightnum as usize;
+            let wall_lights = seg.sidedef.sector.lightlevel;
 
             let rw_scalestep = ds.scalestep;
             let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
-
-            // Select colourmap to use (max should be 48)
-            let mut colourmap = (spryscale * 15.8) as usize;
-            if colourmap > 47 {
-                colourmap = 47;
-            }
 
             let mut dc_texturemid;
             if seg.linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 {
@@ -69,8 +46,7 @@ impl BspRender {
                     backsector.floorheight
                 };
 
-                let texture = &rdata.textures[texnum];
-                let texture_column = get_column(texture, 0.0);
+                let texture_column = self.r_data.texture_data.get_column(texnum, 0.0);
                 dc_texturemid += texture_column.len() as f32 - viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -82,8 +58,6 @@ impl BspRender {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            // TESTING
-            // TODO: missing column? Offset?
             for x in x1..=x2 {
                 if ds.maskedtexturecol + x < 0 {
                     spryscale += rw_scalestep;
@@ -92,20 +66,24 @@ impl BspRender {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if visplanes.openings[index] != f32::MAX && seg.sidedef.midtexture != usize::MAX
+                    if self.visplanes.openings[index] != f32::MAX
+                        && seg.sidedef.midtexture != usize::MAX
                     {
-                        let texture = &rdata.textures[seg.sidedef.midtexture];
-                        let texture_column = get_column(texture, visplanes.openings[index]); // - 3???
+                        let texture_column = self
+                            .r_data
+                            .texture_data
+                            .get_column(seg.sidedef.midtexture, self.visplanes.openings[index]);
 
                         let mceilingclip =
-                            visplanes.openings[(ds.sprtopclip.unwrap() + x) as usize] as i32;
-                        let mfloorclip =
-                            visplanes.openings[(ds.sprbottomclip.unwrap() + x) as usize] as i32;
+                            self.visplanes.openings[(ds.sprtopclip.unwrap() + x) as usize] as i32;
+                        let mfloorclip = self.visplanes.openings
+                            [(ds.sprbottomclip.unwrap() + x) as usize]
+                            as i32;
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = 100.0 - dc_texturemid * spryscale;
                         let top = sprtopscreen as i32;
-                        let bottom = top + (spryscale * texture[0].len() as f32) as i32;
+                        let bottom = top + (spryscale * texture_column.len() as f32) as i32;
                         let mut yl = top;
                         let mut yh = bottom;
 
@@ -118,19 +96,24 @@ impl BspRender {
 
                         draw_masked_column(
                             texture_column,
-                            &rdata.get_lightscale(wall_lights)[colourmap],
+                            self.r_data.texture_data.get_light_colourmap(
+                                &seg.v1,
+                                &seg.v2,
+                                wall_lights,
+                                spryscale,
+                            ),
                             1.0 / spryscale,
                             x,
                             dc_texturemid,
                             yl,
                             yh,
-                            rdata,
+                            &self.r_data,
                             canvas,
                         );
 
-                        visplanes.openings[index] = f32::MAX;
+                        self.visplanes.openings[index] = f32::MAX;
                     } else {
-                        dbg!(x, visplanes.openings[index]);
+                        dbg!(x, self.visplanes.openings[index]);
                     }
                 }
                 spryscale += rw_scalestep;
@@ -169,7 +152,7 @@ pub fn draw_masked_column(
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
         } else {
-            let colour = &rdata.get_palette(0)[px];
+            let colour = &rdata.texture_data.get_palette(0)[px];
             sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
         };
 
@@ -178,21 +161,3 @@ pub fn draw_masked_column(
         frac += fracstep;
     }
 }
-
-/*
-TODO:
-short negonearray[SCREENWIDTH];
-short screenheightarray[SCREENWIDTH];
-and drawseg sprtopclip needs to index in to these
-
-short *mfloorclip;
-short *mceilingclip;
-
-fixed_t spryscale;
-fixed_t sprtopscreen;
-
-Are you fucking serious C? ds->sprbottomclip is a pointer flipping between
-negonearray[] and *lastopening which is openings[MAXOPENINGS]
-  mfloorclip = ds->sprbottomclip;
-  mceilingclip = ds->sprtopclip;
-*/
