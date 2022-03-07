@@ -28,7 +28,7 @@ use crate::{
 use log::{debug, error, trace, warn};
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
-    if line.flags & LineDefFlags::TwoSided as i16 == 0 {
+    if line.flags & LineDefFlags::TwoSided as u32 == 0 {
         return None;
     }
 

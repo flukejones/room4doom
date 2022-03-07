@@ -109,7 +109,7 @@ pub struct LineDef {
     pub delta: Vec2,
 
     // Animation related.
-    pub flags: i16,
+    pub flags: u32,
     pub special: i16,
     pub tag: i16,
 
@@ -249,27 +249,27 @@ pub struct BlockMap {
     pub blockmap_offset: usize,
 }
 
-impl BlockMap {
-    pub fn new(
-        x_origin: f32,
-        y_origin: f32,
-        width: i32,
-        height: i32,
-        block_links: Vec<DPtr<MapObject>>,
-        line_indexes: Vec<usize>,
-        blockmap_offset: usize,
-    ) -> BlockMap {
-        BlockMap {
-            x_origin,
-            y_origin,
-            width,
-            height,
-            block_links,
-            line_indexes,
-            blockmap_offset,
-        }
-    }
-}
+// impl BlockMap {
+//     pub fn new(
+//         x_origin: f32,
+//         y_origin: f32,
+//         width: i32,
+//         height: i32,
+//         block_links: Vec<DPtr<MapObject>>,
+//         line_indexes: Vec<usize>,
+//         blockmap_offset: usize,
+//     ) -> BlockMap {
+//         BlockMap {
+//             x_origin,
+//             y_origin,
+//             width,
+//             height,
+//             block_links,
+//             line_indexes,
+//             blockmap_offset,
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

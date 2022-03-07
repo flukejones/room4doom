@@ -1,4 +1,4 @@
-use doom_lib::ML_DONTPEGBOTTOM;
+use doom_lib::LineDefFlags;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{bsp::SoftwareRenderer, defs::DrawSeg, RenderData};
@@ -39,7 +39,7 @@ impl SoftwareRenderer {
             let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
 
             let mut dc_texturemid;
-            if seg.linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 {
+            if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 dc_texturemid = if frontsector.floorheight > backsector.floorheight {
                     frontsector.floorheight
                 } else {

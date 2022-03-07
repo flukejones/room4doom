@@ -8,7 +8,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    DPtr,
+    DPtr, LineDefFlags,
 };
 
 use super::{
@@ -21,7 +21,6 @@ use super::{
 };
 
 const FLOORSPEED: f32 = 1.0;
-const ML_TWOSIDED: i16 = 4;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FloorKind {
@@ -143,7 +142,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                 let min = sec.floorheight;
                 floor.direction = 1;
                 for line in sec.lines.iter() {
-                    if line.flags & ML_TWOSIDED != 0 {
+                    if line.flags & LineDefFlags::TwoSided as u32 != 0 {
                         todo!("side = getSide(secnum, i, 0); and stuff");
                     }
                 }
@@ -293,7 +292,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                 .map_data
                 .linedefs()
                 .iter()
-                .filter(|s| s.flags & ML_TWOSIDED != 0)
+                .filter(|s| s.flags & LineDefFlags::TwoSided as u32 != 0)
             {
                 // Lines need to be in the same sector, can check this with the pointer
                 let mut tsec = line.frontsector.clone();

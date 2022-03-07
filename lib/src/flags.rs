@@ -35,9 +35,9 @@ pub enum LineDefFlags {
     /// through this line to adjacent sector
     BlockSound = 1 << 6,
     /// Not on AutoMap
-    DontDraw = 1 << 7,
+    UnMapped = 1 << 7,
     /// Already on AutoMap
-    Draw = 1 << 8,
+    Mapped = 1 << 8,
 }
 
 #[test]
@@ -66,11 +66,11 @@ fn check_flags_enum() {
     );
     println!(
         "Flag: Not on AutoMap yet\n{:#018b}",
-        LineDefFlags::DontDraw as u16
+        LineDefFlags::UnMapped as u16
     );
     println!(
         "Flag: Already on AutoMap\n{:#018b}",
-        LineDefFlags::Draw as u16
+        LineDefFlags::Mapped as u16
     );
     let compare = LineDefFlags::TwoSided as u16
         | LineDefFlags::UnpegTop as u16
