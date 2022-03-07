@@ -253,11 +253,11 @@ impl MapObject {
         }
 
         if self.flags & MobjFlag::MISSILE as u32 == 0 {
-            if ld.flags & LineDefFlags::Blocking as i16 != 0 {
+            if ld.flags & LineDefFlags::Blocking as u32 != 0 {
                 return false; // explicitly blocking everything
             }
 
-            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as i16 != 0 {
+            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as u32 != 0 {
                 return false; // block monsters only
             }
         }

@@ -185,8 +185,12 @@ impl MapData {
             .map(|s| Sector {
                 floorheight: s.floor_height as f32,
                 ceilingheight: s.ceil_height as f32,
-                floorpic: 0,   // TODO: lookup texture
-                ceilingpic: 0, // TODO: lookup texture
+                floorpic: 0, // TODO: lookup texture
+                ceilingpic: if s.ceil_tex.contains("F_SKY1") {
+                    256
+                } else {
+                    0
+                }, // TODO: lookup texture
                 lightlevel: s.light_level as i32,
                 special: s.kind,
                 tag: s.tag,
@@ -266,7 +270,7 @@ impl MapData {
                     v1: DPtr::new(v1),
                     v2: DPtr::new(v2),
                     delta: Vec2::new(dx, dy),
-                    flags: l.flags,
+                    flags: l.flags as u32,
                     special: l.special,
                     tag: l.sector_tag,
                     bbox: BBox::new(*v1, *v2),

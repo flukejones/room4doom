@@ -5,20 +5,16 @@ use crate::{
     level_data::{p_ticker, Level},
     play::{
         map_object::MapObject,
-        player::{Player, PlayerState, WBStartStruct},
+        player::{Cheat, Player, PlayerState, WBStartStruct},
         specials::spawn_specials,
         utilities::m_clear_random,
     },
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    Texture,
 };
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
 use std::io::Write;
-use wad::{
-    lumps::{WadColour, WadPalette, WadPatch, WadTexture},
-    WadData,
-};
+use wad::WadData;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
@@ -186,7 +182,7 @@ impl Game {
                 Player::default(),
                 Player::default(),
             ],
-            player_in_game: [true, false, false, false], // should be set in d_net.c
+            player_in_game: [true, false, false, false], // TODO: should be set in d_net.c
 
             paused: false,
             deathmatch: false,
@@ -365,6 +361,7 @@ impl Game {
         println!("New game!");
     }
 
+    /// Doom function name `G_DoLoadLevel`
     fn do_load_level(&mut self) {
         debug!("Entered do_load_level");
         // TODO: check and set sky texture, function R_TextureNumForName
@@ -438,6 +435,9 @@ impl Game {
         self.wminfo.maxfrags = 0;
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
+
+        // TODO: remove, temporary testing
+        self.players[self.consoleplayer].cheats = Cheat::Noclip as u32;
 
         // TODO: S_Start();
     }

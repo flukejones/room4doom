@@ -1,4 +1,4 @@
-use doom_lib::{Angle, Player, Segment, ML_DONTPEGBOTTOM, ML_DONTPEGTOP, ML_MAPPED};
+use doom_lib::{Angle, LineDefFlags, Player, Segment};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
@@ -108,7 +108,7 @@ impl SegRender {
         let mut linedef = seg.linedef.clone();
 
         // mark the segment as visible for automap
-        linedef.flags |= ML_MAPPED as i16;
+        linedef.flags |= LineDefFlags::Mapped as u32;
 
         self.rw_normalangle = seg.angle;
         self.rw_normalangle += FRAC_PI_2;
@@ -169,7 +169,8 @@ impl SegRender {
             self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
             self.markceiling = true;
-            if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 && seg.sidedef.midtexture != usize::MAX
+            if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0
+                && seg.sidedef.midtexture != usize::MAX
             {
                 let texture_column = rdata.texture_data.get_column(seg.sidedef.midtexture, 0.0);
                 let vtop = frontsector.floorheight + texture_column.len() as f32;
@@ -225,8 +226,11 @@ impl SegRender {
             self.worldlow = backsector.floorheight - viewz;
 
             // TODO: hack to allow height changes in outdoor areas
-            //  if (frontsector->ceilingpic == skyflatnum && backsector->ceilingpic == skyflatnum)
-            // 	{ worldtop = worldhigh; }
+            if frontsector.ceilingpic == rdata.skyflatnum
+                && backsector.ceilingpic == rdata.skyflatnum
+            {
+                self.worldtop = self.worldhigh;
+            }
 
             // Checks to see if panes need updating?
             if self.worldlow != self.worldbottom
@@ -259,8 +263,7 @@ impl SegRender {
 
             if self.worldhigh < self.worldtop {
                 self.toptexture = sidedef.toptexture as i32;
-                // TODO: update to use LineDefFlags enum
-                if linedef.flags as u32 & ML_DONTPEGTOP != 0 {
+                if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
                     self.rw_toptexturemid = self.worldtop;
                 } else if seg.sidedef.toptexture != usize::MAX {
                     let texture_column = rdata.texture_data.get_column(seg.sidedef.toptexture, 0.0);
@@ -271,7 +274,7 @@ impl SegRender {
 
             if self.worldlow > self.worldbottom {
                 self.bottomtexture = sidedef.bottomtexture as i32;
-                if linedef.flags as u32 & ML_DONTPEGBOTTOM != 0 {
+                if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                     self.rw_bottomtexturemid = self.worldtop;
                 } else {
                     self.rw_bottomtexturemid = self.worldlow;
@@ -299,19 +302,12 @@ impl SegRender {
 
         if self.segtextured {
             offsetangle = self.rw_normalangle - rdata.rw_angle1;
-            // dbg!(offsetangle.rad());
-            // if offsetangle.rad() > PI * 2.0 {
-            //     offsetangle = -offsetangle;
-            // }
             self.rw_offset = hyp * offsetangle.sin();
-
             // if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
             self.rw_offset = -self.rw_offset;
             //  }
-
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = view_angle - self.rw_normalangle;
-
             self.wall_lights = seg.sidedef.sector.lightlevel;
         }
 

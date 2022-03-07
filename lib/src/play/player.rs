@@ -13,12 +13,12 @@ use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS, MAX_AMMO},
     info::{SpriteNum, StateNum},
     level_data::Level,
+    play::map_object::MobjFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
 };
 
 /// 16 pixels of bob
 const MAXBOB: f32 = 16.0; // 0x100000;
-pub const CF_GODMODE: i32 = 2;
 
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,
@@ -46,7 +46,7 @@ pub enum PlayerState {
 
 //// Player internal flags, for cheats and debug.
 #[derive(Debug)]
-enum Cheat {
+pub enum Cheat {
     /// No clipping, walk through barriers.
     Noclip = 1,
     /// No damage, no health loss.
@@ -145,7 +145,7 @@ pub struct Player {
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
-    pub cheats: i32,
+    pub cheats: u32,
 
     /// Refired shots are less accurate.
     pub refire: i32,
@@ -407,6 +407,18 @@ impl Player {
 /// which enables a cast to t_thinker. We can't do that in rust so need to use the trait.
 impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
+        if let Some(mobj) = self.mobj.as_mut() {
+            if self.cheats & Cheat::Noclip as u32 != 0 {
+                unsafe {
+                    mobj.as_mut().flags |= MobjFlag::NOCLIP as u32;
+                }
+            } else {
+                unsafe {
+                    mobj.as_mut().flags &= !(Cheat::Noclip as u32);
+                }
+            }
+        }
+
         // TODO: not feature complete with P_PlayerThink
         self.move_player();
         self.calculate_height(level.level_time);

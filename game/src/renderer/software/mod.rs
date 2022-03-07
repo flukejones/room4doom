@@ -33,6 +33,8 @@ pub struct RenderData {
 
     /// Texturre data including colourmaps and lightlevels
     pub texture_data: TextureData,
+
+    pub skyflatnum: i16,
 }
 
 impl RenderData {
@@ -43,6 +45,7 @@ impl RenderData {
             portal_clip: PortalClip::default(),
             ds_p: 0,
             texture_data: TextureData::new(wad),
+            skyflatnum: 256, // TODO: find index number from parsed flats
         }
     }
 
