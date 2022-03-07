@@ -1,27 +1,26 @@
 pub struct Cheats {
-    cheat_god: Cheat,
-    cheat_mus: Cheat,
-    cheat_ammo: Cheat,
-    cheat_ammonokey: Cheat,
-    cheat_noclip: Cheat,
-    cheat_commercial_noclip: Cheat,
-
-    cheat_powerup: [Cheat; 7],
-    cheat_choppers: Cheat,
-    cheat_clev: Cheat,
-    cheat_mypos: Cheat,
+    pub god: Cheat,
+    pub mus: Cheat,
+    pub ammo: Cheat,
+    pub ammonokey: Cheat,
+    pub noclip: Cheat,
+    pub commercial_noclip: Cheat,
+    pub powerup: [Cheat; 7],
+    pub choppers: Cheat,
+    pub clev: Cheat,
+    pub mypos: Cheat,
 }
 
 impl Cheats {
     pub fn new() -> Self {
         Self {
-            cheat_god: Cheat::new("iddqd", 2),
-            cheat_mus: Cheat::new("idmus", 0),
-            cheat_ammo: Cheat::new("idkfa", 0),
-            cheat_ammonokey: Cheat::new("idfa", 0),
-            cheat_noclip: Cheat::new("idspispopd", 0),
-            cheat_commercial_noclip: Cheat::new("idclip", 0),
-            cheat_powerup: [
+            god: Cheat::new("iddqd", 0),
+            mus: Cheat::new("idmus", 0),
+            ammo: Cheat::new("idkfa", 0),
+            ammonokey: Cheat::new("idfa", 0),
+            noclip: Cheat::new("idspispopd", 0),
+            commercial_noclip: Cheat::new("idclip", 0),
+            powerup: [
                 Cheat::new("idbeholdv", 0),
                 Cheat::new("idbeholds", 0),
                 Cheat::new("idbeholdi", 0),
@@ -30,9 +29,9 @@ impl Cheats {
                 Cheat::new("idbeholdl", 0),
                 Cheat::new("idbehold", 0),
             ],
-            cheat_choppers: Cheat::new("idchoppers", 0),
-            cheat_clev: Cheat::new("idclev", 2),
-            cheat_mypos: Cheat::new("idmypos", 0),
+            choppers: Cheat::new("idchoppers", 0),
+            clev: Cheat::new("idclev", 2),
+            mypos: Cheat::new("idmypos", 0),
         }
     }
 

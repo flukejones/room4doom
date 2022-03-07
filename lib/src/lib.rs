@@ -23,7 +23,7 @@ pub mod tic_cmd;
 pub use angle::Angle;
 pub use cheats::Cheats;
 pub use d_main::{DoomOptions, Shaders, Skill};
-pub use doom_def::WeaponType;
+pub use doom_def::{GameMission, WeaponType};
 pub use flags::LineDefFlags;
 pub use game::Game;
 pub use level_data::{
@@ -31,7 +31,10 @@ pub use level_data::{
     map_defs::{Sector, Segment, SubSector},
     Level,
 };
-pub use play::{map_object::MapObject, player::Player};
+pub use play::{
+    map_object::MapObject,
+    player::{Player, PlayerCheat},
+};
 pub use textures::TextureData;
 
 pub use log;

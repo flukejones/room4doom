@@ -76,7 +76,7 @@ pub struct GameOptions {
     #[options(help = "texture compose test, cycle through the composable textures")]
     pub texture_test: bool,
 
-    #[options(meta = "", help = "Screen shader")]
+    #[options(meta = "", help = "Screen shader <basic, cgwg, lottes>")]
     pub shader: Option<Shaders>,
 }
 
@@ -143,9 +143,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         window.set_bordered(false);
     }
 
-    // sdl_ctx.mouse().show_cursor(false);
-    // sdl_ctx.mouse().set_relative_mouse_mode(true);
-    // sdl_ctx.mouse().capture(true);
+    sdl_ctx.mouse().show_cursor(false);
+    sdl_ctx.mouse().set_relative_mouse_mode(true);
+    sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, context, options)
 }
