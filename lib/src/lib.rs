@@ -7,6 +7,7 @@ use std::{
 };
 
 mod angle;
+mod cheats;
 mod d_main;
 mod doom_def;
 mod errors;
@@ -20,6 +21,7 @@ mod textures;
 pub mod tic_cmd;
 
 pub use angle::Angle;
+pub use cheats::Cheats;
 pub use d_main::{DoomOptions, Shaders, Skill};
 pub use doom_def::WeaponType;
 pub use flags::LineDefFlags;
