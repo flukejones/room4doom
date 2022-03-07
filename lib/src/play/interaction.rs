@@ -11,7 +11,7 @@ use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
     info::{MapObjectType, STATES},
-    play::{player::Cheat, utilities::point_to_angle_2},
+    play::{player::PlayerCheat, utilities::point_to_angle_2},
 };
 
 impl MapObject {
@@ -86,7 +86,7 @@ impl MapObject {
                 }
                 // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
                 if damage < 1000
-                    && (player.cheats & Cheat::Godmode as u32 != 0
+                    && (player.cheats & PlayerCheat::Godmode as u32 != 0
                         || player.powers[PowerType::pw_invulnerability as usize] != 0)
                 {
                     return;

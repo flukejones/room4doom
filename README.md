@@ -1,8 +1,45 @@
-[![Build Status](https://drone.ljones.dev/api/badges/luke/diir-doom/status.svg)](https://drone.ljones.dev/luke/diir-doom)
+# ROOM - Rusty Doom
 
-Following along with [https://github.com/amroibrahim/DIYDoom](https://github.com/amroibrahim/DIYDoom)
+This is a personal project to rewrite Doom C in Rust. Where possible I try to keep the original
+Doom behaviour intact, while also making some improvements. I am also trying to document everything
+as I go along.
 
-# License
+I originally started by following along with [https://github.com/amroibrahim/DIYDoom](https://github.com/amroibrahim/DIYDoom)
+
+The code can dramatically change as I learn new or better ways to do things.
+
+**Implemented so far:**
+- Software rendering walls
+- Lighting (diminished, animated)
+- Movers (environment things, like doors, platforms)
+- Input
+- Cheats (partial for debugging)
+- CLI options (use `--help`)
+- Basic surface shaders (ROOM renders to a surface that a shader can manipulate)
+
+**Some of the improvements I've made:**
+
+- BSP used for collisions (Doom used the blockmap)
+- Floats instead of fixed-point (this may cause slight behaviour changes)
+
+**TODO:**
+
+I keep a half-baked list of things to do in [TODO](./TODO.md)
+
+## Screenshots
+
+**Comparison:**
+
+![](./misc/compare/room.png)
+![](./misc/compare/doom.png)
+
+**SI6IL**
+
+![](./misc/compare/room-e5m7.png)
+![](./misc/compare/doom-e5m7.png)
+
+
+# License change
 
 This work is licensed as **MIT**.
 

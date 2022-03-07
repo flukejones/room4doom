@@ -5,7 +5,7 @@ use crate::{
     level_data::{p_ticker, Level},
     play::{
         map_object::MapObject,
-        player::{Cheat, Player, PlayerState, WBStartStruct},
+        player::{Player, PlayerCheat, PlayerState, WBStartStruct},
         specials::spawn_specials,
         utilities::m_clear_random,
     },
@@ -215,6 +215,18 @@ impl Game {
             usergame: false,
             options,
         }
+    }
+
+    pub fn is_netgame(&self) -> bool {
+        self.netgame
+    }
+
+    pub fn game_skill(&self) -> Skill {
+        self.game_skill
+    }
+
+    pub fn game_mission(&self) -> GameMission {
+        self.game_mission
     }
 
     /// G_InitNew
@@ -435,9 +447,6 @@ impl Game {
         self.wminfo.maxfrags = 0;
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
-
-        // TODO: remove, temporary testing
-        self.players[self.consoleplayer].cheats = Cheat::Noclip as u32;
 
         // TODO: S_Start();
     }

@@ -46,7 +46,7 @@ pub enum PlayerState {
 
 //// Player internal flags, for cheats and debug.
 #[derive(Debug)]
-pub enum Cheat {
+pub enum PlayerCheat {
     /// No clipping, walk through barriers.
     Noclip = 1,
     /// No damage, no health loss.
@@ -135,9 +135,9 @@ pub struct Player {
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
 
-    weaponowned: [bool; NUM_WEAPONS],
-    ammo: [u32; NUM_AMMO],
-    maxammo: [u32; NUM_AMMO],
+    pub weaponowned: [bool; NUM_WEAPONS],
+    pub ammo: [u32; NUM_AMMO],
+    pub maxammo: [u32; NUM_AMMO],
 
     /// True if button down last tic.
     pub attackdown: bool,
@@ -408,13 +408,13 @@ impl Player {
 impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
         if let Some(mobj) = self.mobj.as_mut() {
-            if self.cheats & Cheat::Noclip as u32 != 0 {
+            if self.cheats & PlayerCheat::Noclip as u32 != 0 {
                 unsafe {
                     mobj.as_mut().flags |= MobjFlag::NOCLIP as u32;
                 }
             } else {
                 unsafe {
-                    mobj.as_mut().flags &= !(Cheat::Noclip as u32);
+                    mobj.as_mut().flags &= PlayerCheat::Noclip as u32;
                 }
             }
         }

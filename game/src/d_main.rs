@@ -167,7 +167,7 @@ fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>
 
 fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
     // TODO: net.c starts here
-    input.update(); // D_ProcessEvents
+    input.update(game); // D_ProcessEvents
 
     let console_player = game.consoleplayer;
     // net update does i/o and buildcmds...
