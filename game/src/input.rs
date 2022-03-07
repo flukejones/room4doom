@@ -210,6 +210,7 @@ impl Input {
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
+                    // TODO: pass through cheat responder
                     self.tic_events.set_kb(sc);
                 }
                 Event::KeyUp {
