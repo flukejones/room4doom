@@ -13,6 +13,8 @@
 [X] - e1m1 right lift upper texture not drawn
 [ ] - e1m9 corner lifts aren't cutting bottom of texture?
 [ ] - e3m4 crushers textures aren't culling correctly?
+[ ] - e3m4, player can't fit. The proper setup of line back/front sectors affects this and
+      now SubSectorMinMax needs work.
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed

@@ -318,8 +318,7 @@ impl SegRender {
             // above view plane
             self.markfloor = false;
         }
-        // TODO: if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != skyflatnum
-        if frontsector.ceilingheight <= viewz {
+        if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != rdata.skyflatnum {
             // below view plane
             self.markceiling = false;
         }
@@ -486,7 +485,7 @@ impl SegRender {
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
-                        yl as i32, // yl needed to be offset? Why?
+                        yl as i32,
                         yh as i32,
                         rdata,
                         canvas,
@@ -497,11 +496,6 @@ impl SegRender {
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
                 if self.toptexture != 0 {
-                    // #291                   #345
-                    if *seg.v2 == Vec2::new(-128.0, 320.0) && *seg.v1 == Vec2::new(-288.0, 320.0) {
-                        dbg!(seg.sidedef.toptexture);
-                    }
-
                     mid = self.pixhigh - 1.0;
                     self.pixhigh += self.pixhighstep;
 

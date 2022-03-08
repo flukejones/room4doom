@@ -56,6 +56,7 @@ impl MapObject {
 
         if self.flags & MobjFlag::NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
+                //dbg!(ctrl.max_ceil_z, ctrl.min_floor_z, ctrl.max_ceil_z - ctrl.min_floor_z);
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
@@ -158,12 +159,6 @@ impl MapObject {
         if self.flags & MobjFlag::NOCLIP as u32 != 0 {
             return true;
         }
-
-        // TODO: use the blockmap for checking lines
-        // TODO: use a P_BlockThingsIterator
-        // TODO: use a P_BlockLinesIterator - used to build a list of lines to check
-        //       it also calls PIT_CheckLine on each line
-        //       P_BlockLinesIterator is called mobj->radius^2
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
