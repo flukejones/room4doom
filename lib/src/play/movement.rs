@@ -56,7 +56,6 @@ impl MapObject {
 
         if self.flags & MobjFlag::NOCLIP as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
-                //dbg!(ctrl.max_ceil_z, ctrl.min_floor_z, ctrl.max_ceil_z - ctrl.min_floor_z);
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
@@ -70,7 +69,7 @@ impl MapObject {
                 return false; // too big a step up
             }
 
-            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) == 0
+            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) != 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -148,6 +147,7 @@ impl MapObject {
 
         let level = unsafe { &mut *self.level };
         let newsubsec = level.map_data.point_in_subsector_mut(endpoint);
+
         // The base floor / ceiling is from the subsector
         // that contains the point.
         unsafe {
@@ -194,7 +194,6 @@ impl MapObject {
 
         bsp_trace.set_line(Vec2::new(right, bottom), Vec2::new(left, bottom));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
-        //dbg!(count);
 
         let segs = level.map_data.segments();
         for n in bsp_trace.intercepted_nodes() {
