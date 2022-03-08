@@ -45,8 +45,12 @@ modules:
     build-commands:
       - cargo --offline build --release
       - install -D -m 755 ./target/release/diirdoom -t /app/bin/
+      - install -D -m 755 ./target/release/libSDL2.so -t /app/bin/
+      - install -D -m 755 ./target/release/libSDL2-2.0.so -t /app/bin/
+      - install -D -m 755 ./target/release/libSDL2-2.0.so.0 -t /app/bin/
+      - install -D -m 755 ./target/release/libSDL2-2.0.so.0.18.1 -t /app/bin/
       - install -D -m 755 ./doom1.wad -t /app/bin/
     sources:
       - type: dir
         path: ./
-      - cargo-sources.json
+      - generated-sources.json

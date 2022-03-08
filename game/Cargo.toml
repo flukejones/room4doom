@@ -11,9 +11,9 @@ name = "diirdoom"
 path = "src/main.rs"
 
 [dependencies]
-sdl2 = "~0.34.0"
+sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
-gumdrop = "~0.7"
+gumdrop = "~0.8"
 rand = "*"
 doom-lib = { path = "../lib" }
 wad = { path = "../wad" }

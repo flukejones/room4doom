@@ -13,6 +13,7 @@ use gumdrop::Options;
 
 use doom_lib::{log, DoomOptions, Game, Skill};
 use input::Input;
+use sdl2::video::DisplayMode;
 use shaders::Shaders;
 
 #[derive(Debug, Clone, Options)]
@@ -111,16 +112,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut window = video_ctx
         .window("ROOM (Rusty DOOM)", options.width, options.height)
+        .allow_highdpi()
         .position_centered()
         .opengl()
-        .hidden()
         .build()?;
     let _gl_ctx = window.gl_create_context()?;
-
-    // initialization
-    let gl_attr = video_ctx.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attr.set_context_version(3, 2);
 
     let context = unsafe {
         Context::from_glow(glow::Context::from_loader_function(|s| {
@@ -131,8 +127,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let game = Game::new(options.clone().into());
 
-    window.show();
-
     if options.fullscreen {
         let mode = if options.width != 320 {
             sdl2::video::FullscreenType::Desktop
@@ -140,8 +134,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             sdl2::video::FullscreenType::True
         };
         window.set_fullscreen(mode)?;
-        window.set_bordered(false);
     }
+    window.show();
 
     sdl_ctx.mouse().show_cursor(false);
     sdl_ctx.mouse().set_relative_mouse_mode(true);
