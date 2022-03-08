@@ -1,5 +1,4 @@
 use doom_lib::{Angle, LineDefFlags, Player, Segment};
-use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     f32::consts::{FRAC_PI_2, PI},

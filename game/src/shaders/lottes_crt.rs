@@ -145,17 +145,17 @@ impl<'c> Drawer for LottesCRT<'c> {
 
         // brightMult needs to be increased as this decreases
         self.crt_shader
-            .set_uniform("maskDark", UniformValue::Float(0.1))?; // 0.01 to 0.9
+            .set_uniform("maskDark", UniformValue::Float(0.5))?; // 0.01 to 0.9
 
         self.crt_shader
-            .set_uniform("maskLight", UniformValue::Float(1.0))?;
+            .set_uniform("maskLight", UniformValue::Float(1.1))?;
 
         // GAMMA
         self.crt_shader
-            .set_uniform("blackClip", UniformValue::Float(-0.00))?;
+            .set_uniform("blackClip", UniformValue::Float(-0.02))?;
 
         self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(4.5))?;
+            .set_uniform("brightMult", UniformValue::Float(5.0))?;
 
         // SHAPE
         self.crt_shader
