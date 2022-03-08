@@ -1,19 +1,9 @@
-// TODO: Structures, in WAD order
-//  - [X] Thing
-//  - [X] LineDef
-//  - [X] SideDef
-//  - [X] Vertex
-//  - [X] Segment   (SEGS)
-//  - [X] SubSector (SSECTORS)
-//  - [X] Node
-//  - [X] Sector
-//  - [ ] Reject
-//  - [ ] Blockmap
-
 use std::str;
 
 use crate::{LumpInfo, WadData};
 
+/// Used in a `WadPalette`. Each component byte is stored in the palette in
+/// sequence of Red-Green-Blue
 #[derive(Debug, Copy, Clone, Default)]
 pub struct WadColour {
     pub r: u8,
@@ -27,6 +17,9 @@ impl WadColour {
     }
 }
 
+/// There are typically 14 palettes available during gameplay. These range from
+/// regular colours to increasing shades of red for player damage, some specials,
+/// and some transparency effects.
 #[derive(Debug, Copy, Clone)]
 pub struct WadPalette(pub [WadColour; 256]);
 
@@ -42,12 +35,21 @@ impl Default for WadPalette {
     }
 }
 
+/// The key component of textures. Some textures may use a patch as-is, and some may
+/// use a group of these in differing layouts to compose unique textures.
 #[derive(Debug, Clone)]
 pub struct WadPatch {
+    /// Total width of the patch
     pub width: u16,
+    /// Total height of the patch
     pub height: u16,
+    /// ?? dosn't appear to be used
     pub left_offset: i16,
+    /// ?? dosn't appear to be used
     pub top_offset: i16,
+    /// A series of columns, there can be multiple `WadPatchCol` in a single column.
+    /// Each `WadPatchCol` used contains an y-offset, and a series of indexes in to
+    /// the 256 byte palette.
     pub columns: Vec<WadPatchCol>,
 }
 
@@ -110,7 +112,7 @@ pub struct WadPatchCol {
 }
 
 /// Contains all the data required to compose a full texture from a series of
-/// patches.
+/// patches. The definition here does not include all the bytes as some are not used.
 #[derive(Debug, Clone)]
 pub struct WadTexture {
     /// Texture name
@@ -131,6 +133,8 @@ pub struct WadTexPatch {
     pub origin_x: i32,
     /// Top start position
     pub origin_y: i32,
+    /// Index in to the `WadPatch` array if collected via iterator. This is in the order
+    /// that it is stored in the wad.
     pub patch_index: usize,
 }
 

@@ -1,4 +1,7 @@
-use crate::renderer::Renderer;
+use crate::renderer::{
+    software::defs::{SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
+    Renderer,
+};
 
 use super::{defs::ClipRange, segs::SegRender, RenderData};
 use doom_lib::{
@@ -10,7 +13,7 @@ use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 use wad::WadData;
 
-use super::plane::VisPlaneRender;
+use super::planes::VisPlaneRender;
 
 const MAX_SEGS: usize = 32;
 
@@ -56,8 +59,6 @@ impl Renderer for SoftwareRenderer {
         let map = &level.map_data;
 
         self.clear();
-        // The state machine will handle which state renders to the surface
-        //self.states.render(dt, &mut self.canvas);
 
         // TODO: remove this once flats and sky are done.
         let sub_sect = unsafe {
@@ -74,7 +75,14 @@ impl Renderer for SoftwareRenderer {
             255,
         );
         canvas.set_draw_color(colour);
-        canvas.fill_rect(Rect::new(0, 0, 320, 100)).unwrap();
+        canvas
+            .fill_rect(Rect::new(
+                0,
+                0,
+                SCREENWIDTH as u32,
+                SCREENHEIGHT_HALF as u32,
+            ))
+            .unwrap();
         let colour = sdl2::pixels::Color::RGBA(
             (40.0 * scale) as u8,
             (40.0 * scale) as u8,
@@ -82,7 +90,14 @@ impl Renderer for SoftwareRenderer {
             255,
         );
         canvas.set_draw_color(colour);
-        canvas.fill_rect(Rect::new(0, 100, 320, 100)).unwrap();
+        canvas
+            .fill_rect(Rect::new(
+                0,
+                100,
+                SCREENWIDTH as u32,
+                SCREENHEIGHT_HALF as u32,
+            ))
+            .unwrap();
 
         // TODO: netupdate
 

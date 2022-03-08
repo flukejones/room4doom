@@ -9,12 +9,13 @@ pub const SIL_BOTH: i32 = 3;
 
 pub const SCREENWIDTH: usize = 320;
 pub const SCREENHEIGHT: usize = 200;
+pub const SCREENHEIGHT_HALF: usize = SCREENHEIGHT / 2;
 
-pub const MAXDRAWSEGS: usize = 256;
+pub const MAXDRAWSEGS: usize = 1024;
 
-pub const MAXVISPLANES: usize = 128;
+pub const MAXVISPLANES: usize = 256;
 
-pub const MAXOPENINGS: usize = SCREENWIDTH * 64;
+pub const MAXOPENINGS: usize = SCREENWIDTH * 128;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DrawSeg {

@@ -21,7 +21,9 @@
 [ ] - Skybox
 [ ] - Large sigil levels have rendering issues
 [ ] - Really need swept-volume collisions
-[ ] - Need the above for use-lines too.
+[ ] - Need the above for use-lines too
+[ ] - sound-server using rx/tx channels
+[ ] - HUD using rx/tx channels
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed

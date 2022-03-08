@@ -5,7 +5,7 @@ use crate::{
     level_data::{p_ticker, Level},
     play::{
         map_object::MapObject,
-        player::{Player, PlayerCheat, PlayerState, WBStartStruct},
+        player::{Player, PlayerState, WBStartStruct},
         specials::spawn_specials,
         utilities::m_clear_random,
     },
@@ -474,9 +474,6 @@ impl Game {
             }
         }
         // // do player reborns if needed
-        // for (i = 0; i < MAXPLAYERS; i++)
-        // if (playeringame[i] && players[i].playerstate == PST_REBORN)
-        //     G_DoReborn(i);
         for i in 0..MAXPLAYERS {
             if self.player_in_game[i] && self.players[i].player_state == PlayerState::PstReborn {
                 self.do_reborn(i);

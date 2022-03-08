@@ -5,7 +5,7 @@ use self::{defs::DrawSeg, portals::PortalClip};
 
 pub mod bsp;
 pub mod defs;
-pub mod plane;
+pub mod planes;
 pub mod portals;
 pub mod segs;
 pub mod things;
