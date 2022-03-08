@@ -8,11 +8,14 @@ use std::{
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
 
 use super::{
-    defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+    defs::{
+        DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SCREENHEIGHT_HALF, SIL_BOTH, SIL_BOTTOM, SIL_NONE,
+        SIL_TOP,
+    },
     RenderData,
 };
 
-use super::plane::VisPlaneRender;
+use super::planes::VisPlaneRender;
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -602,7 +605,7 @@ pub fn draw_column(
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
-    let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
+    let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
 
     for n in yl..yh {
         let mut select = frac as i32 & 127;

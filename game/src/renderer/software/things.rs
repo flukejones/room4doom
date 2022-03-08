@@ -1,7 +1,11 @@
 use doom_lib::LineDefFlags;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
-use super::{bsp::SoftwareRenderer, defs::DrawSeg, RenderData};
+use super::{
+    bsp::SoftwareRenderer,
+    defs::{DrawSeg, SCREENHEIGHT_HALF},
+    RenderData,
+};
 
 impl SoftwareRenderer {
     pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
@@ -81,7 +85,7 @@ impl SoftwareRenderer {
                             as i32;
 
                         // // calculate unclipped screen coordinates for post
-                        let sprtopscreen = 100.0 - dc_texturemid * spryscale;
+                        let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
                         let top = sprtopscreen as i32;
                         let bottom = top + (spryscale * texture_column.len() as f32) as i32;
                         let mut yl = top;
@@ -134,7 +138,7 @@ pub fn draw_masked_column(
     rdata: &RenderData,
     canvas: &mut Canvas<Surface>,
 ) {
-    let mut frac = dc_texturemid + (yl as f32 - 100.0) * fracstep;
+    let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
         let mut select = frac as i32 & 127;
 

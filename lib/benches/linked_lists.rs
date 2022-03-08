@@ -2,8 +2,6 @@ use std::ptr::null_mut;
 
 use criterion::*;
 
-use doom_lib::{Game, GameOptions, MapData};
-use gumdrop::Options;
 use wad::WadData;
 
 fn push_100_000(b: &mut Bencher) {
