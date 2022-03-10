@@ -60,6 +60,7 @@ where
     }
 }
 
+/// Requires a list of patch names, typically from `PNAMES`
 pub struct PatchIter<'a> {
     names: Vec<String>,
     current: usize,
@@ -73,7 +74,8 @@ impl<'a> Iterator for PatchIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.current < self.names.len() {
             let info = self.wad.find_lump_or_panic(&self.names[self.current]);
-            let patch = WadPatch::from_lump(info, self.wad);
+            let file = &self.wad.file_data[info.handle];
+            let patch = WadPatch::from_lump(info, file);
 
             // cycle through and check until we find one
             self.current += 1;
@@ -124,6 +126,35 @@ impl WadData {
 
                 WadFlat { name, data }
             },
+        }
+    }
+
+    pub fn sprites_iter(&self) -> LumpIter<WadPatch, impl Fn(&LumpInfo) -> WadPatch + '_> {
+        let mut start = usize::MAX;
+        let start_info = self.find_lump_or_panic("S_START");
+        for (i, info) in self.lumps().iter().enumerate().rev() {
+            if info.name == "S_START" {
+                start = i;
+                break;
+            }
+        }
+        let mut end = usize::MAX;
+        for (i, info) in self.lumps().iter().enumerate().rev() {
+            if info.name == "S_END" {
+                end = i;
+                break;
+            }
+        }
+        if start == usize::MAX || end == usize::MAX {
+            panic!("Could not find flats");
+        }
+
+        let file = &self.file_data[start_info.handle];
+        LumpIter {
+            end,
+            lumps: self.lumps(),
+            start,
+            transformer: move |lump| WadPatch::from_lump(lump, file),
         }
     }
 

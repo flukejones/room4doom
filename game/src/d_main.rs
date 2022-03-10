@@ -231,7 +231,7 @@ fn palette_test(pal_num: usize, game: &mut Game, canvas: &mut Canvas<Surface>) {
 
 fn image_test(name: &str, game: &mut Game, canvas: &mut Canvas<Surface>) {
     let lump = game.wad_data.find_lump_or_panic(name);
-    let image = WadPatch::from_lump(lump, &game.wad_data);
+    let image = WadPatch::from_lump(lump, &game.wad_data.file_data[lump.handle]);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let mut x = 0;

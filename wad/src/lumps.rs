@@ -59,16 +59,18 @@ pub struct WadPatch {
 }
 
 impl WadPatch {
-    pub fn from_lump(lump: &LumpInfo, wad: &WadData) -> Self {
-        let file = &wad.file_data[lump.handle];
-        let width = wad.read_2_bytes(lump.offset, file) as u16;
-
+    /// Create a patch from lump data. The data must be that which is associated with the
+    /// patch, e.g, `wad.file_data[lump.handle]`
+    pub fn from_lump(lump: &LumpInfo, data: &[u8]) -> Self {
+        let width = i16::from_le_bytes([data[lump.offset], data[lump.offset + 1]]) as u16;
         let mut columns = Vec::new();
         for q in 0..width {
-            let mut offset =
-                lump.offset + wad.read_4_bytes((lump.offset + 8) + 4 * q as usize, file) as usize;
+            let tmp = (lump.offset + 8) + 4 * q as usize;
+            let mut offset = lump.offset
+                + u32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
+                    as usize;
             loop {
-                let y_offset = file[offset] as u32;
+                let y_offset = data[offset] as u32;
                 if y_offset == 255 {
                     columns.push(WadPatchCol {
                         y_offset,
@@ -78,14 +80,14 @@ impl WadPatch {
                 }
 
                 offset += 1;
-                let len = file[offset] as u32;
+                let len = data[offset] as u32;
                 offset += 1;
                 columns.push(WadPatchCol {
                     y_offset,
                     pixels: (0..len)
                         .map(|_| {
                             offset += 1;
-                            file[offset] as usize
+                            data[offset] as usize
                         })
                         .collect(),
                 });
@@ -96,9 +98,9 @@ impl WadPatch {
 
         WadPatch {
             width,
-            height: wad.read_2_bytes(lump.offset + 2, file) as u16,
-            left_offset: wad.read_2_bytes(lump.offset + 4, file),
-            top_offset: wad.read_2_bytes(lump.offset + 6, file),
+            height: u16::from_le_bytes([data[lump.offset + 2], data[lump.offset + 3]]),
+            left_offset: i16::from_le_bytes([data[lump.offset + 4], data[lump.offset + 5]]),
+            top_offset: i16::from_le_bytes([data[lump.offset + 6], data[lump.offset + 7]]),
             columns,
         }
     }

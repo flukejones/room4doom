@@ -628,7 +628,7 @@ mod tests {
         assert_eq!(lump.size, 1304);
         assert_eq!(lump.offset, 3256112);
 
-        let patch = WadPatch::from_lump(lump, &wad);
+        let patch = WadPatch::from_lump(lump, &wad.file_data[lump.handle]);
 
         assert_eq!(patch.columns[0].y_offset, 0);
         assert_eq!(patch.columns[15].y_offset, 255);
