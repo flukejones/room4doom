@@ -186,23 +186,19 @@ impl WadData {
         self.cache_lumps(self.file_data.len() - 1);
     }
 
-    pub fn read_byte(&self, offset: usize, file: &[u8]) -> u8 {
-        file[offset]
-    }
-
-    pub fn read_byte_i8(&self, offset: usize, file: &[u8]) -> i8 {
-        file[offset] as i8
-    }
-
+    #[inline(always)]
     pub fn read_2_bytes(&self, offset: usize, file: &[u8]) -> i16 {
-        (file[offset + 1] as i16) << 8 | (file[offset] as i16)
+        i16::from_le_bytes([file[offset], file[offset + 1]])
     }
 
+    #[inline(always)]
     pub fn read_4_bytes(&self, offset: usize, file: &[u8]) -> i32 {
-        (file[offset + 3] as i32) << 24
-            | (file[offset + 2] as i32) << 16
-            | (file[offset + 1] as i32) << 8
-            | (file[offset] as i32)
+        i32::from_le_bytes([
+            file[offset],
+            file[offset + 1],
+            file[offset + 2],
+            file[offset + 3],
+        ])
     }
 
     fn read_header(&self, file: &[u8]) -> WadHeader {
@@ -265,6 +261,10 @@ impl WadData {
             let dir = self.read_dir_data((header.dir_offset + i * 16) as usize, file_idx);
             self.lump_info.push(dir);
         }
+    }
+
+    pub fn lumps(&self) -> &[LumpInfo] {
+        &self.lump_info
     }
 
     /// Find a general lump by name

@@ -1,7 +1,40 @@
-use crate::{lumps::*, MapLump, WadData};
+use crate::{lumps::*, LumpInfo, MapLump, WadData};
 use std::marker::PhantomData;
 
-pub struct LumpIter<T, F: Fn(usize) -> T> {
+/// An iterator to iter over all items between start and end (exclusive), skipping zero-sized lumps.
+/// This is good for iterating over flats for example, as each `LumpInfo` also contains the name
+/// of the flat and is in order.
+pub struct LumpIter<'a, T, F: Fn(&LumpInfo) -> T> {
+    start: usize,
+    end: usize,
+    lumps: &'a [LumpInfo],
+    transformer: F,
+}
+
+impl<'a, T, F> Iterator for LumpIter<'a, T, F>
+where
+    F: Fn(&LumpInfo) -> T,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.lumps[self.start].size == 0 {
+            self.start += 1;
+            if self.start == self.end {
+                return None;
+            }
+        }
+        if self.start >= self.end {
+            return None;
+        }
+
+        let item = (self.transformer)(&self.lumps[self.start]);
+        self.start += 1;
+        return Some(item);
+    }
+}
+
+pub struct OffsetIter<T, F: Fn(usize) -> T> {
     item_size: usize,
     item_count: usize,
     lump_offset: usize,
@@ -10,7 +43,7 @@ pub struct LumpIter<T, F: Fn(usize) -> T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T, F> Iterator for LumpIter<T, F>
+impl<T, F> Iterator for OffsetIter<T, F>
 where
     F: Fn(usize) -> T,
 {
@@ -59,12 +92,47 @@ impl<'a> Iterator for PatchIter<'a> {
 }
 
 impl WadData {
-    pub fn playpal_iter(&self) -> LumpIter<WadPalette, impl Fn(usize) -> WadPalette + '_> {
+    pub fn flats_iter(&self) -> LumpIter<WadFlat, impl Fn(&LumpInfo) -> WadFlat + '_> {
+        let mut start = usize::MAX;
+        let start_info = self.find_lump_or_panic("F_START");
+        for (i, info) in self.lumps().iter().enumerate().rev() {
+            if info.name == "F_START" {
+                start = i;
+                break;
+            }
+        }
+        let mut end = usize::MAX;
+        for (i, info) in self.lumps().iter().enumerate().rev() {
+            if info.name == "F_END" {
+                end = i;
+                break;
+            }
+        }
+        if start == usize::MAX || end == usize::MAX {
+            panic!("Could not find flats");
+        }
+
+        let file = &self.file_data[start_info.handle];
+        LumpIter {
+            end,
+            lumps: self.lumps(),
+            start,
+            transformer: move |lump| {
+                let name = lump.name.clone();
+                let mut data = [0; 4096];
+                data.copy_from_slice(&file[lump.offset..lump.offset + lump.size]);
+
+                WadFlat { name, data }
+            },
+        }
+    }
+
+    pub fn playpal_iter(&self) -> OffsetIter<WadPalette, impl Fn(usize) -> WadPalette + '_> {
         let info = self.find_lump_or_panic("PLAYPAL");
         let item_size = 3 * 256;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -73,9 +141,9 @@ impl WadData {
                 let mut palette = WadPalette::new();
                 for i in 0..256 {
                     palette.0[i] = WadColour::new(
-                        self.read_byte(offset + i * 3, file),
-                        self.read_byte(offset + i * 3 + 1, file),
-                        self.read_byte(offset + i * 3 + 2, file),
+                        file[offset + i * 3],
+                        file[offset + i * 3 + 1],
+                        file[offset + i * 3 + 2],
                     );
                 }
                 palette
@@ -84,27 +152,27 @@ impl WadData {
         }
     }
 
-    pub fn colourmap_iter(&self) -> LumpIter<u8, impl Fn(usize) -> u8 + '_> {
+    pub fn colourmap_iter(&self) -> OffsetIter<u8, impl Fn(usize) -> u8 + '_> {
         let info = self.find_lump_or_panic("COLORMAP");
         let item_size = 1;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size,
             lump_offset: info.offset,
             current: 0,
-            transformer: move |offset| self.read_byte(offset, file),
+            transformer: move |offset| file[offset],
             _phantom: Default::default(),
         }
     }
 
-    pub fn pnames_iter(&self) -> LumpIter<String, impl Fn(usize) -> String + '_> {
+    pub fn pnames_iter(&self) -> OffsetIter<String, impl Fn(usize) -> String + '_> {
         let info = self.find_lump_or_panic("PNAMES");
         let item_size = 8;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: self.read_4_bytes(info.offset, file) as usize,
             lump_offset: info.offset + 4,
@@ -138,12 +206,12 @@ impl WadData {
     pub fn texture_iter(
         &self,
         name: &str,
-    ) -> LumpIter<WadTexture, impl Fn(usize) -> WadTexture + '_> {
+    ) -> OffsetIter<WadTexture, impl Fn(usize) -> WadTexture + '_> {
         let info = self.find_lump_or_panic(name);
         let item_size = 4;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             // texture count
             item_count: self.read_4_bytes(info.offset, file) as usize,
@@ -190,12 +258,12 @@ impl WadData {
     pub fn thing_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadThing, impl Fn(usize) -> WadThing + '_> {
+    ) -> OffsetIter<WadThing, impl Fn(usize) -> WadThing + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Things);
         let item_size = 10;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -216,12 +284,12 @@ impl WadData {
     pub fn vertex_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadVertex, impl Fn(usize) -> WadVertex + '_> {
+    ) -> OffsetIter<WadVertex, impl Fn(usize) -> WadVertex + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Vertexes);
         let item_size = 4;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -239,12 +307,12 @@ impl WadData {
     pub fn sector_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadSector, impl Fn(usize) -> WadSector + '_> {
+    ) -> OffsetIter<WadSector, impl Fn(usize) -> WadSector + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Sectors);
         let item_size = 26;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -267,12 +335,12 @@ impl WadData {
     pub fn sidedef_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadSideDef, impl Fn(usize) -> WadSideDef + '_> {
+    ) -> OffsetIter<WadSideDef, impl Fn(usize) -> WadSideDef + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::SideDefs);
         let item_size = 30;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -294,12 +362,12 @@ impl WadData {
     pub fn linedef_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadLineDef, impl Fn(usize) -> WadLineDef + '_> {
+    ) -> OffsetIter<WadLineDef, impl Fn(usize) -> WadLineDef + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::LineDefs);
         let item_size = 14;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -331,12 +399,12 @@ impl WadData {
     pub fn segment_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadSegment, impl Fn(usize) -> WadSegment + '_> {
+    ) -> OffsetIter<WadSegment, impl Fn(usize) -> WadSegment + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Segs);
         let item_size = 12;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -358,12 +426,12 @@ impl WadData {
     pub fn subsector_iter(
         &self,
         map_name: &str,
-    ) -> LumpIter<WadSubSector, impl Fn(usize) -> WadSubSector + '_> {
+    ) -> OffsetIter<WadSubSector, impl Fn(usize) -> WadSubSector + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::SSectors);
         let item_size = 4;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -378,12 +446,12 @@ impl WadData {
         }
     }
 
-    pub fn node_iter(&self, map_name: &str) -> LumpIter<WadNode, impl Fn(usize) -> WadNode + '_> {
+    pub fn node_iter(&self, map_name: &str) -> OffsetIter<WadNode, impl Fn(usize) -> WadNode + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
         let item_size = 28;
         let file = &self.file_data[info.handle];
 
-        LumpIter {
+        OffsetIter {
             item_size,
             item_count: info.size / item_size,
             lump_offset: info.offset,
@@ -519,7 +587,7 @@ mod tests {
 
     #[ignore = "doom.wad is commercial"]
     #[test]
-    fn patches_doom_iter() {
+    fn patches_doom_iter_commercial() {
         let wad = WadData::new("../doom.wad".into());
         assert_eq!(wad.patches_iter().count(), 351);
     }
@@ -534,7 +602,7 @@ mod tests {
 
     #[ignore = "doom2.wad is commercial"]
     #[test]
-    fn w94_1() {
+    fn w94_1_commercial() {
         // W94_1 has incorrect capitalisation as "w94_1"
         let wad = WadData::new("../doom2.wad".into());
         let lump = wad.find_lump_or_panic("W94_1");
@@ -546,7 +614,7 @@ mod tests {
 
     #[ignore = "doom2.wad is commercial"]
     #[test]
-    fn pnames_doom2_iter() {
+    fn pnames_doom2_iter_commercial() {
         let wad = WadData::new("../doom2.wad".into());
         let mut iter = wad.pnames_iter();
         // All verified with SLADE
@@ -616,5 +684,40 @@ mod tests {
         assert_eq!(colourmap[256 + 64], 64);
         assert_eq!(colourmap[8 * 256 + 64], 69);
         assert_eq!(colourmap[16 * 256 + 64], 74);
+    }
+
+    #[test]
+    fn flats_doom1() {
+        let wad = WadData::new("../doom1.wad".into());
+        let lump = wad.find_lump_or_panic("NUKAGE3");
+        assert_eq!(lump.name, "NUKAGE3");
+
+        let tmp: Vec<WadFlat> = wad.flats_iter().collect();
+
+        assert_eq!(tmp.len(), 54);
+    }
+
+    #[ignore = "doom.wad is commercial"]
+    #[test]
+    fn flats_doom_commercial() {
+        let wad = WadData::new("../doom.wad".into());
+        let lump = wad.find_lump_or_panic("NUKAGE3");
+        assert_eq!(lump.name, "NUKAGE3");
+
+        let tmp: Vec<WadFlat> = wad.flats_iter().collect();
+
+        assert_eq!(tmp.len(), 107);
+    }
+
+    #[ignore = "doom2.wad is commercial"]
+    #[test]
+    fn flats_doom2_commercial() {
+        let wad = WadData::new("../doom2.wad".into());
+        let lump = wad.find_lump_or_panic("NUKAGE3");
+        assert_eq!(lump.name, "NUKAGE3");
+
+        let tmp: Vec<WadFlat> = wad.flats_iter().collect();
+
+        assert_eq!(tmp.len(), 147);
     }
 }

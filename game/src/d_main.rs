@@ -10,7 +10,7 @@ use sdl2::{
     surface::Surface,
     video::Window,
 };
-use wad::lumps::{WadPalette, WadPatch};
+use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 use crate::{
     input::Input,
@@ -62,8 +62,15 @@ pub fn d_doom_loop(
     let mut pal_num = 0;
     let mut image_num = 0;
     let mut tex_num = 0;
+    let mut flat_num = 0;
     let images: Option<Vec<WadPatch>> = if options.texpatch_test || options.texture_test {
         Some(game.wad_data.patches_iter().collect())
+    } else {
+        None
+    };
+
+    let flats: Option<Vec<WadFlat>> = if options.flats_test {
+        Some(game.wad_data.flats_iter().collect())
     } else {
         None
     };
@@ -86,10 +93,11 @@ pub fn d_doom_loop(
         if let Some(name) = options.image_test.clone() {
             image_test(&name.to_ascii_uppercase(), &mut game, &mut render_buffer);
         }
-        if options.texpatch_test {
-            if let Some(images) = &images {
-                patch_cycle_test(&images[image_num], &mut game, &mut render_buffer);
-            }
+        if let Some(images) = &images {
+            patch_cycle_test(&images[image_num], &mut game, &mut render_buffer);
+        }
+        if let Some(flats) = &flats {
+            flat_select_test(&flats[flat_num], &game, &mut render_buffer);
         }
         if options.texture_test {
             texture_select_test(
@@ -121,13 +129,10 @@ pub fn d_doom_loop(
                 }
             }
 
-            if options.texpatch_test {
-                if let Some(images) = &images {
-                    if image_num < images.len() - 1 {
-                        image_num += 1;
-                    } else {
-                        image_num = 0;
-                    }
+            if let Some(images) = &images {
+                image_num += 1;
+                if image_num == images.len() {
+                    image_num = 0;
                 }
             }
 
@@ -136,6 +141,13 @@ pub fn d_doom_loop(
                     tex_num += 1;
                 } else {
                     tex_num = 0;
+                }
+            }
+
+            if let Some(flats) = &flats {
+                flat_num += 1;
+                if flat_num == flats.len() {
+                    flat_num = 0;
                 }
             }
         }
@@ -283,6 +295,27 @@ fn texture_select_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surfa
             canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
             canvas
                 .fill_rect(Rect::new(xs + x_pos as i32, ys + y_pos as i32, 1, 1))
+                .unwrap();
+        }
+    }
+}
+
+fn flat_select_test(flat: &WadFlat, game: &Game, canvas: &mut Canvas<Surface>) {
+    let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
+
+    let xs = ((canvas.surface().width() - 64) / 2) as i32;
+    let ys = ((canvas.surface().height() - 64) / 2) as i32;
+    let pal = pals[0].0;
+
+    for (y, col) in flat.data.chunks(64).enumerate() {
+        for (x, px) in col.iter().enumerate() {
+            if *px as usize >= pal.len() {
+                continue;
+            }
+            let colour = pal[*px as usize];
+            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
+            canvas
+                .fill_rect(Rect::new(xs + x as i32, ys + y as i32, 1, 1))
                 .unwrap();
         }
     }

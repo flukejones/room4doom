@@ -15,11 +15,12 @@
 [ ] - e3m4 crushers textures aren't culling correctly?
 [X] - e3m4, player can't fit. The proper setup of line back/front sectors affects this and
       now SubSectorMinMax needs work.
-[ ] - animated textures
+[ ] - animated textures (flattranslation, texturetranslation)
+[ ] - P_UpdateSpecials
 [ ] - EV_Teleport
 [ ] - EV_DoLockedDoor
 [ ] - Skybox
-[ ] - Large sigil levels have rendering issues
+[X] - FIXED: Increased limits. Large sigil levels have rendering issues 
 [ ] - Really need swept-volume collisions
 [ ] - Need the above for use-lines too
 [ ] - sound-server using rx/tx channels
@@ -32,6 +33,7 @@
 [X] - Load textures
 [ ] - Load sprites
 [ ] - fixed-colourmap (special effects)
+[ ] - Lump cache isn't actually being fully used, use it!
 
 Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display
