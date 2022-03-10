@@ -13,7 +13,6 @@ use gumdrop::Options;
 
 use doom_lib::{log, DoomOptions, Game, Skill};
 use input::Input;
-use sdl2::video::DisplayMode;
 use shaders::Shaders;
 
 #[derive(Debug, Clone, Options)]
@@ -76,6 +75,8 @@ pub struct GameOptions {
     pub texpatch_test: bool,
     #[options(help = "texture compose test, cycle through the composable textures")]
     pub texture_test: bool,
+    #[options(help = "flat texture test, cycle through the floor/ceiling flats")]
+    pub flats_test: bool,
 
     #[options(meta = "", help = "Screen shader <basic, cgwg, lottes>")]
     pub shader: Option<Shaders>,

@@ -2,6 +2,11 @@ use std::str;
 
 use crate::{LumpInfo, WadData};
 
+pub struct WadFlat {
+    pub name: String,
+    pub data: [u8; 4096],
+}
+
 /// Used in a `WadPalette`. Each component byte is stored in the palette in
 /// sequence of Red-Green-Blue
 #[derive(Debug, Copy, Clone, Default)]
@@ -63,7 +68,7 @@ impl WadPatch {
             let mut offset =
                 lump.offset + wad.read_4_bytes((lump.offset + 8) + 4 * q as usize, file) as usize;
             loop {
-                let y_offset = wad.read_byte(offset, file) as u32;
+                let y_offset = file[offset] as u32;
                 if y_offset == 255 {
                     columns.push(WadPatchCol {
                         y_offset,
@@ -73,14 +78,14 @@ impl WadPatch {
                 }
 
                 offset += 1;
-                let len = wad.read_byte(offset, file) as u32;
+                let len = file[offset] as u32;
                 offset += 1;
                 columns.push(WadPatchCol {
                     y_offset,
                     pixels: (0..len)
                         .map(|_| {
                             offset += 1;
-                            wad.read_byte(offset as usize, file) as usize
+                            file[offset] as usize
                         })
                         .collect(),
                 });
