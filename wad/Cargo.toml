@@ -9,7 +9,6 @@ license = "MPL-2.0"
 
 [dev-dependencies]
 criterion = "~0.3"
-doom-lib = { path = "../lib" }
 
 [[bench]]
 name = "load_wads"

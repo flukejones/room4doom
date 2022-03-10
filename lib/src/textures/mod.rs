@@ -1,4 +1,7 @@
+use std::mem::size_of;
+
 use glam::Vec2;
+use log::debug;
 use wad::{
     lumps::{WadColour, WadPalette, WadPatch, WadTexture},
     WadData,
@@ -69,6 +72,7 @@ impl TextureData {
             .texture_iter("TEXTURE1")
             .map(|tex| Self::compose_texture(tex, &patches))
             .collect();
+
         if wad.lump_exists("TEXTURE2") {
             let mut textures2: Vec<Texture> = wad
                 .texture_iter("TEXTURE2")
@@ -76,6 +80,15 @@ impl TextureData {
                 .collect();
             textures.append(&mut textures2);
         }
+        let mut size = 0;
+        for x in &textures {
+            for y in x {
+                for _ in y {
+                    size += size_of::<usize>();
+                }
+            }
+        }
+        debug!("Total memory used for textures: {}KiB", size / 1024);
 
         Self {
             palettes,

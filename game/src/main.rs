@@ -5,7 +5,7 @@ mod shaders;
 mod timestep;
 mod utilities;
 
-use std::error::Error;
+use std::{error::Error, io::Write};
 
 use d_main::d_doom_loop;
 use golem::*;
@@ -19,7 +19,7 @@ use shaders::Shaders;
 pub struct GameOptions {
     #[options(
         help = "verbose level: off, error, warn, info, debug",
-        default = "warn"
+        default = "info"
     )]
     pub verbose: log::LevelFilter,
     #[options(
@@ -77,6 +77,8 @@ pub struct GameOptions {
     pub texture_test: bool,
     #[options(help = "flat texture test, cycle through the floor/ceiling flats")]
     pub flats_test: bool,
+    #[options(help = "sprite test, cycle through the sprites")]
+    pub sprites_test: bool,
 
     #[options(meta = "", help = "Screen shader <basic, cgwg, lottes>")]
     pub shader: Option<Shaders>,
@@ -110,6 +112,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let input = Input::new(events);
 
     let options = GameOptions::parse_args_default_or_exit();
+
+    let mut logger = env_logger::Builder::new();
+    logger
+        .target(env_logger::Target::Stdout)
+        .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
+        .filter(None, options.verbose)
+        .init();
 
     let mut window = video_ctx
         .window("ROOM (Rusty DOOM)", options.width, options.height)

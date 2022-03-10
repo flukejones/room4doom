@@ -4,6 +4,7 @@ use std::ptr::null_mut;
 use crate::{
     angle::Angle,
     level_data::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
+    log::info,
     play::utilities::bam_to_radian,
     DPtr,
 };
@@ -172,12 +173,14 @@ impl MapData {
     pub fn load(&mut self, wad: &WadData) {
         // THINGS
         self.things = wad.thing_iter(&self.name).collect();
+        info!("{}: Loaded things", self.name);
 
         // Vertexes
         self.vertexes = wad
             .vertex_iter(&self.name)
             .map(|v| Vec2::new(v.x as f32, v.y as f32))
             .collect();
+        info!("{}: Loaded vertexes", self.name);
 
         // Sectors
         self.sectors = wad
@@ -202,6 +205,7 @@ impl MapData {
                 thinglist: null_mut(),
             })
             .collect();
+        info!("{}: Loaded segments", self.name);
 
         let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         if wad.lump_exists("TEXTURE2") {
@@ -233,6 +237,7 @@ impl MapData {
                 }
             })
             .collect();
+        info!("{}: Loaded sidedefs", self.name);
 
         //LineDefs
         self.linedefs = wad
@@ -283,6 +288,7 @@ impl MapData {
                 }
             })
             .collect();
+        info!("{}: Loaded linedefs", self.name);
 
         // Now map sectors to lines
         for line in self.linedefs.iter_mut() {
@@ -292,6 +298,7 @@ impl MapData {
                 sector.lines.push(DPtr::new(line));
             }
         }
+        info!("{}: Mapped liedefs to sectors", self.name);
 
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in level struct
@@ -333,6 +340,7 @@ impl MapData {
                 }
             })
             .collect();
+        info!("{}: Generated segments", self.name);
 
         // SSECTORS
         self.subsectors = wad
@@ -346,6 +354,7 @@ impl MapData {
                 }
             })
             .collect();
+        info!("{}: Loaded subsectors", self.name);
 
         // NODES
         self.nodes = wad
@@ -367,6 +376,7 @@ impl MapData {
                 parent: 0,
             })
             .collect();
+        info!("{}: Loaded bsp nodes", self.name);
 
         for (i, wn) in wad.node_iter(&self.name).enumerate() {
             if wn.child_index[0] & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
@@ -376,15 +386,16 @@ impl MapData {
                 self.nodes[wn.child_index[1] as usize].parent = i as u16;
             }
         }
+        info!("{}: Mapped bsp node children", self.name);
 
         // BLOCKMAP
-        let bm = wad.read_blockmap(&self.name);
-        self.blockmap.x_origin = bm.x_origin as f32;
-        self.blockmap.y_origin = bm.y_origin as f32;
-        self.blockmap.width = bm.width as i32;
-        self.blockmap.height = bm.height as i32;
-        self.blockmap.line_indexes = bm.line_indexes.iter().map(|n| *n as usize).collect();
-        self.blockmap.blockmap_offset = bm.blockmap_offset;
+        //let bm = wad.read_blockmap(&self.name);
+        // self.blockmap.x_origin = bm.x_origin as f32;
+        // self.blockmap.y_origin = bm.y_origin as f32;
+        // self.blockmap.width = bm.width as i32;
+        // self.blockmap.height = bm.height as i32;
+        // self.blockmap.line_indexes = bm.line_indexes.iter().map(|n| *n as usize).collect();
+        // self.blockmap.blockmap_offset = bm.blockmap_offset;
 
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
