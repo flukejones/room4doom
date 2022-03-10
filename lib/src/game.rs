@@ -13,7 +13,6 @@ use crate::{
 };
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
-use std::io::Write;
 use wad::WadData;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
@@ -83,13 +82,6 @@ pub struct Game {
 
 impl Game {
     pub fn new(mut options: DoomOptions) -> Game {
-        let mut logger = env_logger::Builder::new();
-        logger
-            .target(env_logger::Target::Stdout)
-            .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
-            .filter(None, options.verbose)
-            .init();
-
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = matches!(options.skill, d_main::Skill::Nightmare);
 

@@ -1,6 +1,6 @@
 use std::str;
 
-use crate::{LumpInfo, WadData};
+use crate::Lump;
 
 pub struct WadFlat {
     pub name: String,
@@ -44,6 +44,7 @@ impl Default for WadPalette {
 /// use a group of these in differing layouts to compose unique textures.
 #[derive(Debug, Clone)]
 pub struct WadPatch {
+    pub name: String,
     /// Total width of the patch
     pub width: u16,
     /// Total height of the patch
@@ -61,13 +62,14 @@ pub struct WadPatch {
 impl WadPatch {
     /// Create a patch from lump data. The data must be that which is associated with the
     /// patch, e.g, `wad.file_data[lump.handle]`
-    pub fn from_lump(lump: &LumpInfo, data: &[u8]) -> Self {
-        let width = i16::from_le_bytes([data[lump.offset], data[lump.offset + 1]]) as u16;
+    pub fn from_lump(lump: &Lump) -> Self {
+        let data = &lump.data;
+        let width = i16::from_le_bytes([data[0], data[1]]) as u16;
         let mut columns = Vec::new();
         for q in 0..width {
-            let tmp = (lump.offset + 8) + 4 * q as usize;
-            let mut offset = lump.offset
-                + u32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
+            let tmp = 8 + 4 * q as usize;
+            let mut offset =
+                u32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
                     as usize;
             loop {
                 let y_offset = data[offset] as u32;
@@ -97,10 +99,11 @@ impl WadPatch {
         }
 
         WadPatch {
+            name: lump.name.to_owned(),
             width,
-            height: u16::from_le_bytes([data[lump.offset + 2], data[lump.offset + 3]]),
-            left_offset: i16::from_le_bytes([data[lump.offset + 4], data[lump.offset + 5]]),
-            top_offset: i16::from_le_bytes([data[lump.offset + 6], data[lump.offset + 7]]),
+            height: u16::from_le_bytes([data[2], data[3]]),
+            left_offset: i16::from_le_bytes([data[4], data[5]]),
+            top_offset: i16::from_le_bytes([data[6], data[7]]),
             columns,
         }
     }
@@ -607,23 +610,21 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let lump = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(lump.name, "TEXTURE1");
-        assert_eq!(lump.size, 9234);
-        assert_eq!(lump.offset, 977748);
+        assert_eq!(lump.data.len(), 9234);
 
-        let file = &wad.file_data[lump.handle];
-        let tex_count = wad.read_4_bytes(lump.offset, file);
+        let tex_count =
+            i32::from_le_bytes([lump.data[0], lump.data[1], lump.data[2], lump.data[3]]);
         assert_eq!(tex_count, 125);
 
         let mut tex_offsets = Vec::new();
         for i in 0..tex_count as usize {
-            tex_offsets
-                .push(lump.offset + wad.read_4_bytes(lump.offset + 4 + 4 * i, file) as usize);
+            tex_offsets.push(lump.read_u32(4 + 4 * i) as usize);
         }
 
         // Read texture name
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[tex_offsets[0] + i];
+            *slot = lump.data[tex_offsets[0] + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -632,29 +633,30 @@ mod tests {
         assert_eq!(name.as_str(), "AASTINKY");
 
         // offset + 4, ignored
-        let tex0_width = wad.read_2_bytes(tex_offsets[0] + 12, file);
-        let tex0_height = wad.read_2_bytes(tex_offsets[0] + 14, file);
+        let tex0_width = lump.read_i16(tex_offsets[0] + 12);
+        let tex0_height = lump.read_i16(tex_offsets[0] + 14);
         assert_eq!(tex0_width, 24);
         assert_eq!(tex0_height, 72);
         // offset + 4, ignored
         // Patch count tells how many blocks of 10 bytes to read
-        let tex0_patch_count = wad.read_2_bytes(tex_offsets[0] + 20, file);
+        let tex0_patch_count = lump.read_i16(tex_offsets[0] + 20);
         assert_eq!(tex0_patch_count, 2);
 
         // Multiple blocks (n = patch_count)
         // And then patch_count * block of 10 bytes
         // Each block is a patch layout to form the texture
-        let tex0_h_offset = wad.read_2_bytes(tex_offsets[0] + 22, file);
-        let tex0_v_offset = wad.read_2_bytes(tex_offsets[0] + 24, file);
+        let tex0_h_offset = lump.read_i16(tex_offsets[0] + 22);
+        let tex0_v_offset = lump.read_i16(tex_offsets[0] + 24);
         // Patch from PNAMES index
-        let tex0_p_index = wad.read_2_bytes(tex_offsets[0] + 26, file);
+        let tex0_p_index = lump.read_i16(tex_offsets[0] + 26);
         assert_eq!(tex0_h_offset, 0);
         assert_eq!(tex0_v_offset, 0);
         assert_eq!(tex0_p_index, 0);
 
-        let tex0_h_offset = wad.read_2_bytes(tex_offsets[0] + 22 + 10, file);
-        let tex0_v_offset = wad.read_2_bytes(tex_offsets[0] + 24 + 10, file);
-        let tex0_p_index = wad.read_2_bytes(tex_offsets[0] + 26 + 10, file);
+        let tex0_h_offset = lump.read_i16(tex_offsets[0] + 22 + 10);
+        let tex0_v_offset = lump.read_i16(tex_offsets[0] + 24 + 10);
+        // Patch from PNAMES index
+        let tex0_p_index = lump.read_i16(tex_offsets[0] + 26 + 10);
         assert_eq!(tex0_h_offset, 12);
         assert_eq!(tex0_v_offset, -6);
         assert_eq!(tex0_p_index, 0);
@@ -662,7 +664,7 @@ mod tests {
         // The last in the list
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[tex_offsets[tex_count as usize - 1] + i];
+            *slot = lump.data[tex_offsets[tex_count as usize - 1] + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -676,17 +678,14 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let lump = wad.find_lump_or_panic("PNAMES");
         assert_eq!(lump.name, "PNAMES");
-        assert_eq!(lump.size, 2804);
-        assert_eq!(lump.offset, 986984);
+        assert_eq!(lump.data.len(), 2804);
 
-        let file = &wad.file_data[lump.handle];
-
-        let patch_count = wad.read_4_bytes(lump.offset, file);
+        let patch_count = lump.read_u32(0);
         assert_eq!(patch_count, 350);
 
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[lump.offset + 4 + i];
+            *slot = lump.data[4 + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -696,7 +695,7 @@ mod tests {
 
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[lump.offset + 4 + 8 + i];
+            *slot = lump.data[4 + 8 + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -706,7 +705,7 @@ mod tests {
 
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[lump.offset + 4 + 16 + i];
+            *slot = lump.data[4 + 16 + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -721,22 +720,19 @@ mod tests {
         let wad = WadData::new("../doom.wad".into());
         let lump = wad.find_lump_or_panic("TEXTURE2");
         assert_eq!(lump.name, "TEXTURE2");
-        assert_eq!(lump.size, 8036);
-        assert_eq!(lump.offset, 3690828);
+        assert_eq!(lump.data.len(), 8036);
 
-        let file = &wad.file_data[lump.handle];
-        let tex_count = wad.read_4_bytes(lump.offset, file);
+        let tex_count = lump.read_u32(0);
         assert_eq!(tex_count, 162);
 
         let mut tex_offsets = Vec::new();
         for i in 0..tex_count as usize {
-            tex_offsets
-                .push(lump.offset + wad.read_4_bytes(lump.offset + 4 + 4 * i, file) as usize);
+            tex_offsets.push(lump.read_u32(4 + 4 * i) as usize);
         }
 
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[tex_offsets[0] + i];
+            *slot = lump.data[tex_offsets[0] + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")
@@ -746,7 +742,7 @@ mod tests {
 
         let mut n = [0u8; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[tex_offsets[tex_count as usize - 1] + i];
+            *slot = lump.data[tex_offsets[tex_count as usize - 1] + i];
         }
         let name = std::str::from_utf8(&n)
             .expect("Invalid lump name")

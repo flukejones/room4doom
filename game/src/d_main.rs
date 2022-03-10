@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use doom_lib::{Game, Texture};
+use doom_lib::{log::info, Game, Texture};
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,
@@ -63,14 +63,22 @@ pub fn d_doom_loop(
     let mut image_num = 0;
     let mut tex_num = 0;
     let mut flat_num = 0;
+    let mut sprite_num = 119;
     let images: Option<Vec<WadPatch>> = if options.texpatch_test || options.texture_test {
         Some(game.wad_data.patches_iter().collect())
     } else {
         None
     };
-
     let flats: Option<Vec<WadFlat>> = if options.flats_test {
         Some(game.wad_data.flats_iter().collect())
+    } else {
+        None
+    };
+    let sprites: Option<Vec<WadPatch>> = if options.sprites_test {
+        let sprites: Vec<WadPatch> = game.wad_data.sprites_iter().collect();
+        let image = &sprites[sprite_num];
+        info!("{}", image.name);
+        Some(sprites)
     } else {
         None
     };
@@ -94,10 +102,13 @@ pub fn d_doom_loop(
             image_test(&name.to_ascii_uppercase(), &mut game, &mut render_buffer);
         }
         if let Some(images) = &images {
-            patch_cycle_test(&images[image_num], &mut game, &mut render_buffer);
+            patch_select_test(&images[image_num], &mut game, &mut render_buffer);
         }
         if let Some(flats) = &flats {
             flat_select_test(&flats[flat_num], &game, &mut render_buffer);
+        }
+        if let Some(sprites) = &sprites {
+            patch_select_test(&sprites[sprite_num], &game, &mut render_buffer);
         }
         if options.texture_test {
             texture_select_test(
@@ -149,6 +160,15 @@ pub fn d_doom_loop(
                 if flat_num == flats.len() {
                     flat_num = 0;
                 }
+            }
+
+            if let Some(sprites) = &sprites {
+                sprite_num += 1;
+                if sprite_num == sprites.len() {
+                    sprite_num = 0;
+                }
+                let image = &sprites[sprite_num];
+                info!("{}", image.name);
             }
         }
     }
@@ -229,10 +249,13 @@ fn palette_test(pal_num: usize, game: &mut Game, canvas: &mut Canvas<Surface>) {
     }
 }
 
-fn image_test(name: &str, game: &mut Game, canvas: &mut Canvas<Surface>) {
-    let lump = game.wad_data.find_lump_or_panic(name);
-    let image = WadPatch::from_lump(lump, &game.wad_data.file_data[lump.handle]);
+fn image_test(name: &str, game: &Game, canvas: &mut Canvas<Surface>) {
+    let lump = game.wad_data.get_lump(name).unwrap();
+    let image = WadPatch::from_lump(lump);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
+
+    let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
+    let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
 
     let mut x = 0;
     for c in image.columns.iter() {
@@ -241,8 +264,8 @@ fn image_test(name: &str, game: &mut Game, canvas: &mut Canvas<Surface>) {
             canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
             canvas
                 .fill_rect(Rect::new(
-                    x as i32 + (image.left_offset as i32 / 4),
-                    y as i32 + c.y_offset as i32 + (image.top_offset as i32 / 4),
+                    xs + x as i32,                     // - (image.left_offset as i32),
+                    ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
                     1,
                     1,
                 ))
@@ -254,8 +277,11 @@ fn image_test(name: &str, game: &mut Game, canvas: &mut Canvas<Surface>) {
     }
 }
 
-fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surface>) {
+fn patch_select_test(image: &WadPatch, game: &Game, canvas: &mut Canvas<Surface>) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
+
+    let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
+    let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
 
     let mut x = 0;
     for c in image.columns.iter() {
@@ -264,8 +290,8 @@ fn patch_cycle_test(image: &WadPatch, game: &mut Game, canvas: &mut Canvas<Surfa
             canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
             canvas
                 .fill_rect(Rect::new(
-                    x as i32 + (image.left_offset as i32 / 4),
-                    y as i32 + c.y_offset as i32 + (image.top_offset as i32 / 4),
+                    xs + x as i32,                     // - (image.left_offset as i32),
+                    ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
                     1,
                     1,
                 ))

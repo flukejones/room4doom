@@ -14,7 +14,7 @@ path = "src/main.rs"
 sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
-rand = "*"
 doom-lib = { path = "../lib" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
+env_logger = "^0.8"
