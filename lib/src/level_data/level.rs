@@ -6,7 +6,7 @@ use crate::{
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     game::Game,
     level_data::map_data::MapData,
-    play::d_thinker::ThinkerAlloc,
+    play::{d_thinker::ThinkerAlloc, specials::update_specials},
 };
 
 /// The level is considered a `World` or sorts. One that exists only
@@ -99,6 +99,7 @@ impl Level {
             valid_count: 0,
         }
         // TODO: P_InitThinkers();
+        // P_InitPicAnims
     }
 
     pub fn load(&mut self, wad_data: &WadData) {
@@ -150,11 +151,12 @@ pub fn p_ticker(game: &mut Game) {
         unsafe {
             let lev = &mut *(level as *mut Level);
             level.thinkers.run_thinkers(lev);
-
-            // P_UpdateSpecials ();
-            // P_RespawnSpecials ();
         }
+
+        // P_RespawnSpecials ();
 
         level.level_time += 1;
     }
+    
+    update_specials(game);
 }

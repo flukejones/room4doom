@@ -23,7 +23,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    DPtr,
+    DPtr, Game,
 };
 use log::{debug, error, trace, warn};
 
@@ -796,4 +796,16 @@ pub fn spawn_specials(level: &mut Level) {
             }
         }
     }
+}
+
+/// Doom function name `P_UpdateSpecials`
+pub fn update_specials(game: &mut Game) {
+    // TODO: level timer
+    //if level.level_time
+
+    for anim in &mut game.animations {
+        anim.update(&mut game.textures, game.level.as_ref().unwrap().level_time as usize);
+    }
+
+    //
 }

@@ -1,4 +1,4 @@
-use doom_lib::LineDefFlags;
+use doom_lib::{LineDefFlags, TextureData};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
@@ -8,13 +8,13 @@ use super::{
 };
 
 impl SoftwareRenderer {
-    pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
+    pub fn draw_masked(&mut self, viewz: f32, textures: &TextureData, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, canvas);
+            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, textures, canvas);
         }
 
         // todo: R_DrawPlayerSprites ();
@@ -26,6 +26,7 @@ impl SoftwareRenderer {
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
@@ -50,7 +51,7 @@ impl SoftwareRenderer {
                     backsector.floorheight
                 };
 
-                let texture_column = self.r_data.texture_data.get_column(texnum, 0.0);
+                let texture_column = textures.get_column(texnum, 0.0);
                 dc_texturemid += texture_column.len() as f32 - viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -73,9 +74,7 @@ impl SoftwareRenderer {
                     if self.visplanes.openings[index] != f32::MAX
                         && seg.sidedef.midtexture != usize::MAX
                     {
-                        let texture_column = self
-                            .r_data
-                            .texture_data
+                        let texture_column = textures
                             .get_column(seg.sidedef.midtexture, self.visplanes.openings[index]);
 
                         let mceilingclip =
@@ -100,7 +99,7 @@ impl SoftwareRenderer {
 
                         draw_masked_column(
                             texture_column,
-                            self.r_data.texture_data.get_light_colourmap(
+                            textures.get_light_colourmap(
                                 &seg.v1,
                                 &seg.v2,
                                 wall_lights,
@@ -112,6 +111,7 @@ impl SoftwareRenderer {
                             yl,
                             yh,
                             &self.r_data,
+                            textures,
                             canvas,
                         );
 
@@ -136,6 +136,7 @@ pub fn draw_masked_column(
     yl: i32,
     yh: i32,
     rdata: &RenderData,
+    textures: &TextureData,
     canvas: &mut Canvas<Surface>,
 ) {
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
@@ -156,7 +157,7 @@ pub fn draw_masked_column(
             // ERROR COLOUR
             sdl2::pixels::Color::RGBA(255, 0, 0, 255)
         } else {
-            let colour = &rdata.texture_data.get_palette(0)[px];
+            let colour = &textures.palette(0)[px];
             sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
         };
 
