@@ -1,15 +1,15 @@
 use crate::renderer::{
-    software::defs::{SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
+    software::defs::{SCREENHEIGHT_HALF, SCREENWIDTH},
     Renderer,
 };
 
 use super::{defs::ClipRange, segs::SegRender, RenderData};
 use doom_lib::{
-    log::trace, Angle, Level, MapData, MapObject, Player, Sector, Segment, SubSector,
+    log::trace, Angle, Level, MapData, MapObject, Player, Sector, Segment, SubSector, TextureData,
     IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 use wad::WadData;
 
@@ -55,7 +55,13 @@ pub struct SoftwareRenderer {
 }
 
 impl Renderer for SoftwareRenderer {
-    fn render_player_view(&mut self, player: &Player, level: &Level, canvas: &mut Canvas<Surface>) {
+    fn render_player_view(
+        &mut self,
+        player: &Player,
+        level: &Level,
+        textures: &TextureData,
+        canvas: &mut Canvas<Surface>,
+    ) {
         let map = &level.map_data;
 
         self.clear();
@@ -102,13 +108,13 @@ impl Renderer for SoftwareRenderer {
         // TODO: netupdate
 
         let mut count = 0;
-        self.render_bsp_node(map, player, map.start_node(), canvas, &mut count);
+        self.render_bsp_node(map, player, map.start_node(), textures, canvas, &mut count);
         trace!("BSP traversals for render: {count}");
 
         // TODO: netupdate again
         // TODO: drawplanes
         // TODO: netupdate again
-        self.draw_masked(player.viewz, canvas);
+        self.draw_masked(player.viewz, textures, canvas);
         // TODO: netupdate again
     }
 }
@@ -137,6 +143,7 @@ impl SoftwareRenderer {
         player: &Player,
         seg: &'a Segment,
         front_sector: &'a Sector,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
@@ -201,7 +208,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, player, textures, canvas);
                 return;
             }
 
@@ -210,7 +217,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, player, textures, canvas);
                 return;
             }
 
@@ -224,9 +231,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1, seg, player, canvas);
+            self.clip_portal_seg(x1, x2 - 1, seg, player, textures, canvas);
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, canvas);
+            self.clip_solid_seg(x1, x2 - 1, seg, player, textures, canvas);
         }
     }
 
@@ -236,13 +243,14 @@ impl SoftwareRenderer {
         map: &MapData,
         object: &Player,
         subsect: &SubSector,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
         let front_sector = &subsect.sector;
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(object, seg, front_sector, canvas);
+            self.add_line(object, seg, front_sector, textures, canvas);
         }
     }
 
@@ -269,6 +277,7 @@ impl SoftwareRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         let mut next;
@@ -293,6 +302,7 @@ impl SoftwareRenderer {
                     object,
                     &mut self.visplanes,
                     &mut self.r_data,
+                    textures,
                     canvas,
                 );
 
@@ -318,6 +328,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.visplanes,
                 &mut self.r_data,
+                textures,
                 canvas,
             );
             // Now adjust the clip size.
@@ -338,6 +349,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.visplanes,
                 &mut self.r_data,
+                textures,
                 canvas,
             );
 
@@ -357,6 +369,7 @@ impl SoftwareRenderer {
             object,
             &mut self.visplanes,
             &mut self.r_data,
+            textures,
             canvas,
         );
         // Adjust the clip size.
@@ -375,6 +388,7 @@ impl SoftwareRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         // Find the first range that touches the range
@@ -394,6 +408,7 @@ impl SoftwareRenderer {
                     object,
                     &mut self.visplanes,
                     &mut self.r_data,
+                    textures,
                     canvas,
                 );
                 return;
@@ -407,6 +422,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.visplanes,
                 &mut self.r_data,
+                textures,
                 canvas,
             );
         }
@@ -424,6 +440,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.visplanes,
                 &mut self.r_data,
+                textures,
                 canvas,
             );
 
@@ -442,6 +459,7 @@ impl SoftwareRenderer {
             object,
             &mut self.visplanes,
             &mut self.r_data,
+            textures,
             canvas,
         );
     }
@@ -465,6 +483,7 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         node_id: u16,
+        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
         count: &mut usize,
     ) {
@@ -476,7 +495,7 @@ impl SoftwareRenderer {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, subsect, canvas);
+            self.draw_subsector(map, player, subsect, textures, canvas);
             return;
         }
 
@@ -485,13 +504,20 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], canvas, count);
+        self.render_bsp_node(map, player, node.child_index[side], textures, canvas, count);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(&mobj.xy, mobj.angle.rad(), FRAC_PI_4, side ^ 1) {
-            self.render_bsp_node(map, player, node.child_index[side ^ 1], canvas, count);
+            self.render_bsp_node(
+                map,
+                player,
+                node.child_index[side ^ 1],
+                textures,
+                canvas,
+                count,
+            );
         }
     }
 }

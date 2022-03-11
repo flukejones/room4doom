@@ -112,7 +112,7 @@ pub fn d_doom_loop(
         }
         if options.texture_test {
             texture_select_test(
-                renderer.r_data.texture_data.get_texture(tex_num),
+                game.textures.get_texture(tex_num),
                 &game,
                 &mut render_buffer,
             );
@@ -148,7 +148,7 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if tex_num < renderer.r_data.texture_data.num_textures() - 1 {
+                if tex_num < game.textures.num_textures() - 1 {
                     tex_num += 1;
                 } else {
                     tex_num = 0;
@@ -186,7 +186,7 @@ fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>
         }
 
         let player = &game.players[game.consoleplayer];
-        rend.render_player_view(player, level, canvas);
+        rend.render_player_view(player, level, &game.textures, canvas);
     }
 
     //canvas.present();
@@ -304,15 +304,15 @@ fn patch_select_test(image: &WadPatch, game: &Game, canvas: &mut Canvas<Surface>
 }
 
 fn texture_select_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surface>) {
-    let width = texture.len() as u32;
-    let height = texture[0].len() as u32;
+    let width = texture.data.len() as u32;
+    let height = texture.data[0].len() as u32;
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = ((canvas.surface().width() - width) / 2) as i32;
     let ys = ((canvas.surface().height() - height) / 2) as i32;
     let pal = pals[0].0;
 
-    for (x_pos, column) in texture.iter().enumerate() {
+    for (x_pos, column) in texture.data.iter().enumerate() {
         for (y_pos, idx) in column.iter().enumerate() {
             if *idx >= pal.len() {
                 continue;

@@ -9,7 +9,7 @@ use crate::{
         specials::spawn_specials,
         utilities::m_clear_random,
     },
-    tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
+    tic_cmd::{TicCmd, TIC_CMD_BUTTONS}, textures::{Animation, init_animations, init_switch_list, Button}, TextureData,
 };
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
@@ -20,6 +20,12 @@ pub struct Game {
     /// Contains the full wad file
     pub wad_data: WadData,
     pub level: Option<Level>,
+    pub textures: TextureData,
+    pub animations: Vec<Animation>,
+    /// List of switch textures in ordered pairs
+    pub switch_list: Vec<usize>,
+    /// List of used buttons. Typically these buttons or switches are timed.
+    pub button_list: Vec<Button>,
 
     running: bool,
     // Game locals
@@ -162,11 +168,18 @@ impl Game {
                 );
             }
         }
+        let textures = TextureData::new(&wad);
+        let animations = init_animations(&textures);
+        let switch_list = init_switch_list(game_mode, &textures);
 
         Game {
             wad_data: wad,
             level: None,
             running: true,
+            textures,
+            animations,
+            switch_list,
+            button_list: Vec::with_capacity(100),
 
             players: [
                 Player::default(),
@@ -219,6 +232,10 @@ impl Game {
 
     pub fn game_mission(&self) -> GameMission {
         self.game_mission
+    }
+
+    pub fn game_mode(&self) -> GameMode {
+        self.game_mode
     }
 
     /// G_InitNew

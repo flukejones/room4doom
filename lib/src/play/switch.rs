@@ -11,72 +11,19 @@ use super::{
     platforms::{ev_do_platform, PlatKind},
 };
 
-use crate::{flags::LineDefFlags, level_data::map_defs::LineDef, DPtr};
-
-struct SwitchSwitch {
-    name1: &'static str,
-    name2: &'static str,
-    episode: i32,
-}
-
-impl SwitchSwitch {
-    const fn new(name1: &'static str, name2: &'static str, episode: i32) -> Self {
-        SwitchSwitch {
-            name1,
-            name2,
-            episode,
-        }
-    }
-}
-
-// CHANGE THE TEXTURE OF A WALL SWITCH TO ITS OPPOSITE
-const alphSwitchList: [SwitchSwitch; 40] = [
-    // Doom shareware episode 1 switches
-    SwitchSwitch::new("SW1BRCOM", "SW2BRCOM", 1),
-    SwitchSwitch::new("SW1BRN1", "SW2BRN1", 1),
-    SwitchSwitch::new("SW1BRN2", "SW2BRN2", 1),
-    SwitchSwitch::new("SW1BRNGN", "SW2BRNGN", 1),
-    SwitchSwitch::new("SW1BROWN", "SW2BROWN", 1),
-    SwitchSwitch::new("SW1COMM", "SW2COMM", 1),
-    SwitchSwitch::new("SW1COMP", "SW2COMP", 1),
-    SwitchSwitch::new("SW1DIRT", "SW2DIRT", 1),
-    SwitchSwitch::new("SW1EXIT", "SW2EXIT", 1),
-    SwitchSwitch::new("SW1GRAY", "SW2GRAY", 1),
-    SwitchSwitch::new("SW1GRAY1", "SW2GRAY1", 1),
-    SwitchSwitch::new("SW1METAL", "SW2METAL", 1),
-    SwitchSwitch::new("SW1PIPE", "SW2PIPE", 1),
-    SwitchSwitch::new("SW1SLAD", "SW2SLAD", 1),
-    SwitchSwitch::new("SW1STARG", "SW2STARG", 1),
-    SwitchSwitch::new("SW1STON1", "SW2STON1", 1),
-    SwitchSwitch::new("SW1STON2", "SW2STON2", 1),
-    SwitchSwitch::new("SW1STONE", "SW2STONE", 1),
-    SwitchSwitch::new("SW1STRTN", "SW2STRTN", 1),
-    // Doom registered episodes 2&3 switches
-    SwitchSwitch::new("SW1BLUE", "SW2BLUE", 2),
-    SwitchSwitch::new("SW1CMT", "SW2CMT", 2),
-    SwitchSwitch::new("SW1GARG", "SW2GARG", 2),
-    SwitchSwitch::new("SW1GSTON", "SW2GSTON", 2),
-    SwitchSwitch::new("SW1HOT", "SW2HOT", 2),
-    SwitchSwitch::new("SW1LION", "SW2LION", 2),
-    SwitchSwitch::new("SW1SATYR", "SW2SATYR", 2),
-    SwitchSwitch::new("SW1SKIN", "SW2SKIN", 2),
-    SwitchSwitch::new("SW1VINE", "SW2VINE", 2),
-    SwitchSwitch::new("SW1WOOD", "SW2WOOD", 2),
-    // Doom II switches
-    SwitchSwitch::new("SW1PANEL", "SW2PANEL", 3),
-    SwitchSwitch::new("SW1ROCK", "SW2ROCK", 3),
-    SwitchSwitch::new("SW1MET2", "SW2MET2", 3),
-    SwitchSwitch::new("SW1WDMET", "SW2WDMET", 3),
-    SwitchSwitch::new("SW1BRIK", "SW2BRIK", 3),
-    SwitchSwitch::new("SW1MOD1", "SW2MOD1", 3),
-    SwitchSwitch::new("SW1ZIM", "SW2ZIM", 3),
-    SwitchSwitch::new("SW1STON6", "SW2STON6", 3),
-    SwitchSwitch::new("SW1TEK", "SW2TEK", 3),
-    SwitchSwitch::new("SW1MARB", "SW2MARB", 3),
-    SwitchSwitch::new("SW1SKULL", "SW2SKULL", 3),
-];
+use crate::{flags::LineDefFlags, level_data::map_defs::LineDef, DPtr, textures::Button};
 
 // P_ChangeSwitchTexture(line, 0);, 0 = switch, 1 = button
+
+/// Doom function name `P_StartButton`
+pub fn start_button(line: DPtr<LineDef>, button_list: &mut [Button]) {
+
+}
+
+/// Doom function name `P_ChangeSwitchTexture`
+pub fn change_switch_texture(line: DPtr<LineDef>, use_again: bool, switch_list: &[usize], button_list: &mut [Button]) {
+
+}
 
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.

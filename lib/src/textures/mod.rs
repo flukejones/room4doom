@@ -1,4 +1,9 @@
-use std::mem::size_of;
+mod anims;
+pub use anims::*;
+mod switches;
+pub use switches::*;
+
+use std::mem::{size_of, size_of_val};
 
 use glam::Vec2;
 use log::debug;
@@ -7,21 +12,27 @@ use wad::{
     WadData,
 };
 
-use crate::Texture;
-
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
+
+#[derive(Debug, Default)]
+pub struct Texture {
+    pub name: String,
+    pub data: Vec<Vec<usize>>,
+}
 
 #[derive(Debug, Default)]
 pub struct TextureData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
     // Usually 34 blocks of 256, each u8 being an index in to the palette
-    colourmap: Vec<Vec<usize>>,
+    _colourmap: Vec<Vec<usize>>,
     lightscale: Vec<Vec<Vec<usize>>>,
     /// Indexing is [texture num][x][y]
-    textures: Vec<Texture>,
+    walls: Vec<Texture>,
+    wall_translation: Vec<usize>,
+    skyflatnum: i16,
 }
 
 impl TextureData {
@@ -72,6 +83,7 @@ impl TextureData {
             .texture_iter("TEXTURE1")
             .map(|tex| Self::compose_texture(tex, &patches))
             .collect();
+        let mut texture_translation = (0..textures.len()).collect();
 
         if wad.lump_exists("TEXTURE2") {
             let mut textures2: Vec<Texture> = wad
@@ -79,10 +91,13 @@ impl TextureData {
                 .map(|tex| Self::compose_texture(tex, &patches))
                 .collect();
             textures.append(&mut textures2);
+            texture_translation = (0..textures.len()).collect();
         }
+        
         let mut size = 0;
         for x in &textures {
-            for y in x {
+            size += size_of_val(&x.name);
+            for y in &x.data {
                 for _ in y {
                     size += size_of::<usize>();
                 }
@@ -92,9 +107,11 @@ impl TextureData {
 
         Self {
             palettes,
-            colourmap,
+            _colourmap: colourmap,
             lightscale,
-            textures,
+            walls: textures,
+            wall_translation: texture_translation,
+            skyflatnum: 256, // TODO: find index number from parsed flats
         }
     }
 
@@ -120,11 +137,18 @@ impl TextureData {
                 }
             }
         }
-        compose
+        Texture {
+            name: texture.name.clone(),
+            data: compose,
+        }
     }
 
-    pub fn get_palette(&self, num: usize) -> &[WadColour] {
+    pub fn palette(&self, num: usize) -> &[WadColour] {
         &self.palettes[num].0
+    }
+
+    pub fn skyflatnum(&self) -> i16 {
+        self.skyflatnum
     }
 
     // pub fn get_colourmap(&self, index: usize) -> &[usize] {
@@ -162,20 +186,30 @@ impl TextureData {
     }
 
     pub fn get_texture(&self, num: usize) -> &Texture {
-        &self.textures[num]
+        let num = self.wall_translation[num];
+        &self.walls[num]
+    }
+
+    pub fn texture_num_for_name(&self, name: &str) -> Option<usize> {
+        for (i, tex) in self.walls.iter().enumerate() {
+            if tex.name == name {
+                return Some(i);
+            }
+        }
+        None
     }
 
     pub fn get_column(&self, texture: usize, texture_column: f32) -> &[usize] {
-        let texture = &self.textures[texture];
+        let texture = &self.walls[self.wall_translation[texture]];
         let mut col = texture_column.ceil() as i32;
-        if col >= texture.len() as i32 {
+        if col >= texture.data.len() as i32 {
             col -= 1;
         }
-        let index = col & (texture.len() as i32 - 1);
-        &texture[index as usize]
+        let index = col & (texture.data.len() as i32 - 1);
+        &texture.data[index as usize]
     }
 
     pub fn num_textures(&self) -> usize {
-        self.textures.len()
+        self.walls.len()
     }
 }

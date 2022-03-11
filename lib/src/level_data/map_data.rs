@@ -11,8 +11,6 @@ use crate::{
 use glam::Vec2;
 use wad::{lumps::*, WadData};
 
-use super::map_defs::BlockMap;
-
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
 /// The smallest vector and the largest vertex, combined make up a
@@ -49,7 +47,6 @@ pub struct MapData {
     pub segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
-    blockmap: BlockMap,
     start_node: u16,
     _pinned: PhantomPinned,
 }
@@ -67,7 +64,6 @@ impl MapData {
             segments: Vec::new(),
             extents: MapExtents::default(),
             nodes: Vec::new(),
-            blockmap: BlockMap::default(),
             start_node: 0,
             _pinned: PhantomPinned,
         }

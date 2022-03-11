@@ -35,11 +35,9 @@ pub use play::{
     map_object::MapObject,
     player::{Player, PlayerCheat},
 };
-pub use textures::TextureData;
+pub use textures::{TextureData, Texture};
 
 pub use log;
-
-pub type Texture = Vec<Vec<usize>>;
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us

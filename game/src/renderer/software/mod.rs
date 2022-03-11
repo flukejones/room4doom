@@ -30,11 +30,6 @@ pub struct RenderData {
     /// index to drawsegs
     /// Used in r_segs and r_things
     pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
-
-    /// Texturre data including colourmaps and lightlevels
-    pub texture_data: TextureData,
-
-    pub skyflatnum: i16,
 }
 
 impl RenderData {
@@ -44,8 +39,6 @@ impl RenderData {
             drawsegs: Vec::new(),
             portal_clip: PortalClip::default(),
             ds_p: 0,
-            texture_data: TextureData::new(wad),
-            skyflatnum: 256, // TODO: find index number from parsed flats
         }
     }
 
