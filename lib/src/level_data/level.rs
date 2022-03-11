@@ -7,6 +7,7 @@ use crate::{
     game::Game,
     level_data::map_data::MapData,
     play::{d_thinker::ThinkerAlloc, specials::update_specials},
+    textures::Button,
 };
 
 /// The level is considered a `World` or sorts. One that exists only
@@ -44,6 +45,10 @@ pub struct Level {
     pub secret_exit: bool,
     /// Marker count for lines checked
     pub valid_count: usize,
+    /// List of switch textures in ordered pairs
+    pub switch_list: Vec<usize>,
+    /// List of used buttons. Typically these buttons or switches are timed.
+    pub button_list: Vec<Button>,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -57,7 +62,13 @@ impl Level {
     /// are spawning specials, things.
     ///
     /// Doom method name is `P_SetupLevel`
-    pub unsafe fn new(skill: Skill, episode: u32, map: u32, game_mode: GameMode) -> Self {
+    pub unsafe fn new(
+        skill: Skill,
+        episode: u32,
+        map: u32,
+        game_mode: GameMode,
+        switch_list: Vec<usize>,
+    ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
         let map_name = if game_mode == GameMode::Commercial {
@@ -97,6 +108,8 @@ impl Level {
             game_action: None,
             secret_exit: false,
             valid_count: 0,
+            switch_list,
+            button_list: Vec::with_capacity(50),
         }
         // TODO: P_InitThinkers();
         // P_InitPicAnims
@@ -157,6 +170,6 @@ pub fn p_ticker(game: &mut Game) {
 
         level.level_time += 1;
     }
-    
+
     update_specials(game);
 }

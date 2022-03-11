@@ -8,5 +8,11 @@ pub trait Renderer {
     /// `Surface`.
     ///
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_view(&mut self, player: &Player, level: &Level, textures: &TextureData, canvas: &mut Canvas<Surface>);
+    fn render_player_view(
+        &mut self,
+        player: &Player,
+        level: &Level,
+        textures: &TextureData,
+        canvas: &mut Canvas<Surface>,
+    );
 }

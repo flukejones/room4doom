@@ -475,8 +475,8 @@ impl SegRender {
 
             if self.midtexture != 0 {
                 if seg.sidedef.midtexture != usize::MAX {
-                    let texture_column = textures
-                        .get_column(seg.sidedef.midtexture, texture_column);
+                    let texture_column =
+                        textures.get_column(seg.sidedef.midtexture, texture_column);
                     draw_column(
                         texture_column,
                         textures.get_light_colourmap(
@@ -509,8 +509,8 @@ impl SegRender {
 
                     if mid > yl {
                         if seg.sidedef.toptexture != usize::MAX {
-                            let texture_column = textures
-                                .get_column(seg.sidedef.toptexture, texture_column);
+                            let texture_column =
+                                textures.get_column(seg.sidedef.toptexture, texture_column);
                             draw_column(
                                 texture_column,
                                 textures.get_light_colourmap(
@@ -524,7 +524,8 @@ impl SegRender {
                                 self.rw_toptexturemid,
                                 yl as i32, // -1 affects the top of lines without mid texture
                                 mid as i32 + 1,
-                                rdata, textures,
+                                rdata,
+                                textures,
                                 canvas,
                             );
                         }
@@ -547,8 +548,8 @@ impl SegRender {
 
                     if mid <= yh {
                         if seg.sidedef.bottomtexture != usize::MAX {
-                            let texture_column = textures
-                                .get_column(seg.sidedef.bottomtexture, texture_column);
+                            let texture_column =
+                                textures.get_column(seg.sidedef.bottomtexture, texture_column);
                             draw_column(
                                 texture_column,
                                 textures.get_light_colourmap(
@@ -562,7 +563,8 @@ impl SegRender {
                                 self.rw_bottomtexturemid,
                                 mid as i32,
                                 yh as i32,
-                                rdata,textures,
+                                rdata,
+                                textures,
                                 canvas,
                             );
                         }
