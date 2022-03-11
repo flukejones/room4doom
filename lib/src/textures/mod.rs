@@ -93,7 +93,7 @@ impl TextureData {
             textures.append(&mut textures2);
             texture_translation = (0..textures.len()).collect();
         }
-        
+
         let mut size = 0;
         for x in &textures {
             size += size_of_val(&x.name);

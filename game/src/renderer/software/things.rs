@@ -8,7 +8,12 @@ use super::{
 };
 
 impl SoftwareRenderer {
-    pub fn draw_masked(&mut self, viewz: f32, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+    pub fn draw_masked(
+        &mut self,
+        viewz: f32,
+        textures: &TextureData,
+        canvas: &mut Canvas<Surface>,
+    ) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
 
@@ -99,12 +104,7 @@ impl SoftwareRenderer {
 
                         draw_masked_column(
                             texture_column,
-                            textures.get_light_colourmap(
-                                &seg.v1,
-                                &seg.v2,
-                                wall_lights,
-                                spryscale,
-                            ),
+                            textures.get_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
                             1.0 / spryscale,
                             x,
                             dc_texturemid,

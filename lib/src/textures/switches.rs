@@ -2,7 +2,7 @@ use log::info;
 
 use crate::{doom_def::GameMode, level_data::map_defs::LineDef, DPtr, TextureData};
 
-enum ButtonWhere {
+pub enum ButtonWhere {
     Top,
     Middle,
     Bottom,

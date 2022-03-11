@@ -437,7 +437,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
 
-        let mut l = unsafe { Level::new(Skill::Baby, 1, 1, GameMode::Shareware) };
+        let mut l = unsafe { Level::new(Skill::Baby, 1, 1, GameMode::Shareware, Vec::new()) };
         let mut x = Thinker {
             prev: null_mut(),
             next: null_mut(),

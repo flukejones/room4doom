@@ -9,7 +9,9 @@ use crate::{
         specials::spawn_specials,
         utilities::m_clear_random,
     },
-    tic_cmd::{TicCmd, TIC_CMD_BUTTONS}, textures::{Animation, init_animations, init_switch_list, Button}, TextureData,
+    textures::{init_animations, init_switch_list, Animation, Button},
+    tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
+    TextureData,
 };
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
@@ -416,6 +418,7 @@ impl Game {
                 self.game_episode,
                 self.game_map,
                 self.game_mode,
+                self.switch_list.clone(),
             )
         };
 

@@ -804,7 +804,10 @@ pub fn update_specials(game: &mut Game) {
     //if level.level_time
 
     for anim in &mut game.animations {
-        anim.update(&mut game.textures, game.level.as_ref().unwrap().level_time as usize);
+        anim.update(
+            &mut game.textures,
+            game.level.as_ref().unwrap().level_time as usize,
+        );
     }
 
     //
