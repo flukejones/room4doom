@@ -2,17 +2,19 @@ use log::info;
 
 use crate::{doom_def::GameMode, level_data::map_defs::LineDef, DPtr, TextureData};
 
+#[derive(Debug)]
 pub enum ButtonWhere {
     Top,
     Middle,
     Bottom,
 }
 
+#[derive(Debug)]
 pub struct Button {
-    line: DPtr<LineDef>,
-    bwhere: ButtonWhere,
-    texture: usize,
-    timer: usize,
+    pub line: DPtr<LineDef>,
+    pub bwhere: ButtonWhere,
+    pub texture: usize,
+    pub timer: u32,
     // TODO: degenmobj_t *soundorg;
 }
 

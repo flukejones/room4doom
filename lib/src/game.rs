@@ -26,8 +26,6 @@ pub struct Game {
     pub animations: Vec<Animation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
-    /// List of used buttons. Typically these buttons or switches are timed.
-    pub button_list: Vec<Button>,
 
     running: bool,
     // Game locals
@@ -181,7 +179,6 @@ impl Game {
             textures,
             animations,
             switch_list,
-            button_list: Vec::with_capacity(100),
 
             players: [
                 Player::default(),

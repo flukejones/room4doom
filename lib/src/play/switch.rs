@@ -25,9 +25,34 @@ pub fn start_button(
     line: DPtr<LineDef>,
     bwhere: ButtonWhere,
     texture: usize,
-    time: u32,
-    button_list: &mut [Button],
+    timer: u32,
+    button_list: &mut Vec<Button>,
 ) {
+    for b in button_list.iter() {
+        if b.timer != 0 && b.line == line {
+            return;
+        }
+    }
+
+    for b in button_list.iter_mut() {
+        // Re-use an existing one
+        if b.timer == 0 {
+            debug!("Re-using existing button struct for {:?}", line.as_ptr());
+            b.line = line;
+            b.bwhere = bwhere;
+            b.texture = texture;
+            b.timer = timer;
+            // TODO: buttonlist[i].soundorg = &line->frontsector->soundorg;
+            return;
+        }
+    }
+    debug!("Using new button struct for {:?}", line.as_ptr());
+    button_list.push(Button {
+        line,
+        bwhere,
+        texture,
+        timer,
+    });
 }
 
 /// Doom function name `P_ChangeSwitchTexture`
@@ -35,7 +60,7 @@ pub fn change_switch_texture(
     mut line: DPtr<LineDef>,
     use_again: bool,
     switch_list: &[usize],
-    button_list: &mut [Button],
+    button_list: &mut Vec<Button>,
 ) {
     if !use_again {
         line.special = 0;
