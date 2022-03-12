@@ -40,4 +40,5 @@ Game and doom-lib are now separate crates with these criteria:
 - "game" will also check state and show appropriate screens (like demo, intermission, menus)
 - "doom-lib" is pure gamestate - things like level control, map objects, thinkers etc.
 
-`self.players[self.consoleplayer].cheats = Cheat::Noclip as u32;` is set in `game.rs`
+Refactor softwware renderer to use and Arc for texture share, pass in the `SoftwareRederer` to sub functions
+such as in seg render.

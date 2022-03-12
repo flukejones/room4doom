@@ -10,10 +10,11 @@ use doom_lib::{
 };
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
-use wad::WadData;
-
-use super::planes::VisPlaneRender;
+use std::{
+    cell::RefCell,
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
+    rc::Rc,
+};
 
 const MAX_SEGS: usize = 32;
 
@@ -49,19 +50,13 @@ pub struct SoftwareRenderer {
     new_end: usize,
     solidsegs: Vec<ClipRange>,
 
-    pub r_data: RenderData,
-    pub(super) visplanes: VisPlaneRender,
+    pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
+    pub(super) texture_data: Rc<RefCell<TextureData>>,
 }
 
 impl Renderer for SoftwareRenderer {
-    fn render_player_view(
-        &mut self,
-        player: &Player,
-        level: &Level,
-        textures: &TextureData,
-        canvas: &mut Canvas<Surface>,
-    ) {
+    fn render_player_view(&mut self, player: &Player, level: &Level, canvas: &mut Canvas<Surface>) {
         let map = &level.map_data;
 
         self.clear();
@@ -108,33 +103,32 @@ impl Renderer for SoftwareRenderer {
         // TODO: netupdate
 
         let mut count = 0;
-        self.render_bsp_node(map, player, map.start_node(), textures, canvas, &mut count);
+        self.render_bsp_node(map, player, map.start_node(), canvas, &mut count);
         trace!("BSP traversals for render: {count}");
 
         // TODO: netupdate again
         // TODO: drawplanes
         // TODO: netupdate again
-        self.draw_masked(player.viewz, textures, canvas);
+        self.draw_masked(player.viewz, canvas);
         // TODO: netupdate again
     }
 }
 
 impl SoftwareRenderer {
-    pub fn new(wad: &WadData) -> Self {
+    pub fn new(texture_data: Rc<RefCell<TextureData>>) -> Self {
         Self {
-            r_data: RenderData::new(wad),
-            visplanes: VisPlaneRender::default(),
-            seg_renderer: SegRender::default(),
+            r_data: RenderData::new(),
+            seg_renderer: SegRender::new(texture_data.clone()),
             new_end: 0,
             solidsegs: Vec::new(),
+            texture_data,
         }
     }
 
     pub fn clear(&mut self) {
-        self.visplanes.clear_planes();
         self.clear_clip_segs();
         self.r_data.clear_data();
-        self.seg_renderer = SegRender::default();
+        self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
 
     /// R_AddLine - r_bsp
@@ -143,7 +137,6 @@ impl SoftwareRenderer {
         player: &Player,
         seg: &'a Segment,
         front_sector: &'a Sector,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
@@ -208,7 +201,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, textures, canvas);
+                self.clip_solid_seg(x1, x2 - 1, seg, player, canvas);
                 return;
             }
 
@@ -217,7 +210,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, textures, canvas);
+                self.clip_portal_seg(x1, x2 - 1, seg, player, canvas);
                 return;
             }
 
@@ -231,9 +224,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1, seg, player, textures, canvas);
+            self.clip_portal_seg(x1, x2 - 1, seg, player, canvas);
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, textures, canvas);
+            self.clip_solid_seg(x1, x2 - 1, seg, player, canvas);
         }
     }
 
@@ -243,14 +236,13 @@ impl SoftwareRenderer {
         map: &MapData,
         object: &Player,
         subsect: &SubSector,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
         let front_sector = &subsect.sector;
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(object, seg, front_sector, textures, canvas);
+            self.add_line(object, seg, front_sector, canvas);
         }
     }
 
@@ -277,7 +269,6 @@ impl SoftwareRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         let mut next;
@@ -300,9 +291,7 @@ impl SoftwareRenderer {
                     last,
                     seg,
                     object,
-                    &mut self.visplanes,
                     &mut self.r_data,
-                    textures,
                     canvas,
                 );
 
@@ -326,9 +315,7 @@ impl SoftwareRenderer {
                 self.solidsegs[start].first - 1,
                 seg,
                 object,
-                &mut self.visplanes,
                 &mut self.r_data,
-                textures,
                 canvas,
             );
             // Now adjust the clip size.
@@ -347,9 +334,7 @@ impl SoftwareRenderer {
                 self.solidsegs[next + 1].first - 1,
                 seg,
                 object,
-                &mut self.visplanes,
                 &mut self.r_data,
-                textures,
                 canvas,
             );
 
@@ -367,9 +352,7 @@ impl SoftwareRenderer {
             last,
             seg,
             object,
-            &mut self.visplanes,
             &mut self.r_data,
-            textures,
             canvas,
         );
         // Adjust the clip size.
@@ -388,7 +371,6 @@ impl SoftwareRenderer {
         last: i32,
         seg: &Segment,
         object: &Player,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         // Find the first range that touches the range
@@ -406,9 +388,7 @@ impl SoftwareRenderer {
                     last,
                     seg,
                     object,
-                    &mut self.visplanes,
                     &mut self.r_data,
-                    textures,
                     canvas,
                 );
                 return;
@@ -420,9 +400,7 @@ impl SoftwareRenderer {
                 self.solidsegs[start].first - 1,
                 seg,
                 object,
-                &mut self.visplanes,
                 &mut self.r_data,
-                textures,
                 canvas,
             );
         }
@@ -438,9 +416,7 @@ impl SoftwareRenderer {
                 self.solidsegs[start + 1].first - 1,
                 seg,
                 object,
-                &mut self.visplanes,
                 &mut self.r_data,
-                textures,
                 canvas,
             );
 
@@ -457,9 +433,7 @@ impl SoftwareRenderer {
             last,
             seg,
             object,
-            &mut self.visplanes,
             &mut self.r_data,
-            textures,
             canvas,
         );
     }
@@ -483,7 +457,6 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         node_id: u16,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
         count: &mut usize,
     ) {
@@ -495,7 +468,7 @@ impl SoftwareRenderer {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, subsect, textures, canvas);
+            self.draw_subsector(map, player, subsect, canvas);
             return;
         }
 
@@ -504,20 +477,13 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], textures, canvas, count);
+        self.render_bsp_node(map, player, node.child_index[side], canvas, count);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if node.bb_extents_in_fov(&mobj.xy, mobj.angle.rad(), FRAC_PI_4, side ^ 1) {
-            self.render_bsp_node(
-                map,
-                player,
-                node.child_index[side ^ 1],
-                textures,
-                canvas,
-                count,
-            );
+            self.render_bsp_node(map, player, node.child_index[side ^ 1], canvas, count);
         }
     }
 }

@@ -41,8 +41,6 @@ impl Cheats {
 pub struct Cheat {
     /// The sequence of chars to accept
     sequence: &'static str,
-    /// Total sequence length including parameters
-    seq_len: usize,
     /// `char` read so far
     chars_read: usize,
     /// How many parameter chars there can be
@@ -57,7 +55,6 @@ impl Cheat {
     pub const fn new(seq: &'static str, parameters: usize) -> Self {
         Self {
             sequence: seq,
-            seq_len: 0,
             chars_read: 0,
             parameter_chars: parameters,
             parameter_chars_read: 0,

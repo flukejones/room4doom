@@ -29,7 +29,7 @@ pub fn d_doom_loop(
     options: GameOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
-    let mut renderer = SoftwareRenderer::new(&game.wad_data);
+    let mut renderer = SoftwareRenderer::new(game.textures.clone());
 
     let mut timestep = TimeStep::new();
     let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
@@ -112,7 +112,7 @@ pub fn d_doom_loop(
         }
         if options.texture_test {
             texture_select_test(
-                game.textures.get_texture(tex_num),
+                game.textures.borrow_mut().get_texture(tex_num),
                 &game,
                 &mut render_buffer,
             );
@@ -148,7 +148,7 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if tex_num < game.textures.num_textures() - 1 {
+                if tex_num < game.textures.borrow_mut().num_textures() - 1 {
                     tex_num += 1;
                 } else {
                     tex_num = 0;
@@ -186,7 +186,7 @@ fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>
         }
 
         let player = &game.players[game.consoleplayer];
-        rend.render_player_view(player, level, &game.textures, canvas);
+        rend.render_player_view(player, level, canvas);
     }
 
     //canvas.present();
