@@ -23,6 +23,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    play::teleport::teleport,
     textures::ButtonWhere,
     DPtr, Game,
 };
@@ -328,7 +329,7 @@ pub fn move_plane(
 /// Trigger various actions when a line is crossed which has a non-zero special attached
 ///
 /// Doom function name is `P_CrossSpecialLine`
-pub fn cross_special_line(_side: usize, mut line: DPtr<LineDef>, thing: &MapObject) {
+pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -682,19 +683,12 @@ pub fn cross_special_line(_side: usize, mut line: DPtr<LineDef>, thing: &MapObje
         125 => {
             // TELEPORT MonsterONLY
             if thing.player.is_none() {
-                // EV_Teleport
+                teleport(line.clone(), side, thing, level);
                 line.special = 0;
             }
-            error!(
-                "line-special #{}: EV_Teleport not implemented",
-                line.special
-            );
         }
         39 => {
-            error!(
-                "line-special #{}: EV_Teleport not implemented",
-                line.special
-            );
+            teleport(line.clone(), side, thing, level);
             line.special = 0;
         }
         54 => {
@@ -711,26 +705,19 @@ pub fn cross_special_line(_side: usize, mut line: DPtr<LineDef>, thing: &MapObje
             );
         }
         97 => {
-            error!(
-                "line-special #{}: EV_Teleport not implemented",
-                line.special
-            );
+            teleport(line, side, thing, level);
         }
         126 => {
             // TELEPORT MonsterONLY
             if thing.player.is_none() {
-                // EV_Teleport
+                teleport(line.clone(), side, thing, level);
             }
-            error!(
-                "line-special #{}: EV_Teleport not implemented",
-                line.special
-            );
         }
         114 | 103 => {
             // Ignore. It's a switch
         }
         _ => {
-            warn!("Invalid or unimplemented line special: {}", line.special);
+            //warn!("Invalid or unimplemented line special: {}", line.special);
         }
     }
 }

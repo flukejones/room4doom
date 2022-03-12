@@ -42,3 +42,9 @@ Game and doom-lib are now separate crates with these criteria:
 
 Refactor softwware renderer to use and Arc for texture share, pass in the `SoftwareRederer` to sub functions
 such as in seg render.
+
+Adjust the lines like this:
+```rust
+ev_build_stairs(line.clone(), StairKind::Turbo16, level);
+line.special = 0;
+```

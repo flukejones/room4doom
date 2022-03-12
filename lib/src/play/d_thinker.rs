@@ -116,6 +116,30 @@ impl ThinkerAlloc {
         }
     }
 
+    /// Iterates through the list of thinkers until either the closure returns true
+    /// or the end is reached.
+    pub fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
+    where
+        F: Fn(&Thinker) -> bool,
+    {
+        let mut current = unsafe { &mut *self.tail };
+        let mut next;
+
+        loop {
+            unsafe {
+                if finder(current) {
+                    return Some(current);
+                }
+                next = &mut *current.next;
+            }
+            current = next;
+
+            if ptr::eq(current, self.tail) {
+                return None;
+            }
+        }
+    }
+
     unsafe fn drop_item(&mut self, idx: usize) {
         debug_assert!(idx < self.capacity);
         let ptr = self.ptr_for_idx(idx);
