@@ -213,7 +213,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0
                 && seg.sidedef.midtexture != usize::MAX
             {
-                let texture_column = textures.get_column(seg.sidedef.midtexture, 0.0);
+                let texture_column = textures.texture_column(seg.sidedef.midtexture, 0.0);
                 let vtop = frontsector.floorheight + texture_column.len() as f32;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
@@ -308,7 +308,7 @@ impl SegRender {
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
                     self.rw_toptexturemid = self.worldtop;
                 } else if seg.sidedef.toptexture != usize::MAX {
-                    let texture_column = textures.get_column(seg.sidedef.toptexture, 0.0);
+                    let texture_column = textures.texture_column(seg.sidedef.toptexture, 0.0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - viewz;
                 }
@@ -517,7 +517,7 @@ impl SegRender {
                 if seg.sidedef.midtexture != usize::MAX {
                     let textures = &self.texture_data.borrow();
                     let texture_column =
-                        textures.get_column(seg.sidedef.midtexture, texture_column);
+                        textures.texture_column(seg.sidedef.midtexture, texture_column);
                     let mut dc = DrawColumn::new(
                         texture_column,
                         textures.get_light_colourmap(
@@ -550,7 +550,7 @@ impl SegRender {
                     if mid > yl {
                         if seg.sidedef.toptexture != usize::MAX {
                             let texture_column =
-                                textures.get_column(seg.sidedef.toptexture, texture_column);
+                                textures.texture_column(seg.sidedef.toptexture, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.get_light_colourmap(
@@ -587,7 +587,7 @@ impl SegRender {
                     if mid <= yh {
                         if seg.sidedef.bottomtexture != usize::MAX {
                             let texture_column =
-                                textures.get_column(seg.sidedef.bottomtexture, texture_column);
+                                textures.texture_column(seg.sidedef.bottomtexture, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.get_light_colourmap(

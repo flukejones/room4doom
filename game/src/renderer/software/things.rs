@@ -51,7 +51,7 @@ impl SoftwareRenderer {
                     backsector.floorheight
                 };
 
-                let texture_column = textures.get_column(texnum, 0.0);
+                let texture_column = textures.texture_column(texnum, 0.0);
                 dc_texturemid += texture_column.len() as f32 - viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -74,7 +74,7 @@ impl SoftwareRenderer {
                     if self.r_data.visplanes.openings[index] != f32::MAX
                         && seg.sidedef.midtexture != usize::MAX
                     {
-                        let texture_column = textures.get_column(
+                        let texture_column = textures.texture_column(
                             seg.sidedef.midtexture,
                             self.r_data.visplanes.openings[index],
                         );

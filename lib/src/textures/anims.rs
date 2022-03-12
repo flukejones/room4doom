@@ -16,6 +16,8 @@ impl Animation {
             let pic = self.basepic + ((level_time / self.speed + i) % self.numpics);
             if self.is_texture {
                 textures.wall_translation[i] = pic;
+            } else {
+                textures.flat_translation[i] = pic;
             }
         }
     }

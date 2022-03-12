@@ -736,6 +736,8 @@ pub fn cross_special_line(_side: usize, mut line: DPtr<LineDef>, thing: &MapObje
 }
 
 pub fn spawn_specials(level: &mut Level) {
+    // TODO: level timer
+
     let level_iter = unsafe { &mut *(level as *mut Level) };
     for sector in level_iter
         .map_data
@@ -790,11 +792,17 @@ pub fn spawn_specials(level: &mut Level) {
                 );
             }
             _ => {
-                warn!(
-                    "Invalid or unimplemented sector special spawner: {}",
-                    sector.special
-                );
+                // warn!(
+                //     "Invalid or unimplemented sector special spawner: {}",
+                //     sector.special
+                // );
             }
+        }
+    }
+
+    for line in level_iter.map_data.linedefs.iter_mut() {
+        if line.special == 48 {
+            level.line_special_list.push(DPtr::new(line));
         }
     }
 }
@@ -804,6 +812,7 @@ pub fn update_specials(game: &mut Game) {
     // TODO: level timer
     //if level.level_time
 
+    // Flats and wall texture animations (switching between series)
     for anim in &mut game.animations {
         anim.update(
             &mut game.textures.borrow_mut(),
@@ -824,6 +833,12 @@ pub fn update_specials(game: &mut Game) {
                     }
                     // TODO: S_StartSound(&buttonlist[i].soundorg, sfx_swtchn);
                 }
+            }
+        }
+        for line in level.line_special_list.iter_mut() {
+            line.front_sidedef.textureoffset += 1.0;
+            if line.front_sidedef.textureoffset == f32::MAX {
+                line.front_sidedef.textureoffset = 0.0;
             }
         }
     }
