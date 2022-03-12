@@ -1,8 +1,10 @@
 use doom_lib::{Angle, LineDefFlags, Player, Segment, TextureData};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
+    cell::RefCell,
     f32::consts::{FRAC_PI_2, PI},
     ptr::NonNull,
+    rc::Rc,
 };
 
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
@@ -15,8 +17,6 @@ use super::{
     RenderData,
 };
 
-use super::planes::VisPlaneRender;
-
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
 // int rw_angle1; // SHARED, PASS AS AN ARG to segs.c functions
@@ -26,7 +26,6 @@ use super::planes::VisPlaneRender;
 // TODO: possibly init this once then use a `clear` func when new is required
 /// All of the state in this struct is unique to it as it is used once per seg
 /// to be rendered.
-#[derive(Default)]
 pub struct SegRender {
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
     /// `sector_t *frontsector;` `sector_t *backsector;` shared variables between
@@ -75,19 +74,57 @@ pub struct SegRender {
 
     /// Light level for the wall
     wall_lights: i32,
+
+    texture_data: Rc<RefCell<TextureData>>,
 }
 
 impl SegRender {
+    pub fn new(texture_data: Rc<RefCell<TextureData>>) -> Self {
+        Self {
+            segtextured: false,
+            markfloor: false,
+            markceiling: false,
+            maskedtexture: false,
+            maskedtexturecol: 0,
+            toptexture: 0,
+            bottomtexture: 0,
+            midtexture: 0,
+            rw_normalangle: Angle::default(),
+            rw_x: 0,
+            rw_stopx: 0,
+            rw_centerangle: Angle::default(),
+            rw_offset: 0.0,
+            rw_distance: 0.0,
+            rw_scale: 0.0,
+            rw_scalestep: 0.0,
+            rw_midtexturemid: 0.0,
+            rw_toptexturemid: 0.0,
+            rw_bottomtexturemid: 0.0,
+            pixhigh: 0.0,
+            pixlow: 0.0,
+            pixhighstep: 0.0,
+            pixlowstep: 0.0,
+            topfrac: 0.0,
+            topstep: 0.0,
+            bottomfrac: 0.0,
+            bottomstep: 0.0,
+            worldtop: 0.0,
+            worldbottom: 0.0,
+            worldhigh: 0.0,
+            worldlow: 0.0,
+            wall_lights: 0,
+            texture_data,
+        }
+    }
+
     /// R_StoreWallRange - r_segs
     pub fn store_wall_range(
         &mut self,
         start: i32,
         stop: i32,
         seg: &Segment,
-        object: &Player,
-        visplanes: &mut VisPlaneRender,
+        player: &Player,
         rdata: &mut RenderData,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         // bounds check before getting ref
@@ -121,7 +158,7 @@ impl SegRender {
         // if offsetangle > FRAC_PI_2 {
         //     offsetangle = FRAC_PI_2;
         // }
-        let mobj = unsafe { object.mobj.as_ref().unwrap().as_ref() };
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
         let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), mobj.xy); // verified correct
@@ -157,7 +194,7 @@ impl SegRender {
         //  and decide if floor / ceiling marks are needed
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
-        let viewz = object.viewz;
+        let viewz = player.viewz;
         self.worldtop = frontsector.ceilingheight - viewz;
         self.worldbottom = frontsector.floorheight - viewz;
 
@@ -168,6 +205,7 @@ impl SegRender {
         self.maskedtexturecol = 0;
 
         if seg.backsector.is_none() {
+            let textures = &self.texture_data.borrow();
             // single sided line
             self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
@@ -190,6 +228,7 @@ impl SegRender {
             ds_p.bsilheight = f32::MAX;
             ds_p.tsilheight = f32::MIN;
         } else {
+            let textures = &self.texture_data.borrow();
             let backsector = seg.backsector.as_ref().unwrap();
             // two sided line
             // TODO: when thing render started
@@ -291,10 +330,10 @@ impl SegRender {
             if sidedef.midtexture != 0 {
                 self.maskedtexture = true;
                 // Set the indexes in to visplanes.openings
-                self.maskedtexturecol = visplanes.lastopening - self.rw_x;
+                self.maskedtexturecol = rdata.visplanes.lastopening - self.rw_x;
                 ds_p.maskedtexturecol = self.maskedtexturecol;
 
-                visplanes.lastopening += self.rw_stopx - self.rw_x;
+                rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
             }
         }
 
@@ -321,7 +360,10 @@ impl SegRender {
             // above view plane
             self.markfloor = false;
         }
-        if frontsector.ceilingheight <= viewz && frontsector.ceilingpic != textures.skyflatnum() {
+
+        if frontsector.ceilingheight <= viewz
+            && frontsector.ceilingpic != self.texture_data.borrow().skyflatnum()
+        {
             // below view plane
             self.markceiling = false;
         }
@@ -355,7 +397,7 @@ impl SegRender {
             // floorplane = R_CheckPlane(floorplane, self.rw_x, self.rw_stopx - 1);
         }
 
-        self.render_seg_loop(object, seg, visplanes, rdata, textures, canvas);
+        self.render_seg_loop(seg, rdata, canvas);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -366,13 +408,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                visplanes.openings[visplanes.lastopening as usize + i] = *n;
+                let last = rdata.visplanes.lastopening as usize;
+                rdata.visplanes.openings[last + i] = *n;
                 if i as i32 > self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some(visplanes.lastopening - start);
-            visplanes.lastopening += self.rw_stopx - start;
+            ds_p.sprtopclip = Some(rdata.visplanes.lastopening - start);
+            rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
         if (ds_p.silhouette & SIL_BOTTOM != 0 || self.maskedtexture) && ds_p.sprbottomclip.is_none()
@@ -384,13 +427,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                visplanes.openings[visplanes.lastopening as usize + i] = *n;
+                let last = rdata.visplanes.lastopening as usize;
+                rdata.visplanes.openings[last + i] = *n;
                 if i as i32 > self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some(visplanes.lastopening - start);
-            visplanes.lastopening += self.rw_stopx - start;
+            ds_p.sprbottomclip = Some(rdata.visplanes.lastopening - start);
+            rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
         if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
@@ -402,18 +446,14 @@ impl SegRender {
             ds_p.silhouette |= SIL_BOTTOM;
             ds_p.bsilheight = f32::MAX;
         }
-
         rdata.ds_p += 1;
     }
 
     /// Doom function name `R_RenderSegLoop`
     fn render_seg_loop(
         &mut self,
-        _player: &Player,
         seg: &Segment,
-        visplanes: &mut VisPlaneRender,
         rdata: &mut RenderData,
-        textures: &TextureData,
         canvas: &mut Canvas<Surface>,
     ) {
         const HEIGHTUNIT: f32 = 0.062485;
@@ -475,9 +515,10 @@ impl SegRender {
 
             if self.midtexture != 0 {
                 if seg.sidedef.midtexture != usize::MAX {
+                    let textures = &self.texture_data.borrow();
                     let texture_column =
                         textures.get_column(seg.sidedef.midtexture, texture_column);
-                    draw_column(
+                    let mut dc = DrawColumn::new(
                         texture_column,
                         textures.get_light_colourmap(
                             &seg.v1,
@@ -490,15 +531,14 @@ impl SegRender {
                         self.rw_midtexturemid,
                         yl as i32,
                         yh as i32,
-                        rdata,
-                        textures,
-                        canvas,
                     );
+                    dc.draw_column(textures, canvas);
                 };
 
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] = SCREENHEIGHT as f32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
+                let textures = &self.texture_data.borrow();
                 if self.toptexture != 0 {
                     mid = self.pixhigh - 1.0;
                     self.pixhigh += self.pixhighstep;
@@ -511,7 +551,7 @@ impl SegRender {
                         if seg.sidedef.toptexture != usize::MAX {
                             let texture_column =
                                 textures.get_column(seg.sidedef.toptexture, texture_column);
-                            draw_column(
+                            let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.get_light_colourmap(
                                     &seg.v1,
@@ -524,10 +564,8 @@ impl SegRender {
                                 self.rw_toptexturemid,
                                 yl as i32, // -1 affects the top of lines without mid texture
                                 mid as i32 + 1,
-                                rdata,
-                                textures,
-                                canvas,
                             );
+                            dc.draw_column(textures, canvas);
                         }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
@@ -550,7 +588,7 @@ impl SegRender {
                         if seg.sidedef.bottomtexture != usize::MAX {
                             let texture_column =
                                 textures.get_column(seg.sidedef.bottomtexture, texture_column);
-                            draw_column(
+                            let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.get_light_colourmap(
                                     &seg.v1,
@@ -563,10 +601,8 @@ impl SegRender {
                                 self.rw_bottomtexturemid,
                                 mid as i32,
                                 yh as i32,
-                                rdata,
-                                textures,
-                                canvas,
                             );
+                            dc.draw_column(textures, canvas);
                         }
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
@@ -577,7 +613,7 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    visplanes.openings[(self.maskedtexturecol + self.rw_x) as usize] =
+                    rdata.visplanes.openings[(self.maskedtexturecol + self.rw_x) as usize] =
                         texture_column;
                 }
             }
@@ -590,48 +626,71 @@ impl SegRender {
     }
 }
 
-/// A column is a vertical slice/span from a wall texture that,
-///  given the DOOM style restrictions on the view orientation,
-///  will always have constant z depth.
-/// Thus a special case loop for very fast rendering can
-///  be used. It has also been used with Wolfenstein 3D.
-#[allow(clippy::too_many_arguments)]
-pub fn draw_column(
-    texture_column: &[usize],
-    colourmap: &[usize],
+/// Provides an easy way to draw a column in an `dc_x` location, starting and ending at `yl` and `yh`
+pub struct DrawColumn<'a> {
+    texture_column: &'a [usize],
+    colourmap: &'a [usize],
     fracstep: f32,
     dc_x: i32,
     dc_texturemid: f32,
     yl: i32,
     yh: i32,
-    rdata: &RenderData,
-    textures: &TextureData,
-    canvas: &mut Canvas<Surface>,
-) {
-    let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
+}
 
-    for n in yl..yh {
-        let mut select = frac as i32 & 127;
-        if select >= texture_column.len() as i32
-            || texture_column[select as usize] as usize == usize::MAX
-        {
-            continue;
+impl<'a> DrawColumn<'a> {
+    pub fn new(
+        texture_column: &'a [usize],
+        colourmap: &'a [usize],
+        fracstep: f32,
+        dc_x: i32,
+        dc_texturemid: f32,
+        yl: i32,
+        yh: i32,
+    ) -> Self {
+        Self {
+            texture_column,
+            colourmap,
+            fracstep,
+            dc_x,
+            dc_texturemid,
+            yl,
+            yh,
         }
-        while select >= texture_column.len() as i32 {
-            select -= texture_column.len() as i32;
+    }
+
+    /// A column is a vertical slice/span from a wall texture that,
+    ///  given the DOOM style restrictions on the view orientation,
+    ///  will always have constant z depth.
+    /// Thus a special case loop for very fast rendering can
+    ///  be used. It has also been used with Wolfenstein 3D.
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_column(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+        let mut frac =
+            self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
+
+        for n in self.yl..self.yh {
+            let mut select = frac as i32 & 127;
+            if select >= self.texture_column.len() as i32
+                || self.texture_column[select as usize] as usize == usize::MAX
+            {
+                continue;
+            }
+            while select >= self.texture_column.len() as i32 {
+                select -= self.texture_column.len() as i32;
+            }
+            let px = self.colourmap[self.texture_column[select as usize]];
+            let colour = if px == usize::MAX {
+                // ERROR COLOUR
+                sdl2::pixels::Color::RGBA(255, 0, 0, 255)
+            } else {
+                let colour = textures.palette(0)[px];
+                sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
+            };
+
+            canvas.set_draw_color(colour);
+            canvas.fill_rect(Rect::new(self.dc_x, n, 1, 1)).unwrap();
+
+            frac += self.fracstep;
         }
-        let px = colourmap[texture_column[select as usize]];
-        let colour = if px == usize::MAX {
-            // ERROR COLOUR
-            sdl2::pixels::Color::RGBA(255, 0, 0, 255)
-        } else {
-            let colour = &textures.palette(0)[px];
-            sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
-        };
-
-        canvas.set_draw_color(colour);
-        canvas.fill_rect(Rect::new(dc_x, n, 1, 1)).unwrap();
-
-        frac += fracstep;
     }
 }

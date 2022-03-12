@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     d_main,
     d_main::{DoomOptions, Skill},
@@ -9,7 +11,7 @@ use crate::{
         specials::spawn_specials,
         utilities::m_clear_random,
     },
-    textures::{init_animations, init_switch_list, Animation, Button},
+    textures::{init_animations, init_switch_list, Animation},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     TextureData,
 };
@@ -22,7 +24,10 @@ pub struct Game {
     /// Contains the full wad file
     pub wad_data: WadData,
     pub level: Option<Level>,
-    pub textures: TextureData,
+    /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
+    /// access to change animations + translation tables.
+    pub textures: Rc<RefCell<TextureData>>,
+    /// Pre-generated texture animations
     pub animations: Vec<Animation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
@@ -176,7 +181,7 @@ impl Game {
             wad_data: wad,
             level: None,
             running: true,
-            textures,
+            textures: Rc::new(RefCell::new(textures)),
             animations,
             switch_list,
 

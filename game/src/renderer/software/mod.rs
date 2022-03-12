@@ -1,7 +1,5 @@
-use doom_lib::{Angle, TextureData};
-use wad::WadData;
-
-use self::{defs::DrawSeg, portals::PortalClip};
+use self::{defs::DrawSeg, planes::VisPlaneRender, portals::PortalClip};
+use doom_lib::Angle;
 
 pub mod bsp;
 pub mod defs;
@@ -30,15 +28,17 @@ pub struct RenderData {
     /// index to drawsegs
     /// Used in r_segs and r_things
     pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
+    pub visplanes: VisPlaneRender,
 }
 
 impl RenderData {
-    pub fn new(wad: &WadData) -> Self {
+    pub fn new() -> Self {
         Self {
             rw_angle1: Angle::default(),
             drawsegs: Vec::new(),
             portal_clip: PortalClip::default(),
             ds_p: 0,
+            visplanes: VisPlaneRender::new(),
         }
     }
 
@@ -47,5 +47,6 @@ impl RenderData {
         self.drawsegs.clear();
         self.ds_p = 0;
         self.rw_angle1 = Angle::default();
+        self.visplanes.clear_planes();
     }
 }

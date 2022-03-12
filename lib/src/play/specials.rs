@@ -806,7 +806,7 @@ pub fn update_specials(game: &mut Game) {
 
     for anim in &mut game.animations {
         anim.update(
-            &mut game.textures,
+            &mut game.textures.borrow_mut(),
             game.level.as_ref().unwrap().level_time as usize,
         );
     }

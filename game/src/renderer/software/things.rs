@@ -4,22 +4,16 @@ use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use super::{
     bsp::SoftwareRenderer,
     defs::{DrawSeg, SCREENHEIGHT_HALF},
-    RenderData,
 };
 
 impl SoftwareRenderer {
-    pub fn draw_masked(
-        &mut self,
-        viewz: f32,
-        textures: &TextureData,
-        canvas: &mut Canvas<Surface>,
-    ) {
+    pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, textures, canvas);
+            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, canvas);
         }
 
         // todo: R_DrawPlayerSprites ();
@@ -31,13 +25,14 @@ impl SoftwareRenderer {
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
-        textures: &TextureData,
+
         canvas: &mut Canvas<Surface>,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
 
         if let Some(backsector) = seg.backsector.as_ref() {
+            let textures = self.texture_data.borrow();
             let texnum = seg.sidedef.midtexture;
             if texnum == usize::MAX {
                 return;
@@ -76,15 +71,18 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.visplanes.openings[index] != f32::MAX
+                    if self.r_data.visplanes.openings[index] != f32::MAX
                         && seg.sidedef.midtexture != usize::MAX
                     {
-                        let texture_column = textures
-                            .get_column(seg.sidedef.midtexture, self.visplanes.openings[index]);
+                        let texture_column = textures.get_column(
+                            seg.sidedef.midtexture,
+                            self.r_data.visplanes.openings[index],
+                        );
 
-                        let mceilingclip =
-                            self.visplanes.openings[(ds.sprtopclip.unwrap() + x) as usize] as i32;
-                        let mfloorclip = self.visplanes.openings
+                        let mceilingclip = self.r_data.visplanes.openings
+                            [(ds.sprtopclip.unwrap() + x) as usize]
+                            as i32;
+                        let mfloorclip = self.r_data.visplanes.openings
                             [(ds.sprbottomclip.unwrap() + x) as usize]
                             as i32;
 
@@ -110,14 +108,13 @@ impl SoftwareRenderer {
                             dc_texturemid,
                             yl,
                             yh,
-                            &self.r_data,
-                            textures,
+                            &textures,
                             canvas,
                         );
 
-                        self.visplanes.openings[index] = f32::MAX;
+                        self.r_data.visplanes.openings[index] = f32::MAX;
                     } else {
-                        dbg!(x, self.visplanes.openings[index]);
+                        dbg!(x, self.r_data.visplanes.openings[index]);
                     }
                 }
                 spryscale += rw_scalestep;
@@ -135,8 +132,8 @@ pub fn draw_masked_column(
     dc_texturemid: f32,
     yl: i32,
     yh: i32,
-    rdata: &RenderData,
     textures: &TextureData,
+
     canvas: &mut Canvas<Surface>,
 ) {
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
