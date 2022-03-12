@@ -20,3 +20,4 @@ mod lights;
 mod movement;
 mod platforms;
 mod switch;
+mod teleport;
