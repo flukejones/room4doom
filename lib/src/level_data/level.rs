@@ -8,7 +8,10 @@ use crate::{
     level_data::map_data::MapData,
     play::{d_thinker::ThinkerAlloc, specials::update_specials},
     textures::Button,
+    DPtr,
 };
+
+use super::map_defs::LineDef;
 
 /// The level is considered a `World` or sorts. One that exists only
 /// while the player is in it. Another benefit of this structure is
@@ -49,6 +52,7 @@ pub struct Level {
     pub switch_list: Vec<usize>,
     /// List of used buttons. Typically these buttons or switches are timed.
     pub button_list: Vec<Button>,
+    pub line_special_list: Vec<DPtr<LineDef>>,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -110,6 +114,7 @@ impl Level {
             valid_count: 0,
             switch_list,
             button_list: Vec::with_capacity(50),
+            line_special_list: Vec::with_capacity(50),
         }
         // TODO: P_InitThinkers();
         // P_InitPicAnims

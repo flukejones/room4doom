@@ -40,7 +40,7 @@ pub struct MapData {
     /// never be resized or it will invalidate references and pointers
     things: Vec<WadThing>,
     vertexes: Vec<Vec2>,
-    linedefs: Vec<LineDef>,
+    pub linedefs: Vec<LineDef>,
     pub sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
     pub subsectors: Vec<SubSector>,

@@ -16,13 +16,19 @@ const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+pub struct Flat {
+    pub name: String,
+    pub data: [[u8; 64]; 64],
+}
+
+#[derive(Debug)]
 pub struct Texture {
     pub name: String,
     pub data: Vec<Vec<usize>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TextureData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
@@ -33,6 +39,8 @@ pub struct TextureData {
     walls: Vec<Texture>,
     wall_translation: Vec<usize>,
     skyflatnum: i16,
+    flats: Vec<Flat>,
+    flat_translation: Vec<usize>,
 }
 
 impl TextureData {
@@ -83,7 +91,6 @@ impl TextureData {
             .texture_iter("TEXTURE1")
             .map(|tex| Self::compose_texture(tex, &patches))
             .collect();
-        let mut texture_translation = (0..textures.len()).collect();
 
         if wad.lump_exists("TEXTURE2") {
             let mut textures2: Vec<Texture> = wad
@@ -91,13 +98,13 @@ impl TextureData {
                 .map(|tex| Self::compose_texture(tex, &patches))
                 .collect();
             textures.append(&mut textures2);
-            texture_translation = (0..textures.len()).collect();
         }
+        let wall_translation = (0..textures.len()).collect();
 
         let mut size = 0;
-        for x in &textures {
-            size += size_of_val(&x.name);
-            for y in &x.data {
+        for tex in &textures {
+            size += size_of_val(&tex.name);
+            for y in &tex.data {
                 for _ in y {
                     size += size_of::<usize>();
                 }
@@ -105,13 +112,40 @@ impl TextureData {
         }
         debug!("Total memory used for textures: {}KiB", size / 1024);
 
+        let mut flats = Vec::with_capacity(wad.flats_iter().count());
+        for wf in wad.flats_iter() {
+            let mut flat = Flat {
+                name: wf.name,
+                data: [[0; 64]; 64],
+            };
+
+            for (y, col) in wf.data.chunks(64).enumerate() {
+                for (x, px) in col.iter().enumerate() {
+                    flat.data[x][y] = *px;
+                }
+            }
+
+            flats.push(flat);
+        }
+
+        let flat_translation = (0..flats.len()).collect();
+
+        let mut size = 0;
+        for flat in &flats {
+            size += size_of_val(&flat.name);
+            size += flat.data.len() * flat.data[0].len() * size_of::<u8>();
+        }
+        debug!("Total memory used for flats: {}KiB", size / 1024);
+
         Self {
             palettes,
             _colourmap: colourmap,
             lightscale,
             walls: textures,
-            wall_translation: texture_translation,
+            wall_translation,
             skyflatnum: 256, // TODO: find index number from parsed flats
+            flats,
+            flat_translation,
         }
     }
 
@@ -199,7 +233,7 @@ impl TextureData {
         None
     }
 
-    pub fn get_column(&self, texture: usize, texture_column: f32) -> &[usize] {
+    pub fn texture_column(&self, texture: usize, texture_column: f32) -> &[usize] {
         let texture = &self.walls[self.wall_translation[texture]];
         let mut col = texture_column.ceil() as i32;
         if col >= texture.data.len() as i32 {
