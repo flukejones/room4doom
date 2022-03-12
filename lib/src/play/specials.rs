@@ -23,6 +23,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    textures::ButtonWhere,
     DPtr, Game,
 };
 use log::{debug, error, trace, warn};
@@ -810,5 +811,20 @@ pub fn update_specials(game: &mut Game) {
         );
     }
 
-    //
+    if let Some(level) = game.level.as_mut() {
+        for b in level.button_list.iter_mut() {
+            if b.timer != 0 {
+                b.timer -= 1;
+                if b.timer == 0 {
+                    debug!("Button {:?} is switching after countdown", b.line.as_ptr());
+                    match b.bwhere {
+                        ButtonWhere::Top => b.line.front_sidedef.toptexture = b.texture,
+                        ButtonWhere::Middle => b.line.front_sidedef.midtexture = b.texture,
+                        ButtonWhere::Bottom => b.line.front_sidedef.bottomtexture = b.texture,
+                    }
+                    // TODO: S_StartSound(&buttonlist[i].soundorg, sfx_swtchn);
+                }
+            }
+        }
+    }
 }
