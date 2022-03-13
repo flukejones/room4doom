@@ -33,7 +33,7 @@ pub struct TextureData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
     // Usually 34 blocks of 256, each u8 being an index in to the palette
-    _colourmap: Vec<Vec<usize>>,
+    colourmap: Vec<Vec<usize>>,
     lightscale: Vec<Vec<Vec<usize>>>,
     /// Indexing is [texture num][x][y]
     walls: Vec<Texture>,
@@ -139,7 +139,7 @@ impl TextureData {
 
         Self {
             palettes,
-            _colourmap: colourmap,
+            colourmap,
             lightscale,
             walls: textures,
             wall_translation,
@@ -185,9 +185,9 @@ impl TextureData {
         self.skyflatnum
     }
 
-    // pub fn get_colourmap(&self, index: usize) -> &[usize] {
-    //     &self.colourmap[index]
-    // }
+    pub fn get_colourmap(&self, index: usize) -> &[usize] {
+        &self.colourmap[index]
+    }
 
     // pub fn get_lightscale(&self, index: usize) -> &Vec<Vec<usize>> {
     //     &self.lightscale[index]
