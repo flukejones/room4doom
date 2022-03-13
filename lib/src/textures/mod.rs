@@ -12,6 +12,8 @@ use wad::{
     WadData,
 };
 
+use crate::doom_def::GameMode;
+
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
@@ -198,6 +200,32 @@ impl TextureData {
 
     pub fn skytex(&self) -> usize {
         self.skytexture
+    }
+
+    pub fn set_skytex(&mut self, mode: GameMode, episode: u32, map: u32) {
+        if mode == GameMode::Commercial {
+            self.skytexture = self.texture_num_for_name("SKY3").expect("SKY3 is missing");
+            if map < 12 {
+                self.skytexture = self.texture_num_for_name("SKY1").expect("SKY1 is missing");
+            } else if map < 21 {
+                self.skytexture = self.texture_num_for_name("SKY2").expect("SKY2 is missing");
+            }
+        } else {
+            match episode {
+                2 => {
+                    self.skytexture = self.texture_num_for_name("SKY2").expect("SKY2 is missing");
+                }
+                3 => {
+                    self.skytexture = self.texture_num_for_name("SKY3").expect("SKY3 is missing");
+                }
+                4 => {
+                    self.skytexture = self.texture_num_for_name("SKY4").expect("SKY4 is missing");
+                }
+                _ => {
+                    self.skytexture = self.texture_num_for_name("SKY1").expect("SKY1 is missing");
+                }
+            }
+        }
     }
 
     pub fn get_colourmap(&self, index: usize) -> &[usize] {

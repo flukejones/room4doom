@@ -478,13 +478,13 @@ impl SegRender {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac + HEIGHTUNIT; // + HEIGHTUNIT - 1
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl - 1.0;
+                bottom = yl; // - 1.0;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
@@ -496,7 +496,7 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac;
+            yh = self.bottomfrac + HEIGHTUNIT;
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
@@ -575,7 +575,7 @@ impl SegRender {
                                 self.rw_x,
                                 self.rw_toptexturemid,
                                 yl as i32, // -1 affects the top of lines without mid texture
-                                mid as i32 + 1,
+                                mid as i32, // + 1,
                             );
                             dc.draw_column(textures, canvas);
                         }

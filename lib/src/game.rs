@@ -358,31 +358,10 @@ impl Game {
         self.game_skill = skill;
         self.usergame = true; // will be set false if a demo
 
-        // TODO: set the sky level for the episode
-        // if (gamemode == commercial)
-        // {
-        //     skytexture = R_TextureNumForName("SKY3");
-        //     if (gamemap < 12)
-        //         skytexture = R_TextureNumForName("SKY1");
-        //     else if (gamemap < 21)
-        //         skytexture = R_TextureNumForName("SKY2");
-        // }
-        // else
-        //     switch (episode)
-        //     {
-        //     case 1:
-        //         skytexture = R_TextureNumForName("SKY1");
-        //         break;
-        //     case 2:
-        //         skytexture = R_TextureNumForName("SKY2");
-        //         break;
-        //     case 3:
-        //         skytexture = R_TextureNumForName("SKY3");
-        //         break;
-        //     case 4: // Special Edition sky
-        //         skytexture = R_TextureNumForName("SKY4");
-        //         break;
-        //     }
+        self.textures
+            .borrow_mut()
+            .set_skytex(self.game_mode, self.game_episode, self.game_map);
+
         println!("New game!");
     }
 
@@ -461,6 +440,10 @@ impl Game {
         self.wminfo.maxfrags = 0;
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
+        // TODO: remove after new-game stuff done
+        self.textures
+            .borrow_mut()
+            .set_skytex(self.game_mode, self.game_episode, self.game_map);
 
         // TODO: S_Start();
     }
