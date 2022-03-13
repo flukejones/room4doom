@@ -76,8 +76,8 @@ pub struct ClipRange {
 #[derive(Copy, Clone)]
 pub struct Visplane {
     pub height: f32,
-    pub picnum: i32,
-    pub lightlevel: i32,
+    pub picnum: usize,
+    pub lightlevel: f32,
     pub minx: i32,
     pub maxx: i32,
     /// leave pads for [minx-1]/[maxx+1]
@@ -98,7 +98,7 @@ impl Default for Visplane {
         Visplane {
             height: 0.0,
             picnum: 0,
-            lightlevel: 0,
+            lightlevel: 0.0,
             minx: 0,
             maxx: 0,
             pad1: 0,
@@ -115,7 +115,7 @@ impl Visplane {
     pub fn clear(&mut self) {
         self.height = 0.0;
         self.picnum = 0;
-        self.lightlevel = 0;
+        self.lightlevel = 0.0;
         self.picnum = 0;
         self.minx = 0;
         self.maxx = 0;

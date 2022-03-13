@@ -150,18 +150,20 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            dbg!(plane.picnum);
-            if plane.picnum == self.texture_data.borrow().skyflatnum() as i32 {
+            if plane.picnum == self.texture_data.borrow().skyflatnum() {
                 let textures = self.texture_data.borrow();
                 let colourmap = textures.get_colourmap(0);
                 let sky_mid = SCREENHEIGHT_HALF;
+                let skytex = textures.skytex();
 
                 for x in plane.minx..=plane.maxx {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let angle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[x as usize] * PI / 180.0;
-                        let texture_column = textures.texture_column(sky_mid, angle.rad());
+                        let angle = (view_angle.rad() * 180.0 / PI
+                            + CLASSIC_SCREEN_X_TO_VIEW[x as usize])
+                            * 2.8444;
+                        let texture_column = textures.texture_column(skytex, angle);
 
                         let mut dc = DrawColumn::new(
                             texture_column,
@@ -286,12 +288,29 @@ impl SoftwareRenderer {
         subsect: &SubSector,
         canvas: &mut Canvas<Surface>,
     ) {
+        let skynum = self.texture_data.borrow().skyflatnum();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight < player.viewz {}
+        if subsect.sector.floorheight < player.viewz {
+            let floorplane = self.r_data.visplanes.find_plane(
+                subsect.sector.floorheight,
+                subsect.sector.floorpic,
+                skynum,
+                subsect.sector.lightlevel as f32,
+            );
+            self.r_data.visplanes.floorplane = floorplane;
+        }
 
         if subsect.sector.ceilingheight > player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
-        {}
+        {
+            let ceilplane = self.r_data.visplanes.find_plane(
+                subsect.sector.ceilingheight,
+                subsect.sector.ceilingpic,
+                skynum,
+                subsect.sector.lightlevel as f32,
+            );
+            self.r_data.visplanes.ceilingplane = ceilplane;
+        }
 
         let front_sector = &subsect.sector;
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {

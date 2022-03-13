@@ -91,6 +91,106 @@ impl VisPlaneRender {
         self.baseyscale = -(160.0f32).sin();
     }
 
+    pub fn find_plane<'a>(
+        &'a mut self,
+        mut height: f32,
+        picnum: usize,
+        skynum: usize,
+        mut light_level: f32,
+    ) -> usize {
+        if picnum == skynum {
+            height = 0.0;
+            light_level = 0.0;
+        }
+
+        let mut check_idx = 0;
+        let len = self.visplanes.len();
+
+        for i in 0..self.lastvisplane {
+            check_idx += 1;
+            if height == self.visplanes[i].height
+                && picnum == self.visplanes[i].picnum
+                && light_level == self.visplanes[i].lightlevel
+            {
+                break;
+            }
+        }
+        let mut check = &mut self.visplanes[check_idx];
+
+        if check_idx < self.lastvisplane {
+            return check_idx;
+        }
+
+        // Otherwise edit new
+        if self.lastvisplane < len - 1 {
+            self.lastvisplane += 1;
+            check.height = height;
+            check.picnum = picnum;
+            check.lightlevel = light_level;
+            check.minx = SCREENWIDTH as i32;
+            check.maxx = -1;
+            for t in &mut check.top {
+                *t = 0xff;
+            }
+        }
+
+        check_idx
+    }
+
+    pub fn check_plane<'a>(&'a mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
+        let plane = &mut self.visplanes[plane_idx];
+
+        let (intrl, unionl) = if start < plane.minx {
+            (plane.minx, start)
+        } else {
+            (start, plane.minx)
+        };
+
+        let (intrh, unionh) = if stop > plane.maxx {
+            (plane.maxx, stop)
+        } else {
+            (stop, plane.maxx)
+        };
+
+        let mut x = intrl;
+        for i in x..=intrh {
+            x = i;
+            if plane.top[i as usize] != 0xff {
+                break;
+            }
+        }
+
+        if x > intrh {
+            plane.minx = unionl;
+            plane.maxx = unionh;
+            // Use the same plane
+            return plane_idx;
+        }
+
+        // Otherwise make a new plane
+        let height = plane.height;
+        let picnum = plane.picnum;
+        let lightlevel = plane.lightlevel;
+        let plane = &mut self.visplanes[self.lastvisplane];
+        plane.height = height;
+        plane.picnum = picnum;
+        plane.lightlevel = lightlevel;
+
+        if self.lastvisplane == self.visplanes.len() - 1 {
+            panic!("No more visplanes");
+        }
+
+        self.lastvisplane += 1;
+        let plane = &mut self.visplanes[self.lastvisplane];
+        plane.minx = start;
+        plane.maxx = stop;
+        for t in &mut plane.top {
+            *t = 0xff;
+        }
+
+        self.lastvisplane
+    }
+
     fn current_floor_plane(&self) -> &Visplane {
         &self.visplanes[self.floorplane]
     }

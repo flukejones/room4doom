@@ -38,7 +38,8 @@ pub struct TextureData {
     /// Indexing is [texture num][x][y]
     walls: Vec<Texture>,
     wall_translation: Vec<usize>,
-    skyflatnum: i16,
+    skyflatnum: usize,
+    skytexture: usize,
     flats: Vec<Flat>,
     flat_translation: Vec<usize>,
 }
@@ -102,7 +103,11 @@ impl TextureData {
         let wall_translation = (0..textures.len()).collect();
 
         let mut size = 0;
-        for tex in &textures {
+        let mut skytexture = 0;
+        for (i, tex) in textures.iter().enumerate() {
+            if tex.name == "SKY1" {
+                skytexture = i;
+            }
             size += size_of_val(&tex.name);
             for y in &tex.data {
                 for _ in y {
@@ -112,6 +117,7 @@ impl TextureData {
         }
         debug!("Total memory used for textures: {}KiB", size / 1024);
 
+        let mut skynum = 256;
         let mut flats = Vec::with_capacity(wad.flats_iter().count());
         for wf in wad.flats_iter() {
             let mut flat = Flat {
@@ -123,6 +129,10 @@ impl TextureData {
                 for (x, px) in col.iter().enumerate() {
                     flat.data[x][y] = *px;
                 }
+            }
+
+            if flat.name == "F_SKY1" {
+                skynum = flats.len();
             }
 
             flats.push(flat);
@@ -143,7 +153,8 @@ impl TextureData {
             lightscale,
             walls: textures,
             wall_translation,
-            skyflatnum: 256, // TODO: find index number from parsed flats
+            skyflatnum: skynum,
+            skytexture,
             flats,
             flat_translation,
         }
@@ -181,8 +192,12 @@ impl TextureData {
         &self.palettes[num].0
     }
 
-    pub fn skyflatnum(&self) -> i16 {
+    pub fn skyflatnum(&self) -> usize {
         self.skyflatnum
+    }
+
+    pub fn skytex(&self) -> usize {
+        self.skytexture
     }
 
     pub fn get_colourmap(&self, index: usize) -> &[usize] {
