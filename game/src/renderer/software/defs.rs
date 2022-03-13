@@ -75,54 +75,41 @@ pub struct ClipRange {
 /// Now what is a visplane, anyway?
 #[derive(Copy, Clone)]
 pub struct Visplane {
-    pub height: f32,
+    pub height: u32,
     pub picnum: usize,
-    pub lightlevel: f32,
+    pub lightlevel: u32,
     pub minx: i32,
     pub maxx: i32,
-    /// leave pads for [minx-1]/[maxx+1]
-    pub pad1: u8,
     // TODO: resolution stuff
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
     pub top: [u8; SCREENWIDTH],
-    pub pad2: u8,
-    pub pad3: u8,
     /// See above.
     pub bottom: [u8; SCREENWIDTH],
-    pub pad4: u8,
 }
 
 impl Default for Visplane {
     fn default() -> Self {
         Visplane {
-            height: 0.0,
+            height: 0,
             picnum: 0,
-            lightlevel: 0.0,
+            lightlevel: 0,
             minx: 0,
             maxx: 0,
-            pad1: 0,
             top: [0; SCREENWIDTH],
-            pad2: 0,
-            pad3: 0,
             bottom: [0; SCREENWIDTH],
-            pad4: 0,
         }
     }
 }
 
 impl Visplane {
     pub fn clear(&mut self) {
-        self.height = 0.0;
+        self.height = 0;
         self.picnum = 0;
-        self.lightlevel = 0.0;
+        self.lightlevel = 0;
         self.picnum = 0;
         self.minx = 0;
         self.maxx = 0;
-        self.pad1 = 0;
-        self.pad2 = 0;
-        self.pad3 = 0;
-        self.pad4 = 0;
 
         for x in self.top.iter_mut() {
             *x = 0;

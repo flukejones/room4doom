@@ -42,11 +42,11 @@ impl RenderData {
         }
     }
 
-    pub fn clear_data(&mut self) {
+    pub fn clear_data(&mut self, view_angle: Angle) {
         self.portal_clip.clear();
         self.drawsegs.clear();
         self.ds_p = 0;
         self.rw_angle1 = Angle::default();
-        self.visplanes.clear_planes();
+        self.visplanes.clear_planes(view_angle);
     }
 }

@@ -66,7 +66,7 @@ impl Renderer for SoftwareRenderer {
     fn render_player_view(&mut self, player: &Player, level: &Level, canvas: &mut Canvas<Surface>) {
         let map = &level.map_data;
 
-        self.clear();
+        self.clear(player);
 
         // TODO: remove this once flats and sky are done.
         let sub_sect = unsafe {
@@ -133,9 +133,12 @@ impl SoftwareRenderer {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, player: &Player) {
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let view_angle = mobj.angle;
+
         self.clear_clip_segs();
-        self.r_data.clear_data();
+        self.r_data.clear_data(view_angle);
         self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
 
@@ -177,6 +180,7 @@ impl SoftwareRenderer {
                         dc.draw_column(&textures, canvas);
                     }
                 }
+                continue;
             }
         }
     }
@@ -292,24 +296,28 @@ impl SoftwareRenderer {
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz {
             let floorplane = self.r_data.visplanes.find_plane(
-                subsect.sector.floorheight,
+                subsect.sector.floorheight as u32,
                 subsect.sector.floorpic,
                 skynum,
-                subsect.sector.lightlevel as f32,
+                subsect.sector.lightlevel as u32,
             );
             self.r_data.visplanes.floorplane = floorplane;
+        } else {
+            //self.r_data.visplanes.floorplane = None;
         }
 
         if subsect.sector.ceilingheight > player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
         {
             let ceilplane = self.r_data.visplanes.find_plane(
-                subsect.sector.ceilingheight,
+                subsect.sector.ceilingheight as u32,
                 subsect.sector.ceilingpic,
                 skynum,
-                subsect.sector.lightlevel as f32,
+                subsect.sector.lightlevel as u32,
             );
             self.r_data.visplanes.ceilingplane = ceilplane;
+        } else {
+            //self.r_data.visplanes.ceilingplane = None;
         }
 
         let front_sector = &subsect.sector;
