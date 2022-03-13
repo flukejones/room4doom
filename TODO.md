@@ -17,14 +17,15 @@
       now SubSectorMinMax needs work.
 [ ] - animated textures (flattranslation, texturetranslation)
 [ ] - P_UpdateSpecials
-[ ] - EV_Teleport
-[ ] - EV_DoLockedDoor
+[-] - EV_Teleport
+[X] - EV_DoLockedDoor
 [ ] - Skybox
 [X] - FIXED: Increased limits. Large sigil levels have rendering issues 
 [ ] - Really need swept-volume collisions
 [ ] - Need the above for use-lines too
 [ ] - sound-server using rx/tx channels
 [ ] - HUD using rx/tx channels
+[ ] - doom2 m8 LowerAndChange, not implemented yet
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
@@ -48,3 +49,8 @@ Adjust the lines like this:
 ev_build_stairs(line.clone(), StairKind::Turbo16, level);
 line.special = 0;
 ```
+
+Find a better way to do `let level = unsafe { &mut *thing.level };`
+
+- e2m4 quick teleport test
+- doom2 m4 redkey area teleport test

@@ -420,7 +420,15 @@ impl Player {
         }
 
         // TODO: not feature complete with P_PlayerThink
-        self.move_player();
+        if let Some(mut mobj) = self.mobj {
+            unsafe {
+                if mobj.as_ref().reactiontime > 0 {
+                    mobj.as_mut().reactiontime -= 1;
+                } else {
+                    self.move_player();
+                }
+            }
+        }
         self.calculate_height(level.level_time);
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
