@@ -390,11 +390,19 @@ impl SegRender {
 
         // render it
         if self.markceiling {
-            // ceilingplane = R_CheckPlane(ceilingplane, self.rw_x, self.rw_stopx - 1);
+            rdata.visplanes.ceilingplane = rdata.visplanes.check_plane(
+                self.rw_x,
+                self.rw_stopx - 1,
+                rdata.visplanes.ceilingplane,
+            );
         }
 
         if self.markfloor {
-            // floorplane = R_CheckPlane(floorplane, self.rw_x, self.rw_stopx - 1);
+            rdata.visplanes.floorplane = rdata.visplanes.check_plane(
+                self.rw_x,
+                self.rw_stopx - 1,
+                rdata.visplanes.floorplane,
+            );
         }
 
         self.render_seg_loop(seg, rdata, canvas);
@@ -482,7 +490,9 @@ impl SegRender {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 }
                 if top <= bottom {
-                    // TODO: ceilingplane
+                    let ceil = rdata.visplanes.ceilingplane;
+                    rdata.visplanes.visplanes[ceil].top[self.rw_x as usize] = top as u8;
+                    rdata.visplanes.visplanes[ceil].bottom[self.rw_x as usize] = bottom as u8;
                 }
             }
 
@@ -498,7 +508,9 @@ impl SegRender {
                     top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 }
                 if top <= bottom {
-                    // TODO: floorplane
+                    let floor = rdata.visplanes.floorplane;
+                    rdata.visplanes.visplanes[floor].top[self.rw_x as usize] = top as u8;
+                    rdata.visplanes.visplanes[floor].bottom[self.rw_x as usize] = bottom as u8;
                 }
             }
 

@@ -166,6 +166,7 @@ impl MapData {
         &self.extents
     }
 
+    // TODO: pass in TextureData
     pub fn load(&mut self, wad: &WadData) {
         // THINGS
         self.things = wad.thing_iter(&self.name).collect();
@@ -184,12 +185,14 @@ impl MapData {
             .map(|s| Sector {
                 floorheight: s.floor_height as f32,
                 ceilingheight: s.ceil_height as f32,
-                floorpic: 0, // TODO: lookup texture
-                ceilingpic: if s.ceil_tex.contains("F_SKY1") {
-                    256
-                } else {
-                    0
-                }, // TODO: lookup texture
+                floorpic: wad
+                    .flats_iter()
+                    .position(|f| f.name == s.floor_tex)
+                    .unwrap_or(usize::MAX),
+                ceilingpic: wad
+                    .flats_iter()
+                    .position(|f| f.name == s.ceil_tex)
+                    .unwrap_or(usize::MAX),
                 lightlevel: s.light_level as i32,
                 special: s.kind,
                 tag: s.tag,

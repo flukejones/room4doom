@@ -20,9 +20,9 @@ pub struct Sector {
     pub floorheight: f32,
     pub ceilingheight: f32,
     /// Is a tag or index to patch
-    pub floorpic: i16,
+    pub floorpic: usize,
     /// Is a tag or index to patch
-    pub ceilingpic: i16,
+    pub ceilingpic: usize,
     pub lightlevel: i32,
     pub special: i16,
     pub tag: i16,
