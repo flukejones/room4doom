@@ -2,7 +2,7 @@ use super::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
-    pub visplanes: Vec<Visplane>,
+    pub visplanes: [Visplane; MAXVISPLANES],
     pub lastvisplane: usize,
     /// Index of current visplane in `self.visplanes` for floor
     pub floorplane: usize,
@@ -43,7 +43,7 @@ impl Default for VisPlaneRender {
 impl VisPlaneRender {
     pub fn new() -> Self {
         VisPlaneRender {
-            visplanes: vec![Visplane::default(); MAXVISPLANES],
+            visplanes: [Visplane::default(); MAXVISPLANES],
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
@@ -91,11 +91,11 @@ impl VisPlaneRender {
         self.baseyscale = -(160.0f32).sin();
     }
 
-    pub fn current_floor_plane(&self) -> &Visplane {
+    fn current_floor_plane(&self) -> &Visplane {
         &self.visplanes[self.floorplane]
     }
 
-    pub fn current_ceiling_plane(&self) -> &Visplane {
+    fn current_ceiling_plane(&self) -> &Visplane {
         &self.visplanes[self.ceilingplane]
     }
 

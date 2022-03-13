@@ -1,9 +1,16 @@
-use crate::renderer::{
-    software::defs::{SCREENHEIGHT_HALF, SCREENWIDTH},
-    Renderer,
+use crate::{
+    renderer::{
+        software::defs::{SCREENHEIGHT_HALF, SCREENWIDTH},
+        Renderer,
+    },
+    utilities::CLASSIC_SCREEN_X_TO_VIEW,
 };
 
-use super::{defs::ClipRange, segs::SegRender, RenderData};
+use super::{
+    defs::ClipRange,
+    segs::{DrawColumn, SegRender},
+    RenderData,
+};
 use doom_lib::{
     log::trace, Angle, Level, MapData, MapObject, Player, Sector, Segment, SubSector, TextureData,
     IS_SSECTOR_MASK,
@@ -107,7 +114,8 @@ impl Renderer for SoftwareRenderer {
         trace!("BSP traversals for render: {count}");
 
         // TODO: netupdate again
-        // TODO: drawplanes
+        // TODO: R_DrawPlanes
+        self.draw_planes(player, canvas);
         // TODO: netupdate again
         self.draw_masked(player.viewz, canvas);
         // TODO: netupdate again
@@ -129,6 +137,46 @@ impl SoftwareRenderer {
         self.clear_clip_segs();
         self.r_data.clear_data();
         self.seg_renderer = SegRender::new(self.texture_data.clone());
+    }
+
+    /// Doom function name `R_DrawPlanes`
+    fn draw_planes(&self, player: &Player, canvas: &mut Canvas<Surface>) {
+        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let view_angle = mobj.angle;
+
+        let visplanes = &self.r_data.visplanes;
+        for plane in &visplanes.visplanes[0..visplanes.lastvisplane] {
+            if plane.minx > plane.maxx {
+                continue;
+            }
+
+            dbg!(plane.picnum);
+            if plane.picnum == self.texture_data.borrow().skyflatnum() as i32 {
+                let textures = self.texture_data.borrow();
+                let colourmap = textures.get_colourmap(0);
+                let sky_mid = SCREENHEIGHT_HALF;
+
+                for x in plane.minx..=plane.maxx {
+                    let dc_yl = plane.top[x as usize];
+                    let dc_yh = plane.bottom[x as usize];
+                    if dc_yl <= dc_yh {
+                        let angle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[x as usize] * PI / 180.0;
+                        let texture_column = textures.texture_column(sky_mid, angle.rad());
+
+                        let mut dc = DrawColumn::new(
+                            texture_column,
+                            colourmap,
+                            1.0, // TODO: pspriteiscale = FRACUNIT * SCREENWIDTH / viewwidth;
+                            x,
+                            sky_mid as f32,
+                            dc_yl as i32,
+                            dc_yh as i32,
+                        );
+                        dc.draw_column(&textures, canvas);
+                    }
+                }
+            }
+        }
     }
 
     /// R_AddLine - r_bsp
@@ -234,15 +282,21 @@ impl SoftwareRenderer {
     fn draw_subsector<'a>(
         &'a mut self,
         map: &MapData,
-        object: &Player,
+        player: &Player,
         subsect: &SubSector,
         canvas: &mut Canvas<Surface>,
     ) {
         // TODO: planes for floor & ceiling
+        if subsect.sector.floorheight < player.viewz {}
+
+        if subsect.sector.ceilingheight > player.viewz
+            || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
+        {}
+
         let front_sector = &subsect.sector;
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(object, seg, front_sector, canvas);
+            self.add_line(player, seg, front_sector, canvas);
         }
     }
 
@@ -452,7 +506,7 @@ impl SoftwareRenderer {
     }
 
     /// R_RenderBSPNode - r_bsp
-    pub fn render_bsp_node<'a>(
+    fn render_bsp_node<'a>(
         &'a mut self,
         map: &MapData,
         player: &Player,
