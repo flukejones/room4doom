@@ -598,7 +598,7 @@ impl MapObject {
     ///
     // TODO: pass in a ref to the container so the obj can be added
     //  Doom calls an zmalloc function for this. Then pass a reference back for it
-    fn spawn_map_object(
+    pub fn spawn_map_object(
         x: f32,
         y: f32,
         z: i32,
@@ -663,7 +663,6 @@ impl MapObject {
         }
 
         let st = &STATES[state as usize];
-
         self.state = st;
         self.tics = st.tics;
         self.sprite = st.sprite;
