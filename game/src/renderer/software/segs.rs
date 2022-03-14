@@ -405,7 +405,7 @@ impl SegRender {
             );
         }
 
-        self.render_seg_loop(seg, rdata, canvas);
+        self.render_seg_loop(seg, player.viewheight, rdata, canvas);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -461,6 +461,7 @@ impl SegRender {
     fn render_seg_loop(
         &mut self,
         seg: &Segment,
+        view_height: f32,
         rdata: &mut RenderData,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -484,7 +485,7 @@ impl SegRender {
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl; // - 1.0;
+                bottom = yl - 1.0;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
@@ -497,6 +498,7 @@ impl SegRender {
             }
 
             yh = self.bottomfrac + HEIGHTUNIT;
+            
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
@@ -504,6 +506,7 @@ impl SegRender {
             if self.markfloor {
                 top = yh + 1.0;
                 bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+
                 if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                     top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 }
@@ -547,7 +550,7 @@ impl SegRender {
                     dc.draw_column(textures, canvas);
                 };
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] = SCREENHEIGHT as f32;
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
             } else {
                 let textures = &self.texture_data.borrow();

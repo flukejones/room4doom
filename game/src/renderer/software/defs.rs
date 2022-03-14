@@ -13,8 +13,6 @@ pub const SCREENHEIGHT_HALF: usize = SCREENHEIGHT / 2;
 
 pub const MAXDRAWSEGS: usize = 1024;
 
-pub const MAXVISPLANES: usize = 256;
-
 pub const MAXOPENINGS: usize = SCREENWIDTH * 128;
 
 #[derive(Debug, Clone, Copy)]
@@ -96,7 +94,7 @@ impl Default for Visplane {
             lightlevel: 0,
             minx: 0,
             maxx: 0,
-            top: [0; SCREENWIDTH],
+            top: [0xff; SCREENWIDTH],
             bottom: [0; SCREENWIDTH],
         }
     }
@@ -112,7 +110,7 @@ impl Visplane {
         self.maxx = 0;
 
         for x in self.top.iter_mut() {
-            *x = 0;
+            *x = 0xff;
         }
 
         for x in self.bottom.iter_mut() {

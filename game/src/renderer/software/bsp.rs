@@ -143,12 +143,12 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawPlanes`
-    fn draw_planes(&self, player: &Player, canvas: &mut Canvas<Surface>) {
+    fn draw_planes(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
         let view_angle = mobj.angle;
 
-        let visplanes = &self.r_data.visplanes;
-        for plane in &visplanes.visplanes[0..visplanes.lastvisplane] {
+        let visplanes = &mut self.r_data.visplanes;
+        for plane in &mut visplanes.visplanes[0..visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;
             }
@@ -181,6 +181,13 @@ impl SoftwareRenderer {
                     }
                 }
                 continue;
+            }
+
+            if plane.maxx as usize + 1 < plane.top.len() {
+                plane.top[plane.maxx as usize + 1] = 0xff;
+            }
+            if plane.minx as usize > 0 {
+                plane.top[plane.minx as usize - 1] = 0xff;
             }
         }
     }
@@ -295,13 +302,12 @@ impl SoftwareRenderer {
         let skynum = self.texture_data.borrow().skyflatnum();
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz {
-            let floorplane = self.r_data.visplanes.find_plane(
+            self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
                 subsect.sector.floorheight as u32,
                 subsect.sector.floorpic,
                 skynum,
                 subsect.sector.lightlevel as u32,
             );
-            self.r_data.visplanes.floorplane = floorplane;
         } else {
             //self.r_data.visplanes.floorplane = None;
         }
@@ -309,13 +315,12 @@ impl SoftwareRenderer {
         if subsect.sector.ceilingheight > player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
         {
-            let ceilplane = self.r_data.visplanes.find_plane(
+            self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
                 subsect.sector.ceilingheight as u32,
                 subsect.sector.ceilingpic,
                 skynum,
                 subsect.sector.lightlevel as u32,
             );
-            self.r_data.visplanes.ceilingplane = ceilplane;
         } else {
             //self.r_data.visplanes.ceilingplane = None;
         }

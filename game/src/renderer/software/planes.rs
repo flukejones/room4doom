@@ -2,7 +2,9 @@ use std::f32::consts::FRAC_PI_2;
 
 use doom_lib::Angle;
 
-use super::defs::{Visplane, MAXOPENINGS, MAXVISPLANES, SCREENHEIGHT, SCREENWIDTH};
+use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
+
+pub const MAXVISPLANES: usize = 1024;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -78,9 +80,9 @@ impl VisPlaneRender {
             self.ceilingclip[i] = -1;
         }
 
-        for p in self.visplanes.iter_mut() {
-            p.clear();
-        }
+        // for p in self.visplanes.iter_mut() {
+        //     p.clear();
+        // }
 
         self.lastvisplane = 0;
         self.lastopening = 0;
@@ -92,14 +94,12 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-
-        // TODO: Don't hardcode this; centerxfrac
-        // scale will be unit scale at SCREENWIDTH/2 distance
         self.basexscale = (view_angle.rad() - FRAC_PI_2).cos() / SCREENWIDTH as f32;
         self.baseyscale =
             -(SCREENWIDTH as f32 / (view_angle.rad() - FRAC_PI_2).sin() / SCREENWIDTH as f32);
     }
 
+    /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
     pub fn find_plane<'a>(
         &'a mut self,
         mut height: u32,
@@ -112,30 +112,27 @@ impl VisPlaneRender {
             light_level = 0;
         }
 
-        let mut check_idx = 0;
         let len = self.visplanes.len();
 
-        for i in 0..=self.lastvisplane {
-            check_idx = i;
-            if height == self.visplanes[check_idx].height
-                && picnum == self.visplanes[check_idx].picnum
-                && light_level == self.visplanes[check_idx].lightlevel
+        for i in 0..self.lastvisplane {
+            // TODO: merging is not working very well
+            if height == self.visplanes[i].height
+                && picnum == self.visplanes[i].picnum
+                && light_level == self.visplanes[i].lightlevel
             {
-                break;
+                return i;
             }
         }
-        if check_idx < self.lastvisplane {
-            return check_idx;
-        }
 
-        if self.lastvisplane >= len {
-            panic!("SHIT");
+        let new_vis = self.lastvisplane;
+        if self.lastvisplane < len - 1 {
+            //panic!("SHIT");
+            self.lastvisplane += 1;
         }
+        dbg!("new");
 
         // Otherwise edit new
-        self.lastvisplane += 1;
-
-        let mut check = &mut self.visplanes[check_idx];
+        let mut check = &mut self.visplanes[new_vis];
         check.height = height;
         check.picnum = picnum;
         check.lightlevel = light_level;
@@ -145,12 +142,15 @@ impl VisPlaneRender {
             *t = 0xff;
         }
 
-        check_idx
+        new_vis
     }
 
+    /// Check if this plane should be used, otherwise use a new plane.
     pub fn check_plane<'a>(&'a mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
         let plane = &mut self.visplanes[plane_idx];
 
+        println!("plane.minx: {}, plane.maxx: {}", plane.minx, plane.maxx);
+        println!("start: {start}, stop: {stop}");
         let (intrl, unionl) = if start < plane.minx {
             (plane.minx, start)
         } else {
@@ -164,14 +164,18 @@ impl VisPlaneRender {
         };
 
         let mut x = intrl;
-        for i in intrl..=intrh {
-            x = i;
+        println!("intrl: {intrl}, intrh: {intrh}");
+        for _ in intrl..=intrh + 1 {
+            if x > intrh {
+                break;
+            }
             if plane.top[x as usize] != 0xff {
                 break;
             }
+            x += 1;
         }
 
-        if x >= intrh {
+        if x > intrh {
             plane.minx = unionl;
             plane.maxx = unionh;
             // Use the same plane
@@ -188,7 +192,7 @@ impl VisPlaneRender {
         plane.picnum = picnum;
         plane.lightlevel = lightlevel;
 
-        if self.lastvisplane == self.visplanes.len() {
+        if self.lastvisplane == self.visplanes.len() - 1 {
             panic!("No more visplanes");
         }
 
