@@ -124,7 +124,7 @@ impl SoftwareRenderer {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn draw_masked_column(
+fn draw_masked_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,

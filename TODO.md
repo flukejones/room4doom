@@ -20,7 +20,7 @@
 [-] - EV_Teleport
 [X] - EV_DoLockedDoor
 [ ] - Skybox
-[X] - FIXED: Increased limits. Large sigil levels have rendering issues 
+[X] - FIXED: Increased limits. Large sigil levels have rendering issues
 [ ] - Really need swept-volume collisions
 [ ] - Need the above for use-lines too
 [ ] - sound-server using rx/tx channels
@@ -54,3 +54,32 @@ Find a better way to do `let level = unsafe { &mut *thing.level };`
 
 - e2m4 quick teleport test
 - doom2 m4 redkey area teleport test
+
+```rust
+mid = self.pixhigh - 1.0;
+...
+                    if mid >= yl {
+                        if seg.sidedef.toptexture != usize::MAX {
+                            let texture_column =
+                                textures.texture_column(seg.sidedef.toptexture, texture_column);
+                            let mut dc = DrawColumn::new(
+                                texture_column,
+                                textures.get_light_colourmap(
+                                    &seg.v1,
+                                    &seg.v2,
+                                    self.wall_lights,
+                                    self.rw_scale,
+                                ),
+                                dc_iscale,
+                                self.rw_x,
+                                self.rw_toptexturemid,
+                                yl as i32, // -1 affects the top of lines without mid texture
+                                // HERE IS A SOURCE OF ISSUES
+                                mid as i32 + 1,
+                            );
+                            dc.draw_column(textures, canvas);
+                        }
+
+                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
+                    }
+```

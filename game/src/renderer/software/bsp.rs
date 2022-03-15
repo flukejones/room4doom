@@ -128,7 +128,7 @@ impl SoftwareRenderer {
                 let sky_mid = SCREENHEIGHT_HALF;
                 let skytex = textures.skytex();
 
-                for x in plane.minx..=plane.maxx {
+                for x in plane.minx..=plane.maxx + 1 {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
@@ -179,12 +179,10 @@ impl SoftwareRenderer {
                 }
             }
             let pxc = (flat.data.len() * flat.data[0].len()) as i32;
+            let colour = Color::RGBA((r / pxc) as u8, (g / pxc) as u8, (b / pxc) as u8, 255);
 
-            let colour = Color::RGBA((r / pxc) as u8, (r / pxc) as u8, (b / pxc) as u8, 255);
-
-            let stop = plane.maxx + 1;
             let mut span_start = [0; SCREENWIDTH];
-            for x in plane.minx..=stop {
+            for x in plane.minx..=plane.maxx + 1 {
                 let mut step = x - 1;
                 if step < 0 {
                     step = 0;
