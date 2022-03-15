@@ -262,6 +262,18 @@ impl TextureData {
         &self.lightscale[light_level as usize][colourmap]
     }
 
+    // TODO: fix for flats
+    pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
+        let light_level = light_level >> 4;
+
+        let mut colourmap = (wall_scale * 15.8).round() as usize;
+        if colourmap > 47 {
+            colourmap = 47;
+        }
+
+        &self.lightscale[light_level as usize][colourmap]
+    }
+
     pub fn get_texture(&self, num: usize) -> &Texture {
         let num = self.wall_translation[num];
         &self.walls[num]

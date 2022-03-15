@@ -17,7 +17,7 @@ use doom_lib::{
     IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
 use std::{
     cell::RefCell,
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
@@ -152,7 +152,8 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            let flat = self.texture_data.borrow().get_texture(plane.picnum);
+            let textures = self.texture_data.borrow();
+            let flat = textures.get_texture(plane.picnum);
             let plane_height = (plane.height as f32 - player.viewheight).abs();
             let plane_zlight = self.texture_data.borrow().get_colourmap(0);
 
@@ -162,6 +163,24 @@ impl SoftwareRenderer {
             if plane.minx as usize > 0 {
                 plane.top[plane.minx as usize - 1] = 0xff;
             }
+
+            let cm = textures.flat_light_colourmap(plane.lightlevel as i32, 0.7);
+            let mut r = 0;
+            let mut g = 0;
+            let mut b = 0;
+            for x in flat.data.iter() {
+                for y in x {
+                    if *y != usize::MAX {
+                        let tmp = textures.palette(0)[cm[*y]];
+                        r += tmp.r as i32;
+                        g += tmp.g as i32;
+                        b += tmp.b as i32;
+                    }
+                }
+            }
+            let pxc = (flat.data.len() * flat.data[0].len()) as i32;
+
+            let colour = Color::RGBA((r / pxc) as u8, (r / pxc) as u8, (b / pxc) as u8, 255);
 
             let stop = plane.maxx + 1;
             let mut span_start = [0; SCREENWIDTH];
@@ -182,8 +201,7 @@ impl SoftwareRenderer {
                     view_angle,
                     &mut span_start,
                     canvas,
-                    plane.picnum as u8,
-                    plane.lightlevel as u8,
+                    colour,
                 )
             }
         }

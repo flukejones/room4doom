@@ -596,7 +596,7 @@ impl SegRender {
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] +1.0;
+                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                     }
 
                     if mid <= yh {
