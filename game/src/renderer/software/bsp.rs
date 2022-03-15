@@ -1,13 +1,13 @@
 use crate::{
     renderer::{
-        software::defs::{SCREENHEIGHT_HALF, SCREENWIDTH},
+        software::defs::{SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
         Renderer,
     },
     utilities::CLASSIC_SCREEN_X_TO_VIEW,
 };
 
 use super::{
-    defs::{ClipRange, SCREENHEIGHT},
+    defs::ClipRange,
     planes::make_spans,
     segs::{DrawColumn, SegRender},
     RenderData,
@@ -70,42 +70,10 @@ impl Renderer for SoftwareRenderer {
         self.clear(player);
 
         // TODO: remove this once flats and sky are done.
-        let sub_sect = unsafe {
-            level
-                .map_data
-                .point_in_subsector_ref(player.mobj.as_ref().unwrap().as_ref().xy)
-        };
-        let light_level = unsafe { (*sub_sect).sector.lightlevel };
-        let scale = light_level as f32 / 255.0;
-        let colour = sdl2::pixels::Color::RGBA(
-            (50.0 * scale) as u8,
-            (40.0 * scale) as u8,
-            (40.0 * scale) as u8,
-            255,
-        );
+        let colour = sdl2::pixels::Color::RGBA(0, 200, 0, 255);
         canvas.set_draw_color(colour);
         canvas
-            .fill_rect(Rect::new(
-                0,
-                0,
-                SCREENWIDTH as u32,
-                SCREENHEIGHT_HALF as u32,
-            ))
-            .unwrap();
-        let colour = sdl2::pixels::Color::RGBA(
-            (40.0 * scale) as u8,
-            (40.0 * scale) as u8,
-            (40.0 * scale) as u8,
-            255,
-        );
-        canvas.set_draw_color(colour);
-        canvas
-            .fill_rect(Rect::new(
-                0,
-                100,
-                SCREENWIDTH as u32,
-                SCREENHEIGHT_HALF as u32,
-            ))
+            .fill_rect(Rect::new(0, 0, SCREENWIDTH as u32, SCREENHEIGHT as u32))
             .unwrap();
 
         // TODO: netupdate
@@ -215,6 +183,7 @@ impl SoftwareRenderer {
                     &mut span_start,
                     canvas,
                     plane.picnum as u8,
+                    plane.lightlevel as u8,
                 )
             }
         }

@@ -223,6 +223,7 @@ pub fn make_spans(
     span_start: &mut [i32; SCREENWIDTH],
     canvas: &mut Canvas<Surface>,
     r: u8,
+    bright: u8,
 ) {
     while t1 < t2 && t1 <= b1 {
         map_plane(
@@ -235,6 +236,7 @@ pub fn make_spans(
             view_angle,
             canvas,
             r,
+            bright,
         );
         t1 += 1;
     }
@@ -250,6 +252,7 @@ pub fn make_spans(
             view_angle,
             canvas,
             r,
+            bright,
         );
         b1 -= 1;
     }
@@ -275,6 +278,7 @@ fn map_plane(
     view_angle: Angle,
     canvas: &mut Canvas<Surface>,
     r: u8,
+    bright: u8,
 ) {
     // TODO: maybe cache?
     let distance = plane_height * y / 1000; // TODO: yslope
@@ -295,7 +299,7 @@ fn map_plane(
         // colourmap,
         ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
     );
-    ds.draw_(canvas, r);
+    ds.draw_(canvas, r, bright);
 }
 
 pub struct DrawSpan {
@@ -336,8 +340,9 @@ impl DrawSpan {
     }
 
     //fn draw_(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
-    fn draw_(&mut self, canvas: &mut Canvas<Surface>, r: u8) {
-        let colour = sdl2::pixels::Color::RGBA((50 as u32 + r as u32) as u8, 20, 20, 255);
+    fn draw_(&mut self, canvas: &mut Canvas<Surface>, r: u8, bright: u8) {
+        let scale = bright as f32 / 255.0 * 4.0;
+        let colour = sdl2::pixels::Color::RGBA((r as f32 * scale) as u8, 20, 20, 255);
         canvas.set_draw_color(colour);
 
         let mut count = self.ds_x2 - self.ds_x1;
