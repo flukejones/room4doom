@@ -252,7 +252,7 @@ impl SegRender {
                 ds_p.bsilheight = f32::MIN;
             }
 
-            if backsector.ceilingheight <= frontsector.floorheight {
+            if backsector.ceilingheight < frontsector.floorheight {
                 ds_p.sprbottomclip = Some(0); // start of negonearray
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
@@ -361,7 +361,7 @@ impl SegRender {
             self.markfloor = false;
         }
 
-        if frontsector.ceilingheight <= viewz
+        if frontsector.ceilingheight < viewz
             && frontsector.ceilingpic != self.texture_data.borrow().skyflatnum()
         {
             // below view plane
@@ -370,14 +370,14 @@ impl SegRender {
 
         // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 101.0 - ((self.worldtop) * self.rw_scale); // 101.0 for all?
+        self.topfrac = 101.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
-        self.bottomfrac = 101.0 - (self.worldbottom * self.rw_scale);
+        self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
             if self.worldhigh < self.worldtop {
-                self.pixhigh = 101.0 - (self.worldhigh * self.rw_scale);
+                self.pixhigh = 100.0 - (self.worldhigh * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
@@ -479,7 +479,7 @@ impl SegRender {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac + HEIGHTUNIT; // + HEIGHTUNIT - 1
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
@@ -487,10 +487,10 @@ impl SegRender {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 bottom = yl - 1.0;
 
-                if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                if bottom > rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 }
-                if top <= bottom {
+                if top < bottom {
                     let ceil = rdata.visplanes.ceilingplane;
                     rdata.visplanes.visplanes[ceil].top[self.rw_x as usize] = top as u8;
                     rdata.visplanes.visplanes[ceil].bottom[self.rw_x as usize] = bottom as u8;
@@ -507,10 +507,10 @@ impl SegRender {
                 top = yh + 1.0;
                 bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
 
-                if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+                if top < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                     top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                 }
-                if top <= bottom {
+                if top < bottom {
                     let floor = rdata.visplanes.floorplane;
                     rdata.visplanes.visplanes[floor].top[self.rw_x as usize] = top as u8;
                     rdata.visplanes.visplanes[floor].bottom[self.rw_x as usize] = bottom as u8;
@@ -555,14 +555,14 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture != 0 {
-                    mid = self.pixhigh - 1.0;
+                    mid = self.pixhigh;
                     self.pixhigh += self.pixhighstep;
 
-                    if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                     }
 
-                    if mid > yl {
+                    if mid >= yl {
                         if seg.sidedef.toptexture != usize::MAX {
                             let texture_column =
                                 textures.texture_column(seg.sidedef.toptexture, texture_column);
@@ -578,7 +578,7 @@ impl SegRender {
                                 self.rw_x,
                                 self.rw_toptexturemid,
                                 yl as i32, // -1 affects the top of lines without mid texture
-                                mid as i32, // + 1,
+                                mid as i32,
                             );
                             dc.draw_column(textures, canvas);
                         }
@@ -596,7 +596,7 @@ impl SegRender {
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize];
+                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] +1.0;
                     }
 
                     if mid <= yh {
@@ -682,7 +682,7 @@ impl<'a> DrawColumn<'a> {
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
-        for n in self.yl..self.yh {
+        for n in self.yl..=self.yh {
             let mut select = frac as i32 & 127;
             if select >= self.texture_column.len() as i32
                 || self.texture_column[select as usize] as usize == usize::MAX

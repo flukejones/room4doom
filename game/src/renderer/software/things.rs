@@ -19,7 +19,7 @@ impl SoftwareRenderer {
         // todo: R_DrawPlayerSprites ();
     }
 
-    pub fn render_masked_seg_range(
+    fn render_masked_seg_range(
         &mut self,
         viewz: f32,
         ds: &DrawSeg,
@@ -114,7 +114,7 @@ impl SoftwareRenderer {
 
                         self.r_data.visplanes.openings[index] = f32::MAX;
                     } else {
-                        dbg!(x, self.r_data.visplanes.openings[index]);
+                        //dbg!(x, self.r_data.visplanes.openings[index]);
                     }
                 }
                 spryscale += rw_scalestep;

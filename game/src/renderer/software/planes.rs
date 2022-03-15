@@ -345,7 +345,7 @@ impl DrawSpan {
         let colour = sdl2::pixels::Color::RGBA((r as f32 * scale) as u8, 20, 20, 255);
         canvas.set_draw_color(colour);
 
-        let mut count = self.ds_x2 - self.ds_x1;
+        let mut count = self.ds_x2 - self.ds_x1 + 1;
         while count != -1 {
             canvas
                 .fill_rect(Rect::new(self.ds_x1, self.ds_y, 1, 1))

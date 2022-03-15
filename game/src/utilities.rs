@@ -87,7 +87,7 @@ pub fn scale_from_view_angle(
     //            projection
     //m_iDistancePlayerToScreen = m_HalfScreenWidth / HalfFOV.GetTanValue();
     let p = 160.0 / (FRAC_PI_4).tan();
-    let num = p * sineb; // oof a bit
+    let num = p * sineb;
     let den = rw_distance * sinea;
 
     num / den
