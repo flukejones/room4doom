@@ -1,4 +1,4 @@
-use std::ptr::NonNull;
+use std::{fmt::Debug, ptr::NonNull};
 
 use doom_lib::Segment;
 
@@ -86,6 +86,42 @@ pub struct Visplane {
     pub bottom: [u8; SCREENWIDTH],
 }
 
+impl Debug for Visplane {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Visplane")
+            .field("height", &self.height)
+            .field("picnum", &self.picnum)
+            .field("lightlevel", &self.lightlevel)
+            .field("minx", &self.minx)
+            .field("maxx", &self.maxx)
+            .field(
+                "top",
+                &self
+                    .top
+                    .into_iter()
+                    .map(|d| {
+                        let mut d = d.to_string();
+                        d.push(',');
+                        d
+                    })
+                    .collect::<String>(),
+            )
+            .field(
+                "bottom",
+                &self
+                    .bottom
+                    .into_iter()
+                    .map(|d| {
+                        let mut d = d.to_string();
+                        d.push(',');
+                        d
+                    })
+                    .collect::<String>(),
+            )
+            .finish()
+    }
+}
+
 impl Default for Visplane {
     fn default() -> Self {
         Visplane {
@@ -109,12 +145,12 @@ impl Visplane {
         self.minx = 0;
         self.maxx = 0;
 
-        for x in self.top.iter_mut() {
-            *x = 0xff;
-        }
+        // for x in self.top.iter_mut() {
+        //     *x = 0xff;
+        // }
 
-        for x in self.bottom.iter_mut() {
-            *x = 0;
-        }
+        // for x in self.bottom.iter_mut() {
+        //     *x = 0;
+        // }
     }
 }

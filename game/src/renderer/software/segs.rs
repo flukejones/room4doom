@@ -178,7 +178,7 @@ impl SegRender {
         ds_p.x1 = start;
         self.rw_x = start;
         ds_p.x2 = stop;
-        self.rw_stopx = stop + 1;
+        self.rw_stopx = stop;
 
         if stop > start {
             ds_p.scale2 =
@@ -275,7 +275,7 @@ impl SegRender {
             }
 
             // Checks to see if panes need updating?
-            if self.worldlow != self.worldbottom
+            if self.worldlow.floor() != self.worldbottom.floor()
                 || backsector.floorpic != frontsector.floorpic
                 || backsector.lightlevel != frontsector.lightlevel
             {
@@ -285,7 +285,7 @@ impl SegRender {
                 self.markfloor = false;
             }
             //
-            if self.worldhigh != self.worldtop
+            if self.worldhigh.floor() != self.worldtop.floor()
                 || backsector.ceilingpic != frontsector.ceilingpic
                 || backsector.lightlevel != frontsector.lightlevel
             {
@@ -475,11 +475,11 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0.0;
-        while self.rw_x < self.rw_stopx {
+        while self.rw_x <= self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac + HEIGHTUNIT; // + HEIGHTUNIT - 1
-            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
@@ -497,8 +497,8 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac + HEIGHTUNIT;
-            
+            yh = self.bottomfrac;
+
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
@@ -678,7 +678,6 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    #[allow(clippy::too_many_arguments)]
     pub fn draw_column(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;

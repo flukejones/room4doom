@@ -7,7 +7,8 @@ use crate::{
 };
 
 use super::{
-    defs::ClipRange,
+    defs::{ClipRange, SCREENHEIGHT},
+    planes::make_spans,
     segs::{DrawColumn, SegRender},
     RenderData,
 };
@@ -183,11 +184,38 @@ impl SoftwareRenderer {
                 continue;
             }
 
+            let flat = self.texture_data.borrow().get_texture(plane.picnum);
+            let plane_height = (plane.height as f32 - player.viewheight).abs();
+            let plane_zlight = self.texture_data.borrow().get_colourmap(0);
+
             if plane.maxx as usize + 1 < plane.top.len() {
                 plane.top[plane.maxx as usize + 1] = 0xff;
             }
             if plane.minx as usize > 0 {
                 plane.top[plane.minx as usize - 1] = 0xff;
+            }
+
+            let stop = plane.maxx + 1;
+            let mut span_start = [0; SCREENWIDTH];
+            for x in plane.minx..=stop {
+                let mut step = x - 1;
+                if step < 0 {
+                    step = 0;
+                }
+                make_spans(
+                    x,
+                    plane.top[step as usize] as i32,
+                    plane.bottom[step as usize] as i32,
+                    plane.top[x as usize] as i32,
+                    plane.bottom[x as usize] as i32,
+                    plane_height as i32,
+                    0.5,
+                    0.5,
+                    view_angle,
+                    &mut span_start,
+                    canvas,
+                    plane.picnum as u8,
+                )
             }
         }
     }
@@ -308,8 +336,6 @@ impl SoftwareRenderer {
                 skynum,
                 subsect.sector.lightlevel as u32,
             );
-        } else {
-            //self.r_data.visplanes.floorplane = None;
         }
 
         if subsect.sector.ceilingheight > player.viewz
@@ -321,8 +347,6 @@ impl SoftwareRenderer {
                 skynum,
                 subsect.sector.lightlevel as u32,
             );
-        } else {
-            //self.r_data.visplanes.ceilingplane = None;
         }
 
         let front_sector = &subsect.sector;
