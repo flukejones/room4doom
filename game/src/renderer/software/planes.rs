@@ -166,6 +166,7 @@ impl VisPlaneRender {
         for i in intrl..=intrh + 1 {
             if i > intrh {
                 x = i;
+                break;
             }
             if plane.top[i as usize] != 0xff {
                 break;
@@ -184,23 +185,17 @@ impl VisPlaneRender {
         let picnum = plane.picnum;
         let lightlevel = plane.lightlevel;
 
-        self.lastvisplane += 1;
-        let plane = &mut self.visplanes[self.lastvisplane];
-        plane.height = height;
-        plane.picnum = picnum;
-        plane.lightlevel = lightlevel;
-
         if self.lastvisplane == self.visplanes.len() - 1 {
             panic!("No more visplanes");
         }
 
         self.lastvisplane += 1;
         let plane = &mut self.visplanes[self.lastvisplane];
-        plane.minx = start;
-        plane.maxx = stop;
         plane.height = height;
         plane.picnum = picnum;
         plane.lightlevel = lightlevel;
+        plane.minx = start;
+        plane.maxx = stop;
 
         for t in &mut plane.top {
             *t = 0xff;
@@ -228,7 +223,7 @@ pub fn make_spans(
         map_plane(
             t1,
             span_start[t1 as usize],
-            x - 1,
+            x, // - 1,
             plane_height,
             basexscale,
             baseyscale,
@@ -243,7 +238,7 @@ pub fn make_spans(
         map_plane(
             b1,
             span_start[b1 as usize],
-            x - 1,
+            x, // - 1,
             plane_height,
             basexscale,
             baseyscale,
@@ -339,7 +334,7 @@ impl DrawSpan {
     fn draw_(&mut self, canvas: &mut Canvas<Surface>, colour: Color) {
         canvas.set_draw_color(colour);
 
-        let mut count = self.ds_x2 - self.ds_x1 + 1;
+        let mut count = self.ds_x2 - self.ds_x1;
         while count != -1 {
             canvas
                 .fill_rect(Rect::new(self.ds_x1, self.ds_y, 1, 1))
