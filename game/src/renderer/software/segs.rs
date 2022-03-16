@@ -69,10 +69,10 @@ pub struct SegRender {
     bottomfrac: f32,
     bottomstep: f32,
 
-    worldtop: f32,
-    worldbottom: f32,
-    worldhigh: f32,
-    worldlow: f32,
+    worldtop: i32,
+    worldbottom: i32,
+    worldhigh: i32,
+    worldlow: i32,
 
     /// Light level for the wall
     wall_lights: i32,
@@ -110,10 +110,10 @@ impl SegRender {
             topstep: 0.0,
             bottomfrac: 0.0,
             bottomstep: 0.0,
-            worldtop: 0.0,
-            worldbottom: 0.0,
-            worldhigh: 0.0,
-            worldlow: 0.0,
+            worldtop: 0,
+            worldbottom: 0,
+            worldhigh: 0,
+            worldlow: 0,
             wall_lights: 0,
             texture_data,
         }
@@ -198,8 +198,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = frontsector.ceilingheight - viewz;
-        self.worldbottom = frontsector.floorheight - viewz;
+        self.worldtop = (frontsector.ceilingheight - viewz).floor() as i32;
+        self.worldbottom = (frontsector.floorheight - viewz).floor() as i32;
 
         self.midtexture = 0;
         self.toptexture = 0;
@@ -216,12 +216,12 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0
                 && seg.sidedef.midtexture != usize::MAX
             {
-                let texture_column = textures.texture_column(seg.sidedef.midtexture, 0.0);
+                let texture_column = textures.texture_column(seg.sidedef.midtexture, 0);
                 let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
                 // top of texture at top
-                self.rw_midtexturemid = self.worldtop;
+                self.rw_midtexturemid = self.worldtop as f32;
             }
             self.rw_midtexturemid += seg.sidedef.rowoffset;
 
@@ -267,8 +267,8 @@ impl SegRender {
                 ds_p.bsilheight = f32::MIN;
             }
 
-            self.worldhigh = backsector.ceilingheight - viewz;
-            self.worldlow = backsector.floorheight - viewz;
+            self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
+            self.worldlow = (backsector.floorheight - viewz).floor() as i32;
 
             // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.skyflatnum()
@@ -278,7 +278,7 @@ impl SegRender {
             }
 
             // Checks to see if panes need updating?
-            if self.worldlow.floor() != self.worldbottom.floor()
+            if self.worldlow != self.worldbottom
                 || backsector.floorpic != frontsector.floorpic
                 || backsector.lightlevel != frontsector.lightlevel
             {
@@ -309,9 +309,9 @@ impl SegRender {
             if self.worldhigh < self.worldtop {
                 self.toptexture = sidedef.toptexture as i32;
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
-                    self.rw_toptexturemid = self.worldtop;
+                    self.rw_toptexturemid = self.worldtop as f32;
                 } else if seg.sidedef.toptexture != usize::MAX {
-                    let texture_column = textures.texture_column(seg.sidedef.toptexture, 0.0);
+                    let texture_column = textures.texture_column(seg.sidedef.toptexture, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - viewz;
                 }
@@ -320,9 +320,9 @@ impl SegRender {
             if self.worldlow > self.worldbottom {
                 self.bottomtexture = sidedef.bottomtexture as i32;
                 if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                    self.rw_bottomtexturemid = self.worldtop;
+                    self.rw_bottomtexturemid = self.worldtop as f32;
                 } else {
-                    self.rw_bottomtexturemid = self.worldlow;
+                    self.rw_bottomtexturemid = self.worldlow as f32;
                 }
             }
 
@@ -371,23 +371,21 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        // TODO: This is the problematic part
-        self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 100.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
+        self.topstep = -(self.worldtop as f32 * self.rw_scalestep);
+        self.topfrac = 100.0 - (self.worldtop as f32 * self.rw_scale);
 
-        self.bottomstep = -(self.worldbottom * self.rw_scalestep);
-        self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
+        self.bottomstep = -(self.worldbottom as f32 * self.rw_scalestep);
+        self.bottomfrac = 100.0 - (self.worldbottom as f32 * self.rw_scale);
 
         if seg.backsector.is_some() {
             if self.worldhigh <= self.worldtop {
-                self.pixhigh = 100.0 + HEIGHTUNIT - (self.worldhigh * self.rw_scale);
-                self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
+                self.pixhigh = 100.0 + HEIGHTUNIT - (self.worldhigh as f32 * self.rw_scale);
+                self.pixhighstep = -(self.worldhigh as f32 * self.rw_scalestep);
             }
 
-            // TODO: precision here causes some issues, 101.0
             if self.worldlow >= self.worldbottom {
-                self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow * self.rw_scale);
-                self.pixlowstep = -(self.worldlow * self.rw_scalestep);
+                self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow as f32 * self.rw_scale);
+                self.pixlowstep = -(self.worldlow as f32 * self.rw_scalestep);
             }
         }
 
@@ -469,27 +467,27 @@ impl SegRender {
         canvas: &mut Canvas<Surface>,
     ) {
         // R_RenderSegLoop
-        let mut yl;
-        let mut yh;
+        let mut yl: i32;
+        let mut yh: i32;
         let mut top;
         let mut bottom;
         let mut mid;
         let mut angle;
-        let mut texture_column = 0.0;
+        let mut texture_column = 0;
         while self.rw_x <= self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac.floor() + 1.0;
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
-                yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+            yl = self.topfrac.floor() as i32 + 1;
+            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
+                yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
 
             if self.markceiling {
-                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl - 1.0;
+                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
+                bottom = yl - 1;
 
                 if bottom > rdata.portal_clip.floorclip[self.rw_x as usize] {
-                    bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                    bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                 }
                 if top <= bottom {
                     let ceil = rdata.visplanes.ceilingplane;
@@ -498,18 +496,18 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac.floor();
+            yh = self.bottomfrac.floor() as i32;
 
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
             }
 
             if self.markfloor {
-                top = yh + 1.0;
-                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                top = yh + 1;
+                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
 
                 if top < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                 }
                 if top <= bottom {
                     let floor = rdata.visplanes.floorplane;
@@ -524,7 +522,7 @@ impl SegRender {
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
                 // angle =
                 //     self.rw_centerangle + screen_to_x_view(self.rw_x);// * PI / 180.0;
-                texture_column = self.rw_offset - angle.tan() * self.rw_distance;
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
@@ -551,16 +549,16 @@ impl SegRender {
                     dc.draw_column(textures, canvas);
                 };
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height;
-                rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height as i32;
+                rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture != 0 {
-                    mid = self.pixhigh - HEIGHTUNIT;
+                    mid = self.pixhigh as i32; // - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                        mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                     }
 
                     if mid >= yl {
@@ -586,19 +584,19 @@ impl SegRender {
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
+                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
+                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1;
                 }
 
                 if self.bottomtexture != 0 {
                     // TODO: this affects some placement
-                    mid = self.pixlow; // + HEIGHTUNIT; // - 1.0;
+                    mid = self.pixlow as i32 + 1;
                     self.pixlow += self.pixlowstep;
 
                     if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                     }
 
                     if mid <= yh {
@@ -623,10 +621,10 @@ impl SegRender {
                         }
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
+                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
+                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1;
                 }
 
                 if self.maskedtexture {

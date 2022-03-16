@@ -19,7 +19,7 @@ pub struct VisPlaneRender {
     pub ceilingplane: usize,
 
     /// Stores the column number of the texture required for this opening
-    pub openings: [f32; MAXOPENINGS],
+    pub openings: [i32; MAXOPENINGS],
     pub lastopening: i32,
 
     pub floorclip: [i32; SCREENWIDTH],
@@ -56,7 +56,7 @@ impl VisPlaneRender {
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: [f32::MAX; MAXOPENINGS],
+            openings: [i32::MAX; MAXOPENINGS],
             lastopening: 0,
             floorclip: [SCREENHEIGHT as i32; SCREENWIDTH],
             ceilingclip: [-1; SCREENWIDTH],
@@ -223,7 +223,7 @@ pub fn make_spans(
         map_plane(
             t1,
             span_start[t1 as usize],
-            x, // - 1,
+            x - 1,
             plane_height,
             basexscale,
             baseyscale,
@@ -238,7 +238,7 @@ pub fn make_spans(
         map_plane(
             b1,
             span_start[b1 as usize],
-            x, // - 1,
+            x - 1,
             plane_height,
             basexscale,
             baseyscale,
@@ -273,7 +273,7 @@ fn map_plane(
 ) {
     // TODO: maybe cache?
     let distance = plane_height * y / 1000; // TODO: yslope
-    let ds_xstep = distance as f32 * basexscale;
+    let ds_xstep = 1.0; //distance as f32 * basexscale;
     let ds_ystep = distance as f32 * baseyscale;
 
     let length = distance as f32 * 0.5; // TODO: distscale table
@@ -281,9 +281,9 @@ fn map_plane(
     let ds_xfrac = view_angle.unit().x() + angle.cos() * length;
     let ds_yfrac = view_angle.unit().y() + angle.sin() * length;
 
-    let ds_y = y;
-    let ds_x1 = x1;
-    let ds_x2 = x2;
+    let ds_y = y as f32;
+    let ds_x1 = x1 as f32;
+    let ds_x2 = x2 as f32;
 
     let mut ds = DrawSpan::new(
         // texture_column,
@@ -300,9 +300,9 @@ pub struct DrawSpan {
     ds_ystep: f32,
     ds_xfrac: f32,
     ds_yfrac: f32,
-    ds_y: i32,
-    ds_x1: i32,
-    ds_x2: i32,
+    ds_y: f32,
+    ds_x1: f32,
+    ds_x2: f32,
 }
 
 impl DrawSpan {
@@ -313,9 +313,9 @@ impl DrawSpan {
         ds_ystep: f32,
         ds_xfrac: f32,
         ds_yfrac: f32,
-        ds_y: i32,
-        ds_x1: i32,
-        ds_x2: i32,
+        ds_y: f32,
+        ds_x1: f32,
+        ds_x2: f32,
     ) -> Self {
         Self {
             // texture_column,
@@ -334,13 +334,11 @@ impl DrawSpan {
     fn draw_(&mut self, canvas: &mut Canvas<Surface>, colour: Color) {
         canvas.set_draw_color(colour);
 
-        let mut count = self.ds_x2 - self.ds_x1;
-        while count != -1 {
+        for _ in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
             canvas
-                .fill_rect(Rect::new(self.ds_x1, self.ds_y, 1, 1))
+                .fill_rect(Rect::new(self.ds_x1 as i32, self.ds_y as i32, 1, 1))
                 .unwrap();
-            count -= 1;
-            self.ds_x1 += 1;
+            self.ds_x1 += self.ds_xstep;
         }
     }
 }

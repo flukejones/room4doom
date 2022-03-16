@@ -288,9 +288,9 @@ impl TextureData {
         None
     }
 
-    pub fn texture_column(&self, texture: usize, texture_column: f32) -> &[usize] {
+    pub fn texture_column(&self, texture: usize, texture_column: i32) -> &[usize] {
         let texture = &self.walls[self.wall_translation[texture]];
-        let mut col = texture_column.ceil() as i32;
+        let mut col = texture_column;
         if col >= texture.data.len() as i32 {
             col -= 1;
         }
