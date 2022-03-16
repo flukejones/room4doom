@@ -61,6 +61,8 @@ pub struct SoftwareRenderer {
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
     pub(super) texture_data: Rc<RefCell<TextureData>>,
+
+    pub(super) debug: bool,
 }
 
 impl Renderer for SoftwareRenderer {
@@ -69,12 +71,13 @@ impl Renderer for SoftwareRenderer {
 
         self.clear(player);
 
-        // TODO: remove this once flats and sky are done.
-        let colour = sdl2::pixels::Color::RGBA(0, 200, 0, 255);
-        canvas.set_draw_color(colour);
-        canvas
-            .fill_rect(Rect::new(0, 0, SCREENWIDTH as u32, SCREENHEIGHT as u32))
-            .unwrap();
+        if self.debug {
+            let colour = sdl2::pixels::Color::RGBA(0, 200, 0, 255);
+            canvas.set_draw_color(colour);
+            canvas
+                .fill_rect(Rect::new(0, 0, SCREENWIDTH as u32, SCREENHEIGHT as u32))
+                .unwrap();
+        }
 
         // TODO: netupdate
 
@@ -92,13 +95,14 @@ impl Renderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(texture_data: Rc<RefCell<TextureData>>) -> Self {
+    pub fn new(texture_data: Rc<RefCell<TextureData>>, debug: bool) -> Self {
         Self {
             r_data: RenderData::new(),
             seg_renderer: SegRender::new(texture_data.clone()),
             new_end: 0,
             solidsegs: Vec::new(),
             texture_data,
+            debug,
         }
     }
 

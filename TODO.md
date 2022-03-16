@@ -83,3 +83,4 @@ mid = self.pixhigh - 1.0;
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
                     }
 ```
+yl, yh, pishigh, pixlow - all not quite right.
