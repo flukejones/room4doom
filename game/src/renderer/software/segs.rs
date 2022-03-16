@@ -370,9 +370,9 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        // TODO: 100 is half VIEWHEIGHT. Need to sort this stuff out
+        // TODO: This is the problematic part
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 100.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
+        self.topfrac = 99.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
@@ -383,9 +383,9 @@ impl SegRender {
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
-            // TODO: precision here causes some issues
+            // TODO: precision here causes some issues, 101.0
             if self.worldlow > self.worldbottom {
-                self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow * self.rw_scale);
+                self.pixlow = 101.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -577,8 +577,8 @@ impl SegRender {
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
-                                yl as i32, // -1 affects the top of lines without mid texture
-                                mid as i32, //  + 1,
+                                yl as i32,
+                                mid as i32,
                             );
                             dc.draw_column(textures, canvas);
                         }
@@ -592,10 +592,11 @@ impl SegRender {
                 }
 
                 if self.bottomtexture != 0 {
-                    mid = self.pixlow + HEIGHTUNIT - 1.0; // + HEIGHTUNIT; ? needed?
+                    // TODO: this affects some placement
+                    mid = self.pixlow + HEIGHTUNIT; // - 1.0;
                     self.pixlow += self.pixlowstep;
 
-                    if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+                    if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
                     }
 
