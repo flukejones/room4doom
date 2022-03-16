@@ -29,7 +29,10 @@ pub fn d_doom_loop(
     options: GameOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
-    let mut renderer = SoftwareRenderer::new(game.textures.clone());
+    let mut renderer = SoftwareRenderer::new(
+        game.textures.clone(),
+        matches!(options.verbose, doom_lib::log::LevelFilter::Debug),
+    );
 
     let mut timestep = TimeStep::new();
     let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
