@@ -182,7 +182,8 @@ impl SegRender {
         ds_p.x2 = stop;
         self.rw_stopx = stop;
 
-        if stop >= start {
+        if stop > start {
+            // scale2 and rw_scale appears corrrect
             ds_p.scale2 =
                 scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
@@ -216,7 +217,7 @@ impl SegRender {
                 && seg.sidedef.midtexture != usize::MAX
             {
                 let texture_column = textures.texture_column(seg.sidedef.midtexture, 0.0);
-                let vtop = frontsector.floorheight + texture_column.len() as f32;
+                let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
                 // top of texture at top
@@ -287,7 +288,7 @@ impl SegRender {
                 self.markfloor = false;
             }
             //
-            if self.worldhigh.floor() != self.worldtop.floor()
+            if self.worldhigh != self.worldtop
                 || backsector.ceilingpic != frontsector.ceilingpic
                 || backsector.lightlevel != frontsector.lightlevel
             {
@@ -311,7 +312,7 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop;
                 } else if seg.sidedef.toptexture != usize::MAX {
                     let texture_column = textures.texture_column(seg.sidedef.toptexture, 0.0);
-                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - viewz;
                 }
             }
@@ -372,20 +373,20 @@ impl SegRender {
 
         // TODO: This is the problematic part
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = 99.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
+        self.topfrac = 100.0 - (self.worldtop * self.rw_scale); // 101.0 for all?
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = 100.0 - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
-            if self.worldhigh < self.worldtop {
+            if self.worldhigh <= self.worldtop {
                 self.pixhigh = 100.0 + HEIGHTUNIT - (self.worldhigh * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
             // TODO: precision here causes some issues, 101.0
-            if self.worldlow > self.worldbottom {
-                self.pixlow = 101.0 - (self.worldlow * self.rw_scale);
+            if self.worldlow >= self.worldbottom {
+                self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -478,7 +479,7 @@ impl SegRender {
         while self.rw_x <= self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac + HEIGHTUNIT - 1.0; // + HEIGHTUNIT - 1
+            yl = self.topfrac.floor() + 1.0;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
@@ -497,7 +498,7 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac + HEIGHTUNIT;
+            yh = self.bottomfrac.floor();
 
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
@@ -555,7 +556,7 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture != 0 {
-                    mid = self.pixhigh; // - HEIGHTUNIT;
+                    mid = self.pixhigh - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
@@ -593,7 +594,7 @@ impl SegRender {
 
                 if self.bottomtexture != 0 {
                     // TODO: this affects some placement
-                    mid = self.pixlow + HEIGHTUNIT; // - 1.0;
+                    mid = self.pixlow; // + HEIGHTUNIT; // - 1.0;
                     self.pixlow += self.pixlowstep;
 
                     if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
