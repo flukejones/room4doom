@@ -78,8 +78,8 @@ pub fn scale_from_view_angle(
     rw_distance: f32,
     view_angle: Angle,
 ) -> f32 {
-    let anglea = Angle::new(FRAC_PI_2 + (visangle.rad() - view_angle.rad())); // CORRECT
-    let angleb = Angle::new(FRAC_PI_2 + (visangle.rad() - rw_normalangle.rad())); // CORRECT
+    let anglea = Angle::new(FRAC_PI_2 + (visangle - view_angle).rad()); // CORRECT
+    let angleb = Angle::new(FRAC_PI_2 + (visangle - rw_normalangle).rad()); // CORRECT
 
     let sinea = anglea.sin(); // not correct?
     let sineb = angleb.sin();
