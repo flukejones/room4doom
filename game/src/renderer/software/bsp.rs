@@ -139,7 +139,7 @@ impl SoftwareRenderer {
                         let angle = (view_angle.rad() * 180.0 / PI
                             + CLASSIC_SCREEN_X_TO_VIEW[x as usize])
                             * 2.8444;
-                        let texture_column = textures.texture_column(skytex, angle);
+                        let texture_column = textures.texture_column(skytex, angle.floor() as i32);
 
                         let mut dc = DrawColumn::new(
                             texture_column,

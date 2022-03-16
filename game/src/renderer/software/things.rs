@@ -51,7 +51,7 @@ impl SoftwareRenderer {
                     backsector.floorheight
                 };
 
-                let texture_column = textures.texture_column(texnum, 0.0);
+                let texture_column = textures.texture_column(texnum, 0);
                 dc_texturemid += texture_column.len() as f32 - viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -71,7 +71,7 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.r_data.visplanes.openings[index] != f32::MAX
+                    if self.r_data.visplanes.openings[index] != i32::MAX
                         && seg.sidedef.midtexture != usize::MAX
                     {
                         let texture_column = textures.texture_column(
@@ -112,7 +112,7 @@ impl SoftwareRenderer {
                             canvas,
                         );
 
-                        self.r_data.visplanes.openings[index] = f32::MAX;
+                        self.r_data.visplanes.openings[index] = i32::MAX;
                     } else {
                         //dbg!(x, self.r_data.visplanes.openings[index]);
                     }
