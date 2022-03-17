@@ -19,7 +19,6 @@ pub mod things;
 /// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
-#[derive(Default)]
 pub struct RenderData {
     pub rw_angle1: Angle,
     // DrawSeg used, which is inserted in drawsegs at end of r_segs

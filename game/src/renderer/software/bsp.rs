@@ -8,16 +8,16 @@ use crate::{
 
 use super::{
     defs::ClipRange,
-    planes::make_spans,
     segs::{DrawColumn, SegRender},
     RenderData,
 };
+use crate::renderer::software::planes::make_spans;
 use doom_lib::{
     log::trace, Angle, Level, MapData, MapObject, Player, Sector, Segment, SubSector, TextureData,
     IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     cell::RefCell,
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
@@ -121,6 +121,7 @@ impl SoftwareRenderer {
         let view_angle = mobj.angle;
 
         let visplanes = &mut self.r_data.visplanes;
+        let texture_data = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;
@@ -156,34 +157,15 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            let textures = self.texture_data.borrow();
-            let flat = textures.get_texture(plane.picnum);
-            let plane_height = (plane.height as f32 - player.viewheight).abs();
-            let plane_zlight = self.texture_data.borrow().get_colourmap(0);
-
             if plane.maxx as usize + 1 < plane.top.len() {
                 plane.top[plane.maxx as usize + 1] = 0xff;
             }
             if plane.minx as usize > 0 {
                 plane.top[plane.minx as usize - 1] = 0xff;
             }
-
-            let cm = textures.flat_light_colourmap(plane.lightlevel as i32, 0.7);
-            let mut r = 0;
-            let mut g = 0;
-            let mut b = 0;
-            for x in flat.data.iter() {
-                for y in x {
-                    if *y != usize::MAX {
-                        let tmp = textures.palette(0)[cm[*y]];
-                        r += tmp.r as i32;
-                        g += tmp.g as i32;
-                        b += tmp.b as i32;
-                    }
-                }
-            }
-            let pxc = (flat.data.len() * flat.data[0].len()) as i32;
-            let colour = Color::RGBA((r / pxc) as u8, (g / pxc) as u8, (b / pxc) as u8, 255);
+            plane.basexscale = 0.5;
+            plane.baseyscale = 0.5;
+            plane.view_angle = view_angle;
 
             let mut span_start = [0; SCREENWIDTH];
             for x in plane.minx..=plane.maxx + 1 {
@@ -197,13 +179,10 @@ impl SoftwareRenderer {
                     plane.bottom[step as usize] as i32,
                     plane.top[x as usize] as i32,
                     plane.bottom[x as usize] as i32,
-                    plane_height as i32,
-                    0.5,
-                    0.5,
-                    view_angle,
+                    plane,
                     &mut span_start,
+                    &texture_data,
                     canvas,
-                    colour,
                 )
             }
         }

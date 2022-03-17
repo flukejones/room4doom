@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::{f32::consts::FRAC_PI_2, rc::Rc};
 
 use doom_lib::{Angle, TextureData};
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
@@ -41,12 +41,6 @@ pub struct VisPlaneRender {
     pub cacheddistance: [f32; SCREENHEIGHT],
     pub cachedxstep: [f32; SCREENHEIGHT],
     pub cachedystep: [f32; SCREENHEIGHT],
-}
-
-impl Default for VisPlaneRender {
-    fn default() -> Self {
-        VisPlaneRender::new()
-    }
 }
 
 impl VisPlaneRender {
@@ -205,31 +199,57 @@ impl VisPlaneRender {
     }
 }
 
+fn map_plane(
+    y: i32,
+    x1: i32,
+    x2: i32,
+    plane: &Visplane,
+    texture_data: &TextureData,
+    canvas: &mut Canvas<Surface>,
+) {
+    // TODO: maybe cache?
+    let distance = plane.height as i32 * y / 1000; // TODO: yslope
+    let ds_xstep = 1.0; //distance as f32 * plane.basexscale;
+    let ds_ystep = 1.0; //distance as f32 * plane.baseyscale;
+
+    let length = distance as f32 * 0.5; // TODO: distscale table
+    let angle = plane.view_angle + CLASSIC_SCREEN_X_TO_VIEW[x1 as usize];
+    let ds_xfrac = plane.view_angle.unit().x() + angle.cos() * length;
+    let ds_yfrac = plane.view_angle.unit().y() + angle.sin() * length;
+
+    let ds_y = y as f32;
+    let ds_x1 = x1 as f32;
+    let ds_x2 = x2 as f32;
+
+    let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
+    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, 0.7);
+
+    let mut ds = DrawSpan::new(
+        flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
+    );
+
+    ds.draw(texture_data, canvas);
+}
+
 pub fn make_spans(
     x: i32,
     mut t1: i32,
     mut b1: i32,
     mut t2: i32,
     mut b2: i32,
-    plane_height: i32,
-    basexscale: f32,
-    baseyscale: f32,
-    view_angle: Angle,
+    plane: &Visplane,
     span_start: &mut [i32; SCREENWIDTH],
+    texture_data: &TextureData,
     canvas: &mut Canvas<Surface>,
-    colour: Color,
 ) {
     while t1 < t2 && t1 <= b1 {
         map_plane(
             t1,
             span_start[t1 as usize],
             x - 1,
-            plane_height,
-            basexscale,
-            baseyscale,
-            view_angle,
+            plane,
+            texture_data,
             canvas,
-            colour,
         );
         t1 += 1;
     }
@@ -239,12 +259,9 @@ pub fn make_spans(
             b1,
             span_start[b1 as usize],
             x - 1,
-            plane_height,
-            basexscale,
-            baseyscale,
-            view_angle,
+            plane,
+            texture_data,
             canvas,
-            colour,
         );
         b1 -= 1;
     }
@@ -260,42 +277,9 @@ pub fn make_spans(
     }
 }
 
-fn map_plane(
-    y: i32,
-    x1: i32,
-    x2: i32,
-    plane_height: i32,
-    basexscale: f32,
-    baseyscale: f32,
-    view_angle: Angle,
-    canvas: &mut Canvas<Surface>,
-    colour: Color,
-) {
-    // TODO: maybe cache?
-    let distance = plane_height * y / 1000; // TODO: yslope
-    let ds_xstep = 1.0; //distance as f32 * basexscale;
-    let ds_ystep = distance as f32 * baseyscale;
-
-    let length = distance as f32 * 0.5; // TODO: distscale table
-    let angle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[x1 as usize];
-    let ds_xfrac = view_angle.unit().x() + angle.cos() * length;
-    let ds_yfrac = view_angle.unit().y() + angle.sin() * length;
-
-    let ds_y = y as f32;
-    let ds_x1 = x1 as f32;
-    let ds_x2 = x2 as f32;
-
-    let mut ds = DrawSpan::new(
-        // texture_column,
-        // colourmap,
-        ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
-    );
-    ds.draw_(canvas, colour);
-}
-
-pub struct DrawSpan {
-    // texture_column: &'a [usize],
-    // colourmap: &'a [usize],
+pub struct DrawSpan<'a> {
+    texture_column: &'a [usize],
+    colourmap: &'a [usize],
     ds_xstep: f32,
     ds_ystep: f32,
     ds_xfrac: f32,
@@ -305,10 +289,10 @@ pub struct DrawSpan {
     ds_x2: f32,
 }
 
-impl DrawSpan {
+impl<'a> DrawSpan<'a> {
     pub fn new(
-        // texture_column: &'a [usize],
-        // colourmap: &'a [usize],
+        texture_column: &'a [usize],
+        colourmap: &'a [usize],
         ds_xstep: f32,
         ds_ystep: f32,
         ds_xfrac: f32,
@@ -318,8 +302,8 @@ impl DrawSpan {
         ds_x2: f32,
     ) -> Self {
         Self {
-            // texture_column,
-            // colourmap,
+            texture_column,
+            colourmap,
             ds_xstep,
             ds_ystep,
             ds_xfrac,
@@ -330,11 +314,28 @@ impl DrawSpan {
         }
     }
 
-    //fn draw_(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
-    fn draw_(&mut self, canvas: &mut Canvas<Surface>, colour: Color) {
-        canvas.set_draw_color(colour);
+    fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+        for s in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
+            let mut select = s as i32 & 127;
+            while select >= self.texture_column.len() as i32 {
+                select -= self.texture_column.len() as i32;
+            }
+            if select >= self.texture_column.len() as i32
+                || self.texture_column[select as usize] as usize == usize::MAX
+            {
+                select = 0;
+            }
 
-        for _ in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
+            let px = self.colourmap[self.texture_column[select as usize]];
+            let colour = if px == usize::MAX {
+                // ERROR COLOUR
+                sdl2::pixels::Color::RGBA(255, 0, 0, 255)
+            } else {
+                let colour = textures.palette(0)[px];
+                sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
+            };
+
+            canvas.set_draw_color(colour);
             canvas
                 .fill_rect(Rect::new(self.ds_x1 as i32, self.ds_y as i32, 1, 1))
                 .unwrap();
