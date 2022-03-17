@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr::NonNull};
 
-use doom_lib::Segment;
+use doom_lib::{Angle, Segment};
 
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;
@@ -78,12 +78,15 @@ pub struct Visplane {
     pub lightlevel: u32,
     pub minx: i32,
     pub maxx: i32,
-    // TODO: resolution stuff
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
     pub top: [u8; SCREENWIDTH],
     /// See above.
     pub bottom: [u8; SCREENWIDTH],
+
+    pub basexscale: f32,
+    pub baseyscale: f32,
+    pub view_angle: Angle,
 }
 
 impl Debug for Visplane {
@@ -132,6 +135,10 @@ impl Default for Visplane {
             maxx: 0,
             top: [0xff; SCREENWIDTH],
             bottom: [0; SCREENWIDTH],
+
+            basexscale: 0.0,
+            baseyscale: 0.0,
+            view_angle: Angle::default(),
         }
     }
 }
