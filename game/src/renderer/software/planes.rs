@@ -210,16 +210,14 @@ fn map_plane(
     canvas: &mut Canvas<Surface>,
 ) {
     // TODO: maybe cache?
-    // yslope[i] = FixedDiv((viewwidth << detailshift) / 2 * FRACUNIT, dy);
-    // dy = ((i - viewheight / 2) << FRACBITS) + FRACUNIT / 2; // where i == y pos on screen 0->height
-    let distance = plane.height as f32 * (160.0 / (2.0 * (y as f32 - 100.0 + 0.5)));
+    let distance = plane.height as f32 * (160.0 / (y as f32 - 100.0 + 0.5).abs()); // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;
 
-    let length = distance * CLASSIC_SCREEN_X_TO_VIEW[x1 as usize] * 180.0 / PI;
+    let length = distance * (1.0 / (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize] * 180.0 / PI).cos().abs());
     let angle = plane.view_angle + CLASSIC_SCREEN_X_TO_VIEW[x1 as usize];
     let ds_xfrac = plane.view_angle.unit().x() + angle.cos() * length;
-    let ds_yfrac = plane.view_angle.unit().y() + angle.sin() * length;
+    let ds_yfrac = -plane.view_angle.unit().y() + angle.sin() * length;
 
     let ds_y = y as f32;
     let ds_x1 = x1 as f32;
@@ -320,7 +318,7 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
         for s in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
-            let mut select = (self.ds_xfrac as i32 & self.ds_yfrac as i32) as i32 & 127;
+            let mut select = (self.ds_xfrac * (self.ds_yfrac / 6.66)) as i32 & 127;
             while select >= self.texture_column.len() as i32 {
                 select -= self.texture_column.len() as i32;
             }
