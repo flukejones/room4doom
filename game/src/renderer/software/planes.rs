@@ -1,4 +1,7 @@
-use std::{f32::consts::FRAC_PI_2, rc::Rc};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    rc::Rc,
+};
 
 use doom_lib::{Angle, TextureData};
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
@@ -91,9 +94,8 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle.rad() - FRAC_PI_2).cos() / SCREENWIDTH as f32;
-        self.baseyscale =
-            -(SCREENWIDTH as f32 / (view_angle.rad() - FRAC_PI_2).sin() / SCREENWIDTH as f32);
+        self.basexscale = view_angle.cos() / SCREENWIDTH as f32 / 2.0;
+        self.baseyscale = -(view_angle.sin() / SCREENWIDTH as f32 / 2.0);
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
@@ -208,11 +210,13 @@ fn map_plane(
     canvas: &mut Canvas<Surface>,
 ) {
     // TODO: maybe cache?
-    let distance = plane.height as i32 * y / 1000; // TODO: yslope
-    let ds_xstep = 1.0; //distance as f32 * plane.basexscale;
-    let ds_ystep = 1.0; //distance as f32 * plane.baseyscale;
+    // yslope[i] = FixedDiv((viewwidth << detailshift) / 2 * FRACUNIT, dy);
+    // dy = ((i - viewheight / 2) << FRACBITS) + FRACUNIT / 2; // where i == y pos on screen 0->height
+    let distance = plane.height as f32 * (160.0 / (2.0 * (y as f32 - 100.0 + 0.5)));
+    let ds_xstep = distance * plane.basexscale;
+    let ds_ystep = distance * plane.baseyscale;
 
-    let length = distance as f32 * 0.5; // TODO: distscale table
+    let length = distance * CLASSIC_SCREEN_X_TO_VIEW[x1 as usize] * 180.0 / PI;
     let angle = plane.view_angle + CLASSIC_SCREEN_X_TO_VIEW[x1 as usize];
     let ds_xfrac = plane.view_angle.unit().x() + angle.cos() * length;
     let ds_yfrac = plane.view_angle.unit().y() + angle.sin() * length;
@@ -221,7 +225,7 @@ fn map_plane(
     let ds_x1 = x1 as f32;
     let ds_x2 = x2 as f32;
 
-    let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
+    let flat = texture_data.texture_column(plane.picnum, angle.rad() as i32);
     let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, 0.7);
 
     let mut ds = DrawSpan::new(
@@ -316,7 +320,7 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
         for s in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
-            let mut select = s as i32 & 127;
+            let mut select = (self.ds_xfrac as i32 & self.ds_yfrac as i32) as i32 & 127;
             while select >= self.texture_column.len() as i32 {
                 select -= self.texture_column.len() as i32;
             }
@@ -337,9 +341,11 @@ impl<'a> DrawSpan<'a> {
 
             canvas.set_draw_color(colour);
             canvas
-                .fill_rect(Rect::new(self.ds_x1 as i32, self.ds_y as i32, 1, 1))
+                .fill_rect(Rect::new(s as i32, self.ds_y as i32, 1, 1))
                 .unwrap();
-            self.ds_x1 += self.ds_xstep;
+
+            self.ds_xfrac += self.ds_xstep;
+            self.ds_yfrac += self.ds_ystep;
         }
     }
 }
