@@ -338,7 +338,7 @@ impl<'a> DrawSpan<'a> {
             while x >= self.texture.data.len() as i32 {
                 x -= self.texture.data.len() as i32;
             }
-            
+
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
             let colour = if px == usize::MAX {
                 // ERROR COLOUR

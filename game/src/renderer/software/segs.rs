@@ -1,11 +1,6 @@
 use doom_lib::{Angle, LineDefFlags, Player, Segment, TextureData};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-use std::{
-    cell::RefCell,
-    f32::consts::{FRAC_PI_2},
-    ptr::NonNull,
-    rc::Rc,
-};
+use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
 
