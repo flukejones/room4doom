@@ -38,19 +38,29 @@ pub fn init_animations(textures: &TextureData) -> Vec<Animation> {
             } else {
                 continue;
             }
-            //TODO: temporary texture only
-            animation.is_texture = def.is_texture;
-            animation.numpics = animation.picnum - animation.basepic + 1;
-            if animation.numpics < 2 {
-                panic!(
-                    "init_animations: bad cycle from {} to {}",
-                    def.start_name, def.end_name
-                );
+        } else {
+            if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
+                if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
+                    animation.picnum = end_num;
+                    animation.basepic = start_num;
+                }
+            } else {
+                continue;
             }
-            animation.speed = def.speed;
-
-            anims.push(animation);
         }
+
+        //TODO: temporary texture only
+        animation.is_texture = def.is_texture;
+        animation.numpics = animation.picnum - animation.basepic + 1;
+        if animation.numpics < 2 {
+            panic!(
+                "init_animations: bad cycle from {} to {}",
+                def.start_name, def.end_name
+            );
+        }
+        animation.speed = def.speed;
+
+        anims.push(animation);
     }
     info!("Initialised animated textures");
 

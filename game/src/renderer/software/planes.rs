@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use doom_lib::{Angle, TextureData, Texture, Flat};
+use doom_lib::{Angle, Flat, Texture, TextureData};
 use glam::Vec2;
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
 
@@ -95,7 +95,7 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle  - FRAC_PI_2).cos() / (SCREENWIDTH as f32 / 2.0);
+        self.basexscale = (view_angle - FRAC_PI_2).cos() / (SCREENWIDTH as f32 / 2.0);
         self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (SCREENWIDTH as f32 / 2.0));
     }
 
@@ -264,39 +264,23 @@ fn map_plane(
     texture_data: &TextureData,
     canvas: &mut Canvas<Surface>,
 ) {
-    let planeheight = plane.height as f32 - viewz;
+    let planeheight = (plane.height as f32 - viewz).abs();
     // TODO: maybe cache?
     let dy = (y as f32 - SCREENHEIGHT as f32 / 2.0) + 0.5; // OK
-    let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs();    // OK
+    let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs(); // OK
     let distance = planeheight as f32 * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let length = distance * (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians().cos().abs());
-    // Posssible issue here
+    let distscale = CLASSIC_SCREEN_X_TO_VIEW[x1 as usize]
+        .to_radians()
+        .cos()
+        .abs();
+    let length = distance * (1.0 / distscale);
     let angle = plane.view_angle + (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians());
     let ds_xfrac = viewxy.x() + angle.cos() * length;
     let ds_yfrac = -viewxy.y() - angle.sin() * length;
-
-        // distance: 690.526184
-        // basexscale: 0.006241
-        // baseyscale: 0.000000
-        // ds_xstep: 4.309464
-        // ds_ystep: 0.000000
-        // length: 723.389816
-        // ds_xfrac: 1271.551086
-        // ds_yfrac: 2925.481506
-    // if distance > 680.0 && distance < 700.0 {
-    //     dbg!(distance);
-    //     dbg!(plane.basexscale);
-    //     dbg!(plane.baseyscale);
-    //     dbg!(ds_xstep);
-    //     dbg!(ds_ystep);
-    //     dbg!(length);
-        // dbg!(ds_xfrac);
-        // dbg!(ds_yfrac);
-    // }
 
     let ds_y = y as f32;
     let ds_x1 = x1 as f32;
@@ -304,7 +288,7 @@ fn map_plane(
 
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
     let flat = texture_data.get_flat(plane.picnum);
-    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, 0.7);
+    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, distance);
 
     let mut ds = DrawSpan::new(
         flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,

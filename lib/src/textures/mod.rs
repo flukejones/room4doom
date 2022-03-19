@@ -264,14 +264,17 @@ impl TextureData {
 
     // TODO: fix for flats
     pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
+        let mut dist = (wall_scale as i32 >> 5) * 4;
         let light_level = light_level >> 4;
 
-        let mut colourmap = (wall_scale * 15.8).round() as usize;
-        if colourmap > 47 {
-            colourmap = 47;
+        dist = 47 - dist;
+        if dist > 47 {
+            dist = 47;
+        } else if dist < 0 {
+            dist = 0;
         }
 
-        &self.lightscale[light_level as usize][colourmap]
+        &self.lightscale[light_level as usize][dist as usize]
     }
 
     pub fn get_texture(&self, num: usize) -> &Texture {
@@ -286,6 +289,15 @@ impl TextureData {
 
     pub fn texture_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.walls.iter().enumerate() {
+            if tex.name == name {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    pub fn flat_num_for_name(&self, name: &str) -> Option<usize> {
+        for (i, tex) in self.flats.iter().enumerate() {
             if tex.name == name {
                 return Some(i);
             }
