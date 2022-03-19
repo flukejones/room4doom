@@ -35,6 +35,7 @@
 [ ] - Load sprites
 [ ] - fixed-colourmap (special effects)
 [ ] - Lump cache isn't actually being fully used, use it!
+[ ] - Fix the types in texture module
 
 Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display
@@ -84,3 +85,4 @@ mid = self.pixhigh - 1.0;
                     }
 ```
 yl, yh, pishigh, pixlow - all not quite right.
+

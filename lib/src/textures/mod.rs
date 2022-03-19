@@ -262,9 +262,9 @@ impl TextureData {
             light_level += 1;
         }
 
-        let mut colourmap = (wall_scale * 15.8).round() as i32;
-        if colourmap >= MAXLIGHTSCALE {
-            colourmap = MAXLIGHTSCALE - 1;
+        let mut colourmap = (wall_scale * 15.8).round() as u32;
+        if colourmap >= MAXLIGHTSCALE as u32 -1 {
+            colourmap = MAXLIGHTSCALE as u32 - 1;
         }
 
         &self.lightscale[light_level as usize][colourmap as usize]
@@ -272,14 +272,11 @@ impl TextureData {
 
     // TODO: fix for flats
     pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
-        let mut dist = wall_scale as i32 >> 4;
+        let mut dist = (wall_scale as i32 >> 4) as u32;
         let light_level = light_level >> 4;
 
-        // let mut dist = 47 - dist as i32;
-        if dist >= MAXLIGHTZ {
-            dist = MAXLIGHTZ - 1;
-        } else if dist < 0 {
-            dist = 0;
+        if dist >= MAXLIGHTZ as u32 - 1 {
+            dist = MAXLIGHTZ as u32 - 1;
         }
 
         &self.zlight[light_level as usize][dist as usize]
