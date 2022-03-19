@@ -263,7 +263,7 @@ impl TextureData {
         }
 
         let mut colourmap = (wall_scale * 15.8).round() as u32;
-        if colourmap >= MAXLIGHTSCALE as u32 -1 {
+        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
             colourmap = MAXLIGHTSCALE as u32 - 1;
         }
 

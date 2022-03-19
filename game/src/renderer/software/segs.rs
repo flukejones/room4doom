@@ -2,7 +2,7 @@ use doom_lib::{Angle, LineDefFlags, Player, Segment, TextureData};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     cell::RefCell,
-    f32::consts::{FRAC_PI_2, PI},
+    f32::consts::{FRAC_PI_2},
     ptr::NonNull,
     rc::Rc,
 };
@@ -167,11 +167,11 @@ impl SegRender {
         let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize] * PI / 180.0; // degrees not rads
+        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize].to_radians(); // degrees not rads
         self.rw_scale =
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
-        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize] * PI / 180.0;
+        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize].to_radians();
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -516,9 +516,7 @@ impl SegRender {
             let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle =
-                    self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize] * PI / 180.0;
-                // angle =
-                //     self.rw_centerangle + screen_to_x_view(self.rw_x);// * PI / 180.0;
+                    self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize].to_radians();
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;

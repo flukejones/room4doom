@@ -96,8 +96,8 @@ impl Node {
         // In reality this hardly ever fires for BB
         for i in (0..=steps as u32).rev().step_by(step_size) {
             // From center outwards
-            let left_fov = origin_ang + (i as f32 * PI / 180.0); // convert the step to rads
-            let right_fov = origin_ang - (i as f32 * PI / 180.0);
+            let left_fov = origin_ang + (i as f32).to_radians();
+            let right_fov = origin_ang - (i as f32).to_radians();
             // We don't need the result from this, just need to know if it's "None"
             if ray_to_line_intersect(origin_v, left_fov, top_left, bottom_right).is_some() {
                 return true;
