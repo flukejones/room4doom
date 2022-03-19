@@ -120,6 +120,8 @@ impl SoftwareRenderer {
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
         let view_angle = mobj.angle;
 
+        let basexscale = self.r_data.visplanes.basexscale;
+        let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let texture_data = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..visplanes.lastvisplane] {
@@ -163,8 +165,8 @@ impl SoftwareRenderer {
             if plane.minx as usize > 0 {
                 plane.top[plane.minx as usize - 1] = 0xff;
             }
-            plane.basexscale = 0.5;
-            plane.baseyscale = 0.5;
+            plane.basexscale = basexscale;
+            plane.baseyscale = baseyscale;
             plane.view_angle = view_angle;
 
             let mut span_start = [0; SCREENWIDTH];
@@ -179,6 +181,8 @@ impl SoftwareRenderer {
                     plane.bottom[step as usize] as i32,
                     plane.top[x as usize] as i32,
                     plane.bottom[x as usize] as i32,
+                    mobj.xy,
+                    player.viewz,
                     plane,
                     &mut span_start,
                     &texture_data,
@@ -299,7 +303,7 @@ impl SoftwareRenderer {
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
-                subsect.sector.floorheight as u32,
+                subsect.sector.floorheight as i32,
                 subsect.sector.floorpic,
                 skynum,
                 subsect.sector.lightlevel as u32,
@@ -310,7 +314,7 @@ impl SoftwareRenderer {
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
-                subsect.sector.ceilingheight as u32,
+                subsect.sector.ceilingheight as i32,
                 subsect.sector.ceilingpic,
                 skynum,
                 subsect.sector.lightlevel as u32,

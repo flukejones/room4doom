@@ -279,6 +279,11 @@ impl TextureData {
         &self.walls[num]
     }
 
+    pub fn get_flat(&self, num: usize) -> &Flat {
+        let num = self.flat_translation[num];
+        &self.flats[num]
+    }
+
     pub fn texture_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.walls.iter().enumerate() {
             if tex.name == name {

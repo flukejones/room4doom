@@ -73,7 +73,7 @@ pub struct ClipRange {
 /// Now what is a visplane, anyway?
 #[derive(Copy, Clone)]
 pub struct Visplane {
-    pub height: u32,
+    pub height: i32,
     pub picnum: usize,
     pub lightlevel: u32,
     pub minx: i32,
