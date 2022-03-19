@@ -14,6 +14,7 @@ use wad::{
 
 use crate::doom_def::GameMode;
 
+const MAXLIGHTZ: i32 = 128;
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
@@ -37,6 +38,7 @@ pub struct TextureData {
     // Usually 34 blocks of 256, each u8 being an index in to the palette
     colourmap: Vec<Vec<usize>>,
     lightscale: Vec<Vec<Vec<usize>>>,
+    zlight: Vec<Vec<Vec<usize>>>,
     /// Indexing is [texture num][x][y]
     walls: Vec<Texture>,
     wall_translation: Vec<usize>,
@@ -75,19 +77,24 @@ impl TextureData {
             })
             .collect();
 
-        // for i in 0..LIGHTLEVELS {
-        //     // TODO: const LIGHTLEVELS
-        //     let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
-        //     for j in 0..MAXLIGHTSCALE {
-        //         let mut level = startmap - j / 2;
-        //         if level < 0 {
-        //             level = 0;
-        //         }
-        //         if level >= NUMCOLORMAPS {
-        //             level = NUMCOLORMAPS - 1;
-        //         }
-        //     }
-        // }
+        let zlight: Vec<Vec<Vec<usize>>> = (0..LIGHTLEVELS)
+            .map(|i| {
+                let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+                (0..MAXLIGHTZ)
+                    .map(|j| {
+                        let scale = 160.0 / (j + 1) as f32;
+                        let mut level = (startmap as f32 - scale / 2.0) as i32;
+                        if level < 0 {
+                            level = 0;
+                        }
+                        if level >= NUMCOLORMAPS {
+                            level = NUMCOLORMAPS - 1;
+                        }
+                        colourmap[level as usize].to_owned()
+                    })
+                    .collect()
+            })
+            .collect();
 
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
         let mut textures: Vec<Texture> = wad
@@ -153,6 +160,7 @@ impl TextureData {
             palettes,
             colourmap,
             lightscale,
+            zlight,
             walls: textures,
             wall_translation,
             skyflatnum: skynum,
@@ -254,27 +262,27 @@ impl TextureData {
             light_level += 1;
         }
 
-        let mut colourmap = (wall_scale * 15.8).round() as usize;
-        if colourmap > 47 {
-            colourmap = 47;
+        let mut colourmap = (wall_scale * 15.8).round() as i32;
+        if colourmap >= MAXLIGHTSCALE {
+            colourmap = MAXLIGHTSCALE - 1;
         }
 
-        &self.lightscale[light_level as usize][colourmap]
+        &self.lightscale[light_level as usize][colourmap as usize]
     }
 
     // TODO: fix for flats
     pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
-        let mut dist = (wall_scale as i32 >> 5) * 4;
+        let mut dist = wall_scale as i32 >> 4;
         let light_level = light_level >> 4;
 
-        dist = 47 - dist;
-        if dist > 47 {
-            dist = 47;
+        // let mut dist = 47 - dist as i32;
+        if dist >= MAXLIGHTZ {
+            dist = MAXLIGHTZ - 1;
         } else if dist < 0 {
             dist = 0;
         }
 
-        &self.lightscale[light_level as usize][dist as usize]
+        &self.zlight[light_level as usize][dist as usize]
     }
 
     pub fn get_texture(&self, num: usize) -> &Texture {
