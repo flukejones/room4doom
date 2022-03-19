@@ -69,10 +69,10 @@ impl WadPatch {
         for q in 0..width {
             let tmp = 8 + 4 * q as usize;
             let mut offset =
-                u32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
+                i32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
                     as usize;
             loop {
-                let y_offset = data[offset] as u32;
+                let y_offset = data[offset] as i32;
                 if y_offset == 255 {
                     columns.push(WadPatchCol {
                         y_offset,
@@ -82,7 +82,7 @@ impl WadPatch {
                 }
 
                 offset += 1;
-                let len = data[offset] as u32;
+                let len = data[offset] as i32;
                 offset += 1;
                 columns.push(WadPatchCol {
                     y_offset,
@@ -116,7 +116,7 @@ impl WadPatch {
 pub struct WadPatchCol {
     /// Determines where on the column the pixel stream starts.
     /// An 0xFF terminates the patch data.
-    pub y_offset: u32,
+    pub y_offset: i32,
     /// Every `usize` here is an index in to the play palette
     pub pixels: Vec<usize>,
 }

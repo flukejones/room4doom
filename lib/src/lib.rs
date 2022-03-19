@@ -35,7 +35,7 @@ pub use play::{
     map_object::MapObject,
     player::{Player, PlayerCheat},
 };
-pub use textures::{Texture, TextureData};
+pub use textures::{Texture, Flat, TextureData};
 
 pub use log;
 

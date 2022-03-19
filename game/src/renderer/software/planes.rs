@@ -3,7 +3,8 @@ use std::{
     rc::Rc,
 };
 
-use doom_lib::{Angle, TextureData};
+use doom_lib::{Angle, TextureData, Texture, Flat};
+use glam::Vec2;
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
 
 use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
@@ -94,14 +95,14 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = view_angle.cos() / SCREENWIDTH as f32 / 2.0;
-        self.baseyscale = -(view_angle.sin() / SCREENWIDTH as f32 / 2.0);
+        self.basexscale = (view_angle  - FRAC_PI_2).cos() / (SCREENWIDTH as f32 / 2.0);
+        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (SCREENWIDTH as f32 / 2.0));
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
     pub fn find_plane<'a>(
         &'a mut self,
-        mut height: u32,
+        mut height: i32,
         picnum: usize,
         skynum: usize,
         mut light_level: u32,
@@ -201,44 +202,14 @@ impl VisPlaneRender {
     }
 }
 
-fn map_plane(
-    y: i32,
-    x1: i32,
-    x2: i32,
-    plane: &Visplane,
-    texture_data: &TextureData,
-    canvas: &mut Canvas<Surface>,
-) {
-    // TODO: maybe cache?
-    let distance = plane.height as f32 * (160.0 / (y as f32 - 100.0 + 0.5).abs()); // OK
-    let ds_xstep = distance * plane.basexscale;
-    let ds_ystep = distance * plane.baseyscale;
-
-    let length = distance * (1.0 / (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize] * 180.0 / PI).cos().abs());
-    let angle = plane.view_angle + CLASSIC_SCREEN_X_TO_VIEW[x1 as usize];
-    let ds_xfrac = plane.view_angle.unit().x() + angle.cos() * length;
-    let ds_yfrac = -plane.view_angle.unit().y() + angle.sin() * length;
-
-    let ds_y = y as f32;
-    let ds_x1 = x1 as f32;
-    let ds_x2 = x2 as f32;
-
-    let flat = texture_data.texture_column(plane.picnum, angle.rad() as i32);
-    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, 0.7);
-
-    let mut ds = DrawSpan::new(
-        flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
-    );
-
-    ds.draw(texture_data, canvas);
-}
-
 pub fn make_spans(
     x: i32,
     mut t1: i32,
     mut b1: i32,
     mut t2: i32,
     mut b2: i32,
+    viewxy: Vec2,
+    viewz: f32,
     plane: &Visplane,
     span_start: &mut [i32; SCREENWIDTH],
     texture_data: &TextureData,
@@ -249,6 +220,8 @@ pub fn make_spans(
             t1,
             span_start[t1 as usize],
             x - 1,
+            viewxy,
+            viewz,
             plane,
             texture_data,
             canvas,
@@ -261,6 +234,8 @@ pub fn make_spans(
             b1,
             span_start[b1 as usize],
             x - 1,
+            viewxy,
+            viewz,
             plane,
             texture_data,
             canvas,
@@ -279,8 +254,67 @@ pub fn make_spans(
     }
 }
 
+fn map_plane(
+    y: i32,
+    x1: i32,
+    x2: i32,
+    viewxy: Vec2,
+    viewz: f32,
+    plane: &Visplane,
+    texture_data: &TextureData,
+    canvas: &mut Canvas<Surface>,
+) {
+    let planeheight = plane.height as f32 - viewz;
+    // TODO: maybe cache?
+    let dy = (y as f32 - SCREENHEIGHT as f32 / 2.0) + 0.5; // OK
+    let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs();    // OK
+    let distance = planeheight as f32 * yslope; // OK
+    let ds_xstep = distance * plane.basexscale;
+    let ds_ystep = distance * plane.baseyscale;
+
+    // distance * distscale[i]
+    let length = distance * (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians().cos().abs());
+    // Posssible issue here
+    let angle = plane.view_angle + (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians());
+    let ds_xfrac = viewxy.x() + angle.cos() * length;
+    let ds_yfrac = -viewxy.y() - angle.sin() * length;
+
+        // distance: 690.526184
+        // basexscale: 0.006241
+        // baseyscale: 0.000000
+        // ds_xstep: 4.309464
+        // ds_ystep: 0.000000
+        // length: 723.389816
+        // ds_xfrac: 1271.551086
+        // ds_yfrac: 2925.481506
+    // if distance > 680.0 && distance < 700.0 {
+    //     dbg!(distance);
+    //     dbg!(plane.basexscale);
+    //     dbg!(plane.baseyscale);
+    //     dbg!(ds_xstep);
+    //     dbg!(ds_ystep);
+    //     dbg!(length);
+        // dbg!(ds_xfrac);
+        // dbg!(ds_yfrac);
+    // }
+
+    let ds_y = y as f32;
+    let ds_x1 = x1 as f32;
+    let ds_x2 = x2 as f32;
+
+    // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
+    let flat = texture_data.get_flat(plane.picnum);
+    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, 0.7);
+
+    let mut ds = DrawSpan::new(
+        flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
+    );
+
+    ds.draw(texture_data, canvas);
+}
+
 pub struct DrawSpan<'a> {
-    texture_column: &'a [usize],
+    texture: &'a Flat,
     colourmap: &'a [usize],
     ds_xstep: f32,
     ds_ystep: f32,
@@ -293,7 +327,7 @@ pub struct DrawSpan<'a> {
 
 impl<'a> DrawSpan<'a> {
     pub fn new(
-        texture_column: &'a [usize],
+        texture: &'a Flat,
         colourmap: &'a [usize],
         ds_xstep: f32,
         ds_ystep: f32,
@@ -304,7 +338,7 @@ impl<'a> DrawSpan<'a> {
         ds_x2: f32,
     ) -> Self {
         Self {
-            texture_column,
+            texture,
             colourmap,
             ds_xstep,
             ds_ystep,
@@ -317,18 +351,38 @@ impl<'a> DrawSpan<'a> {
     }
 
     fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+        // These make the screen destination
+        // for (i = 0; i < height; i++)
+        // ylookup[i] = I_VideoBuffer + (i + viewwindowy) * SCREENWIDTH;
+        // and
+        // for (i = 0; i < width; i++)
+        // columnofs[i] = viewwindowx + i;
+        //
+        //
+
         for s in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
-            let mut select = (self.ds_xfrac * (self.ds_yfrac / 6.66)) as i32 & 127;
-            while select >= self.texture_column.len() as i32 {
-                select -= self.texture_column.len() as i32;
+            let mut x = self.ds_xfrac as i32 & 127; // (self.ds_xfrac.abs()) as usize;
+            let mut y = self.ds_yfrac as i32 & 127; //  (self.ds_yfrac.abs()) as usize;
+
+            while y >= self.texture.data[0].len() as i32 {
+                y -= self.texture.data[0].len() as i32;
             }
-            if select >= self.texture_column.len() as i32
-                || self.texture_column[select as usize] as usize == usize::MAX
+            if y >= self.texture.data[0].len() as i32
+                || self.texture.data[0][y as usize] as usize == usize::MAX
             {
-                select = 0;
+                y = 0;
             }
 
-            let px = self.colourmap[self.texture_column[select as usize]];
+            while x >= self.texture.data.len() as i32 {
+                x -= self.texture.data.len() as i32;
+            }
+            if x >= self.texture.data.len() as i32
+                || self.texture.data[x as usize][0] as usize == usize::MAX
+            {
+                x = 0;
+            }
+
+            let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
             let colour = if px == usize::MAX {
                 // ERROR COLOUR
                 sdl2::pixels::Color::RGBA(255, 0, 0, 255)
