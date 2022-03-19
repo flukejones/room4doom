@@ -123,14 +123,13 @@ impl SoftwareRenderer {
         let basexscale = self.r_data.visplanes.basexscale;
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
-        let texture_data = self.texture_data.borrow();
+        let textures = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;
             }
 
             if plane.picnum == self.texture_data.borrow().skyflatnum() {
-                let textures = self.texture_data.borrow();
                 let colourmap = textures.get_colourmap(0);
                 let sky_mid = SCREENHEIGHT_HALF;
                 let skytex = textures.skytex();
@@ -185,7 +184,7 @@ impl SoftwareRenderer {
                     player.viewz,
                     plane,
                     &mut span_start,
-                    &texture_data,
+                    &textures,
                     canvas,
                 )
             }

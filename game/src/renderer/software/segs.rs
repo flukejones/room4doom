@@ -10,10 +10,7 @@ use std::{
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
 
 use super::{
-    defs::{
-        DrawSeg, MAXDRAWSEGS, SCREENHEIGHT, SCREENHEIGHT_HALF, SIL_BOTH, SIL_BOTTOM, SIL_NONE,
-        SIL_TOP,
-    },
+    defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT_HALF, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
     RenderData,
 };
 
