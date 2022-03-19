@@ -1,17 +1,14 @@
-use std::{
-    f32::consts::{FRAC_PI_2, PI},
-    rc::Rc,
-};
+use std::f32::consts::FRAC_PI_2;
 
-use doom_lib::{Angle, Flat, Texture, TextureData};
+use doom_lib::{Angle, Flat, TextureData};
 use glam::Vec2;
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 
-pub const MAXVISPLANES: usize = 512;
+pub const MAXVISPLANES: usize = 256;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -95,8 +92,8 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle - FRAC_PI_2).cos() / (SCREENWIDTH as f32 / 2.0);
-        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (SCREENWIDTH as f32 / 2.0));
+        self.basexscale = (view_angle - FRAC_PI_2).cos() / (SCREENWIDTH / 2) as f32;
+        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (SCREENWIDTH / 2) as f32);
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
@@ -124,8 +121,9 @@ impl VisPlaneRender {
         }
 
         if self.lastvisplane < len - 1 {
-            //panic!("SHIT");
             self.lastvisplane += 1;
+        } else {
+            panic!("Out of visplanes");
         }
 
         // Otherwise edit new
@@ -282,17 +280,11 @@ fn map_plane(
     let ds_xfrac = viewxy.x() + angle.cos() * length;
     let ds_yfrac = -viewxy.y() - angle.sin() * length;
 
-    let ds_y = y as f32;
-    let ds_x1 = x1 as f32;
-    let ds_x2 = x2 as f32;
-
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
     let flat = texture_data.get_flat(plane.picnum);
     let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, distance);
 
-    let mut ds = DrawSpan::new(
-        flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, ds_y, ds_x1, ds_x2,
-    );
+    let mut ds = DrawSpan::new(flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2);
 
     ds.draw(texture_data, canvas);
 }
@@ -304,9 +296,9 @@ pub struct DrawSpan<'a> {
     ds_ystep: f32,
     ds_xfrac: f32,
     ds_yfrac: f32,
-    ds_y: f32,
-    ds_x1: f32,
-    ds_x2: f32,
+    ds_y: i32,
+    ds_x1: i32,
+    ds_x2: i32,
 }
 
 impl<'a> DrawSpan<'a> {
@@ -317,9 +309,9 @@ impl<'a> DrawSpan<'a> {
         ds_ystep: f32,
         ds_xfrac: f32,
         ds_yfrac: f32,
-        ds_y: f32,
-        ds_x1: f32,
-        ds_x2: f32,
+        ds_y: i32,
+        ds_x1: i32,
+        ds_x2: i32,
     ) -> Self {
         Self {
             texture,
@@ -335,37 +327,18 @@ impl<'a> DrawSpan<'a> {
     }
 
     fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
-        // These make the screen destination
-        // for (i = 0; i < height; i++)
-        // ylookup[i] = I_VideoBuffer + (i + viewwindowy) * SCREENWIDTH;
-        // and
-        // for (i = 0; i < width; i++)
-        // columnofs[i] = viewwindowx + i;
-        //
-        //
-
-        for s in self.ds_x1 as i32..=self.ds_x2 as i32 + 1 {
-            let mut x = self.ds_xfrac as i32 & 127; // (self.ds_xfrac.abs()) as usize;
-            let mut y = self.ds_yfrac as i32 & 127; //  (self.ds_yfrac.abs()) as usize;
+        for s in self.ds_x1..=self.ds_x2 + 1 {
+            let mut x = self.ds_xfrac.abs() as i32 & 127;
+            let mut y = self.ds_yfrac.abs() as i32 & 127;
 
             while y >= self.texture.data[0].len() as i32 {
                 y -= self.texture.data[0].len() as i32;
-            }
-            if y >= self.texture.data[0].len() as i32
-                || self.texture.data[0][y as usize] as usize == usize::MAX
-            {
-                y = 0;
             }
 
             while x >= self.texture.data.len() as i32 {
                 x -= self.texture.data.len() as i32;
             }
-            if x >= self.texture.data.len() as i32
-                || self.texture.data[x as usize][0] as usize == usize::MAX
-            {
-                x = 0;
-            }
-
+            
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
             let colour = if px == usize::MAX {
                 // ERROR COLOUR

@@ -4,7 +4,7 @@ use doom_lib::Angle;
 use glam::Vec2;
 
 // pub fn player_dist_to_screen() -> f32 {
-//     160.0 / (45.0f32 * PI / 180.0).tan()
+//     160.0 / (45.0f32.to_radians()).tan()
 // }
 
 // pub fn screen_to_x_view(x: i32) -> f32 {

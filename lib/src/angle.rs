@@ -76,7 +76,7 @@ impl Add<f32> for Angle {
 
 //     #[inline]
 //     fn add(self, other: i32) -> Angle {
-//         Angle::new(self.0 + other as f32 * PI / 180.0)
+//         Angle::new(self.0 + (other as f32).to_radians())
 //     }
 // }
 
@@ -99,7 +99,7 @@ impl AddAssign<f32> for Angle {
 // impl AddAssign<i32> for Angle{
 //     #[inline]
 //     fn add_assign(&mut self, other: i32) {
-//         self.0 += other as f32 * PI / 180.0;
+//         self.0 += (other as f32).to_radians();
 //         self.inner_wrap();
 //     }
 // }
@@ -129,7 +129,7 @@ impl Mul<f32> for Angle {
 
 //     #[inline]
 //     fn mul(self, other: i32) -> Angle {
-//         Angle::new(self.0 * (other as f32 * PI / 180.0))
+//         Angle::new(self.0 * (other as f32).to_radians())
 //     }
 // }
 
@@ -152,7 +152,7 @@ impl MulAssign<f32> for Angle {
 // impl MulAssign<i32> for Angle{
 //     #[inline]
 //     fn mul_assign(&mut self, other: i32) {
-//         self.0 *= other as f32 * PI / 180.0;
+//         self.0 *= (other as f32).to_radians();
 //         self.inner_wrap();
 //     }
 // }
@@ -182,7 +182,7 @@ impl Sub<f32> for Angle {
 
 //     #[inline]
 //     fn sub(self, other: i32) -> Angle {
-//         Angle::new(self.0 - other as f32 * PI / 180.0)
+//         Angle::new(self.0 - (other as f32).to_radians())
 //     }
 // }
 
@@ -205,7 +205,7 @@ impl SubAssign<f32> for Angle {
 // impl SubAssign<i32> for Angle{
 //     #[inline]
 //     fn sub_assign(&mut self, other: i32) {
-//         self.0 -= other as f32 * PI / 180.0;
+//         self.0 -= (other as f32).to_radians();
 //         self.inner_wrap();
 //     }
 // }
@@ -235,7 +235,7 @@ impl Div<f32> for Angle {
 
 //     #[inline]
 //     fn div(self, other: i32) -> Angle {
-//         Angle::new(self.0 / (other as f32 * PI / 180.0))
+//         Angle::new(self.0 / (other as f32).to_radians()
 //     }
 // }
 
@@ -258,7 +258,7 @@ impl DivAssign<f32> for Angle {
 // impl DivAssign<i32> for Angle{
 //     #[inline]
 //     fn div_assign(&mut self, other: i32) {
-//         self.0 /= other as f32 * PI / 180.0;
+//         self.0 /= (other as f32).to_radians();
 //         self.inner_wrap();
 //     }
 // }

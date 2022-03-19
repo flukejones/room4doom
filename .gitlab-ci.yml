@@ -1,4 +1,4 @@
-image: rust:1.58
+image: rust:1.59
 
 .rust_cache: &rust_cache
   cache:
@@ -15,7 +15,7 @@ test:
   <<: *rust_cache
   script:
     - apt update
-    - apt install -y libsdl2-dev libsdl2-gfx-dev
+    - apt install -y libsdl2-dev libsdl2-gfx-dev cmake
     - cargo check --verbose --all
     - cargo test --verbose --all
 

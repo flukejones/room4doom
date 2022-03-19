@@ -464,7 +464,7 @@ impl MapObject {
         }
 
         // TODO: check this angle stuff
-        mobj_ptr_mut.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
+        mobj_ptr_mut.angle = Angle::new((mthing.angle as f32).to_radians());
         mobj_ptr_mut.health = player.health;
         mobj_ptr_mut.player = NonNull::new(player);
 
@@ -585,7 +585,7 @@ impl MapObject {
         }
 
         // TODO: check the angle is correct
-        mobj.angle = Angle::new(mthing.angle as f32 * PI / 180.0);
+        mobj.angle = Angle::new((mthing.angle as f32).to_radians());
         if mthing.flags & MTF_AMBUSH != 0 {
             mobj.flags |= MobjFlag::AMBUSH as u32;
         }

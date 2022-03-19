@@ -26,6 +26,7 @@
 [ ] - sound-server using rx/tx channels
 [ ] - HUD using rx/tx channels
 [ ] - doom2 m8 LowerAndChange, not implemented yet
+[ ] - Spans borked in E4M3 after first teleport (look at pad)
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
@@ -36,6 +37,9 @@
 [ ] - fixed-colourmap (special effects)
 [ ] - Lump cache isn't actually being fully used, use it!
 [ ] - Fix the types in texture module
+[ ] - Recheck planes
+[ ] - Colours seem off for darker areas?
+
 
 Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display
