@@ -356,6 +356,10 @@ impl MapData {
         info!("{}: Loaded subsectors", self.name);
 
         // NODES
+        // BOXTOP = 0
+        // BOXBOT = 1
+        // BOXLEFT = 2
+        // BOXRIGHT = 3
         self.nodes = wad
             .node_iter(&self.name)
             .map(|n| Node {

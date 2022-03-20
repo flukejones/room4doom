@@ -8,7 +8,7 @@ use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 
-pub const MAXVISPLANES: usize = 256 * 4;
+pub const MAXVISPLANES: usize = 256;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -111,14 +111,14 @@ impl VisPlaneRender {
 
         let len = self.visplanes.len();
 
-        for (index, plane) in self.visplanes[0..=self.lastvisplane].iter().enumerate() {
+        for (index, plane) in self.visplanes[0..self.lastvisplane].iter().enumerate() {
             if height == plane.height && picnum == plane.picnum && light_level == plane.lightlevel {
                 return index;
             }
         }
 
         if self.lastvisplane < len - 1 {
-           self.lastvisplane += 1;
+            self.lastvisplane += 1;
         } else {
             panic!("Out of visplanes");
         }
@@ -152,11 +152,8 @@ impl VisPlaneRender {
         } else {
             (stop, plane.maxx)
         };
-        // dbg!(start, stop);
-        // dbg!(intrl, intrh);
-        // dbg!(unionl, unionh);
 
-        for i in intrl..=(intrh + 2) {
+        for i in intrl..=(320) {
             if i > intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;

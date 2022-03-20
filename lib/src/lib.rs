@@ -28,7 +28,7 @@ pub use flags::LineDefFlags;
 pub use game::Game;
 pub use level_data::{
     map_data::{MapData, IS_SSECTOR_MASK},
-    map_defs::{Sector, Segment, SubSector},
+    map_defs::{Node, Sector, Segment, SubSector},
     Level,
 };
 pub use play::{
