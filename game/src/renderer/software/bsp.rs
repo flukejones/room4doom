@@ -124,7 +124,7 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
-        for plane in &mut visplanes.visplanes[0..visplanes.lastvisplane] {
+        for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;
             }

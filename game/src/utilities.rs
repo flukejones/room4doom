@@ -3,17 +3,17 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 use doom_lib::Angle;
 use glam::Vec2;
 
-// pub fn player_dist_to_screen() -> f32 {
-//     160.0 / (45.0f32.to_radians()).tan()
-// }
+fn player_dist_to_screen() -> f32 {
+    160.0 / (45.0f32.to_radians()).tan()
+}
 
-// pub fn screen_to_x_view(x: i32) -> f32 {
-//     let a = ((160.0 - x as f32) / player_dist_to_screen()).atan();// * 180.0 / PI;
-//     // if a < 0.0000001 {
-//     //     return 360.0 + a;
-//     // }
-//     a
-// }
+pub fn screen_to_x_view(x: i32) -> f32 {
+    let a = ((160.0 - x as f32) / player_dist_to_screen()).atan(); // * 180.0 / PI;
+                                                                   // if a < 0.0000001 {
+                                                                   //     return 360.0 + a;
+                                                                   // }
+    a
+}
 
 #[allow(clippy::excessive_precision)]
 pub static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
