@@ -162,7 +162,7 @@ impl SegRender {
         let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize].to_radians(); // degrees not rads
+        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize].to_radians();
         self.rw_scale =
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 

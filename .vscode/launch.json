@@ -77,12 +77,15 @@
             },
             "args": [
                 "--iwad",
-                "/home/luke/DOOM/doom2.wad",
+                "/home/luke/DOOM/doom.wad",
+                "--pwad",
+                "/home/luke/DOOM/sigil.wad",
                 "-w",
                 "1024",
                 "-h",
                 "768",
-                "-m4",
+                "-e5",
+                "-m2",
                 "-v",
                 "debug"
             ],

@@ -1,9 +1,44 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-use crate::level_data::map_defs::Node;
+use crate::{level_data::map_defs::Node, Angle};
 
 use crate::{play::utilities::ray_to_line_intersect, radian_range};
 use glam::Vec2;
+
+/// R_PointToAngle
+// To get a global angle from cartesian coordinates,
+//  the coordinates are flipped until they are in
+//  the first octant of the coordinate system, then
+//  the y (<=x) is scaled and divided by x to get a
+//  tangent (slope) value which is looked up in the
+//  tantoangle[] table.
+///
+/// The flipping isn't done here...
+pub fn vertex_angle_to_object(vertex: Vec2, vertex2: Vec2) -> Angle {
+    let x = vertex.x() - vertex2.x();
+    let y = vertex.y() - vertex2.y();
+    Angle::new(y.atan2(x))
+}
+
+pub fn angle_to_screen(mut radian: f32) -> i32 {
+    let mut x;
+
+    // Left side
+    let p = 160.9 / (FRAC_PI_4).tan();
+    if radian > FRAC_PI_2 {
+        radian -= FRAC_PI_2;
+        let t = radian.tan();
+        x = t * p;
+        x = p - x;
+    } else {
+        // Right side
+        radian = FRAC_PI_2 - radian;
+        let t = radian.tan();
+        x = t * p;
+        x += p;
+    }
+    x as i32
+}
 
 impl Node {
     /// R_PointOnSide
@@ -27,56 +62,6 @@ impl Node {
         {
             return true;
         }
-        false
-    }
-
-    /// half_fov must be in radians
-    /// R_CheckBBox - r_bsp
-    ///
-    /// TODO: solidsegs list
-    pub fn bb_extents_in_fov(
-        &self,
-        vec: &Vec2,
-        angle_rads: f32,
-        half_fov: f32,
-        side: usize,
-    ) -> bool {
-        let mut origin_ang = angle_rads;
-
-        let top_left = &self.bounding_boxes[side][0];
-        let bottom_right = &self.bounding_boxes[side][1];
-
-        // Super broadphase: check if we are in a BB, this will be true for each
-        // progressively smaller BB (as the BSP splits down)
-        if self.point_in_bounds(vec, side) {
-            return true;
-        }
-
-        // // Make sure we never compare across the 360->0 range
-        // let shift = if (angle_rads - half_fov).is_sign_negative() {
-        //     half_fov
-        // } else if angle_rads + half_fov > PI * 2.0 {
-        //     -half_fov
-        // } else {
-        //     0.0
-        // };
-        // //origin_ang = radian_range(origin_ang + shift);
-        // origin_ang += shift;
-
-        // // Secondary broad phase check if each corner is in fov angle
-        // for x in [top_left.x(), bottom_right.x()].iter() {
-        //     for y in [top_left.y(), bottom_right.y()].iter() {
-        //         // generate angle from object position to bb corner
-        //         let mut v_angle = (y - vec.y()).atan2(x - vec.x());
-        //         v_angle = (origin_ang - radian_range(v_angle + shift)).abs();
-        //         if v_angle <= half_fov {
-        //             return true;
-        //         }
-        //     }
-        // }
-
-        // // Fine phase, raycasting
-        // self.ray_from_point_intersect(vec, angle_rads, side)
         false
     }
 

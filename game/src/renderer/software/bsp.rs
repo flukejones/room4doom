@@ -13,8 +13,8 @@ use super::{
 };
 use crate::renderer::software::planes::make_spans;
 use doom_lib::{
-    log::trace, Angle, Level, MapData, MapObject, Player, Sector, Segment, SubSector, TextureData,
-    IS_SSECTOR_MASK,
+    log::trace, Angle, Level, MapData, MapObject, Node, Player, Sector, Segment, SubSector,
+    TextureData, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
@@ -126,7 +126,7 @@ impl SoftwareRenderer {
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
-            //dbg!(&plane);
+            // dbg!(&plane);
             if plane.minx > plane.maxx {
                 continue;
             }
@@ -140,7 +140,7 @@ impl SoftwareRenderer {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let angle = (view_angle.rad() * 180.0 / PI
+                        let angle = (view_angle.rad().to_degrees()
                             + CLASSIC_SCREEN_X_TO_VIEW[x as usize])
                             * 2.8444;
                         let texture_column = textures.texture_column(skytex, angle.floor() as i32);
@@ -302,7 +302,7 @@ impl SoftwareRenderer {
     ) {
         let skynum = self.texture_data.borrow().skyflatnum();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight < player.viewz {
+        if subsect.sector.floorheight <= player.viewz {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
                 subsect.sector.floorheight.floor() as i32,
                 subsect.sector.floorpic,
@@ -311,7 +311,7 @@ impl SoftwareRenderer {
             );
         }
 
-        if subsect.sector.ceilingheight > player.viewz
+        if subsect.sector.ceilingheight >= player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
@@ -566,9 +566,146 @@ impl SoftwareRenderer {
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if node.bb_extents_in_fov(&mobj.xy, mobj.angle.rad(), FRAC_PI_4, side ^ 1) {
+        if self.bb_extents_in_fov(node, mobj, side ^ 1) {
             self.render_bsp_node(map, player, node.child_index[side ^ 1], canvas, count);
         }
+    }
+
+    /// R_CheckBBox - r_bsp
+    ///
+    /// TODO: solidsegs list
+    pub fn bb_extents_in_fov(&self, node: &Node, mobj: &MapObject, side: usize) -> bool {
+        let view_angle = mobj.angle;
+        // BOXTOP = 0
+        // BOXBOT = 1
+        // BOXLEFT = 2
+        // BOXRIGHT = 3
+        let lt = node.bounding_boxes[side][0];
+        let rb = node.bounding_boxes[side][1];
+
+        if node.point_in_bounds(&mobj.xy, side) {
+            return true;
+        }
+
+        let boxx;
+        let boxy;
+        if mobj.xy.x() <= lt.x() {
+            boxx = 0;
+        } else if mobj.xy.x() < rb.x() {
+            boxx = 1;
+        } else {
+            boxx = 2;
+        }
+
+        if mobj.xy.y() >= lt.y() {
+            boxy = 0;
+        } else if mobj.xy.y() > rb.y() {
+            boxy = 1;
+        } else {
+            boxy = 2;
+        }
+
+        let boxpos = (boxy << 2) + boxx;
+        if boxpos == 5 {
+            return true;
+        }
+
+        let v1;
+        let v2;
+        match boxpos {
+            0 => {
+                v1 = Vec2::new(rb.x(), lt.y());
+                v2 = Vec2::new(lt.x(), rb.y());
+            }
+            1 => {
+                v1 = Vec2::new(rb.x(), lt.y());
+                v2 = lt;
+            }
+            2 => {
+                v1 = rb;
+                v2 = lt;
+            }
+            4 => {
+                v1 = lt;
+                v2 = Vec2::new(lt.x(), rb.y());
+            }
+            6 => {
+                v1 = rb;
+                v2 = Vec2::new(rb.x(), lt.y());
+            }
+            8 => {
+                v1 = lt;
+                v2 = rb;
+            }
+            9 => {
+                v1 = Vec2::new(lt.x(), rb.y());
+                v2 = rb;
+            }
+            10 => {
+                v1 = Vec2::new(lt.x(), rb.y());
+                v2 = Vec2::new(rb.x(), lt.y());
+            }
+            _ => {
+                return false;
+            }
+        }
+
+        let clipangle = Angle::new(FRAC_PI_4);
+        // Reset to correct angles
+        let mut angle1 = vertex_angle_to_object(&v1, mobj);
+        let mut angle2 = vertex_angle_to_object(&v2, mobj);
+
+        let span = angle1 - angle2;
+
+        if span.rad() >= PI {
+            dbg!("EARLY");
+            return true;
+        }
+
+        angle1 -= view_angle;
+        angle2 -= view_angle;
+
+        let mut tspan = angle1 + clipangle;
+        if tspan.rad() >= FRAC_PI_2 {
+            tspan -= 2.0 * clipangle.rad();
+
+            // Totally off the left edge?
+            if tspan.rad() >= span.rad() {
+                return false;
+            }
+            angle1 = clipangle;
+        }
+        tspan = clipangle - angle2;
+        if tspan.rad() > 2.0 * clipangle.rad() {
+            tspan -= 2.0 * clipangle.rad();
+
+            // Totally off the left edge?
+            if tspan.rad() >= span.rad() {
+                return false;
+            }
+            angle2 = -clipangle;
+        }
+
+        angle1 += FRAC_PI_2;
+        angle2 += FRAC_PI_2;
+        let x1 = angle_to_screen(angle1.rad());
+        let mut x2 = angle_to_screen(angle2.rad());
+
+        // Does not cross a pixel?
+        if x1 == x2 {
+            return false;
+        }
+        x2 -= 1;
+
+        let mut start = 0;
+        while self.solidsegs[start].last < x2 {
+            start += 1;
+        }
+
+        if x1 >= self.solidsegs[start].first && x2 <= self.solidsegs[start].last {
+            return false;
+        }
+        true
     }
 }
 
