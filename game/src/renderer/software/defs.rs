@@ -75,7 +75,7 @@ pub struct ClipRange {
 pub struct Visplane {
     pub height: i32,
     pub picnum: usize,
-    pub lightlevel: u32,
+    pub lightlevel: i32,
     pub minx: i32,
     pub maxx: i32,
     /// Here lies the rub for all

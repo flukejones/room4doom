@@ -19,9 +19,6 @@ impl Node {
         1
     }
 
-    /// Useful for finding the subsector that a Point is located in
-    ///
-    /// 0 == right, 1 == left
     pub fn point_in_bounds(&self, v: &Vec2, side: usize) -> bool {
         if v.x() > self.bounding_boxes[side][0].x()
             && v.x() < self.bounding_boxes[side][1].x()
@@ -55,31 +52,32 @@ impl Node {
             return true;
         }
 
-        // Make sure we never compare across the 360->0 range
-        let shift = if (angle_rads - half_fov).is_sign_negative() {
-            half_fov
-        } else if angle_rads + half_fov > PI * 2.0 {
-            -half_fov
-        } else {
-            0.0
-        };
-        //origin_ang = radian_range(origin_ang + shift);
-        origin_ang += shift;
+        // // Make sure we never compare across the 360->0 range
+        // let shift = if (angle_rads - half_fov).is_sign_negative() {
+        //     half_fov
+        // } else if angle_rads + half_fov > PI * 2.0 {
+        //     -half_fov
+        // } else {
+        //     0.0
+        // };
+        // //origin_ang = radian_range(origin_ang + shift);
+        // origin_ang += shift;
 
-        // Secondary broad phase check if each corner is in fov angle
-        for x in [top_left.x(), bottom_right.x()].iter() {
-            for y in [top_left.y(), bottom_right.y()].iter() {
-                // generate angle from object position to bb corner
-                let mut v_angle = (y - vec.y()).atan2(x - vec.x());
-                v_angle = (origin_ang - radian_range(v_angle + shift)).abs();
-                if v_angle <= half_fov {
-                    return true;
-                }
-            }
-        }
+        // // Secondary broad phase check if each corner is in fov angle
+        // for x in [top_left.x(), bottom_right.x()].iter() {
+        //     for y in [top_left.y(), bottom_right.y()].iter() {
+        //         // generate angle from object position to bb corner
+        //         let mut v_angle = (y - vec.y()).atan2(x - vec.x());
+        //         v_angle = (origin_ang - radian_range(v_angle + shift)).abs();
+        //         if v_angle <= half_fov {
+        //             return true;
+        //         }
+        //     }
+        // }
 
-        // Fine phase, raycasting
-        self.ray_from_point_intersect(vec, angle_rads, side)
+        // // Fine phase, raycasting
+        // self.ray_from_point_intersect(vec, angle_rads, side)
+        false
     }
 
     pub fn ray_from_point_intersect(&self, origin_v: &Vec2, origin_ang: f32, side: usize) -> bool {

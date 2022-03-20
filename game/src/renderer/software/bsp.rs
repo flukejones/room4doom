@@ -117,6 +117,7 @@ impl SoftwareRenderer {
 
     /// Doom function name `R_DrawPlanes`
     fn draw_planes(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
+        dbg!(self.r_data.visplanes.lastvisplane);
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
         let view_angle = mobj.angle;
 
@@ -125,6 +126,7 @@ impl SoftwareRenderer {
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
+            //dbg!(&plane);
             if plane.minx > plane.maxx {
                 continue;
             }
@@ -302,10 +304,10 @@ impl SoftwareRenderer {
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
-                subsect.sector.floorheight as i32,
+                subsect.sector.floorheight.floor() as i32,
                 subsect.sector.floorpic,
                 skynum,
-                subsect.sector.lightlevel as u32,
+                subsect.sector.lightlevel,
             );
         }
 
@@ -313,10 +315,10 @@ impl SoftwareRenderer {
             || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
-                subsect.sector.ceilingheight as i32,
+                subsect.sector.ceilingheight.floor() as i32,
                 subsect.sector.ceilingpic,
                 skynum,
-                subsect.sector.lightlevel as u32,
+                subsect.sector.lightlevel,
             );
         }
 
@@ -363,6 +365,7 @@ impl SoftwareRenderer {
 
         // We create the seg-renderer for each seg as data is not shared
         // TODO: check the above
+        // self.seg_renderer = SegRender::new(self.texture_data.clone());
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
@@ -545,9 +548,9 @@ impl SoftwareRenderer {
 
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
 
-        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+        if node_id & IS_SSECTOR_MASK != 0 {
             // It's a leaf node and is the index to a subsector
-            let subsect = &map.subsectors()[(node_id ^ IS_SSECTOR_MASK) as usize];
+            let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
             self.draw_subsector(map, player, subsect, canvas);
             return;
