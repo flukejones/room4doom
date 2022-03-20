@@ -8,7 +8,7 @@ use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 
-pub const MAXVISPLANES: usize = 256;
+pub const MAXVISPLANES: usize = 256 * 2;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -97,8 +97,8 @@ impl VisPlaneRender {
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
-    pub fn find_plane<'a>(
-        &'a mut self,
+    pub fn find_plane(
+        &mut self,
         mut height: i32,
         picnum: usize,
         skynum: usize,
@@ -111,7 +111,7 @@ impl VisPlaneRender {
 
         let len = self.visplanes.len();
 
-        for i in 0..self.lastvisplane {
+        for i in 0..=self.lastvisplane {
             if height == self.visplanes[i].height
                 && picnum == self.visplanes[i].picnum
                 && light_level == self.visplanes[i].lightlevel
@@ -141,7 +141,7 @@ impl VisPlaneRender {
     }
 
     /// Check if this plane should be used, otherwise use a new plane.
-    pub fn check_plane<'a>(&'a mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
+    pub fn check_plane(&mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
         let plane = &mut self.visplanes[plane_idx];
 
         let (intrl, unionl) = if start < plane.minx {
@@ -156,23 +156,16 @@ impl VisPlaneRender {
             (stop, plane.maxx)
         };
 
-        let mut x = intrl;
-
-        for i in intrl..=intrh + 1 {
+        for i in intrl..=(intrh + 2) {
             if i > intrh {
-                x = i;
-                break;
+                plane.minx = unionl;
+                plane.maxx = unionh;
+                // Use the same plane
+                return plane_idx;
             }
             if plane.top[i as usize] != 0xff {
                 break;
             }
-        }
-
-        if x > intrh {
-            plane.minx = unionl;
-            plane.maxx = unionh;
-            // Use the same plane
-            return plane_idx;
         }
 
         // Otherwise make a new plane
