@@ -8,7 +8,7 @@ use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 
-pub const MAXVISPLANES: usize = 256 * 2;
+pub const MAXVISPLANES: usize = 256 * 4;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -102,7 +102,7 @@ impl VisPlaneRender {
         mut height: i32,
         picnum: usize,
         skynum: usize,
-        mut light_level: u32,
+        mut light_level: i32,
     ) -> usize {
         if picnum == skynum {
             height = 0;
@@ -111,17 +111,14 @@ impl VisPlaneRender {
 
         let len = self.visplanes.len();
 
-        for i in 0..=self.lastvisplane {
-            if height == self.visplanes[i].height
-                && picnum == self.visplanes[i].picnum
-                && light_level == self.visplanes[i].lightlevel
-            {
-                return i;
+        for (index, plane) in self.visplanes[0..=self.lastvisplane].iter().enumerate() {
+            if height == plane.height && picnum == plane.picnum && light_level == plane.lightlevel {
+                return index;
             }
         }
 
         if self.lastvisplane < len - 1 {
-            self.lastvisplane += 1;
+           self.lastvisplane += 1;
         } else {
             panic!("Out of visplanes");
         }
@@ -132,7 +129,7 @@ impl VisPlaneRender {
         check.picnum = picnum;
         check.lightlevel = light_level;
         check.minx = SCREENWIDTH as i32;
-        check.maxx = -1;
+        check.maxx = 0;
         for t in &mut check.top {
             *t = 0xff;
         }
@@ -155,6 +152,9 @@ impl VisPlaneRender {
         } else {
             (stop, plane.maxx)
         };
+        // dbg!(start, stop);
+        // dbg!(intrl, intrh);
+        // dbg!(unionl, unionh);
 
         for i in intrl..=(intrh + 2) {
             if i > intrh {

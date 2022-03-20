@@ -378,10 +378,10 @@ impl MapData {
         info!("{}: Loaded bsp nodes", self.name);
 
         for (i, wn) in wad.node_iter(&self.name).enumerate() {
-            if wn.child_index[0] & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
+            if wn.child_index[0] & IS_SSECTOR_MASK == 0 {
                 self.nodes[wn.child_index[0] as usize].parent = i as u16;
             }
-            if wn.child_index[1] & IS_SSECTOR_MASK != IS_SSECTOR_MASK {
+            if wn.child_index[1] & IS_SSECTOR_MASK == 0 {
                 self.nodes[wn.child_index[1] as usize].parent = i as u16;
             }
         }
