@@ -117,7 +117,6 @@ impl SoftwareRenderer {
 
     /// Doom function name `R_DrawPlanes`
     fn draw_planes(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
-        dbg!(self.r_data.visplanes.lastvisplane);
         let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
         let view_angle = mobj.angle;
 
@@ -126,7 +125,6 @@ impl SoftwareRenderer {
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
-            // dbg!(&plane);
             if plane.minx > plane.maxx {
                 continue;
             }
@@ -658,7 +656,6 @@ impl SoftwareRenderer {
         let span = angle1 - angle2;
 
         if span.rad() >= PI {
-            dbg!("EARLY");
             return true;
         }
 
