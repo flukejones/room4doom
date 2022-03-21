@@ -139,16 +139,59 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
             }
             FloorKind::RaiseToTexture => {
                 // TODO: int minsize = INT_MAX;
-                let min = sec.floorheight;
+                let mut min = sec.floorheight;
                 floor.direction = 1;
                 for line in sec.lines.iter() {
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
-                        todo!("side = getSide(secnum, i, 0); and stuff");
+                        if line.front_sidedef.bottomtexture != usize::MAX {
+                            let tmp = level
+                                .textures
+                                .borrow()
+                                .get_texture(line.front_sidedef.bottomtexture)
+                                .data[0]
+                                .len() as f32;
+                            if tmp < min {
+                                min = tmp;
+                            }
+                        }
+                        if let Some(side) = line.back_sidedef.as_ref() {
+                            let tmp = level.textures.borrow().get_texture(side.bottomtexture).data
+                                [0]
+                            .len() as f32;
+                            if tmp < min {
+                                min = tmp;
+                            }
+                        }
+                        //todo!("side = getSide(secnum, i, 0); and stuff");
                     }
                 }
                 floor.destheight = sec.floorheight + min;
             }
-            FloorKind::LowerAndChange => todo!("LowerAndChange"),
+            FloorKind::LowerAndChange => {
+                floor.direction = -1;
+                floor.destheight = find_lowest_floor_surrounding(sec.clone());
+                floor.texture = sector.floorpic as u8;
+
+                for line in sector.lines.iter() {
+                    if line.flags & LineDefFlags::TwoSided as u32 != 0 {
+                        if line.front_sidedef.sector == sec {
+                            sec = line.back_sidedef.as_ref().unwrap().sector.clone();
+                            if sec.floorheight == floor.destheight {
+                                floor.texture = sec.floorpic as u8;
+                                floor.newspecial = sec.special;
+                                break;
+                            }
+                        } else {
+                            sec = line.front_sidedef.sector.clone();
+                            if sec.floorheight == floor.destheight {
+                                floor.texture = sec.floorpic as u8;
+                                floor.newspecial = sec.special;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
             FloorKind::RaiseFloor24 => {
                 floor.direction = 1;
                 floor.destheight = sec.floorheight + 24.0;
@@ -209,7 +252,7 @@ impl Think for FloorMove {
                 || floor.direction == -1 && matches!(floor.kind, FloorKind::LowerAndChange)
             {
                 floor.sector.special = floor.newspecial;
-                //TODO: floor.sector.floorpic = floor.texture;
+                floor.sector.floorpic = floor.texture as usize;
             }
 
             floor.sector.specialdata = None;

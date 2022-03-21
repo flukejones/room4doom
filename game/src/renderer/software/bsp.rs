@@ -13,8 +13,9 @@ use super::{
 };
 use crate::renderer::software::planes::make_spans;
 use doom_lib::{
-    log::trace, Angle, Level, MapData, MapObject, Node, Player, Sector, Segment, SubSector,
-    TextureData, IS_SSECTOR_MASK,
+    log::{debug, trace},
+    Angle, Level, MapData, MapObject, Node, Player, Sector, Segment, SubSector, TextureData,
+    IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
@@ -124,6 +125,7 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
+        debug!("Visplanes used: {}", visplanes.lastvisplane);
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;

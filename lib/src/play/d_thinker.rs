@@ -430,10 +430,11 @@ mod tests {
         doom_def::GameMode,
         level_data::{map_data::MapData, Level},
         play::d_thinker::{Think, Thinker},
+        TextureData,
     };
 
     use super::{ObjectType, TestObject, ThinkerAlloc};
-    use std::ptr::null_mut;
+    use std::{cell::RefCell, ptr::null_mut, rc::Rc};
 
     #[test]
     fn bad_stuff() {
@@ -460,8 +461,18 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
+        let textures = TextureData::new(&wad);
 
-        let mut l = unsafe { Level::new(Skill::Baby, 1, 1, GameMode::Shareware, Vec::new()) };
+        let mut l = unsafe {
+            Level::new(
+                Skill::Baby,
+                1,
+                1,
+                GameMode::Shareware,
+                Vec::new(),
+                Rc::new(RefCell::new(textures)),
+            )
+        };
         let mut x = Thinker {
             prev: null_mut(),
             next: null_mut(),

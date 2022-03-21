@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use log::debug;
 use wad::{lumps::WadThing, WadData};
 
@@ -8,7 +10,7 @@ use crate::{
     level_data::map_data::MapData,
     play::{d_thinker::ThinkerAlloc, specials::update_specials},
     textures::Button,
-    DPtr,
+    DPtr, TextureData,
 };
 
 use super::map_defs::LineDef;
@@ -53,6 +55,8 @@ pub struct Level {
     /// List of used buttons. Typically these buttons or switches are timed.
     pub button_list: Vec<Button>,
     pub line_special_list: Vec<DPtr<LineDef>>,
+    /// Need access to texture data for a few things
+    pub textures: Rc<RefCell<TextureData>>,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -72,6 +76,7 @@ impl Level {
         map: u32,
         game_mode: GameMode,
         switch_list: Vec<usize>,
+        textures: Rc<RefCell<TextureData>>,
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -115,6 +120,7 @@ impl Level {
             switch_list,
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
+            textures,
         }
         // TODO: P_InitThinkers();
         // P_InitPicAnims
