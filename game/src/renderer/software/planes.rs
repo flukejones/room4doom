@@ -153,7 +153,13 @@ impl VisPlaneRender {
             (stop, plane.maxx)
         };
 
-        for i in intrl..=(320) {
+        if intrh <= intrl {
+            plane.minx = unionl;
+            plane.maxx = unionh;
+            return plane_idx;
+        }
+
+        for i in intrl..=intrh + 1 {
             if i > intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;
