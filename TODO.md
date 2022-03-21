@@ -11,23 +11,22 @@
 [X] - map 24 Doom 2, texture to right of open area is bad
 [X] - map 1 SIGIL, texture in front is borked
 [X] - e1m1 right lift upper texture not drawn
-[ ] - e1m9 corner lifts aren't cutting bottom of texture?
-[ ] - e3m4 crushers textures aren't culling correctly?
-[X] - e3m4, player can't fit. The proper setup of line back/front sectors affects this and
-      now SubSectorMinMax needs work.
-[ ] - animated textures (flattranslation, texturetranslation)
-[ ] - P_UpdateSpecials
+[X] - e1m9 corner lifts aren't cutting bottom of texture?
+[X] - e3m4 crushers textures aren't culling correctly?
+[X] - e3m4, player can't fit. The proper setup of line back/front sectors affects this and now SubSectorMinMax needs work.
+[X] - animated textures (flattranslation, texturetranslation)
+[-] - P_UpdateSpecials
 [-] - EV_Teleport
 [X] - EV_DoLockedDoor
-[ ] - Skybox
+[X] - Skybox
 [X] - FIXED: Increased limits. Large sigil levels have rendering issues
 [ ] - Really need swept-volume collisions
 [ ] - Need the above for use-lines too
 [ ] - sound-server using rx/tx channels
 [ ] - HUD using rx/tx channels
 [ ] - doom2 m8 LowerAndChange, not implemented yet
-[ ] - Spans borked in E4M3 after first teleport (look at pad)
-[ ] - render_bsp_node is way too grabby. It's pulling subsectors that arn't actually in view
+[X] - Spans borked in E4M3 after first teleport (look at pad)
+[X] - render_bsp_node is way too grabby. It's pulling subsectors that arn't actually in view
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
@@ -36,9 +35,9 @@
 [X] - Load textures
 [ ] - Load sprites
 [ ] - fixed-colourmap (special effects)
-[ ] - Lump cache isn't actually being fully used, use it!
+[X] - FIXED: some tme ago: Lump cache isn't actually being fully used, use it!
 [ ] - Fix the types in texture module
-[ ] - Recheck planes
+[-] - Recheck planes
 [ ] - Colours seem off for darker areas?
 
 
