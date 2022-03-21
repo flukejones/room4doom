@@ -1,5 +1,5 @@
 use glam::Vec2;
-use log::trace;
+use log::{error, trace};
 
 use crate::{
     info::MapObjectType, level_data::map_defs::LineDef, play::d_thinker::ObjectType, DPtr, Level,
@@ -112,6 +112,9 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
 fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: u32) {
     if !sector.thinglist.is_null() {
         let mut thing = sector.thinglist;
+        // TODO: FIXME: telefrag borked
+        error!("TODO: FIXME: telefrag borked");
+        return;
         while !thing.is_null() {
             unsafe {
                 trace!("Thing type {:?} is getting telefragged", (*thing).kind);
