@@ -252,7 +252,7 @@ impl Think for Glow {
             }
             1 => {
                 light.sector.lightlevel += GLOWSPEED;
-                if light.sector.lightlevel >= light.min_light {
+                if light.sector.lightlevel >= light.max_light {
                     light.sector.lightlevel -= GLOWSPEED;
                     light.direction = -1;
                 }

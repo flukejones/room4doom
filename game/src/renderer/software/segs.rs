@@ -673,7 +673,7 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac as i32 & 127;
+            let mut select = frac.floor() as i32 & 127;
             while select >= self.texture_column.len() as i32 {
                 select -= self.texture_column.len() as i32;
             }

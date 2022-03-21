@@ -3,11 +3,69 @@ name=E1M1
 runtime=host
 toolchain=default
 config-opts=
-run-opts=-- --iwad /home/luke/DOOM/doom.wad -e1 -m1
+run-opts=-- --iwad /home/luke/DOOM/doom.wad -w1024 -h768 -e1 -m1
 prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
 app-id=
 postbuild=
 prebuild=
-
 default=true
 
+[e1m2]
+name=E1M2
+runtime=host
+toolchain=default
+config-opts=
+run-opts=-- --iwad /home/luke/DOOM/doom.wad -w1024 -h768 -e1 -m2
+prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
+app-id=
+postbuild=
+prebuild=
+default=true
+
+[e1m3]
+name=E1M3
+runtime=host
+toolchain=default
+config-opts=
+run-opts=-- --iwad /home/luke/DOOM/doom.wad -w1024 -h768 -e1 -m3
+prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
+app-id=
+postbuild=
+prebuild=
+default=true
+
+[e5m2]
+name=E5M2
+runtime=host
+toolchain=default
+config-opts=
+run-opts=-- --iwad /home/luke/DOOM/doom.wad --iwad /home/luke/DOOM/sigil.wad -w1024 -h768 -e5 -m2
+prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
+app-id=
+postbuild=
+prebuild=
+default=true
+
+[map01]
+name=MAP01
+runtime=host
+toolchain=default
+config-opts=
+run-opts=-- --iwad /home/luke/DOOM/doom2.wad -w1024 -h768 -m1
+prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
+app-id=
+postbuild=
+prebuild=
+default=true
+
+[map01]
+name=MAP03
+runtime=host
+toolchain=default
+config-opts=
+run-opts=-- --iwad /home/luke/DOOM/doom2.wad -w1024 -h768 -m3
+prefix=/home/luke/.var/app/org.gnome.Builder/cache/gnome-builder/install/diy-doom-rs/host
+app-id=
+postbuild=
+prebuild=
+default=true
