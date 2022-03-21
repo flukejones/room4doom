@@ -158,14 +158,11 @@ fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
 
     if !sector.thinglist.is_null() {
         let mut thing = sector.thinglist;
-        while !thing.is_null() {
-            unsafe {
+        unsafe {
+            while !(thing == (*thing).s_next) && !(*thing).s_next.is_null() {
                 trace!("Thing type {:?} is in affected sector", (*thing).kind);
                 (*thing).pit_change_sector(&mut no_fit, crunch);
 
-                if (*thing).s_next.is_null() || (*thing).s_next == thing {
-                    break;
-                }
                 thing = (*thing).s_next;
             }
         }
