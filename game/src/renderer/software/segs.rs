@@ -539,7 +539,7 @@ impl SegRender {
                     dc.draw_column(textures, canvas);
                 };
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height as i32;
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height.floor() as i32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
             } else {
                 let textures = &self.texture_data.borrow();
