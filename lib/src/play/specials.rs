@@ -27,7 +27,7 @@ use crate::{
     textures::ButtonWhere,
     DPtr, Game,
 };
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {

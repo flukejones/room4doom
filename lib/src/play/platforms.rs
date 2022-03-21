@@ -103,7 +103,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
                 sec.special = 0;
-                // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
+                sec.floorpic = line.frontsector.floorpic;
                 // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
             }
             PlatKind::RaiseAndChange => {
@@ -111,7 +111,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.high = sec.floorheight + amount as f32;
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
-                // TODO: sec->floorpic = sides[line->sidenum[0]].sector->floorpic;
+                sec.floorpic = line.frontsector.floorpic;
                 // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
             }
 

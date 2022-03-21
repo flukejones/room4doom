@@ -400,6 +400,7 @@ impl Game {
                 self.game_map,
                 self.game_mode,
                 self.switch_list.clone(),
+                self.textures.clone(),
             )
         };
 
