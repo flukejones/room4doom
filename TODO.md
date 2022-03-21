@@ -27,6 +27,7 @@
 [ ] - doom2 m8 LowerAndChange, not implemented yet
 [X] - Spans borked in E4M3 after first teleport (look at pad)
 [X] - render_bsp_node is way too grabby. It's pulling subsectors that arn't actually in view
+[ ] - head-bob causes textures to jitter
 
 [X] - seg render topfrac doesn't seem quite right? Some texture render starts are offset up by one pixel?
 [ ] - additional to above, scale_from_view_angle (R_ScaleFromGlobalAngle) results are floats so may be differing to the OG fixed
