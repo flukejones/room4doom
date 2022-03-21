@@ -56,3 +56,9 @@ line.special = 0;
 ```
 
 Find a better way to do `let level = unsafe { &mut *thing.level };`
+
+
+--
+
+`while !(thing == (*thing).s_next) && !(*thing).s_next.is_null() {`
+Don't actually need the nonnull check

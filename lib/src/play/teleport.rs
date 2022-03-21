@@ -1,3 +1,5 @@
+use std::ptr;
+
 use glam::Vec2;
 use log::{error, trace};
 
@@ -89,6 +91,7 @@ pub fn teleport(
     false
 }
 
+/// Doom function nam `P_TeleportMove`
 fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     let new_subsect = unsafe { &*level.map_data.point_in_subsector_ref(xy) };
     let floorz = new_subsect.sector.floorheight;
@@ -112,27 +115,22 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
 fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: u32) {
     if !sector.thinglist.is_null() {
         let mut thing = sector.thinglist;
-        // TODO: FIXME: telefrag borked
-        error!("TODO: FIXME: telefrag borked");
-        return;
-        while !thing.is_null() {
-            unsafe {
+        unsafe {
+            while !(thing == (*thing).s_next) && !(*thing).s_next.is_null() {
                 trace!("Thing type {:?} is getting telefragged", (*thing).kind);
                 let other_thing = &mut *thing;
                 if other_thing.flags & MobjFlag::SHOOTABLE as u32 == 0 {
+                    thing = (*thing).s_next;
                     continue;
                 }
 
                 // Monsters can't telefrag things unless it's the boss level
                 if this_thing.player.is_none() && game_map != 30 {
-                    continue;
+                    break;
                 }
 
                 other_thing.p_take_damage(Some(this_thing), None, 10000);
 
-                if (*thing).s_next.is_null() || (*thing).s_next == thing {
-                    break;
-                }
                 thing = (*thing).s_next;
             }
         }
