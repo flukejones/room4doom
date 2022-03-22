@@ -411,6 +411,7 @@ impl Game {
 
         if let Some(ref mut level) = self.level {
             level.load(&self.wad_data);
+
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
             let thing_list = (*level.map_data.get_things()).to_owned();
@@ -462,10 +463,11 @@ impl Game {
     /// G_Ticker
     pub fn ticker(&mut self) {
         trace!("Entered ticker");
-        if let Some(ref level) = self.level {
-            if let Some(action) = level.game_action {
+        if let Some(level) = &mut self.level {
+            if let Some(action) = level.game_action.take() {
                 self.game_action = action;
                 self.secret_exit = level.secret_exit;
+                info!("Game state changed: {:?}", self.game_action);
             }
         }
         // // do player reborns if needed
@@ -509,6 +511,28 @@ impl Game {
         match self.game_action {
             GameAction::ga_loadlevel => self.do_load_level(),
             GameAction::ga_newgame => self.do_new_game(),
+            GameAction::ga_completed => {
+                for i in 0..MAXPLAYERS {
+                    if self.player_in_game[i] {
+                        if let Some(level) = &self.level {
+                            let player = &self.players[i];
+                            info!("Total Items: {}/{}", player.itemcount, level.totalitems);
+                            info!("Total Kills: {}/{}", player.killcount, level.totalkills);
+                            info!(
+                                "Total Secrets: {}/{}",
+                                player.secretcount, level.totalsecret
+                            );
+                            info!("Level Time: {}", level.level_time);
+
+                            self.totalitems += player.itemcount;
+                            self.totalkills += player.killcount;
+                            self.totalsecret += player.secretcount;
+                        }
+                    }
+                }
+                self.game_map += 1;
+                self.game_action = GameAction::ga_loadlevel;
+            }
             _ => {}
         }
 
