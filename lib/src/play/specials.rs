@@ -125,7 +125,6 @@ pub fn find_highest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
 
 /// P_FindNextHighestFloor
 pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
-    let mut min;
     let mut height = current;
     let mut height_list = Vec::new();
 
@@ -141,7 +140,7 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
     if height_list.is_empty() {
         return current;
     }
-    min = height_list[0];
+    let mut min = height_list[0];
 
     for height in height_list {
         if height < min {

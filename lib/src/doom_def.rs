@@ -13,19 +13,18 @@ pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
 pub const BACKUPTICS: usize = 12;
 
-// Game mode handling - identify IWAD version
-//  to handle IWAD dependend animations etc.
+/// Game mode handling - identify IWAD version to handle IWAD dependend animations etc.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMode {
+    /// DOOM 1 shareware, E1, M9
     Shareware,
-    // DOOM 1 shareware, E1, M9
+    /// DOOM 1 registered, E3, M27
     Registered,
-    // DOOM 1 registered, E3, M27
-    Commercial,
-    // DOOM 2 retail, E1 M34
+    /// DOOM 2 retail, E1 M34
     // DOOM 2 german edition not handled
+    Commercial,
+    /// DOOM 1 retail, E4, M36
     Retail,
-    // DOOM 1 retail, E4, M36
     Indetermined, // Well, no IWAD found.
 }
 
@@ -43,8 +42,7 @@ pub enum GameMission {
     None,
 }
 
-/// The current state of the game: whether we are
-/// playing, gazing at the intermission screen,
+/// The current state of the game: whether we are playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -91,7 +89,6 @@ pub enum Card {
     it_blueskull,
     it_yellowskull,
     it_redskull,
-
     NUMCARDS,
 }
 
@@ -148,9 +145,7 @@ pub enum PowerType {
     NUMPOWERS,
 }
 
-/// Power up durations,
-///  how many seconds till expiration,
-///  assuming TICRATE is 35 ticks/second.
+/// Power up durations: how many seconds till expiration, assuming TICRATE is 35 ticks/second.
 #[derive(Copy, Clone)]
 pub enum PowerDuration {
     INVULNTICS = (30 * TICRATE) as isize,

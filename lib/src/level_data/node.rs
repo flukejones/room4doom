@@ -1,8 +1,8 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use crate::{level_data::map_defs::Node, Angle};
 
-use crate::{play::utilities::ray_to_line_intersect, radian_range};
+use crate::play::utilities::ray_to_line_intersect;
 use glam::Vec2;
 
 /// R_PointToAngle
