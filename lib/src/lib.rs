@@ -15,9 +15,9 @@ mod flags;
 mod game;
 mod info;
 mod level_data;
+mod pic;
 mod play;
 mod sounds;
-mod textures;
 pub mod tic_cmd;
 
 pub use angle::Angle;
@@ -31,11 +31,11 @@ pub use level_data::{
     map_defs::{Node, Sector, Segment, SubSector},
     Level,
 };
+pub use pic::{FlatPic, PicData, WallPic};
 pub use play::{
     map_object::MapObject,
     player::{Player, PlayerCheat},
 };
-pub use textures::{Flat, Texture, TextureData};
 
 pub use log;
 

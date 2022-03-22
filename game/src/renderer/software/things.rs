@@ -1,4 +1,4 @@
-use doom_lib::{LineDefFlags, TextureData};
+use doom_lib::{LineDefFlags, PicData};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
@@ -51,7 +51,7 @@ impl SoftwareRenderer {
                     backsector.floorheight
                 };
 
-                let texture_column = textures.texture_column(texnum, 0);
+                let texture_column = textures.wall_pic_column(texnum, 0);
                 dc_texturemid += texture_column.len() as f32 - viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -74,7 +74,7 @@ impl SoftwareRenderer {
                     if self.r_data.visplanes.openings[index] != i32::MAX
                         && seg.sidedef.midtexture != usize::MAX
                     {
-                        let texture_column = textures.texture_column(
+                        let texture_column = textures.wall_pic_column(
                             seg.sidedef.midtexture,
                             self.r_data.visplanes.openings[index],
                         );
@@ -102,7 +102,7 @@ impl SoftwareRenderer {
 
                         draw_masked_column(
                             texture_column,
-                            textures.get_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
+                            textures.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
                             1.0 / spryscale,
                             x,
                             dc_texturemid,
@@ -132,7 +132,7 @@ fn draw_masked_column(
     dc_texturemid: f32,
     yl: i32,
     yh: i32,
-    textures: &TextureData,
+    textures: &PicData,
 
     canvas: &mut Canvas<Surface>,
 ) {

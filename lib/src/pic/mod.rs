@@ -1,5 +1,5 @@
-mod anims;
-pub use anims::*;
+mod animations;
+pub use animations::*;
 mod switches;
 pub use switches::*;
 
@@ -20,46 +20,86 @@ const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
 
 #[derive(Debug)]
-pub struct Flat {
+pub struct FlatPic {
     pub name: String,
     pub data: [[u8; 64]; 64],
 }
 
 #[derive(Debug)]
-pub struct Texture {
+pub struct WallPic {
     pub name: String,
     pub data: Vec<Vec<usize>>,
 }
 
 #[derive(Debug)]
-pub struct TextureData {
+pub struct PicData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
     // Usually 34 blocks of 256, each u8 being an index in to the palette
     colourmap: Vec<Vec<usize>>,
-    lightscale: Vec<Vec<Vec<usize>>>,
-    zlight: Vec<Vec<Vec<usize>>>,
-    /// Indexing is [texture num][x][y]
-    walls: Vec<Texture>,
+    light_scale: Vec<Vec<Vec<usize>>>,
+    zlight_scale: Vec<Vec<Vec<usize>>>,
+    walls: Vec<WallPic>,
+    /// Used in animations
     wall_translation: Vec<usize>,
-    skyflatnum: usize,
-    skytexture: usize,
-    flats: Vec<Flat>,
+    flats: Vec<FlatPic>,
+    /// Used in animations
     flat_translation: Vec<usize>,
+    /// The number flats use to signify a sky should be drawn
+    sky_num: usize,
+    /// The index number of the texture to use for skybox
+    sky_pic: usize,
 }
 
-impl TextureData {
-    pub fn new(wad: &WadData) -> Self {
-        let palettes = wad.playpal_iter().collect();
-        let colourmap: Vec<Vec<usize>> = wad
-            .colourmap_iter()
+impl PicData {
+    pub fn init(wad: &WadData) -> Self {
+        print!("Init image data  [");
+
+        let colourmap = Self::init_colourmap(wad);
+        let palettes = Self::init_palette(wad);
+        let light_scale = Self::init_light_scales(&colourmap);
+        let zlight_scale = Self::init_zlight_scales(&colourmap);
+
+        let (walls, sky_pic) = Self::init_wall_pics(wad);
+        let wall_translation = (0..walls.len()).collect();
+
+        let (flats, sky_num) = Self::init_flat_pics(wad);
+        let flat_translation = (0..flats.len()).collect();
+
+        print!(".]\n");
+
+        Self {
+            walls,
+            wall_translation,
+            sky_num,
+            sky_pic,
+            flats,
+            flat_translation,
+            palettes,
+            light_scale,
+            zlight_scale,
+            colourmap,
+        }
+    }
+
+    fn init_palette(wad: &WadData) -> Vec<WadPalette> {
+        print!(".");
+        wad.playpal_iter().collect()
+    }
+
+    fn init_colourmap(wad: &WadData) -> Vec<Vec<usize>> {
+        print!(".");
+        wad.colourmap_iter()
             .map(|i| i as usize)
             .collect::<Vec<usize>>()
             .chunks(256)
             .map(|v| v.to_owned())
-            .collect();
+            .collect()
+    }
 
-        let lightscale = (0..LIGHTLEVELS)
+    fn init_light_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+        print!(".");
+        (0..LIGHTLEVELS)
             .map(|i| {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTSCALE)
@@ -75,9 +115,12 @@ impl TextureData {
                     })
                     .collect()
             })
-            .collect();
+            .collect()
+    }
 
-        let zlight: Vec<Vec<Vec<usize>>> = (0..LIGHTLEVELS)
+    fn init_zlight_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+        print!(".");
+        (0..LIGHTLEVELS)
             .map(|i| {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTZ)
@@ -94,83 +137,96 @@ impl TextureData {
                     })
                     .collect()
             })
-            .collect();
+            .collect()
+    }
 
+    fn init_wall_pics(wad: &WadData) -> (Vec<WallPic>, usize) {
+        print!(".");
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
-        let mut textures: Vec<Texture> = wad
+        print!(".");
+        // info!("Init wall textures.");
+        let mut skytexture = 0;
+        let mut texture_alloc_size = 0;
+
+        let mut pic_func = |(i, tex)| {
+            let pic = Self::build_wall_pic(tex, &patches);
+            if pic.name == "SKY1" {
+                print!(".");
+                skytexture = i;
+            }
+            texture_alloc_size += size_of_val(&pic.name);
+            for y in &pic.data {
+                texture_alloc_size += size_of::<usize>() * y.len();
+            }
+            if i % 64 == 0 {
+                print!(".");
+            }
+            pic
+        };
+
+        let mut wall_pic: Vec<WallPic> = wad
             .texture_iter("TEXTURE1")
-            .map(|tex| Self::compose_texture(tex, &patches))
+            .enumerate()
+            .map(&mut pic_func)
             .collect();
 
         if wad.lump_exists("TEXTURE2") {
-            let mut textures2: Vec<Texture> = wad
+            let mut textures2: Vec<WallPic> = wad
                 .texture_iter("TEXTURE2")
-                .map(|tex| Self::compose_texture(tex, &patches))
+                .enumerate()
+                .map(&mut pic_func)
                 .collect();
-            textures.append(&mut textures2);
-        }
-        let wall_translation = (0..textures.len()).collect();
+            wall_pic.append(&mut textures2);
+        };
 
-        let mut size = 0;
-        let mut skytexture = 0;
-        for (i, tex) in textures.iter().enumerate() {
-            if tex.name == "SKY1" {
-                skytexture = i;
-            }
-            size += size_of_val(&tex.name);
-            for y in &tex.data {
-                for _ in y {
-                    size += size_of::<usize>();
-                }
-            }
-        }
-        debug!("Total memory used for textures: {}KiB", size / 1024);
+        let tmp = (texture_alloc_size / 1024).to_string();
+        let size = tmp.split_at(2);
+        debug!("Total memory used for textures: {},{} KiB", size.0, size.1);
 
+        (wall_pic, skytexture)
+    }
+
+    fn init_flat_pics(wad: &WadData) -> (Vec<FlatPic>, usize) {
+        print!(".");
         let mut skynum = 256;
+        // info!("Init flats.");
         let mut flats = Vec::with_capacity(wad.flats_iter().count());
-        for wf in wad.flats_iter() {
-            let mut flat = Flat {
+        print!(".");
+
+        let mut flat_alloc_size = 0;
+        for (i, wf) in wad.flats_iter().enumerate() {
+            let mut flat = FlatPic {
                 name: wf.name,
                 data: [[0; 64]; 64],
             };
-
             for (y, col) in wf.data.chunks(64).enumerate() {
                 for (x, px) in col.iter().enumerate() {
                     flat.data[x][y] = *px;
                 }
             }
-
             if flat.name == "F_SKY1" {
                 skynum = flats.len();
+            }
+
+            flat_alloc_size += size_of_val(&flat.name);
+            flat_alloc_size += flat.data.len() * flat.data[0].len() * size_of::<u8>();
+            if i % 32 == 0 {
+                print!(".");
             }
 
             flats.push(flat);
         }
 
-        let flat_translation = (0..flats.len()).collect();
+        debug!(
+            "Total memory used for flats: {} KiB",
+            flat_alloc_size / 1024
+        );
 
-        let mut size = 0;
-        for flat in &flats {
-            size += size_of_val(&flat.name);
-            size += flat.data.len() * flat.data[0].len() * size_of::<u8>();
-        }
-        debug!("Total memory used for flats: {}KiB", size / 1024);
-
-        Self {
-            palettes,
-            colourmap,
-            lightscale,
-            zlight,
-            walls: textures,
-            wall_translation,
-            skyflatnum: skynum,
-            skytexture,
-            flats,
-            flat_translation,
-        }
+        (flats, skynum)
     }
 
-    fn compose_texture(texture: WadTexture, patches: &[WadPatch]) -> Texture {
+    /// Build a texture out of patches and return it
+    fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
         let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
 
         for patch_pos in &texture.patches {
@@ -192,7 +248,8 @@ impl TextureData {
                 }
             }
         }
-        Texture {
+        debug!("Built texture: {}", &texture.name);
+        WallPic {
             name: texture.name.clone(),
             data: compose,
         }
@@ -202,51 +259,51 @@ impl TextureData {
         &self.palettes[num].0
     }
 
-    pub fn skyflatnum(&self) -> usize {
-        self.skyflatnum
+    /// Get the number of the flat used for the sky texture. Sectors using this number
+    /// for the flat will be rendered witht eh skybox.
+    pub fn sky_num(&self) -> usize {
+        self.sky_num
     }
 
-    pub fn skytex(&self) -> usize {
-        self.skytexture
+    /// Get the index used by `get_texture()` to return a texture.
+    pub fn sky_pic(&self) -> usize {
+        self.sky_pic
     }
 
-    pub fn set_skytex(&mut self, mode: GameMode, episode: u32, map: u32) {
+    /// Set the correct skybox for the map/episode currently playing
+    pub fn set_sky_pic(&mut self, mode: GameMode, episode: u32, map: u32) {
         if mode == GameMode::Commercial {
-            self.skytexture = self.texture_num_for_name("SKY3").expect("SKY3 is missing");
+            self.sky_pic = self.wallpic_num_for_name("SKY3").expect("SKY3 is missing");
             if map < 12 {
-                self.skytexture = self.texture_num_for_name("SKY1").expect("SKY1 is missing");
+                self.sky_pic = self.wallpic_num_for_name("SKY1").expect("SKY1 is missing");
             } else if map < 21 {
-                self.skytexture = self.texture_num_for_name("SKY2").expect("SKY2 is missing");
+                self.sky_pic = self.wallpic_num_for_name("SKY2").expect("SKY2 is missing");
             }
         } else {
             match episode {
                 2 => {
-                    self.skytexture = self.texture_num_for_name("SKY2").expect("SKY2 is missing");
+                    self.sky_pic = self.wallpic_num_for_name("SKY2").expect("SKY2 is missing");
                 }
                 3 => {
-                    self.skytexture = self.texture_num_for_name("SKY3").expect("SKY3 is missing");
+                    self.sky_pic = self.wallpic_num_for_name("SKY3").expect("SKY3 is missing");
                 }
                 4 => {
-                    self.skytexture = self.texture_num_for_name("SKY4").expect("SKY4 is missing");
+                    self.sky_pic = self.wallpic_num_for_name("SKY4").expect("SKY4 is missing");
                 }
                 _ => {
-                    self.skytexture = self.texture_num_for_name("SKY1").expect("SKY1 is missing");
+                    self.sky_pic = self.wallpic_num_for_name("SKY1").expect("SKY1 is missing");
                 }
             }
         }
     }
 
-    pub fn get_colourmap(&self, index: usize) -> &[usize] {
+    pub fn colourmap(&self, index: usize) -> &[usize] {
         &self.colourmap[index]
     }
 
-    // pub fn get_lightscale(&self, index: usize) -> &Vec<Vec<usize>> {
-    //     &self.lightscale[index]
-    // }
-
     /// Get the correct colourmapping for a light level. The colourmap is indexed by the Y coordinate
     /// of a texture column.
-    pub fn get_light_colourmap(
+    pub fn wall_light_colourmap(
         &self,
         v1: &Vec2,
         v2: &Vec2,
@@ -267,10 +324,9 @@ impl TextureData {
             colourmap = MAXLIGHTSCALE as u32 - 1;
         }
 
-        &self.lightscale[light_level as usize][colourmap as usize]
+        &self.light_scale[light_level as usize][colourmap as usize]
     }
 
-    // TODO: fix for flats
     pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
         let mut dist = (wall_scale as i32 >> 4) as u32;
         let light_level = light_level >> 4;
@@ -279,20 +335,20 @@ impl TextureData {
             dist = MAXLIGHTZ as u32 - 1;
         }
 
-        &self.zlight[light_level as usize][dist as usize]
+        &self.zlight_scale[light_level as usize][dist as usize]
     }
 
-    pub fn get_texture(&self, num: usize) -> &Texture {
+    pub fn get_texture(&self, num: usize) -> &WallPic {
         let num = self.wall_translation[num];
         &self.walls[num]
     }
 
-    pub fn get_flat(&self, num: usize) -> &Flat {
+    pub fn get_flat(&self, num: usize) -> &FlatPic {
         let num = self.flat_translation[num];
         &self.flats[num]
     }
 
-    pub fn texture_num_for_name(&self, name: &str) -> Option<usize> {
+    pub fn wallpic_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.walls.iter().enumerate() {
             if tex.name == name {
                 return Some(i);
@@ -310,7 +366,8 @@ impl TextureData {
         None
     }
 
-    pub fn texture_column(&self, texture: usize, texture_column: i32) -> &[usize] {
+    /// Return a ref to the specified column of the requested texture
+    pub fn wall_pic_column(&self, texture: usize, texture_column: i32) -> &[usize] {
         let texture = &self.walls[self.wall_translation[texture]];
         let mut col = texture_column;
         if col >= texture.data.len() as i32 {

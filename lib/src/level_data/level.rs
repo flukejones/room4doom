@@ -8,9 +8,9 @@ use crate::{
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     game::Game,
     level_data::map_data::MapData,
+    pic::Button,
     play::{d_thinker::ThinkerAlloc, specials::update_specials},
-    textures::Button,
-    DPtr, TextureData,
+    DPtr, PicData,
 };
 
 use super::map_defs::LineDef;
@@ -56,7 +56,7 @@ pub struct Level {
     pub button_list: Vec<Button>,
     pub line_special_list: Vec<DPtr<LineDef>>,
     /// Need access to texture data for a few things
-    pub textures: Rc<RefCell<TextureData>>,
+    pub pic_data: Rc<RefCell<PicData>>,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -76,7 +76,7 @@ impl Level {
         map: u32,
         game_mode: GameMode,
         switch_list: Vec<usize>,
-        textures: Rc<RefCell<TextureData>>,
+        pic_data: Rc<RefCell<PicData>>,
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -120,7 +120,7 @@ impl Level {
             switch_list,
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
-            textures,
+            pic_data,
         }
         // TODO: P_InitThinkers();
         // P_InitPicAnims

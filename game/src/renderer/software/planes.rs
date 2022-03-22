@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use doom_lib::{Angle, Flat, TextureData};
+use doom_lib::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -206,7 +206,7 @@ pub fn make_spans(
     viewz: f32,
     plane: &Visplane,
     span_start: &mut [i32; SCREENWIDTH],
-    texture_data: &TextureData,
+    texture_data: &PicData,
     canvas: &mut Canvas<Surface>,
 ) {
     while t1 < t2 && t1 <= b1 {
@@ -255,7 +255,7 @@ fn map_plane(
     viewxy: Vec2,
     viewz: f32,
     plane: &Visplane,
-    texture_data: &TextureData,
+    texture_data: &PicData,
     canvas: &mut Canvas<Surface>,
 ) {
     let planeheight = (plane.height as f32 - viewz).floor().abs();
@@ -286,7 +286,7 @@ fn map_plane(
 }
 
 pub struct DrawSpan<'a> {
-    texture: &'a Flat,
+    texture: &'a FlatPic,
     colourmap: &'a [usize],
     ds_xstep: f32,
     ds_ystep: f32,
@@ -299,7 +299,7 @@ pub struct DrawSpan<'a> {
 
 impl<'a> DrawSpan<'a> {
     pub fn new(
-        texture: &'a Flat,
+        texture: &'a FlatPic,
         colourmap: &'a [usize],
         ds_xstep: f32,
         ds_ystep: f32,
@@ -322,7 +322,7 @@ impl<'a> DrawSpan<'a> {
         }
     }
 
-    fn draw(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+    fn draw(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
         for s in self.ds_x1..=self.ds_x2 + 1 {
             let mut x = self.ds_xfrac.abs() as i32 & 127;
             let mut y = self.ds_yfrac.abs() as i32 & 127;

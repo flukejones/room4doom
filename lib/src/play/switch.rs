@@ -15,7 +15,7 @@ use crate::{
     doom_def::Card,
     flags::LineDefFlags,
     level_data::map_defs::LineDef,
-    textures::{Button, ButtonWhere},
+    pic::{Button, ButtonWhere},
     DPtr,
 };
 
