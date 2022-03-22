@@ -14,7 +14,7 @@ use super::{
 use crate::renderer::software::planes::make_spans;
 use doom_lib::{
     log::{debug, trace},
-    Angle, Level, MapData, MapObject, Node, Player, Sector, Segment, SubSector, TextureData,
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
     IS_SSECTOR_MASK,
 };
 use glam::Vec2;
@@ -61,7 +61,7 @@ pub struct SoftwareRenderer {
 
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
-    pub(super) texture_data: Rc<RefCell<TextureData>>,
+    pub(super) texture_data: Rc<RefCell<PicData>>,
 
     pub(super) debug: bool,
 }
@@ -96,7 +96,7 @@ impl Renderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(texture_data: Rc<RefCell<TextureData>>, debug: bool) -> Self {
+    pub fn new(texture_data: Rc<RefCell<PicData>>, debug: bool) -> Self {
         Self {
             r_data: RenderData::new(),
             seg_renderer: SegRender::new(texture_data.clone()),
@@ -125,16 +125,16 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
-        debug!("Visplanes used: {}", visplanes.lastvisplane);
+        // debug!("Visplanes used: {}", visplanes.lastvisplane);
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
                 continue;
             }
 
-            if plane.picnum == self.texture_data.borrow().skyflatnum() {
-                let colourmap = textures.get_colourmap(0);
+            if plane.picnum == self.texture_data.borrow().sky_num() {
+                let colourmap = textures.colourmap(0);
                 let sky_mid = SCREENHEIGHT_HALF;
-                let skytex = textures.skytex();
+                let skytex = textures.sky_pic();
 
                 for x in plane.minx..=plane.maxx + 1 {
                     let dc_yl = plane.top[x as usize];
@@ -143,7 +143,7 @@ impl SoftwareRenderer {
                         let angle = (view_angle.rad().to_degrees()
                             + CLASSIC_SCREEN_X_TO_VIEW[x as usize])
                             * 2.8444;
-                        let texture_column = textures.texture_column(skytex, angle.floor() as i32);
+                        let texture_column = textures.wall_pic_column(skytex, angle.floor() as i32);
 
                         let mut dc = DrawColumn::new(
                             texture_column,
@@ -300,7 +300,7 @@ impl SoftwareRenderer {
         subsect: &SubSector,
         canvas: &mut Canvas<Surface>,
     ) {
-        let skynum = self.texture_data.borrow().skyflatnum();
+        let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
@@ -312,7 +312,7 @@ impl SoftwareRenderer {
         }
 
         if subsect.sector.ceilingheight > player.viewz
-            || subsect.sector.ceilingpic == self.texture_data.borrow().skyflatnum()
+            || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num()
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
                 subsect.sector.ceilingheight.floor() as i32,

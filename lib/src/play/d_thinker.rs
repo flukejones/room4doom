@@ -430,7 +430,7 @@ mod tests {
         doom_def::GameMode,
         level_data::{map_data::MapData, Level},
         play::d_thinker::{Think, Thinker},
-        TextureData,
+        PicData,
     };
 
     use super::{ObjectType, TestObject, ThinkerAlloc};
@@ -461,7 +461,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&wad);
-        let textures = TextureData::new(&wad);
+        let textures = PicData::init(&wad);
 
         let mut l = unsafe {
             Level::new(

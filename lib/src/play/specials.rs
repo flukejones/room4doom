@@ -23,8 +23,8 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    pic::ButtonWhere,
     play::teleport::teleport,
-    textures::ButtonWhere,
     DPtr, Game,
 };
 use log::{debug, error, trace};
@@ -798,7 +798,7 @@ pub fn update_specials(game: &mut Game) {
     // Flats and wall texture animations (switching between series)
     for anim in &mut game.animations {
         anim.update(
-            &mut game.textures.borrow_mut(),
+            &mut game.pic_data.borrow_mut(),
             game.level.as_ref().unwrap().level_time as usize,
         );
     }

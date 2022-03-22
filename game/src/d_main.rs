@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use doom_lib::{log::info, Game, Texture};
+use doom_lib::{log::info, Game, WallPic};
 use golem::Context;
 use sdl2::{
     keyboard::Scancode,
@@ -30,7 +30,7 @@ pub fn d_doom_loop(
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
-        game.textures.clone(),
+        game.pic_data.clone(),
         matches!(options.verbose, doom_lib::log::LevelFilter::Debug),
     );
 
@@ -115,7 +115,7 @@ pub fn d_doom_loop(
         }
         if options.texture_test {
             texture_select_test(
-                game.textures.borrow_mut().get_texture(tex_num),
+                game.pic_data.borrow_mut().get_texture(tex_num),
                 &game,
                 &mut render_buffer,
             );
@@ -151,7 +151,7 @@ pub fn d_doom_loop(
             }
 
             if options.texture_test {
-                if tex_num < game.textures.borrow_mut().num_textures() - 1 {
+                if tex_num < game.pic_data.borrow_mut().num_textures() - 1 {
                     tex_num += 1;
                 } else {
                     tex_num = 0;
@@ -306,7 +306,7 @@ fn patch_select_test(image: &WadPatch, game: &Game, canvas: &mut Canvas<Surface>
     }
 }
 
-fn texture_select_test(texture: &Texture, game: &Game, canvas: &mut Canvas<Surface>) {
+fn texture_select_test(texture: &WallPic, game: &Game, canvas: &mut Canvas<Surface>) {
     let width = texture.data.len() as u32;
     let height = texture.data[0].len() as u32;
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();

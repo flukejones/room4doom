@@ -1,4 +1,4 @@
-use doom_lib::{Angle, LineDefFlags, Player, Segment, TextureData};
+use doom_lib::{Angle, LineDefFlags, PicData, Player, Segment};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
@@ -69,11 +69,11 @@ pub struct SegRender {
     /// Light level for the wall
     wall_lights: i32,
 
-    texture_data: Rc<RefCell<TextureData>>,
+    texture_data: Rc<RefCell<PicData>>,
 }
 
 impl SegRender {
-    pub fn new(texture_data: Rc<RefCell<TextureData>>) -> Self {
+    pub fn new(texture_data: Rc<RefCell<PicData>>) -> Self {
         Self {
             segtextured: false,
             markfloor: false,
@@ -208,7 +208,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0
                 && seg.sidedef.midtexture != usize::MAX
             {
-                let texture_column = textures.texture_column(seg.sidedef.midtexture, 0);
+                let texture_column = textures.wall_pic_column(seg.sidedef.midtexture, 0);
                 let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
                 self.rw_midtexturemid = vtop - viewz;
             } else {
@@ -263,8 +263,8 @@ impl SegRender {
             self.worldlow = (backsector.floorheight - viewz).floor() as i32;
 
             // TODO: hack to allow height changes in outdoor areas
-            if frontsector.ceilingpic == textures.skyflatnum()
-                && backsector.ceilingpic == textures.skyflatnum()
+            if frontsector.ceilingpic == textures.sky_num()
+                && backsector.ceilingpic == textures.sky_num()
             {
                 self.worldtop = self.worldhigh;
             }
@@ -303,7 +303,7 @@ impl SegRender {
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
                     self.rw_toptexturemid = self.worldtop as f32;
                 } else if seg.sidedef.toptexture != usize::MAX {
-                    let texture_column = textures.texture_column(seg.sidedef.toptexture, 0);
+                    let texture_column = textures.wall_pic_column(seg.sidedef.toptexture, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - viewz;
                 }
@@ -357,7 +357,7 @@ impl SegRender {
         }
 
         if frontsector.ceilingheight <= viewz
-            && frontsector.ceilingpic != self.texture_data.borrow().skyflatnum()
+            && frontsector.ceilingpic != self.texture_data.borrow().sky_num()
         {
             // below view plane
             self.markceiling = false;
@@ -521,10 +521,10 @@ impl SegRender {
                 if seg.sidedef.midtexture != usize::MAX {
                     let textures = &self.texture_data.borrow();
                     let texture_column =
-                        textures.texture_column(seg.sidedef.midtexture, texture_column);
+                        textures.wall_pic_column(seg.sidedef.midtexture, texture_column);
                     let mut dc = DrawColumn::new(
                         texture_column,
-                        textures.get_light_colourmap(
+                        textures.wall_light_colourmap(
                             &seg.v1,
                             &seg.v2,
                             self.wall_lights,
@@ -554,10 +554,10 @@ impl SegRender {
                     if mid >= yl {
                         if seg.sidedef.toptexture != usize::MAX {
                             let texture_column =
-                                textures.texture_column(seg.sidedef.toptexture, texture_column);
+                                textures.wall_pic_column(seg.sidedef.toptexture, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
-                                textures.get_light_colourmap(
+                                textures.wall_light_colourmap(
                                     &seg.v1,
                                     &seg.v2,
                                     self.wall_lights,
@@ -592,10 +592,10 @@ impl SegRender {
                     if mid <= yh {
                         if seg.sidedef.bottomtexture != usize::MAX {
                             let texture_column =
-                                textures.texture_column(seg.sidedef.bottomtexture, texture_column);
+                                textures.wall_pic_column(seg.sidedef.bottomtexture, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
-                                textures.get_light_colourmap(
+                                textures.wall_light_colourmap(
                                     &seg.v1,
                                     &seg.v2,
                                     self.wall_lights,
@@ -668,7 +668,7 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    pub fn draw_column(&mut self, textures: &TextureData, canvas: &mut Canvas<Surface>) {
+    pub fn draw_column(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 

@@ -5,15 +5,15 @@ use crate::{
     d_main::{DoomOptions, Skill},
     doom_def::*,
     level_data::{p_ticker, Level},
+    pic::{PicAnimation, Switches},
     play::{
         map_object::MapObject,
         player::{Player, PlayerState, WBStartStruct},
         specials::spawn_specials,
         utilities::m_clear_random,
     },
-    textures::{init_animations, init_switch_list, Animation},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    TextureData,
+    PicData,
 };
 use d_main::identify_version;
 use log::{debug, info, trace, warn};
@@ -26,9 +26,9 @@ pub struct Game {
     pub level: Option<Level>,
     /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
     /// access to change animations + translation tables.
-    pub textures: Rc<RefCell<TextureData>>,
+    pub pic_data: Rc<RefCell<PicData>>,
     /// Pre-generated texture animations
-    pub animations: Vec<Animation>,
+    pub animations: Vec<PicAnimation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
 
@@ -173,15 +173,17 @@ impl Game {
                 );
             }
         }
-        let textures = TextureData::new(&wad);
-        let animations = init_animations(&textures);
-        let switch_list = init_switch_list(game_mode, &textures);
+
+        let pic_data = PicData::init(&wad);
+        println!("Init playloop state.");
+        let animations = PicAnimation::init(&pic_data);
+        let switch_list = Switches::init(game_mode, &pic_data);
 
         Game {
             wad_data: wad,
             level: None,
             running: true,
-            textures: Rc::new(RefCell::new(textures)),
+            pic_data: Rc::new(RefCell::new(pic_data)),
             animations,
             switch_list,
 
@@ -358,9 +360,9 @@ impl Game {
         self.game_skill = skill;
         self.usergame = true; // will be set false if a demo
 
-        self.textures
+        self.pic_data
             .borrow_mut()
-            .set_skytex(self.game_mode, self.game_episode, self.game_map);
+            .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
         println!("New game!");
     }
@@ -400,7 +402,7 @@ impl Game {
                 self.game_map,
                 self.game_mode,
                 self.switch_list.clone(),
-                self.textures.clone(),
+                self.pic_data.clone(),
             )
         };
 
@@ -442,9 +444,9 @@ impl Game {
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
         // TODO: remove after new-game stuff done
-        self.textures
+        self.pic_data
             .borrow_mut()
-            .set_skytex(self.game_mode, self.game_episode, self.game_map);
+            .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
         // TODO: S_Start();
     }

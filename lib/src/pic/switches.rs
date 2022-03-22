@@ -1,6 +1,6 @@
 use log::info;
 
-use crate::{doom_def::GameMode, level_data::map_defs::LineDef, DPtr, TextureData};
+use crate::{doom_def::GameMode, level_data::map_defs::LineDef, DPtr, PicData};
 
 #[derive(Debug)]
 pub enum ButtonWhere {
@@ -16,34 +16,6 @@ pub struct Button {
     pub texture: usize,
     pub timer: u32,
     // TODO: degenmobj_t *soundorg;
-}
-
-/// Doom function name `P_InitSwitchList`
-pub fn init_switch_list(game_mode: GameMode, textures: &TextureData) -> Vec<usize> {
-    let episode = match game_mode {
-        GameMode::Registered | GameMode::Retail => 2,
-        GameMode::Commercial => 3,
-        _ => 1,
-    };
-
-    let mut switch_list = Vec::new();
-    for def in BUTTON_DEFS {
-        if def.episode <= episode {
-            switch_list.push(
-                textures
-                    .texture_num_for_name(def.name1)
-                    .expect(&format!("No texture for {}", def.name1)),
-            );
-            switch_list.push(
-                textures
-                    .texture_num_for_name(def.name2)
-                    .expect(&format!("No texture for {}", def.name2)),
-            );
-        }
-    }
-    info!("Initialised switch list");
-
-    switch_list
 }
 
 struct ButtonDef {
@@ -108,3 +80,35 @@ const BUTTON_DEFS: [ButtonDef; 40] = [
     ButtonDef::new("SW1MARB", "SW2MARB", 3),
     ButtonDef::new("SW1SKULL", "SW2SKULL", 3),
 ];
+
+pub struct Switches;
+
+impl Switches {
+    /// Doom function name `P_InitSwitchList`
+    pub fn init(game_mode: GameMode, textures: &PicData) -> Vec<usize> {
+        let episode = match game_mode {
+            GameMode::Registered | GameMode::Retail => 2,
+            GameMode::Commercial => 3,
+            _ => 1,
+        };
+
+        let mut switch_list = Vec::new();
+        for def in BUTTON_DEFS {
+            if def.episode <= episode {
+                switch_list.push(
+                    textures
+                        .wallpic_num_for_name(def.name1)
+                        .expect(&format!("No texture for {}", def.name1)),
+                );
+                switch_list.push(
+                    textures
+                        .wallpic_num_for_name(def.name2)
+                        .expect(&format!("No texture for {}", def.name2)),
+                );
+            }
+        }
+        info!("Initialised switch list");
+
+        switch_list
+    }
+}

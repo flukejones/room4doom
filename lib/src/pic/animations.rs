@@ -1,8 +1,8 @@
 use log::info;
 
-use crate::TextureData;
+use crate::PicData;
 #[derive(Debug, Default)]
-pub struct Animation {
+pub struct PicAnimation {
     is_texture: bool,
     picnum: usize,
     basepic: usize,
@@ -10,8 +10,8 @@ pub struct Animation {
     speed: usize,
 }
 
-impl Animation {
-    pub fn update(&mut self, textures: &mut TextureData, level_time: usize) {
+impl PicAnimation {
+    pub fn update(&mut self, textures: &mut PicData, level_time: usize) {
         for i in self.basepic..self.basepic + self.numpics {
             let pic = self.basepic + ((level_time / self.speed + i) % self.numpics);
             if self.is_texture {
@@ -21,50 +21,50 @@ impl Animation {
             }
         }
     }
-}
 
-/// Doom function name `P_InitPicAnims`
-pub fn init_animations(textures: &TextureData) -> Vec<Animation> {
-    let mut anims = Vec::with_capacity(ANIM_DEFS.len());
+    /// Doom function name `P_InitPicAnims`
+    pub fn init(textures: &PicData) -> Vec<PicAnimation> {
+        let mut anims = Vec::with_capacity(ANIM_DEFS.len());
 
-    for def in ANIM_DEFS {
-        let mut animation = Animation::default();
-        if def.is_texture {
-            if let Some(start_num) = textures.texture_num_for_name(def.start_name) {
-                if let Some(end_num) = textures.texture_num_for_name(def.end_name) {
-                    animation.picnum = end_num;
-                    animation.basepic = start_num;
+        for def in ANIM_DEFS {
+            let mut animation = PicAnimation::default();
+            if def.is_texture {
+                if let Some(start_num) = textures.wallpic_num_for_name(def.start_name) {
+                    if let Some(end_num) = textures.wallpic_num_for_name(def.end_name) {
+                        animation.picnum = end_num;
+                        animation.basepic = start_num;
+                    }
+                } else {
+                    continue;
                 }
             } else {
-                continue;
-            }
-        } else {
-            if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
-                if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
-                    animation.picnum = end_num;
-                    animation.basepic = start_num;
+                if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
+                    if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
+                        animation.picnum = end_num;
+                        animation.basepic = start_num;
+                    }
+                } else {
+                    continue;
                 }
-            } else {
-                continue;
             }
-        }
 
-        //TODO: temporary texture only
-        animation.is_texture = def.is_texture;
-        animation.numpics = animation.picnum - animation.basepic + 1;
-        if animation.numpics < 2 {
-            panic!(
-                "init_animations: bad cycle from {} to {}",
-                def.start_name, def.end_name
-            );
-        }
-        animation.speed = def.speed;
+            //TODO: temporary texture only
+            animation.is_texture = def.is_texture;
+            animation.numpics = animation.picnum - animation.basepic + 1;
+            if animation.numpics < 2 {
+                panic!(
+                    "init_animations: bad cycle from {} to {}",
+                    def.start_name, def.end_name
+                );
+            }
+            animation.speed = def.speed;
 
-        anims.push(animation);
+            anims.push(animation);
+        }
+        info!("Initialised animated textures");
+
+        anims
     }
-    info!("Initialised animated textures");
-
-    anims
 }
 
 pub struct AnimationDef {

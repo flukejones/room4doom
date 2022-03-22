@@ -145,7 +145,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
                         if line.front_sidedef.bottomtexture != usize::MAX {
                             let tmp = level
-                                .textures
+                                .pic_data
                                 .borrow()
                                 .get_texture(line.front_sidedef.bottomtexture)
                                 .data[0]
@@ -155,7 +155,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                             }
                         }
                         if let Some(side) = line.back_sidedef.as_ref() {
-                            let tmp = level.textures.borrow().get_texture(side.bottomtexture).data
+                            let tmp = level.pic_data.borrow().get_texture(side.bottomtexture).data
                                 [0]
                             .len() as f32;
                             if tmp < min {
