@@ -178,6 +178,10 @@ impl Game {
         println!("Init playloop state.");
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
+        // TODO: S_Init (sfxVolume * 8, musicVolume * 8);
+        // TODO: D_CheckNetGame ();
+        // TODO: HU_Init ();
+        // TODO: ST_Init ();
 
         Game {
             wad_data: wad,
@@ -200,7 +204,7 @@ impl Game {
             netgame: false,
             turbodetected: [false; MAXPLAYERS],
             old_game_state: GameState::GS_LEVEL,
-            game_action: GameAction::ga_loadlevel, // TODO: default to ga_nothing when more state is done
+            game_action: GameAction::ga_newgame, // TODO: default to ga_nothing when more state is done
             game_state: GameState::GS_LEVEL,
             game_skill: options.skill,
             game_tic: 0,
@@ -364,7 +368,8 @@ impl Game {
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
-        println!("New game!");
+        info!("New game!");
+        self.do_load_level();
     }
 
     /// Doom function name `G_DoLoadLevel`
@@ -456,6 +461,7 @@ impl Game {
     }
 
     fn do_reborn(&mut self, player_num: usize) {
+        info!("Player respawned");
         self.game_action = GameAction::ga_loadlevel;
         // TODO: deathmatch spawns
     }
@@ -477,41 +483,12 @@ impl Game {
             }
         }
 
-        // // do things to change the game state
-        // while (gameaction != ga_nothing)
-        // {
-        //     switch (gameaction)
-        //     {
-        //     case ga_loadgame:
-        //         G_DoLoadGame();
-        //         break;
-        //     case ga_savegame:
-        //         G_DoSaveGame();
-        //         break;
-        //     case ga_playdemo:
-        //         G_DoPlayDemo();
-        //         break;
-        //     case ga_completed:
-        //         G_DoCompleted();
-        //         break;
-        //     case ga_victory:
-        //         F_StartFinale();
-        //         break;
-        //     case ga_worlddone:
-        //         G_DoWorldDone();
-        //         break;
-        //     case ga_screenshot:
-        //         M_ScreenShot();
-        //         gameaction = ga_nothing;
-        //         break;
-        //     case ga_nothing:
-        //         break;
-        //     }
-        // }
+        // do things to change the game state
         match self.game_action {
             GameAction::ga_loadlevel => self.do_load_level(),
             GameAction::ga_newgame => self.do_new_game(),
             GameAction::ga_completed => {
+                // TODO: temporary crap here
                 for i in 0..MAXPLAYERS {
                     if self.player_in_game[i] {
                         if let Some(level) = &self.level {
@@ -533,7 +510,13 @@ impl Game {
                 self.game_map += 1;
                 self.game_action = GameAction::ga_loadlevel;
             }
-            _ => {}
+            GameAction::ga_nothing => {}
+            GameAction::ga_loadgame => todo!("G_DoLoadGame()"),
+            GameAction::ga_savegame => todo!("G_DoSaveGame()"),
+            GameAction::ga_playdemo => todo!("G_DoPlayDemo()"),
+            GameAction::ga_victory => todo!("F_StartFinale()"),
+            GameAction::ga_worlddone => todo!("G_DoWorldDone()"),
+            GameAction::ga_screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
         }
 
         // TODO: get commands, check consistancy,
@@ -584,10 +567,11 @@ impl Game {
 
         match self.game_state {
             GameState::GS_LEVEL => {
-                self.p_ticker(); // P_Ticker(); player movements, run thinkers etc
-                                 // ST_Ticker();
-                                 // AM_Ticker();
-                                 // HU_Ticker();
+                // P_Ticker(); player movements, run thinkers etc
+                self.p_ticker();
+                // ST_Ticker();
+                // AM_Ticker();
+                // HU_Ticker();
             }
             GameState::GS_INTERMISSION => {
                 //WI_Ticker();
