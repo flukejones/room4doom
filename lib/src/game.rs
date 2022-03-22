@@ -395,7 +395,7 @@ impl Game {
         // TODO: starttime = I_GetTime();
         self.game_action = GameAction::ga_nothing;
 
-        let mut level = unsafe {
+        let level = unsafe {
             Level::new(
                 self.game_skill,
                 self.game_episode,
@@ -406,35 +406,31 @@ impl Game {
             )
         };
 
-        level.load(&self.wad_data);
-        // Pointer stuff must be set up *AFTER* the level data has been allocated
-        // (it moves when punted to Some<Level>)
-        // TODO: testing effect of PhantomPinned
-        let thing_list = level.map_data.get_things().to_owned();
-
-        for thing in &thing_list {
-            MapObject::p_spawn_map_thing(
-                thing,
-                &mut level,
-                &mut self.players,
-                &self.player_in_game,
-            );
-        }
-        spawn_specials(&mut level);
-        // TODO: P_InitThinkers();
-
-        debug!("Level: thinkers = {}", &level.thinkers.len());
-        debug!("Level: skill = {:?}", &level.game_skill);
-        debug!("Level: episode = {}", &level.episode);
-        debug!("Level: map = {}", &level.game_map);
-        debug!("Level: player_starts = {:?}", &level.player_starts);
-
-        level.game_tic = self.game_tic;
-        self.level_start_tic = self.game_tic;
-        level.game_tic = self.game_tic;
-
         info!("Level started: E{} M{}", level.episode, level.game_map);
         self.level = Some(level);
+
+        if let Some(ref mut level) = self.level {
+            level.load(&self.wad_data);
+
+            // Pointer stuff must be set up *AFTER* the level data has been allocated
+            // (it moves when punted to Some<Level>)
+            let thing_list = (*level.map_data.get_things()).to_owned();
+
+            for thing in &thing_list {
+                MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);
+            }
+            spawn_specials(level);
+
+            debug!("Level: thinkers = {}", &level.thinkers.len());
+            debug!("Level: skill = {:?}", &level.game_skill);
+            debug!("Level: episode = {}", &level.episode);
+            debug!("Level: map = {}", &level.game_map);
+            debug!("Level: player_starts = {:?}", &level.player_starts);
+
+            level.game_tic = self.game_tic;
+            self.level_start_tic = self.game_tic;
+            level.game_tic = self.game_tic;
+        }
 
         // Player setup from P_SetupLevel
         self.totalkills = 0;
@@ -467,10 +463,11 @@ impl Game {
     /// G_Ticker
     pub fn ticker(&mut self) {
         trace!("Entered ticker");
-        if let Some(ref level) = self.level {
-            if let Some(action) = level.game_action {
+        if let Some(level) = &mut self.level {
+            if let Some(action) = level.game_action.take() {
                 self.game_action = action;
                 self.secret_exit = level.secret_exit;
+                info!("Game state changed: {:?}", self.game_action);
             }
         }
         // // do player reborns if needed
@@ -514,6 +511,28 @@ impl Game {
         match self.game_action {
             GameAction::ga_loadlevel => self.do_load_level(),
             GameAction::ga_newgame => self.do_new_game(),
+            GameAction::ga_completed => {
+                for i in 0..MAXPLAYERS {
+                    if self.player_in_game[i] {
+                        if let Some(level) = &self.level {
+                            let player = &self.players[i];
+                            info!("Total Items: {}/{}", player.itemcount, level.totalitems);
+                            info!("Total Kills: {}/{}", player.killcount, level.totalkills);
+                            info!(
+                                "Total Secrets: {}/{}",
+                                player.secretcount, level.totalsecret
+                            );
+                            info!("Level Time: {}", level.level_time);
+
+                            self.totalitems += player.itemcount;
+                            self.totalkills += player.killcount;
+                            self.totalsecret += player.secretcount;
+                        }
+                    }
+                }
+                self.game_map += 1;
+                self.game_action = GameAction::ga_loadlevel;
+            }
             _ => {}
         }
 

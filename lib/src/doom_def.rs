@@ -54,7 +54,7 @@ pub enum GameState {
     GS_DEMOSCREEN,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum GameAction {
     ga_nothing,

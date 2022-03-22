@@ -10,6 +10,7 @@
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
 - [ ] : Doom 2 M4 chopper window bottom plane is not done?
+- [ ] : P_PlayerInSpecialSector
 
 - [-] : P_UpdateSpecials (todo: level timer)
 - [-] : EV_Teleport (todo: telefrag stuff)
