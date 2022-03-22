@@ -1,7 +1,5 @@
-use std::ptr;
-
 use glam::Vec2;
-use log::{error, trace};
+use log::trace;
 
 use crate::{
     info::MapObjectType, level_data::map_defs::LineDef, play::d_thinker::ObjectType, DPtr, Level,

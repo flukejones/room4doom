@@ -26,7 +26,6 @@ use crate::{
     level_data::map_defs::SubSector,
     sounds::SfxEnum,
 };
-use std::f32::consts::PI;
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 pub static MAXMOVE: f32 = 30.0;
