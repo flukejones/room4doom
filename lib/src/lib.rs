@@ -14,7 +14,7 @@ mod errors;
 mod flags;
 mod game;
 mod info;
-mod level_data;
+mod level;
 mod pic;
 mod play;
 mod sounds;
@@ -26,7 +26,7 @@ pub use d_main::{DoomOptions, Shaders, Skill};
 pub use doom_def::{GameMission, WeaponType};
 pub use flags::LineDefFlags;
 pub use game::Game;
-pub use level_data::{
+pub use level::{
     map_data::{MapData, IS_SSECTOR_MASK},
     map_defs::{Node, Sector, Segment, SubSector},
     Level,

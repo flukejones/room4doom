@@ -3,7 +3,7 @@
 use std::ptr::null_mut;
 
 use crate::{
-    level_data::{
+    level::{
         map_defs::{LineDef, Sector},
         Level,
     },

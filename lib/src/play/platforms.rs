@@ -15,7 +15,7 @@ use super::{
 
 use crate::{
     doom_def::TICRATE,
-    level_data::{
+    level::{
         map_defs::{LineDef, Sector},
         Level,
     },

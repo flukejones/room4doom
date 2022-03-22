@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     doom_def::{Card, TICRATE},
-    level_data::{
+    level::{
         map_defs::{LineDef, Sector},
         Level,
     },

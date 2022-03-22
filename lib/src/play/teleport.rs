@@ -2,7 +2,7 @@ use glam::Vec2;
 use log::trace;
 
 use crate::{
-    info::MapObjectType, level_data::map_defs::LineDef, play::d_thinker::ObjectType, DPtr, Level,
+    info::MapObjectType, level::map_defs::LineDef, play::d_thinker::ObjectType, DPtr, Level,
     MapObject, Sector,
 };
 

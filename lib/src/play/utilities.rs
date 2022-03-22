@@ -7,7 +7,7 @@ use super::{
 
 use crate::{
     angle::Angle,
-    level_data::{
+    level::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
         Level,
