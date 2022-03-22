@@ -14,7 +14,7 @@ use super::{
     },
 };
 
-use crate::level_data::Level;
+use crate::level::Level;
 use glam::Vec2;
 use wad::lumps::WadThing;
 
@@ -23,7 +23,7 @@ use crate::{
     d_main::Skill,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
     info::{ActionF, MapObjectInfo, MapObjectType, SpriteNum, State, StateNum, MOBJINFO, STATES},
-    level_data::map_defs::SubSector,
+    level::map_defs::SubSector,
     sounds::SfxEnum,
 };
 

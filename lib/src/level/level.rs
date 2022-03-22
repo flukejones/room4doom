@@ -6,10 +6,9 @@ use wad::{lumps::WadThing, WadData};
 use crate::{
     d_main::Skill,
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
-    game::Game,
-    level_data::map_data::MapData,
+    level::map_data::MapData,
     pic::Button,
-    play::{d_thinker::ThinkerAlloc, specials::update_specials},
+    play::d_thinker::ThinkerAlloc,
     DPtr, PicData,
 };
 
@@ -148,39 +147,4 @@ impl Level {
         self.secret_exit = true;
         self.game_action = Some(GameAction::ga_completed);
     }
-}
-
-/// P_Ticker
-pub fn p_ticker(game: &mut Game) {
-    if game.paused {
-        return;
-    }
-    // TODO: pause if in menu and at least one tic has been run
-    // if ( !netgame
-    //     && menuactive
-    //     && !demoplayback
-    // if game.players[game.consoleplayer].viewz as i32 != 1 {
-    //     return;
-    // }
-
-    // Only run thinkers if a level is loaded
-
-    if let Some(ref mut level) = game.level {
-        for (i, player) in game.players.iter_mut().enumerate() {
-            if game.player_in_game[i] && !player.think(level) {
-                // TODO: what to do with dead player?
-            }
-        }
-
-        unsafe {
-            let lev = &mut *(level as *mut Level);
-            level.thinkers.run_thinkers(lev);
-        }
-
-        // P_RespawnSpecials ();
-
-        level.level_time += 1;
-    }
-
-    update_specials(game);
 }

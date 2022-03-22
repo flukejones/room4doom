@@ -19,7 +19,7 @@ use super::{
 use crate::{
     flags::LineDefFlags,
     info::MapObjectType,
-    level_data::{
+    level::{
         map_defs::{LineDef, Sector},
         Level,
     },

@@ -14,7 +14,7 @@ use super::{
     map_object::MapObject,
     platforms::Platform,
 };
-use crate::level_data::Level;
+use crate::level::Level;
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -428,7 +428,7 @@ mod tests {
     use crate::{
         d_main::Skill,
         doom_def::GameMode,
-        level_data::{map_data::MapData, Level},
+        level::{map_data::MapData, Level},
         play::d_thinker::{Think, Thinker},
         PicData,
     };

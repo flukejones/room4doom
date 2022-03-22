@@ -1,44 +1,7 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
-
-use crate::{level_data::map_defs::Node, Angle};
+use crate::level::map_defs::Node;
 
 use crate::play::utilities::ray_to_line_intersect;
 use glam::Vec2;
-
-/// R_PointToAngle
-// To get a global angle from cartesian coordinates,
-//  the coordinates are flipped until they are in
-//  the first octant of the coordinate system, then
-//  the y (<=x) is scaled and divided by x to get a
-//  tangent (slope) value which is looked up in the
-//  tantoangle[] table.
-///
-/// The flipping isn't done here...
-pub fn vertex_angle_to_object(vertex: Vec2, vertex2: Vec2) -> Angle {
-    let x = vertex.x() - vertex2.x();
-    let y = vertex.y() - vertex2.y();
-    Angle::new(y.atan2(x))
-}
-
-pub fn angle_to_screen(mut radian: f32) -> i32 {
-    let mut x;
-
-    // Left side
-    let p = 160.9 / (FRAC_PI_4).tan();
-    if radian > FRAC_PI_2 {
-        radian -= FRAC_PI_2;
-        let t = radian.tan();
-        x = t * p;
-        x = p - x;
-    } else {
-        // Right side
-        radian = FRAC_PI_2 - radian;
-        let t = radian.tan();
-        x = t * p;
-        x += p;
-    }
-    x as i32
-}
 
 impl Node {
     /// R_PointOnSide

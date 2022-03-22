@@ -3,7 +3,7 @@ use std::ptr::null_mut;
 
 use crate::{
     angle::Angle,
-    level_data::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
+    level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
     log::info,
     play::utilities::bam_to_radian,
     DPtr,
@@ -499,7 +499,7 @@ impl BSPTrace {
 mod tests {
     use crate::{
         angle::Angle,
-        level_data::map_data::{BSPTrace, MapData},
+        level::map_data::{BSPTrace, MapData},
     };
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};

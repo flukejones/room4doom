@@ -12,7 +12,7 @@ use crate::{
     angle::Angle,
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS, MAX_AMMO},
     info::{SpriteNum, StateNum},
-    level_data::Level,
+    level::Level,
     play::map_object::MobjFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
 };

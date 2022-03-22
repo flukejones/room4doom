@@ -4,12 +4,12 @@ use crate::{
     d_main,
     d_main::{DoomOptions, Skill},
     doom_def::*,
-    level_data::{p_ticker, Level},
+    level::Level,
     pic::{PicAnimation, Switches},
     play::{
         map_object::MapObject,
         player::{Player, PlayerState, WBStartStruct},
-        specials::spawn_specials,
+        specials::{spawn_specials, update_specials},
         utilities::m_clear_random,
     },
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
@@ -565,10 +565,10 @@ impl Game {
 
         match self.game_state {
             GameState::GS_LEVEL => {
-                p_ticker(self); // P_Ticker(); player movements, run thinkers etc
-                                // ST_Ticker();
-                                // AM_Ticker();
-                                // HU_Ticker();
+                self.p_ticker(); // P_Ticker(); player movements, run thinkers etc
+                                 // ST_Ticker();
+                                 // AM_Ticker();
+                                 // HU_Ticker();
             }
             GameState::GS_INTERMISSION => {
                 //WI_Ticker();
@@ -583,5 +583,40 @@ impl Game {
                 // do a wipe
             }
         }
+    }
+
+    /// P_Ticker
+    pub fn p_ticker(&mut self) {
+        if self.paused {
+            return;
+        }
+        // TODO: pause if in menu and at least one tic has been run
+        // if ( !netgame
+        //     && menuactive
+        //     && !demoplayback
+        // if game.players[game.consoleplayer].viewz as i32 != 1 {
+        //     return;
+        // }
+
+        // Only run thinkers if a level is loaded
+
+        if let Some(ref mut level) = self.level {
+            for (i, player) in self.players.iter_mut().enumerate() {
+                if self.player_in_game[i] && !player.think(level) {
+                    // TODO: what to do with dead player?
+                }
+            }
+
+            unsafe {
+                let lev = &mut *(level as *mut Level);
+                level.thinkers.run_thinkers(lev);
+            }
+
+            // P_RespawnSpecials ();
+
+            level.level_time += 1;
+        }
+
+        update_specials(self);
     }
 }
