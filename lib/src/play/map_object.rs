@@ -16,6 +16,7 @@ use super::{
 
 use crate::level::Level;
 use glam::Vec2;
+use log::error;
 use wad::lumps::WadThing;
 
 use crate::{
@@ -438,7 +439,7 @@ impl MapObject {
             return;
         }
 
-        let mut player = &mut players[mthing.kind as usize - 1];
+        let mut player = &mut players[0];
 
         if player.player_state == PlayerState::PstReborn {
             player.reborn();
@@ -544,7 +545,7 @@ impl MapObject {
         }
 
         if i == MapObjectType::NUMMOBJTYPES as u16 {
-            println!(
+            error!(
                 "P_SpawnMapThing: Unknown type {} at ({}, {})",
                 mthing.kind, mthing.x, mthing.y
             );
@@ -563,13 +564,11 @@ impl MapObject {
 
         let x = mthing.x as f32;
         let y = mthing.y as f32;
-        let z;
-
-        if MOBJINFO[i as usize].flags & MobjFlag::SPAWNCEILING as u32 != 0 {
-            z = ONCEILINGZ;
+        let z = if MOBJINFO[i as usize].flags & MobjFlag::SPAWNCEILING as u32 != 0 {
+            ONCEILINGZ
         } else {
-            z = ONFLOORZ;
-        }
+            ONFLOORZ
+        };
 
         let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
         let mobj = unsafe { mobj.as_mut() };

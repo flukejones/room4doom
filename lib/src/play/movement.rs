@@ -68,7 +68,7 @@ impl MapObject {
                 return false; // too big a step up
             }
 
-            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) != 0
+            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) == 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up

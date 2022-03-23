@@ -1,7 +1,7 @@
 //! Doom source name `p_inter`
 
 use glam::Vec2;
-use log::debug;
+use log::{debug, info};
 
 use super::{
     map_object::{MapObject, MobjFlag},
@@ -11,7 +11,10 @@ use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
     info::{MapObjectType, STATES},
-    play::{player::PlayerCheat, utilities::point_to_angle_2},
+    play::{
+        player::{PlayerCheat, PlayerState},
+        utilities::point_to_angle_2,
+    },
 };
 
 impl MapObject {
@@ -76,7 +79,7 @@ impl MapObject {
         }
 
         if let Some(mut player) = self.player {
-            debug!("Player taking damage");
+            info!("Ouch!");
             unsafe {
                 let mut player = player.as_mut();
 
@@ -129,6 +132,12 @@ impl MapObject {
         self.health -= damage;
         if self.health <= 0 {
             // TODO: P_KillMobj(source, target);
+            if let Some(player) = self.player.as_mut() {
+                unsafe {
+                    let mut player = player.as_mut();
+                    player.player_state = PlayerState::PstDead;
+                }
+            }
             return;
         }
 
