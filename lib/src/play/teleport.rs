@@ -110,7 +110,7 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     false
 }
 
-fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: u32) {
+fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: i32) {
     if !sector.thinglist.is_null() {
         let mut thing = sector.thinglist;
         unsafe {

@@ -271,7 +271,7 @@ impl PicData {
     }
 
     /// Set the correct skybox for the map/episode currently playing
-    pub fn set_sky_pic(&mut self, mode: GameMode, episode: u32, map: u32) {
+    pub fn set_sky_pic(&mut self, mode: GameMode, episode: i32, map: i32) {
         if mode == GameMode::Commercial {
             self.sky_pic = self.wallpic_num_for_name("SKY3").expect("SKY3 is missing");
             if map < 12 {

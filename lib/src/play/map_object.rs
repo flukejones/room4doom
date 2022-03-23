@@ -441,7 +441,7 @@ impl MapObject {
         let mut player = &mut players[mthing.kind as usize - 1];
 
         if player.player_state == PlayerState::PstReborn {
-            player.player_reborn();
+            player.reborn();
         }
 
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see

@@ -60,9 +60,9 @@ pub struct GameOptions {
     )]
     pub skill: Skill,
     #[options(meta = "", help = "Select episode", default = "1")]
-    pub episode: u32,
+    pub episode: i32,
     #[options(meta = "", help = "Select level in episode", default = "1")]
-    pub map: u32,
+    pub map: i32,
     pub autostart: bool,
     #[options(help = "game options help")]
     pub help: bool,
