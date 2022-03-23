@@ -1,12 +1,12 @@
 use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
 
 use glam::Vec2;
-use log::info;
+use log::{debug, info};
 
 use super::{
     map_object::MapObject,
     player_sprite::PspDef,
-    utilities::{bam_to_radian, fixed_to_float, MAXHEALTH, VIEWHEIGHT},
+    utilities::{bam_to_radian, fixed_to_float, p_random, MAXHEALTH, VIEWHEIGHT},
 };
 
 use crate::{
@@ -416,6 +416,66 @@ impl Player {
             }
         }
     }
+
+    /// Doom function name `P_PlayerInSpecialSector`
+    fn in_special_sector(&mut self, level: &mut Level) {
+        if let Some(mut mobj) = self.mobj {
+            let mobj = unsafe { mobj.as_mut() };
+            let mut sector = unsafe { (*mobj.subsector).sector.clone() };
+
+            if mobj.z != sector.floorheight {
+                return;
+            }
+
+            match sector.special {
+                // HELLSLIME DAMAGE
+                5 => {
+                    if self.powers[PowerType::pw_ironfeet as usize] == 0
+                        && level.level_time & 0x1f == 0
+                    {
+                        debug!("Hell-slime damage!");
+                        mobj.p_take_damage(None, None, 10);
+                    }
+                }
+                // NUKAGE DAMAGE
+                7 => {
+                    if self.powers[PowerType::pw_ironfeet as usize] == 0
+                        && level.level_time & 0x1f == 0
+                    {
+                        debug!("Nukage damage!");
+                        mobj.p_take_damage(None, None, 5);
+                    }
+                }
+                // SUPER HELLSLIME DAMAGE | STROBE HURT
+                16 | 4 => {
+                    if (self.powers[PowerType::pw_ironfeet as usize] == 0 || p_random() < 5)
+                        && level.level_time & 0x1f == 0
+                    {
+                        debug!("Super hell-slime damage!");
+                        mobj.p_take_damage(None, None, 20);
+                    }
+                }
+                // SECRET SECTOR
+                9 => {
+                    info!("Found secret!");
+                    self.secretcount += 1;
+                    sector.special = 0;
+                }
+                // EXIT SUPER DAMAGE! (for E1M8 finale)
+                11 => {
+                    self.cheats &= !(PlayerCheat::Godmode as u32);
+                    if level.level_time & 0x1f == 0 {
+                        debug!("End of episode damage!");
+                        mobj.p_take_damage(None, None, 20);
+                    }
+                    if self.health <= 10 {
+                        level.do_exit_level();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// P_PlayerThink
@@ -430,16 +490,15 @@ impl Player {
                 }
             } else {
                 unsafe {
-                    mobj.as_mut().flags &= PlayerCheat::Noclip as u32;
+                    mobj.as_mut().flags &= !(MobjFlag::NOCLIP as u32);
                 }
             }
         }
 
-        // if (player->playerstate == PST_DEAD)
-        // {
-        // P_DeathThink (player);
-        // return;
-        // }
+        if self.player_state == PlayerState::PstDead {
+            self.death_think(level);
+            return false;
+        }
 
         // TODO: not feature complete with P_PlayerThink
         if let Some(mut mobj) = self.mobj {
@@ -452,6 +511,8 @@ impl Player {
             }
         }
         self.calculate_height(level.level_time);
+
+        self.in_special_sector(level);
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {
@@ -466,5 +527,23 @@ impl Player {
         }
 
         false
+    }
+
+    pub fn death_think(&mut self, level: &mut Level) {
+        // if let Some(mut mobj) = self.mobj {
+        // }
+        if self.viewz != 5.0 {
+            self.viewz -= 2.0;
+            info!("You died! Press use-button to respawn");
+        }
+
+        if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
+            if !self.usedown {
+                self.usedown = true;
+                self.player_state = PlayerState::PstReborn;
+            }
+        } else {
+            self.usedown = false;
+        }
     }
 }

@@ -657,7 +657,7 @@ impl Game {
             && self.game_state != GameState::GS_INTERMISSION
         {
             //WI_End();
-            error!("Do screen wipe");
+            error!("TODO: screen wipe with WI_End(). Done between level end and stat show");
         }
 
         self.old_game_state = self.game_state;

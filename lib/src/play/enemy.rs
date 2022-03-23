@@ -380,7 +380,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
 }
 
 pub fn a_pain(actor: &mut MapObject) {
-    dbg!("PAAAAIN!");
+    dbg!("a_pain");
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
