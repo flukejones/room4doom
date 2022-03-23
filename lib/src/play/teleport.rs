@@ -114,7 +114,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: i32) {
     if !sector.thinglist.is_null() {
         let mut thing = sector.thinglist;
         unsafe {
-            while !(thing == (*thing).s_next) && !(*thing).s_next.is_null() {
+            loop {
                 trace!("Thing type {:?} is getting telefragged", (*thing).kind);
                 let other_thing = &mut *thing;
                 if other_thing.flags & MobjFlag::SHOOTABLE as u32 == 0 {
@@ -129,6 +129,9 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: i32) {
 
                 other_thing.p_take_damage(Some(this_thing), None, 10000);
 
+                if thing == (*thing).s_next {
+                    break;
+                }
                 thing = (*thing).s_next;
             }
         }

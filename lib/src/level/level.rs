@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use log::debug;
+use log::{debug, info};
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
@@ -136,13 +136,13 @@ impl Level {
     // }
 
     pub fn do_exit_level(&mut self) {
-        debug!("Exited level");
+        info!("Exited level");
         self.secret_exit = false;
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
     pub fn do_secret_exit_level(&mut self) {
-        debug!("Secret exited level");
+        info!("Secret exited level");
         self.secret_exit = true;
         self.game_action = Some(GameAction::CompletedLevel);
     }

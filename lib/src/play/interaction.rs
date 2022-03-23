@@ -93,12 +93,11 @@ impl MapObject {
                 }
 
                 if player.armortype != 0 {
-                    let mut saved;
-                    if player.armortype == 1 {
-                        saved = damage / 3;
+                    let mut saved = if player.armortype == 1 {
+                        damage / 3
                     } else {
-                        saved = damage / 2;
-                    }
+                        damage / 2
+                    };
 
                     if player.armorpoints <= saved {
                         // armour is used up

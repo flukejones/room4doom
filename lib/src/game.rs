@@ -671,7 +671,8 @@ impl Game {
                 // HU_Ticker();
             }
             GameState::GS_INTERMISSION => {
-                error!("TODO: WI_Ticker()");
+                error!("TODO: show end-of-level stats with WI_Ticker()");
+                // WI_Ticker calls world_done()
                 self.world_done();
             }
             GameState::GS_FINALE => {
