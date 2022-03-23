@@ -31,7 +31,6 @@ pub const PT_EARLYOUT: i32 = 4;
 /// subsector. When a mob crosses a seg it may be between floor/ceiling heights.
 #[derive(Default)]
 pub struct SubSectorMinMax {
-    tmflags: u32,
     /// If "floatok" true, move would be ok
     /// if within "tmfloorz - tmceilingz".
     floatok: bool,
@@ -567,8 +566,8 @@ impl MapObject {
 
 /// P_RadiusAttack
 /// Source is the creature that caused the explosion at spot.
-pub fn p_radius_attack(spot: &mut MapObject, source: &mut MapObject, damage: f32) {
-    let dist = damage + MAXRADIUS;
+pub fn p_radius_attack(_spot: &mut MapObject, _source: &mut MapObject, damage: f32) {
+    let _dist = damage + MAXRADIUS;
     unimplemented!()
     // // origin of block level is bmaporgx and bmaporgy
     // let yh = (spot.xy.y() + dist - bmaporgy) >> MAPBLOCKSHIFT;

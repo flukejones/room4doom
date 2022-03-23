@@ -37,15 +37,13 @@ impl PicAnimation {
                 } else {
                     continue;
                 }
-            } else {
-                if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
-                    if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
-                        animation.picnum = end_num;
-                        animation.basepic = start_num;
-                    }
-                } else {
-                    continue;
+            } else if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
+                if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
+                    animation.picnum = end_num;
+                    animation.basepic = start_num;
                 }
+            } else {
+                continue;
             }
 
             //TODO: temporary texture only

@@ -1,4 +1,5 @@
 // #![feature(const_fn_floating_point_arithmetic)]
+#![allow(clippy::new_without_default)]
 
 use std::{
     f32::consts::PI,

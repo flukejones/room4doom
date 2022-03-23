@@ -242,49 +242,44 @@ pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
     Angle::new(y.atan2(x))
 }
 
-pub struct Slide {
-    pub direction: Vec2,
-    pub delta: f32,
-}
+// #[inline]
+// pub fn circle_to_line_intercept_basic(
+//     origin: Vec2,
+//     radius: f32,
+//     point1: Vec2,
+//     point2: Vec2,
+// ) -> Option<Vec2> {
+//     let lc = origin - point1;
+//     let d = point2 - point1;
+//     let p = project_vec2(lc, d);
+//     let nearest = point1 + p;
 
-#[inline]
-pub fn circle_to_line_intercept_basic(
-    origin: Vec2,
-    radius: f32,
-    point1: Vec2,
-    point2: Vec2,
-) -> Option<Vec2> {
-    let lc = origin - point1;
-    let d = point2 - point1;
-    let p = project_vec2(lc, d);
-    let nearest = point1 + p;
+//     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
+//         if p.length() < d.length() && p.dot(d) > f32::EPSILON {
+//             return Some((nearest - origin).normalize() * dist);
+//         }
+//     }
+//     None
+// }
 
-    if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
-        if p.length() < d.length() && p.dot(d) > f32::EPSILON {
-            return Some((nearest - origin).normalize() * dist);
-        }
-    }
-    None
-}
+// fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
+//     let d = onto.dot(onto);
+//     if d > 0.0 {
+//         let dp = this.dot(onto);
+//         return onto * (dp / d);
+//     }
+//     onto
+// }
 
-fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
-    let d = onto.dot(onto);
-    if d > 0.0 {
-        let dp = this.dot(onto);
-        return onto * (dp / d);
-    }
-    onto
-}
-
-#[inline]
-pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
-    let dist = point - origin;
-    let len = dist.length();
-    if len < radius {
-        return Some(len - radius);
-    }
-    None
-}
+// #[inline]
+// pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
+//     let dist = point - origin;
+//     let len = dist.length();
+//     if len < radius {
+//         return Some(len - radius);
+//     }
+//     None
+// }
 
 #[inline]
 pub fn unit_vec_from(rotation: f32) -> Vec2 {
@@ -452,37 +447,37 @@ mod tests {
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-    use crate::play::utilities::{circle_point_intersect, circle_to_line_intercept_basic};
+    // use crate::play::utilities::{circle_point_intersect, circle_to_line_intercept_basic};
 
-    #[test]
-    fn circle_vec2_intersect() {
-        let r = 1.0;
-        let origin = Vec2::new(3.0, 5.0);
-        let point = Vec2::new(2.5, 4.5);
-        assert!(circle_point_intersect(origin, r, point).is_some());
+    // #[test]
+    // fn circle_vec2_intersect() {
+    //     let r = 1.0;
+    //     let origin = Vec2::new(3.0, 5.0);
+    //     let point = Vec2::new(2.5, 4.5);
+    //     assert!(circle_point_intersect(origin, r, point).is_some());
 
-        let point = Vec2::new(3.5, 5.5);
-        assert!(circle_point_intersect(origin, r, point).is_some());
+    //     let point = Vec2::new(3.5, 5.5);
+    //     assert!(circle_point_intersect(origin, r, point).is_some());
 
-        let point = Vec2::new(2.0, 4.0);
-        assert!(circle_point_intersect(origin, r, point).is_none());
+    //     let point = Vec2::new(2.0, 4.0);
+    //     assert!(circle_point_intersect(origin, r, point).is_none());
 
-        let point = Vec2::new(4.0, 7.0);
-        let r = 2.5;
-        assert!(circle_point_intersect(origin, r, point).is_some());
-    }
+    //     let point = Vec2::new(4.0, 7.0);
+    //     let r = 2.5;
+    //     assert!(circle_point_intersect(origin, r, point).is_some());
+    // }
 
-    #[test]
-    fn test_circle_to_line_intercept_basic() {
-        let r = 5.0;
-        let origin = Vec2::new(5.0, 7.0);
-        let point1 = Vec2::new(1.0, 3.0);
-        let point2 = Vec2::new(7.0, 20.0);
-        assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_some());
+    // #[test]
+    // fn test_circle_to_line_intercept_basic() {
+    //     let r = 5.0;
+    //     let origin = Vec2::new(5.0, 7.0);
+    //     let point1 = Vec2::new(1.0, 3.0);
+    //     let point2 = Vec2::new(7.0, 20.0);
+    //     assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_some());
 
-        let r = 2.0;
-        assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_none());
-    }
+    //     let r = 2.0;
+    //     assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_none());
+    // }
 
     // #[test]
     // fn test_line_line_intersection() {
