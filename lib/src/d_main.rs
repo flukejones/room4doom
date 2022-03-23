@@ -58,8 +58,8 @@ pub struct DoomOptions {
     pub dev_parm: bool,
     pub deathmatch: u8,
     pub skill: Skill,
-    pub episode: u32,
-    pub map: u32,
+    pub episode: i32,
+    pub map: i32,
     pub autostart: bool,
     pub verbose: log::LevelFilter,
 }

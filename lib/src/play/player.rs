@@ -1,6 +1,7 @@
 use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
 
 use glam::Vec2;
+use log::info;
 
 use super::{
     map_object::MapObject,
@@ -18,7 +19,7 @@ use crate::{
 };
 
 /// 16 pixels of bob
-const MAXBOB: f32 = 16.0; // 0x100000;
+const MAX_BOB: f32 = 16.0; // 0x100000;
 
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,
@@ -34,7 +35,7 @@ pub enum PsprNum {
 }
 
 //// Player states.
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum PlayerState {
     /// Playing or camping.
     PstLive,
@@ -65,7 +66,7 @@ pub struct WBPlayerStruct {
     pub skills: i32,
     pub sitems: i32,
     pub ssecret: i32,
-    pub stime: i32,
+    pub stime: u32,
     pub frags: [i32; 4],
     /// current score on entry, modified on return
     pub score: i32,
@@ -91,12 +92,6 @@ pub struct WBStartStruct {
     pub pnum: i32,
     pub plyr: [WBPlayerStruct; MAXPLAYERS as usize],
 }
-
-const NUM_POWERS: usize = PowerType::NUMPOWERS as usize;
-const NUM_CARDS: usize = Card::NUMCARDS as usize;
-const NUM_WEAPONS: usize = WeaponType::NUMWEAPONS as usize;
-const NUM_AMMO: usize = AmmoType::NUMAMMO as usize;
-const NUM_SPRITES: usize = PsprNum::NUMPSPRITES as usize;
 
 /// player_t
 pub struct Player {
@@ -124,8 +119,8 @@ pub struct Player {
     pub armortype: i32,
 
     /// Power ups. invinc and invis are tic counters.
-    pub powers: [i32; NUM_POWERS],
-    pub cards: [bool; NUM_CARDS],
+    pub powers: [i32; PowerType::NUMPOWERS as usize],
+    pub cards: [bool; Card::NUMCARDS as usize],
     pub backpack: bool,
 
     /// Frags, kills of other players.
@@ -135,9 +130,9 @@ pub struct Player {
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
 
-    pub weaponowned: [bool; NUM_WEAPONS],
-    pub ammo: [u32; NUM_AMMO],
-    pub maxammo: [u32; NUM_AMMO],
+    pub weaponowned: [bool; WeaponType::NUMWEAPONS as usize],
+    pub ammo: [u32; AmmoType::NUMAMMO as usize],
+    pub maxammo: [u32; AmmoType::NUMAMMO as usize],
 
     /// True if button down last tic.
     pub attackdown: bool,
@@ -176,10 +171,10 @@ pub struct Player {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef; NUM_SPRITES],
+    psprites: [PspDef; PsprNum::NUMPSPRITES as usize],
 
     /// True if secret level has been done.
-    didsecret: bool,
+    pub didsecret: bool,
 
     // Custom option
     pub head_bob: bool,
@@ -205,10 +200,10 @@ impl Player {
             health: 100,
             armorpoints: 0,
             armortype: 0,
-            ammo: [0; NUM_AMMO],
-            maxammo: [0; NUM_AMMO],
-            powers: [0; NUM_POWERS],
-            cards: [false; NUM_CARDS],
+            ammo: [0; AmmoType::NUMAMMO as usize],
+            maxammo: [0; AmmoType::NUMAMMO as usize],
+            powers: [0; PowerType::NUMPOWERS as usize],
+            cards: [false; Card::NUMCARDS as usize],
             backpack: false,
             attackdown: false,
             usedown: false,
@@ -231,7 +226,7 @@ impl Player {
             frags: [0; 4],
             readyweapon: WeaponType::wp_pistol,
             pendingweapon: WeaponType::NUMWEAPONS,
-            weaponowned: [false; NUM_WEAPONS],
+            weaponowned: [false; WeaponType::NUMWEAPONS as usize],
 
             player_state: PlayerState::PstReborn,
             cmd: TicCmd::new(),
@@ -256,7 +251,31 @@ impl Player {
     }
     // TODO: needs p_pspr.c, p_inter.c
 
-    pub fn player_reborn(&mut self) {
+    /// Doom function `G_PlayerFinishLevel`, mostly.
+    pub fn finish_level(&mut self) {
+        for card in self.cards.iter_mut() {
+            *card = false;
+        }
+        for power in self.powers.iter_mut() {
+            *power = 0;
+        }
+
+        self.extralight = 0;
+        self.fixedcolormap = 0;
+        self.damagecount = 0;
+        self.bonuscount = 0;
+
+        if let Some(mobj) = self.mobj.as_mut() {
+            unsafe {
+                mobj.as_mut().flags &= !(MobjFlag::SHADOW as u32);
+            }
+        }
+
+        info!("Reset level items and powers for player");
+    }
+
+    /// Doom function `G_PlayerReborn`, mostly.
+    pub fn reborn(&mut self) {
         let kill_count = self.killcount;
         let item_count = self.itemcount;
         let secret_count = self.secretcount;
@@ -275,10 +294,7 @@ impl Player {
         self.weaponowned[WeaponType::wp_fist as usize] = true;
         self.weaponowned[WeaponType::wp_pistol as usize] = true;
         self.ammo[AmmoType::am_clip as usize] = 50;
-
-        for i in 0..self.maxammo.len() {
-            self.maxammo[i] = MAX_AMMO[i];
-        }
+        self.maxammo.copy_from_slice(&MAX_AMMO);
     }
 
     /// P_Thrust
@@ -314,8 +330,8 @@ impl Player {
             // Reduce precision
             self.bob = (self.bob as i32 >> 2) as f32;
 
-            if self.bob > MAXBOB {
-                self.bob = MAXBOB;
+            if self.bob > MAX_BOB {
+                self.bob = MAX_BOB;
             }
 
             // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
@@ -418,6 +434,12 @@ impl Player {
                 }
             }
         }
+
+        // if (player->playerstate == PST_DEAD)
+        // {
+        // P_DeathThink (player);
+        // return;
+        // }
 
         // TODO: not feature complete with P_PlayerThink
         if let Some(mut mobj) = self.mobj {

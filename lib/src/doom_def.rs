@@ -4,9 +4,6 @@ pub const TICRATE: i32 = 35;
 /// DOOM version
 pub static DOOM_VERSION: u8 = 109;
 
-/// Version code for cph's longtics hack ("v1.91")
-pub static DOOM_191_VERSION: u8 = 111;
-
 /// The maximum number of players, multiplayer/networking.
 pub const MAXPLAYERS: usize = 4;
 pub const MAX_DEATHMATCH_STARTS: usize = 10;
@@ -21,7 +18,6 @@ pub enum GameMode {
     /// DOOM 1 registered, E3, M27
     Registered,
     /// DOOM 2 retail, E1 M34
-    // DOOM 2 german edition not handled
     Commercial,
     /// DOOM 1 retail, E4, M36
     Retail,
@@ -31,14 +27,14 @@ pub enum GameMode {
 // Mission packs - might be useful for TC stuff?
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMission {
+    /// Doom (shareware, registered)
     Doom,
-    // DOOM 1
+    /// Doom II
     Doom2,
-    // DOOM 2
+    /// TNT mission pack
     PackTnt,
-    // TNT mission pack
+    /// Plutonia mission pack
     PackPlut,
-    // Plutonia pack
     None,
 }
 
@@ -57,16 +53,16 @@ pub enum GameState {
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum GameAction {
-    ga_nothing,
-    ga_loadlevel,
-    ga_newgame,
-    ga_loadgame,
-    ga_savegame,
-    ga_playdemo,
-    ga_completed,
-    ga_victory,
-    ga_worlddone,
-    ga_screenshot,
+    Nothing,
+    LoadLevel,
+    NewGame,
+    LoadGame,
+    SaveGame,
+    PlayDemo,
+    CompletedLevel,
+    Victory,
+    WorldDone,
+    Screenshot,
 }
 
 // Difficulty/skill settings/filters.

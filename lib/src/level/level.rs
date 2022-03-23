@@ -25,9 +25,9 @@ pub struct Level {
     pub respawn_monsters: bool,
     pub level_time: u32,
     /// Required for the mobj controller (Boss check)
-    pub episode: u32,
+    pub episode: i32,
     /// Required for the mobj controller (Boss check)
-    pub game_map: u32,
+    pub game_map: i32,
     /// This needs to be synced with `Game`
     pub game_tic: u32,
     /// The `Things` for player start locations
@@ -71,8 +71,8 @@ impl Level {
     /// Doom method name is `P_SetupLevel`
     pub unsafe fn new(
         skill: Skill,
-        episode: u32,
-        map: u32,
+        episode: i32,
+        map: i32,
         game_mode: GameMode,
         switch_list: Vec<usize>,
         pic_data: Rc<RefCell<PicData>>,
@@ -109,7 +109,6 @@ impl Level {
             deathmatch_starts: [None; MAX_DEATHMATCH_STARTS],
             deathmatch_p: Vec::with_capacity(MAX_DEATHMATCH_STARTS),
             deathmatch: false,
-            // TODO: copy end values to game obj
             totalkills: 0,
             totalitems: 0,
             totalsecret: 0,
@@ -139,12 +138,12 @@ impl Level {
     pub fn do_exit_level(&mut self) {
         debug!("Exited level");
         self.secret_exit = false;
-        self.game_action = Some(GameAction::ga_completed);
+        self.game_action = Some(GameAction::CompletedLevel);
     }
 
     pub fn do_secret_exit_level(&mut self) {
         debug!("Secret exited level");
         self.secret_exit = true;
-        self.game_action = Some(GameAction::ga_completed);
+        self.game_action = Some(GameAction::CompletedLevel);
     }
 }

@@ -16,7 +16,7 @@ use crate::{
     PicData,
 };
 use d_main::identify_version;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use wad::WadData;
 
 /// Game is very much driven by d_main, which operates as an orchestrator
@@ -52,8 +52,8 @@ pub struct Game {
     game_state: GameState,
     game_skill: Skill,
     respawn_monsters: bool,
-    game_episode: u32,
-    game_map: u32,
+    game_episode: i32,
+    game_map: i32,
     game_tic: u32,
 
     /// If non-zero, exit the level after this number of minutes.
@@ -67,16 +67,8 @@ pub struct Game {
     displayplayer: usize,
     /// gametic at level start
     level_start_tic: u32,
-    /// for intermission
-    totalkills: i32,
-    /// for intermission
-    totalitems: i32,
-    /// for intermission
-    totalsecret: i32,
-    secret_exit: bool,
 
     wminfo: WBStartStruct,
-
     /// d_net.c
     pub netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
@@ -204,7 +196,7 @@ impl Game {
             netgame: false,
             turbodetected: [false; MAXPLAYERS],
             old_game_state: GameState::GS_LEVEL,
-            game_action: GameAction::ga_newgame, // TODO: default to ga_nothing when more state is done
+            game_action: GameAction::NewGame, // TODO: default to ga_nothing when more state is done
             game_state: GameState::GS_LEVEL,
             game_skill: options.skill,
             game_tic: 0,
@@ -215,10 +207,6 @@ impl Game {
             consoleplayer: 0,
             displayplayer: 0,
             level_start_tic: 0,
-            totalkills: 0,
-            totalitems: 0,
-            totalsecret: 0,
-            secret_exit: false,
             wminfo: WBStartStruct::default(),
 
             netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
@@ -256,11 +244,11 @@ impl Game {
     /// in the game. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
     /// changing game vars beyong action here, probably nothing.
-    pub fn defered_init_new(&mut self, skill: Skill, episode: u32, map: u32) {
+    pub fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;
-        self.game_action = GameAction::ga_newgame;
+        self.game_action = GameAction::NewGame;
     }
 
     fn do_new_game(&mut self) {
@@ -276,10 +264,10 @@ impl Game {
 
         // TODO: not pass these, they are stored already
         self.init_new(self.game_skill, self.game_episode, self.game_map);
-        self.game_action = GameAction::ga_nothing;
+        self.game_action = GameAction::Nothing;
     }
 
-    fn init_new(&mut self, skill: Skill, mut episode: u32, mut map: u32) {
+    fn init_new(&mut self, skill: Skill, mut episode: i32, mut map: i32) {
         debug!("Entered init_new");
 
         if self.paused {
@@ -398,7 +386,7 @@ impl Game {
         self.displayplayer = self.consoleplayer; // view the guy you are playing
 
         // TODO: starttime = I_GetTime();
-        self.game_action = GameAction::ga_nothing;
+        self.game_action = GameAction::Nothing;
 
         let level = unsafe {
             Level::new(
@@ -438,9 +426,6 @@ impl Game {
         }
 
         // Player setup from P_SetupLevel
-        self.totalkills = 0;
-        self.totalitems = 0;
-        self.totalsecret = 0;
         self.wminfo.maxfrags = 0;
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
@@ -462,8 +447,134 @@ impl Game {
 
     fn do_reborn(&mut self, player_num: usize) {
         info!("Player respawned");
-        self.game_action = GameAction::ga_loadlevel;
+        self.game_action = GameAction::LoadLevel;
         // TODO: deathmatch spawns
+    }
+
+    /// Doom function name `G_DoWorldDone`
+    fn do_world_done(&mut self) {
+        self.game_state = GameState::GS_LEVEL;
+        self.game_map = self.wminfo.next + 1;
+        self.do_load_level();
+        self.game_action = GameAction::Nothing;
+        // TODO: viewactive = true;
+    }
+
+    fn world_done(&mut self) {
+        self.game_action = GameAction::WorldDone;
+        if let Some(level) = &self.level {
+            if level.secret_exit {
+                for p in self.players.iter_mut() {
+                    p.didsecret = true;
+                }
+            }
+            if matches!(self.game_mode, GameMode::Commercial) {
+                match self.game_map {
+                    6 | 11 | 15 | 20 | 30 | 31 => {
+                        if !level.secret_exit && (self.game_map == 15 || self.game_map == 31) {
+                            // ignore
+                        } else {
+                            // TODO: F_StartFinale();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    fn do_completed(&mut self) {
+        self.game_action = GameAction::Nothing;
+
+        for (i, in_game) in self.player_in_game.iter().enumerate() {
+            if *in_game {
+                let player = &mut self.players[i];
+                player.finish_level();
+            }
+        }
+
+        if !matches!(self.game_mode, GameMode::Commercial) {
+            if self.game_map == 8 {
+                self.game_action = GameAction::Victory;
+                return;
+            }
+            if self.game_map == 8 {
+                for p in self.players.iter_mut() {
+                    p.didsecret = true;
+                }
+            }
+        }
+
+        self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
+        self.wminfo.epsd = self.game_episode - 1;
+        self.wminfo.last = self.game_map - 1;
+
+        // wminfo.next is 0 biased, unlike gamemap, which is just bloody confusing...
+        if matches!(self.game_mode, GameMode::Commercial) {
+            if self.level.as_ref().unwrap().secret_exit {
+                if self.game_map == 15 {
+                    self.wminfo.next = 30;
+                } else if self.game_map == 31 {
+                    self.wminfo.next = 31;
+                }
+            }
+        } else if self.level.as_ref().unwrap().secret_exit {
+            // go to secret level
+            self.wminfo.next = 8;
+        } else if self.game_map == 9 {
+            match self.game_episode {
+                1 => self.wminfo.next = 3,
+                2 => self.wminfo.next = 5,
+                3 => self.wminfo.next = 6,
+                4 => self.wminfo.next = 2,
+                _ => {}
+            }
+        } else {
+            self.wminfo.next = self.game_map;
+        }
+
+        self.wminfo.maxkills = self.level.as_ref().unwrap().totalkills;
+        self.wminfo.maxitems = self.level.as_ref().unwrap().totalitems;
+        self.wminfo.maxsecret = self.level.as_ref().unwrap().totalsecret;
+        self.wminfo.maxfrags = 0;
+
+        // TODO: par times
+
+        for (i, in_game) in self.player_in_game.iter().enumerate() {
+            self.wminfo.plyr[i].inn = *in_game;
+            self.wminfo.plyr[i].skills = self.players[i].killcount;
+            self.wminfo.plyr[i].sitems = self.players[i].itemcount;
+            self.wminfo.plyr[i].ssecret = self.players[i].secretcount;
+            self.wminfo.plyr[i].stime = if let Some(level) = &self.level {
+                level.level_time
+            } else {
+                0
+            };
+            self.wminfo.plyr[i]
+                .frags
+                .copy_from_slice(&self.players[i].frags);
+        }
+
+        // TODO: temporary
+        for (i, in_game) in self.player_in_game.iter().enumerate() {
+            if *in_game {
+                info!(
+                    "Player {i}: Total Items: {}/{}",
+                    self.wminfo.plyr[i].sitems, self.wminfo.maxitems
+                );
+                info!(
+                    "Player {i}: Total Kills: {}/{}",
+                    self.wminfo.plyr[i].skills, self.wminfo.maxkills
+                );
+                info!(
+                    "Player {i}: Total Secrets: {}/{}",
+                    self.wminfo.plyr[i].ssecret, self.wminfo.maxsecret
+                );
+                info!("Player {i}: Level Time: {}", self.wminfo.plyr[i].stime);
+            }
+        }
+
+        self.game_state = GameState::GS_INTERMISSION;
     }
 
     /// G_Ticker
@@ -472,7 +583,6 @@ impl Game {
         if let Some(level) = &mut self.level {
             if let Some(action) = level.game_action.take() {
                 self.game_action = action;
-                self.secret_exit = level.secret_exit;
                 info!("Game state changed: {:?}", self.game_action);
             }
         }
@@ -485,38 +595,16 @@ impl Game {
 
         // do things to change the game state
         match self.game_action {
-            GameAction::ga_loadlevel => self.do_load_level(),
-            GameAction::ga_newgame => self.do_new_game(),
-            GameAction::ga_completed => {
-                // TODO: temporary crap here
-                for i in 0..MAXPLAYERS {
-                    if self.player_in_game[i] {
-                        if let Some(level) = &self.level {
-                            let player = &self.players[i];
-                            info!("Total Items: {}/{}", player.itemcount, level.totalitems);
-                            info!("Total Kills: {}/{}", player.killcount, level.totalkills);
-                            info!(
-                                "Total Secrets: {}/{}",
-                                player.secretcount, level.totalsecret
-                            );
-                            info!("Level Time: {}", level.level_time);
-
-                            self.totalitems += player.itemcount;
-                            self.totalkills += player.killcount;
-                            self.totalsecret += player.secretcount;
-                        }
-                    }
-                }
-                self.game_map += 1;
-                self.game_action = GameAction::ga_loadlevel;
-            }
-            GameAction::ga_nothing => {}
-            GameAction::ga_loadgame => todo!("G_DoLoadGame()"),
-            GameAction::ga_savegame => todo!("G_DoSaveGame()"),
-            GameAction::ga_playdemo => todo!("G_DoPlayDemo()"),
-            GameAction::ga_victory => todo!("F_StartFinale()"),
-            GameAction::ga_worlddone => todo!("G_DoWorldDone()"),
-            GameAction::ga_screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
+            GameAction::LoadLevel => self.do_load_level(),
+            GameAction::NewGame => self.do_new_game(),
+            GameAction::CompletedLevel => self.do_completed(),
+            GameAction::Nothing => {}
+            GameAction::LoadGame => todo!("G_DoLoadGame()"),
+            GameAction::SaveGame => todo!("G_DoSaveGame()"),
+            GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
+            GameAction::Victory => todo!("F_StartFinale()"),
+            GameAction::WorldDone => self.do_world_done(),
+            GameAction::Screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
         }
 
         // TODO: get commands, check consistancy,
@@ -565,6 +653,15 @@ impl Game {
             }
         }
 
+        if self.old_game_state == GameState::GS_INTERMISSION
+            && self.game_state != GameState::GS_INTERMISSION
+        {
+            //WI_End();
+            error!("Do screen wipe");
+        }
+
+        self.old_game_state = self.game_state;
+
         match self.game_state {
             GameState::GS_LEVEL => {
                 // P_Ticker(); player movements, run thinkers etc
@@ -574,7 +671,8 @@ impl Game {
                 // HU_Ticker();
             }
             GameState::GS_INTERMISSION => {
-                //WI_Ticker();
+                error!("TODO: WI_Ticker()");
+                self.world_done();
             }
             GameState::GS_FINALE => {
                 // F_Ticker();
