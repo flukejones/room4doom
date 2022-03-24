@@ -336,6 +336,7 @@ impl MapObject {
         //  - the need to store line slopes
         // TODO: The above stuff, refactor the collisions and movement to use modern techniques
 
+        // P_XYMovement
         // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
         let mut xmove = self.momxy.x();
         let mut ymove = self.momxy.y();
@@ -699,7 +700,7 @@ impl MapObject {
                 (*self.s_next).s_prev = self.s_prev; // could also be null
             }
             if !self.s_prev.is_null() {
-                (*self.s_prev).s_next = self.s_prev;
+                (*self.s_prev).s_next = self.s_next;
             } else {
                 (*self.subsector).sector.thinglist = self.s_next;
             }
@@ -810,8 +811,7 @@ impl MapObject {
 
         let level_time = unsafe { (*self.level).level_time };
 
-        // TODO: why level_time&3 ?
-        if crush_change && level_time != 0 {
+        if crush_change && level_time & 3 == 0 {
             dbg!("Crush");
             self.p_take_damage(None, None, 10);
             let mut mobj = MapObject::spawn_map_object(
@@ -826,6 +826,8 @@ impl MapObject {
                 mobj.as_mut().momxy.set_y(p_subrandom() as f32 * 0.00976562);
             }
         }
+        // let sector = unsafe {(*self.subsector).sector.clone()};
+        //     dbg!(player_exist_in_sector(sector));
 
         true
     }
