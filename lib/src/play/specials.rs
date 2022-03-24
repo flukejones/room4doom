@@ -159,6 +159,8 @@ fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
         let mut thing = sector.thinglist;
         unsafe {
             loop {
+            dbg!((*thing).ceilingz);
+            dbg!((*thing).player.is_some());
                 trace!("Thing type {:?} is in affected sector", (*thing).kind);
                 (*thing).pit_change_sector(&mut no_fit, crunch);
 

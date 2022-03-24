@@ -337,7 +337,6 @@ impl Player {
             // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
             if !self.onground {
                 self.viewz = mobj.z + VIEWHEIGHT;
-
                 if self.viewz > mobj.ceilingz - 4.0 {
                     self.viewz = mobj.ceilingz - 4.0;
                 }
