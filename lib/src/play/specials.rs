@@ -159,8 +159,6 @@ fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
         let mut thing = sector.thinglist;
         unsafe {
             loop {
-            dbg!((*thing).ceilingz);
-            dbg!((*thing).player.is_some());
                 trace!("Thing type {:?} is in affected sector", (*thing).kind);
                 (*thing).pit_change_sector(&mut no_fit, crunch);
 
@@ -174,6 +172,25 @@ fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
 
     no_fit
 }
+
+// pub fn player_exist_in_sector(sector: DPtr<Sector>) -> bool {
+//     if !sector.thinglist.is_null() {
+//         let mut thing = sector.thinglist;
+//         unsafe {
+//             loop {
+//                 if (*thing).player.is_some() {
+//                     return true;
+//                 }
+
+//                 if thing == (*thing).s_next || (*thing).s_next.is_null() {
+//                     break;
+//                 }
+//                 thing = (*thing).s_next;
+//             }
+//         }
+//     }
+//     false
+// }
 
 /// The result of raising a plane. `PastDest` = stop, `Crushed` = should crush all in sector
 #[derive(Debug, Clone, Copy)]
@@ -277,7 +294,7 @@ pub fn move_plane(
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
-                            change_sector(sector, crush);
+                            change_sector(sector.clone(), crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
@@ -290,7 +307,7 @@ pub fn move_plane(
                                 return PlaneResult::Crushed;
                             }
                             sector.ceilingheight = last_pos;
-                            change_sector(sector, crush);
+                            change_sector(sector.clone(), crush);
                             return PlaneResult::Crushed;
                         }
                     }

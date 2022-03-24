@@ -529,11 +529,18 @@ impl Player {
     }
 
     pub fn death_think(&mut self, level: &mut Level) {
-        // if let Some(mut mobj) = self.mobj {
-        // }
-        if self.viewz != 5.0 {
-            self.viewz -= 2.0;
-            info!("You died! Press use-button to respawn");
+        if let Some(mut mobj) = self.mobj {
+            unsafe {
+                let mobj = mobj.as_mut();
+
+                if self.viewz >= mobj.floorz {
+                    self.viewz -= 1.0;
+                }
+                if self.viewz == 1.0 {
+                    self.viewz -= 1.0;
+                    info!("You died! Press use-button to respawn");
+                }
+            }
         }
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {

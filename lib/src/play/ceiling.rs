@@ -143,6 +143,7 @@ impl Think for CeilingMove {
         }
 
         match ceiling.direction {
+            // UP
             1 => {
                 let res = move_plane(
                     ceiling.sector.clone(),
@@ -170,6 +171,7 @@ impl Think for CeilingMove {
                     }
                 }
             }
+            // DOWN
             -1 => {
                 let res = move_plane(
                     ceiling.sector.clone(),
@@ -206,9 +208,9 @@ impl Think for CeilingMove {
                         CeilingKind::SilentCrushAndRaise
                         | CeilingKind::CrushAndRaise
                         | CeilingKind::LowerAndCrush => {
-                            ceiling.speed /= 8.0;
+                            ceiling.speed = 0.2;
                         }
-                        _ => {}
+                        _ => ceiling.speed = CEILSPEED,
                     }
                 }
             }

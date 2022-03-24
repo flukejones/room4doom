@@ -127,12 +127,12 @@ impl MapObject {
                 // Tactile feedback thing removed here
             }
         }
-        debug!("Damage is {damage}");
 
         self.health -= damage;
         if self.health <= 0 {
             // TODO: P_KillMobj(source, target);
             if let Some(player) = self.player.as_mut() {
+                info!("Killing player");
                 unsafe {
                     let mut player = player.as_mut();
                     player.player_state = PlayerState::PstDead;
