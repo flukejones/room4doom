@@ -517,6 +517,8 @@ impl Game {
                 } else if self.game_map == 31 {
                     self.wminfo.next = 31;
                 }
+            } else {
+                self.wminfo.next = self.game_map;
             }
         } else if self.level.as_ref().unwrap().secret_exit {
             // go to secret level
