@@ -16,7 +16,7 @@ use super::{
 
 use crate::level::Level;
 use glam::Vec2;
-use log::error;
+use log::{debug, error};
 use wad::lumps::WadThing;
 
 use crate::{
@@ -812,8 +812,8 @@ impl MapObject {
         let level_time = unsafe { (*self.level).level_time };
 
         if crush_change && level_time & 3 == 0 {
-            dbg!("Crush");
-            self.p_take_damage(None, None, 10);
+            debug!("Crushing!");
+            self.p_take_damage(None, None, false, 10);
             let mut mobj = MapObject::spawn_map_object(
                 self.xy.x(),
                 self.xy.y(),

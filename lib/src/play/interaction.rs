@@ -1,5 +1,7 @@
 //! Doom source name `p_inter`
 
+use std::ptr;
+
 use glam::Vec2;
 use log::{debug, info};
 
@@ -19,10 +21,30 @@ use crate::{
 
 impl MapObject {
     /// Doom function name `P_DamageMobj`
+    ///
+    /// - Inflictor is the thing that caused the damage (creature or missle).
+    ///   Can be `None` for slime, goo etc.
+    /// - Source is the thing to target after taking damage. Should be None for
+    ///   things that can't be targetted (environmental).
+    /// - Source and inflictor are the same for melee attacks, if this is the case
+    ///   then only `source` should be set, and `source_is_inflictor` set to true.
+    ///
+    /// Relative to the original source, `target` is `self`.
+    ///
+    /// Self is always the target of the damage to be dealt. So for example if a
+    /// Mancubus sends a missile in to a Sargent then:
+    ///
+    /// - `self` is the Sargent
+    /// - `inflictor` is the missile that the Mancubus fired
+    /// - `source` is the Mancubus
+    /// - The Sargent has it's `target` set to `source`
+    ///
+    /// If Sargent was a Player then the player has `attacker` set to `source`
     pub fn p_take_damage(
         &mut self,
         inflictor: Option<&MapObject>,
         mut source: Option<&mut MapObject>,
+        source_is_inflictor: bool,
         mut damage: i32,
     ) {
         if self.flags & MobjFlag::SHOOTABLE as u32 == 0 {
@@ -47,10 +69,13 @@ impl MapObject {
         // Some close combat weapons should not
         // inflict thrust and push the victim out of reach,
         // thus kick away unless using the chainsaw.
-        if let Some(inflictor) = inflictor {
-            if self.flags & MobjFlag::NOCLIP as u32 == 0
-                && (source.is_none()
-                    || source.as_ref().unwrap().player.is_none()
+        if inflictor.is_some() || source.is_some() {
+            // Source might be inflictor
+            let mut do_push = true;
+            let inflict = if source_is_inflictor {
+                // assume source is not None
+                // DOn't push away if it's a player with a chainsaw
+                do_push = source.as_ref().unwrap().player.is_none()
                     || unsafe {
                         source
                             .as_ref()
@@ -60,14 +85,19 @@ impl MapObject {
                             .as_ref()
                             .readyweapon
                             != WeaponType::wp_chainsaw
-                    })
-            {
-                let mut angle = point_to_angle_2(&inflictor.xy, &self.xy);
+                    };
+                source.as_mut().unwrap()
+            } else {
+                inflictor.unwrap()
+            };
+
+            if self.flags & MobjFlag::NOCLIP as u32 == 0 && do_push {
+                let mut angle = point_to_angle_2(&inflict.xy, &self.xy);
                 let mut thrust = damage as f32 * 0.001 * 100.0 / self.info.mass as f32;
                 // make fall forwards sometimes
                 if damage < 40
                     && damage > self.health
-                    && self.z - inflictor.z > 64.0
+                    && self.z - inflict.z > 64.0
                     && p_random() & 1 != 0
                 {
                     angle += 180.0; // TODO: verify the results of this (fixed vs float)
@@ -148,10 +178,10 @@ impl MapObject {
 
         self.reactiontime = 0; // AWAKE AND READY!
 
-        // TODO: finish this part
         if self.threshold == 0 || self.kind == MapObjectType::MT_VILE {
             if let Some(source) = source {
-                if source.kind != MapObjectType::MT_VILE {
+                // TODO: gameversion <= exe_doom_1_2
+                if !ptr::eq(self, source) && source.kind != MapObjectType::MT_VILE {
                     self.target = Some(source);
                     self.threshold = BASETHRESHOLD;
 
@@ -159,6 +189,40 @@ impl MapObject {
                         self.set_state(self.info.seestate);
                     }
                 }
+            }
+        }
+    }
+
+    fn kill(&mut self, mut source: Option<&mut MapObject>) {
+        self.flags &=
+            !(MobjFlag::SHOOTABLE as u32 | MobjFlag::FLOAT as u32 | MobjFlag::SKULLFLY as u32);
+
+        if self.kind != MapObjectType::MT_SKULL {
+            self.flags &= !(MobjFlag::NOGRAVITY as u32);
+        }
+
+        self.flags |= MobjFlag::CORPSE as u32 | MobjFlag::DROPOFF as u32;
+        self.health >>= 2;
+
+        if let Some(source) = source {
+            if let Some(player) = source.player.as_mut() {
+                if self.flags & MobjFlag::COUNTKILL as u32 != 0 {
+                    unsafe {
+                        player.as_mut().killcount += 1;
+                    }
+                }
+
+                if self.player.is_some() {
+                    unsafe {
+                        // TODO: set correct player for frags
+                        player.as_mut().frags[0] += 1;
+                    }
+                }
+            }
+        } else {
+            // TODO: Need to increment killcount for first player
+            unsafe {
+                //(*self.level).
             }
         }
     }

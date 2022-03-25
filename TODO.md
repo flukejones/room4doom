@@ -1,4 +1,4 @@
-- [ ] : Implement P_DamageMobj
+- [X] : Implement P_DamageMobj
 - [ ] : P_KillMobj
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
@@ -10,12 +10,12 @@
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
 - [ ] : Doom 2 M4 chopper window bottom plane is not done?
-- [ ] : P_PlayerInSpecialSector
 
 - [-] : P_UpdateSpecials (todo: level timer)
 - [-] : EV_Teleport (todo: telefrag stuff)
 - [-] : Recheck planes
 
+- [X] : P_PlayerInSpecialSector
 - [x] : FIXED: Fix Doom II map 4. There seems to be something causing a thinker list invalid ref?
 - [x] : FIXED: Get the occasional crash from thinker slots running out before level start?
 - [x] : Implement EV_BuildStairs

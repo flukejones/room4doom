@@ -4,7 +4,7 @@ use std::marker::PhantomPinned;
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
 
-use log::debug;
+use log::{debug, warn};
 
 use super::{
     ceiling::CeilingMove,
@@ -14,7 +14,7 @@ use super::{
     map_object::MapObject,
     platforms::Platform,
 };
-use crate::level::Level;
+use crate::{info::MapObjectType, level::Level};
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -198,7 +198,16 @@ impl ThinkerAlloc {
         }
 
         let root_ptr = self.find_first_free(self.next_free)?;
-        debug!("Adding Thinker of type {:?}", thinker.object);
+        match thinker.obj_type() {
+            ObjectType::Mobj(mobj) => {
+                if let Some(kind) = MapObjectType::n(mobj.kind as u16) {
+                    debug!("Adding Thinker of type {kind:?}");
+                } else {
+                    warn!("Unknown thinker doomednum {:?}", mobj.info.doomednum);
+                }
+            }
+            _ => debug!("Adding Thinker of type {:?}", thinker.object),
+        }
         unsafe { ptr::write(root_ptr, thinker) };
         let mut current = unsafe { &mut *root_ptr };
 
