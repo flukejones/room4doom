@@ -3,7 +3,7 @@
 //!
 //! Doom source name `p_mobj`
 
-use std::ptr::{null_mut, NonNull};
+use std::ptr::null_mut;
 
 use super::{
     d_thinker::{ObjectType, Think, Thinker},
@@ -157,8 +157,8 @@ pub struct MapObject {
     /// no matter what (even if shot)
     pub threshold: i32,
     /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
-    /// RUST: If this is not `None` then the `NonNull` pointer is guaranteed to point to a player
-    pub player: Option<NonNull<Player>>,
+    /// RUST: If this is not `None` then the pointer is guaranteed to point to a player
+    pub player: Option<*mut Player>,
     /// Player number last looked for.
     lastlook: i32,
     /// For nightmare respawn.
@@ -239,9 +239,8 @@ impl MapObject {
     /// P_ZMovement
     fn p_z_movement(&mut self) {
         if self.player.is_some() && self.z < self.floorz {
-            let player = self.player.as_mut().unwrap();
             unsafe {
-                let player = player.as_mut();
+                let player = &mut *(self.player.unwrap());
                 player.viewheight -= self.floorz - self.z;
                 player.deltaviewheight = (((VIEWHEIGHT - player.viewheight) as i32) >> 3) as f32;
             }
@@ -283,9 +282,10 @@ impl MapObject {
                     // Decrease viewheight for a moment
                     // after hitting the ground (hard),
                     // and utter appropriate sound.
-                    let player = self.player.as_mut().unwrap();
+
                     unsafe {
-                        player.as_mut().viewheight = ((self.momz as i32) >> 3) as f32;
+                        let player = &mut *(self.player.unwrap());
+                        player.viewheight = ((self.momz as i32) >> 3) as f32;
                     }
                 }
                 self.momz = 0.0;
@@ -403,9 +403,7 @@ impl MapObject {
             if self.player.is_none() {
                 self.momxy = Vec2::default();
             } else if let Some(player) = self.player {
-                if unsafe {
-                    player.as_ref().cmd.forwardmove == 0 && player.as_ref().cmd.sidemove == 0
-                } {
+                if unsafe { (*player).cmd.forwardmove == 0 && (*player).cmd.sidemove == 0 } {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
                     // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
@@ -458,7 +456,7 @@ impl MapObject {
 
         // set color translations for player sprites
 
-        let mobj_ptr_mut = unsafe { mobj.as_mut() };
+        let mobj_ptr_mut = unsafe { &mut *mobj };
         if mthing.kind > 1 {
             mobj_ptr_mut.flags =
                 mobj_ptr_mut.flags as u32 | (mthing.kind as u32 - 1) << MobjFlag::TRANSSHIFT as u8;
@@ -467,7 +465,7 @@ impl MapObject {
         // TODO: check this angle stuff
         mobj_ptr_mut.angle = Angle::new((mthing.angle as f32).to_radians());
         mobj_ptr_mut.health = player.health;
-        mobj_ptr_mut.player = NonNull::new(player);
+        mobj_ptr_mut.player = Some(player);
 
         player.mobj = Some(mobj);
         player.player_state = PlayerState::PstLive;
@@ -572,7 +570,7 @@ impl MapObject {
         };
 
         let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
-        let mobj = unsafe { mobj.as_mut() };
+        let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
@@ -603,7 +601,7 @@ impl MapObject {
         z: i32,
         kind: MapObjectType,
         level: &mut Level,
-    ) -> NonNull<MapObject> {
+    ) -> *mut MapObject {
         let info = MOBJINFO[kind as usize];
 
         let reactiontime = if level.game_skill != Skill::Nightmare {
@@ -639,7 +637,7 @@ impl MapObject {
                     }
                 }
 
-                return NonNull::new(thing).expect("spawn_map_object ptr creation failed");
+                return thing;
             }
         }
 
@@ -822,8 +820,8 @@ impl MapObject {
                 unsafe { &mut *self.level },
             );
             unsafe {
-                mobj.as_mut().momxy.set_x(p_subrandom() as f32 * 0.00976562); // P_SubRandom() << 12;
-                mobj.as_mut().momxy.set_y(p_subrandom() as f32 * 0.00976562);
+                (*mobj).momxy.set_x(p_subrandom() as f32 * 0.00976562); // P_SubRandom() << 12;
+                (*mobj).momxy.set_y(p_subrandom() as f32 * 0.00976562);
             }
         }
         // let sector = unsafe {(*self.subsector).sector.clone()};

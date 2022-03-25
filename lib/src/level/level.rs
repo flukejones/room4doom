@@ -128,13 +128,6 @@ impl Level {
         self.map_data.load(wad_data);
     }
 
-    // pub fn add_thinker<T: Think>(&self, thinker: Thinker) -> Option<NonNull<Thinker>> {
-    //     // TODO: do cleaning pass if can't insert
-    //     let thinkers = &self.thinkers as *const ThinkerAlloc as *mut ThinkerAlloc;
-    //     // Absolutely fucking with lifetimes here
-    //     unsafe { (*thinkers).push::<T>(thinker) }
-    // }
-
     pub fn do_exit_level(&mut self) {
         info!("Exited level");
         self.secret_exit = false;

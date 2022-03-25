@@ -108,7 +108,7 @@ impl SoftwareRenderer {
     }
 
     pub fn clear(&mut self, player: &Player) {
-        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let mobj = unsafe { &*(player.mobj.unwrap()) };
         let view_angle = mobj.angle;
 
         self.clear_clip_segs();
@@ -118,7 +118,7 @@ impl SoftwareRenderer {
 
     /// Doom function name `R_DrawPlanes`
     fn draw_planes(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
-        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let mobj = unsafe { &*(player.mobj.unwrap()) };
         let view_angle = mobj.angle;
 
         let basexscale = self.r_data.visplanes.basexscale;
@@ -201,7 +201,7 @@ impl SoftwareRenderer {
         front_sector: &'a Sector,
         canvas: &mut Canvas<Surface>,
     ) {
-        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let mobj = unsafe { &*(player.mobj.unwrap()) };
         // reject orthogonal back sides
         let xy = mobj.xy;
         let angle = mobj.angle;
@@ -545,8 +545,7 @@ impl SoftwareRenderer {
         count: &mut usize,
     ) {
         *count += 1;
-
-        let mobj = unsafe { player.mobj.as_ref().unwrap().as_ref() };
+        let mobj = unsafe { &*(player.mobj.unwrap()) };
 
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a leaf node and is the index to a subsector

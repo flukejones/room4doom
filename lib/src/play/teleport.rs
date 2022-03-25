@@ -46,9 +46,10 @@ pub fn teleport(
                 let old_xy = thing.xy;
                 let old_z = thing.z;
                 let endpoint = thinker.obj_mut::<MapObject>();
-                if let Some(ref mut player) = thing.player {
+                if let Some(player) = thing.player {
                     unsafe {
-                        player.as_mut().viewz = thing.z + player.as_ref().viewheight;
+                        let player = &mut *player;
+                        player.viewz = thing.z + player.viewheight;
                     }
                 }
 
