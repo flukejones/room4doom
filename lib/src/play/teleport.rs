@@ -127,7 +127,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: i32) {
                     break;
                 }
 
-                other_thing.p_take_damage(Some(this_thing), None, 10000);
+                other_thing.p_take_damage(Some(this_thing), None, false, 10000);
 
                 if thing == (*thing).s_next {
                     break;

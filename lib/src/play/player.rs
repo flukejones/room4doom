@@ -433,7 +433,7 @@ impl Player {
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Hell-slime damage!");
-                        mobj.p_take_damage(None, None, 10);
+                        mobj.p_take_damage(None, None, false, 10);
                     }
                 }
                 // NUKAGE DAMAGE
@@ -442,7 +442,7 @@ impl Player {
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Nukage damage!");
-                        mobj.p_take_damage(None, None, 5);
+                        mobj.p_take_damage(None, None, false, 5);
                     }
                 }
                 // SUPER HELLSLIME DAMAGE | STROBE HURT
@@ -451,7 +451,7 @@ impl Player {
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Super hell-slime damage!");
-                        mobj.p_take_damage(None, None, 20);
+                        mobj.p_take_damage(None, None, false, 20);
                     }
                 }
                 // SECRET SECTOR
@@ -465,7 +465,7 @@ impl Player {
                     self.cheats &= !(PlayerCheat::Godmode as u32);
                     if level.level_time & 0x1f == 0 {
                         debug!("End of episode damage!");
-                        mobj.p_take_damage(None, None, 20);
+                        mobj.p_take_damage(None, None, false, 20);
                     }
                     if self.health <= 10 {
                         level.do_exit_level();
