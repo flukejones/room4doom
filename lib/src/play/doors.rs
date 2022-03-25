@@ -265,7 +265,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
 
 pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut Level) {
     if let Some(player) = thing.player {
-        let player = unsafe { player.as_ref() };
+        let player = unsafe { &mut *player };
         match line.special {
             26 | 32 => {
                 if !player.cards[Card::it_bluecard as usize]

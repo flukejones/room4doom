@@ -77,13 +77,7 @@ impl MapObject {
                 // DOn't push away if it's a player with a chainsaw
                 do_push = source.as_ref().unwrap().player.is_none()
                     || unsafe {
-                        source
-                            .as_ref()
-                            .unwrap()
-                            .player
-                            .unwrap()
-                            .as_ref()
-                            .readyweapon
+                        (*source.as_ref().unwrap().player.unwrap()).readyweapon
                             != WeaponType::wp_chainsaw
                     };
                 source.as_mut().unwrap()
@@ -108,10 +102,10 @@ impl MapObject {
             }
         }
 
-        if let Some(mut player) = self.player {
+        if let Some(player) = self.player {
             info!("Ouch!");
             unsafe {
-                let mut player = player.as_mut();
+                let mut player = &mut *player;
 
                 // end of game hell hack
                 if (*self.subsector).sector.special == 11 && damage >= self.health {
@@ -161,10 +155,10 @@ impl MapObject {
         self.health -= damage;
         if self.health <= 0 {
             // TODO: P_KillMobj(source, target);
-            if let Some(player) = self.player.as_mut() {
+            if let Some(player) = self.player {
                 info!("Killing player");
                 unsafe {
-                    let mut player = player.as_mut();
+                    let mut player = &mut *player;
                     player.player_state = PlayerState::PstDead;
                 }
             }
@@ -205,17 +199,17 @@ impl MapObject {
         self.health >>= 2;
 
         if let Some(source) = source {
-            if let Some(player) = source.player.as_mut() {
+            if let Some(player) = source.player {
                 if self.flags & MobjFlag::COUNTKILL as u32 != 0 {
                     unsafe {
-                        player.as_mut().killcount += 1;
+                        (*player).killcount += 1;
                     }
                 }
 
                 if self.player.is_some() {
                     unsafe {
                         // TODO: set correct player for frags
-                        player.as_mut().frags[0] += 1;
+                        (*player).frags[0] += 1;
                     }
                 }
             }

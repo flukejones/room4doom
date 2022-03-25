@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
+use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use log::{debug, info};
@@ -95,7 +95,7 @@ pub struct WBStartStruct {
 
 /// player_t
 pub struct Player {
-    pub mobj: Option<NonNull<MapObject>>,
+    pub mobj: Option<*mut MapObject>,
     pub player_state: PlayerState,
     pub cmd: TicCmd,
 
@@ -265,9 +265,9 @@ impl Player {
         self.damagecount = 0;
         self.bonuscount = 0;
 
-        if let Some(mobj) = self.mobj.as_mut() {
+        if let Some(mobj) = self.mobj {
             unsafe {
-                mobj.as_mut().flags &= !(MobjFlag::SHADOW as u32);
+                (*mobj).flags &= !(MobjFlag::SHADOW as u32);
             }
         }
 
@@ -306,9 +306,10 @@ impl Player {
         let y = mv as f32 * angle.sin();
         let mxy = Vec2::new(x, y);
 
-        if let Some(mobj) = self.mobj.as_mut() {
-            let mobj = unsafe { mobj.as_mut() };
-            mobj.momxy += mxy;
+        if let Some(mobj) = self.mobj {
+            unsafe {
+                (*mobj).momxy += mxy;
+            }
         }
     }
 
@@ -321,8 +322,8 @@ impl Player {
         // OPTIMIZE: tablify angle
         // Note: a LUT allows for effects
         //  like a ramp with low health.
-        if let Some(mobj) = self.mobj.as_mut() {
-            let mobj = unsafe { mobj.as_mut() };
+        if let Some(mobj) = self.mobj {
+            let mobj = unsafe { &mut *mobj };
             let x = mobj.momxy.x();
             let y = mobj.momxy.y();
             self.bob = x * x + y * y;
@@ -388,7 +389,7 @@ impl Player {
     /// P_MovePlayer
     fn move_player(&mut self) {
         if let Some(mut mobj) = self.mobj {
-            let mobj = unsafe { mobj.as_mut() };
+            let mobj = unsafe { &mut *mobj };
 
             // TODO: Fix adjustments after fixing the tic timestep
             if self.cmd.angleturn != 0 {
@@ -419,7 +420,7 @@ impl Player {
     /// Doom function name `P_PlayerInSpecialSector`
     fn in_special_sector(&mut self, level: &mut Level) {
         if let Some(mut mobj) = self.mobj {
-            let mobj = unsafe { mobj.as_mut() };
+            let mobj = unsafe { &mut *mobj };
             let mut sector = unsafe { (*mobj.subsector).sector.clone() };
 
             if mobj.z != sector.floorheight {
@@ -482,14 +483,15 @@ impl Player {
 /// which enables a cast to t_thinker. We can't do that in rust so need to use the trait.
 impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
-        if let Some(mobj) = self.mobj.as_mut() {
+        if let Some(mobj) = self.mobj {
+            let mobj = unsafe { &mut *mobj };
             if self.cheats & PlayerCheat::Noclip as u32 != 0 {
                 unsafe {
-                    mobj.as_mut().flags |= MobjFlag::NOCLIP as u32;
+                    mobj.flags |= MobjFlag::NOCLIP as u32;
                 }
             } else {
                 unsafe {
-                    mobj.as_mut().flags &= !(MobjFlag::NOCLIP as u32);
+                    mobj.flags &= !(MobjFlag::NOCLIP as u32);
                 }
             }
         }
@@ -502,8 +504,8 @@ impl Player {
         // TODO: not feature complete with P_PlayerThink
         if let Some(mut mobj) = self.mobj {
             unsafe {
-                if mobj.as_ref().reactiontime > 0 {
-                    mobj.as_mut().reactiontime -= 1;
+                if (*mobj).reactiontime > 0 {
+                    (*mobj).reactiontime -= 1;
                 } else {
                     self.move_player();
                 }
@@ -517,8 +519,9 @@ impl Player {
             if !self.usedown {
                 self.usedown = true;
                 if let Some(mut mobj) = self.mobj {
-                    let mobj = unsafe { mobj.as_mut() };
-                    mobj.use_lines();
+                    unsafe {
+                        (*mobj).use_lines();
+                    }
                 }
             }
         } else {
@@ -531,9 +534,7 @@ impl Player {
     pub fn death_think(&mut self, level: &mut Level) {
         if let Some(mut mobj) = self.mobj {
             unsafe {
-                let mobj = mobj.as_mut();
-
-                if self.viewz >= mobj.floorz {
+                if self.viewz >= (*mobj).floorz {
                     self.viewz -= 1.0;
                 }
                 if self.viewz == 1.0 {
