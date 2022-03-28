@@ -30,7 +30,7 @@ pub fn teleport(
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
-                if let &ObjectType::Mobj(ref mobj) = thinker.obj_type() {
+                if let &ObjectType::Mobj(ref mobj) = thinker.obj_ref() {
                     unsafe {
                         if (*mobj.subsector).sector.as_ptr()
                             == sector as *const Sector as *mut Sector
@@ -45,7 +45,11 @@ pub fn teleport(
 
                 let old_xy = thing.xy;
                 let old_z = thing.z;
-                let endpoint = thinker.obj_mut::<MapObject>();
+                let endpoint = if let ObjectType::Mobj(mobj) = thinker.obj_ref() {
+                    mobj
+                } else {
+                    panic!("Teleport tried to use a non-mobj");
+                };
                 if let Some(player) = thing.player {
                     unsafe {
                         let player = &mut *player;

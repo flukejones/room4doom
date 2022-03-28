@@ -3,7 +3,7 @@
 use std::ptr;
 
 use glam::Vec2;
-use log::{debug, info};
+use log::info;
 
 use super::{
     map_object::{MapObject, MobjFlag},

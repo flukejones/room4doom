@@ -444,7 +444,6 @@ fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::bam_to_radian;
-    use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
     // use crate::play::utilities::{circle_point_intersect, circle_to_line_intercept_basic};

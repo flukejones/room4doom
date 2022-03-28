@@ -446,7 +446,7 @@ impl MapObject {
 
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
         // the Player object owns this.
-        let mut mobj = MapObject::spawn_map_object(
+        let mobj = MapObject::spawn_map_object(
             mthing.x as f32,
             mthing.y as f32,
             ONFLOORZ,
@@ -569,7 +569,7 @@ impl MapObject {
             ONFLOORZ
         };
 
-        let mut mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
@@ -622,7 +622,11 @@ impl MapObject {
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
             unsafe {
                 // set subsector and/or block links
-                let thing = (*ptr).obj_mut::<MapObject>();
+                let thing = if let ObjectType::Mobj(mobj) = (*ptr).obj_mut() {
+                    mobj
+                } else {
+                    panic!("");
+                };
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
@@ -812,7 +816,7 @@ impl MapObject {
         if crush_change && level_time & 3 == 0 {
             debug!("Crushing!");
             self.p_take_damage(None, None, false, 10);
-            let mut mobj = MapObject::spawn_map_object(
+            let mobj = MapObject::spawn_map_object(
                 self.xy.x(),
                 self.xy.y(),
                 (self.z + self.height) as i32 / 2,

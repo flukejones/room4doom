@@ -388,7 +388,7 @@ impl Player {
 
     /// P_MovePlayer
     fn move_player(&mut self) {
-        if let Some(mut mobj) = self.mobj {
+        if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
 
             // TODO: Fix adjustments after fixing the tic timestep
@@ -419,7 +419,7 @@ impl Player {
 
     /// Doom function name `P_PlayerInSpecialSector`
     fn in_special_sector(&mut self, level: &mut Level) {
-        if let Some(mut mobj) = self.mobj {
+        if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
             let mut sector = unsafe { (*mobj.subsector).sector.clone() };
 
@@ -486,13 +486,9 @@ impl Player {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
             if self.cheats & PlayerCheat::Noclip as u32 != 0 {
-                unsafe {
-                    mobj.flags |= MobjFlag::NOCLIP as u32;
-                }
+                mobj.flags |= MobjFlag::NOCLIP as u32;
             } else {
-                unsafe {
-                    mobj.flags &= !(MobjFlag::NOCLIP as u32);
-                }
+                mobj.flags &= !(MobjFlag::NOCLIP as u32);
             }
         }
 
@@ -518,7 +514,7 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {
                 self.usedown = true;
-                if let Some(mut mobj) = self.mobj {
+                if let Some(mobj) = self.mobj {
                     unsafe {
                         (*mobj).use_lines();
                     }
@@ -528,11 +524,22 @@ impl Player {
             self.usedown = false;
         }
 
+        if self.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
+            if !self.attackdown {
+                self.attackdown = true;
+                if let Some(mobj) = self.mobj {
+                    println!("PEWPEW!!");
+                }
+            }
+        } else {
+            self.attackdown = false;
+        }
+
         false
     }
 
     pub fn death_think(&mut self, level: &mut Level) {
-        if let Some(mut mobj) = self.mobj {
+        if let Some(mobj) = self.mobj {
             unsafe {
                 if self.viewz >= (*mobj).floorz {
                     self.viewz -= 1.0;
