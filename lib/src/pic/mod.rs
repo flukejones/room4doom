@@ -1,3 +1,11 @@
+//! All data and functions related to pictures in Doom.
+//! These are:
+//! - Wall textures
+//! - Flat/span textures
+//! - Palettes
+//! - Coloumaps and light scaling
+//! - Sprites (patches and frame sets)
+
 mod animations;
 pub use animations::*;
 mod switches;

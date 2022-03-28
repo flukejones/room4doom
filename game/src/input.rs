@@ -117,7 +117,7 @@ impl InputEvents {
             side -= SIDEMOVE[speed];
         }
 
-        if self.is_kb_pressed(cfg.key_fire) {
+        if self.is_kb_pressed(cfg.key_fire) || self.is_mb_pressed(cfg.mousebfire) {
             cmd.buttons |= TIC_CMD_BUTTONS.bt_attack;
         }
 

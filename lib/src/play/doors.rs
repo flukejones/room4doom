@@ -316,7 +316,11 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         // TODO:
-        let mut door = unsafe { (*data).obj_mut::<VerticalDoor>() };
+        let mut door = if let ObjectType::VDoor(ref mut door) = unsafe { (*data).obj_mut() } {
+            door
+        } else {
+            panic!();
+        };
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -326,9 +330,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker_ref().obj_type(), ObjectType::VDoor(_)) {
+                    if matches!(door.thinker_ref().obj_ref(), ObjectType::VDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker_ref().obj_type(), ObjectType::VDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker_ref().obj_ref(), ObjectType::VDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;
