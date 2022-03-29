@@ -169,10 +169,8 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         let thinker = MapObject::create_thinker(ObjectType::Platform(platform), Platform::think);
 
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<Platform>(ptr);
-                sec.specialdata = Some(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
+            sec.specialdata = Some(ptr);
         }
     }
 
@@ -181,7 +179,8 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
 impl Think for Platform {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let platform = object.bad_mut::<Platform>();
+        let platform = object.platform();
+
         match platform.status {
             PlatStatus::Up => {
                 let res = move_plane(

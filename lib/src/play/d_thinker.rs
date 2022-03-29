@@ -24,7 +24,7 @@ pub struct TestObject {
 
 impl Think for TestObject {
     fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let this = object.bad_mut::<TestObject>();
+        let this = object.test();
         this.x = 1000;
         true
     }
@@ -189,7 +189,7 @@ impl ThinkerAlloc {
     /// # Safety:
     ///
     /// `<T>` must match the inner type of `Thinker`
-    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<*mut Thinker> {
+    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
         if self.len == self.capacity {
             return None;
         }
@@ -199,7 +199,7 @@ impl ThinkerAlloc {
 
         let root_ptr = self.find_first_free(self.next_free)?;
         match thinker.obj_ref() {
-            ObjectType::Mobj(mobj) => {
+            ObjectType::MapObject(mobj) => {
                 if let Some(kind) = MapObjectType::n(mobj.kind as u16) {
                     debug!("Adding Thinker of type {kind:?}");
                 } else {
@@ -226,9 +226,9 @@ impl ThinkerAlloc {
             tail.prev = root_ptr;
         }
 
-        current.object.bad_mut::<T>().set_thinker_ptr(root_ptr);
+        current.set_obj_thinker_ptr();
         self.len += 1;
-        Some(root_ptr)
+        unsafe { Some(&mut *root_ptr) }
     }
 
     /// Ensure head is null if the pool is zero length
@@ -301,8 +301,22 @@ impl Thinker {
         self.func = func
     }
 
-    pub fn set_obj_thinker_ptr<T: Think>(&mut self, ptr: *mut Thinker) {
-        self.object.bad_mut::<T>().set_thinker_ptr(ptr);
+    pub fn set_obj_thinker_ptr(&mut self) {
+        let ptr = self as *mut Self;
+        match &mut self.object {
+            ObjectType::TestObject(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::MapObject(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::VerticalDoor(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::FloorMove(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::CeilingMove(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::Platform(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::LightFlash(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::StrobeFlash(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::FireFlicker(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::Glow(obj) => obj.set_thinker_ptr(ptr),
+            ObjectType::Remove => {}
+            ObjectType::Free => {}
+        }
     }
 
     /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then it should be
@@ -375,9 +389,9 @@ pub trait Think {
 #[repr(C)]
 #[allow(clippy::large_enum_variant)]
 pub enum ObjectType {
-    Test(TestObject),
-    Mobj(MapObject),
-    VDoor(VerticalDoor),
+    TestObject(TestObject),
+    MapObject(MapObject),
+    VerticalDoor(VerticalDoor),
     FloorMove(FloorMove),
     CeilingMove(CeilingMove),
     Platform(Platform),
@@ -393,12 +407,94 @@ pub enum ObjectType {
     Free,
 }
 
+impl ObjectType {
+    pub fn mobj(&mut self) -> &mut MapObject {
+        if let ObjectType::MapObject(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not Mobj");
+        }
+    }
+
+    pub fn vertical_door(&mut self) -> &mut VerticalDoor {
+        if let ObjectType::VerticalDoor(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not VDoor");
+        }
+    }
+
+    pub fn ceiling_move(&mut self) -> &mut CeilingMove {
+        if let ObjectType::CeilingMove(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not CeilingMove");
+        }
+    }
+
+    pub fn floor_move(&mut self) -> &mut FloorMove {
+        if let ObjectType::FloorMove(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not FloorMove");
+        }
+    }
+
+    pub fn platform(&mut self) -> &mut Platform {
+        if let ObjectType::Platform(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not Platform");
+        }
+    }
+
+    pub fn light_flash(&mut self) -> &mut LightFlash {
+        if let ObjectType::LightFlash(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not LightFlash");
+        }
+    }
+
+    pub fn strobe_flash(&mut self) -> &mut StrobeFlash {
+        if let ObjectType::StrobeFlash(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not StrobeFlash");
+        }
+    }
+
+    pub fn fire_flicker(&mut self) -> &mut FireFlicker {
+        if let ObjectType::FireFlicker(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not FireFlicker");
+        }
+    }
+
+    pub fn glow(&mut self) -> &mut Glow {
+        if let ObjectType::Glow(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not Glow");
+        }
+    }
+
+    pub fn test(&mut self) -> &mut TestObject {
+        if let ObjectType::TestObject(obj) = self {
+            obj
+        } else {
+            panic!("ObjectType is not TestObject");
+        }
+    }
+}
+
 impl Debug for ObjectType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Test(_) => f.debug_tuple("Test").finish(),
-            Self::Mobj(_) => f.debug_tuple("Mobj").finish(),
-            Self::VDoor(_) => f.debug_tuple("VDoor").finish(),
+            Self::TestObject(_) => f.debug_tuple("Test").finish(),
+            Self::MapObject(_) => f.debug_tuple("Mobj").finish(),
+            Self::VerticalDoor(_) => f.debug_tuple("VDoor").finish(),
             Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
             Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
             Self::Platform(_) => f.debug_tuple("Platform").finish(),
@@ -412,14 +508,15 @@ impl Debug for ObjectType {
     }
 }
 
+#[cfg(test)]
 impl ObjectType {
-    pub fn bad_ref<T>(&self) -> &T {
+    fn bad_ref<T>(&self) -> &T {
         let mut ptr = self as *const Self as usize;
         ptr += size_of::<u64>();
         unsafe { &*(ptr as *const T) }
     }
 
-    pub fn bad_mut<T>(&mut self) -> &mut T {
+    fn bad_mut<T>(&mut self) -> &mut T {
         let mut ptr = self as *mut Self as usize;
         ptr += size_of::<u64>();
         unsafe { &mut *(ptr as *mut T) }
@@ -443,12 +540,12 @@ mod tests {
 
     #[test]
     fn bad_stuff() {
-        let mut x = ObjectType::Test(TestObject {
+        let mut x = ObjectType::TestObject(TestObject {
             x: 42,
             thinker: null_mut(),
         });
 
-        if let ObjectType::Test(f) = &x {
+        if let ObjectType::TestObject(f) = &x {
             assert_eq!(f.x, 42);
 
             let f = x.bad_ref::<TestObject>();
@@ -481,7 +578,7 @@ mod tests {
         let mut x = Thinker {
             prev: null_mut(),
             next: null_mut(),
-            object: ObjectType::Test(TestObject {
+            object: ObjectType::TestObject(TestObject {
                 x: 42,
                 thinker: null_mut(),
             }),
@@ -513,7 +610,7 @@ mod tests {
                 ObjectType::Remove,
                 TestObject::think,
             ))
-            .unwrap();
+            .unwrap() as *mut Thinker;
         assert!(!links.tail.is_null());
         assert_eq!(links.len(), 1);
         unsafe {
@@ -549,17 +646,17 @@ mod tests {
 
         let one = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Test(TestObject {
+                ObjectType::TestObject(TestObject {
                     x: 666,
                     thinker: null_mut(),
                 }),
                 TestObject::think,
             ))
-            .unwrap();
+            .unwrap() as *mut Thinker;
 
         links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Test(TestObject {
+                ObjectType::TestObject(TestObject {
                     x: 123,
                     thinker: null_mut(),
                 }),
@@ -568,13 +665,13 @@ mod tests {
             .unwrap();
         let three = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Test(TestObject {
+                ObjectType::TestObject(TestObject {
                     x: 333,
                     thinker: null_mut(),
                 }),
                 TestObject::think,
             ))
-            .unwrap();
+            .unwrap() as *mut Thinker;
 
         unsafe {
             // forward

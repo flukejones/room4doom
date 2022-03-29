@@ -616,13 +616,13 @@ impl MapObject {
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
-        let thinker = MapObject::create_thinker(ObjectType::Mobj(mobj), MapObject::think);
+        let thinker = MapObject::create_thinker(ObjectType::MapObject(mobj), MapObject::think);
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
             unsafe {
                 // set subsector and/or block links
-                let thing = if let ObjectType::Mobj(mobj) = (*ptr).obj_mut() {
+                let thing = if let ObjectType::MapObject(mobj) = (*ptr).obj_mut() {
                     mobj
                 } else {
                     panic!("");
@@ -837,7 +837,8 @@ impl MapObject {
 
 impl Think for MapObject {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let this = object.bad_mut::<MapObject>();
+        let this = object.mobj();
+
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();
 

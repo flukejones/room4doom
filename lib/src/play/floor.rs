@@ -220,10 +220,8 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
         let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
-                sec.specialdata = Some(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
+            sec.specialdata = Some(ptr);
         }
     }
 
@@ -232,7 +230,8 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
 impl Think for FloorMove {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let floor = object.bad_mut::<FloorMove>();
+        let floor = object.floor_move();
+
         let res = move_plane(
             floor.sector.clone(),
             floor.speed,
@@ -320,10 +319,8 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
-                sec.specialdata = Some(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
+            sec.specialdata = Some(ptr);
         }
 
         let texture = sec.floorpic;
@@ -372,10 +369,8 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                     MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
 
                 if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
-                    unsafe {
-                        (*ptr).set_obj_thinker_ptr::<FloorMove>(ptr);
-                        sec.specialdata = Some(ptr);
-                    }
+                    ptr.set_obj_thinker_ptr();
+                    sec.specialdata = Some(ptr);
                 }
 
                 ok = true;
