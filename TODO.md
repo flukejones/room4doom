@@ -1,5 +1,6 @@
 - [X] : Implement P_DamageMobj
-- [ ] : P_KillMobj
+- [-] : P_KillMobj
+- [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
 - [ ] : sound-server using rx/tx channels
@@ -10,6 +11,7 @@
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
 - [ ] : Doom 2 M4 chopper window bottom plane is not done?
+- [ ] : E1M4 round room, floor strip inside of door steps isn't getting a visplane?
 - [X] : Fixed: needed to null-check :-| Doom 2 teleports cause segfault
 
 - [-] : P_UpdateSpecials (todo: level timer)

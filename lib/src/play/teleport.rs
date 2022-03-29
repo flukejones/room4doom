@@ -1,3 +1,5 @@
+use std::ptr;
+
 use glam::Vec2;
 use log::trace;
 
@@ -92,7 +94,7 @@ pub fn teleport(
 
 /// Doom function nam `P_TeleportMove`
 fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
-    let new_subsect = unsafe { &*level.map_data.point_in_subsector_ref(xy) };
+    let new_subsect = unsafe { &mut *level.map_data.point_in_subsector_raw(xy) };
     let floorz = new_subsect.sector.floorheight;
     let ceilzz = new_subsect.sector.ceilingheight;
 
@@ -101,7 +103,7 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     unsafe {
         thing.unset_thing_position();
 
-        telefrag_others(thing, &new_subsect.sector, level.game_map);
+        telefrag_others(thing, new_subsect.sector.as_mut(), level.game_map);
 
         thing.xy = xy;
         thing.floorz = floorz;
@@ -111,30 +113,15 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     false
 }
 
-fn telefrag_others(this_thing: &mut MapObject, sector: &Sector, game_map: i32) {
-    if !sector.thinglist.is_null() {
-        let mut thing = sector.thinglist;
-        unsafe {
-            loop {
-                trace!("Thing type {:?} is getting telefragged", (*thing).kind);
-                let other_thing = &mut *thing;
-                if other_thing.flags & MobjFlag::SHOOTABLE as u32 == 0 {
-                    thing = (*thing).s_next;
-                    continue;
-                }
-
-                // Monsters can't telefrag things unless it's the boss level
-                if this_thing.player.is_none() && game_map != 30 {
-                    break;
-                }
-
-                other_thing.p_take_damage(Some(this_thing), None, false, 10000);
-
-                if thing == (*thing).s_next || (*thing).s_next.is_null() {
-                    break;
-                }
-                thing = (*thing).s_next;
-            }
-        }
+fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i32) {
+    if this_thing.player.is_none() && game_map != 30 {
+        return;
     }
+
+    sector.run_func_on_thinglist(move |thing| {
+        if thing.flags & MobjFlag::SHOOTABLE as u32 != 0 {
+            thing.p_take_damage(Some(this_thing), None, false, 10000);
+        }
+        true
+    });
 }

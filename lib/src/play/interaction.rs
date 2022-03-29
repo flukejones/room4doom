@@ -3,7 +3,7 @@
 use std::ptr;
 
 use glam::Vec2;
-use log::info;
+use log::{debug, error, info};
 
 use super::{
     map_object::{MapObject, MobjFlag},
@@ -12,7 +12,7 @@ use super::{
 use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
-    info::{MapObjectType, STATES},
+    info::{self, MapObjectType, StateNum, STATES},
     play::{
         player::{PlayerCheat, PlayerState},
         utilities::point_to_angle_2,
@@ -152,16 +152,10 @@ impl MapObject {
             }
         }
 
+        debug!("Applying {damage} damage");
         self.health -= damage;
         if self.health <= 0 {
-            // TODO: P_KillMobj(source, target);
-            if let Some(player) = self.player {
-                info!("Killing player");
-                unsafe {
-                    let mut player = &mut *player;
-                    player.player_state = PlayerState::PstDead;
-                }
-            }
+            self.kill(source);
             return;
         }
 
@@ -187,6 +181,7 @@ impl MapObject {
         }
     }
 
+    /// Doom function name `P_KillMobj`
     fn kill(&mut self, mut source: Option<&mut MapObject>) {
         self.flags &=
             !(MobjFlag::SHOOTABLE as u32 | MobjFlag::FLOAT as u32 | MobjFlag::SKULLFLY as u32);
@@ -198,7 +193,7 @@ impl MapObject {
         self.flags |= MobjFlag::CORPSE as u32 | MobjFlag::DROPOFF as u32;
         self.health >>= 2;
 
-        if let Some(source) = source {
+        if let Some(source) = source.as_ref() {
             if let Some(player) = source.player {
                 if self.flags & MobjFlag::COUNTKILL as u32 != 0 {
                     unsafe {
@@ -215,7 +210,54 @@ impl MapObject {
             }
         } else {
             // TODO: Need to increment killcount for first player
-            //(*self.level).
+            //players[0].killcount++;
+        }
+
+        if let Some(player) = self.player {
+            info!("Killing player");
+            unsafe {
+                let mut player = &mut *player;
+                // Environment kills count against you
+                if source.is_none() {
+                    // TODO: set correct player for frags
+                    (*player).frags[0] += 1;
+                }
+
+                self.flags &= !(MobjFlag::SOLID as u32);
+                player.player_state = PlayerState::PstDead;
+                // TODO: P_DropWeapon(target->player);
+                error!("P_DropWeapon not implemented");
+                // TODO: stop automap
+            }
+        }
+
+        if self.health < -self.info.spawnhealth && self.info.xdeathstate != StateNum::S_NULL {
+            self.set_state(self.info.xdeathstate);
+        } else {
+            self.set_state(self.info.deathstate);
+        }
+
+        self.tics -= p_random() & 3;
+        if self.tics < 1 {
+            self.tics = 1;
+        }
+
+        let item = match self.kind {
+            MapObjectType::MT_WOLFSS | MapObjectType::MT_POSSESSED => MapObjectType::MT_CLIP,
+            MapObjectType::MT_SHOTGUY => MapObjectType::MT_SHOTGUN,
+            MapObjectType::MT_CHAINGUY => MapObjectType::MT_CHAINGUN,
+            _ => return,
+        };
+
+        unsafe {
+            let mobj = MapObject::spawn_map_object(
+                self.xy.x(),
+                self.xy.y(),
+                self.floorz as i32,
+                item,
+                &mut *self.level,
+            );
+            (*mobj).flags |= MobjFlag::DROPPED as u32;
         }
     }
 }
