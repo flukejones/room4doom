@@ -541,10 +541,10 @@ impl Player {
     pub fn death_think(&mut self, level: &mut Level) {
         if let Some(mobj) = self.mobj {
             unsafe {
-                if self.viewz >= (*mobj).floorz {
+                if self.viewz >= (*mobj).floorz + 3.0 {
                     self.viewz -= 1.0;
                 }
-                if self.viewz == 1.0 {
+                if self.viewz == 3.0 {
                     self.viewz -= 1.0;
                     info!("You died! Press use-button to respawn");
                 }

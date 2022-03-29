@@ -1,6 +1,3 @@
-use std::marker::PhantomPinned;
-use std::ptr::null_mut;
-
 use crate::{
     angle::Angle,
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
@@ -48,7 +45,6 @@ pub struct MapData {
     extents: MapExtents,
     nodes: Vec<Node>,
     start_node: u16,
-    _pinned: PhantomPinned,
 }
 
 impl MapData {
@@ -65,7 +61,6 @@ impl MapData {
             extents: MapExtents::default(),
             nodes: Vec::new(),
             start_node: 0,
-            _pinned: PhantomPinned,
         }
     }
 
@@ -201,7 +196,7 @@ impl MapData {
                 validcount: 0,
                 specialdata: None,
                 lines: Vec::new(),
-                thinglist: null_mut(),
+                thinglist: None,
             })
             .collect();
         info!("{}: Loaded segments", self.name);
@@ -405,8 +400,11 @@ impl MapData {
         self.set_scale();
     }
 
-    /// R_PointInSubsector - r_main
-    pub fn point_in_subsector_mut(&mut self, point: Vec2) -> *mut SubSector {
+    /// Get a raw pointer to the subsector a point is in. This is mostly used to update
+    /// an objects location so that sector effects can work on objects.
+    ///
+    /// Doom function name  `R_PointInSubsector`
+    pub fn point_in_subsector_raw(&mut self, point: Vec2) -> *mut SubSector {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -420,7 +418,7 @@ impl MapData {
         &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _
     }
 
-    pub fn point_in_subsector_ref(&self, point: Vec2) -> *const SubSector {
+    pub fn point_in_subsector(&mut self, point: Vec2) -> &SubSector {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -431,7 +429,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *const _
+        &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize]
     }
 }
 
@@ -752,7 +750,7 @@ mod tests {
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);
-        let subsector = map.point_in_subsector_mut(player);
+        let subsector = map.point_in_subsector_raw(player);
         //assert_eq!(subsector_id, Some(103));
         unsafe {
             assert_eq!((*subsector).seg_count, 5);

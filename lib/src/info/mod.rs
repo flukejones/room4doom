@@ -204,7 +204,7 @@ impl Default for SpriteNum {
 }
 
 #[repr(u16)]
-#[derive(Debug, Copy, Clone, N)]
+#[derive(Debug, Copy, Clone, PartialEq, N)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum StateNum {
     S_NULL,

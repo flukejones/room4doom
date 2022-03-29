@@ -3,7 +3,7 @@
 //!
 //! Doom source name `p_mobj`
 
-use std::ptr::null_mut;
+use std::ptr::{null_mut, NonNull};
 
 use super::{
     d_thinker::{ObjectType, Think, Thinker},
@@ -112,10 +112,20 @@ pub struct MapObject {
     sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     frame: i32,
-    /// Link to the next object in this sector
-    pub s_next: *mut MapObject,
-    /// Link to the previous object in this sector
-    pub s_prev: *mut MapObject,
+    /// Link to the next object in this sector. This is only ever used by functions
+    /// implemented on `Sector`.
+    ///
+    /// # Safety
+    /// A reference gained through `s_next` must never outlive this `self` unless links
+    /// are updated.
+    pub s_next: Option<NonNull<MapObject>>,
+    /// Link to the previous object in this sector.  This is only ever used by functions
+    /// implemented on `Sector`
+    ///
+    /// # Safety
+    /// A reference gained through `s_prev` must never outlive this `self` unless links
+    /// are updated.
+    pub s_prev: Option<NonNull<MapObject>>,
     /// The subsector this object is currently in
     pub subsector: *mut SubSector,
     /// The closest interval over all contacted Sectors.
@@ -207,8 +217,8 @@ impl MapObject {
             lastlook: p_random() % MAXPLAYERS as i32,
             spawn_point: None,
             target: None,
-            s_next: null_mut(),
-            s_prev: null_mut(),
+            s_next: None,
+            s_prev: None,
             subsector: null_mut(),
             state,
             info,
@@ -692,14 +702,7 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub unsafe fn unset_thing_position(&mut self) {
         if self.flags & MobjFlag::NOSECTOR as u32 == 0 {
-            if !self.s_next.is_null() {
-                (*self.s_next).s_prev = self.s_prev; // could also be null
-            }
-            if !self.s_prev.is_null() {
-                (*self.s_prev).s_next = self.s_next;
-            } else {
-                (*self.subsector).sector.thinglist = self.s_next;
-            }
+            (*self.subsector).sector.remove_from_thinglist(self);
         }
     }
 
@@ -709,20 +712,11 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub unsafe fn set_thing_position(&mut self) {
         let level = &mut *self.level;
-        let subsector = level.map_data.point_in_subsector_mut(self.xy);
+        let subsector = level.map_data.point_in_subsector_raw(self.xy);
         self.subsector = subsector;
 
         if self.flags & MobjFlag::NOSECTOR as u32 == 0 {
-            let mut sector = (*self.subsector).sector.clone();
-
-            self.s_prev = null_mut();
-            self.s_next = sector.thinglist; // could be null
-
-            if !sector.thinglist.is_null() {
-                (*sector.thinglist).s_prev = self;
-            }
-
-            sector.thinglist = self;
+            (*self.subsector).sector.add_to_thinglist(self)
         }
     }
 

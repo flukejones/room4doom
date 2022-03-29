@@ -1,5 +1,7 @@
 //! Doom source name `p_enemy`
 
+use log::{error, info};
+
 use super::{
     map_object::{MapObject, MobjFlag},
     movement::p_radius_attack,
@@ -443,5 +445,5 @@ pub fn a_firecrackle(actor: &mut MapObject) {
 }
 
 pub fn a_playerscream(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_playerscream not implemented");
 }

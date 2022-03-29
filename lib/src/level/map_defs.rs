@@ -1,3 +1,5 @@
+use std::ptr::{self, null_mut, NonNull};
+
 use crate::{
     angle::Angle,
     play::{d_thinker::Thinker, map_object::MapObject},
@@ -43,11 +45,65 @@ pub struct Sector {
     pub validcount: i32,
 
     // list of mobjs in sector
-    pub thinglist: *mut MapObject,
+    pub thinglist: Option<NonNull<MapObject>>,
 
     // thinker_t for reversable actions
     pub specialdata: Option<*mut Thinker>,
     pub lines: Vec<DPtr<LineDef>>,
+}
+
+impl Sector {
+    /// Returns false if `func` returns false
+    pub fn run_func_on_thinglist(&mut self, mut func: impl FnMut(&mut MapObject) -> bool) -> bool {
+        if let Some(thing) = self.thinglist.as_mut() {
+            unsafe {
+                let mut thing = thing.as_mut();
+
+                loop {
+                    if !func(thing) {
+                        return false;
+                    }
+
+                    if let Some(mut next) = thing.s_next {
+                        thing = next.as_mut()
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    /// Add this thing tot he sectors thing list
+    pub fn add_to_thinglist(&mut self, thing: &mut MapObject) {
+        thing.s_prev = None;
+        thing.s_next = self.thinglist; // could be null
+
+        if let Some(other) = self.thinglist.as_mut() {
+            unsafe {
+                other.as_mut().s_prev = NonNull::new(thing);
+            }
+        }
+
+        self.thinglist = NonNull::new(thing);
+    }
+
+    pub unsafe fn remove_from_thinglist(&mut self, thing: &mut MapObject) {
+        if thing.s_next.is_none() && thing.s_prev.is_none() {
+            self.thinglist = None;
+        }
+
+        if let Some(next) = thing.s_next.as_mut() {
+            next.as_mut().s_prev = thing.s_prev; // could also be null
+        }
+
+        if let Some(prev) = thing.s_prev.as_mut() {
+            prev.as_mut().s_next = thing.s_next;
+        } else {
+            (*thing.subsector).sector.thinglist = thing.s_next;
+        }
+    }
 }
 
 #[derive(Debug)]

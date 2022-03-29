@@ -152,23 +152,12 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 }
 
 /// P_ChangeSector
-fn change_sector(sector: DPtr<Sector>, crunch: bool) -> bool {
+fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
     let mut no_fit = false;
-
-    if !sector.thinglist.is_null() {
-        let mut thing = sector.thinglist;
-        unsafe {
-            loop {
-                trace!("Thing type {:?} is in affected sector", (*thing).kind);
-                (*thing).pit_change_sector(&mut no_fit, crunch);
-
-                if thing == (*thing).s_next || (*thing).s_next.is_null() {
-                    break;
-                }
-                thing = (*thing).s_next;
-            }
-        }
-    }
+    sector.run_func_on_thinglist(|thing| {
+        trace!("Thing type {:?} is in affected sector", thing.kind);
+        thing.pit_change_sector(&mut no_fit, crunch)
+    });
 
     no_fit
 }
