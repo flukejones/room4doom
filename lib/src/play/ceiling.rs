@@ -124,10 +124,8 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
             MapObject::create_thinker(ObjectType::CeilingMove(ceiling), CeilingMove::think);
 
         if let Some(ptr) = level.thinkers.push::<CeilingMove>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<CeilingMove>(ptr);
-                sec.specialdata = Some(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
+            sec.specialdata = Some(ptr);
         }
     }
 
@@ -136,7 +134,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
 impl Think for CeilingMove {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let ceiling = object.bad_mut::<CeilingMove>();
+        let ceiling = object.ceiling_move();
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
             // TODO: S_StartSound(&ceiling->sector->soundorg, sfx_stnmov);

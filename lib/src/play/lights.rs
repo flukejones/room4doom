@@ -21,6 +21,21 @@ const STROBEBRIGHT: i32 = 5;
 pub const FASTDARK: i32 = 15;
 pub const SLOWDARK: i32 = 35;
 
+pub struct MergedLight {
+    // Comon
+    pub thinker: *mut Thinker,
+    pub sector: DPtr<Sector>,
+    pub count: i32,
+    pub max_light: i32,
+    pub min_light: i32,
+    // Specialised
+    pub max_time: i32,
+    pub min_time: i32,
+    pub dark_time: i32,
+    pub bright_time: i32,
+    pub direction: i32,
+}
+
 pub struct FireFlicker {
     pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
@@ -44,16 +59,15 @@ impl FireFlicker {
         let thinker = MapObject::create_thinker(ObjectType::FireFlicker(light), FireFlicker::think);
 
         if let Some(ptr) = level.thinkers.push::<FireFlicker>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<FireFlicker>(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
         }
     }
 }
 
 impl Think for FireFlicker {
     fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.bad_mut::<FireFlicker>();
+        let mut light = object.fire_flicker();
+
         light.count -= 1;
         if light.count != 0 {
             return false;
@@ -106,16 +120,15 @@ impl LightFlash {
         let thinker = MapObject::create_thinker(ObjectType::LightFlash(light), LightFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<LightFlash>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<LightFlash>(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
         }
     }
 }
 
 impl Think for LightFlash {
     fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.bad_mut::<LightFlash>();
+        let mut light = object.light_flash();
+
         light.count -= 1;
         if light.count != 0 {
             return false;
@@ -172,16 +185,15 @@ impl StrobeFlash {
         let thinker = MapObject::create_thinker(ObjectType::StrobeFlash(light), StrobeFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<StrobeFlash>(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
         }
     }
 }
 
 impl Think for StrobeFlash {
     fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.bad_mut::<StrobeFlash>();
+        let mut light = object.strobe_flash();
+
         light.count -= 1;
         if light.count != 0 {
             return false;
@@ -230,9 +242,7 @@ impl Glow {
         let thinker = MapObject::create_thinker(ObjectType::Glow(light), Glow::think);
 
         if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
-            unsafe {
-                (*ptr).set_obj_thinker_ptr::<Glow>(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
         }
     }
 }
@@ -241,7 +251,8 @@ const GLOWSPEED: i32 = 8;
 
 impl Think for Glow {
     fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.bad_mut::<Glow>();
+        let mut light = object.glow();
+
         match light.direction {
             -1 => {
                 light.sector.lightlevel -= GLOWSPEED;
