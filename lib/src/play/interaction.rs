@@ -215,9 +215,7 @@ impl MapObject {
             }
         } else {
             // TODO: Need to increment killcount for first player
-            unsafe {
-                //(*self.level).
-            }
+            //(*self.level).
         }
     }
 }

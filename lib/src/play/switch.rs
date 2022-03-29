@@ -440,7 +440,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
         133 | 99 => {
             if let Some(player) = thing.player {
                 let player = unsafe { &mut *player };
-                let cards = unsafe { player.cards };
+                let cards = player.cards;
                 if cards[Card::it_bluecard as usize] || cards[Card::it_blueskull as usize] {
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list);
                     ev_vertical_door(line, thing, level);
@@ -453,7 +453,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
         134 | 135 => {
             if let Some(player) = thing.player {
                 let player = unsafe { &mut *player };
-                let cards = unsafe { player.cards };
+                let cards = player.cards;
                 if cards[Card::it_redcard as usize] || cards[Card::it_redskull as usize] {
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list);
                     ev_vertical_door(line, thing, level);
@@ -466,7 +466,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
         136 | 137 => {
             if let Some(player) = thing.player {
                 let player = unsafe { &mut *player };
-                let cards = unsafe { player.cards };
+                let cards = player.cards;
                 if cards[Card::it_yellowcard as usize] || cards[Card::it_yellowskull as usize] {
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list);
                     ev_vertical_door(line, thing, level);

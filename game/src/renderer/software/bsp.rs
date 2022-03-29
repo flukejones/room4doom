@@ -13,9 +13,8 @@ use super::{
 };
 use crate::renderer::software::planes::make_spans;
 use doom_lib::{
-    log::{debug, trace},
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
-    IS_SSECTOR_MASK,
+    log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
+    SubSector, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};

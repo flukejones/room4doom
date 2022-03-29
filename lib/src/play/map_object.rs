@@ -620,13 +620,8 @@ impl MapObject {
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
+            let thing = ptr.object_mut().mobj();
             unsafe {
-                // set subsector and/or block links
-                let thing = if let ObjectType::MapObject(mobj) = (*ptr).obj_mut() {
-                    mobj
-                } else {
-                    panic!("");
-                };
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
@@ -640,7 +635,6 @@ impl MapObject {
                         thing.z = ceilingz - info.height;
                     }
                 }
-
                 return thing;
             }
         }
@@ -842,7 +836,7 @@ impl Think for MapObject {
         if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MobjFlag::SKULLFLY as u32 != 0 {
             this.p_xy_movement();
 
-            if this.thinker_ref().should_remove() {
+            if this.thinker_mut().should_remove() {
                 return true; // mobj was removed
             }
         }
@@ -888,7 +882,11 @@ impl Think for MapObject {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }

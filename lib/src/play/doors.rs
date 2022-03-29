@@ -176,8 +176,12 @@ impl Think for VerticalDoor {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
@@ -253,10 +257,8 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
             MapObject::create_thinker(ObjectType::VerticalDoor(door), VerticalDoor::think);
 
         if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
-            unsafe {
-                ptr.set_obj_thinker_ptr();
-                sec.specialdata = Some(ptr);
-            }
+            ptr.set_obj_thinker_ptr();
+            sec.specialdata = Some(ptr);
         }
     }
 
@@ -316,12 +318,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         // TODO:
-        let mut door = if let ObjectType::VerticalDoor(ref mut door) = unsafe { (*data).obj_mut() }
-        {
-            door
-        } else {
-            panic!();
-        };
+        let mut door = unsafe { (*data).object_mut().vertical_door() };
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -331,9 +328,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker_ref().obj_ref(), ObjectType::VerticalDoor(_)) {
+                    if matches!(door.thinker().object(), ObjectType::VerticalDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker_ref().obj_ref(), ObjectType::VerticalDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker().object(), ObjectType::VerticalDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;

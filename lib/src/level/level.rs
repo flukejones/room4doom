@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use log::{debug, info};
+use log::info;
 use wad::{lumps::WadThing, WadData};
 
 use crate::{

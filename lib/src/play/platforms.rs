@@ -266,7 +266,11 @@ impl Think for Platform {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
