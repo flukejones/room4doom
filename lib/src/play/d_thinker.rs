@@ -33,8 +33,12 @@ impl Think for TestObject {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
@@ -94,19 +98,17 @@ impl ThinkerAlloc {
         }
     }
 
-    pub fn run_thinkers(&mut self, level: &mut Level) {
-        let mut current = unsafe { &mut *self.tail };
+    pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
+        let mut current = &mut *self.tail;
         let mut next;
 
         loop {
-            unsafe {
-                if current.should_remove() {
-                    next = &mut *current.next;
-                    self.remove(&mut *current);
-                } else {
-                    current.think(level);
-                    next = &mut *current.next;
-                }
+            if current.should_remove() {
+                next = &mut *current.next;
+                self.remove(&mut *current);
+            } else {
+                current.think(level);
+                next = &mut *current.next;
             }
             current = next;
 
@@ -198,7 +200,7 @@ impl ThinkerAlloc {
         }
 
         let root_ptr = self.find_first_free(self.next_free)?;
-        match thinker.obj_ref() {
+        match thinker.object() {
             ObjectType::MapObject(mobj) => {
                 if let Some(kind) = MapObjectType::n(mobj.kind as u16) {
                     debug!("Adding Thinker of type {kind:?}");
@@ -281,11 +283,11 @@ pub struct Thinker {
 }
 
 impl Thinker {
-    pub fn obj_ref(&self) -> &ObjectType {
+    pub fn object(&self) -> &ObjectType {
         &self.object
     }
 
-    pub fn obj_mut(&mut self) -> &mut ObjectType {
+    pub fn object_mut(&mut self) -> &mut ObjectType {
         &mut self.object
     }
 
@@ -373,15 +375,9 @@ pub trait Think {
     /// Implementer must store the pointer to the conatining Thinker
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
 
-    fn thinker(&self) -> *mut Thinker;
+    fn thinker_mut(&mut self) -> &mut Thinker;
 
-    fn thinker_ref(&self) -> &Thinker {
-        unsafe { &*self.thinker() }
-    }
-
-    fn thinker_mut(&mut self) -> &mut Thinker {
-        unsafe { &mut *self.thinker() }
-    }
+    fn thinker(&self) -> &Thinker;
 }
 
 /// All map object thinkers need to be registered here. If the object has pointees then these must be dealt

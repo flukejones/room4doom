@@ -527,7 +527,7 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
             if !self.attackdown {
                 self.attackdown = true;
-                if let Some(mobj) = self.mobj {
+                if let Some(_mobj) = self.mobj {
                     println!("PEWPEW!!");
                 }
             }

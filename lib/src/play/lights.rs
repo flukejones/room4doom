@@ -21,20 +21,20 @@ const STROBEBRIGHT: i32 = 5;
 pub const FASTDARK: i32 = 15;
 pub const SLOWDARK: i32 = 35;
 
-pub struct MergedLight {
-    // Comon
-    pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
-    pub count: i32,
-    pub max_light: i32,
-    pub min_light: i32,
-    // Specialised
-    pub max_time: i32,
-    pub min_time: i32,
-    pub dark_time: i32,
-    pub bright_time: i32,
-    pub direction: i32,
-}
+// pub struct MergedLight {
+//     // Comon
+//     pub thinker: *mut Thinker,
+//     pub sector: DPtr<Sector>,
+//     pub count: i32,
+//     pub max_light: i32,
+//     pub min_light: i32,
+//     // Specialised
+//     pub max_time: i32,
+//     pub min_time: i32,
+//     pub dark_time: i32,
+//     pub bright_time: i32,
+//     pub direction: i32,
+// }
 
 pub struct FireFlicker {
     pub thinker: *mut Thinker,
@@ -88,8 +88,12 @@ impl Think for FireFlicker {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
@@ -149,8 +153,12 @@ impl Think for LightFlash {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
@@ -214,8 +222,12 @@ impl Think for StrobeFlash {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
@@ -278,8 +290,12 @@ impl Think for Glow {
         self.thinker = ptr;
     }
 
-    fn thinker(&self) -> *mut Thinker {
-        self.thinker
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        unsafe { &mut *self.thinker }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        unsafe { &*self.thinker }
     }
 }
 
