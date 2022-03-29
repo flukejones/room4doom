@@ -80,9 +80,9 @@ impl SegRender {
             markceiling: false,
             maskedtexture: false,
             maskedtexturecol: 0,
-            toptexture: 0,
-            bottomtexture: 0,
-            midtexture: 0,
+            toptexture: -1,
+            bottomtexture: -1,
+            midtexture: -1,
             rw_normalangle: Angle::default(),
             rw_x: 0,
             rw_stopx: 0,
@@ -193,9 +193,9 @@ impl SegRender {
         self.worldtop = (frontsector.ceilingheight - viewz).floor() as i32;
         self.worldbottom = (frontsector.floorheight - viewz).floor() as i32;
 
-        self.midtexture = 0;
-        self.toptexture = 0;
-        self.bottomtexture = 0;
+        self.midtexture = -1;
+        self.toptexture = -1;
+        self.bottomtexture = -1;
         self.maskedtexture = false;
         self.maskedtexturecol = 0;
 
@@ -517,7 +517,7 @@ impl SegRender {
                 dc_iscale = 1.0 / self.rw_scale;
             }
 
-            if self.midtexture != 0 {
+            if self.midtexture != -1 {
                 if seg.sidedef.midtexture != usize::MAX {
                     let textures = &self.texture_data.borrow();
                     let texture_column =
@@ -543,7 +543,7 @@ impl SegRender {
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
             } else {
                 let textures = &self.texture_data.borrow();
-                if self.toptexture != 0 {
+                if self.toptexture != -1 {
                     mid = self.pixhigh as i32; // - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
@@ -580,7 +580,7 @@ impl SegRender {
                     rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1;
                 }
 
-                if self.bottomtexture != 0 {
+                if self.bottomtexture != -1 {
                     // TODO: this affects some placement
                     mid = self.pixlow as i32 + 1;
                     self.pixlow += self.pixlowstep;

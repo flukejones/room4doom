@@ -10,8 +10,11 @@
 - [ ] : fixed-colourmap (special effects)
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
-- [ ] : Doom 2 M4 chopper window bottom plane is not done?
-- [ ] : E1M4 round room, floor strip inside of door steps isn't getting a visplane?
+- [X] : Doom 2 M4 chopper window bottom plane is not done?
+        + So this is an actual missing texture on lower part
+- [X] : E1M4 round room, floor strip inside of door steps isn't getting a visplane?
+        + Same as D2M4. Both checked in Slade. Fixed by ignoring missing texture to ensure
+          visplane is built.
 - [X] : Fixed: needed to null-check :-| Doom 2 teleports cause segfault
 
 - [-] : P_UpdateSpecials (todo: level timer)

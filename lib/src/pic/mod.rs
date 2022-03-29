@@ -10,6 +10,7 @@ mod animations;
 pub use animations::*;
 mod switches;
 pub use switches::*;
+mod sprites;
 
 use std::mem::{size_of, size_of_val};
 
@@ -20,7 +21,7 @@ use wad::{
     WadData,
 };
 
-use crate::doom_def::GameMode;
+use crate::{doom_def::GameMode, info::SPRNAMES, pic::sprites::init_spritedefs};
 
 const MAXLIGHTZ: i32 = 128;
 const LIGHTLEVELS: i32 = 16;
@@ -57,6 +58,8 @@ pub struct PicData {
     sky_num: usize,
     /// The index number of the texture to use for skybox
     sky_pic: usize,
+    //
+    sprite_patches: Vec<WadPatch>,
 }
 
 impl PicData {
@@ -74,6 +77,18 @@ impl PicData {
         let (flats, sky_num) = Self::init_flat_pics(wad);
         let flat_translation = (0..flats.len()).collect();
 
+        let sprite_patches: Vec<WadPatch> = wad
+            .sprites_iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if i % 64 == 0 {
+                    print!(".");
+                }
+                p
+            })
+            .collect();
+        let spritedefs = init_spritedefs(&SPRNAMES, &sprite_patches);
+
         print!(".]\n");
 
         Self {
@@ -87,6 +102,7 @@ impl PicData {
             light_scale,
             zlight_scale,
             colourmap,
+            sprite_patches,
         }
     }
 
