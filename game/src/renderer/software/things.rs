@@ -138,7 +138,7 @@ fn draw_masked_column(
 ) {
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let mut select = frac.floor() as i32 & 127;
+        let mut select = frac.round() as i32 & 127;
 
         while select >= texture_column.len() as i32 {
             select -= texture_column.len() as i32;
