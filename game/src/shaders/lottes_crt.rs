@@ -48,6 +48,7 @@ impl<'c> LottesCRT<'c> {
                     Uniform::new("distortion", UniformType::Scalar(NumberType::Float)),
                     Uniform::new("cornersize", UniformType::Scalar(NumberType::Float)),
                     Uniform::new("cornersmooth", UniformType::Scalar(NumberType::Float)),
+                    Uniform::new("toSRGB", UniformType::Scalar(NumberType::Float)),
                     // The SDL bytes
                     Uniform::new("image", UniformType::Sampler2D),
                 ],
@@ -135,27 +136,29 @@ impl<'c> Drawer for LottesCRT<'c> {
             UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
         )?;
 
-        // MASK Scanline visibility
+        // Hardness of scanline.
+        //  -8.0 = soft
+        // -16.0 = medium
         self.crt_shader
-            .set_uniform("hardScan", UniformValue::Float(-2.78))?; // -3.0 to -4.0
+            .set_uniform("hardScan", UniformValue::Float(-8.0))?;
 
-        // CRT focus?
+        // Hardness of pixels in scanline.
+        // -2.0 = soft
+        // -4.0 = hard
         self.crt_shader
-            .set_uniform("hardPix", UniformValue::Float(-4.14))?; // -1 to -10
+            .set_uniform("hardPix", UniformValue::Float(-3.0))?;
 
-        // brightMult needs to be increased as this decreases
+        // Amount of shadow mask
         self.crt_shader
-            .set_uniform("maskDark", UniformValue::Float(0.5))?; // 0.01 to 0.9
+            .set_uniform("maskDark", UniformValue::Float(1.1))?;
+        self.crt_shader
+            .set_uniform("maskLight", UniformValue::Float(1.5))?;
 
+        // GAMMA, needs to be increased if SRGB not used
         self.crt_shader
-            .set_uniform("maskLight", UniformValue::Float(1.1))?;
-
-        // GAMMA
+            .set_uniform("brightMult", UniformValue::Float(0.4))?;
         self.crt_shader
-            .set_uniform("blackClip", UniformValue::Float(-0.02))?;
-
-        self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(5.0))?;
+            .set_uniform("toSRGB", UniformValue::Float(1.0))?;
 
         // SHAPE
         self.crt_shader
@@ -183,21 +186,8 @@ const FRAG: &str = r#"
 #pragma optimize (on)
 #pragma debug (off)
 
-// FOR CRT GEOM
-#define FIX(c) max(abs(c), 1e-5);
-#define TEX2D(c) texture2D(texture, (c)).rgba
-// Expands contrast and makes image brighter but causes clipping.
-#define GAMMA_CONTRAST_BOOST
-
-// Standard way to get colour
-vec4 colour = texture(image, gl_FragCoord.xy);
-
-const vec3 gammaBoost = vec3(1.0/1.2, 1.0/1.2, 1.0/1.2);//An extra per channel gamma adjustment applied at the end.
-
-//Here are the Tint/Saturation/GammaContrastBoost Variables.
-const float PI = 3.1415926535;
-float U = cos(tint*PI/180.0);
-float W = sin(tint*PI/180.0);
+//An extra per channel gamma adjustment applied at the end.
+const vec3 gammaBoost = vec3(1.0/1.2, 1.0/1.2, 1.0/1.2);
 
 // sRGB to Linear.
 // Assuing using sRGB typed textures this should not be needed.
@@ -211,7 +201,7 @@ vec3 ToLinear(vec3 c)
 }
 
 // Linear to sRGB.
-// Assuing using sRGB typed textures this should not be needed.
+// Assuming using sRGB typed textures this should not be needed.
 float ToSrgb1(float c)
 {
     return( c < 0.0031308 ? c * 12.92 : 1.055 * pow(c,0.41666) - 0.055);
@@ -226,7 +216,7 @@ vec3 ToSrgb(vec3 c)
 vec3 Fetch(vec2 pos, vec2 off)
 {
     pos = (floor(pos * color_texture_pow2_sz + off) + 0.5) / color_texture_pow2_sz;
-    // if(max(abs(pos.x-0.5),abs(pos.y-0.5))>0.5)return vec3(0.0,0.0,0.0);
+    if(max(abs(pos.x-0.5),abs(pos.y-0.5))>0.5)return vec3(0.0,0.0,0.0);
     return ToLinear(texture2D(image, pos.xy).rgb);
 }
 
@@ -251,7 +241,7 @@ vec3 Horz3(vec2 pos,float off)
     vec3 d = Fetch(pos, vec2( 1.0, off));
     float dst = Dist(pos).x;
     // Convert distance to weight.
-    float scale = hardPix * max(0.0, 2.0 - color_texture_sz.x / 512.0);//Modified to keep sharpness somewhat comparable across drivers.
+    float scale = hardPix;
     float wb = Gaus(dst - 1.0, scale);
     float wc = Gaus(dst + 0.0, scale);
     float wd = Gaus(dst + 1.0, scale);
@@ -269,7 +259,7 @@ vec3 Horz5(vec2 pos,float off)
     vec3 e = Fetch(pos, vec2( 2.0, off));
     float dst = Dist(pos).x;
     // Convert distance to weight.
-    float scale = hardPix * max(0.0, 2.0 - color_texture_sz.x / 512.0); // Modified to keep sharpness somewhat comparable across drivers.
+    float scale = hardPix;
     float wa = Gaus(dst - 2.0, scale);
     float wb = Gaus(dst - 1.0, scale);
     float wc = Gaus(dst + 0.0, scale);
@@ -341,14 +331,13 @@ float corner(vec2 coord)
 void main(void)
 {
     gl_FragColor.a = 1.0;
-
-    vec2 pos = radialDistortion(texCoord);//CURVATURE
-    //FINAL//
+    vec2 pos = radialDistortion(texCoord);
     gl_FragColor.rgb = Tri(pos) * Mask(gl_FragCoord.xy) * vec3(corner(pos));
-
-#ifdef GAMMA_CONTRAST_BOOST
-    gl_FragColor.rgb = brightMult*pow(gl_FragColor.rgb,gammaBoost )-vec3(blackClip);
-#endif
+    gl_FragColor.rgb += brightMult*pow(gl_FragColor.rgb,gammaBoost);
+    
+    if (toSRGB == 1.0) {
+        gl_FragColor.rgb = ToSrgb(gl_FragColor.rgb);
+    }
 }"#;
 
 const VERT: &str = r#"

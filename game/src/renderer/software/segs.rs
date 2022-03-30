@@ -190,8 +190,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = (frontsector.ceilingheight - viewz).floor() as i32;
-        self.worldbottom = (frontsector.floorheight - viewz).floor() as i32;
+        self.worldtop = (frontsector.ceilingheight - viewz) as i32;
+        self.worldbottom = (frontsector.floorheight - viewz) as i32;
 
         self.midtexture = -1;
         self.toptexture = -1;
@@ -259,8 +259,8 @@ impl SegRender {
                 ds_p.bsilheight = f32::MIN;
             }
 
-            self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
-            self.worldlow = (backsector.floorheight - viewz).floor() as i32;
+            self.worldhigh = (backsector.ceilingheight - viewz) as i32;
+            self.worldlow = (backsector.floorheight - viewz) as i32;
 
             // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.sky_num()
@@ -469,7 +469,7 @@ impl SegRender {
         while self.rw_x < self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = (self.topfrac + HEIGHTUNIT).floor() as i32 + 1;
+            yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
@@ -478,7 +478,7 @@ impl SegRender {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                 bottom = yl - 1;
 
-                if bottom > rdata.portal_clip.floorclip[self.rw_x as usize] {
+                if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                 }
                 if top <= bottom {
@@ -488,7 +488,7 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac.floor() as i32;
+            yh = self.bottomfrac as i32;
 
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
@@ -498,7 +498,7 @@ impl SegRender {
                 top = yh + 1;
                 bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
 
-                if top < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+                if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                     top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                 }
                 if top <= bottom {
@@ -512,7 +512,7 @@ impl SegRender {
             if self.segtextured {
                 angle =
                     self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize].to_radians();
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
@@ -539,7 +539,7 @@ impl SegRender {
                     dc.draw_column(textures, canvas);
                 };
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height.floor() as i32;
+                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height as i32;
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
             } else {
                 let textures = &self.texture_data.borrow();
@@ -582,7 +582,7 @@ impl SegRender {
 
                 if self.bottomtexture != -1 {
                     // TODO: this affects some placement
-                    mid = self.pixlow.floor() as i32 + 1;
+                    mid = self.pixlow as i32 + 1;
                     self.pixlow += self.pixlowstep;
 
                     if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
@@ -673,13 +673,11 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac.floor() as i32 & 127;
-            while select >= self.texture_column.len() as i32 {
-                select -= self.texture_column.len() as i32;
+            let mut select = frac.round() as i32 & 127;
+            if select >= self.texture_column.len() as i32 {
+                select %= self.texture_column.len() as i32;
             }
-            if select >= self.texture_column.len() as i32
-                || self.texture_column[select as usize] as usize == usize::MAX
-            {
+            if self.texture_column[select as usize] as usize == usize::MAX {
                 continue;
             }
 
