@@ -170,9 +170,9 @@ impl SegRender {
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
-        self.rw_x = start;
+        self.rw_x = ds_p.x1;
         ds_p.x2 = stop;
-        self.rw_stopx = stop;
+        self.rw_stopx = stop + 1;
 
         if stop > start {
             // scale2 and rw_scale appears corrrect
@@ -370,12 +370,12 @@ impl SegRender {
         self.bottomfrac = 100.0 - (self.worldbottom as f32 * self.rw_scale);
 
         if seg.backsector.is_some() {
-            if self.worldhigh <= self.worldtop {
+            if self.worldhigh < self.worldtop {
                 self.pixhigh = 100.0 + HEIGHTUNIT - (self.worldhigh as f32 * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh as f32 * self.rw_scalestep);
             }
 
-            if self.worldlow >= self.worldbottom {
+            if self.worldlow > self.worldbottom {
                 self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow as f32 * self.rw_scale);
                 self.pixlowstep = -(self.worldlow as f32 * self.rw_scalestep);
             }
@@ -416,7 +416,7 @@ impl SegRender {
                 }
             }
             ds_p.sprtopclip = Some(rdata.visplanes.lastopening - start);
-            rdata.visplanes.lastopening += self.rw_stopx + 1 - start;
+            rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
         if (ds_p.silhouette & SIL_BOTTOM != 0 || self.maskedtexture) && ds_p.sprbottomclip.is_none()
@@ -435,7 +435,7 @@ impl SegRender {
                 }
             }
             ds_p.sprbottomclip = Some(rdata.visplanes.lastopening - start);
-            rdata.visplanes.lastopening += self.rw_stopx + 1 - start;
+            rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
         if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
@@ -466,10 +466,10 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0;
-        while self.rw_x <= self.rw_stopx {
+        while self.rw_x < self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac.floor() as i32 + 1;
+            yl = (self.topfrac + HEIGHTUNIT).floor() as i32 + 1;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
@@ -582,7 +582,7 @@ impl SegRender {
 
                 if self.bottomtexture != -1 {
                     // TODO: this affects some placement
-                    mid = self.pixlow as i32 + 1;
+                    mid = self.pixlow.floor() as i32 + 1;
                     self.pixlow += self.pixlowstep;
 
                     if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
