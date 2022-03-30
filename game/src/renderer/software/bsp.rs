@@ -86,7 +86,6 @@ impl Renderer for SoftwareRenderer {
         trace!("BSP traversals for render: {count}");
 
         // TODO: netupdate again
-        // TODO: R_DrawPlanes
         self.draw_planes(player, canvas);
         // TODO: netupdate again
         self.draw_masked(player.viewz, canvas);
@@ -147,7 +146,7 @@ impl SoftwareRenderer {
                         let mut dc = DrawColumn::new(
                             texture_column,
                             colourmap,
-                            1.0, // TODO: pspriteiscale = FRACUNIT * SCREENWIDTH / viewwidth;
+                            1.0,
                             x,
                             sky_mid as f32,
                             dc_yl as i32,

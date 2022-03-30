@@ -7,7 +7,7 @@ pub const SIL_BOTTOM: i32 = 1;
 pub const SIL_TOP: i32 = 2;
 pub const SIL_BOTH: i32 = 3;
 
-pub const SCREENWIDTH: usize = 320;
+pub const SCREENWIDTH: usize = 321;
 pub const SCREENHEIGHT: usize = 200;
 pub const SCREENHEIGHT_HALF: usize = SCREENHEIGHT / 2;
 
