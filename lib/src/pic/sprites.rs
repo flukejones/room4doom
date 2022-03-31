@@ -2,12 +2,12 @@ use log::{debug, error};
 use wad::lumps::WadPatch;
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct SpriteFrame {
-    rotate: i8,
+pub struct SpriteFrame {
+    pub rotate: i8,
     /// Index of the patch to use per view-angle
-    lump: [i32; 8],
+    pub lump: [i32; 8],
     /// Is the view-angle flipped?
-    flip: [u8; 8],
+    pub flip: [u8; 8],
 }
 
 impl SpriteFrame {
@@ -23,7 +23,7 @@ impl SpriteFrame {
 #[derive(Debug, Default, Clone)]
 pub struct SpriteDef {
     num_frames: i32,
-    frames: Vec<SpriteFrame>,
+    pub frames: Vec<SpriteFrame>,
 }
 
 /// Initialise the sprite definitions based on the names and appended bits
@@ -41,7 +41,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[WadPatch]) -> Vec<SpriteDef> {
         let mut sprite_tmp = [SpriteFrame::new(); 29];
 
         // scan the patches. Each patch has the lump name stored.
-        for patch in patches {
+        for (pindex, patch) in patches.iter().enumerate() {
             if patch.name.starts_with(name) {
                 let frame = patch.name.as_bytes()[4] - 'A' as u8;
                 let rotation = patch.name.as_bytes()[5] - '0' as u8;
@@ -53,7 +53,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[WadPatch]) -> Vec<SpriteDef> {
                 // TODO: check for modified game and fetch new lump from name
 
                 install_sprite(
-                    index,
+                    pindex,
                     frame,
                     rotation,
                     false,
@@ -70,7 +70,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[WadPatch]) -> Vec<SpriteDef> {
                         patch.name, frame, rotation
                     );
                     install_sprite(
-                        index,
+                        pindex,
                         frame,
                         rotation,
                         true,

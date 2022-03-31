@@ -77,7 +77,7 @@ impl Sector {
         true
     }
 
-    pub fn run_rfunc_on_thinglist(&self, func: impl Fn(&MapObject) -> bool) -> bool {
+    pub fn run_rfunc_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist.as_ref() {
             unsafe {
                 let mut thing = thing.as_ref();

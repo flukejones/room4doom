@@ -109,9 +109,9 @@ pub struct MapObject {
     /// orientation
     pub angle: Angle,
     /// used to find patch_t and flip value
-    sprite: SpriteNum,
+    pub sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
-    frame: i32,
+    pub frame: i32,
     /// Link to the next object in this sector. This is only ever used by functions
     /// implemented on `Sector`.
     ///

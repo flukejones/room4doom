@@ -27,6 +27,7 @@ pub use d_main::{DoomOptions, Shaders, Skill};
 pub use doom_def::{GameMission, WeaponType};
 pub use flags::LineDefFlags;
 pub use game::Game;
+pub use info::MapObjectType;
 pub use level::{
     map_data::{MapData, IS_SSECTOR_MASK},
     map_defs::{Node, Sector, Segment, SubSector},

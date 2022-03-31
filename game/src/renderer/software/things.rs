@@ -1,13 +1,18 @@
-use doom_lib::{LineDefFlags, PicData, Sector};
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use doom_lib::{LineDefFlags, MapObject, MapObjectType, PicData, Player, Sector};
+use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
     bsp::SoftwareRenderer,
-    defs::{DrawSeg, SCREENHEIGHT_HALF},
+    defs::{DrawSeg, SCREENHEIGHT_HALF, SCREENWIDTH},
 };
 
 impl SoftwareRenderer {
-    pub fn add_sprites<'a>(&'a mut self, sector: &'a Sector) {
+    pub fn add_sprites<'a>(
+        &'a mut self,
+        player: &Player,
+        sector: &'a Sector,
+        canvas: &mut Canvas<Surface>,
+    ) {
         // Need to track sectors as we recurse through BSP as the BSP
         // iteration is via subsectors, and sectors can be split in to
         // many subsectors
@@ -24,7 +29,81 @@ impl SoftwareRenderer {
 
         // }
 
-        sector.run_rfunc_on_thinglist(|_| true);
+        sector.run_rfunc_on_thinglist(|thing| self.project_sprite(player, thing, canvas));
+    }
+
+    fn project_sprite(
+        &mut self,
+        player: &Player,
+        thing: &MapObject,
+        canvas: &mut Canvas<Surface>,
+    ) -> bool {
+        if thing.player.is_some() {
+            return true;
+        }
+        // transform the origin point
+        let player_mobj = unsafe { &*player.mobj.unwrap() };
+        let view_cos = player_mobj.angle.cos();
+        let view_sin = player_mobj.angle.sin();
+
+        let tr_x = thing.xy.x() - player_mobj.xy.x();
+        let tr_y = thing.xy.y() - player_mobj.xy.y();
+        let gxt = tr_x * view_cos;
+        let gyt = -(tr_y * view_sin);
+        let tz = gxt - gyt;
+        // Is it behind the view?
+        if tz < 4.0 {
+            return true; // keep checking
+        }
+
+        let x_scale = (SCREENWIDTH / 2) as f32 / tz;
+        let gxt = -(tr_x * view_sin);
+        let gyt = tr_y * view_cos;
+        let tx = -(gyt + gxt);
+
+        // too far off the side?
+        if tx.abs() as i32 > (tz.abs() as i32) << 2 {
+            return true;
+        }
+
+        // Find the sprite def to use
+        let texture_data = self.texture_data.borrow();
+        let sprnum = thing.state.sprite;
+        let sprite_def = texture_data.sprite_def(sprnum as usize);
+        if thing.frame > 28 {
+            return true;
+        }
+        let sprite_frame = sprite_def.frames[0];
+
+        // TODO: TEMPORARY TEST BLOCK HERE
+        {
+            let image = texture_data.sprite_patch(sprite_frame.lump[0] as usize);
+            let pal = texture_data.palette(0);
+
+            let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
+            let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
+
+            let mut x = 0;
+            for c in image.columns.iter() {
+                for (y, p) in c.pixels.iter().enumerate() {
+                    let colour = pal[*p];
+                    canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
+                    canvas
+                        .fill_rect(Rect::new(
+                            xs + x as i32,                     // - (image.left_offset as i32),
+                            ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
+                            1,
+                            1,
+                        ))
+                        .unwrap();
+                }
+                if c.y_offset == 255 {
+                    x += 1;
+                }
+            }
+        }
+
+        true
     }
 
     pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
