@@ -52,6 +52,7 @@ pub const SPRNAMES: [&str; 138] = [
     "HDB6", "POB1", "POB2", "BRS1", "TLMP", "TLP2",
 ];
 
+/// The ordering must match SPRNAMES
 #[repr(u16)]
 #[derive(Debug, Copy, Clone, N)]
 #[allow(non_camel_case_types, dead_code)]

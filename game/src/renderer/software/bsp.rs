@@ -63,6 +63,9 @@ pub struct SoftwareRenderer {
     pub(super) texture_data: Rc<RefCell<PicData>>,
 
     pub(super) debug: bool,
+
+    /// Used for checking if a sector has been worked on when iterating over
+    pub(super) checked_sectors: Vec<u32>,
 }
 
 impl Renderer for SoftwareRenderer {
@@ -102,6 +105,7 @@ impl SoftwareRenderer {
             solidsegs: Vec::new(),
             texture_data,
             debug,
+            checked_sectors: Vec::new(),
         }
     }
 
@@ -321,6 +325,9 @@ impl SoftwareRenderer {
         }
 
         let front_sector = &subsect.sector;
+
+        self.add_sprites(front_sector);
+
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
             self.add_line(player, seg, front_sector, canvas);

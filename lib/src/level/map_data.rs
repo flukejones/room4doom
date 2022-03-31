@@ -126,6 +126,11 @@ impl MapData {
     }
 
     #[inline]
+    pub fn subsectors_mut(&mut self) -> &mut [SubSector] {
+        &mut self.subsectors
+    }
+
+    #[inline]
     pub fn segments(&self) -> &[Segment] {
         &self.segments
     }
@@ -177,7 +182,9 @@ impl MapData {
         // Sectors
         self.sectors = wad
             .sector_iter(&self.name)
-            .map(|s| Sector {
+            .enumerate()
+            .map(|(i, s)| Sector {
+                num: i as u32,
                 floorheight: s.floor_height as f32,
                 ceilingheight: s.ceil_height as f32,
                 floorpic: wad

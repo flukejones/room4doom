@@ -13,7 +13,8 @@ rs_game_framework.iws
 doom.wad
 doom2.wad
 
-.flatpak-builder/
+build
+.flatpak-builder
 SDL2.dll
 cargo-sources.json
 player_movement_test.wad

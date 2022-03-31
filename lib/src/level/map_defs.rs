@@ -19,6 +19,8 @@ pub enum SlopeType {
 /// Stores things/mobjs.
 #[derive(Debug)]
 pub struct Sector {
+    /// An incremented "ID" of sorts.
+    pub num: u32,
     pub floorheight: f32,
     pub ceilingheight: f32,
     /// Is a tag or index to patch
@@ -58,6 +60,27 @@ impl Sector {
         if let Some(thing) = self.thinglist.as_mut() {
             unsafe {
                 let mut thing = thing.as_mut();
+
+                loop {
+                    if !func(thing) {
+                        return false;
+                    }
+
+                    if let Some(mut next) = thing.s_next {
+                        thing = next.as_mut()
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    pub fn run_rfunc_on_thinglist(&self, func: impl Fn(&MapObject) -> bool) -> bool {
+        if let Some(thing) = self.thinglist.as_ref() {
+            unsafe {
+                let mut thing = thing.as_ref();
 
                 loop {
                     if !func(thing) {
