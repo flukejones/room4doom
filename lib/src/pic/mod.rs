@@ -408,4 +408,12 @@ impl PicData {
     pub fn num_textures(&self) -> usize {
         self.walls.len()
     }
+
+    pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
+        &self.sprite_defs[sprite_num]
+    }
+
+    pub fn sprite_patch(&self, patch_num: usize) -> &WadPatch {
+        &self.sprite_patches[patch_num]
+    }
 }
