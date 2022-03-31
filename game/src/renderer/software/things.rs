@@ -1,4 +1,4 @@
-use doom_lib::{LineDefFlags, PicData};
+use doom_lib::{LineDefFlags, PicData, Sector};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
@@ -7,6 +7,26 @@ use super::{
 };
 
 impl SoftwareRenderer {
+    pub fn add_sprites<'a>(&'a mut self, sector: &'a Sector) {
+        // Need to track sectors as we recurse through BSP as the BSP
+        // iteration is via subsectors, and sectors can be split in to
+        // many subsectors
+        if self.checked_sectors.contains(&sector.num) {
+            return;
+        }
+        self.checked_sectors.push(sector.num);
+
+        let light_level = sector.lightlevel; // TODO: extralight
+
+        // TODO: sprite lights
+        // let sprite_light;
+        // if light_level < 0 {
+
+        // }
+
+        sector.run_rfunc_on_thinglist(|_| true);
+    }
+
     pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
