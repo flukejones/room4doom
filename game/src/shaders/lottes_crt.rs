@@ -156,7 +156,7 @@ impl<'c> Drawer for LottesCRT<'c> {
 
         // GAMMA, needs to be increased if SRGB not used
         self.crt_shader
-            .set_uniform("brightMult", UniformValue::Float(0.4))?;
+            .set_uniform("brightMult", UniformValue::Float(0.2))?;
         self.crt_shader
             .set_uniform("toSRGB", UniformValue::Float(1.0))?;
 

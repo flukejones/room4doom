@@ -23,6 +23,8 @@ use wad::{
 
 use crate::{doom_def::GameMode, info::SPRNAMES, pic::sprites::init_spritedefs};
 
+use self::sprites::SpriteDef;
+
 const MAXLIGHTZ: i32 = 128;
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
@@ -60,6 +62,7 @@ pub struct PicData {
     sky_pic: usize,
     //
     sprite_patches: Vec<WadPatch>,
+    sprite_defs: Vec<SpriteDef>,
 }
 
 impl PicData {
@@ -87,7 +90,7 @@ impl PicData {
                 p
             })
             .collect();
-        let spritedefs = init_spritedefs(&SPRNAMES, &sprite_patches);
+        let sprite_defs = init_spritedefs(&SPRNAMES, &sprite_patches);
 
         print!(".]\n");
 
@@ -103,6 +106,7 @@ impl PicData {
             zlight_scale,
             colourmap,
             sprite_patches,
+            sprite_defs,
         }
     }
 

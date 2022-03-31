@@ -218,6 +218,7 @@ pub fn a_fire(_actor: &mut MapObject) {
 }
 
 pub fn a_scream(_actor: &mut MapObject) {
+    error!("a_scream not implemented");
     // int sound;
     //
     // switch (actor->info->deathsound)
@@ -268,7 +269,7 @@ pub fn a_explode(actor: &mut MapObject) {
 }
 
 pub fn a_xscream(_actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_xscream not implemented");
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
