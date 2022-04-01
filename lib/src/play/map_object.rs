@@ -111,7 +111,7 @@ pub struct MapObject {
     /// used to find patch_t and flip value
     pub sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
-    pub frame: i32,
+    pub frame: u32,
     /// Link to the next object in this sector. This is only ever used by functions
     /// implemented on `Sector`.
     ///
@@ -845,7 +845,7 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics > 0 && !this.set_state(this.state.next_state) {
+            if this.tics < 0 && !this.set_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {

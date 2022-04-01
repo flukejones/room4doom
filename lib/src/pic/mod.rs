@@ -387,6 +387,21 @@ impl PicData {
         &self.light_scale[light_level as usize][colourmap as usize]
     }
 
+    pub fn sprite_light_colourmap(&self, light_level: usize, scale: f32) -> &[usize] {
+        let light_level = light_level >> 4;
+
+        let mut colourmap = (scale * 15.8).round() as u32;
+        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
+            colourmap = MAXLIGHTSCALE as u32 - 1;
+        }
+
+        &self.light_scale[light_level as usize][colourmap as usize]
+    }
+
+    pub fn light_colourmap(&self, light_level: usize, colourmap: usize) -> &[usize] {
+        &self.light_scale[light_level][colourmap]
+    }
+
     pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
         let mut dist = (wall_scale as i32 >> 4) as u32;
         let light_level = light_level >> 4;

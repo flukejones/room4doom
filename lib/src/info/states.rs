@@ -8,7 +8,7 @@ pub struct State {
     /// Sprite to use
     pub sprite: SpriteNum,
     /// The frame within this sprite to show for the state
-    pub frame: i32,
+    pub frame: u32,
     /// How many tics this state takes. On nightmare it is shifted >> 1
     pub tics: i32,
     // void (*action) (): i32,
@@ -25,7 +25,7 @@ pub struct State {
 impl State {
     pub const fn new(
         sprite: SpriteNum,
-        frame: i32,
+        frame: u32,
         tics: i32,
         action: ActionF,
         next_state: StateNum,
