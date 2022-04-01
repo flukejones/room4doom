@@ -1,5 +1,6 @@
 use log::{debug, error};
-use wad::lumps::WadPatch;
+
+use super::SpritePic;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpriteFrame {
@@ -27,7 +28,7 @@ pub struct SpriteDef {
 }
 
 /// Initialise the sprite definitions based on the names and appended bits
-pub fn init_spritedefs(names: &[&str], patches: &[WadPatch]) -> Vec<SpriteDef> {
+pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> {
     // Sure, we can function without sprites
     if names.is_empty() {
         panic!("No sprites used, sprite name list is empty");
