@@ -1,5 +1,6 @@
-- [X] : Implement P_DamageMobj
-- [-] : P_KillMobj
+- [ ] : Sprites colourmap/light selection
+- [ ] : Sprite sorting
+- [ ] : Sprite clipping
 - [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
@@ -10,17 +11,19 @@
 - [ ] : fixed-colourmap (special effects)
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
+
+- [-] : P_KillMobj
+- [-] : P_UpdateSpecials (todo: level timer)
+- [-] : EV_Teleport (todo: telefrag stuff)
+- [-] : Recheck planes
+
+- [X] : Implement P_DamageMobj
 - [X] : Doom 2 M4 chopper window bottom plane is not done?
         + So this is an actual missing texture on lower part
 - [X] : E1M4 round room, floor strip inside of door steps isn't getting a visplane?
         + Same as D2M4. Both checked in Slade. Fixed by ignoring missing texture to ensure
           visplane is built.
 - [X] : Fixed: needed to null-check :-| Doom 2 teleports cause segfault
-
-- [-] : P_UpdateSpecials (todo: level timer)
-- [-] : EV_Teleport (todo: telefrag stuff)
-- [-] : Recheck planes
-
 - [X] : P_PlayerInSpecialSector
 - [x] : FIXED: Fix Doom II map 4. There seems to be something causing a thinker list invalid ref?
 - [x] : FIXED: Get the occasional crash from thinker slots running out before level start?
@@ -52,9 +55,6 @@ Game and doom-lib are now separate crates with these criteria:
 - "game" controls input and ticcmd, rendering, and menu display
 - "game" will also check state and show appropriate screens (like demo, intermission, menus)
 - "doom-lib" is pure gamestate - things like level control, map objects, thinkers etc.
-
-Refactor softwware renderer to use and Arc for texture share, pass in the `SoftwareRederer` to sub functions
-such as in seg render.
 
 Adjust the lines like this:
 ```rust
