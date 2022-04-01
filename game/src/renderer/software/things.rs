@@ -12,6 +12,8 @@ use super::{
     defs::{DrawSeg, SCREENHEIGHT_HALF, SCREENWIDTH},
 };
 
+const FF_FULLBRIGHT: u32 = 0x8000;
+
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     let x = point1.x() - point2.x();
     let y = point1.y() - point2.y();
@@ -39,7 +41,7 @@ pub struct VisSprite {
     /// The index in to patches array
     patch: usize,
     /// The index used to fetch colourmap for drawing
-    colormap: usize,
+    light_level: usize,
     mobj_flags: u32,
 }
 
@@ -59,7 +61,7 @@ impl VisSprite {
             x_iscale: 0.0,
             texture_mid: 0.0,
             patch: 0,
-            colormap: 0,
+            light_level: 0,
             mobj_flags: 0,
         }
     }
@@ -78,7 +80,7 @@ impl VisSprite {
         self.x_iscale = 0.0;
         self.texture_mid = 0.0;
         self.patch = 0;
-        self.colormap = 0;
+        self.light_level = 0;
         self.mobj_flags = 0;
     }
 }
@@ -101,7 +103,7 @@ impl SoftwareRenderer {
 
         // }
 
-        sector.run_rfunc_on_thinglist(|thing| self.project_sprite(player, thing));
+        sector.run_rfunc_on_thinglist(|thing| self.project_sprite(player, thing, light_level));
     }
 
     fn new_vissprite(&mut self) -> &mut VisSprite {
@@ -113,7 +115,7 @@ impl SoftwareRenderer {
         &mut self.vissprites[curr]
     }
 
-    fn project_sprite(&mut self, player: &Player, thing: &MapObject) -> bool {
+    fn project_sprite(&mut self, player: &Player, thing: &MapObject, light_level: i32) -> bool {
         if thing.player.is_some() {
             return true;
         }
@@ -140,15 +142,6 @@ impl SoftwareRenderer {
         let gyt = tr_y * view_cos;
         let mut tx = -(gyt + gxt);
 
-        // if thing.xy.x() == -16.0 && thing.xy.y() == 1216.0 {
-        //     dbg!(tz);
-        //     dbg!(x_scale);
-        //     dbg!(gxt);
-        //     dbg!(gyt);
-        //     println!("{:.10}", gyt);
-        //     dbg!(tx);
-        // }
-
         // too far off the side?
         if tx.abs() as i32 > (tz.abs() as i32) << 2 {
             return true;
@@ -168,7 +161,7 @@ impl SoftwareRenderer {
         let flip;
         if sprite_frame.rotate == 1 {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
-            let rot = ((angle - thing.angle).rad() + FRAC_PI_2 / 2.0) * 7.0 / (PI * 2.0);
+            let rot = ((angle - thing.angle + FRAC_PI_2 / 3.0).rad()) * 7.0 / (PI * 2.0);
             let rot = rot.floor();
             patch_index = sprite_frame.lump[rot as usize] as usize;
             patch = texture_data.sprite_patch(patch_index);
@@ -184,9 +177,6 @@ impl SoftwareRenderer {
         if x1 > SCREENWIDTH as i32 {
             return true;
         }
-        // if thing.xy.x() == -16.0 && thing.xy.y() == 1216.0 {
-        //     dbg!(x1);
-        // }
 
         tx += patch.data.len() as f32;
         let x2 = (((SCREENWIDTH as f32 / 2.0) + tx * x_scale) - 1.0) as i32;
@@ -223,7 +213,15 @@ impl SoftwareRenderer {
 
         vis.patch = patch_index;
         // TODO: colourmap index
-        vis.colormap = 0;
+        //  - shadow
+        //  - fixed
+        //  - full-bright ( 0 )
+        if thing.frame & FF_FULLBRIGHT != 0 {
+            // full bright
+            vis.light_level = 0;
+        } else {
+            vis.light_level = light_level as usize;
+        }
 
         true
     }
@@ -237,6 +235,7 @@ impl SoftwareRenderer {
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
         let spryscale = vis.scale;
+        let colourmap = texture_data.sprite_light_colourmap(vis.light_level, vis.scale);
 
         for x in vis.x1..=vis.x2 {
             frac += vis.x_iscale;
@@ -255,7 +254,7 @@ impl SoftwareRenderer {
 
             draw_masked_column(
                 &texture_column,
-                texture_data.colourmap(0),
+                colourmap,
                 dc_iscale,
                 x,
                 dc_texmid,
