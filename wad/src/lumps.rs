@@ -49,9 +49,7 @@ pub struct WadPatch {
     pub width: u16,
     /// Total height of the patch
     pub height: u16,
-    /// ?? dosn't appear to be used
     pub left_offset: i16,
-    /// ?? dosn't appear to be used
     pub top_offset: i16,
     /// A series of columns, there can be multiple `WadPatchCol` in a single column.
     /// Each `WadPatchCol` used contains an y-offset, and a series of indexes in to

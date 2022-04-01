@@ -43,6 +43,14 @@ pub struct WallPic {
 }
 
 #[derive(Debug)]
+pub struct SpritePic {
+    pub name: String,
+    pub left_offset: i32,
+    pub top_offset: i32,
+    pub data: Vec<Vec<usize>>,
+}
+
+#[derive(Debug)]
 pub struct PicData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
@@ -61,7 +69,7 @@ pub struct PicData {
     /// The index number of the texture to use for skybox
     sky_pic: usize,
     //
-    sprite_patches: Vec<WadPatch>,
+    sprite_patches: Vec<SpritePic>,
     sprite_defs: Vec<SpriteDef>,
 }
 
@@ -80,14 +88,38 @@ impl PicData {
         let (flats, sky_num) = Self::init_flat_pics(wad);
         let flat_translation = (0..flats.len()).collect();
 
-        let sprite_patches: Vec<WadPatch> = wad
+        let sprite_patches: Vec<SpritePic> = wad
             .sprites_iter()
             .enumerate()
-            .map(|(i, p)| {
+            .map(|(i, patch)| {
                 if i % 64 == 0 {
                     print!(".");
                 }
-                p
+
+                let mut x_pos = 0;
+                let mut compose =
+                    vec![vec![usize::MAX; patch.height as usize]; patch.width as usize];
+                for c in patch.columns.iter() {
+                    if x_pos == patch.width as i32 {
+                        break;
+                    }
+                    for (y, p) in c.pixels.iter().enumerate() {
+                        let y_pos = y as i32 + c.y_offset as i32;
+                        if y_pos >= 0 && y_pos < patch.height as i32 && x_pos >= 0 {
+                            compose[x_pos as usize][y_pos as usize] = *p;
+                        }
+                    }
+                    if c.y_offset == 255 {
+                        x_pos += 1;
+                    }
+                }
+
+                SpritePic {
+                    name: patch.name,
+                    top_offset: patch.top_offset as i32,
+                    left_offset: patch.left_offset as i32,
+                    data: compose,
+                }
             })
             .collect();
         let sprite_defs = init_spritedefs(&SPRNAMES, &sprite_patches);
@@ -413,7 +445,7 @@ impl PicData {
         &self.sprite_defs[sprite_num]
     }
 
-    pub fn sprite_patch(&self, patch_num: usize) -> &WadPatch {
+    pub fn sprite_patch(&self, patch_num: usize) -> &SpritePic {
         &self.sprite_patches[patch_num]
     }
 }

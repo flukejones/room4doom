@@ -1,18 +1,90 @@
-use doom_lib::{LineDefFlags, MapObject, MapObjectType, PicData, Player, Sector};
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    ptr::null_mut,
+};
+
+use doom_lib::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
+use glam::Vec2;
+use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
     bsp::SoftwareRenderer,
     defs::{DrawSeg, SCREENHEIGHT_HALF, SCREENWIDTH},
 };
 
+pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
+    let x = point1.x() - point2.x();
+    let y = point1.y() - point2.y();
+    Angle::new(y.atan2(x))
+}
+
+#[derive(Clone, Copy)]
+pub struct VisSprite {
+    prev: *mut VisSprite,
+    next: *mut VisSprite,
+    x1: i32,
+    x2: i32,
+    // Line side calc
+    gx: f32,
+    gy: f32,
+    // Bottom and top for clipping
+    gz: f32,
+    gzt: f32,
+    // horizontal position of x1
+    start_frac: f32,
+    scale: f32,
+    // negative if flipped
+    x_iscale: f32,
+    texture_mid: f32,
+    /// The index in to patches array
+    patch: usize,
+    /// The index used to fetch colourmap for drawing
+    colormap: usize,
+    mobj_flags: u32,
+}
+
+impl VisSprite {
+    pub fn new() -> Self {
+        Self {
+            prev: null_mut(),
+            next: null_mut(),
+            x1: 0,
+            x2: 0,
+            gx: 0.0,
+            gy: 0.0,
+            gz: 0.0,
+            gzt: 0.0,
+            start_frac: 0.0,
+            scale: 0.0,
+            x_iscale: 0.0,
+            texture_mid: 0.0,
+            patch: 0,
+            colormap: 0,
+            mobj_flags: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.prev = null_mut();
+        self.next = null_mut();
+        self.x1 = 0;
+        self.x2 = 0;
+        self.gx = 0.0;
+        self.gy = 0.0;
+        self.gz = 0.0;
+        self.gzt = 0.0;
+        self.start_frac = 0.0;
+        self.scale = 0.0;
+        self.x_iscale = 0.0;
+        self.texture_mid = 0.0;
+        self.patch = 0;
+        self.colormap = 0;
+        self.mobj_flags = 0;
+    }
+}
+
 impl SoftwareRenderer {
-    pub fn add_sprites<'a>(
-        &'a mut self,
-        player: &Player,
-        sector: &'a Sector,
-        canvas: &mut Canvas<Surface>,
-    ) {
+    pub fn add_sprites<'a>(&'a mut self, player: &Player, sector: &'a Sector) {
         // Need to track sectors as we recurse through BSP as the BSP
         // iteration is via subsectors, and sectors can be split in to
         // many subsectors
@@ -29,37 +101,53 @@ impl SoftwareRenderer {
 
         // }
 
-        sector.run_rfunc_on_thinglist(|thing| self.project_sprite(player, thing, canvas));
+        sector.run_rfunc_on_thinglist(|thing| self.project_sprite(player, thing));
     }
 
-    fn project_sprite(
-        &mut self,
-        player: &Player,
-        thing: &MapObject,
-        canvas: &mut Canvas<Surface>,
-    ) -> bool {
+    fn new_vissprite(&mut self) -> &mut VisSprite {
+        let curr = self.next_vissprite;
+        self.next_vissprite += 1;
+        if curr == self.vissprites.len() {
+            panic!("Exhausted vissprite allocation");
+        }
+        &mut self.vissprites[curr]
+    }
+
+    fn project_sprite(&mut self, player: &Player, thing: &MapObject) -> bool {
         if thing.player.is_some() {
             return true;
         }
-        // transform the origin point
+
         let player_mobj = unsafe { &*player.mobj.unwrap() };
         let view_cos = player_mobj.angle.cos();
         let view_sin = player_mobj.angle.sin();
 
+        // transform the origin point
         let tr_x = thing.xy.x() - player_mobj.xy.x();
         let tr_y = thing.xy.y() - player_mobj.xy.y();
         let gxt = tr_x * view_cos;
         let gyt = -(tr_y * view_sin);
         let tz = gxt - gyt;
+
         // Is it behind the view?
         if tz < 4.0 {
             return true; // keep checking
         }
 
         let x_scale = (SCREENWIDTH / 2) as f32 / tz;
+
         let gxt = -(tr_x * view_sin);
         let gyt = tr_y * view_cos;
-        let tx = -(gyt + gxt);
+        let mut tx = -(gyt + gxt);
+
+        // if thing.xy.x() == -16.0 && thing.xy.y() == 1216.0 {
+        //     dbg!(tz);
+        //     dbg!(x_scale);
+        //     dbg!(gxt);
+        //     dbg!(gyt);
+        //     println!("{:.10}", gyt);
+        //     dbg!(tx);
+        // }
 
         // too far off the side?
         if tx.abs() as i32 > (tz.abs() as i32) << 2 {
@@ -67,48 +155,124 @@ impl SoftwareRenderer {
         }
 
         // Find the sprite def to use
-        let texture_data = self.texture_data.borrow();
+        let naff = self.texture_data.clone(); // Need to separate lifetimes
+        let texture_data = naff.borrow();
         let sprnum = thing.state.sprite;
         let sprite_def = texture_data.sprite_def(sprnum as usize);
         if thing.frame > 28 {
             return true;
         }
-        let sprite_frame = sprite_def.frames[0];
-
-        // TODO: TEMPORARY TEST BLOCK HERE
-        {
-            let image = texture_data.sprite_patch(sprite_frame.lump[0] as usize);
-            let pal = texture_data.palette(0);
-
-            let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
-            let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
-
-            let mut x = 0;
-            for c in image.columns.iter() {
-                for (y, p) in c.pixels.iter().enumerate() {
-                    let colour = pal[*p];
-                    canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-                    canvas
-                        .fill_rect(Rect::new(
-                            xs + x as i32,                     // - (image.left_offset as i32),
-                            ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
-                            1,
-                            1,
-                        ))
-                        .unwrap();
-                }
-                if c.y_offset == 255 {
-                    x += 1;
-                }
-            }
+        let sprite_frame = sprite_def.frames[thing.frame as usize];
+        let patch;
+        let patch_index;
+        let flip;
+        if sprite_frame.rotate == 1 {
+            let angle = point_to_angle_2(player_mobj.xy, thing.xy);
+            let rot = ((angle - thing.angle).rad() + FRAC_PI_2 / 2.0) * 7.0 / (PI * 2.0);
+            let rot = rot.floor();
+            patch_index = sprite_frame.lump[rot as usize] as usize;
+            patch = texture_data.sprite_patch(patch_index);
+            flip = sprite_frame.flip[rot as usize];
+        } else {
+            patch_index = sprite_frame.lump[0] as usize;
+            patch = texture_data.sprite_patch(patch_index);
+            flip = sprite_frame.flip[0];
         }
 
+        tx -= patch.left_offset as f32;
+        let x1 = ((SCREENWIDTH as f32 / 2.0) + tx * x_scale) as i32;
+        if x1 > SCREENWIDTH as i32 {
+            return true;
+        }
+        // if thing.xy.x() == -16.0 && thing.xy.y() == 1216.0 {
+        //     dbg!(x1);
+        // }
+
+        tx += patch.data.len() as f32;
+        let x2 = (((SCREENWIDTH as f32 / 2.0) + tx * x_scale) - 1.0) as i32;
+        if x2 < 0 {
+            return true;
+        }
+
+        let vis = self.new_vissprite();
+        vis.mobj_flags = thing.flags;
+        vis.scale = x_scale;
+        vis.gx = thing.xy.x();
+        vis.gy = thing.xy.y();
+        vis.gz = thing.z;
+        vis.gzt = thing.z + patch.top_offset as f32;
+        vis.texture_mid = vis.gzt - player.viewz;
+        vis.x1 = if x1 < 0 { 0 } else { x1 };
+        vis.x2 = if x2 >= SCREENWIDTH as i32 {
+            SCREENWIDTH as i32 - 1
+        } else {
+            x2
+        };
+        let iscale = 1.0 / x_scale;
+        if flip == 1 {
+            vis.start_frac = (patch.data.len() - 1) as f32;
+            vis.x_iscale = -iscale;
+        } else {
+            vis.start_frac = 0.0;
+            vis.x_iscale = iscale;
+        }
+        // Catches certain orientations
+        if vis.x1 > x1 {
+            vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
+        }
+
+        vis.patch = patch_index;
+        // TODO: colourmap index
+        vis.colormap = 0;
+
         true
+    }
+
+    pub fn draw_vissprite(&self, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
+        let naff = self.texture_data.clone(); // Need to separate lifetimes
+        let texture_data = naff.borrow();
+        let patch = texture_data.sprite_patch(vis.patch);
+
+        let dc_iscale = vis.x_iscale.abs();
+        let dc_texmid = vis.texture_mid;
+        let mut frac = vis.start_frac;
+        let spryscale = vis.scale;
+
+        for x in vis.x1..=vis.x2 {
+            frac += vis.x_iscale;
+
+            let tex_column = frac.floor() as usize;
+            if tex_column >= patch.data.len() {
+                break;
+                // tex_column %= patch.data.len();
+            }
+
+            let sprtopscreen = (SCREENHEIGHT_HALF as f32 - dc_texmid * spryscale).ceil();
+            let texture_column = &patch.data[tex_column];
+
+            let top = sprtopscreen as i32;
+            let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32 - 2;
+
+            draw_masked_column(
+                &texture_column,
+                texture_data.colourmap(0),
+                dc_iscale,
+                x,
+                dc_texmid,
+                top,
+                bottom,
+                &texture_data,
+                canvas,
+            );
+        }
     }
 
     pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         // todo: R_DrawSprite
+        for vis in self.vissprites.iter() {
+            self.draw_vissprite(vis, canvas);
+        }
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
@@ -239,8 +403,8 @@ fn draw_masked_column(
     for n in yl..=yh {
         let mut select = frac.round() as i32 & 127;
 
-        while select >= texture_column.len() as i32 {
-            select -= texture_column.len() as i32;
+        if select >= texture_column.len() as i32 {
+            select %= texture_column.len() as i32;
         }
 
         if texture_column[select as usize] as usize == usize::MAX {

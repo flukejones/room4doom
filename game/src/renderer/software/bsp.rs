@@ -9,6 +9,7 @@ use crate::{
 use super::{
     defs::ClipRange,
     segs::{DrawColumn, SegRender},
+    things::VisSprite,
     RenderData,
 };
 use crate::renderer::software::planes::make_spans;
@@ -25,6 +26,7 @@ use std::{
 };
 
 const MAX_SEGS: usize = 32;
+const MAX_VIS_SPRITES: usize = 128;
 
 // Need to sort out what is shared and what is not so that a data struct
 // can be organised along with method/ownsership
@@ -57,6 +59,10 @@ pub struct SoftwareRenderer {
     /// index in to self.solidsegs
     new_end: usize,
     solidsegs: Vec<ClipRange>,
+    /// Visible sprite data, used for Z-ordered rendering of sprites
+    pub(super) vissprites: [VisSprite; MAX_VIS_SPRITES],
+    /// The next `VisSprite`, incremented during the filling in of `VisSprites`
+    pub(super) next_vissprite: usize,
 
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
@@ -107,12 +113,18 @@ impl SoftwareRenderer {
             texture_data,
             debug,
             checked_sectors: Vec::new(),
+            vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
+            next_vissprite: 0,
         }
     }
 
     pub fn clear(&mut self, player: &Player) {
         let mobj = unsafe { &*(player.mobj.unwrap()) };
         let view_angle = mobj.angle;
+        for vis in self.vissprites.iter_mut() {
+            vis.clear();
+        }
+        self.next_vissprite = 0;
 
         self.clear_clip_segs();
         self.r_data.clear_data(view_angle);
@@ -327,7 +339,7 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, canvas);
+        self.add_sprites(player, front_sector);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
