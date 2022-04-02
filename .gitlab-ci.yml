@@ -35,7 +35,7 @@ pages:
   image: rust:1.58
   stage: deploy
   only:
-    - master
+    - main
   script:
     - cargo doc --document-private-items --no-deps --workspace
     - rm -rf public
@@ -44,4 +44,4 @@ pages:
     - cp misc/index.html public
   artifacts:
     paths:
-    - public
+      - public
