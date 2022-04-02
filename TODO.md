@@ -1,6 +1,6 @@
-- [ ] : Sprites colourmap/light selection
+- [-] : Sprites colourmap/light selection
 - [ ] : Sprite sorting
-- [ ] : Sprite clipping
+- [-] : Sprite clipping
 - [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
@@ -11,6 +11,7 @@
 - [ ] : fixed-colourmap (special effects)
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
+- [ ] : Teleport telefrag killing entire sector not just spawn point..
 
 - [-] : P_KillMobj
 - [-] : P_UpdateSpecials (todo: level timer)
