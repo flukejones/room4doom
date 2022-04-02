@@ -275,6 +275,26 @@ impl Segment {
         }
         false
     }
+
+    pub fn point_on_side(&self, v: &Vec2) -> usize {
+        // let r = (self.v2.x() - self.v1.x())*(v.y() - self.v1.y()) - (self.v2.y() - self.v1.y())*(v.x() - self.v1.x());
+        // // dbg!(r);
+        // if r.is_sign_positive() {
+        //     return 1; // Back side
+        // }
+        // 0 // Front side
+
+        let dx = v.x() - self.v1.x();
+        let dy = v.y() - self.v1.y();
+        let this_delta = *self.v2 - *self.v1;
+
+        if (dy * this_delta.x()) <= (this_delta.y() * dx) {
+            // Front side
+            return 0;
+        }
+        // Backside
+        1
+    }
 }
 
 #[derive(Debug)]

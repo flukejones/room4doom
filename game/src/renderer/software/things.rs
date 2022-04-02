@@ -9,7 +9,7 @@ use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
     bsp::SoftwareRenderer,
-    defs::{DrawSeg, SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
+    defs::{DrawSeg, SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH, SIL_BOTTOM, SIL_TOP},
 };
 
 const FF_FULLBRIGHT: u32 = 0x8000;
@@ -226,7 +226,13 @@ impl SoftwareRenderer {
         true
     }
 
-    fn draw_vissprite(&self, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
+    fn draw_vissprite(
+        &self,
+        vis: &VisSprite,
+        clip_bottom: &[i32],
+        clip_top: &[i32],
+        canvas: &mut Canvas<Surface>,
+    ) {
         let naff = self.texture_data.clone(); // Need to separate lifetimes
         let texture_data = naff.borrow();
         let patch = texture_data.sprite_patch(vis.patch);
@@ -249,20 +255,30 @@ impl SoftwareRenderer {
             let sprtopscreen = (SCREENHEIGHT_HALF as f32 - dc_texmid * spryscale).ceil();
             let texture_column = &patch.data[tex_column];
 
-            let top = sprtopscreen as i32;
-            let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32 - 2;
+            let mut top = sprtopscreen as i32;
+            let mut bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
 
-            draw_masked_column(
-                &texture_column,
-                colourmap,
-                dc_iscale,
-                x,
-                dc_texmid,
-                top,
-                bottom,
-                &texture_data,
-                canvas,
-            );
+            if bottom >= clip_bottom[x as usize] {
+                bottom = clip_bottom[x as usize] - 1;
+            }
+
+            if top <= clip_top[x as usize] {
+                top = clip_top[x as usize] + 1;
+            }
+
+            if top <= bottom {
+                draw_masked_column(
+                    &texture_column,
+                    colourmap,
+                    dc_iscale,
+                    x,
+                    dc_texmid,
+                    top,
+                    bottom,
+                    &texture_data,
+                    canvas,
+                );
+            }
         }
     }
 
@@ -274,8 +290,8 @@ impl SoftwareRenderer {
         vis: &VisSprite,
         canvas: &mut Canvas<Surface>,
     ) {
-        let mut clip_bottom = [0i16; SCREENWIDTH];
-        let mut clip_top = [0i16; SCREENWIDTH];
+        let mut clip_bottom = [-3i32; SCREENWIDTH];
+        let mut clip_top = [-3i32; SCREENWIDTH];
 
         for x in vis.x1..=vis.x2 {
             clip_bottom[x as usize] = -2;
@@ -307,7 +323,6 @@ impl SoftwareRenderer {
                         && seg
                             .curline
                             .as_ref()
-                            .linedef
                             .point_on_side(&Vec2::new(vis.gx, vis.gy))
                             == 0)
                 {
@@ -318,25 +333,78 @@ impl SoftwareRenderer {
                     continue;
                 }
             }
+
+            let mut sil = seg.silhouette;
+            if vis.gz >= seg.bsilheight {
+                sil &= !SIL_BOTTOM;
+            }
+            if vis.gzt <= seg.tsilheight {
+                sil &= !SIL_TOP;
+            }
+
+            if sil == 1 {
+                // bottom sil
+                for r in r1..=r2 {
+                    if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
+                        clip_bottom[r as usize] = self.r_data.visplanes.openings
+                            [(seg.sprbottomclip.unwrap() + r) as usize];
+                        if clip_bottom[r as usize] <= 0 {
+                            clip_bottom[r as usize] = 0;
+                        }
+                    }
+                }
+            } else if sil == 2 {
+                // top sil
+                for r in r1..=r2 {
+                    if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
+                        clip_top[r as usize] =
+                            self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
+                        if clip_top[r as usize] >= SCREENHEIGHT as i32 {
+                            clip_top[r as usize] = SCREENHEIGHT as i32;
+                        }
+                    }
+                }
+            } else {
+                // both
+                for r in r1..=r2 {
+                    if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
+                        clip_bottom[r as usize] = self.r_data.visplanes.openings
+                            [(seg.sprbottomclip.unwrap() + r) as usize];
+                        if clip_bottom[r as usize] <= 0 {
+                            clip_bottom[r as usize] = 0;
+                        }
+                    }
+                    if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
+                        clip_top[r as usize] =
+                            self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
+                        if clip_top[r as usize] >= SCREENHEIGHT as i32 {
+                            clip_top[r as usize] = SCREENHEIGHT as i32;
+                        }
+                    }
+                }
+            }
         }
 
         for x in vis.x1..=vis.x2 {
             if clip_bottom[x as usize] == -2 {
-                clip_bottom[x as usize] = viewheight as i16;
+                clip_bottom[x as usize] = SCREENHEIGHT as i32;
             }
             if clip_top[x as usize] == -2 {
                 clip_top[x as usize] = -1;
             }
         }
 
-        self.draw_vissprite(vis, canvas);
+        self.draw_vissprite(vis, &clip_bottom, &clip_top, canvas);
     }
 
     pub fn draw_masked(&mut self, viewz: f32, viewheight: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
-        for vis in vis.iter() {
+        for (i, vis) in vis.iter().enumerate() {
             self.draw_sprite(viewz, viewheight, vis, canvas);
+            if i == self.next_vissprite {
+                break;
+            }
         }
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
@@ -448,7 +516,6 @@ impl SoftwareRenderer {
 
                         self.r_data.visplanes.openings[index] = i32::MAX;
                     } else {
-                        //dbg!(x, self.r_data.visplanes.openings[index]);
                     }
                 }
                 spryscale += rw_scalestep;
