@@ -1,6 +1,6 @@
 - [-] : Sprites colourmap/light selection
-- [ ] : Sprite sorting
-- [-] : Sprite clipping
+- [X] : Sprite sorting
+- [-] : Sprite clipping (issues with planes, doors)
 - [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
