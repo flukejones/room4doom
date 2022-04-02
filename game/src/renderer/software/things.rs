@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     f32::consts::{FRAC_PI_2, PI},
     ptr::null_mut,
 };
@@ -20,10 +21,8 @@ pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     Angle::new(y.atan2(x))
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct VisSprite {
-    prev: *mut VisSprite,
-    next: *mut VisSprite,
     x1: i32,
     x2: i32,
     // Line side calc
@@ -45,11 +44,23 @@ pub struct VisSprite {
     mobj_flags: u32,
 }
 
+impl Ord for VisSprite {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        if self.scale < other.scale {
+            cmp::Ordering::Less
+        } else if self.scale > other.scale {
+            cmp::Ordering::Greater
+        } else {
+            cmp::Ordering::Equal
+        }
+    }
+}
+
+impl Eq for VisSprite {}
+
 impl VisSprite {
     pub fn new() -> Self {
         Self {
-            prev: null_mut(),
-            next: null_mut(),
             x1: 0,
             x2: 0,
             gx: 0.0,
@@ -67,8 +78,6 @@ impl VisSprite {
     }
 
     pub fn clear(&mut self) {
-        self.prev = null_mut();
-        self.next = null_mut();
         self.x1 = 0;
         self.x2 = 0;
         self.gx = 0.0;
@@ -256,7 +265,7 @@ impl SoftwareRenderer {
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
+            let mut bottom = top + (spryscale * (texture_column.len() as f32 - 1.0)).floor() as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -283,7 +292,7 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawSprite`
-    pub fn draw_sprite(
+    fn draw_sprite(
         &mut self,
         viewz: f32,
         viewheight: f32,
@@ -398,7 +407,9 @@ impl SoftwareRenderer {
     }
 
     pub fn draw_masked(&mut self, viewz: f32, viewheight: f32, canvas: &mut Canvas<Surface>) {
-        // todo: R_SortVisSprites
+        // Sort only the vissprites used
+        self.vissprites[..self.next_vissprite].sort_by(|a, b| a.cmp(b));
+        // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
             self.draw_sprite(viewz, viewheight, vis, canvas);
