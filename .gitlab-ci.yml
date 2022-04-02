@@ -37,6 +37,8 @@ pages:
   only:
     - main
   script:
+    - apt update
+    - apt install -y libsdl2-dev libsdl2-gfx-dev cmake
     - cargo doc --document-private-items --no-deps --workspace
     - rm -rf public
     - mkdir public
