@@ -98,7 +98,7 @@ impl Renderer for SoftwareRenderer {
         // TODO: netupdate again
         self.draw_planes(player, canvas);
         // TODO: netupdate again
-        self.draw_masked(player.viewz, canvas);
+        self.draw_masked(player.viewz, player.viewheight, canvas);
         // TODO: netupdate again
     }
 }

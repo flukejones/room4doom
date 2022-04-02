@@ -9,7 +9,7 @@ use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
 use super::{
     bsp::SoftwareRenderer,
-    defs::{DrawSeg, SCREENHEIGHT_HALF, SCREENWIDTH},
+    defs::{DrawSeg, SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
 };
 
 const FF_FULLBRIGHT: u32 = 0x8000;
@@ -226,7 +226,7 @@ impl SoftwareRenderer {
         true
     }
 
-    pub fn draw_vissprite(&self, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
+    fn draw_vissprite(&self, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
         let naff = self.texture_data.clone(); // Need to separate lifetimes
         let texture_data = naff.borrow();
         let patch = texture_data.sprite_patch(vis.patch);
@@ -266,11 +266,77 @@ impl SoftwareRenderer {
         }
     }
 
-    pub fn draw_masked(&mut self, viewz: f32, canvas: &mut Canvas<Surface>) {
+    /// Doom function name `R_DrawSprite`
+    pub fn draw_sprite(
+        &mut self,
+        viewz: f32,
+        viewheight: f32,
+        vis: &VisSprite,
+        canvas: &mut Canvas<Surface>,
+    ) {
+        let mut clip_bottom = [0i16; SCREENWIDTH];
+        let mut clip_top = [0i16; SCREENWIDTH];
+
+        for x in vis.x1..=vis.x2 {
+            clip_bottom[x as usize] = -2;
+            clip_top[x as usize] = -2;
+        }
+
+        // Breaking liftime to enable this loop
+        let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
+        for seg in segs.iter().rev() {
+            if seg.x1 > vis.x2
+                || seg.x2 < vis.x1
+                || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
+            {
+                continue;
+            }
+
+            let r1 = if seg.x1 < vis.x1 { vis.x1 } else { seg.x1 };
+            let r2 = if seg.x2 > vis.x2 { vis.x2 } else { seg.x2 };
+
+            let (lowscale, scale) = if seg.scale1 > seg.scale2 {
+                (seg.scale2, seg.scale1)
+            } else {
+                (seg.scale1, seg.scale2)
+            };
+
+            unsafe {
+                if scale < vis.scale
+                    || (lowscale < vis.scale
+                        && seg
+                            .curline
+                            .as_ref()
+                            .linedef
+                            .point_on_side(&Vec2::new(vis.gx, vis.gy))
+                            == 0)
+                {
+                    if seg.maskedtexturecol != 0 {
+                        self.render_masked_seg_range(viewz, seg, r1, r2, canvas);
+                    }
+                    // seg is behind sprite
+                    continue;
+                }
+            }
+        }
+
+        for x in vis.x1..=vis.x2 {
+            if clip_bottom[x as usize] == -2 {
+                clip_bottom[x as usize] = viewheight as i16;
+            }
+            if clip_top[x as usize] == -2 {
+                clip_top[x as usize] = -1;
+            }
+        }
+
+        self.draw_vissprite(vis, canvas);
+    }
+
+    pub fn draw_masked(&mut self, viewz: f32, viewheight: f32, canvas: &mut Canvas<Surface>) {
         // todo: R_SortVisSprites
-        // todo: R_DrawSprite
-        for vis in self.vissprites.iter() {
-            self.draw_vissprite(vis, canvas);
+        let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
+        for vis in vis.iter() {
+            self.draw_sprite(viewz, viewheight, vis, canvas);
         }
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
@@ -341,12 +407,18 @@ impl SoftwareRenderer {
                             self.r_data.visplanes.openings[index],
                         );
 
-                        let mceilingclip = self.r_data.visplanes.openings
+                        let mut mceilingclip = self.r_data.visplanes.openings
                             [(ds.sprtopclip.unwrap() + x) as usize]
                             as i32;
-                        let mfloorclip = self.r_data.visplanes.openings
+                        let mut mfloorclip = self.r_data.visplanes.openings
                             [(ds.sprbottomclip.unwrap() + x) as usize]
                             as i32;
+                        if mceilingclip >= SCREENHEIGHT as i32 {
+                            mceilingclip = SCREENHEIGHT as i32;
+                        }
+                        if mfloorclip <= 0 as i32 {
+                            mfloorclip = 0;
+                        }
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
