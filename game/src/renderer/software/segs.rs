@@ -240,22 +240,22 @@ impl SegRender {
             }
 
             if frontsector.ceilingheight <= backsector.ceilingheight {
-                ds_p.silhouette = SIL_TOP;
+                ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = frontsector.ceilingheight;
             } else if backsector.ceilingheight <= viewz {
-                ds_p.silhouette = SIL_TOP;
+                ds_p.silhouette |= SIL_TOP;
                 ds_p.bsilheight = f32::MIN;
             }
 
             if backsector.ceilingheight <= frontsector.floorheight {
                 ds_p.sprbottomclip = Some(0); // start of negonearray
-                ds_p.silhouette = SIL_BOTTOM;
+                ds_p.silhouette |= SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
             }
 
             if backsector.floorheight >= frontsector.ceilingheight {
                 ds_p.sprtopclip = Some(0);
-                ds_p.silhouette = SIL_TOP;
+                ds_p.silhouette |= SIL_TOP;
                 ds_p.bsilheight = f32::MIN;
             }
 
