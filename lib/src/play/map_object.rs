@@ -636,13 +636,13 @@ impl MapObject {
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
                     // Now that we have a subsector this is safe
-                    let floorz = (*thing.subsector).sector.floorheight;
-                    let ceilingz = (*thing.subsector).sector.ceilingheight;
+                    thing.floorz = (*thing.subsector).sector.floorheight;
+                    thing.ceilingz = (*thing.subsector).sector.ceilingheight;
 
                     if z == ONFLOORZ {
-                        thing.z = floorz;
+                        thing.z = thing.floorz;
                     } else if z == ONCEILINGZ {
-                        thing.z = ceilingz - info.height;
+                        thing.z = thing.ceilingz - info.height;
                     }
                 }
                 return thing;
