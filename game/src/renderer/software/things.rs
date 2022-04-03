@@ -358,7 +358,7 @@ impl SoftwareRenderer {
                         clip_bottom[r as usize] = self.r_data.visplanes.openings
                             [(seg.sprbottomclip.unwrap() + r) as usize];
                         if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = 0;
+                            clip_bottom[r as usize] = -1;
                         }
                     }
                 }
@@ -380,7 +380,7 @@ impl SoftwareRenderer {
                         clip_bottom[r as usize] = self.r_data.visplanes.openings
                             [(seg.sprbottomclip.unwrap() + r) as usize];
                         if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = 0;
+                            clip_bottom[r as usize] = -1;
                         }
                     }
                     if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
