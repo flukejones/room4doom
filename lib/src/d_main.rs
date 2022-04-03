@@ -29,7 +29,7 @@ pub enum Skill {
 
 impl Default for Skill {
     fn default() -> Self {
-        Skill::Medium
+        Skill::Hard
     }
 }
 
