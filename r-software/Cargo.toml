@@ -10,3 +10,6 @@ glam = "0.8.5"
 doom-lib = { path = "../lib" }
 rendering-trait = { path = "../rendering" }
 sdl2 = { version = "~0.35.2", features = ["bundled"] }
+
+[dev-dependencies]
+wad = { path = "../wad" }
