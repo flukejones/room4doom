@@ -1,3 +1,17 @@
+//! Game structure. Holds game state, menu state, runs various display routines
+//! and other stuff. Functions as a state machine.
+//!
+//! Various states can be:
+//! - level playing
+//! - intermission/finale
+//! - demo playing
+//! - screen wipe
+//!
+//! Note that the primary state is either demo-play or level-play. Other UI elements
+//! like menus are overlaid on top of these states.
+//!
+//! A state can be affected by `GameAction` such as load/save/new.
+
 use std::{cell::RefCell, rc::Rc};
 
 use gameplay::{
@@ -9,7 +23,7 @@ use gameplay::{
 };
 use wad::WadData;
 
-use crate::opts::DoomOptions;
+use crate::DoomOptions;
 
 /// The current state of the game: whether we are playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
@@ -523,6 +537,8 @@ impl Game {
         }
     }
 
+    /// Cleanup, re-init, and set up for next level or episode. Also sets up info
+    /// that can be displayed on the intermission screene.
     fn do_completed(&mut self) {
         self.game_action = GameAction::Nothing;
 
@@ -619,7 +635,12 @@ impl Game {
         self.game_state = GameState::GS_INTERMISSION;
     }
 
-    /// G_Ticker
+    /// The ticker which controls the state the game is in. For example the game could be
+    /// in menu mode, demo play, intermission (`GameState`). A state may also be
+    /// running other functions that can change the game state or cause an action
+    /// through `GameAction`.
+    ///
+    /// Doom function name `G_Ticker`
     pub fn ticker(&mut self) {
         trace!("Entered ticker");
         if let Some(level) = &mut self.level {
@@ -729,7 +750,11 @@ impl Game {
         }
     }
 
-    /// P_Ticker
+    /// Gameplay ticker. Updates the game level state along with all thinkers inside
+    /// that level. Also watches for `TicCmd` that initiate another action or state such
+    /// as pausing in menus, demo recording, save/load.
+    ///
+    /// Doom function name `P_Ticker`
     pub fn p_ticker(&mut self) {
         if self.paused {
             return;

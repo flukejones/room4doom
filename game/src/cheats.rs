@@ -1,13 +1,31 @@
+//! Game cheats. These are what players type in, e.g, `iddqd`
+
 pub struct Cheats {
+    /// `iddqd`: Invulnerable to all (except massive end-of-level damage)
     pub god: Cheat,
+    /// `idmus##`: Select music to play, ## is 01-nn
     pub mus: Cheat,
+    /// `idkfa: Give all ammo and keys
     pub ammo: Cheat,
+    /// `idfa`: Give only ammo
     pub ammonokey: Cheat,
+    /// `idspispopd`: no-clip, Doom 1 version
     pub noclip: Cheat,
+    /// `idclip`: no-clip, Doom 2 version
     pub commercial_noclip: Cheat,
+    /// Give a powerup:
+    /// - `idbeholdv`: Invulnerability
+    /// - `idbeholds`: Go beserk
+    /// - `idbeholdi`: Pertial invisibility
+    /// - `idbeholdr`: Radiation suit
+    /// - `idbeholda`: Area map
+    /// - `idbeholdl`: Light amp visor
     pub powerup: [Cheat; 7],
+    /// `idchoppers`: Chainsaw and invulnerability
     pub choppers: Cheat,
+    /// `idclev##`: Change level, ## is E#M# or MAP## (01-32)
     pub clev: Cheat,
+    /// `idmypos`: Coords and compass direction
     pub mypos: Cheat,
 }
 

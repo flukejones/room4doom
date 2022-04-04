@@ -1,13 +1,12 @@
 mod cheats;
 mod d_main;
-mod errors;
 mod game;
 mod input;
-mod opts;
 mod shaders;
+mod test_funcs;
 mod timestep;
 
-use std::{error::Error, io::Write};
+use std::{error::Error, io::Write, str::FromStr};
 
 use d_main::d_doom_loop;
 use game::Game;
@@ -16,9 +15,49 @@ use gumdrop::Options;
 
 use gameplay::{log, Skill};
 use input::Input;
-use opts::DoomOptions;
 use shaders::Shaders;
 
+/// Options specific to Doom. This will get phased out for `GameOptions`
+#[derive(Debug)]
+pub struct DoomOptions {
+    pub iwad: String,
+    pub pwad: Option<String>,
+    pub no_monsters: bool,
+    pub respawn_parm: bool,
+    pub fast_parm: bool,
+    pub dev_parm: bool,
+    pub deathmatch: u8,
+    pub skill: Skill,
+    pub episode: i32,
+    pub map: i32,
+    pub autostart: bool,
+    pub verbose: log::LevelFilter,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ShaderType {
+    Basic,
+    Lottes,
+    Cgwg,
+}
+
+impl FromStr for ShaderType {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "basic" => Ok(ShaderType::Basic),
+            "lottes" => Ok(ShaderType::Lottes),
+            "cgwg" => Ok(ShaderType::Cgwg),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Doh! ShaderType invalid",
+            )),
+        }
+    }
+}
+
+/// CLI options for the game
 #[derive(Debug, Clone, Options)]
 pub struct GameOptions {
     #[options(
