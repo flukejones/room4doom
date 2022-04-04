@@ -14,6 +14,10 @@ use super::{
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7fff;
+/// Offset in radians for player view rotation during frame rotation select
+const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
+/// Divisor for selecting which frame rotation to use
+const FRAME_ROT_SELECT: f32 = 8.0 / (PI * 2.0);
 
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     let x = point1.x() - point2.x();
@@ -178,7 +182,7 @@ impl SoftwareRenderer {
         let flip;
         if sprite_frame.rotate == 1 {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
-            let rot = ((angle - thing.angle + FRAC_PI_2 / 3.0).rad()) * 7.0 / (PI * 2.0);
+            let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
             let rot = rot.floor();
             patch_index = sprite_frame.lump[rot as usize] as usize;
             patch = texture_data.sprite_patch(patch_index);
@@ -284,7 +288,7 @@ impl SoftwareRenderer {
 
             if top < bottom {
                 draw_masked_column(
-                    &texture_column,
+                    texture_column,
                     colourmap,
                     dc_iscale,
                     x,
@@ -502,7 +506,7 @@ impl SoftwareRenderer {
                         if mceilingclip >= SCREENHEIGHT as i32 {
                             mceilingclip = SCREENHEIGHT as i32;
                         }
-                        if mfloorclip <= 0 as i32 {
+                        if mfloorclip <= 0 {
                             mfloorclip = 0;
                         }
 
