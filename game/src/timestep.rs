@@ -1,3 +1,6 @@
+//! Gameplay speed control. It attempts to mimic/limit progression to
+//! the 30 tics per second Doom used.
+
 use std::{fmt, time::Instant};
 
 const MS_PER_UPDATE: f32 = 28.57;
@@ -49,7 +52,8 @@ impl TimeStep {
         delta
     }
 
-    /// Increments self time and returns current lag
+    /// Increments self time and returns current lag. `run_this` is run only for
+    /// `n` tics available.
     pub fn run_this(&mut self, mut run_this: impl FnMut(f32)) {
         let dt = self.delta();
         self.lag += dt;

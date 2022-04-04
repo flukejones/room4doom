@@ -1,3 +1,6 @@
+//! All input handling. The output is generally a `TicCmd` used to run
+//! inputs in the `Game` in a generalised way.
+
 use std::collections::hash_set::HashSet;
 
 use gameplay::{log::debug, tic_cmd::*, GameMission, PlayerCheat, Skill, WeaponType};
