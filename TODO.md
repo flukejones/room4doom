@@ -1,5 +1,4 @@
 - [-] : Sprites colourmap/light selection
-- [ ] : Sprite rotations (Not sure of correct ratio)
 - [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
@@ -10,12 +9,17 @@
 - [ ] : fixed-colourmap (special effects)
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
+- [ ] : Menu screens
+- [ ] : Automap
+- [ ] : Status bar drawing
+- [ ] : Sound state machine on new thread
 
 - [-] : P_KillMobj
 - [-] : P_UpdateSpecials (todo: level timer)
 - [-] : EV_Teleport (todo: telefrag stuff)
 - [-] : Recheck planes
 
+- [X] : Sprite rotations
 - [X] : FIXED: Sprite sorting: impl Ord on VisSprite for rust iiter sorting
 - [X] : Sprite clipping (issues with planes, doors)
 - [X] : FIXED: Teleport telefrag killing entire sector not just spawn point: Radius check

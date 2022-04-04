@@ -44,8 +44,8 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
         // scan the patches. Each patch has the lump name stored.
         for (pindex, patch) in patches.iter().enumerate() {
             if patch.name.starts_with(name) {
-                let frame = patch.name.as_bytes()[4] - 'A' as u8;
-                let rotation = patch.name.as_bytes()[5] - '0' as u8;
+                let frame = patch.name.as_bytes()[4] - b'A';
+                let rotation = patch.name.as_bytes()[5] - b'0';
 
                 debug!(
                     "1. Matched {name}, {}, frame {}, rotate {}",
@@ -64,8 +64,8 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                 );
 
                 if patch.name.len() >= 7 {
-                    let frame = patch.name.as_bytes()[6] - 'A' as u8;
-                    let rotation = patch.name.as_bytes()[7] - '0' as u8;
+                    let frame = patch.name.as_bytes()[6] - b'A';
+                    let rotation = patch.name.as_bytes()[7] - b'0';
                     debug!(
                         "2. Matched {name}, {}, frame {}, rotate {}",
                         patch.name, frame, rotation
@@ -96,7 +96,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                 error!(
                     "init_sprites: No patches found for {} frame {}",
                     names[index],
-                    (frame as u8 + 'A' as u8) as char,
+                    (frame as u8 + b'A') as char,
                 );
                 break;
             }
@@ -109,7 +109,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                         error!(
                             "init_sprites: Sprite {} frame {} is missing rotations",
                             names[index],
-                            (frame as u8 + 'A' as u8) as char,
+                            (frame as u8 + b'A') as char,
                         );
                         dbg!(sprite_tmp[frame as usize].lump);
                     }
@@ -150,14 +150,14 @@ fn install_sprite(
             error!(
                 "install_sprite: Sprite {} frame {} has multiple rot=0 lump",
                 name,
-                ('A' as u8 + frame) as char,
+                (b'A' + frame) as char,
             );
         }
         if sprite.rotate == 1 {
             error!(
                 "install_sprite: Sprite {} frame {} has has rotations and a rot=0 lump",
                 name,
-                ('A' as u8 + frame) as char,
+                (b'A' + frame) as char,
             );
         }
 
@@ -176,7 +176,7 @@ fn install_sprite(
         error!(
             "install_sprite: Sprite {} frame {} has rotations and a rot=0 lump",
             name,
-            ('A' as u8 + frame) as char,
+            (b'A' + frame) as char,
         );
     }
 
@@ -187,8 +187,8 @@ fn install_sprite(
         error!(
             "install_sprite: Sprite {} : {} : {} has two lumps mapped to it",
             name,
-            ('A' as u8 + frame) as char,
-            ('1' as u8 + rotation) as char
+            (b'A' + frame) as char,
+            (b'1' + rotation) as char
         );
     }
 
