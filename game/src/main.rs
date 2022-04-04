@@ -1,9 +1,7 @@
 mod d_main;
 mod input;
-mod renderer;
 mod shaders;
 mod timestep;
-mod utilities;
 
 use std::{error::Error, io::Write};
 

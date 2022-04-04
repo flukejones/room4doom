@@ -1,12 +1,15 @@
 use self::{defs::DrawSeg, planes::VisPlaneRender, portals::PortalClip};
 use doom_lib::Angle;
 
-pub mod bsp;
-pub mod defs;
-pub mod planes;
-pub mod portals;
-pub mod segs;
-pub mod things;
+mod bsp;
+mod defs;
+mod planes;
+mod portals;
+mod segs;
+mod things;
+mod utilities;
+
+pub use bsp::SoftwareRenderer;
 
 /// We store most of what is needed for rendering in various functions here to avoid
 /// having to pass too many things in args through multiple function calls. This
@@ -19,7 +22,7 @@ pub mod things;
 /// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
 ///                               it then inserts/incs pointer to next drawseg in the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
-pub struct RenderData {
+pub(crate) struct RenderData {
     pub rw_angle1: Angle,
     // DrawSeg used, which is inserted in drawsegs at end of r_segs
     pub drawsegs: Vec<DrawSeg>,
@@ -31,7 +34,7 @@ pub struct RenderData {
 }
 
 impl RenderData {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             rw_angle1: Angle::default(),
             drawsegs: Vec::new(),
@@ -41,7 +44,7 @@ impl RenderData {
         }
     }
 
-    pub fn clear_data(&mut self, view_angle: Angle) {
+    pub(crate) fn clear_data(&mut self, view_angle: Angle) {
         self.portal_clip.clear();
         self.drawsegs.clear();
         self.ds_p = 0;

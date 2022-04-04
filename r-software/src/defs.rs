@@ -12,7 +12,6 @@ pub const SCREENHEIGHT: usize = 200;
 pub const SCREENHEIGHT_HALF: usize = SCREENHEIGHT / 2;
 
 pub const MAXDRAWSEGS: usize = 1024;
-
 pub const MAXOPENINGS: usize = SCREENWIDTH * 128;
 
 #[derive(Debug, Clone, Copy)]

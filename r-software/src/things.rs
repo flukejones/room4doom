@@ -1,7 +1,6 @@
 use std::{
     cmp,
     f32::consts::{FRAC_PI_2, PI},
-    ptr::null_mut,
 };
 
 use doom_lib::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
@@ -95,7 +94,7 @@ impl VisSprite {
 }
 
 impl SoftwareRenderer {
-    pub fn add_sprites<'a>(&'a mut self, player: &Player, sector: &'a Sector) {
+    pub(crate) fn add_sprites<'a>(&'a mut self, player: &Player, sector: &'a Sector) {
         // Need to track sectors as we recurse through BSP as the BSP
         // iteration is via subsectors, and sectors can be split in to
         // many subsectors
@@ -406,7 +405,12 @@ impl SoftwareRenderer {
         self.draw_vissprite(vis, &clip_bottom, &clip_top, canvas);
     }
 
-    pub fn draw_masked(&mut self, viewz: f32, viewheight: f32, canvas: &mut Canvas<Surface>) {
+    pub(crate) fn draw_masked(
+        &mut self,
+        viewz: f32,
+        viewheight: f32,
+        canvas: &mut Canvas<Surface>,
+    ) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort_by(|a, b| a.cmp(b));
         // Need to break lifetime as a chain function call needs &mut on a separate item
