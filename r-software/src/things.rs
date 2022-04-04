@@ -3,7 +3,7 @@ use std::{
     f32::consts::{FRAC_PI_2, PI},
 };
 
-use doom_lib::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
+use doom_lib::{Angle, LineDefFlags, MapObject, MapObjectType, PicData, Player, Sector};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -13,6 +13,7 @@ use super::{
 };
 
 const FF_FULLBRIGHT: u32 = 0x8000;
+const FF_FRAMEMASK: u32 = 0x7fff;
 
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     let x = point1.x() - point2.x();
@@ -160,10 +161,12 @@ impl SoftwareRenderer {
         let texture_data = naff.borrow();
         let sprnum = thing.state.sprite;
         let sprite_def = texture_data.sprite_def(sprnum as usize);
-        if thing.frame > 28 {
+
+        let frame = thing.frame & FF_FRAMEMASK;
+        if frame & FF_FRAMEMASK > 28 {
             return true;
         }
-        let sprite_frame = sprite_def.frames[thing.frame as usize];
+        let sprite_frame = sprite_def.frames[(frame) as usize];
         let patch;
         let patch_index;
         let flip;
@@ -223,10 +226,9 @@ impl SoftwareRenderer {
         // TODO: colourmap index
         //  - shadow
         //  - fixed
-        //  - full-bright ( 0 )
         if thing.frame & FF_FULLBRIGHT != 0 {
             // full bright
-            vis.light_level = 0;
+            vis.light_level = 255;
         } else {
             vis.light_level = light_level as usize;
         }

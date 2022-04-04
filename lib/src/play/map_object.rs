@@ -530,7 +530,7 @@ impl MapObject {
             return;
         }
 
-        // check for apropriate skill level
+        // check for appropriate skill level
         let bit: i16;
         if level.game_skill == Skill::Baby {
             bit = 1;
@@ -613,7 +613,6 @@ impl MapObject {
         level: &mut Level,
     ) -> *mut MapObject {
         let info = MOBJINFO[kind as usize];
-
         let reactiontime = if level.game_skill != Skill::Nightmare {
             info.reactiontime
         } else {
