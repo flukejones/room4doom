@@ -231,20 +231,20 @@ impl SegRender {
             ds_p.sprbottomclip = None;
             ds_p.silhouette = SIL_NONE;
 
-            if frontsector.floorheight >= backsector.floorheight {
+            if frontsector.floorheight > backsector.floorheight {
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = frontsector.floorheight;
-            } else if backsector.floorheight >= viewz {
+            } else if backsector.floorheight > viewz {
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
             }
 
-            if frontsector.ceilingheight <= backsector.ceilingheight {
+            if frontsector.ceilingheight < backsector.ceilingheight {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = frontsector.ceilingheight;
-            } else if backsector.ceilingheight <= viewz {
+            } else if backsector.ceilingheight < viewz {
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.bsilheight = f32::MIN;
+                ds_p.tsilheight = f32::MIN;
             }
 
             if backsector.ceilingheight <= frontsector.floorheight {
@@ -256,7 +256,7 @@ impl SegRender {
             if backsector.floorheight >= frontsector.ceilingheight {
                 ds_p.sprtopclip = Some(0);
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.bsilheight = f32::MIN;
+                ds_p.tsilheight = f32::MIN;
             }
 
             self.worldhigh = (backsector.ceilingheight - viewz) as i32;
@@ -547,7 +547,7 @@ impl SegRender {
                     mid = self.pixhigh as i32; // - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
-                    if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                     }
 

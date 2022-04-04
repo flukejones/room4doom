@@ -224,7 +224,7 @@ impl Player {
             fixedcolormap: 0,
 
             frags: [0; 4],
-            readyweapon: WeaponType::wp_pistol,
+            readyweapon: WeaponType::Pistol,
             pendingweapon: WeaponType::NUMWEAPONS,
             weaponowned: [false; WeaponType::NUMWEAPONS as usize],
 
@@ -289,11 +289,11 @@ impl Player {
         self.attackdown = false;
         self.player_state = PlayerState::PstLive;
         self.health = MAXHEALTH;
-        self.readyweapon = WeaponType::wp_pistol;
-        self.pendingweapon = WeaponType::wp_pistol;
-        self.weaponowned[WeaponType::wp_fist as usize] = true;
-        self.weaponowned[WeaponType::wp_pistol as usize] = true;
-        self.ammo[AmmoType::am_clip as usize] = 50;
+        self.readyweapon = WeaponType::Pistol;
+        self.pendingweapon = WeaponType::Pistol;
+        self.weaponowned[WeaponType::Fist as usize] = true;
+        self.weaponowned[WeaponType::Pistol as usize] = true;
+        self.ammo[AmmoType::Clip as usize] = 50;
         self.maxammo.copy_from_slice(&MAX_AMMO);
     }
 
@@ -431,7 +431,7 @@ impl Player {
             match sector.special {
                 // HELLSLIME DAMAGE
                 5 => {
-                    if self.powers[PowerType::pw_ironfeet as usize] == 0
+                    if self.powers[PowerType::IronFeet as usize] == 0
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Hell-slime damage!");
@@ -440,7 +440,7 @@ impl Player {
                 }
                 // NUKAGE DAMAGE
                 7 => {
-                    if self.powers[PowerType::pw_ironfeet as usize] == 0
+                    if self.powers[PowerType::IronFeet as usize] == 0
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Nukage damage!");
@@ -449,7 +449,7 @@ impl Player {
                 }
                 // SUPER HELLSLIME DAMAGE | STROBE HURT
                 16 | 4 => {
-                    if (self.powers[PowerType::pw_ironfeet as usize] == 0 || p_random() < 5)
+                    if (self.powers[PowerType::IronFeet as usize] == 0 || p_random() < 5)
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Super hell-slime damage!");

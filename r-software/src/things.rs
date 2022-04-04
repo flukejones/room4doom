@@ -3,7 +3,7 @@ use std::{
     f32::consts::{FRAC_PI_2, PI},
 };
 
-use doom_lib::{Angle, LineDefFlags, MapObject, MapObjectType, PicData, Player, Sector};
+use doom_lib::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -262,11 +262,11 @@ impl SoftwareRenderer {
                 // tex_column %= patch.data.len();
             }
 
-            let sprtopscreen = (SCREENHEIGHT_HALF as f32 - dc_texmid * spryscale).ceil();
+            let sprtopscreen = (SCREENHEIGHT_HALF as f32 + 1.0 - dc_texmid * spryscale).floor();
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * (texture_column.len() as f32 - 1.0)).floor() as i32;
+            let mut bottom = top + (spryscale * (texture_column.len() as f32 - 1.5)).floor() as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -276,7 +276,7 @@ impl SoftwareRenderer {
                 top = clip_top[x as usize] + 1;
             }
 
-            if top <= bottom {
+            if top < bottom {
                 draw_masked_column(
                     &texture_column,
                     colourmap,
@@ -300,13 +300,8 @@ impl SoftwareRenderer {
         vis: &VisSprite,
         canvas: &mut Canvas<Surface>,
     ) {
-        let mut clip_bottom = [-3i32; SCREENWIDTH];
-        let mut clip_top = [-3i32; SCREENWIDTH];
-
-        for x in vis.x1..=vis.x2 {
-            clip_bottom[x as usize] = -2;
-            clip_top[x as usize] = -2;
-        }
+        let mut clip_bottom = [-2i32; SCREENWIDTH];
+        let mut clip_top = [-2i32; SCREENWIDTH];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
@@ -345,10 +340,10 @@ impl SoftwareRenderer {
             }
 
             let mut sil = seg.silhouette;
-            if vis.gz >= seg.bsilheight {
+            if vis.gz > seg.bsilheight {
                 sil &= !SIL_BOTTOM;
             }
-            if vis.gzt <= seg.tsilheight {
+            if vis.gzt < seg.tsilheight {
                 sil &= !SIL_TOP;
             }
 

@@ -270,8 +270,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
         let player = unsafe { &mut *player };
         match line.special {
             26 | 32 => {
-                if !player.cards[Card::it_bluecard as usize]
-                    && !player.cards[Card::it_blueskull as usize]
+                if !player.cards[Card::Bluecard as usize] && !player.cards[Card::Blueskull as usize]
                 {
                     // TODO: player->message = DEH_String(PD_BLUEK);
                     // TODO: S_StartSound(NULL,sfx_oof);
@@ -280,8 +279,8 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                 }
             }
             27 | 34 => {
-                if !player.cards[Card::it_yellowcard as usize]
-                    && !player.cards[Card::it_yellowskull as usize]
+                if !player.cards[Card::Yellowcard as usize]
+                    && !player.cards[Card::Yellowskull as usize]
                 {
                     // TODO: player->message = DEH_String(PD_YELLOWK);
                     // TODO: S_StartSound(NULL,sfx_oof);
@@ -290,9 +289,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                 }
             }
             28 | 33 => {
-                if !player.cards[Card::it_redcard as usize]
-                    && !player.cards[Card::it_redskull as usize]
-                {
+                if !player.cards[Card::Redcard as usize] && !player.cards[Card::Redskull as usize] {
                     // TODO: player->message = DEH_String(PD_REDK);
                     // TODO: S_StartSound(NULL,sfx_oof);
                     println!("Ooof! I need the red card");

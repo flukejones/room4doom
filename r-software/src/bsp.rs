@@ -316,7 +316,7 @@ impl SoftwareRenderer {
     ) {
         let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight < player.viewz {
+        if subsect.sector.floorheight <= player.viewz {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
                 subsect.sector.floorheight.floor() as i32,
                 subsect.sector.floorpic,
@@ -325,7 +325,7 @@ impl SoftwareRenderer {
             );
         }
 
-        if subsect.sector.ceilingheight > player.viewz
+        if subsect.sector.ceilingheight >= player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num()
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(

@@ -12,7 +12,7 @@ use super::{
 use crate::{
     d_main::Skill,
     doom_def::{PowerType, WeaponType},
-    info::{self, MapObjectType, StateNum, STATES},
+    info::{MapObjectType, StateNum, STATES},
     play::{
         player::{PlayerCheat, PlayerState},
         utilities::point_to_angle_2,
@@ -78,7 +78,7 @@ impl MapObject {
                 do_push = source.as_ref().unwrap().player.is_none()
                     || unsafe {
                         (*source.as_ref().unwrap().player.unwrap()).readyweapon
-                            != WeaponType::wp_chainsaw
+                            != WeaponType::Chainsaw
                     };
                 source.as_mut().unwrap()
             } else {
@@ -114,7 +114,7 @@ impl MapObject {
                 // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
                 if damage < 1000
                     && (player.cheats & PlayerCheat::Godmode as u32 != 0
-                        || player.powers[PowerType::pw_invulnerability as usize] != 0)
+                        || player.powers[PowerType::Invulnerability as usize] != 0)
                 {
                     return;
                 }

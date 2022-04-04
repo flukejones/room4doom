@@ -21,15 +21,15 @@ impl fmt::Display for DoomArgError {
 pub enum Skill {
     NoItems = -1, // the "-skill 0" hack
     Baby = 0,
-    Easy,
-    Medium,
-    Hard,
-    Nightmare,
+    Easy = 1,
+    Medium = 2,
+    Hard = 3,
+    Nightmare = 4,
 }
 
 impl Default for Skill {
     fn default() -> Self {
-        Skill::Hard
+        Skill::Medium
     }
 }
 

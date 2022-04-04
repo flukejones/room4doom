@@ -14,7 +14,7 @@ use super::{
     },
 };
 
-use crate::level::Level;
+use crate::{doom_def::MTF_SINGLE_PLAYER, level::Level};
 use glam::Vec2;
 use log::{debug, error};
 use wad::lumps::WadThing;
@@ -29,9 +29,9 @@ use crate::{
 };
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
-pub static MAXMOVE: f32 = 30.0;
-pub static STOPSPEED: f32 = 0.0625; // 0x1000
-pub static FRICTION: f32 = 0.90625; // 0xE800
+pub const MAXMOVE: f32 = 30.0;
+pub const STOPSPEED: f32 = 0.0625; // 0x1000
+pub const FRICTION: f32 = 0.90625; // 0xE800
 
 #[derive(Debug, PartialEq)]
 pub enum MobjFlag {
@@ -531,13 +531,16 @@ impl MapObject {
         }
 
         // check for appropriate skill level
+        if !level.deathmatch && mthing.flags & MTF_SINGLE_PLAYER != 0 {
+            return;
+        }
         let bit: i16;
         if level.game_skill == Skill::Baby {
             bit = 1;
         } else if level.game_skill == Skill::Nightmare {
             bit = 4;
         } else {
-            bit = level.game_skill as i16 - 1;
+            bit = 1 << (level.game_skill as i16 - 1);
         }
 
         if mthing.flags & bit == 0 {
