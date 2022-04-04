@@ -138,10 +138,11 @@ impl Game {
 
         // Mimic the OG output
         println!(
-            "\n{} Startup v{}.{}\n",
+            "\n{} v{}.{} - Room v{}\n",
             game_description,
             DOOM_VERSION / 100,
-            DOOM_VERSION % 100
+            DOOM_VERSION % 100,
+            env!("CARGO_PKG_VERSION")
         );
 
         match game_mode {

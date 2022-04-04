@@ -247,20 +247,23 @@ impl SegRender {
                 ds_p.tsilheight = f32::MIN;
             }
 
-            if backsector.ceilingheight <= frontsector.floorheight {
-                ds_p.sprbottomclip = Some(0); // start of negonearray
-                ds_p.silhouette |= SIL_BOTTOM;
-                ds_p.bsilheight = f32::MAX;
-            }
+            // Commented out as this seems to fix the incorrect clipping of
+            // sprites lower/higher than player and blocked by lower or upper
+            // part of portal
+            // if backsector.ceilingheight <= frontsector.floorheight {
+            //     ds_p.sprbottomclip = Some(0); // start of negonearray
+            //     ds_p.silhouette |= SIL_BOTTOM;
+            //     ds_p.bsilheight = f32::MAX;
+            // }
 
-            if backsector.floorheight >= frontsector.ceilingheight {
-                ds_p.sprtopclip = Some(0);
-                ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = f32::MIN;
-            }
+            // if backsector.floorheight >= frontsector.ceilingheight {
+            //     ds_p.sprtopclip = Some(0);
+            //     ds_p.silhouette |= SIL_TOP;
+            //     ds_p.tsilheight = f32::MIN;
+            // }
 
-            self.worldhigh = (backsector.ceilingheight - viewz) as i32;
-            self.worldlow = (backsector.floorheight - viewz) as i32;
+            self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
+            self.worldlow = (backsector.floorheight - viewz).floor() as i32;
 
             // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.sky_num()

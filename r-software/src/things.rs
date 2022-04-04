@@ -296,7 +296,7 @@ impl SoftwareRenderer {
     fn draw_sprite(
         &mut self,
         viewz: f32,
-        viewheight: f32,
+        _viewheight: f32,
         vis: &VisSprite,
         canvas: &mut Canvas<Surface>,
     ) {
@@ -354,7 +354,7 @@ impl SoftwareRenderer {
                         clip_bottom[r as usize] = self.r_data.visplanes.openings
                             [(seg.sprbottomclip.unwrap() + r) as usize];
                         if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = -1;
+                            clip_bottom[r as usize] = 0;
                         }
                     }
                 }
@@ -376,7 +376,7 @@ impl SoftwareRenderer {
                         clip_bottom[r as usize] = self.r_data.visplanes.openings
                             [(seg.sprbottomclip.unwrap() + r) as usize];
                         if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = -1;
+                            clip_bottom[r as usize] = 0;
                         }
                     }
                     if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {

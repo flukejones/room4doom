@@ -1,6 +1,5 @@
 - [-] : Sprites colourmap/light selection
-- [X] : Sprite sorting
-- [-] : Sprite clipping (issues with planes, doors)
+- [ ] : Sprite rotations (Not sure of correct ratio)
 - [ ] : P_TouchSpecialThing
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
@@ -11,13 +10,15 @@
 - [ ] : fixed-colourmap (special effects)
 - [ ] : Fix the types in texture module
 - [ ] : Colours seem off for darker areas?
-- [ ] : Teleport telefrag killing entire sector not just spawn point..
 
 - [-] : P_KillMobj
 - [-] : P_UpdateSpecials (todo: level timer)
 - [-] : EV_Teleport (todo: telefrag stuff)
 - [-] : Recheck planes
 
+- [X] : FIXED: Sprite sorting: impl Ord on VisSprite for rust iiter sorting
+- [X] : Sprite clipping (issues with planes, doors)
+- [X] : FIXED: Teleport telefrag killing entire sector not just spawn point: Radius check
 - [X] : Implement P_DamageMobj
 - [X] : Doom 2 M4 chopper window bottom plane is not done?
         + So this is an actual missing texture on lower part
