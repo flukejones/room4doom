@@ -65,47 +65,41 @@ pub enum GameAction {
     Screenshot,
 }
 
-// Difficulty/skill settings/filters.
-
-/// Skill flags.
-pub static MTF_EASY: u8 = 1;
-pub static MTF_NORMAL: u8 = 2;
-pub static MTF_HARD: u8 = 4;
-
 /// Deaf monsters/do not react to sound.
 pub static MTF_AMBUSH: i16 = 8;
 
+/// A single flag used to determine if the thing options are multiplayer of singleplayer enabled.
+pub const MTF_SINGLE_PLAYER: i16 = 16;
+
 /// Key cards.
 #[derive(Copy, Clone)]
-#[allow(non_camel_case_types)]
 pub enum Card {
-    it_bluecard,
-    it_yellowcard,
-    it_redcard,
-    it_blueskull,
-    it_yellowskull,
-    it_redskull,
+    Bluecard,
+    Yellowcard,
+    Redcard,
+    Blueskull,
+    Yellowskull,
+    Redskull,
     NUMCARDS,
 }
 
 /// The defined weapons, including a marker indicating user has not changed weapon.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-#[allow(non_camel_case_types)]
 pub enum WeaponType {
-    wp_fist,
-    wp_pistol,
-    wp_shotgun,
-    wp_chaingun,
-    wp_missile,
-    wp_plasma,
-    wp_bfg,
-    wp_chainsaw,
-    wp_supershotgun,
+    Fist,
+    Pistol,
+    Shotgun,
+    Chaingun,
+    Missile,
+    Plasma,
+    BFG,
+    Chainsaw,
+    SuperShotgun,
 
     NUMWEAPONS,
 
     // No pending weapon change.
-    wp_nochange,
+    NoChange,
 }
 
 pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
@@ -113,31 +107,30 @@ pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
 
 /// Ammunition types defined.
 #[derive(Copy, Clone)]
-#[allow(non_camel_case_types)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
-    am_clip,
+    Clip,
     /// Shotgun / double barreled shotgun.
-    am_shell,
+    Shell,
     /// Plasma rifle, BFG.
-    am_cell,
+    Cell,
     /// Missile launcher.
-    am_misl,
+    Missile,
     NUMAMMO,
     /// Unlimited for chainsaw / fist.
-    am_noammo,
+    NoAmmo,
 }
 
 /// Power up artifacts.
 #[derive(Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum PowerType {
-    pw_invulnerability,
-    pw_strength,
-    pw_invisibility,
-    pw_ironfeet,
-    pw_allmap,
-    pw_infrared,
+    Invulnerability,
+    Strength,
+    Invisibility,
+    IronFeet,
+    Allmap,
+    Infrared,
     NUMPOWERS,
 }
 
