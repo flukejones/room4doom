@@ -20,7 +20,7 @@ const HEIGHTUNIT: f32 = 0.062485;
 // TODO: possibly init this once then use a `clear` func when new is required
 /// All of the state in this struct is unique to it as it is used once per seg
 /// to be rendered.
-pub struct SegRender {
+pub(crate) struct SegRender {
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
     /// `sector_t *frontsector;` `sector_t *backsector;` shared variables between
     /// `r_bsp.c` and `r_seg.c`.

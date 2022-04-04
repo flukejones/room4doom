@@ -1,10 +1,9 @@
 use std::f32::consts::FRAC_PI_2;
 
+use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 use doom_lib::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
-
-use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 

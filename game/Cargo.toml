@@ -15,6 +15,8 @@ sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
 doom-lib = { path = "../lib" }
+rendering-trait = { path = "../rendering" }
+software-rendering = { path = "../r-software" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
 env_logger = "^0.8"

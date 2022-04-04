@@ -1,0 +1,10 @@
+[package]
+name = "rendering-trait"
+version = "0.1.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+build = "../build.rs"
+
+[dependencies]
+sdl2 = { version = "~0.35.2", features = ["bundled"] }
+doom-lib = { path = "../lib" }

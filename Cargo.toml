@@ -1,5 +1,5 @@
 [workspace]
-members = ["wad", "game", "lib"]
+members = ["wad", "game", "rendering", "r-software", "lib"]
 
 [profile.release]
 lto = true

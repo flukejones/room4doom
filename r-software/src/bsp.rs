@@ -1,23 +1,20 @@
-use crate::{
-    renderer::{
-        software::defs::{SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
-        Renderer,
-    },
-    utilities::CLASSIC_SCREEN_X_TO_VIEW,
-};
-
 use super::{
     defs::ClipRange,
     segs::{DrawColumn, SegRender},
     things::VisSprite,
     RenderData,
 };
-use crate::renderer::software::planes::make_spans;
+use crate::{
+    defs::{SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
+    planes::make_spans,
+    utilities::CLASSIC_SCREEN_X_TO_VIEW,
+};
 use doom_lib::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
     SubSector, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
+use rendering_trait::Renderer;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{
     cell::RefCell,
@@ -49,7 +46,9 @@ const MAX_VIS_SPRITES: usize = 128;
 /// is due to the Doom C relying a fair bit on global state.
 ///
 /// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
+///
 /// ----------------------------------------------------------------------------
+///
 /// - R_DrawSprite, r_things.c
 /// - R_DrawMasked, r_things.c
 /// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
@@ -118,7 +117,7 @@ impl SoftwareRenderer {
         }
     }
 
-    pub fn clear(&mut self, player: &Player) {
+    fn clear(&mut self, player: &Player) {
         let mobj = unsafe { &*(player.mobj.unwrap()) };
         let view_angle = mobj.angle;
         for vis in self.vissprites.iter_mut() {
@@ -348,7 +347,7 @@ impl SoftwareRenderer {
     }
 
     /// R_ClearClipSegs - r_bsp
-    pub fn clear_clip_segs(&mut self) {
+    fn clear_clip_segs(&mut self) {
         self.solidsegs.clear();
         self.solidsegs.push(ClipRange {
             first: -0x7fffffff,
@@ -591,7 +590,7 @@ impl SoftwareRenderer {
     /// R_CheckBBox - r_bsp
     ///
     /// TODO: solidsegs list
-    pub fn bb_extents_in_fov(&self, node: &Node, mobj: &MapObject, side: usize) -> bool {
+    fn bb_extents_in_fov(&self, node: &Node, mobj: &MapObject, side: usize) -> bool {
         let view_angle = mobj.angle;
         // BOXTOP = 0
         // BOXBOT = 1
@@ -725,7 +724,7 @@ impl SoftwareRenderer {
     }
 }
 
-pub fn angle_to_screen(mut radian: f32) -> i32 {
+fn angle_to_screen(mut radian: f32) -> i32 {
     let mut x;
 
     // Left side
@@ -754,7 +753,7 @@ pub fn angle_to_screen(mut radian: f32) -> i32 {
 //  tantoangle[] table.
 ///
 /// The flipping isn't done here...
-pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
+fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x() - mobj.xy.x();
     let y = vertex.y() - mobj.xy.y();
     Angle::new(y.atan2(x))

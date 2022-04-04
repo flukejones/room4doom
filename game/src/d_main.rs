@@ -2,6 +2,7 @@ use std::error::Error;
 
 use doom_lib::{log::info, Game, WallPic};
 use golem::Context;
+use rendering_trait::Renderer;
 use sdl2::{
     keyboard::Scancode,
     pixels::{Color, PixelFormatEnum},
@@ -10,11 +11,11 @@ use sdl2::{
     surface::Surface,
     video::Window,
 };
+use software_rendering::SoftwareRenderer;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 use crate::{
     input::Input,
-    renderer::{software::bsp::SoftwareRenderer, Renderer},
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     timestep::TimeStep,
     GameOptions,

@@ -1,7 +1,7 @@
+//! A single trait to enable generic rendering impl
+
 use doom_lib::{Level, Player};
 use sdl2::{render::Canvas, surface::Surface};
-
-pub mod software;
 
 pub trait Renderer {
     /// This function is responsible for drawing the full player view to the SDL2
