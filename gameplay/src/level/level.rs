@@ -4,11 +4,10 @@ use log::info;
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
-    d_main::Skill,
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     level::map_data::MapData,
     pic::Button,
-    play::d_thinker::ThinkerAlloc,
+    play::{d_thinker::ThinkerAlloc, Skill},
     DPtr, PicData,
 };
 

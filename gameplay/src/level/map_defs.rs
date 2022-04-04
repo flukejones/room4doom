@@ -1,4 +1,4 @@
-use std::ptr::{self, null_mut, NonNull};
+use std::ptr::NonNull;
 
 use crate::{
     angle::Angle,

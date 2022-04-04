@@ -3,7 +3,7 @@ use std::{
     f32::consts::{FRAC_PI_2, PI},
 };
 
-use doom_lib::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
+use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -21,7 +21,7 @@ pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     Angle::new(y.atan2(x))
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct VisSprite {
     x1: i32,
     x2: i32,
@@ -42,6 +42,12 @@ pub struct VisSprite {
     /// The index used to fetch colourmap for drawing
     light_level: usize,
     mobj_flags: u32,
+}
+
+impl PartialOrd for VisSprite {
+    fn partial_cmp(&self, other: &VisSprite) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Ord for VisSprite {
@@ -551,7 +557,7 @@ fn draw_masked_column(
 ) {
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let mut select = frac.round() as i32 & 127;
+        let mut select = frac.floor() as i32 & 127;
 
         if select >= texture_column.len() as i32 {
             select %= texture_column.len() as i32;

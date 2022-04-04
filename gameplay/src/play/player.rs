@@ -26,11 +26,9 @@ const MAX_BOB: f32 = 16.0; // 0x100000;
 /// coordinates are given for a 320*200 view screen.
 ///
 /// From P_PSPR
-#[derive(Debug)]
-#[allow(non_camel_case_types)]
 pub enum PsprNum {
-    ps_weapon,
-    ps_flash,
+    Weapon,
+    Flash,
     NUMPSPRITES,
 }
 
@@ -38,11 +36,11 @@ pub enum PsprNum {
 #[derive(Debug, PartialEq)]
 pub enum PlayerState {
     /// Playing or camping.
-    PstLive,
+    Live,
     /// Dead on the ground, view follows killer.
-    PstDead,
+    Dead,
     /// Ready to restart/respawn???
-    PstReborn,
+    Reborn,
 }
 
 //// Player internal flags, for cheats and debug.
@@ -228,7 +226,7 @@ impl Player {
             pendingweapon: WeaponType::NUMWEAPONS,
             weaponowned: [false; WeaponType::NUMWEAPONS as usize],
 
-            player_state: PlayerState::PstReborn,
+            player_state: PlayerState::Reborn,
             cmd: TicCmd::new(),
 
             head_bob: true,
@@ -287,7 +285,7 @@ impl Player {
 
         self.usedown = false;
         self.attackdown = false;
-        self.player_state = PlayerState::PstLive;
+        self.player_state = PlayerState::Live;
         self.health = MAXHEALTH;
         self.readyweapon = WeaponType::Pistol;
         self.pendingweapon = WeaponType::Pistol;
@@ -355,7 +353,7 @@ impl Player {
             }
 
             // move viewheight
-            if self.player_state == PlayerState::PstLive {
+            if self.player_state == PlayerState::Live {
                 self.viewheight += self.deltaviewheight;
 
                 if self.viewheight > VIEWHEIGHT {
@@ -383,7 +381,7 @@ impl Player {
             if self.viewz > mobj.ceilingz - 4.0 {
                 self.viewz = mobj.ceilingz - 4.0;
             }
-            self.viewz = self.viewz.round();
+            self.viewz = self.viewz.floor();
         }
     }
 
@@ -493,7 +491,7 @@ impl Player {
             }
         }
 
-        if self.player_state == PlayerState::PstDead {
+        if self.player_state == PlayerState::Dead {
             self.death_think(level);
             return false;
         }
@@ -555,7 +553,7 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {
                 self.usedown = true;
-                self.player_state = PlayerState::PstReborn;
+                self.player_state = PlayerState::Reborn;
             }
         } else {
             self.usedown = false;

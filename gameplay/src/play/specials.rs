@@ -17,15 +17,15 @@ use super::{
 };
 
 use crate::{
-    flags::LineDefFlags,
     info::MapObjectType,
     level::{
+        flags::LineDefFlags,
         map_defs::{LineDef, Sector},
         Level,
     },
-    pic::ButtonWhere,
+    pic::{ButtonWhere, PicAnimation},
     play::teleport::teleport,
-    DPtr, Game,
+    DPtr, PicData,
 };
 use log::{debug, error, trace};
 
@@ -802,38 +802,33 @@ pub fn spawn_specials(level: &mut Level) {
 }
 
 /// Doom function name `P_UpdateSpecials`
-pub fn update_specials(game: &mut Game) {
+pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_data: &mut PicData) {
     // TODO: level timer
     //if level.level_time
 
     // Flats and wall texture animations (switching between series)
-    for anim in &mut game.animations {
-        anim.update(
-            &mut game.pic_data.borrow_mut(),
-            game.level.as_ref().unwrap().level_time as usize,
-        );
+    for anim in animations {
+        anim.update(pic_data, level.level_time as usize);
     }
 
-    if let Some(level) = game.level.as_mut() {
-        for b in level.button_list.iter_mut() {
-            if b.timer != 0 {
-                b.timer -= 1;
-                if b.timer == 0 {
-                    debug!("Button {:?} is switching after countdown", b.line.as_ptr());
-                    match b.bwhere {
-                        ButtonWhere::Top => b.line.front_sidedef.toptexture = b.texture,
-                        ButtonWhere::Middle => b.line.front_sidedef.midtexture = b.texture,
-                        ButtonWhere::Bottom => b.line.front_sidedef.bottomtexture = b.texture,
-                    }
-                    // TODO: S_StartSound(&buttonlist[i].soundorg, sfx_swtchn);
+    for b in level.button_list.iter_mut() {
+        if b.timer != 0 {
+            b.timer -= 1;
+            if b.timer == 0 {
+                debug!("Button {:?} is switching after countdown", b.line.as_ptr());
+                match b.bwhere {
+                    ButtonWhere::Top => b.line.front_sidedef.toptexture = b.texture,
+                    ButtonWhere::Middle => b.line.front_sidedef.midtexture = b.texture,
+                    ButtonWhere::Bottom => b.line.front_sidedef.bottomtexture = b.texture,
                 }
+                // TODO: S_StartSound(&buttonlist[i].soundorg, sfx_swtchn);
             }
         }
-        for line in level.line_special_list.iter_mut() {
-            line.front_sidedef.textureoffset += 1.0;
-            if line.front_sidedef.textureoffset == f32::MAX {
-                line.front_sidedef.textureoffset = 0.0;
-            }
+    }
+    for line in level.line_special_list.iter_mut() {
+        line.front_sidedef.textureoffset += 1.0;
+        if line.front_sidedef.textureoffset == f32::MAX {
+            line.front_sidedef.textureoffset = 0.0;
         }
     }
 }

@@ -8,12 +8,12 @@ use enumn::N;
 
 use crate::play::{map_object::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
-use crate::sounds::SfxEnum;
-
 mod map_object_info;
+mod sounds;
 mod states;
 
 pub use map_object_info::*;
+pub use sounds::SfxEnum;
 pub use states::*;
 
 #[derive(Clone)]

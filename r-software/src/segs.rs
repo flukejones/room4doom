@@ -1,4 +1,4 @@
-use doom_lib::{Angle, LineDefFlags, PicData, Player, Segment};
+use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 

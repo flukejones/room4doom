@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
-use doom_lib::Angle;
+use gameplay::Angle;
 use glam::Vec2;
 
 /*

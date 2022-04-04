@@ -1,8 +1,9 @@
 use crate::{
     info::{MapObjectInfo, MapObjectType, StateNum},
     play::map_object::MobjFlag,
-    sounds::SfxEnum,
 };
+
+use super::SfxEnum;
 
 /// This variable exists only to help create the mobs array
 const NUM_CATEGORIES: usize = MapObjectType::NUMMOBJTYPES as usize;

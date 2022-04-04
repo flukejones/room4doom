@@ -124,7 +124,7 @@ impl PicData {
             .collect();
         let sprite_defs = init_spritedefs(&SPRNAMES, &sprite_patches);
 
-        print!(".]\n");
+        println!(".]");
 
         Self {
             walls,
@@ -310,7 +310,7 @@ impl PicData {
         }
         debug!("Built texture: {}", &texture.name);
         WallPic {
-            name: texture.name.clone(),
+            name: texture.name,
             data: compose,
         }
     }

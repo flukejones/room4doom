@@ -5,10 +5,11 @@ use std::ptr::null_mut;
 
 use crate::{
     level::{
+        flags::LineDefFlags,
         map_defs::{LineDef, Sector},
         Level,
     },
-    DPtr, LineDefFlags,
+    DPtr,
 };
 
 use super::{

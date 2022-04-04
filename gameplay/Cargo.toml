@@ -1,5 +1,5 @@
 [package]
-name = "doom-lib"
+name = "gameplay"
 version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"

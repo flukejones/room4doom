@@ -1,12 +1,14 @@
 use std::collections::hash_set::HashSet;
 
-use doom_lib::{log::debug, tic_cmd::*, Cheats, Game, GameMission, PlayerCheat, WeaponType};
+use gameplay::{log::debug, tic_cmd::*, GameMission, PlayerCheat, Skill, WeaponType};
 use sdl2::{
     event::Event,
     keyboard::{Keycode, Scancode as Sc},
     mouse::MouseButton as Mb,
     EventPump,
 };
+
+use crate::{cheats::Cheats, game::Game};
 
 #[derive(Default, Clone)]
 pub struct InputEvents {
@@ -260,7 +262,7 @@ impl Input {
         };
 
         // TODO: need to check if netgame
-        if !game.is_netgame() && !(game.game_skill() == doom_lib::Skill::Nightmare) {
+        if !game.is_netgame() && !(game.game_skill() == Skill::Nightmare) {
             if self.cheats.god.check(key) {
                 debug!("GODMODE");
                 let player = &mut game.players[game.consoleplayer];

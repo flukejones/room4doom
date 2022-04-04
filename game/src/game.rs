@@ -1,23 +1,62 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{
-    d_main,
-    d_main::{DoomOptions, Skill},
-    doom_def::*,
-    level::Level,
-    pic::{PicAnimation, Switches},
-    play::{
-        map_object::MapObject,
-        player::{Player, PlayerState, WBStartStruct},
-        specials::{spawn_specials, update_specials},
-        utilities::m_clear_random,
-    },
+use gameplay::{
+    log::{debug, error, info, trace, warn},
+    m_clear_random, spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    PicData,
+    update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
+    Player, PlayerState, Skill, Switches, WBStartStruct, DOOM_VERSION, MAXPLAYERS,
 };
-use d_main::identify_version;
-use log::{debug, error, info, trace, warn};
 use wad::WadData;
+
+use crate::opts::DoomOptions;
+
+/// The current state of the game: whether we are playing, gazing at the intermission screen,
+/// the game final animation, or a demo.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum GameState {
+    FORCE_WIPE = -1,
+    GS_LEVEL,
+    GS_INTERMISSION,
+    GS_FINALE,
+    GS_DEMOSCREEN,
+}
+
+pub const BACKUPTICS: usize = 12;
+
+pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
+    let game_mode;
+    let game_mission;
+    let game_description;
+
+    if wad.lump_exists("MAP01") {
+        game_mission = GameMission::Doom2;
+    } else if wad.lump_exists("E1M1") {
+        game_mission = GameMission::Doom;
+    } else {
+        panic!("Could not determine IWAD type");
+    }
+
+    if game_mission == GameMission::Doom {
+        // Doom 1.  But which version?
+        if wad.lump_exists("E4M1") {
+            game_mode = GameMode::Retail;
+            game_description = String::from("The Ultimate DOOM");
+        } else if wad.lump_exists("E3M1") {
+            game_mode = GameMode::Registered;
+            game_description = String::from("DOOM Registered");
+        } else {
+            game_mode = GameMode::Shareware;
+            game_description = String::from("DOOM Shareware");
+        }
+    } else {
+        game_mode = GameMode::Commercial;
+        game_description = String::from("DOOM 2: Hell on Earth");
+        // TODO: check for TNT or Plutonia
+    }
+    (game_mode, game_mission, game_description)
+}
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
@@ -86,7 +125,7 @@ pub struct Game {
 impl Game {
     pub fn new(mut options: DoomOptions) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
-        let respawn_monsters = matches!(options.skill, d_main::Skill::Nightmare);
+        let respawn_monsters = matches!(options.skill, Skill::Nightmare);
 
         let mut wad = WadData::new(options.iwad.clone().into());
 
@@ -344,7 +383,7 @@ impl Game {
 
         // force players to be initialized upon first level load
         for player in self.players.iter_mut() {
-            player.player_state = PlayerState::PstReborn;
+            player.player_state = PlayerState::Reborn;
         }
 
         self.paused = false;
@@ -372,8 +411,8 @@ impl Game {
         self.game_state = GameState::GS_LEVEL;
 
         for player in self.players.iter_mut() {
-            if player.player_state == PlayerState::PstDead {
-                player.player_state = PlayerState::PstReborn;
+            if player.player_state == PlayerState::Dead {
+                player.player_state = PlayerState::Reborn;
                 for i in 0..player.frags.len() {
                     player.frags[i] = 0;
                 }
@@ -472,11 +511,11 @@ impl Game {
             if matches!(self.game_mode, GameMode::Commercial) {
                 match self.game_map {
                     6 | 11 | 15 | 20 | 30 | 31 => {
-                        if !level.secret_exit && (self.game_map == 15 || self.game_map == 31) {
-                            // ignore
-                        } else {
-                            // TODO: F_StartFinale();
-                        }
+                        // if !level.secret_exit && (self.game_map == 15 || self.game_map == 31) {
+                        //     // ignore
+                        // } else {
+                        //     // TODO: F_StartFinale();
+                        // }
                     }
                     _ => {}
                 }
@@ -591,7 +630,7 @@ impl Game {
         }
         // // do player reborns if needed
         for i in 0..MAXPLAYERS {
-            if self.player_in_game[i] && self.players[i].player_state == PlayerState::PstReborn {
+            if self.player_in_game[i] && self.players[i].player_state == PlayerState::Reborn {
                 self.do_reborn(i);
             }
         }
@@ -720,8 +759,10 @@ impl Game {
             // P_RespawnSpecials ();
 
             level.level_time += 1;
-        }
 
-        update_specials(self);
+            let animations = &mut self.animations;
+            let mut pic_data = self.pic_data.borrow_mut();
+            update_specials(level, animations, &mut pic_data);
+        }
     }
 }

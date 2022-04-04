@@ -9,7 +9,7 @@ use crate::{
     planes::make_spans,
     utilities::CLASSIC_SCREEN_X_TO_VIEW,
 };
-use doom_lib::{
+use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
     SubSector, IS_SSECTOR_MASK,
 };
@@ -767,7 +767,7 @@ fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use doom_lib::{MapData, IS_SSECTOR_MASK};
+    use gameplay::{MapData, IS_SSECTOR_MASK};
     use wad::WadData;
 
     #[test]
