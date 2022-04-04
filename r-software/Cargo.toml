@@ -7,7 +7,7 @@ build = "../build.rs"
 
 [dependencies]
 glam = "0.8.5"
-doom-lib = { path = "../lib" }
+gameplay = { path = "../gameplay" }
 rendering-trait = { path = "../rendering" }
 sdl2 = { version = "~0.35.2", features = ["bundled"] }
 

@@ -1,5 +1,5 @@
 use self::{defs::DrawSeg, planes::VisPlaneRender, portals::PortalClip};
-use doom_lib::Angle;
+use gameplay::Angle;
 
 mod bsp;
 mod defs;

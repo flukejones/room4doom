@@ -14,8 +14,8 @@ use super::{
 
 use crate::{
     angle::Angle,
-    flags::LineDefFlags,
     level::{
+        flags::LineDefFlags,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },

@@ -1,6 +1,9 @@
 use std::error::Error;
 
-use doom_lib::{log::info, Game, WallPic};
+use gameplay::{
+    log::{self, info},
+    WallPic,
+};
 use golem::Context;
 use rendering_trait::Renderer;
 use sdl2::{
@@ -15,6 +18,7 @@ use software_rendering::SoftwareRenderer;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 use crate::{
+    game::Game,
     input::Input,
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     timestep::TimeStep,
@@ -32,7 +36,7 @@ pub fn d_doom_loop(
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
         game.pic_data.clone(),
-        matches!(options.verbose, doom_lib::log::LevelFilter::Debug),
+        matches!(options.verbose, log::LevelFilter::Debug),
     );
 
     let mut timestep = TimeStep::new();

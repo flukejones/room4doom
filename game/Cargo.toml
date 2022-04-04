@@ -14,7 +14,7 @@ path = "src/main.rs"
 sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
-doom-lib = { path = "../lib" }
+gameplay = { path = "../gameplay" }
 rendering-trait = { path = "../rendering" }
 software-rendering = { path = "../r-software" }
 wad = { path = "../wad" }

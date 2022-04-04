@@ -8,8 +8,6 @@ pub static DOOM_VERSION: u8 = 109;
 pub const MAXPLAYERS: usize = 4;
 pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
-pub const BACKUPTICS: usize = 12;
-
 /// Game mode handling - identify IWAD version to handle IWAD dependend animations etc.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMode {
@@ -36,18 +34,6 @@ pub enum GameMission {
     /// Plutonia mission pack
     PackPlut,
     None,
-}
-
-/// The current state of the game: whether we are playing, gazing at the intermission screen,
-/// the game final animation, or a demo.
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum GameState {
-    FORCE_WIPE = -1,
-    GS_LEVEL,
-    GS_INTERMISSION,
-    GS_FINALE,
-    GS_DEMOSCREEN,
 }
 
 #[derive(Debug, Copy, Clone)]

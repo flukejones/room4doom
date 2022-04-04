@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr::NonNull};
 
-use doom_lib::{Angle, Segment};
+use gameplay::{Angle, Segment};
 
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;

@@ -7,4 +7,4 @@ build = "../build.rs"
 
 [dependencies]
 sdl2 = { version = "~0.35.2", features = ["bundled"] }
-doom-lib = { path = "../lib" }
+gameplay = { path = "../gameplay" }

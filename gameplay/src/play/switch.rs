@@ -13,8 +13,7 @@ use super::{
 
 use crate::{
     doom_def::Card,
-    flags::LineDefFlags,
-    level::map_defs::LineDef,
+    level::{flags::LineDefFlags, map_defs::LineDef},
     pic::{Button, ButtonWhere},
     DPtr,
 };

@@ -8,9 +8,9 @@ use log::{debug, error, info};
 use super::{
     map_object::{MapObject, MobjFlag},
     utilities::p_random,
+    Skill,
 };
 use crate::{
-    d_main::Skill,
     doom_def::{PowerType, WeaponType},
     info::{MapObjectType, StateNum, STATES},
     play::{
@@ -224,7 +224,7 @@ impl MapObject {
                 }
 
                 self.flags &= !(MobjFlag::SOLID as u32);
-                player.player_state = PlayerState::PstDead;
+                player.player_state = PlayerState::Dead;
                 // TODO: P_DropWeapon(target->player);
                 error!("P_DropWeapon not implemented");
                 // TODO: stop automap

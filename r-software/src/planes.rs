@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
-use doom_lib::{Angle, FlatPic, PicData};
+use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -323,8 +323,8 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
         for s in self.ds_x1..=self.ds_x2 {
-            let mut x = self.ds_xfrac.round().abs() as i32 & 127;
-            let mut y = self.ds_yfrac.round().abs() as i32 & 127;
+            let mut x = self.ds_xfrac.floor().abs() as i32 & 127;
+            let mut y = self.ds_yfrac.floor().abs() as i32 & 127;
 
             if y >= self.texture.data[0].len() as i32 {
                 y %= self.texture.data[0].len() as i32;

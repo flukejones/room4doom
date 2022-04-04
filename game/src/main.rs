@@ -1,16 +1,22 @@
+mod cheats;
 mod d_main;
+mod errors;
+mod game;
 mod input;
+mod opts;
 mod shaders;
 mod timestep;
 
 use std::{error::Error, io::Write};
 
 use d_main::d_doom_loop;
+use game::Game;
 use golem::*;
 use gumdrop::Options;
 
-use doom_lib::{log, DoomOptions, Game, Skill};
+use gameplay::{log, Skill};
 use input::Input;
+use opts::DoomOptions;
 use shaders::Shaders;
 
 #[derive(Debug, Clone, Options)]

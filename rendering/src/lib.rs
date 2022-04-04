@@ -1,6 +1,6 @@
 //! A single trait to enable generic rendering impl
 
-use doom_lib::{Level, Player};
+use gameplay::{Level, Player};
 use sdl2::{render::Canvas, surface::Surface};
 
 pub trait Renderer {

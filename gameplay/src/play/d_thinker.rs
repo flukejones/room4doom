@@ -524,10 +524,12 @@ mod tests {
     use wad::WadData;
 
     use crate::{
-        d_main::Skill,
         doom_def::GameMode,
         level::{map_data::MapData, Level},
-        play::d_thinker::{Think, Thinker},
+        play::{
+            d_thinker::{Think, Thinker},
+            Skill,
+        },
         PicData,
     };
 

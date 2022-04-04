@@ -8,38 +8,31 @@ use std::{
 };
 
 mod angle;
-mod cheats;
-mod d_main;
 mod doom_def;
-mod errors;
-mod flags;
-mod game;
 mod info;
 mod level;
 mod pic;
 mod play;
-mod sounds;
 pub mod tic_cmd;
 
 pub use angle::Angle;
-pub use cheats::Cheats;
-pub use d_main::{DoomOptions, Shaders, Skill};
-pub use doom_def::{GameMission, WeaponType};
-pub use flags::LineDefFlags;
-pub use game::Game;
+pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
 pub use info::MapObjectType;
 pub use level::{
+    flags::LineDefFlags,
     map_data::{MapData, IS_SSECTOR_MASK},
     map_defs::{Node, Sector, Segment, SubSector},
     Level,
 };
-pub use pic::{FlatPic, PicData, WallPic};
+pub use log;
+pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use play::{
     map_object::MapObject,
-    player::{Player, PlayerCheat},
+    player::{Player, PlayerCheat, PlayerState, WBStartStruct},
+    specials::{spawn_specials, update_specials},
+    utilities::m_clear_random,
+    Skill,
 };
-
-pub use log;
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us

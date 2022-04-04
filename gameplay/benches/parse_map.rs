@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use criterion::*;
 
-use doom_lib::MapData;
+use gameplay::MapData;
 use wad::wad::WadData;
 
 fn bench_load_e1m1(b: &mut Bencher) {

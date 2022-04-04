@@ -12,20 +12,19 @@ use super::{
     utilities::{
         p_random, p_subrandom, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT,
     },
+    Skill,
 };
 
-use crate::{doom_def::MTF_SINGLE_PLAYER, level::Level};
+use crate::{doom_def::MTF_SINGLE_PLAYER, info::SfxEnum, level::Level};
 use glam::Vec2;
 use log::{debug, error};
 use wad::lumps::WadThing;
 
 use crate::{
     angle::Angle,
-    d_main::Skill,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
     info::{ActionF, MapObjectInfo, MapObjectType, SpriteNum, State, StateNum, MOBJINFO, STATES},
     level::map_defs::SubSector,
-    sounds::SfxEnum,
 };
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
@@ -450,7 +449,7 @@ impl MapObject {
 
         let mut player = &mut players[0];
 
-        if player.player_state == PlayerState::PstReborn {
+        if player.player_state == PlayerState::Reborn {
             player.reborn();
         }
 
@@ -478,7 +477,7 @@ impl MapObject {
         mobj_ptr_mut.player = Some(player);
 
         player.mobj = Some(mobj);
-        player.player_state = PlayerState::PstLive;
+        player.player_state = PlayerState::Live;
         player.refire = 0;
         player.message = None;
         player.damagecount = 0;
