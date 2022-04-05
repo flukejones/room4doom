@@ -112,6 +112,10 @@ impl Sector {
         self.thinglist = NonNull::new(thing);
     }
 
+    /// Add this thing to this sectors thinglist
+    ///
+    /// # Safety
+    /// Must be called if a thing is ever removed
     pub unsafe fn remove_from_thinglist(&mut self, thing: &mut MapObject) {
         if thing.s_next.is_none() && thing.s_prev.is_none() {
             self.thinglist = None;

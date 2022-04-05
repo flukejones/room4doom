@@ -672,6 +672,7 @@ impl<'a> DrawColumn<'a> {
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
     pub fn draw_column(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
+        let pal = textures.palette(0);
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
@@ -681,17 +682,13 @@ impl<'a> DrawColumn<'a> {
                 select %= self.texture_column.len() as i32;
             }
             if self.texture_column[select as usize] as usize == usize::MAX {
+                frac += self.fracstep;
                 continue;
             }
 
             let px = self.colourmap[self.texture_column[select as usize]];
-            let colour = if px == usize::MAX {
-                // ERROR COLOUR
-                sdl2::pixels::Color::RGBA(255, 0, 0, 255)
-            } else {
-                let colour = textures.palette(0)[px];
-                sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
-            };
+            let colour = pal[px];
+            let colour = sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255);
 
             canvas.set_draw_color(colour);
             canvas.fill_rect(Rect::new(self.dc_x, n, 1, 1)).unwrap();

@@ -5,7 +5,7 @@ use crate::{
     MapObject, Sector,
 };
 
-use super::map_object::MobjFlag;
+use super::map_object::MapObjectFlag;
 
 /// Doom function name `EV_Teleport`
 pub fn teleport(
@@ -15,7 +15,7 @@ pub fn teleport(
     level: &mut Level,
 ) -> bool {
     // Don't teleport missiles... this could be interesting to muck with.
-    if thing.flags & MobjFlag::MISSILE as u32 != 0 {
+    if thing.flags & MapObjectFlag::Missile as u32 != 0 {
         return false;
     }
 
@@ -125,7 +125,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i3
             return true;
         }
 
-        if thing.flags & MobjFlag::SHOOTABLE as u32 != 0 {
+        if thing.flags & MapObjectFlag::Shootable as u32 != 0 {
             thing.p_take_damage(Some(this_thing), None, false, 10000);
         }
         true

@@ -4,7 +4,7 @@ use glam::Vec2;
 use log::debug;
 
 use super::{
-    map_object::{MapObject, MobjFlag},
+    map_object::{MapObject, MapObjectFlag},
     specials::cross_special_line,
     switch::p_use_special_line,
     utilities::{
@@ -53,22 +53,24 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MobjFlag::NOCLIP as u32 == 0 {
+        if self.flags & MapObjectFlag::NoClip as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
 
-            if self.flags & MobjFlag::TELEPORT as u32 == 0 && ctrl.max_ceil_z - self.z < self.height
+            if self.flags & MapObjectFlag::Teleport as u32 == 0
+                && ctrl.max_ceil_z - self.z < self.height
             {
                 return false; // mobj must lower itself to fit
             }
 
-            if self.flags & MobjFlag::TELEPORT as u32 == 0 && ctrl.min_floor_z - self.z > 24.0 {
+            if self.flags & MapObjectFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0
+            {
                 return false; // too big a step up
             }
 
-            if self.flags & (MobjFlag::DROPOFF as u32 | MobjFlag::FLOAT as u32) == 0
+            if self.flags & (MapObjectFlag::DropOff as u32 | MapObjectFlag::Float as u32) == 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -91,7 +93,7 @@ impl MapObject {
             self.set_thing_position();
         }
 
-        if self.flags & (MobjFlag::TELEPORT as u32 | MobjFlag::NOCLIP as u32) == 0 {
+        if self.flags & (MapObjectFlag::Teleport as u32 | MapObjectFlag::NoClip as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(&self.xy);
@@ -155,7 +157,7 @@ impl MapObject {
             ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
         }
 
-        if self.flags & MobjFlag::NOCLIP as u32 != 0 {
+        if self.flags & MapObjectFlag::NoClip as u32 != 0 {
             return true;
         }
 
@@ -245,7 +247,7 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MobjFlag::MISSILE as u32 == 0 {
+        if self.flags & MapObjectFlag::Missile as u32 == 0 {
             if ld.flags & LineDefFlags::Blocking as u32 != 0 {
                 return false; // explicitly blocking everything
             }

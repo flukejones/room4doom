@@ -14,7 +14,7 @@ use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS, MAX_AMMO},
     info::{SpriteNum, StateNum},
     level::Level,
-    play::map_object::MobjFlag,
+    play::map_object::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
 };
 
@@ -29,7 +29,7 @@ const MAX_BOB: f32 = 16.0; // 0x100000;
 pub enum PsprNum {
     Weapon,
     Flash,
-    NUMPSPRITES,
+    NumPSprites,
 }
 
 //// Player states.
@@ -117,8 +117,8 @@ pub struct Player {
     pub armortype: i32,
 
     /// Power ups. invinc and invis are tic counters.
-    pub powers: [i32; PowerType::NUMPOWERS as usize],
-    pub cards: [bool; Card::NUMCARDS as usize],
+    pub powers: [i32; PowerType::NumPowers as usize],
+    pub cards: [bool; Card::NumCards as usize],
     pub backpack: bool,
 
     /// Frags, kills of other players.
@@ -128,9 +128,9 @@ pub struct Player {
     /// Is wp_nochange if not changing.
     pendingweapon: WeaponType,
 
-    pub weaponowned: [bool; WeaponType::NUMWEAPONS as usize],
-    pub ammo: [u32; AmmoType::NUMAMMO as usize],
-    pub maxammo: [u32; AmmoType::NUMAMMO as usize],
+    pub weaponowned: [bool; WeaponType::NumWeapons as usize],
+    pub ammo: [u32; AmmoType::NumAmmo as usize],
+    pub maxammo: [u32; AmmoType::NumAmmo as usize],
 
     /// True if button down last tic.
     pub attackdown: bool,
@@ -169,7 +169,7 @@ pub struct Player {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef; PsprNum::NUMPSPRITES as usize],
+    psprites: [PspDef; PsprNum::NumPSprites as usize],
 
     /// True if secret level has been done.
     pub didsecret: bool,
@@ -198,10 +198,10 @@ impl Player {
             health: 100,
             armorpoints: 0,
             armortype: 0,
-            ammo: [0; AmmoType::NUMAMMO as usize],
-            maxammo: [0; AmmoType::NUMAMMO as usize],
-            powers: [0; PowerType::NUMPOWERS as usize],
-            cards: [false; Card::NUMCARDS as usize],
+            ammo: [0; AmmoType::NumAmmo as usize],
+            maxammo: [0; AmmoType::NumAmmo as usize],
+            powers: [0; PowerType::NumPowers as usize],
+            cards: [false; Card::NumCards as usize],
             backpack: false,
             attackdown: false,
             usedown: false,
@@ -223,8 +223,8 @@ impl Player {
 
             frags: [0; 4],
             readyweapon: WeaponType::Pistol,
-            pendingweapon: WeaponType::NUMWEAPONS,
-            weaponowned: [false; WeaponType::NUMWEAPONS as usize],
+            pendingweapon: WeaponType::NumWeapons,
+            weaponowned: [false; WeaponType::NumWeapons as usize],
 
             player_state: PlayerState::Reborn,
             cmd: TicCmd::new(),
@@ -265,7 +265,7 @@ impl Player {
 
         if let Some(mobj) = self.mobj {
             unsafe {
-                (*mobj).flags &= !(MobjFlag::SHADOW as u32);
+                (*mobj).flags &= !(MapObjectFlag::Shadow as u32);
             }
         }
 
@@ -485,9 +485,9 @@ impl Player {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
             if self.cheats & PlayerCheat::Noclip as u32 != 0 {
-                mobj.flags |= MobjFlag::NOCLIP as u32;
+                mobj.flags |= MapObjectFlag::NoClip as u32;
             } else {
-                mobj.flags &= !(MobjFlag::NOCLIP as u32);
+                mobj.flags &= !(MapObjectFlag::NoClip as u32);
             }
         }
 

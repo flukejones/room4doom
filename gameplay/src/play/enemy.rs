@@ -3,21 +3,21 @@
 use log::{error, info};
 
 use super::{
-    map_object::{MapObject, MobjFlag},
+    map_object::{MapObject, MapObjectFlag},
     movement::p_radius_attack,
     utilities::point_to_angle_2,
 };
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {
-    actor.flags &= !(MobjFlag::AMBUSH as u32);
+    actor.flags &= !(MapObjectFlag::Ambush as u32);
 
     if let Some(target) = actor.target {
         unsafe {
             let angle = point_to_angle_2(&actor.xy, &(*target).xy);
             actor.angle = angle;
 
-            if (*target).flags & MobjFlag::SHADOW as u32 == MobjFlag::SHADOW as u32 {
+            if (*target).flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
                 // TODO: actor.angle += P_SubRandom() << 21;
             }
         }
@@ -254,7 +254,7 @@ pub fn a_scream(_actor: &mut MapObject) {
 
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
-    actor.flags &= !(MobjFlag::SOLID as u32);
+    actor.flags &= !(MapObjectFlag::Solid as u32);
 
     // So change this if corpse objects
     // are meant to be obstacles.

@@ -322,6 +322,7 @@ impl<'a> DrawSpan<'a> {
     }
 
     fn draw(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
+        let pal = textures.palette(0);
         for s in self.ds_x1..=self.ds_x2 {
             let mut x = self.ds_xfrac.floor().abs() as i32 & 127;
             let mut y = self.ds_yfrac.floor().abs() as i32 & 127;
@@ -335,13 +336,8 @@ impl<'a> DrawSpan<'a> {
             }
 
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
-            let colour = if px == usize::MAX {
-                // ERROR COLOUR
-                sdl2::pixels::Color::RGBA(255, 0, 0, 255)
-            } else {
-                let colour = textures.palette(0)[px];
-                sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255)
-            };
+            let colour = pal[px];
+            let colour = sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255);
 
             canvas.set_draw_color(colour);
             canvas
