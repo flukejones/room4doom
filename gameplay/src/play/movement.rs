@@ -247,6 +247,8 @@ impl MapObject {
             return true;
         }
 
+        // TODO: missile and skulls
+
         // Check special items
         if thing.flags & MapObjectFlag::Special as u32 != 0 {
             if self.flags & MapObjectFlag::Pickup as u32 != 0 {

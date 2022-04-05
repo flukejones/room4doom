@@ -392,15 +392,14 @@ impl MapObject {
 
                 // Ammo
                 SpriteNum::SPR_CLIP => {
-                    if special.flags & MapObjectFlag::Dropped as u32 != 0 {
-                        if !player.give_ammo(AmmoType::Clip, 0, skill) {
-                            return;
-                        } else if !player.give_ammo(AmmoType::Clip, 1, skill) {
-                            return;
-                        }
-                        // TODO: player->message = GOTCLIP;
-                        player.message = Some(GOTCLIP);
+                    if special.flags & MapObjectFlag::Dropped as u32 != 0
+                        && !player.give_ammo(AmmoType::Clip, 0, skill)
+                    {
+                        return;
+                    } else if !player.give_ammo(AmmoType::Clip, 1, skill) {
+                        return;
                     }
+                    player.message = Some(GOTCLIP);
                 }
                 SpriteNum::SPR_AMMO => {
                     if !player.give_ammo(AmmoType::Clip, 5, skill) {
