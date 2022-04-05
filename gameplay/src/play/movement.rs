@@ -1,5 +1,8 @@
 //! Almost all of the methods here are on `MapObject`.
 //! Movement, collision handling. Shooting and aiming.
+
+use std::ptr;
+
 use glam::Vec2;
 use log::debug;
 
@@ -163,7 +166,6 @@ impl MapObject {
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
-        let sub_sectors = level.map_data.subsectors();
 
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         // A single BSP trace varies from 5 to 15 recursions.
@@ -196,9 +198,20 @@ impl MapObject {
         bsp_trace.set_line(Vec2::new(right, bottom), Vec2::new(left, bottom));
         bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
 
-        let segs = level.map_data.segments();
+        let segs = &level.map_data.segments;
+        let sub_sectors = &mut level.map_data.subsectors;
         for n in bsp_trace.intercepted_nodes() {
-            let ssect = &sub_sectors[*n as usize];
+            let ssect = &mut sub_sectors[*n as usize];
+
+            // Check things in subsectors
+            if !ssect
+                .sector
+                .run_func_on_thinglist(|thing| self.pit_check_thing(thing))
+            {
+                return false;
+            }
+
+            // Check subsector segments
             let start = ssect.start_seg as usize;
             let end = start + ssect.seg_count as usize;
             for seg in &segs[start..end] {
@@ -209,6 +222,41 @@ impl MapObject {
         }
 
         true
+    }
+
+    fn pit_check_thing(&mut self, thing: &mut MapObject) -> bool {
+        if thing.flags
+            & (MapObjectFlag::Solid as u32
+                | MapObjectFlag::Special as u32
+                | MapObjectFlag::Shootable as u32)
+            == 0
+        {
+            return true;
+        }
+
+        let self_xy = self.xy + self.momxy;
+        let dist = thing.radius + self.radius;
+        if (thing.xy.x() - self_xy.x()).abs() >= dist || (thing.xy.y() - self_xy.y()).abs() >= dist
+        {
+            // No hit
+            return true;
+        }
+
+        if ptr::eq(self, thing) {
+            // Ignore self
+            return true;
+        }
+
+        // Check special items
+        if thing.flags & MapObjectFlag::Special as u32 != 0 {
+            if self.flags & MapObjectFlag::Pickup as u32 != 0 {
+                // TODO: Fix getting skill level
+                self.touch_special(thing);
+            }
+            return thing.flags & MapObjectFlag::Solid as u32 == MapObjectFlag::Solid as u32;
+        }
+
+        thing.flags & MapObjectFlag::Solid as u32 != MapObjectFlag::Solid as u32
     }
 
     /// PIT_CheckLine

@@ -1,9 +1,10 @@
 use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
-use log::{debug, info};
+use log::{debug, error, info};
 
 use super::{
+    interaction::BONUSADD,
     map_object::MapObject,
     player_sprite::PspDef,
     utilities::{bam_to_radian, fixed_to_float, p_random, MAXHEALTH, VIEWHEIGHT},
@@ -11,11 +12,12 @@ use super::{
 
 use crate::{
     angle::Angle,
-    doom_def::{AmmoType, Card, PowerType, WeaponType, MAXPLAYERS, MAX_AMMO},
+    doom_def::{AmmoType, Card, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO},
     info::{SpriteNum, StateNum},
     level::Level,
     play::map_object::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
+    Skill,
 };
 
 /// 16 pixels of bob
@@ -114,6 +116,7 @@ pub struct Player {
     pub health: i32,
     pub armorpoints: i32,
     /// Armor type is 0-2.
+    // TODO: make enum
     pub armortype: i32,
 
     /// Power ups. invinc and invis are tic counters.
@@ -126,7 +129,7 @@ pub struct Player {
     pub readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
-    pendingweapon: WeaponType,
+    pub pendingweapon: WeaponType,
 
     pub weaponowned: [bool; WeaponType::NumWeapons as usize],
     pub ammo: [u32; AmmoType::NumAmmo as usize],
@@ -149,7 +152,7 @@ pub struct Player {
     pub secretcount: i32,
 
     /// Hint messages.
-    pub message: Option<String>,
+    pub message: Option<&'static str>,
 
     /// For screen flashing (red or bright).
     pub damagecount: i32,
@@ -474,6 +477,98 @@ impl Player {
                 _ => {}
             }
         }
+    }
+
+    pub(crate) fn give_ammo(&mut self, ammo: AmmoType, mut num: u32, skill: Skill) -> bool {
+        if ammo == AmmoType::NoAmmo {
+            return false;
+        }
+        if ammo == AmmoType::NumAmmo {
+            error!("Tried to give AmmoType::NumAmmo");
+            return false;
+        }
+
+        if self.ammo[ammo as usize] == self.maxammo[ammo as usize] {
+            return false;
+        }
+
+        if num != 0 {
+            num *= CLIP_AMMO[ammo as usize];
+        } else {
+            num = CLIP_AMMO[ammo as usize] / 2;
+        }
+
+        if skill == Skill::Baby || skill == Skill::Nightmare {
+            // Double ammo for trainer mode + nightmare
+            num <<= 1;
+        }
+
+        let old_ammo = self.ammo[ammo as usize];
+        self.ammo[ammo as usize] += num;
+        if self.ammo[ammo as usize] > self.maxammo[ammo as usize] {
+            self.ammo[ammo as usize] = self.maxammo[ammo as usize];
+        }
+
+        // If non zero ammo, don't change up weapons, player was lower on purpose.
+        if old_ammo != 0 {
+            return true;
+        }
+
+        match ammo {
+            AmmoType::Clip => {
+                if self.readyweapon == WeaponType::Fist {
+                    if self.weaponowned[WeaponType::Chaingun as usize] {
+                        self.pendingweapon = WeaponType::Chaingun;
+                    } else {
+                        self.pendingweapon = WeaponType::Pistol;
+                    }
+                }
+            }
+            AmmoType::Shell => {
+                if self.readyweapon == WeaponType::Fist || self.pendingweapon == WeaponType::Pistol
+                {
+                    if self.weaponowned[WeaponType::Shotgun as usize] {
+                        self.pendingweapon = WeaponType::Shotgun;
+                    }
+                }
+            }
+            AmmoType::Cell => {
+                if self.readyweapon == WeaponType::Fist || self.pendingweapon == WeaponType::Pistol
+                {
+                    if self.weaponowned[WeaponType::Plasma as usize] {
+                        self.pendingweapon = WeaponType::Plasma;
+                    }
+                }
+            }
+            AmmoType::Missile => {
+                if self.readyweapon == WeaponType::Fist {
+                    if self.weaponowned[WeaponType::Missile as usize] {
+                        self.pendingweapon = WeaponType::Missile;
+                    }
+                }
+            }
+            _ => {}
+        }
+        true
+    }
+
+    pub(crate) fn give_armour(&mut self, armour: i32) -> bool {
+        let hits = armour * 100;
+        if self.armorpoints >= hits {
+            return false;
+        }
+
+        self.armortype = armour;
+        self.armorpoints = hits;
+        true
+    }
+
+    pub(crate) fn give_key(&mut self, card: Card) {
+        if self.cards[card as usize] {
+            return;
+        }
+        self.bonuscount += BONUSADD;
+        self.cards[card as usize] = true;
     }
 }
 

@@ -1,5 +1,8 @@
 - [-] : Sprites colourmap/light selection
 - [ ] : P_TouchSpecialThing
+- [ ] : Shooting
+- [ ] : Shooting special items
+- [ ] : Thing collisions
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
 - [ ] : sound-server using rx/tx channels

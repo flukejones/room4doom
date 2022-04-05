@@ -1,4 +1,4 @@
-//! Doom source name `p_inter`
+//! Environment and object interactions
 
 use std::ptr;
 
@@ -11,13 +11,16 @@ use super::{
     Skill,
 };
 use crate::{
-    doom_def::{PowerType, WeaponType},
-    info::{MapObjectType, StateNum, STATES},
+    doom_def::{AmmoType, Card, PowerType, WeaponType},
+    info::{MapObjectType, SfxEnum, SpriteNum, StateNum, STATES},
+    lang::english::*,
     play::{
         player::{PlayerCheat, PlayerState},
         utilities::point_to_angle_2,
     },
 };
+
+pub const BONUSADD: i32 = 6;
 
 impl MapObject {
     /// Doom function name `P_DamageMobj`
@@ -259,6 +262,221 @@ impl MapObject {
                 &mut *self.level,
             );
             (*mobj).flags |= MapObjectFlag::Dropped as u32;
+        }
+    }
+
+    /// Interact with special pickups
+    ///
+    /// Doom function name `P_TouchSpecialThing`
+    pub fn touch_special(&mut self, special: &mut MapObject) {
+        let delta = special.z - self.z;
+
+        if delta > self.height || delta < -8.0 {
+            // Can't reach it. Because map is essentially 2D we need to check Z
+            return;
+        }
+
+        let mut _sound = SfxEnum::itemup;
+
+        if let Some(player) = self.player {
+            let player = unsafe { &mut *player };
+
+            if self.health <= 0 {
+                // dead thing, like a gib or corpse
+                return;
+            }
+
+            let skill = unsafe { (*self.level).game_skill };
+            match special.sprite {
+                SpriteNum::SPR_ARM1 => {
+                    if !player.give_armour(1) {
+                        return;
+                    }
+                    player.message = Some(GOTARMOR);
+                }
+                SpriteNum::SPR_ARM2 => {
+                    if !player.give_armour(2) {
+                        return;
+                    }
+                    player.message = Some(GOTMEGA);
+                }
+                SpriteNum::SPR_BON1 => {
+                    player.health += 1; // Go over 100%
+                    if player.health > 200 {
+                        player.health = 200;
+                    }
+                    self.health = player.health;
+                    player.message = Some(GOTHTHBONUS);
+                }
+                SpriteNum::SPR_BON2 => {
+                    player.armorpoints += 1; // Go over 100%
+                    if player.armorpoints > 200 {
+                        player.armorpoints = 200;
+                    }
+                    if player.armortype == 0 {
+                        player.armortype = 1;
+                    }
+                    player.message = Some(GOTARMBONUS);
+                }
+                SpriteNum::SPR_SOUL => {
+                    player.health += 100;
+                    if player.health > 200 {
+                        player.health = 200;
+                    }
+                    self.health = player.health;
+                    player.message = Some(GOTSUPER);
+                    _sound = SfxEnum::getpow;
+                }
+                SpriteNum::SPR_MEGA => {
+                    // TODO: if (gamemode != commercial) return;
+                    player.health = 200;
+                    self.health = player.health;
+                    player.give_armour(2);
+                    player.message = Some(GOTMSPHERE);
+                    _sound = SfxEnum::getpow;
+                }
+
+                // Keycards
+                SpriteNum::SPR_BKEY => {
+                    if !player.cards[Card::Bluecard as usize] {
+                        player.message = Some(GOTBLUECARD);
+                    }
+                    player.give_key(Card::Bluecard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_YKEY => {
+                    if !player.cards[Card::Yellowcard as usize] {
+                        player.message = Some(GOTYELWCARD);
+                    }
+                    player.give_key(Card::Yellowcard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_RKEY => {
+                    if !player.cards[Card::Redcard as usize] {
+                        player.message = Some(GOTREDCARD);
+                    }
+                    player.give_key(Card::Redcard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_BSKU => {
+                    if !player.cards[Card::Blueskull as usize] {
+                        player.message = Some(GOTBLUESKUL);
+                    }
+                    player.give_key(Card::Blueskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_YSKU => {
+                    if !player.cards[Card::Yellowskull as usize] {
+                        player.message = Some(GOTYELWSKUL);
+                    }
+                    player.give_key(Card::Yellowskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_RSKU => {
+                    if !player.cards[Card::Redskull as usize] {
+                        player.message = Some(GOTREDSKULL);
+                    }
+                    player.give_key(Card::Redskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::SPR_STIM => {}
+                SpriteNum::SPR_MEDI => {}
+
+                // Powerups
+                SpriteNum::SPR_PINV => {}
+                SpriteNum::SPR_PSTR => {}
+                SpriteNum::SPR_PINS => {}
+                SpriteNum::SPR_SUIT => {}
+                SpriteNum::SPR_PMAP => {}
+                SpriteNum::SPR_PVIS => {}
+
+                // Ammo
+                SpriteNum::SPR_CLIP => {
+                    if special.flags & MapObjectFlag::Dropped as u32 != 0 {
+                        if !player.give_ammo(AmmoType::Clip, 0, skill) {
+                            return;
+                        } else if !player.give_ammo(AmmoType::Clip, 1, skill) {
+                            return;
+                        }
+                        // TODO: player->message = GOTCLIP;
+                        player.message = Some(GOTCLIP);
+                    }
+                }
+                SpriteNum::SPR_AMMO => {
+                    if !player.give_ammo(AmmoType::Clip, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCLIPBOX);
+                }
+                SpriteNum::SPR_ROCK => {
+                    if !player.give_ammo(AmmoType::Missile, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTROCKET);
+                }
+                SpriteNum::SPR_BROK => {
+                    if !player.give_ammo(AmmoType::Missile, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTROCKBOX);
+                }
+                SpriteNum::SPR_CELL => {
+                    if !player.give_ammo(AmmoType::Cell, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCELL);
+                }
+                SpriteNum::SPR_CELP => {
+                    if !player.give_ammo(AmmoType::Cell, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCELLBOX);
+                }
+                SpriteNum::SPR_SHEL => {
+                    if !player.give_ammo(AmmoType::Shell, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTSHELLS);
+                }
+                SpriteNum::SPR_SBOX => {
+                    if !player.give_ammo(AmmoType::Shell, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTSHELLBOX);
+                }
+                SpriteNum::SPR_BPAK => {
+                    if !player.backpack {
+                        for i in 0..AmmoType::NumAmmo as usize {
+                            player.maxammo[i] *= 2;
+                        }
+                        player.backpack = true;
+                    }
+                    for i in 0..AmmoType::NumAmmo as usize {
+                        player.give_ammo(AmmoType::n(i).unwrap(), 1, skill);
+                    }
+                    player.message = Some(GOTBACKPACK);
+                }
+
+                // Weapons
+                SpriteNum::SPR_BFUG => {}
+                SpriteNum::SPR_MGUN => {}
+                SpriteNum::SPR_CSAW => {}
+                SpriteNum::SPR_LAUN => {}
+                SpriteNum::SPR_PLAS => {}
+                SpriteNum::SPR_SHOT => {}
+                SpriteNum::SPR_SGN2 => {}
+
+                _ => error!("Unknown gettable: {:?}", special.sprite),
+            }
+
+            if special.flags & MapObjectFlag::CountItem as u32 != 0 {
+                player.itemcount += 1;
+            }
+            special.remove();
+            player.bonuscount += BONUSADD;
+
+            // TODO: if (player == &players[consoleplayer])
+            //  S_StartSound(NULL, sound);
         }
     }
 }

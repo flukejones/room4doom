@@ -1,3 +1,5 @@
+use enumn::N;
+
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
 
@@ -37,7 +39,6 @@ pub enum GameMission {
 }
 
 #[derive(Debug, Copy, Clone)]
-#[allow(non_camel_case_types)]
 pub enum GameAction {
     Nothing,
     LoadLevel,
@@ -91,8 +92,9 @@ pub enum WeaponType {
 pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
 pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
 
+#[repr(usize)]
 /// Ammunition types defined.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, N)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
     Clip,
@@ -109,7 +111,6 @@ pub enum AmmoType {
 
 /// Power up artifacts.
 #[derive(Copy, Clone)]
-#[allow(non_camel_case_types)]
 pub enum PowerType {
     Invulnerability,
     Strength,

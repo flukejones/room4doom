@@ -1,8 +1,8 @@
 use glam::Vec2;
 
 use crate::{
-    info::MapObjectType, level::map_defs::LineDef, play::d_thinker::ObjectType, DPtr, Level,
-    MapObject, Sector,
+    info::MapObjectType, level::map_defs::LineDef, thinker::ObjectType, DPtr, Level, MapObject,
+    Sector,
 };
 
 use super::map_object::MapObjectFlag;

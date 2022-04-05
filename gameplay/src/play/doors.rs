@@ -15,14 +15,11 @@ use crate::{
         Level,
     },
     play::specials::{move_plane, PlaneResult},
+    thinker::{ObjectType, Think, Thinker},
     DPtr,
 };
 
-use super::{
-    d_thinker::{ObjectType, Think, Thinker},
-    map_object::MapObject,
-    specials::find_lowest_ceiling_surrounding,
-};
+use super::{map_object::MapObject, specials::find_lowest_ceiling_surrounding};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;
