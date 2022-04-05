@@ -149,6 +149,36 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug E5M4",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=diirdoom"
+                ],
+                "filter": {
+                    "name": "diirdoom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "/home/luke/DOOM/doom.wad",
+                "--pwad",
+                "/home/luke/DOOM/sigil.wad",
+                "-w",
+                "1024",
+                "-h",
+                "768",
+                "-e5",
+                "-m4",
+                "-v",
+                "debug"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug release 'diirdoom'",
             "cargo": {
                 "args": [

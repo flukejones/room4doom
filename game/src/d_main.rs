@@ -105,10 +105,10 @@ pub fn d_doom_loop(
         }
 
         if let Some(name) = options.image_test.clone() {
-            image_test(&name.to_ascii_uppercase(), &mut game, &mut render_buffer);
+            image_test(&name.to_ascii_uppercase(), &game, &mut render_buffer);
         }
         if let Some(images) = &images {
-            patch_select_test(&images[image_num], &mut game, &mut render_buffer);
+            patch_select_test(&images[image_num], &game, &mut render_buffer);
         }
         if let Some(flats) = &flats {
             flat_select_test(&flats[flat_num], &game, &mut render_buffer);

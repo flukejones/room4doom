@@ -6,7 +6,7 @@ use glam::Vec2;
 use log::{debug, error, info};
 
 use super::{
-    map_object::{MapObject, MobjFlag},
+    map_object::{MapObject, MapObjectFlag},
     utilities::p_random,
     Skill,
 };
@@ -47,7 +47,7 @@ impl MapObject {
         source_is_inflictor: bool,
         mut damage: i32,
     ) {
-        if self.flags & MobjFlag::SHOOTABLE as u32 == 0 {
+        if self.flags & MapObjectFlag::Shootable as u32 == 0 {
             return;
         }
 
@@ -55,7 +55,7 @@ impl MapObject {
             return;
         }
 
-        if self.flags & MobjFlag::SKULLFLY as u32 != 0 {
+        if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
             self.momxy = Vec2::default();
             self.z = 0.0;
         }
@@ -85,7 +85,7 @@ impl MapObject {
                 inflictor.unwrap()
             };
 
-            if self.flags & MobjFlag::NOCLIP as u32 == 0 && do_push {
+            if self.flags & MapObjectFlag::NoClip as u32 == 0 && do_push {
                 let mut angle = point_to_angle_2(&inflict.xy, &self.xy);
                 let mut thrust = damage as f32 * 0.001 * 100.0 / self.info.mass as f32;
                 // make fall forwards sometimes
@@ -159,8 +159,8 @@ impl MapObject {
             return;
         }
 
-        if p_random() < self.info.painchance && self.flags & MobjFlag::SKULLFLY as u32 == 0 {
-            self.flags |= MobjFlag::JUSTHIT as u32; // FIGHT!!!
+        if p_random() < self.info.painchance && self.flags & MapObjectFlag::SkullFly as u32 == 0 {
+            self.flags |= MapObjectFlag::JustHit as u32; // FIGHT!!!
             self.set_state(self.info.painstate);
         }
 
@@ -182,20 +182,21 @@ impl MapObject {
     }
 
     /// Doom function name `P_KillMobj`
-    fn kill(&mut self, mut source: Option<&mut MapObject>) {
-        self.flags &=
-            !(MobjFlag::SHOOTABLE as u32 | MobjFlag::FLOAT as u32 | MobjFlag::SKULLFLY as u32);
+    fn kill(&mut self, source: Option<&mut MapObject>) {
+        self.flags &= !(MapObjectFlag::Shootable as u32
+            | MapObjectFlag::Float as u32
+            | MapObjectFlag::SkullFly as u32);
 
         if self.kind != MapObjectType::MT_SKULL {
-            self.flags &= !(MobjFlag::NOGRAVITY as u32);
+            self.flags &= !(MapObjectFlag::NoGravity as u32);
         }
 
-        self.flags |= MobjFlag::CORPSE as u32 | MobjFlag::DROPOFF as u32;
+        self.flags |= MapObjectFlag::Corpse as u32 | MapObjectFlag::DropOff as u32;
         self.health >>= 2;
 
         if let Some(source) = source.as_ref() {
             if let Some(player) = source.player {
-                if self.flags & MobjFlag::COUNTKILL as u32 != 0 {
+                if self.flags & MapObjectFlag::CountKill as u32 != 0 {
                     unsafe {
                         (*player).killcount += 1;
                     }
@@ -223,7 +224,7 @@ impl MapObject {
                     (*player).frags[0] += 1;
                 }
 
-                self.flags &= !(MobjFlag::SOLID as u32);
+                self.flags &= !(MapObjectFlag::Solid as u32);
                 player.player_state = PlayerState::Dead;
                 // TODO: P_DropWeapon(target->player);
                 error!("P_DropWeapon not implemented");
@@ -257,7 +258,7 @@ impl MapObject {
                 item,
                 &mut *self.level,
             );
-            (*mobj).flags |= MobjFlag::DROPPED as u32;
+            (*mobj).flags |= MapObjectFlag::Dropped as u32;
         }
     }
 }

@@ -130,7 +130,7 @@ impl InputEvents {
             cmd.buttons |= TIC_CMD_BUTTONS.bt_use;
         }
 
-        for i in 0..WeaponType::NUMWEAPONS as u8 {
+        for i in 0..WeaponType::NumWeapons as u8 {
             if let Some(key) = Sc::from_i32('1' as i32 + 1) {
                 if self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;

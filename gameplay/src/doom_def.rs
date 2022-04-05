@@ -66,7 +66,7 @@ pub enum Card {
     Blueskull,
     Yellowskull,
     Redskull,
-    NUMCARDS,
+    NumCards,
 }
 
 /// The defined weapons, including a marker indicating user has not changed weapon.
@@ -82,7 +82,7 @@ pub enum WeaponType {
     Chainsaw,
     SuperShotgun,
 
-    NUMWEAPONS,
+    NumWeapons,
 
     // No pending weapon change.
     NoChange,
@@ -102,7 +102,7 @@ pub enum AmmoType {
     Cell,
     /// Missile launcher.
     Missile,
-    NUMAMMO,
+    NumAmmo,
     /// Unlimited for chainsaw / fist.
     NoAmmo,
 }
@@ -117,7 +117,7 @@ pub enum PowerType {
     IronFeet,
     Allmap,
     Infrared,
-    NUMPOWERS,
+    NumPowers,
 }
 
 /// Power up durations: how many seconds till expiration, assuming TICRATE is 35 ticks/second.
