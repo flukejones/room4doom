@@ -733,6 +733,7 @@ impl Game {
                 // ST_Ticker();
                 // AM_Ticker();
                 // HU_Ticker();
+                self.hu_ticker();
             }
             GameState::GS_INTERMISSION => {
                 error!("TODO: show end-of-level stats with WI_Ticker()");
@@ -789,6 +790,19 @@ impl Game {
             let animations = &mut self.animations;
             let mut pic_data = self.pic_data.borrow_mut();
             update_specials(level, animations, &mut pic_data);
+        }
+    }
+
+    /// TODO: temporary to get player messages in CLI out
+    pub fn hu_ticker(&mut self) {
+        if let Some(ref mut level) = self.level {
+            for (i, player) in self.players.iter_mut().enumerate() {
+                if self.player_in_game[i] {
+                    if let Some(msg) = player.message.take() {
+                        info!("Console: {msg}");
+                    }
+                }
+            }
         }
     }
 }
