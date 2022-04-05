@@ -58,11 +58,13 @@ impl Sector {
                 let mut thing = thing.as_mut();
 
                 loop {
+                    // Thing might remove itself so grab a copy of s_next here
+                    let next = thing.s_next;
                     if !func(thing) {
                         return false;
                     }
 
-                    if let Some(mut next) = thing.s_next {
+                    if let Some(mut next) = next {
                         thing = next.as_mut()
                     } else {
                         break;
@@ -79,11 +81,13 @@ impl Sector {
                 let mut thing = thing.as_ref();
 
                 loop {
+                    // Thing might remove itself so grab a copy of s_next here
+                    let next = thing.s_next;
                     if !func(thing) {
                         return false;
                     }
 
-                    if let Some(mut next) = thing.s_next {
+                    if let Some(mut next) = next {
                         thing = next.as_mut()
                     } else {
                         break;

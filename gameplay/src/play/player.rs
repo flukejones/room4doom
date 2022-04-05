@@ -12,7 +12,9 @@ use super::{
 
 use crate::{
     angle::Angle,
-    doom_def::{AmmoType, Card, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO},
+    doom_def::{
+        AmmoType, Card, PowerDuration, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO,
+    },
     info::{SpriteNum, StateNum},
     level::Level,
     play::map_object::MapObjectFlag,
@@ -569,6 +571,53 @@ impl Player {
         }
         self.bonuscount += BONUSADD;
         self.cards[card as usize] = true;
+    }
+
+    pub(crate) fn give_body(&mut self, num: i32) -> bool {
+        if self.health >= MAXHEALTH {
+            return false;
+        }
+
+        self.health += num;
+        if self.health > MAXHEALTH {
+            self.health = MAXHEALTH;
+        }
+
+        true
+    }
+
+    pub(crate) fn give_power(&mut self, power: PowerType) -> bool {
+        match power {
+            PowerType::Invulnerability => {
+                self.powers[power as usize] = PowerDuration::INVULNTICS as i32;
+                return true;
+            }
+            PowerType::Strength => {
+                self.give_body(100);
+                self.powers[power as usize] = 1;
+                return true;
+            }
+            PowerType::Invisibility => {
+                self.powers[power as usize] = PowerDuration::INVISTICS as i32;
+                return true;
+            }
+            PowerType::IronFeet => {
+                self.powers[power as usize] = PowerDuration::IRONTICS as i32;
+                return true;
+            }
+            PowerType::Infrared => {
+                self.powers[power as usize] = PowerDuration::INFRATICS as i32;
+                return true;
+            }
+            _ => {}
+        }
+
+        if self.powers[power as usize] != 0 {
+            return false; // Already got it
+        }
+        self.powers[power as usize] = 1;
+
+        true
     }
 }
 
