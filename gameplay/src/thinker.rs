@@ -7,15 +7,18 @@ use std::{
 
 use log::{debug, warn};
 
-use super::{
-    ceiling::CeilingMove,
-    doors::VerticalDoor,
-    floor::FloorMove,
-    lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
-    map_object::MapObject,
-    platforms::Platform,
+use crate::{
+    info::MapObjectType,
+    level::Level,
+    play::{
+        ceiling::CeilingMove,
+        doors::VerticalDoor,
+        floor::FloorMove,
+        lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
+        map_object::MapObject,
+        platforms::Platform,
+    },
 };
-use crate::{info::MapObjectType, level::Level};
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -525,10 +528,8 @@ mod tests {
     use crate::{
         doom_def::GameMode,
         level::{map_data::MapData, Level},
-        play::{
-            d_thinker::{Think, Thinker},
-            Skill,
-        },
+        play::Skill,
+        thinker::{Think, Thinker},
         PicData,
     };
 

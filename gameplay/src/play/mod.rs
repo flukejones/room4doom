@@ -4,7 +4,6 @@
 //! - shooty stuff and damage
 //! - stuff like that...
 
-pub mod d_thinker; // required by level data
 pub mod enemy; // required by states
 pub mod map_object; // info, level data, game, bsp
 pub mod player;
@@ -14,13 +13,13 @@ pub mod utilities; // level data node // many places
 
 use std::{error::Error, fmt, str::FromStr};
 
-mod ceiling;
-mod doors;
-mod floor;
-mod interaction;
-mod lights;
-mod movement;
-mod platforms;
+pub(crate) mod ceiling;
+pub(crate) mod doors;
+pub(crate) mod floor;
+pub(crate) mod interaction;
+pub(crate) mod lights;
+pub(crate) mod movement;
+pub(crate) mod platforms;
 mod switch;
 mod teleport;
 

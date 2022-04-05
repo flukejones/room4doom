@@ -10,9 +10,11 @@ use std::{
 mod angle;
 mod doom_def;
 mod info;
+mod lang;
 mod level;
 mod pic;
-mod play;
+pub(crate) mod play;
+mod thinker;
 pub mod tic_cmd;
 
 pub use angle::Angle;

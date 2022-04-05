@@ -6,7 +6,6 @@
 use std::ptr::{null_mut, NonNull};
 
 use super::{
-    d_thinker::{ObjectType, Think, Thinker},
     movement::SubSectorMinMax,
     player::{Player, PlayerState},
     utilities::{
@@ -15,7 +14,12 @@ use super::{
     Skill,
 };
 
-use crate::{doom_def::MTF_SINGLE_PLAYER, info::SfxEnum, level::Level};
+use crate::{
+    doom_def::MTF_SINGLE_PLAYER,
+    info::SfxEnum,
+    level::Level,
+    thinker::{ObjectType, Think, Thinker},
+};
 use glam::Vec2;
 use log::{debug, error};
 use wad::lumps::WadThing;

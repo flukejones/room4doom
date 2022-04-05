@@ -8,11 +8,11 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    thinker::{ObjectType, Think, Thinker},
     DPtr,
 };
 
 use super::{
-    d_thinker::{ObjectType, Think, Thinker},
     map_object::MapObject,
     specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
 };

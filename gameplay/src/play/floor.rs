@@ -9,11 +9,11 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    thinker::{ObjectType, Think, Thinker},
     DPtr,
 };
 
 use super::{
-    d_thinker::{ObjectType, Think, Thinker},
     map_object::MapObject,
     specials::{
         find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
