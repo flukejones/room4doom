@@ -305,7 +305,6 @@ impl MapObject {
                     if player.health > 200 {
                         player.health = 200;
                     }
-                    self.health = player.health;
                     player.message = Some(GOTHTHBONUS);
                 }
                 SpriteNum::SPR_BON2 => {
@@ -323,14 +322,12 @@ impl MapObject {
                     if player.health > 200 {
                         player.health = 200;
                     }
-                    self.health = player.health;
                     player.message = Some(GOTSUPER);
                     _sound = SfxEnum::getpow;
                 }
                 SpriteNum::SPR_MEGA => {
                     // TODO: if (gamemode != commercial) return;
                     player.health = 200;
-                    self.health = player.health;
                     player.give_armour(2);
                     player.message = Some(GOTMSPHERE);
                     _sound = SfxEnum::getpow;
@@ -379,16 +376,70 @@ impl MapObject {
                     player.give_key(Card::Redskull);
                     // TODO: if (netgame) return;
                 }
-                SpriteNum::SPR_STIM => {}
-                SpriteNum::SPR_MEDI => {}
+                SpriteNum::SPR_STIM => {
+                    if !player.give_body(10) {
+                        return;
+                    }
+                    player.message = Some(GOTSTIM);
+                }
+                SpriteNum::SPR_MEDI => {
+                    if !player.give_body(25) {
+                        return;
+                    }
+                    if player.health < 25 {
+                        player.message = Some(GOTMEDINEED);
+                    } else {
+                        player.message = Some(GOTMEDIKIT);
+                    }
+                }
 
                 // Powerups
-                SpriteNum::SPR_PINV => {}
-                SpriteNum::SPR_PSTR => {}
-                SpriteNum::SPR_PINS => {}
-                SpriteNum::SPR_SUIT => {}
-                SpriteNum::SPR_PMAP => {}
-                SpriteNum::SPR_PVIS => {}
+                SpriteNum::SPR_PINV => {
+                    if !player.give_power(PowerType::Invulnerability) {
+                        return;
+                    }
+                    player.message = Some(GOTINVUL);
+                    // TODO: sound = sfx_getpow;
+                }
+                SpriteNum::SPR_PSTR => {
+                    if !player.give_power(PowerType::Strength) {
+                        return;
+                    }
+                    player.message = Some(GOTBERSERK);
+                    if !(player.readyweapon == WeaponType::Fist) {
+                        player.pendingweapon = WeaponType::Fist;
+                    }
+                    // TODO: sound = sfx_getpow;
+                }
+                SpriteNum::SPR_PINS => {
+                    if !player.give_power(PowerType::Invisibility) {
+                        return;
+                    }
+                    self.flags |= MapObjectFlag::Shadow as u32;
+                    player.message = Some(GOTINVIS);
+                    // TODO: sound = sfx_getpow;
+                }
+                SpriteNum::SPR_SUIT => {
+                    if !player.give_power(PowerType::IronFeet) {
+                        return;
+                    }
+                    player.message = Some(GOTSUIT);
+                    // TODO: sound = sfx_getpow;
+                }
+                SpriteNum::SPR_PMAP => {
+                    if !player.give_power(PowerType::Allmap) {
+                        return;
+                    }
+                    player.message = Some(GOTMAP);
+                    // TODO: sound = sfx_getpow;
+                }
+                SpriteNum::SPR_PVIS => {
+                    if !player.give_power(PowerType::Infrared) {
+                        return;
+                    }
+                    player.message = Some(GOTVISOR);
+                    // TODO: sound = sfx_getpow;
+                }
 
                 // Ammo
                 SpriteNum::SPR_CLIP => {
@@ -467,6 +518,9 @@ impl MapObject {
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),
             }
+
+            // Ensure mobj health is synced
+            self.health = player.health;
 
             if special.flags & MapObjectFlag::CountItem as u32 != 0 {
                 player.itemcount += 1;

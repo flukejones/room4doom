@@ -251,11 +251,12 @@ impl MapObject {
 
         // Check special items
         if thing.flags & MapObjectFlag::Special as u32 != 0 {
+            let solid = thing.flags & MapObjectFlag::Solid as u32 != MapObjectFlag::Solid as u32;
             if self.flags & MapObjectFlag::Pickup as u32 != 0 {
                 // TODO: Fix getting skill level
                 self.touch_special(thing);
             }
-            return thing.flags & MapObjectFlag::Solid as u32 == MapObjectFlag::Solid as u32;
+            return solid;
         }
 
         thing.flags & MapObjectFlag::Solid as u32 != MapObjectFlag::Solid as u32
