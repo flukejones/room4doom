@@ -514,6 +514,7 @@ impl Game {
         // TODO: viewactive = true;
     }
 
+    /// Doom function name `G_WorldDone`
     fn world_done(&mut self) {
         self.game_action = GameAction::WorldDone;
         if let Some(level) = &self.level {

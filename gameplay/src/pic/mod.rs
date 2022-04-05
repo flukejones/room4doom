@@ -259,7 +259,7 @@ impl PicData {
                 name: wf.name,
                 data: [[0; 64]; 64],
             };
-            for (y, col) in wf.data.chunks(64).enumerate() {
+            for (y, col) in wf.data.chunks(64).rev().enumerate() {
                 for (x, px) in col.iter().enumerate() {
                     flat.data[x][y] = *px;
                 }
