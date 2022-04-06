@@ -1,8 +1,8 @@
 - [-] : Sprites colourmap/light selection
-- [ ] : P_TouchSpecialThing
-- [ ] : Shooting
-- [ ] : Shooting special items
-- [ ] : Thing collisions
+- [-] : P_TouchSpecialThing
+- [-] : Shooting
+- [-] : Shooting special items/lines
+- [-] : Thing collisions
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
 - [ ] : sound-server using rx/tx channels
@@ -16,6 +16,7 @@
 - [ ] : Automap
 - [ ] : Status bar drawing
 - [ ] : Sound state machine on new thread
+- [ ] : E5M1 second "eye" to shoot doesn't react
 
 - [-] : P_KillMobj
 - [-] : P_UpdateSpecials (todo: level timer)

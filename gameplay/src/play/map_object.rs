@@ -8,6 +8,7 @@ use std::ptr::{null_mut, NonNull};
 use super::{
     movement::{SubSectorMinMax, PT_ADDLINES, PT_ADDTHINGS},
     player::{Player, PlayerState},
+    specials::shoot_special_line,
     utilities::{
         p_random, p_subrandom, path_traverse, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ,
         VIEWHEIGHT,
@@ -139,7 +140,7 @@ pub struct MapObject {
     pub momxy: Vec2,
     pub momz: f32,
     /// If == validcount, already checked.
-    validcount: i32,
+    pub valid_count: usize,
     /// The type of object
     pub kind: MapObjectType,
     /// &mobjinfo[mobj.type]
@@ -206,7 +207,7 @@ impl MapObject {
             height: info.height,
             momxy: Vec2::default(),
             momz: 0.0,
-            validcount: 0,
+            valid_count: 0,
             flags: info.flags,
             health: info.spawnhealth,
             tics: state.tics,
@@ -824,7 +825,7 @@ impl MapObject {
         true
     }
 
-    pub(crate) fn aim_line_attack(&self, distance: f32) -> f32 {
+    pub(crate) fn aim_line_attack(&mut self, distance: f32) -> f32 {
         let xy2 = self.xy + self.angle.unit() * distance;
 
         // These a globals in Doom, used in the traverse functions
@@ -836,11 +837,10 @@ impl MapObject {
         // Path traverse neds to set line_target
         // let line_target = null;
 
-        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 0);
+        let mut bsp_trace = BSPTrace::new(self.xy, xy2);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
-        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
-        dbg!(bsp_trace.intercepted_subsectors().len());
+        bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
 
         path_traverse(
             self.xy,
@@ -849,7 +849,17 @@ impl MapObject {
             true,
             level,
             |t| {
-                dbg!(t.thing.is_some());
+                if let Some(mobj) = t.thing.as_mut() {
+                    if mobj.player.is_none() {
+                        mobj.p_take_damage(None, None, false, 1000);
+                    }
+                }
+
+                if let Some(line) = t.line.as_mut() {
+                    let side = line.point_on_side(&self.xy);
+                    shoot_special_line(side, line.clone(), self);
+                }
+
                 true
             },
             &mut bsp_trace,

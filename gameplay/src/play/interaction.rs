@@ -507,13 +507,27 @@ impl MapObject {
                 }
 
                 // Weapons
-                SpriteNum::SPR_BFUG => {}
-                SpriteNum::SPR_MGUN => {}
-                SpriteNum::SPR_CSAW => {}
-                SpriteNum::SPR_LAUN => {}
-                SpriteNum::SPR_PLAS => {}
-                SpriteNum::SPR_SHOT => {}
-                SpriteNum::SPR_SGN2 => {}
+                SpriteNum::SPR_BFUG => {
+                    return;
+                }
+                SpriteNum::SPR_MGUN => {
+                    return;
+                }
+                SpriteNum::SPR_CSAW => {
+                    return;
+                }
+                SpriteNum::SPR_LAUN => {
+                    return;
+                }
+                SpriteNum::SPR_PLAS => {
+                    return;
+                }
+                SpriteNum::SPR_SHOT => {
+                    return;
+                }
+                SpriteNum::SPR_SGN2 => {
+                    return;
+                }
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),
             }

@@ -622,7 +622,7 @@ impl Player {
 
     pub(crate) fn shoot_pistol(&mut self) {
         if let Some(mobj) = self.mobj {
-            let mobj = unsafe { &*mobj };
+            let mobj = unsafe { &mut *mobj };
             let bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
             println!("PEWPEW!!");
             dbg!(bullet_slope);

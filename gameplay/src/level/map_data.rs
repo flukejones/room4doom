@@ -443,16 +443,14 @@ impl MapData {
 pub struct BSPTrace {
     origin: Vec2,
     endpoint: Vec2,
-    node_id: u16,
     nodes: Vec<u16>,
 }
 
 impl BSPTrace {
-    pub fn new(origin: Vec2, endpoint: Vec2, node_id: u16) -> Self {
+    pub fn new(origin: Vec2, endpoint: Vec2) -> Self {
         Self {
             origin,
             endpoint,
-            node_id,
             nodes: Vec::with_capacity(20),
         }
     }
@@ -468,16 +466,17 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    pub fn find_ssect_intercepts(&mut self, map: &MapData, count: &mut u32) {
+    pub fn find_ssect_intercepts(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
         *count += 1;
-        if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)) {
+        if node_id & IS_SSECTOR_MASK != 0 {
+            if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
+                //println!("FOUND {}", self.node_id & IS_SSECTOR_MASK);
                 // TODO: Build list of intercepted things and lines as optional
-                self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);
+                self.nodes.push(node_id & !IS_SSECTOR_MASK);
             }
             return;
         }
-        let node = &map.nodes[self.node_id as usize];
+        let node = &map.nodes[node_id as usize];
 
         // find which side the point is on
         let side1 = node.point_on_side(&self.origin);
@@ -486,13 +485,10 @@ impl BSPTrace {
             // On opposite sides of the splitting line, recurse down both sides
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
-            self.node_id = node.child_index[side1];
-            self.find_ssect_intercepts(map, count);
-            self.node_id = node.child_index[side2];
-            self.find_ssect_intercepts(map, count);
+            self.find_ssect_intercepts(node.child_index[side1], map, count);
+            self.find_ssect_intercepts(node.child_index[side2], map, count);
         } else {
-            self.node_id = node.child_index[side1];
-            self.find_ssect_intercepts(map, count);
+            self.find_ssect_intercepts(node.child_index[side1], map, count);
         }
     }
 
@@ -524,7 +520,7 @@ mod tests {
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut bsp_trace = BSPTrace::new(origin, endpoint, map.start_node);
+        let mut bsp_trace = BSPTrace::new(origin, endpoint);
         // bsp_trace.trace_to_point(&map);
         // dbg!(&nodes.len());
         // dbg!(&nodes);
@@ -550,7 +546,7 @@ mod tests {
         for x in 705..895 {
             for y in -3551..-3361 {
                 bsp_trace.origin = Vec2::new(x as f32, y as f32);
-                bsp_trace.find_ssect_intercepts(&map, &mut count);
+                bsp_trace.find_ssect_intercepts(map.start_node, &map, &mut count);
 
                 // Sector the starting vector is in. 3 segs attached
                 let x = bsp_trace.intercepted_subsectors().first().unwrap();
