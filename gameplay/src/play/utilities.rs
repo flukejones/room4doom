@@ -293,7 +293,7 @@ pub fn path_traverse(
     flags: i32,
     line_to_line: bool,
     level: &mut Level,
-    trav: impl FnMut(&Intercept) -> bool,
+    trav: impl FnMut(&mut Intercept) -> bool,
     bsp_trace: &mut BSPTrace,
 ) -> bool {
     let earlyout = flags & PT_EARLYOUT != 0;
@@ -303,7 +303,7 @@ pub fn path_traverse(
     let segs = &mut level.map_data.segments;
     let sub_sectors = &mut level.map_data.subsectors;
 
-    level.valid_count += 1;
+    level.valid_count = level.valid_count.wrapping_add(1);
     for n in bsp_trace.intercepted_subsectors() {
         let ssect = &mut sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
@@ -329,9 +329,9 @@ pub fn path_traverse(
         }
 
         if flags & PT_ADDTHINGS != 0
-            && !ssect
-                .sector
-                .run_func_on_thinglist(|thing| add_thing_intercept(&trace, &mut intercepts, thing))
+            && !ssect.sector.run_func_on_thinglist(|thing| {
+                add_thing_intercept(&trace, &mut intercepts, thing, level.valid_count)
+            })
         {
             return false; // early out
         }
@@ -342,7 +342,7 @@ pub fn path_traverse(
 pub fn traverse_intercepts(
     intercepts: &mut [Intercept],
     max_frac: f32,
-    mut trav: impl FnMut(&Intercept) -> bool,
+    mut trav: impl FnMut(&mut Intercept) -> bool,
 ) -> bool {
     let mut intercept: *mut Intercept = unsafe { intercepts.get_unchecked_mut(0) };
     let mut intercepts = Vec::from(intercepts);
@@ -364,7 +364,7 @@ pub fn traverse_intercepts(
         }
 
         unsafe {
-            if !trav(&*intercept) {
+            if !trav(&mut *intercept) {
                 return false;
             }
 
@@ -427,7 +427,14 @@ fn add_thing_intercept(
     trace: &Trace,
     intercepts: &mut Vec<Intercept>,
     thing: &mut MapObject,
+    valid_count: usize,
 ) -> bool {
+    if thing.valid_count == valid_count {
+        // Already checked it
+        return true;
+    }
+    thing.valid_count = valid_count;
+
     let v1;
     let v2;
     // Decide the vectors for the thing by direction and radius
@@ -442,7 +449,6 @@ fn add_thing_intercept(
         v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() - r);
         v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() + r);
     }
-    dbg!(r);
 
     let dl = Trace::new(v1, v2 - v1);
     let frac = line_line_intersection(&dl, trace);

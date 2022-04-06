@@ -116,7 +116,7 @@ impl VisPlaneRender {
             }
         }
 
-        if self.lastvisplane < len - 1 {
+        if self.lastvisplane < len {
             self.lastvisplane += 1;
         } else {
             panic!("Out of visplanes");
@@ -158,7 +158,7 @@ impl VisPlaneRender {
         //     return plane_idx;
         // }
 
-        for i in intrl..=320 {
+        for i in intrl..=321 {
             if i >= intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;
