@@ -6,10 +6,11 @@
 use std::ptr::{null_mut, NonNull};
 
 use super::{
-    movement::SubSectorMinMax,
+    movement::{SubSectorMinMax, PT_ADDLINES, PT_ADDTHINGS},
     player::{Player, PlayerState},
     utilities::{
-        p_random, p_subrandom, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT,
+        p_random, p_subrandom, path_traverse, BestSlide, FRACUNIT_DIV4, ONCEILINGZ, ONFLOORZ,
+        VIEWHEIGHT,
     },
     Skill,
 };
@@ -17,7 +18,7 @@ use super::{
 use crate::{
     doom_def::MTF_SINGLE_PLAYER,
     info::SfxEnum,
-    level::Level,
+    level::{map_data::BSPTrace, Level},
     thinker::{ObjectType, Think, Thinker},
 };
 use glam::Vec2;
@@ -819,10 +820,42 @@ impl MapObject {
                 (*mobj).momxy.set_y(p_subrandom() as f32 * 0.00976562);
             }
         }
-        // let sector = unsafe {(*self.subsector).sector.clone()};
-        //     dbg!(player_exist_in_sector(sector));
 
         true
+    }
+
+    pub(crate) fn aim_line_attack(&self, distance: f32) -> f32 {
+        let xy2 = self.xy + self.angle.unit() * distance;
+
+        // These a globals in Doom, used in the traverse functions
+        let shootz = self.z + (self.height as i32 >> 1) as f32 + 8.0;
+        // can't shoot outside view angles
+        let topslope = 100.0 / 160.0;
+        let bottomslope = -100.0 / 160.0;
+        let attack_range = distance;
+        // Path traverse neds to set line_target
+        // let line_target = null;
+
+        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 0);
+        let mut count = 0;
+        let level = unsafe { &mut *self.level };
+        bsp_trace.find_ssect_intercepts(&level.map_data, &mut count);
+        dbg!(bsp_trace.intercepted_subsectors().len());
+
+        path_traverse(
+            self.xy,
+            xy2,
+            PT_ADDLINES | PT_ADDTHINGS,
+            true,
+            level,
+            |t| {
+                dbg!(t.thing.is_some());
+                true
+            },
+            &mut bsp_trace,
+        );
+
+        0.0
     }
 }
 

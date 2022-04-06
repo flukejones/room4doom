@@ -527,26 +527,26 @@ impl Player {
                 }
             }
             AmmoType::Shell => {
-                if self.readyweapon == WeaponType::Fist || self.pendingweapon == WeaponType::Pistol
+                if (self.readyweapon == WeaponType::Fist
+                    || self.pendingweapon == WeaponType::Pistol)
+                    && self.weaponowned[WeaponType::Shotgun as usize]
                 {
-                    if self.weaponowned[WeaponType::Shotgun as usize] {
-                        self.pendingweapon = WeaponType::Shotgun;
-                    }
+                    self.pendingweapon = WeaponType::Shotgun;
                 }
             }
             AmmoType::Cell => {
-                if self.readyweapon == WeaponType::Fist || self.pendingweapon == WeaponType::Pistol
+                if (self.readyweapon == WeaponType::Fist
+                    || self.pendingweapon == WeaponType::Pistol)
+                    && self.weaponowned[WeaponType::Plasma as usize]
                 {
-                    if self.weaponowned[WeaponType::Plasma as usize] {
-                        self.pendingweapon = WeaponType::Plasma;
-                    }
+                    self.pendingweapon = WeaponType::Plasma;
                 }
             }
             AmmoType::Missile => {
-                if self.readyweapon == WeaponType::Fist {
-                    if self.weaponowned[WeaponType::Missile as usize] {
-                        self.pendingweapon = WeaponType::Missile;
-                    }
+                if self.readyweapon == WeaponType::Fist
+                    && self.weaponowned[WeaponType::Missile as usize]
+                {
+                    self.pendingweapon = WeaponType::Missile;
                 }
             }
             _ => {}
@@ -619,6 +619,15 @@ impl Player {
 
         true
     }
+
+    pub(crate) fn shoot_pistol(&mut self) {
+        if let Some(mobj) = self.mobj {
+            let mobj = unsafe { &*mobj };
+            let bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+            println!("PEWPEW!!");
+            dbg!(bullet_slope);
+        }
+    }
 }
 
 /// P_PlayerThink
@@ -670,9 +679,7 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
             if !self.attackdown {
                 self.attackdown = true;
-                if let Some(_mobj) = self.mobj {
-                    println!("PEWPEW!!");
-                }
+                self.shoot_pistol();
             }
         } else {
             self.attackdown = false;

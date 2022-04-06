@@ -472,11 +472,12 @@ impl BSPTrace {
         *count += 1;
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)) {
+                // TODO: Build list of intercepted things and lines as optional
                 self.nodes.push(self.node_id ^ IS_SSECTOR_MASK);
             }
             return;
         }
-        let node = &map.get_nodes()[self.node_id as usize];
+        let node = &map.nodes[self.node_id as usize];
 
         // find which side the point is on
         let side1 = node.point_on_side(&self.origin);
@@ -495,7 +496,7 @@ impl BSPTrace {
         }
     }
 
-    pub fn intercepted_nodes(&self) -> &[u16] {
+    pub fn intercepted_subsectors(&self) -> &[u16] {
         &self.nodes
     }
 }
@@ -552,7 +553,7 @@ mod tests {
                 bsp_trace.find_ssect_intercepts(&map, &mut count);
 
                 // Sector the starting vector is in. 3 segs attached
-                let x = bsp_trace.intercepted_nodes().first().unwrap();
+                let x = bsp_trace.intercepted_subsectors().first().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 // Bottom horizontal line
@@ -572,7 +573,7 @@ mod tests {
                 assert_eq!(segs[start + 2].v2.y(), -3360.0);
 
                 // Last sector directly above starting vector
-                let x = bsp_trace.intercepted_nodes().last().unwrap();
+                let x = bsp_trace.intercepted_subsectors().last().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 assert_eq!(segs[start].v1.x(), 896.0);

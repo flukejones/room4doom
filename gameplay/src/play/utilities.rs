@@ -2,7 +2,7 @@
 
 use super::{
     map_object::MapObject,
-    movement::{PT_ADDLINES, PT_EARLYOUT},
+    movement::{PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT},
 };
 
 use crate::{
@@ -304,8 +304,8 @@ pub fn path_traverse(
     let sub_sectors = &mut level.map_data.subsectors;
 
     level.valid_count += 1;
-    for n in bsp_trace.intercepted_nodes() {
-        let ssect = &sub_sectors[*n as usize];
+    for n in bsp_trace.intercepted_subsectors() {
+        let ssect = &mut sub_sectors[*n as usize];
         let start = ssect.start_seg as usize;
         let end = start + ssect.seg_count as usize;
 
@@ -326,6 +326,14 @@ pub fn path_traverse(
             {
                 return false; // early out
             }
+        }
+
+        if flags & PT_ADDTHINGS != 0
+            && !ssect
+                .sector
+                .run_func_on_thinglist(|thing| add_thing_intercept(&trace, &mut intercepts, thing))
+        {
+            return false; // early out
         }
     }
     traverse_intercepts(&mut intercepts, 1.0, trav)
@@ -411,6 +419,47 @@ pub fn add_line_intercepts(
         frac,
         line: Some(line),
         thing: None,
+    });
+    true
+}
+
+fn add_thing_intercept(
+    trace: &Trace,
+    intercepts: &mut Vec<Intercept>,
+    thing: &mut MapObject,
+) -> bool {
+    let v1;
+    let v2;
+    // Decide the vectors for the thing by direction and radius
+    let trace_negative = trace.dxy.x().is_sign_negative() & trace.dxy.y().is_sign_negative();
+
+    let r = thing.radius;
+    // Diagonals
+    if trace_negative {
+        v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() + r);
+        v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() - r);
+    } else {
+        v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() - r);
+        v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() + r);
+    }
+    dbg!(r);
+
+    let dl = Trace::new(v1, v2 - v1);
+    let frac = line_line_intersection(&dl, trace);
+
+    // Skip if the trace doesn't intersect this line
+    if frac.is_sign_negative() {
+        return true;
+    }
+
+    if frac < 0.0 {
+        return false;
+    }
+
+    intercepts.push(Intercept {
+        frac,
+        line: None,
+        thing: Some(DPtr::new(thing)),
     });
     true
 }

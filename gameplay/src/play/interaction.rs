@@ -443,11 +443,10 @@ impl MapObject {
 
                 // Ammo
                 SpriteNum::SPR_CLIP => {
-                    if special.flags & MapObjectFlag::Dropped as u32 != 0
-                        && !player.give_ammo(AmmoType::Clip, 0, skill)
+                    if (special.flags & MapObjectFlag::Dropped as u32 != 0
+                        && !player.give_ammo(AmmoType::Clip, 0, skill))
+                        || !player.give_ammo(AmmoType::Clip, 1, skill)
                     {
-                        return;
-                    } else if !player.give_ammo(AmmoType::Clip, 1, skill) {
                         return;
                     }
                     player.message = Some(GOTCLIP);
