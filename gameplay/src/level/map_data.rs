@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_PI_2, PI};
+
 use crate::{
     angle::Angle,
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
@@ -442,22 +444,32 @@ impl MapData {
 
 pub struct BSPTrace {
     origin: Vec2,
+    origin_left: Vec2,
+    origin_right: Vec2,
     endpoint: Vec2,
+    endpoint_left: Vec2,
+    endpoint_right: Vec2,
+    radius: f32,
     nodes: Vec<u16>,
 }
 
 impl BSPTrace {
-    pub fn new(origin: Vec2, endpoint: Vec2) -> Self {
+    pub fn new(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
+        let forward = Angle::from_vector(endpoint - origin);
+        let back = Angle::from_vector(origin - endpoint);
+        let left_rad_vec = (forward + FRAC_PI_2).unit() * radius;
+        let right_rad_vec = (forward - FRAC_PI_2).unit() * radius;
+
         Self {
-            origin,
-            endpoint,
+            origin: origin + back.unit() * radius,
+            origin_left: origin + left_rad_vec + back.unit() * radius,
+            origin_right: origin + right_rad_vec + back.unit() * radius,
+            endpoint: endpoint + forward.unit() * radius,
+            endpoint_left: endpoint + left_rad_vec + forward.unit() * radius,
+            endpoint_right: endpoint + right_rad_vec + forward.unit() * radius,
+            radius,
             nodes: Vec::with_capacity(20),
         }
-    }
-
-    pub fn set_line(&mut self, origin: Vec2, endpoint: Vec2) {
-        self.origin = origin;
-        self.endpoint = endpoint;
     }
 
     /// Trace a line through the BSP from origin vector to endpoint vector.
@@ -470,7 +482,6 @@ impl BSPTrace {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
             if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
-                //println!("FOUND {}", self.node_id & IS_SSECTOR_MASK);
                 // TODO: Build list of intercepted things and lines as optional
                 self.nodes.push(node_id & !IS_SSECTOR_MASK);
             }
@@ -481,17 +492,35 @@ impl BSPTrace {
         // find which side the point is on
         let side1 = node.point_on_side(&self.origin);
         let side2 = node.point_on_side(&self.endpoint);
+
         if side1 != side2 {
             // On opposite sides of the splitting line, recurse down both sides
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
             self.find_ssect_intercepts(node.child_index[side1], map, count);
             self.find_ssect_intercepts(node.child_index[side2], map, count);
+        } else if self.radius > 1.0 {
+            let side_lr_1 = node.point_on_side(&self.origin_left);
+            let side_lr_2 = node.point_on_side(&self.endpoint_right);
+
+            let side_rl_1 = node.point_on_side(&self.origin_right);
+            let side_rl_2 = node.point_on_side(&self.endpoint_left);
+
+            if side_lr_1 != side_lr_2 {
+                self.find_ssect_intercepts(node.child_index[side_lr_1], map, count);
+                self.find_ssect_intercepts(node.child_index[side_lr_2], map, count);
+            } else if side_rl_1 != side_rl_2 {
+                self.find_ssect_intercepts(node.child_index[side_rl_1], map, count);
+                self.find_ssect_intercepts(node.child_index[side_rl_2], map, count);
+            } else {
+                self.find_ssect_intercepts(node.child_index[side1], map, count);
+            }
         } else {
             self.find_ssect_intercepts(node.child_index[side1], map, count);
         }
     }
 
+    /// List of indexes to subsectors the trace intercepted
     pub fn intercepted_subsectors(&self) -> &[u16] {
         &self.nodes
     }
@@ -520,7 +549,7 @@ mod tests {
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut bsp_trace = BSPTrace::new(origin, endpoint);
+        let mut bsp_trace = BSPTrace::new(origin, endpoint, 15.0);
         // bsp_trace.trace_to_point(&map);
         // dbg!(&nodes.len());
         // dbg!(&nodes);

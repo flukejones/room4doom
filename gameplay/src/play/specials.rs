@@ -762,10 +762,10 @@ pub fn shoot_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
         }
         47 => {
             debug!(
-                "shoot line-special #{}: raise floor and change!",
+                "shoot line-special #{}: raise platform and change!",
                 line.special
             );
-            ev_do_floor(line.clone(), FloorKind::RaiseFloorToNearest, level);
+            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
             change_switch_texture(line, false, &level.switch_list, &mut level.button_list);
         }
         _ => {}

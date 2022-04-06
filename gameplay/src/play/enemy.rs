@@ -418,7 +418,7 @@ pub fn a_spidrefire(actor: &mut MapObject) {
 }
 
 pub fn a_bossdeath(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_bossdeath not implemented");
 }
 
 pub fn a_skelwhoosh(actor: &mut MapObject) {
