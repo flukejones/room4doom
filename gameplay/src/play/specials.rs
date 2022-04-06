@@ -24,7 +24,7 @@ use crate::{
         Level,
     },
     pic::{ButtonWhere, PicAnimation},
-    play::teleport::teleport,
+    play::{switch::change_switch_texture, teleport::teleport},
     DPtr, PicData,
 };
 use log::{debug, error, trace};
@@ -726,6 +726,49 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
         _ => {
             //warn!("Invalid or unimplemented line special: {}", line.special);
         }
+    }
+}
+
+/// Actions for when a thing shoots a special line
+///
+/// Doom function name `P_ShootSpecialLine`
+pub fn shoot_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+    let mut ok = false;
+
+    if thing.level.is_null() {
+        panic!("Thing had a bad level pointer");
+    }
+    let level = unsafe { &mut *thing.level };
+
+    if thing.player.is_none() {
+        if line.special == 46 {
+            ok = true;
+        }
+        if !ok {
+            return;
+        }
+    }
+
+    match line.special {
+        24 => {
+            debug!("shoot line-special #{}: raise floor!", line.special);
+            ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
+            change_switch_texture(line, false, &level.switch_list, &mut level.button_list);
+        }
+        46 => {
+            debug!("shoot line-special #{}: open door!", line.special);
+            ev_do_door(line.clone(), DoorKind::Open, level);
+            change_switch_texture(line, true, &level.switch_list, &mut level.button_list);
+        }
+        47 => {
+            debug!(
+                "shoot line-special #{}: raise floor and change!",
+                line.special
+            );
+            ev_do_floor(line.clone(), FloorKind::RaiseFloorToNearest, level);
+            change_switch_texture(line, false, &level.switch_list, &mut level.button_list);
+        }
+        _ => {}
     }
 }
 

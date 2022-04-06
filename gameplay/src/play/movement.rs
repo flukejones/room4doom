@@ -27,7 +27,7 @@ use crate::{
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
-//const PT_ADDTHINGS: i32 = 2;
+pub const PT_ADDTHINGS: i32 = 2;
 pub const PT_EARLYOUT: i32 = 4;
 
 /// The pupose of this struct is to record the highest and lowest points in a
@@ -200,7 +200,7 @@ impl MapObject {
 
         let segs = &level.map_data.segments;
         let sub_sectors = &mut level.map_data.subsectors;
-        for n in bsp_trace.intercepted_nodes() {
+        for n in bsp_trace.intercepted_subsectors() {
             let ssect = &mut sub_sectors[*n as usize];
 
             // Check things in subsectors
