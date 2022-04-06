@@ -837,7 +837,7 @@ impl MapObject {
         // Path traverse neds to set line_target
         // let line_target = null;
 
-        let mut bsp_trace = BSPTrace::new(self.xy, xy2);
+        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 1.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);

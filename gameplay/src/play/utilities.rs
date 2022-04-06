@@ -306,25 +306,26 @@ pub fn path_traverse(
     level.valid_count = level.valid_count.wrapping_add(1);
     for n in bsp_trace.intercepted_subsectors() {
         let ssect = &mut sub_sectors[*n as usize];
-        let start = ssect.start_seg as usize;
-        let end = start + ssect.seg_count as usize;
 
-        for seg in &mut segs[start..end] {
-            if seg.linedef.valid_count == level.valid_count {
-                continue;
-            }
-            seg.linedef.valid_count = level.valid_count;
+        if flags & PT_ADDLINES != 0 {
+            let start = ssect.start_seg as usize;
+            let end = start + ssect.seg_count as usize;
 
-            if flags & PT_ADDLINES != 0
-                && !add_line_intercepts(
+            for seg in &mut segs[start..end] {
+                if seg.linedef.valid_count == level.valid_count {
+                    continue;
+                }
+                seg.linedef.valid_count = level.valid_count;
+
+                if !add_line_intercepts(
                     &trace,
                     seg.linedef.clone(),
                     &mut intercepts,
                     earlyout,
                     line_to_line,
-                )
-            {
-                return false; // early out
+                ) {
+                    return false; // early out
+                }
             }
         }
 

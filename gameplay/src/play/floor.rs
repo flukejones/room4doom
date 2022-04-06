@@ -136,7 +136,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
             }
             FloorKind::RaiseFloorToNearest => {
                 floor.direction = 1;
-                floor.destheight = find_next_highest_floor(sec.clone(), sec.floorheight);
+                floor.destheight = find_highest_floor_surrounding(sec.clone());
             }
             FloorKind::RaiseToTexture => {
                 // TODO: int minsize = INT_MAX;
