@@ -8,7 +8,11 @@ use gameplay::log::{self, info};
 use golem::Context;
 use rendering_trait::Renderer;
 use sdl2::{
-    keyboard::Scancode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, surface::Surface,
+    keyboard::Scancode,
+    pixels::{Color, PixelFormatEnum},
+    rect::Rect,
+    render::Canvas,
+    surface::Surface,
     video::Window,
 };
 use software_rendering::SoftwareRenderer;
@@ -123,6 +127,14 @@ pub fn d_doom_loop(
                 &mut render_buffer,
             );
         }
+
+        // TODO: Temporary aim point
+        let c = Color::RGB(255, 0, 0);
+        let size = render_buffer.surface().size();
+        render_buffer.set_draw_color(c);
+        render_buffer
+            .fill_rect(Rect::new(size.0 as i32 / 2, size.1 as i32 / 2, 1, 1))
+            .unwrap();
 
         let pix = render_buffer
             .read_pixels(render_buffer.surface().rect(), PixelFormatEnum::RGBA32)

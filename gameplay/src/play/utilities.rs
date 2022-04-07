@@ -343,10 +343,9 @@ pub fn add_line_intercepts(
         return false;
     }
 
-    // Only works if the angles are translated to 0-180
-    // if line.backsector.is_none() && frac < 1.0 {
-    //     return false;
-    // }
+    if line.backsector.is_none() && frac < 0.0 {
+        return false;
+    }
 
     // TODO: early out
     intercepts.push(Intercept {
@@ -370,26 +369,16 @@ fn add_thing_intercept(
     }
     thing.valid_count = valid_count;
 
-    let v1;
-    let v2;
-    // Decide the vectors for the thing by direction and radius
-    let trace_negative = trace.dxy.x().is_sign_negative() & trace.dxy.y().is_sign_negative();
-
-    let r = thing.radius;
-    // Diagonals
-    if !trace_negative {
-        v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() + r);
-        v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() - r);
-    } else {
-        v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() - r);
-        v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() + r);
-    }
-
-    let s1 = point_on_side(trace, &v1);
-    let s2 = point_on_side(trace, &v2);
-    if s1 == s2 {
+    // Diagonals are too unrealiable for first check so use
+    // circle/line collision check
+    if !circle_seg_collide(thing.xy, thing.radius, trace.xy, trace.xy + trace.dxy) {
         return true;
     }
+    // Get vector clockwise-perpendicular to trace
+    let r = thing.radius;
+    let p = Vec2::new(trace.xy.y(), -trace.xy.x()).normalize() * r;
+    let v1 = thing.xy + p;
+    let v2 = thing.xy - p;
 
     let dl = Trace::new(v1, v2 - v1);
     let frac = intercept_vector(trace, &dl);
@@ -438,58 +427,46 @@ fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
     numerator / denominator
 }
 
-// fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
-//     let denominator = (v2.dxy.x() * v1.dxy.y()) - (v2.dxy.y() * v1.dxy.x());
-//     if denominator == 0.0 {
-//         return -0.0;
-//     }
-//     let numerator = ((v2.xy.y() - v1.xy.y()) * v2.dxy.x()) - ((v2.xy.x() - v1.xy.x()) * v2.dxy.y());
-//     numerator / denominator
-// }
-
 // #[inline]
 // pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
 //     lhs.x() * rhs.y() - lhs.y() * rhs.x()
 // }
 
-// #[inline]
-// pub fn circle_to_line_intercept_basic(
-//     origin: Vec2,
-//     radius: f32,
-//     point1: Vec2,
-//     point2: Vec2,
-// ) -> Option<Vec2> {
-//     let lc = origin - point1;
-//     let d = point2 - point1;
-//     let p = project_vec2(lc, d);
-//     let nearest = point1 + p;
+/// True if the line from point1 to point2 penetrates the circle
+#[inline]
+pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, point1: Vec2, point2: Vec2) -> bool {
+    let lc = c_origin - point1;
+    let d = point2 - point1;
+    let p = project_vec2(lc, d);
+    let nearest = point1 + p;
 
-//     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
-//         if p.length() < d.length() && p.dot(d) > f32::EPSILON {
-//             return Some((nearest - origin).normalize() * dist);
-//         }
-//     }
-//     None
-// }
+    if circle_point_intersect(c_origin, c_radius, nearest) {
+        if p.length() < d.length() && p.dot(d) > f32::EPSILON {
+            // return Some((nearest - c_origin).normalize() * dist);
+            return true;
+        }
+    }
+    false
+}
 
-// fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
-//     let d = onto.dot(onto);
-//     if d > 0.0 {
-//         let dp = this.dot(onto);
-//         return onto * (dp / d);
-//     }
-//     onto
-// }
+fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
+    let d = onto.dot(onto);
+    if d > 0.0 {
+        let dp = this.dot(onto);
+        return onto * (dp / d);
+    }
+    onto
+}
 
-// #[inline]
-// pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
-//     let dist = point - origin;
-//     let len = dist.length();
-//     if len < radius {
-//         return Some(len - radius);
-//     }
-//     None
-// }
+#[inline]
+fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
+    let dist = point - origin;
+    let len = dist.length();
+    if len < radius {
+        return true; // Some(len - radius);
+    }
+    false
+}
 
 #[cfg(test)]
 mod tests {
