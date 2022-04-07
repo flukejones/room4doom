@@ -8,6 +8,7 @@ pub use interact::*;
 mod movement;
 pub use movement::*;
 mod shooting;
+pub use shooting::*;
 
 use std::ptr::{null_mut, NonNull};
 

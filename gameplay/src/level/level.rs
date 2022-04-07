@@ -98,7 +98,7 @@ impl Level {
 
         Level {
             map_data,
-            thinkers: ThinkerAlloc::new(thinker_count + 500),
+            thinkers: ThinkerAlloc::new(thinker_count + 1000),
             game_skill: skill,
             respawn_monsters,
             level_time: 0,

@@ -1,8 +1,9 @@
-use std::alloc::{alloc, dealloc, Layout};
-use std::fmt::{self, Debug};
-use std::marker::PhantomPinned;
-use std::mem::{align_of, size_of};
-use std::ptr::{self, null_mut};
+use std::{
+    alloc::{alloc, dealloc, Layout},
+    fmt::{self, Debug},
+    mem::{align_of, size_of},
+    ptr::{self, null_mut},
+};
 
 use log::{debug, warn};
 
@@ -56,8 +57,7 @@ pub struct ThinkerAlloc {
     len: usize,
     /// The next free slot to insert in
     next_free: *mut Thinker,
-    pub tail: *mut Thinker,
-    _pinned: PhantomPinned,
+    pub head: *mut Thinker,
 }
 
 impl Drop for ThinkerAlloc {
@@ -96,13 +96,12 @@ impl ThinkerAlloc {
             capacity,
             len: 0,
             next_free: buf_ptr,
-            tail: null_mut(),
-            _pinned: PhantomPinned,
+            head: null_mut(),
         }
     }
 
     pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
-        let mut current = &mut *self.tail;
+        let mut current = &mut *self.head;
         let mut next;
 
         loop {
@@ -115,7 +114,7 @@ impl ThinkerAlloc {
             }
             current = next;
 
-            if ptr::eq(current, self.tail) {
+            if ptr::eq(current, self.head) {
                 return;
             }
         }
@@ -127,7 +126,7 @@ impl ThinkerAlloc {
     where
         F: Fn(&Thinker) -> bool,
     {
-        let mut current = unsafe { &mut *self.tail };
+        let mut current = unsafe { &mut *self.head };
         let mut next;
 
         loop {
@@ -139,7 +138,7 @@ impl ThinkerAlloc {
             }
             current = next;
 
-            if ptr::eq(current, self.tail) {
+            if ptr::eq(current, self.head) {
                 return None;
             }
         }
@@ -169,24 +168,31 @@ impl ThinkerAlloc {
         unsafe { self.buf_ptr.add(idx) }
     }
 
-    fn find_first_free(&self, mut ptr: *mut Thinker) -> Option<*mut Thinker> {
+    /// `final_loop` should always be false when called the first time
+    fn find_first_free(&mut self, mut final_loop: bool) -> Option<*mut Thinker> {
         if self.len >= self.capacity {
             return None;
         }
 
-        loop {
-            unsafe {
-                if matches!((*ptr).object, ObjectType::Free) {
-                    return Some(ptr);
+        unsafe {
+            let max = self.buf_ptr.add(self.capacity - 1);
+            loop {
+                if self.next_free == max {
+                    break;
                 }
-                ptr = ptr.add(1);
-            }
-            if ptr == self.buf_ptr {
-                break;
+                if matches!((*self.next_free).object, ObjectType::Free) {
+                    return Some(self.next_free);
+                }
+                self.next_free = self.next_free.add(1);
             }
         }
+        if !final_loop {
+            final_loop = true;
+            self.next_free = self.buf_ptr;
+            return self.find_first_free(final_loop);
+        }
 
-        panic!("No more thnker slots");
+        panic!("No more thinker slots");
     }
 
     /// Push an item to the `ThinkerAlloc`. Returns the pointer to the Thinker.
@@ -202,7 +208,8 @@ impl ThinkerAlloc {
             panic!("Can't push a thinker with ActionF::Free as the function wrapper");
         }
 
-        let root_ptr = self.find_first_free(self.next_free)?;
+        let root_ptr = self.find_first_free(false)?;
+        debug!("Pushing: {:?}", root_ptr);
         match thinker.object() {
             ObjectType::MapObject(mobj) => {
                 if let Some(kind) = MapObjectType::n(mobj.kind as u16) {
@@ -216,30 +223,31 @@ impl ThinkerAlloc {
         unsafe { ptr::write(root_ptr, thinker) };
         let mut current = unsafe { &mut *root_ptr };
 
-        if self.tail.is_null() {
-            self.tail = root_ptr;
-            let mut tail = unsafe { &mut *self.tail };
-            tail.prev = tail;
-            tail.next = tail;
+        if self.head.is_null() {
+            self.head = root_ptr;
+            let mut head = unsafe { &mut *self.head };
+            head.prev = head;
+            head.next = head;
         } else {
-            let mut tail = unsafe { &mut *self.tail };
+            let mut head = unsafe { &mut *self.head };
             unsafe {
-                (*tail.prev).next = root_ptr;
+                (*head.prev).next = current;
             }
-            current.next = tail;
-            current.prev = tail.prev;
-            tail.prev = root_ptr;
+            current.next = head;
+            current.prev = head.prev;
+            head.prev = current;
         }
 
         current.set_obj_thinker_ptr();
         self.len += 1;
+        self.next_free = unsafe { self.next_free.add(1) };
         unsafe { Some(&mut *root_ptr) }
     }
 
     /// Ensure head is null if the pool is zero length
     fn maybe_reset_head(&mut self) {
         if self.len == 0 {
-            self.tail = null_mut();
+            self.head = null_mut();
         }
     }
 
@@ -248,13 +256,22 @@ impl ThinkerAlloc {
     pub fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker: {:?}", thinker);
         unsafe {
-            thinker.object = ObjectType::Free;
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
 
             self.len -= 1;
             self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
+
+            ptr::write(
+                thinker,
+                Thinker {
+                    prev: null_mut(),
+                    next: null_mut(),
+                    object: ObjectType::Free,
+                    func: TestObject::think,
+                },
+            );
         }
     }
 }
@@ -610,10 +627,10 @@ mod tests {
                 TestObject::think,
             ))
             .unwrap() as *mut Thinker;
-        assert!(!links.tail.is_null());
+        assert!(!links.head.is_null());
         assert_eq!(links.len(), 1);
         unsafe {
-            assert!((*links.tail).should_remove());
+            assert!((*links.head).should_remove());
         }
 
         unsafe {
@@ -641,7 +658,7 @@ mod tests {
                 TestObject::think,
             ))
             .unwrap();
-        assert!(!links.tail.is_null());
+        assert!(!links.head.is_null());
 
         let one = links
             .push::<TestObject>(TestObject::create_thinker(
@@ -695,17 +712,17 @@ mod tests {
             );
             assert!((*(*(*(*(*links.buf_ptr).next).next).next).next).should_remove());
             // back
-            assert!((*links.tail).should_remove());
-            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
+            assert!((*links.head).should_remove());
+            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.tail).prev).prev)
+                (*(*(*links.head).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
                 123
             );
             assert_eq!(
-                (*(*(*(*links.tail).prev).prev).prev)
+                (*(*(*(*links.head).prev).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
@@ -714,10 +731,10 @@ mod tests {
         }
         unsafe {
             links.remove(&mut *one);
-            assert!((*links.tail).should_remove());
-            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 333);
+            assert!((*links.head).should_remove());
+            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.tail).prev).prev)
+                (*(*(*links.head).prev).prev)
                     .object
                     .bad_ref::<TestObject>()
                     .x,
@@ -727,9 +744,9 @@ mod tests {
 
         unsafe {
             links.remove(&mut *three);
-            assert!((*links.tail).should_remove());
-            assert_eq!((*(*links.tail).prev).object.bad_ref::<TestObject>().x, 123);
-            assert!((*(*(*links.tail).prev).prev).should_remove());
+            assert!((*links.head).should_remove());
+            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
+            assert!((*(*(*links.head).prev).prev).should_remove());
         }
     }
 

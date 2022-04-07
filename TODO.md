@@ -1,8 +1,5 @@
-- [-] : Sprites colourmap/light selection
-- [-] : P_TouchSpecialThing
-- [-] : Shooting
-- [-] : Shooting special items/lines
-- [-] : Thing collisions
+- [ ] : A method to find alll SubSectors in a radius
+        This is required for explosion type stuff
 - [ ] : Really need swept-volume collisions
 - [ ] : Need the above for use-lines too
 - [ ] : sound-server using rx/tx channels
@@ -18,6 +15,11 @@
 - [ ] : Sound state machine on new thread
 - [ ] : E5M1 second "eye" to shoot doesn't react
 
+- [-] : Sprites colourmap/light selection
+- [-] : P_TouchSpecialThing
+- [-] : Shooting
+- [-] : Shooting special items/lines
+- [-] : Thing collisions
 - [-] : P_KillMobj
 - [-] : P_UpdateSpecials (todo: level timer)
 - [-] : EV_Teleport (todo: telefrag stuff)

@@ -73,7 +73,9 @@ impl MapObject {
         if inflictor.is_some() || source.is_some() {
             // Source might be inflictor
             let mut do_push = true;
-            let inflict = if source_is_inflictor {
+            let inflict = if let Some(inflictor) = inflictor {
+                inflictor
+            } else {
                 // assume source is not None
                 // DOn't push away if it's a player with a chainsaw
                 do_push = source.as_ref().unwrap().player.is_none()
@@ -82,8 +84,6 @@ impl MapObject {
                             != WeaponType::Chainsaw
                     };
                 source.as_mut().unwrap()
-            } else {
-                inflictor.unwrap()
             };
 
             if self.flags & MapObjectFlag::NoClip as u32 == 0 && do_push {
@@ -174,7 +174,10 @@ impl MapObject {
                     self.target = Some(source);
                     self.threshold = BASETHRESHOLD;
 
-                    if std::ptr::eq(self.state, &STATES[self.info.spawnstate as usize]) {
+                    if std::ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
+                        && self.info.seestate != StateNum::S_NULL
+                    {
+                        dbg!(self.info.seestate);
                         self.set_state(self.info.seestate);
                     }
                 }
