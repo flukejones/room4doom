@@ -129,8 +129,7 @@ impl Ord for Intercept {
     }
 }
 
-impl Eq for Intercept {
-}
+impl Eq for Intercept {}
 
 #[derive(Default)]
 pub struct BestSlide {
@@ -226,90 +225,16 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
     -1
 }
 
-#[inline]
-pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
-    lhs.x() * rhs.y() - lhs.y() * rhs.x()
-}
-
-#[inline]
-pub fn ray_to_line_intersect(
-    origin: &Vec2,
-    direction: f32,
-    point1: &Vec2,
-    point2: &Vec2,
-) -> Option<f32> {
-    let direction = unit_vec_from(direction);
-    let v1 = *origin - *point1;
-    let v2 = *point2 - *point1;
-    let v3 = Vec2::new(-direction.y(), direction.x());
-    let dot = v2.dot(v3);
-    if dot.abs() < 0.000001 {
-        return None;
-    }
-    let t1 = dot / cross(&v2, &v1);
-    let t2 = v1.dot(v3) / dot;
-    if t1 >= 0.0 && t2 >= 0.0 && t2 <= 1.0 {
-        return Some(t1);
-    }
-    None
-}
-
 pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
     let x = point1.x() - point2.x();
     let y = point1.y() - point2.y();
     Angle::new(y.atan2(x))
 }
 
-// #[inline]
-// pub fn circle_to_line_intercept_basic(
-//     origin: Vec2,
-//     radius: f32,
-//     point1: Vec2,
-//     point2: Vec2,
-// ) -> Option<Vec2> {
-//     let lc = origin - point1;
-//     let d = point2 - point1;
-//     let p = project_vec2(lc, d);
-//     let nearest = point1 + p;
-
-//     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
-//         if p.length() < d.length() && p.dot(d) > f32::EPSILON {
-//             return Some((nearest - origin).normalize() * dist);
-//         }
-//     }
-//     None
-// }
-
-// fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
-//     let d = onto.dot(onto);
-//     if d > 0.0 {
-//         let dp = this.dot(onto);
-//         return onto * (dp / d);
-//     }
-//     onto
-// }
-
-// #[inline]
-// pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
-//     let dist = point - origin;
-//     let len = dist.length();
-//     if len < radius {
-//         return Some(len - radius);
-//     }
-//     None
-// }
-
-#[inline]
-pub fn unit_vec_from(rotation: f32) -> Vec2 {
-    let (y, x) = rotation.sin_cos();
-    Vec2::new(x, y)
-}
-
 pub fn path_traverse(
     origin: Vec2,
     endpoint: Vec2,
     flags: i32,
-    line_to_line: bool,
     level: &mut Level,
     trav: impl FnMut(&mut Intercept) -> bool,
     bsp_trace: &mut BSPTrace,
@@ -335,13 +260,7 @@ pub fn path_traverse(
                 }
                 seg.linedef.valid_count = level.valid_count;
 
-                if !add_line_intercepts(
-                    &trace,
-                    seg.linedef.clone(),
-                    &mut intercepts,
-                    earlyout,
-                    line_to_line,
-                ) {
+                if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts, earlyout) {
                     return false; // early out
                 }
             }
@@ -356,13 +275,7 @@ pub fn path_traverse(
         }
     }
 
-    intercepts.sort_by(|a,b| {
-        a.cmp(b)
-    });
-    for i in intercepts.iter() {
-        print!("{},", i.frac);
-    }
-    println!();
+    intercepts.sort_by(|a, b| a.cmp(b));
 
     traverse_intercepts(&mut intercepts, 1.0, trav)
 }
@@ -410,10 +323,9 @@ pub fn add_line_intercepts(
     line: DPtr<LineDef>,
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
-    line_to_line: bool,
 ) -> bool {
-    let s1 = line.point_on_side(&trace.xy);
-    let s2 = line.point_on_side(&(trace.xy + trace.dxy));
+    let s1 = point_on_side(&trace, &line.v1);
+    let s2 = point_on_side(&trace, &line.v2);
 
     if s1 == s2 {
         // line isn't crossed
@@ -421,12 +333,7 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(*line.v1, (*line.v2) - (*line.v1));
-    let frac = if line_to_line {
-        line_line_intersection(&dl, trace)
-    } else {
-        // check against line 'plane', good for slides, not much else
-        line_line_intersection(trace, &dl)
-    };
+    let frac = intercept_vector(trace, &dl);
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
         return true;
@@ -470,7 +377,7 @@ fn add_thing_intercept(
 
     let r = thing.radius;
     // Diagonals
-    if trace_negative {
+    if !trace_negative {
         v1 = Vec2::new(thing.xy.x() - r, thing.xy.y() + r);
         v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() - r);
     } else {
@@ -485,7 +392,9 @@ fn add_thing_intercept(
     }
 
     let dl = Trace::new(v1, v2 - v1);
-    let frac = intercept_vector(  &dl, trace);
+    let frac = intercept_vector(trace, &dl);
+
+    // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}", thing.kind, trace.xy.x(), trace.xy.y(), thing.xy.x(), thing.xy.y(), thing.radius, frac);
 
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
@@ -500,6 +409,7 @@ fn add_thing_intercept(
     true
 }
 
+// Determine which side of the trace the vector point is on
 pub fn point_on_side(trace: &Trace, v2: &Vec2) -> usize {
     let dx = v2.x() - trace.xy.x();
     let dy = v2.y() - trace.xy.y();
@@ -512,31 +422,74 @@ pub fn point_on_side(trace: &Trace, v2: &Vec2) -> usize {
     1
 }
 
-fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-    // Doom does `v1->dy >> 8`, this is  x * 0.00390625
-    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
-    if denominator == f32::EPSILON {
-        return -1.0;
-    }
-    let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
-    numerator / denominator
-}
-
-/// P_InterceptVector
 /// Returns the fractional intercept point along the first divline.
 ///
 /// The lines can be pictured as arg1 being an infinite plane, and arg2 being the line
 /// to check if intersected by the plane.
 ///
-/// Good for perfect line intersection test
-fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
-    let denominator = (v2.dxy.x() * v1.dxy.y()) - (v2.dxy.y() * v1.dxy.x());
-    if denominator == 0.0 {
-        return -1.0;
+/// P_InterceptVector
+fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+    // Doom does `v1->dy >> 8`, this is  x * 0.00390625
+    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+    if denominator == f32::EPSILON {
+        return -0.0;
     }
-    let numerator = ((v2.xy.y() - v1.xy.y()) * v2.dxy.x()) - ((v2.xy.x() - v1.xy.x()) * v2.dxy.y());
+    let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
     numerator / denominator
 }
+
+// fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
+//     let denominator = (v2.dxy.x() * v1.dxy.y()) - (v2.dxy.y() * v1.dxy.x());
+//     if denominator == 0.0 {
+//         return -0.0;
+//     }
+//     let numerator = ((v2.xy.y() - v1.xy.y()) * v2.dxy.x()) - ((v2.xy.x() - v1.xy.x()) * v2.dxy.y());
+//     numerator / denominator
+// }
+
+// #[inline]
+// pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
+//     lhs.x() * rhs.y() - lhs.y() * rhs.x()
+// }
+
+// #[inline]
+// pub fn circle_to_line_intercept_basic(
+//     origin: Vec2,
+//     radius: f32,
+//     point1: Vec2,
+//     point2: Vec2,
+// ) -> Option<Vec2> {
+//     let lc = origin - point1;
+//     let d = point2 - point1;
+//     let p = project_vec2(lc, d);
+//     let nearest = point1 + p;
+
+//     if let Some(dist) = circle_point_intersect(origin, radius, nearest) {
+//         if p.length() < d.length() && p.dot(d) > f32::EPSILON {
+//             return Some((nearest - origin).normalize() * dist);
+//         }
+//     }
+//     None
+// }
+
+// fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
+//     let d = onto.dot(onto);
+//     if d > 0.0 {
+//         let dp = this.dot(onto);
+//         return onto * (dp / d);
+//     }
+//     onto
+// }
+
+// #[inline]
+// pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> Option<f32> {
+//     let dist = point - origin;
+//     let len = dist.length();
+//     if len < radius {
+//         return Some(len - radius);
+//     }
+//     None
+// }
 
 #[cfg(test)]
 mod tests {

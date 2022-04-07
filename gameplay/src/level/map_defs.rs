@@ -212,7 +212,6 @@ pub struct LineDef {
     pub back_sidedef: Option<DPtr<SideDef>>,
 
     // Front and back sector.
-    // Note: redundant? Can be retrieved from SideDefs.
     pub frontsector: DPtr<Sector>,
     pub backsector: Option<DPtr<Sector>>,
 
