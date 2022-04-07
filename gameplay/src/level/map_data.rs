@@ -450,7 +450,7 @@ pub struct BSPTrace {
     endpoint_left: Vec2,
     endpoint_right: Vec2,
     radius: f32,
-    nodes: Vec<u16>,
+    pub nodes: Vec<u16>,
 }
 
 impl BSPTrace {

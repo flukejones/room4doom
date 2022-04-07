@@ -29,7 +29,7 @@ pub use level::{
 pub use log;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use play::{
-    map_object::MapObject,
+    mobj::MapObject,
     player::{Player, PlayerCheat, PlayerState, WBStartStruct},
     specials::{spawn_specials, update_specials},
     utilities::m_clear_random,

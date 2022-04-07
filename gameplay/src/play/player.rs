@@ -4,8 +4,7 @@ use glam::Vec2;
 use log::{debug, error, info};
 
 use super::{
-    interaction::BONUSADD,
-    map_object::MapObject,
+    mobj::{MapObject, BONUSADD},
     player_sprite::PspDef,
     utilities::{bam_to_radian, fixed_to_float, p_random, MAXHEALTH, VIEWHEIGHT},
 };
@@ -17,7 +16,7 @@ use crate::{
     },
     info::{SpriteNum, StateNum},
     level::Level,
-    play::map_object::MapObjectFlag,
+    play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     Skill,
 };

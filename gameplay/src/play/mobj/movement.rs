@@ -6,24 +6,30 @@ use std::ptr;
 use glam::Vec2;
 use log::debug;
 
-use super::{
-    map_object::{MapObject, MapObjectFlag},
-    specials::cross_special_line,
-    switch::p_use_special_line,
-    utilities::{
-        box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ, MAXRADIUS, USERANGE,
-    },
-};
-
 use crate::{
     angle::Angle,
+    info::StateNum,
     level::{
         flags::LineDefFlags,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
-    DPtr,
+    play::{
+        specials::cross_special_line,
+        switch::p_use_special_line,
+        utilities::{
+            box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
+            MAXRADIUS, USERANGE, VIEWHEIGHT,
+        },
+    },
+    DPtr, MapObject,
 };
+
+use super::MapObjectFlag;
+
+pub const MAXMOVE: f32 = 30.0;
+pub const STOPSPEED: f32 = 0.0625; // 0x1000
+pub const FRICTION: f32 = 0.90625; // 0xE800
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
@@ -44,8 +50,189 @@ pub struct SubSectorMinMax {
 }
 
 impl MapObject {
+    /// P_ZMovement
+    pub(super) fn p_z_movement(&mut self) {
+        if self.player.is_some() && self.z < self.floorz {
+            unsafe {
+                let player = &mut *(self.player.unwrap());
+                player.viewheight -= self.floorz - self.z;
+                player.deltaviewheight = (((VIEWHEIGHT - player.viewheight) as i32) >> 3) as f32;
+            }
+        }
+
+        // adjust height
+        self.z += self.momz;
+
+        if self.flags & MapObjectFlag::Float as u32 != 0 && self.target.is_some() {
+            // TODO: float down towards target if too close
+            // if (!(mo->flags & SKULLFLY) && !(mo->flags & INFLOAT))
+            // {
+            //     dist = P_AproxDistance(mo->x - mo->target->x,
+            //                         mo->y - mo->target->y);
+
+            //     delta = (mo->target->z + (mo->height >> 1)) - mo->z;
+
+            //     if (delta < 0 && dist < -(delta * 3))
+            //         mo->z -= FLOATSPEED;
+            //     else if (delta > 0 && dist < (delta * 3))
+            //         mo->z += FLOATSPEED;
+            // }
+        }
+
+        // clip movement
+
+        if self.z <= self.floorz {
+            // hit the floor
+            // TODO: The lost soul correction for old demos
+            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+                // the skull slammed into something
+                self.momz = -self.momz;
+            }
+
+            if self.momz < 0.0 {
+                // TODO: is the gravity correct? (FRACUNIT == GRAVITY)
+                if self.player.is_some() && self.momz < -1.0 * 8.0 {
+                    // Squat down.
+                    // Decrease viewheight for a moment
+                    // after hitting the ground (hard),
+                    // and utter appropriate sound.
+
+                    unsafe {
+                        let player = &mut *(self.player.unwrap());
+                        player.viewheight = ((self.momz as i32) >> 3) as f32;
+                    }
+                }
+                self.momz = 0.0;
+            }
+
+            self.z = self.floorz;
+        } else if self.flags & MapObjectFlag::NoGravity as u32 == 0 {
+            if self.momz == 0.0 {
+                self.momz = -1.0 * 2.0;
+            } else {
+                self.momz -= 1.0;
+            }
+        }
+    }
+
+    /// P_XYMovement
+    pub(super) fn p_xy_movement(&mut self) {
+        if self.momxy.x() == f32::EPSILON && self.momxy.y() == f32::EPSILON {
+            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+                self.flags &= !(MapObjectFlag::SkullFly as u32);
+                self.momxy = Vec2::default();
+                self.z = 0.0;
+                self.set_state(self.info.spawnstate);
+            }
+            return;
+        }
+
+        if self.momxy.x() > MAXMOVE {
+            self.momxy.set_x(MAXMOVE);
+        } else if self.momxy.x() < -MAXMOVE {
+            self.momxy.set_x(-MAXMOVE);
+        }
+
+        if self.momxy.y() > MAXMOVE {
+            self.momxy.set_y(MAXMOVE);
+        } else if self.momxy.y() < -MAXMOVE {
+            self.momxy.set_y(-MAXMOVE);
+        }
+
+        // This whole loop is a bit crusty. It consists of looping over progressively smaller
+        // moves until we either hit 0, or get a move. Because the whole game is 2D we can
+        // use modern 2D collision detection where if there is a seg/wall penetration then we
+        // move the player back by the penetration amount. This would also make the "slide" stuff
+        // a lot easier (but perhaps not as accurate to Doom classic?)
+        // Oh yeah, this would also remove:
+        //  - linedef BBox,
+        //  - BBox checks (these are AABB)
+        //  - the need to store line slopes
+        // TODO: The above stuff, refactor the collisions and movement to use modern techniques
+
+        // P_XYMovement
+        // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
+        let mut xmove = self.momxy.x();
+        let mut ymove = self.momxy.y();
+        let mut ptryx;
+        let mut ptryy;
+        loop {
+            if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
+                ptryx = self.xy.x() + xmove / 2.0;
+                ptryy = self.xy.y() + ymove / 2.0;
+                xmove /= 2.0;
+                ymove /= 2.0;
+            } else {
+                ptryx = self.xy.x() + xmove;
+                ptryy = self.xy.y() + ymove;
+                xmove = 0.0;
+                ymove = 0.0;
+            }
+
+            if !self.p_try_move(ptryx, ptryy) {
+                if self.player.is_some() {
+                    self.p_slide_move();
+                } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
+                    // TODO: explode
+                } else {
+                    self.momxy.set_x(0.0);
+                    self.momxy.set_y(0.0);
+                }
+            }
+
+            if xmove == 0.0 || ymove == 0.0 {
+                break;
+            }
+        }
+
+        // slow down
+        if self.flags & (MapObjectFlag::Missile as u32 | MapObjectFlag::SkullFly as u32) != 0 {
+            return; // no friction for missiles ever
+        }
+
+        if self.z > self.floorz {
+            return; // no friction when airborne
+        }
+
+        let floorheight = unsafe { (*self.subsector).sector.floorheight };
+
+        if self.flags & MapObjectFlag::Corpse as u32 != 0 {
+            // do not stop sliding
+            //  if halfway off a step with some momentum
+            if (self.momxy.x() > FRACUNIT_DIV4
+                || self.momxy.x() < -FRACUNIT_DIV4
+                || self.momxy.y() > FRACUNIT_DIV4
+                || self.momxy.y() < -FRACUNIT_DIV4)
+                && (self.floorz - floorheight).abs() > f32::EPSILON
+            {
+                return;
+            }
+        }
+
+        if self.momxy.x() > -STOPSPEED
+            && self.momxy.x() < STOPSPEED
+            && self.momxy.y() > -STOPSPEED
+            && self.momxy.y() < STOPSPEED
+        {
+            if self.player.is_none() {
+                self.momxy = Vec2::default();
+            } else if let Some(player) = self.player {
+                if unsafe { (*player).cmd.forwardmove == 0 && (*player).cmd.sidemove == 0 } {
+                    // if in a walking frame, stop moving
+                    // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
+                    // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
+                    self.set_state(StateNum::S_PLAY);
+                    // }
+                    self.momxy = Vec2::default();
+                }
+            }
+        } else {
+            self.momxy *= FRICTION;
+        }
+    }
+
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    pub fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
+    fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
         // P_CrossSpecialLine
         let mut ctrl = SubSectorMinMax::default();
 
@@ -137,7 +324,7 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    pub fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
+    pub(super) fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
         let left = endpoint.x() - self.radius;
         let right = endpoint.x() + self.radius;
         let top = endpoint.y() + self.radius;
@@ -346,7 +533,7 @@ impl MapObject {
 
     // P_SlideMove
     // Loop until get a good move or stopped
-    pub fn p_slide_move(&mut self) {
+    fn p_slide_move(&mut self) {
         // let ctrl = &mut level.mobj_ctrl;
         let mut hitcount = 0;
         self.best_slide = BestSlide::new();
@@ -468,7 +655,7 @@ impl MapObject {
         }
     }
 
-    pub fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
+    fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
             if (line.flags as usize) & LineDefFlags::TwoSided as usize == 0 {
                 if line.point_on_side(&self.xy) != 0 {
@@ -495,7 +682,7 @@ impl MapObject {
         false
     }
 
-    pub fn stair_step(&mut self) {
+    fn stair_step(&mut self) {
         // Line might have hit the middle, end-on?
         if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y()) {
             self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y());
@@ -503,7 +690,7 @@ impl MapObject {
     }
 
     /// P_HitSlideLine
-    pub fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef) {
+    fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef) {
         if matches!(line.slopetype, SlopeType::Horizontal) {
             slide_move.set_y(0.0);
             return;
@@ -538,7 +725,7 @@ impl MapObject {
 
     /// P_UseLines
     /// Looks for special lines in front of the player to activate.
-    pub fn use_lines(&mut self) {
+    pub(crate) fn use_lines(&mut self) {
         let angle = self.angle.unit();
 
         let origin = self.xy;
@@ -563,7 +750,7 @@ impl MapObject {
     }
 
     /// PTR_UseTraverse
-    pub fn use_traverse(&mut self, intercept: &Intercept) -> bool {
+    fn use_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
             debug!(
                 "Line v1 x:{},y:{}, v2 x:{},y:{}, special: {:?} - self.x:{},y:{} - frac {}",

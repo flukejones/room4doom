@@ -1,9 +1,6 @@
 //! Many helper functions related to traversing the map, crossing or finding lines.
 
-use super::{
-    map_object::MapObject,
-    movement::{PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT},
-};
+use super::mobj::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
 use crate::{
     angle::Angle,
@@ -107,11 +104,32 @@ impl Trace {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Intercept {
     pub frac: f32,
     pub line: Option<DPtr<LineDef>>,
     pub thing: Option<DPtr<MapObject>>,
+}
+
+impl PartialOrd for Intercept {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.frac.partial_cmp(&other.frac)
+    }
+}
+
+impl Ord for Intercept {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.frac < other.frac {
+            std::cmp::Ordering::Less
+        } else if self.frac > other.frac {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    }
+}
+
+impl Eq for Intercept {
 }
 
 #[derive(Default)]
@@ -337,6 +355,15 @@ pub fn path_traverse(
             return false; // early out
         }
     }
+
+    intercepts.sort_by(|a,b| {
+        a.cmp(b)
+    });
+    for i in intercepts.iter() {
+        print!("{},", i.frac);
+    }
+    println!();
+
     traverse_intercepts(&mut intercepts, 1.0, trav)
 }
 
@@ -354,7 +381,7 @@ pub fn traverse_intercepts(
         let mut dist = f32::MAX;
 
         for i in intercepts.iter_mut() {
-            if i.frac <= dist {
+            if i.frac < dist {
                 dist = i.frac;
                 intercept = i;
             }
@@ -372,7 +399,6 @@ pub fn traverse_intercepts(
             (*intercept).frac = f32::MAX;
         }
     }
-
     true
 }
 
@@ -424,6 +450,7 @@ pub fn add_line_intercepts(
     true
 }
 
+// TODO: needs a proper line-line intersection test.
 fn add_thing_intercept(
     trace: &Trace,
     intercepts: &mut Vec<Intercept>,
@@ -451,16 +478,18 @@ fn add_thing_intercept(
         v2 = Vec2::new(thing.xy.x() + r, thing.xy.y() + r);
     }
 
+    let s1 = point_on_side(trace, &v1);
+    let s2 = point_on_side(trace, &v2);
+    if s1 == s2 {
+        return true;
+    }
+
     let dl = Trace::new(v1, v2 - v1);
-    let frac = line_line_intersection(&dl, trace);
+    let frac = intercept_vector(  &dl, trace);
 
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
         return true;
-    }
-
-    if frac < 0.0 {
-        return false;
     }
 
     intercepts.push(Intercept {
@@ -471,15 +500,27 @@ fn add_thing_intercept(
     true
 }
 
-// fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
-//     // Doom does `v1->dy >> 8`, this is  x * 0.00390625
-//     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
-//     if denominator == f32::EPSILON {
-//         return 0.0;
-//     }
-//     let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
-//     numerator / denominator
-// }
+pub fn point_on_side(trace: &Trace, v2: &Vec2) -> usize {
+    let dx = v2.x() - trace.xy.x();
+    let dy = v2.y() - trace.xy.y();
+
+    if (dy * trace.dxy.x()) <= (trace.dxy.y() * dx) {
+        // Front side
+        return 0;
+    }
+    // Backside
+    1
+}
+
+fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+    // Doom does `v1->dy >> 8`, this is  x * 0.00390625
+    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+    if denominator == f32::EPSILON {
+        return -1.0;
+    }
+    let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+    numerator / denominator
+}
 
 /// P_InterceptVector
 /// Returns the fractional intercept point along the first divline.
@@ -491,7 +532,7 @@ fn add_thing_intercept(
 fn line_line_intersection(v1: &Trace, v2: &Trace) -> f32 {
     let denominator = (v2.dxy.x() * v1.dxy.y()) - (v2.dxy.y() * v1.dxy.x());
     if denominator == 0.0 {
-        return 0.0;
+        return -1.0;
     }
     let numerator = ((v2.xy.y() - v1.xy.y()) * v2.dxy.x()) - ((v2.xy.x() - v1.xy.x()) * v2.dxy.y());
     numerator / denominator

@@ -1,6 +1,6 @@
 use crate::{
     info::{MapObjectInfo, MapObjectType, StateNum},
-    play::map_object::MapObjectFlag,
+    play::mobj::MapObjectFlag,
 };
 
 use super::SfxEnum;

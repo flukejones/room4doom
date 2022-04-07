@@ -1,6 +1,6 @@
 //! Doom source name `p_pspr`
 
-use super::{map_object::MapObject, player::Player};
+use super::{mobj::MapObject, player::Player};
 
 use crate::info::State;
 

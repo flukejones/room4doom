@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use crate::{angle::Angle, play::map_object::MapObject, thinker::Thinker, DPtr};
+use crate::{angle::Angle, play::mobj::MapObject, thinker::Thinker, DPtr};
 use glam::Vec2;
 
 #[derive(Debug)]

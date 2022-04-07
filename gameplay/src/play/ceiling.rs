@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    map_object::MapObject,
+    mobj::MapObject,
     specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
 };
 

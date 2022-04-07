@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    map_object::MapObject,
+    mobj::MapObject,
     specials::{
         find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
         find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
