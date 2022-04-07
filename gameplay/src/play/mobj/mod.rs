@@ -616,8 +616,8 @@ impl MapObject {
                 unsafe { &mut *self.level },
             );
             unsafe {
-                (*mobj).momxy.set_x(p_subrandom() as f32 * 0.00976562); // P_SubRandom() << 12;
-                (*mobj).momxy.set_y(p_subrandom() as f32 * 0.00976562);
+                (*mobj).momxy.set_x(p_subrandom() as f32 * 0.6); // P_SubRandom() << 12;
+                (*mobj).momxy.set_y(p_subrandom() as f32 * 0.6);
             }
         }
 

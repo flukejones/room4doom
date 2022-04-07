@@ -3,10 +3,7 @@ use glam::Vec2;
 use crate::{
     info::{SfxEnum, MOBJINFO},
     level::map_data::BSPTrace,
-    play::{
-        specials::shoot_special_line,
-        utilities::{p_random, path_traverse, Intercept},
-    },
+    play::utilities::{p_random, path_traverse, Intercept},
     DPtr, LineDefFlags, MapObject,
 };
 
@@ -32,7 +29,7 @@ impl MapObject {
         }
     }
 
-    pub(crate) fn aim_line_attack(&mut self, distance: f32) -> f32 {
+    pub(crate) fn aim_line_attack(&mut self, distance: f32) -> Option<AimResult> {
         let xy2 = self.xy + self.angle.unit() * distance;
 
         // These a globals in Doom, used in the traverse functions
@@ -57,27 +54,18 @@ impl MapObject {
             self.xy,
             xy2,
             PT_ADDLINES | PT_ADDTHINGS,
-            true,
             level,
             |t| aim_traverse.check(self, t),
             &mut bsp_trace,
         );
 
-        // TODO: temporary
-        if let Some(res) = aim_traverse.result().as_mut() {
-            dbg!(res.aimslope);
-            if res.line_target.player.is_none() {
-                res.line_target.p_take_damage(None, None, false, 1000);
-            }
-        }
-
-        0.0
+        aim_traverse.result()
     }
 }
 
-struct AimResult {
-    aimslope: f32,
-    line_target: DPtr<MapObject>,
+pub(crate) struct AimResult {
+    pub aimslope: f32,
+    pub line_target: DPtr<MapObject>,
 }
 
 struct AimTraverse {

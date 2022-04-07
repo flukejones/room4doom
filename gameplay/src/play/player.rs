@@ -16,9 +16,9 @@ use crate::{
     },
     info::{SpriteNum, StateNum},
     level::Level,
-    play::mobj::MapObjectFlag,
+    play::{mobj::MapObjectFlag, utilities::p_subrandom},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    Skill,
+    MapObjectType, Skill,
 };
 
 /// 16 pixels of bob
@@ -624,7 +624,27 @@ impl Player {
             let mobj = unsafe { &mut *mobj };
             let bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
             println!("PEWPEW!!");
-            dbg!(bullet_slope);
+
+            // TODO: temporary
+            if let Some(mut res) = bullet_slope {
+                dbg!(res.aimslope);
+                if res.line_target.player.is_none() {
+                    for _ in 0..10 {
+                        let mobj = MapObject::spawn_map_object(
+                            res.line_target.xy.x(),
+                            res.line_target.xy.y(),
+                            ((res.line_target.z + res.line_target.height) * 0.75) as i32,
+                            MapObjectType::MT_BLOOD,
+                            unsafe { &mut *res.line_target.level },
+                        );
+                        unsafe {
+                            (*mobj).momxy.set_x(p_subrandom() as f32 * 0.7); // P_SubRandom() << 12;
+                            (*mobj).momxy.set_y(p_subrandom() as f32 * 0.7);
+                        }
+                    }
+                    res.line_target.p_take_damage(None, None, false, 5);
+                }
+            }
         }
     }
 }
