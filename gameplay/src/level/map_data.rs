@@ -549,7 +549,7 @@ mod tests {
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut bsp_trace = BSPTrace::new(origin, endpoint, 15.0);
+        let mut bsp_trace = BSPTrace::new(origin, endpoint, 1.0);
         // bsp_trace.trace_to_point(&map);
         // dbg!(&nodes.len());
         // dbg!(&nodes);

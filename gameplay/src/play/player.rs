@@ -16,9 +16,9 @@ use crate::{
     },
     info::{SpriteNum, StateNum},
     level::Level,
-    play::{mobj::MapObjectFlag, utilities::p_subrandom},
+    play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    MapObjectType, Skill,
+    Skill,
 };
 
 /// 16 pixels of bob
@@ -627,22 +627,22 @@ impl Player {
 
             // TODO: temporary
             if let Some(mut res) = bullet_slope {
-                dbg!(res.aimslope);
                 if res.line_target.player.is_none() {
-                    for _ in 0..10 {
-                        let mobj = MapObject::spawn_map_object(
-                            res.line_target.xy.x(),
-                            res.line_target.xy.y(),
-                            ((res.line_target.z + res.line_target.height) * 0.75) as i32,
-                            MapObjectType::MT_BLOOD,
-                            unsafe { &mut *res.line_target.level },
-                        );
-                        unsafe {
-                            (*mobj).momxy.set_x(p_subrandom() as f32 * 0.7); // P_SubRandom() << 12;
-                            (*mobj).momxy.set_y(p_subrandom() as f32 * 0.7);
-                        }
-                    }
-                    res.line_target.p_take_damage(None, None, false, 5);
+                    // TODO: lots of blood causes a segfault. Probably the linked list... again...
+                    // for _ in 0..10 {
+                    //     let mobj = MapObject::spawn_map_object(
+                    //         res.line_target.xy.x(),
+                    //         res.line_target.xy.y(),
+                    //         ((res.line_target.z + res.line_target.height) * 0.75) as i32,
+                    //         MapObjectType::MT_BLOOD,
+                    //         unsafe { &mut *res.line_target.level },
+                    //     );
+                    //     unsafe {
+                    //         (*mobj).momxy.set_x(p_subrandom() as f32 * 0.7); // P_SubRandom() << 12;
+                    //         (*mobj).momxy.set_y(p_subrandom() as f32 * 0.7);
+                    //     }
+                    // }
+                    res.line_target.p_take_damage(None, None, false, 1000);
                 }
             }
         }
