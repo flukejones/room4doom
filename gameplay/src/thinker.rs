@@ -14,7 +14,7 @@ use crate::{
         doors::VerticalDoor,
         floor::FloorMove,
         lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
-        map_object::MapObject,
+        mobj::MapObject,
         platforms::Platform,
     },
 };

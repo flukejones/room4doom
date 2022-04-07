@@ -19,7 +19,7 @@ use crate::{
     DPtr,
 };
 
-use super::{map_object::MapObject, specials::find_lowest_ceiling_surrounding};
+use super::{mobj::MapObject, specials::find_lowest_ceiling_surrounding};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;

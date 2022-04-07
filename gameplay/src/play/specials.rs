@@ -12,7 +12,7 @@ use super::{
         ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
         LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
     },
-    map_object::MapObject,
+    mobj::MapObject,
     platforms::{ev_do_platform, PlatKind},
 };
 
@@ -732,7 +732,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
 /// Actions for when a thing shoots a special line
 ///
 /// Doom function name `P_ShootSpecialLine`
-pub fn shoot_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn shoot_special_line(line: DPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     if thing.level.is_null() {

@@ -5,7 +5,7 @@
 //! - stuff like that...
 
 pub mod enemy; // required by states
-pub mod map_object; // info, level data, game, bsp
+pub mod mobj; // info, level data, game, bsp
 pub mod player;
 pub mod player_sprite; // info/states
 pub mod specials; // game
@@ -16,9 +16,7 @@ use std::{error::Error, fmt, str::FromStr};
 pub(crate) mod ceiling;
 pub(crate) mod doors;
 pub(crate) mod floor;
-pub(crate) mod interaction;
 pub(crate) mod lights;
-pub(crate) mod movement;
 pub(crate) mod platforms;
 mod switch;
 mod teleport;

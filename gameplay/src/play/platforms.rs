@@ -5,7 +5,7 @@
 use std::ptr::null_mut;
 
 use super::{
-    map_object::MapObject,
+    mobj::MapObject,
     specials::{
         find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
     },

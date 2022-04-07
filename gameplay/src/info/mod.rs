@@ -6,7 +6,7 @@ use std::fmt;
 
 use enumn::N;
 
-use crate::play::{map_object::MapObject, player::Player, player_sprite::PspDef};
+use crate::play::{mobj::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 mod map_object_info;
 mod sounds;

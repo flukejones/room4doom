@@ -5,19 +5,17 @@ use std::ptr;
 use glam::Vec2;
 use log::{debug, error, info};
 
-use super::{
-    map_object::{MapObject, MapObjectFlag},
-    utilities::p_random,
-    Skill,
-};
+use super::Skill;
 use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType},
     info::{MapObjectType, SfxEnum, SpriteNum, StateNum, STATES},
     lang::english::*,
     play::{
+        mobj::MapObjectFlag,
         player::{PlayerCheat, PlayerState},
-        utilities::point_to_angle_2,
+        utilities::{p_random, point_to_angle_2},
     },
+    MapObject,
 };
 
 pub const BONUSADD: i32 = 6;
@@ -43,7 +41,7 @@ impl MapObject {
     /// - The Sargent has it's `target` set to `source`
     ///
     /// If Sargent was a Player then the player has `attacker` set to `source`
-    pub fn p_take_damage(
+    pub(crate) fn p_take_damage(
         &mut self,
         inflictor: Option<&MapObject>,
         mut source: Option<&mut MapObject>,
@@ -268,7 +266,7 @@ impl MapObject {
     /// Interact with special pickups
     ///
     /// Doom function name `P_TouchSpecialThing`
-    pub fn touch_special(&mut self, special: &mut MapObject) {
+    pub(super) fn touch_special(&mut self, special: &mut MapObject) {
         let delta = special.z - self.z;
 
         if delta > self.height || delta < -8.0 {

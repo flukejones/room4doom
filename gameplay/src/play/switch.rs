@@ -7,7 +7,7 @@ use super::{
     doors::{ev_do_door, ev_vertical_door, DoorKind},
     floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
     lights::ev_turn_light_on,
-    map_object::MapObject,
+    mobj::MapObject,
     platforms::{ev_do_platform, PlatKind},
 };
 

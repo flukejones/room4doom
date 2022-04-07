@@ -1,10 +1,9 @@
 //! Doom source name `p_enemy`
 
-use log::{error, info};
+use log::error;
 
 use super::{
-    map_object::{MapObject, MapObjectFlag},
-    movement::p_radius_attack,
+    mobj::{p_radius_attack, MapObject, MapObjectFlag},
     utilities::point_to_angle_2,
 };
 

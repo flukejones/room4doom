@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    map_object::MapObject,
+    mobj::MapObject,
     specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector},
     utilities::p_random,
 };

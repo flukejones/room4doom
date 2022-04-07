@@ -5,7 +5,7 @@ use crate::{
     Sector,
 };
 
-use super::map_object::MapObjectFlag;
+use super::mobj::MapObjectFlag;
 
 /// Doom function name `EV_Teleport`
 pub fn teleport(
