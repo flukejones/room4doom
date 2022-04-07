@@ -19,7 +19,7 @@ use crate::{
         switch::p_use_special_line,
         utilities::{
             box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
-            MAXRADIUS, USERANGE, VIEWHEIGHT,
+            USERANGE, VIEWHEIGHT,
         },
     },
     DPtr, MapObject,
@@ -779,23 +779,4 @@ impl MapObject {
         // can't use for than one special line in a row
         false
     }
-}
-
-/// P_RadiusAttack
-/// Source is the creature that caused the explosion at spot.
-pub fn p_radius_attack(_spot: &mut MapObject, _source: &mut MapObject, damage: f32) {
-    let _dist = damage + MAXRADIUS;
-    unimplemented!()
-    // // origin of block level is bmaporgx and bmaporgy
-    // let yh = (spot.xy.y() + dist - bmaporgy) >> MAPBLOCKSHIFT;
-    // let yl = (spot.xy.y() - dist - bmaporgy) >> MAPBLOCKSHIFT;
-    // let xh = (spot.xy.x() + dist - bmaporgx) >> MAPBLOCKSHIFT;
-    // let xl = (spot.xy.x() - dist - bmaporgx) >> MAPBLOCKSHIFT;
-    // bombspot = spot;
-    // bombsource = source;
-    // bombdamage = damage;
-
-    // for (y = yl; y <= yh; y++)
-    // for (x = xl; x <= xh; x++)
-    // P_BlockThingsIterator(x, y, PIT_RadiusAttack);
 }

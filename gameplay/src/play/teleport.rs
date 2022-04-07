@@ -29,10 +29,11 @@ pub fn teleport(
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
-                if let &ObjectType::MapObject(ref mobj) = thinker.object() {
+                if let ObjectType::MapObject(ref mobj) = thinker.object() {
                     unsafe {
-                        if (*mobj.subsector).sector.as_ptr()
-                            == sector as *const Sector as *mut Sector
+                        if mobj.kind == MapObjectType::MT_TELEPORTMAN
+                            && (*mobj.subsector).sector.as_ptr()
+                                == sector as *const Sector as *mut Sector
                         {
                             return true;
                         }

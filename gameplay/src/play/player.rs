@@ -623,26 +623,30 @@ impl Player {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
             let bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
-            println!("PEWPEW!!");
 
             // TODO: temporary
             if let Some(mut res) = bullet_slope {
                 if res.line_target.player.is_none() {
-                    // TODO: lots of blood causes a segfault. Probably the linked list... again...
-                    // for _ in 0..10 {
-                    //     let mobj = MapObject::spawn_map_object(
-                    //         res.line_target.xy.x(),
-                    //         res.line_target.xy.y(),
-                    //         ((res.line_target.z + res.line_target.height) * 0.75) as i32,
-                    //         MapObjectType::MT_BLOOD,
-                    //         unsafe { &mut *res.line_target.level },
-                    //     );
-                    //     unsafe {
-                    //         (*mobj).momxy.set_x(p_subrandom() as f32 * 0.7); // P_SubRandom() << 12;
-                    //         (*mobj).momxy.set_y(p_subrandom() as f32 * 0.7);
-                    //     }
-                    // }
-                    res.line_target.p_take_damage(None, None, false, 1000);
+                    for _ in 0..3 {
+                        let mobj = MapObject::spawn_map_object(
+                            res.line_target.xy.x()
+                                + super::utilities::p_subrandom() as f32 / 255.0 * mobj.radius,
+                            res.line_target.xy.y()
+                                + super::utilities::p_subrandom() as f32 / 255.0 * mobj.radius,
+                            (res.line_target.z + (res.line_target.height * 0.75)) as i32,
+                            crate::MapObjectType::MT_BLOOD,
+                            unsafe { &mut *res.line_target.level },
+                        );
+                        unsafe {
+                            (*mobj).momxy.set_x(
+                                super::utilities::p_subrandom() as f32 / 255.0 * (*mobj).radius,
+                            ); // P_SubRandom() << 12;
+                            (*mobj).momxy.set_y(
+                                super::utilities::p_subrandom() as f32 / 255.0 * (*mobj).radius,
+                            );
+                        }
+                    }
+                    res.line_target.p_take_damage(None, Some(mobj), false, 5);
                 }
             }
         }

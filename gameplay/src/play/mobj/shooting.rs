@@ -1,9 +1,10 @@
 use glam::Vec2;
+use log::error;
 
 use crate::{
     info::{SfxEnum, MOBJINFO},
     level::map_data::BSPTrace,
-    play::utilities::{p_random, path_traverse, Intercept},
+    play::utilities::{p_random, path_traverse, Intercept, MAXRADIUS},
     DPtr, LineDefFlags, MapObject,
 };
 
@@ -60,6 +61,27 @@ impl MapObject {
         );
 
         aim_traverse.result()
+    }
+
+    /// Source is the creature that caused the explosion at spot(self).
+    ///
+    /// Doom functrion name `P_RadiusAttack`
+    pub fn radius_attack(&mut self, damage: f32) {
+        // source is self.target
+        let _dist = damage + MAXRADIUS;
+        error!("radius_attack not implemented");
+        // // origin of block level is bmaporgx and bmaporgy
+        // let yh = (spot.xy.y() + dist - bmaporgy) >> MAPBLOCKSHIFT;
+        // let yl = (spot.xy.y() - dist - bmaporgy) >> MAPBLOCKSHIFT;
+        // let xh = (spot.xy.x() + dist - bmaporgx) >> MAPBLOCKSHIFT;
+        // let xl = (spot.xy.x() - dist - bmaporgx) >> MAPBLOCKSHIFT;
+        // bombspot = spot;
+        // bombsource = source;
+        // bombdamage = damage;
+
+        // for (y = yl; y <= yh; y++)
+        // for (x = xl; x <= xh; x++)
+        // P_BlockThingsIterator(x, y, PIT_RadiusAttack);
     }
 }
 

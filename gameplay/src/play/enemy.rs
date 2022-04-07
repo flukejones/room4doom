@@ -3,7 +3,7 @@
 use log::error;
 
 use super::{
-    mobj::{p_radius_attack, MapObject, MapObjectFlag},
+    mobj::{MapObject, MapObjectFlag},
     utilities::point_to_angle_2,
 };
 
@@ -133,6 +133,7 @@ pub fn a_chase(actor: &mut MapObject) {
 
 /// Stay in state until a player is sighted.
 pub fn a_look(actor: &mut MapObject) {
+    //error!("a_look not implemented");
     // mobj_t *targ;
     //
     // actor->threshold = 0; // any shot will wake up
@@ -192,7 +193,7 @@ pub fn a_look(actor: &mut MapObject) {
 }
 
 pub fn a_fire(_actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_fire not implemented");
     // mobj_t *dest;
     // mobj_t *target;
     // unsigned an;
@@ -260,11 +261,9 @@ pub fn a_fall(actor: &mut MapObject) {
 }
 
 pub fn a_explode(actor: &mut MapObject) {
-    if let Some(target) = actor.target {
-        unsafe {
-            p_radius_attack(actor, &mut *target, 128.0);
-        }
-    }
+    println!("BOOOOOOM!");
+    dbg!(actor.target.is_some());
+    actor.radius_attack(128.0);
 }
 
 pub fn a_xscream(_actor: &mut MapObject) {
@@ -274,146 +273,143 @@ pub fn a_xscream(_actor: &mut MapObject) {
 }
 
 pub fn a_keendie(_actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_keendie not implemented");
 }
 
 pub fn a_hoof(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_hoof not implemented");
 }
 
 pub fn a_metal(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_metal not implemented");
 }
 
 pub fn a_babymetal(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_babymetal not implemented");
 }
 
 pub fn a_brainawake(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_brainawake not implemented");
 }
 
 pub fn a_braindie(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_braindie not implemented");
 }
 
 pub fn a_brainspit(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_brainspit not implemented");
 }
 
 pub fn a_brainpain(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_brainpain not implemented");
 }
 
 pub fn a_brainscream(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_brainscream not implemented");
 }
 
 pub fn a_brainexplode(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_brainexplode not implemented");
 }
 
 pub fn a_spawnfly(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_spawnfly not implemented");
 }
 
 pub fn a_spawnsound(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_spawnsound not implemented");
 }
 
 pub fn a_vilestart(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_vilestart not implemented");
 }
 
 pub fn a_vilechase(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_vilechase not implemented");
 }
 
 pub fn a_viletarget(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_viletarget not implemented");
 }
 
 pub fn a_vileattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_vileattack not implemented");
 }
 
 pub fn a_posattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_posattack not implemented");
 }
 
 pub fn a_sposattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_sposattack not implemented");
 }
 
 pub fn a_cposattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_cposattack not implemented");
 }
 
 pub fn a_bspiattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_bspiattack not implemented");
 }
 
 pub fn a_skullattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_skullattack not implemented");
 }
 
 pub fn a_headattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_headattack not implemented");
 }
 
 pub fn a_sargattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_sargattack not implemented");
 }
 
 pub fn a_bruisattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_bruisattack not implemented");
 }
 
 pub fn a_cposrefire(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_cposrefire not implemented");
 }
 
 pub fn a_cyberattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_cyberattack not implemented");
 }
 
 pub fn a_troopattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_troopattack not implemented");
 }
 
 pub fn a_pain(actor: &mut MapObject) {
-    dbg!("a_pain");
+    error!("a_pain not implemented");
     // if (actor->info->painsound)
     // S_StartSound(actor, actor->info->painsound);
 }
 
 pub fn a_painattack(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_painattack not implemented");
 }
 
 pub fn a_paindie(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_paindie not implemented");
 }
 
-pub fn a_fatattack(actor: &mut MapObject) {
-    unimplemented!();
-}
 pub fn a_fatattack1(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_fatattack1 not implemented");
 }
 pub fn a_fatattack2(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_fatattack2 not implemented");
 }
 pub fn a_fatattack3(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_fatattack3 not implemented");
 }
 
 pub fn a_fatraise(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_fatraise not implemented");
 }
 
 pub fn a_spidrefire(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_spidrefire not implemented");
 }
 
 pub fn a_bossdeath(actor: &mut MapObject) {
@@ -421,27 +417,27 @@ pub fn a_bossdeath(actor: &mut MapObject) {
 }
 
 pub fn a_skelwhoosh(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_skelwhoosh not implemented");
 }
 
 pub fn a_skelfist(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_skelfist not implemented");
 }
 
 pub fn a_skelmissile(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_skelmissile not implemented");
 }
 
 pub fn a_tracer(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_tracer not implemented");
 }
 
 pub fn a_startfire(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_startfire not implemented");
 }
 
 pub fn a_firecrackle(actor: &mut MapObject) {
-    unimplemented!();
+    error!("a_firecrackle not implemented");
 }
 
 pub fn a_playerscream(actor: &mut MapObject) {
