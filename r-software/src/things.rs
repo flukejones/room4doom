@@ -194,13 +194,13 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = ((SCREENWIDTH as f32 / 2.0) + tx * x_scale) as i32;
+        let x1 = ((SCREENWIDTH as f32 / 2.0) + tx * x_scale).floor() as i32 - 1;
         if x1 > SCREENWIDTH as i32 {
             return true;
         }
 
         tx += patch.data.len() as f32;
-        let x2 = (((SCREENWIDTH as f32 / 2.0) + tx * x_scale) - 1.0) as i32;
+        let x2 = ((SCREENWIDTH as f32 / 2.0) + tx * x_scale).floor() as i32;
         if x2 < 0 {
             return true;
         }
@@ -264,9 +264,7 @@ impl SoftwareRenderer {
         let colourmap = texture_data.sprite_light_colourmap(vis.light_level, vis.scale);
 
         for x in vis.x1..=vis.x2 {
-            frac += vis.x_iscale;
-
-            let tex_column = frac.floor() as usize;
+            let tex_column = (frac).floor() as usize;
             if tex_column >= patch.data.len() {
                 break;
                 // tex_column %= patch.data.len();
@@ -299,6 +297,8 @@ impl SoftwareRenderer {
                     canvas,
                 );
             }
+
+            frac += vis.x_iscale;
         }
     }
 
