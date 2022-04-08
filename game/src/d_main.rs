@@ -74,7 +74,7 @@ pub fn d_doom_loop(
     let mut tex_num = 0;
     let mut flat_num = 0;
     let mut sprite_num = 119;
-    let images: Option<Vec<WadPatch>> = if options.texpatch_test || options.texture_test {
+    let images: Option<Vec<WadPatch>> = if options.image_cycle_test || options.texture_test {
         Some(game.wad_data.patches_iter().collect())
     } else {
         None

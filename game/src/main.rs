@@ -111,12 +111,12 @@ pub struct GameOptions {
     #[options(help = "game options help")]
     pub help: bool,
 
-    #[options(help = "Palette test, cycles through palette display")]
+    #[options(help = "palette test, cycles through palette display")]
     pub palette_test: bool,
-    #[options(meta = "", help = "Image test, pass the sprite name to render")]
+    #[options(meta = "", help = "image test, pass the sprite name to render")]
     pub image_test: Option<String>,
-    #[options(help = "texpatch test, cycle through the patches for texture compose")]
-    pub texpatch_test: bool,
+    #[options(help = "image test, cycle through the patches for texture compose")]
+    pub image_cycle_test: bool,
     #[options(help = "texture compose test, cycle through the composable textures")]
     pub texture_test: bool,
     #[options(help = "flat texture test, cycle through the floor/ceiling flats")]
