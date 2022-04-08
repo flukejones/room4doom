@@ -1,6 +1,6 @@
 [package]
 name = "diirdoom"
-version = "0.1.0"
+version = "0.9.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 license = "MPL-2.0"
