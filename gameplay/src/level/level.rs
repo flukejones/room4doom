@@ -9,7 +9,7 @@ use crate::{
     pic::Button,
     play::Skill,
     thinker::ThinkerAlloc,
-    DPtr, PicData,
+    DPtr, LineDefFlags, PicData, Sector,
 };
 
 use super::map_defs::LineDef;
@@ -91,14 +91,12 @@ impl Level {
 
         let map_data = MapData::new(map_name);
 
-        let thinker_count = map_data.get_things().len();
-
         // G_DoReborn
         // G_CheckSpot
 
         Level {
             map_data,
-            thinkers: ThinkerAlloc::new(thinker_count + 1000),
+            thinkers: ThinkerAlloc::new(0),
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
@@ -120,12 +118,13 @@ impl Level {
             line_special_list: Vec::with_capacity(50),
             pic_data,
         }
-        // TODO: P_InitThinkers();
-        // P_InitPicAnims
     }
 
     pub fn load(&mut self, wad_data: &WadData) {
         self.map_data.load(wad_data);
+        unsafe {
+            self.thinkers = ThinkerAlloc::new(self.map_data.get_things().len() + 200);
+        }
     }
 
     pub fn do_exit_level(&mut self) {
