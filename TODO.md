@@ -1,7 +1,6 @@
 - [ ] : A method to find alll SubSectors in a radius
         This is required for explosion type stuff
 - [ ] : Really need swept-volume collisions
-- [ ] : Need the above for use-lines too
 - [ ] : sound-server using rx/tx channels
 - [ ] : HUD using rx/tx channels
 - [ ] : angle_to_screen has an impact on sizing and scale
@@ -13,7 +12,6 @@
 - [ ] : Automap
 - [ ] : Status bar drawing
 - [ ] : Sound state machine on new thread
-- [ ] : E5M1 second "eye" to shoot doesn't react
 
 - [-] : Sprites colourmap/light selection
 - [-] : P_TouchSpecialThing
@@ -25,6 +23,7 @@
 - [-] : EV_Teleport (todo: telefrag stuff)
 - [-] : Recheck planes
 
+- [X] : FIXED: incorrect mover. E5M1 second "eye" to shoot doesn't react
 - [X] : Sprite rotations
 - [X] : FIXED: Sprite sorting: impl Ord on VisSprite for rust iiter sorting
 - [X] : Sprite clipping (issues with planes, doors)

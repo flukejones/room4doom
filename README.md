@@ -13,6 +13,8 @@ The code can dramatically change as I learn new or better ways to do things.
 - Lighting (diminished, animated)
 - Movers (environment things, like doors, platforms)
 - Thinkers (used for the above + demons)
+- Thinker states and changing
+- Sprites
 - Input
 - Cheats (partial for debugging)
 - CLI options (use `--help`)
