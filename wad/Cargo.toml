@@ -4,13 +4,3 @@ version = "0.1.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 license = "MPL-2.0"
-
-[dependencies]
-
-[dev-dependencies]
-criterion = "~0.3"
-
-[[bench]]
-name = "load_wads"
-harness = false
-path = "benches/wad_loading.rs"

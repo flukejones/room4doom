@@ -262,7 +262,6 @@ pub fn a_fall(actor: &mut MapObject) {
 
 pub fn a_explode(actor: &mut MapObject) {
     println!("BOOOOOOM!");
-    dbg!(actor.target.is_some());
     actor.radius_attack(128.0);
 }
 

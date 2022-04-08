@@ -384,7 +384,7 @@ impl MapObject {
             ONFLOORZ
         };
 
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::n(i).unwrap(), level);
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::from(i), level);
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);

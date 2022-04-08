@@ -9,14 +9,4 @@ build = "../build.rs"
 wad = { path = "../wad" }
 glam = "0.8.5"
 gumdrop = "~0.8"
-enumn = "0.1.3"
-
 log = "^0.4"
-
-[dev-dependencies]
-criterion = "~0.3"
-
-[[bench]]
-name = "load_map"
-harness = false
-path = "benches/parse_map.rs"

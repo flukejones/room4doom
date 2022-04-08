@@ -1,5 +1,3 @@
-use enumn::N;
-
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
 
@@ -92,9 +90,8 @@ pub enum WeaponType {
 pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
 pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
 
-#[repr(usize)]
 /// Ammunition types defined.
-#[derive(Copy, Clone, PartialEq, Eq, N)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
     Clip,
@@ -107,6 +104,20 @@ pub enum AmmoType {
     NumAmmo,
     /// Unlimited for chainsaw / fist.
     NoAmmo,
+}
+
+impl From<usize> for AmmoType {
+    fn from(i: usize) -> Self {
+        match i {
+            0 => AmmoType::Clip,
+            1 => AmmoType::Shell,
+            2 => AmmoType::Cell,
+            3 => AmmoType::Missile,
+            4 => AmmoType::NumAmmo,
+            5 => AmmoType::NoAmmo,
+            _ => AmmoType::NoAmmo,
+        }
+    }
 }
 
 /// Power up artifacts.

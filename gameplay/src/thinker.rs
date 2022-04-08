@@ -212,11 +212,7 @@ impl ThinkerAlloc {
         debug!("Pushing: {:?}", root_ptr);
         match thinker.object() {
             ObjectType::MapObject(mobj) => {
-                if let Some(kind) = MapObjectType::n(mobj.kind as u16) {
-                    debug!("Adding Thinker of type {kind:?}");
-                } else {
-                    warn!("Unknown thinker doomednum {:?}", mobj.info.doomednum);
-                }
+                debug!("Adding Thinker of type {:?}", mobj.kind);
             }
             _ => debug!("Adding Thinker of type {:?}", thinker.object),
         }
