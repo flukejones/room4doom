@@ -502,7 +502,7 @@ impl MapObject {
                         player.backpack = true;
                     }
                     for i in 0..AmmoType::NumAmmo as usize {
-                        player.give_ammo(AmmoType::n(i).unwrap(), 1, skill);
+                        player.give_ammo(AmmoType::from(i), 1, skill);
                     }
                     player.message = Some(GOTBACKPACK);
                 }

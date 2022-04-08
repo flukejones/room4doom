@@ -19,4 +19,4 @@ rendering-trait = { path = "../rendering" }
 software-rendering = { path = "../r-software" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
-env_logger = "^0.8"
+env_logger = { version = "^0.8", default-features = false, features = ["termcolor", "atty"] }

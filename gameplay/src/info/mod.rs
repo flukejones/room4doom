@@ -4,8 +4,6 @@
 
 use std::fmt;
 
-use enumn::N;
-
 use crate::play::{mobj::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 mod map_object_info;
@@ -54,7 +52,7 @@ pub const SPRNAMES: [&str; 138] = [
 
 /// The ordering must match SPRNAMES
 #[repr(u16)]
-#[derive(Debug, Copy, Clone, N)]
+#[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum SpriteNum {
     SPR_TROO,
@@ -204,8 +202,7 @@ impl Default for SpriteNum {
     }
 }
 
-#[repr(u16)]
-#[derive(Debug, Copy, Clone, PartialEq, N)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum StateNum {
     S_NULL,
@@ -1178,8 +1175,7 @@ pub enum StateNum {
     NUMSTATES,
 }
 
-#[repr(u16)]
-#[derive(Debug, Copy, Clone, N, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum MapObjectType {
     MT_PLAYER,
@@ -1320,6 +1316,152 @@ pub enum MapObjectType {
     MT_MISC85,
     MT_MISC86,
     NUMMOBJTYPES,
+}
+
+impl From<u16> for MapObjectType {
+    fn from(i: u16) -> Self {
+        match i {
+            0 => MapObjectType::MT_PLAYER,
+            1 => MapObjectType::MT_POSSESSED,
+            2 => MapObjectType::MT_SHOTGUY,
+            3 => MapObjectType::MT_VILE,
+            4 => MapObjectType::MT_FIRE,
+            5 => MapObjectType::MT_UNDEAD,
+            6 => MapObjectType::MT_TRACER,
+            7 => MapObjectType::MT_SMOKE,
+            8 => MapObjectType::MT_FATSO,
+            9 => MapObjectType::MT_FATSHOT,
+            10 => MapObjectType::MT_CHAINGUY,
+            11 => MapObjectType::MT_TROOP,
+            12 => MapObjectType::MT_SERGEANT,
+            13 => MapObjectType::MT_SHADOWS,
+            14 => MapObjectType::MT_HEAD,
+            15 => MapObjectType::MT_BRUISER,
+            16 => MapObjectType::MT_BRUISERSHOT,
+            17 => MapObjectType::MT_KNIGHT,
+            18 => MapObjectType::MT_SKULL,
+            19 => MapObjectType::MT_SPIDER,
+            20 => MapObjectType::MT_BABY,
+            21 => MapObjectType::MT_CYBORG,
+            22 => MapObjectType::MT_PAIN,
+            23 => MapObjectType::MT_WOLFSS,
+            24 => MapObjectType::MT_KEEN,
+            25 => MapObjectType::MT_BOSSBRAIN,
+            26 => MapObjectType::MT_BOSSSPIT,
+            27 => MapObjectType::MT_BOSSTARGET,
+            28 => MapObjectType::MT_SPAWNSHOT,
+            29 => MapObjectType::MT_SPAWNFIRE,
+            30 => MapObjectType::MT_BARREL,
+            31 => MapObjectType::MT_TROOPSHOT,
+            32 => MapObjectType::MT_HEADSHOT,
+            33 => MapObjectType::MT_ROCKET,
+            34 => MapObjectType::MT_PLASMA,
+            35 => MapObjectType::MT_BFG,
+            36 => MapObjectType::MT_ARACHPLAZ,
+            37 => MapObjectType::MT_PUFF,
+            38 => MapObjectType::MT_BLOOD,
+            39 => MapObjectType::MT_TFOG,
+            40 => MapObjectType::MT_IFOG,
+            41 => MapObjectType::MT_TELEPORTMAN,
+            42 => MapObjectType::MT_EXTRABFG,
+            43 => MapObjectType::MT_MISC0,
+            44 => MapObjectType::MT_MISC1,
+            45 => MapObjectType::MT_MISC2,
+            46 => MapObjectType::MT_MISC3,
+            47 => MapObjectType::MT_MISC4,
+            48 => MapObjectType::MT_MISC5,
+            49 => MapObjectType::MT_MISC6,
+            50 => MapObjectType::MT_MISC7,
+            51 => MapObjectType::MT_MISC8,
+            52 => MapObjectType::MT_MISC9,
+            53 => MapObjectType::MT_MISC10,
+            54 => MapObjectType::MT_MISC11,
+            55 => MapObjectType::MT_MISC12,
+            56 => MapObjectType::MT_INV,
+            57 => MapObjectType::MT_MISC13,
+            58 => MapObjectType::MT_INS,
+            59 => MapObjectType::MT_MISC14,
+            60 => MapObjectType::MT_MISC15,
+            61 => MapObjectType::MT_MISC16,
+            62 => MapObjectType::MT_MEGA,
+            63 => MapObjectType::MT_CLIP,
+            64 => MapObjectType::MT_MISC17,
+            65 => MapObjectType::MT_MISC18,
+            66 => MapObjectType::MT_MISC19,
+            67 => MapObjectType::MT_MISC20,
+            68 => MapObjectType::MT_MISC21,
+            69 => MapObjectType::MT_MISC22,
+            70 => MapObjectType::MT_MISC23,
+            71 => MapObjectType::MT_MISC24,
+            72 => MapObjectType::MT_MISC25,
+            73 => MapObjectType::MT_CHAINGUN,
+            74 => MapObjectType::MT_MISC26,
+            75 => MapObjectType::MT_MISC27,
+            76 => MapObjectType::MT_MISC28,
+            77 => MapObjectType::MT_SHOTGUN,
+            78 => MapObjectType::MT_SUPERSHOTGUN,
+            79 => MapObjectType::MT_MISC29,
+            80 => MapObjectType::MT_MISC30,
+            81 => MapObjectType::MT_MISC31,
+            82 => MapObjectType::MT_MISC32,
+            83 => MapObjectType::MT_MISC33,
+            84 => MapObjectType::MT_MISC34,
+            85 => MapObjectType::MT_MISC35,
+            86 => MapObjectType::MT_MISC36,
+            87 => MapObjectType::MT_MISC37,
+            88 => MapObjectType::MT_MISC38,
+            89 => MapObjectType::MT_MISC39,
+            90 => MapObjectType::MT_MISC40,
+            91 => MapObjectType::MT_MISC41,
+            92 => MapObjectType::MT_MISC42,
+            93 => MapObjectType::MT_MISC43,
+            94 => MapObjectType::MT_MISC44,
+            95 => MapObjectType::MT_MISC45,
+            96 => MapObjectType::MT_MISC46,
+            97 => MapObjectType::MT_MISC47,
+            98 => MapObjectType::MT_MISC48,
+            99 => MapObjectType::MT_MISC49,
+            100 => MapObjectType::MT_MISC50,
+            101 => MapObjectType::MT_MISC51,
+            102 => MapObjectType::MT_MISC52,
+            103 => MapObjectType::MT_MISC53,
+            104 => MapObjectType::MT_MISC54,
+            105 => MapObjectType::MT_MISC55,
+            106 => MapObjectType::MT_MISC56,
+            107 => MapObjectType::MT_MISC57,
+            108 => MapObjectType::MT_MISC58,
+            109 => MapObjectType::MT_MISC59,
+            110 => MapObjectType::MT_MISC60,
+            111 => MapObjectType::MT_MISC61,
+            112 => MapObjectType::MT_MISC62,
+            113 => MapObjectType::MT_MISC63,
+            114 => MapObjectType::MT_MISC64,
+            115 => MapObjectType::MT_MISC65,
+            116 => MapObjectType::MT_MISC66,
+            117 => MapObjectType::MT_MISC67,
+            118 => MapObjectType::MT_MISC68,
+            119 => MapObjectType::MT_MISC69,
+            120 => MapObjectType::MT_MISC70,
+            121 => MapObjectType::MT_MISC71,
+            122 => MapObjectType::MT_MISC72,
+            123 => MapObjectType::MT_MISC73,
+            124 => MapObjectType::MT_MISC74,
+            125 => MapObjectType::MT_MISC75,
+            126 => MapObjectType::MT_MISC76,
+            127 => MapObjectType::MT_MISC77,
+            128 => MapObjectType::MT_MISC78,
+            129 => MapObjectType::MT_MISC79,
+            130 => MapObjectType::MT_MISC80,
+            131 => MapObjectType::MT_MISC81,
+            132 => MapObjectType::MT_MISC82,
+            133 => MapObjectType::MT_MISC83,
+            134 => MapObjectType::MT_MISC84,
+            135 => MapObjectType::MT_MISC85,
+            136 => MapObjectType::MT_MISC86,
+            137 => MapObjectType::NUMMOBJTYPES,
+            _ => MapObjectType::NUMMOBJTYPES,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
