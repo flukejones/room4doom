@@ -1,6 +1,6 @@
 [package]
 name = "rendering-trait"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 build = "../build.rs"

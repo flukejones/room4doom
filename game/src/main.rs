@@ -35,6 +35,25 @@ pub struct DoomOptions {
     pub verbose: log::LevelFilter,
 }
 
+impl Default for DoomOptions {
+    fn default() -> Self {
+        Self {
+            iwad: "doom.wad".to_string(),
+            pwad: Default::default(),
+            no_monsters: Default::default(),
+            respawn_parm: Default::default(),
+            fast_parm: Default::default(),
+            dev_parm: Default::default(),
+            deathmatch: Default::default(),
+            skill: Default::default(),
+            episode: Default::default(),
+            map: Default::default(),
+            autostart: Default::default(),
+            verbose: log::LevelFilter::Info,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderType {
     Basic,
@@ -82,22 +101,23 @@ pub struct GameOptions {
     #[options(help = "fullscreen?")]
     pub fullscreen: bool,
 
-    #[options(help = "Disable monsters")]
-    pub no_monsters: bool,
-    #[options(help = "Monsters respawn after being killed")]
-    pub respawn_parm: bool,
-    #[options(help = "Monsters move faster")]
-    pub fast_parm: bool,
-    #[options(
-        no_short,
-        help = "Developer mode. F1 saves a screenshot in the current working directory"
-    )]
-    pub dev_parm: bool,
-    #[options(
-        meta = "",
-        help = "Start a deathmatch game: 1 = classic, 2 = Start a deathmatch 2.0 game.  Weapons do not stay in place and all items respawn after 30 seconds"
-    )]
-    pub deathmatch: u8,
+    // #[options(help = "Disable monsters")]
+    // pub no_monsters: bool,
+    // #[options(help = "Monsters respawn after being killed")]
+    // pub respawn_parm: bool,
+    // #[options(help = "Monsters move faster")]
+    // pub fast_parm: bool,
+    // #[options(
+    //     no_short,
+    //     help = "Developer mode. F1 saves a screenshot in the current working directory"
+    // )]
+    // pub dev_parm: bool,
+    // #[options(
+    //     meta = "",
+    //     help = "Start a deathmatch game: 1 = classic, 2 = Start a deathmatch 2.0 game.  Weapons do not stay in place and all items respawn after 30 seconds"
+    // )]
+    // pub deathmatch: u8,
+    // pub autostart: bool,
     #[options(
         meta = "",
         help = "Set the game skill, 1-5 (1: easiest, 5: hardest). A skill of 0 disables all monsters"
@@ -107,7 +127,6 @@ pub struct GameOptions {
     pub episode: i32,
     #[options(meta = "", help = "Select level in episode", default = "1")]
     pub map: i32,
-    pub autostart: bool,
     #[options(help = "game options help")]
     pub help: bool,
 
@@ -133,16 +152,17 @@ impl From<GameOptions> for DoomOptions {
         DoomOptions {
             iwad: g.iwad,
             pwad: g.pwad,
-            no_monsters: g.no_monsters,
-            respawn_parm: g.respawn_parm,
-            fast_parm: g.fast_parm,
-            dev_parm: g.dev_parm,
-            deathmatch: g.deathmatch,
+            // no_monsters: g.no_monsters,
+            // respawn_parm: g.respawn_parm,
+            // fast_parm: g.fast_parm,
+            // dev_parm: g.dev_parm,
+            // deathmatch: g.deathmatch,
+            // autostart: g.autostart,
             skill: g.skill,
             episode: g.episode,
             map: g.map,
-            autostart: g.autostart,
             verbose: g.verbose,
+            ..DoomOptions::default()
         }
     }
 }
