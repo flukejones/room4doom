@@ -79,7 +79,7 @@ impl SegRender {
             markfloor: false,
             markceiling: false,
             maskedtexture: false,
-            maskedtexturecol: 0,
+            maskedtexturecol: -1,
             toptexture: -1,
             bottomtexture: -1,
             midtexture: -1,
@@ -197,7 +197,7 @@ impl SegRender {
         self.toptexture = -1;
         self.bottomtexture = -1;
         self.maskedtexture = false;
-        self.maskedtexturecol = 0;
+        self.maskedtexturecol = -1;
 
         if seg.backsector.is_none() {
             let textures = &self.texture_data.borrow();
