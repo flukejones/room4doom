@@ -4,7 +4,10 @@ use log::error;
 use crate::{
     info::{SfxEnum, MOBJINFO},
     level::map_data::BSPTrace,
-    play::utilities::{p_random, path_traverse, Intercept, MAXRADIUS},
+    play::{
+        specials::shoot_special_line,
+        utilities::{p_random, path_traverse, Intercept, MAXRADIUS},
+    },
     DPtr, LineDefFlags, MapObject,
 };
 
@@ -33,23 +36,25 @@ impl MapObject {
     pub(crate) fn aim_line_attack(&mut self, distance: f32) -> Option<AimResult> {
         let xy2 = self.xy + self.angle.unit() * distance;
 
-        // These a globals in Doom, used in the traverse functions
-        let shootz = self.z + (self.height as i32 >> 1) as f32 + 8.0;
-        // can't shoot outside view angles
-        let top_slope = 100.0 / 160.0;
-        let bot_slope = -100.0 / 160.0;
-        let attack_range = distance;
-        // Path traverse neds to set line_target
-        // let line_target = null;
-
-        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 10.0);
+        // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
+        // demons might overlap from a subsector that isn't caught otherwise (for example demon
+        // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
+        // NOTE: experiment. The bsp trace works via splitting plane intersection so probably not required.
+        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 1.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
         //bsp_trace.nodes = level.map_data.get_nodes().iter().enumerate().map(|(i,_)| i as u16).collect();
 
         // set up traverser
-        let mut aim_traverse = AimTraverse::new(top_slope, bot_slope, attack_range, shootz);
+        let mut aim_traverse = AimTraverse::new(
+            // can't shoot outside view angles
+            100.0 / 160.0,
+            -100.0 / 160.0,
+            //
+            distance,
+            self.z + (self.height as i32 >> 1) as f32 + 8.0,
+        );
 
         path_traverse(
             self.xy,
@@ -110,8 +115,11 @@ impl AimTraverse {
     }
 
     /// After `check()` is called, a result should be checked for
-    fn check(&mut self, shooter: &MapObject, intercept: &mut Intercept) -> bool {
+    fn check(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
+            // TODO: temporary, move this line to shoot traverse
+            shoot_special_line(line.clone(), shooter);
+
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
                 return false;

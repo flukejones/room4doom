@@ -440,11 +440,12 @@ pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, point1: Vec2, point2: V
     let p = project_vec2(lc, d);
     let nearest = point1 + p;
 
-    if circle_point_intersect(c_origin, c_radius, nearest) {
-        if p.length() < d.length() && p.dot(d) > f32::EPSILON {
-            // return Some((nearest - c_origin).normalize() * dist);
-            return true;
-        }
+    if circle_point_intersect(c_origin, c_radius, nearest)
+        && p.length() < d.length()
+        && p.dot(d) > f32::EPSILON
+    {
+        // return Some((nearest - c_origin).normalize() * dist);
+        return true;
     }
     false
 }

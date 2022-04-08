@@ -301,7 +301,7 @@ impl MapData {
                 sector.lines.push(DPtr::new(line));
             }
         }
-        info!("{}: Mapped liedefs to sectors", self.name);
+        info!("{}: Mapped linedefs to sectors", self.name);
 
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in level struct
@@ -500,18 +500,18 @@ impl BSPTrace {
             self.find_ssect_intercepts(node.child_index[side1], map, count);
             self.find_ssect_intercepts(node.child_index[side2], map, count);
         } else if self.radius > 1.0 {
-            let side_lr_1 = node.point_on_side(&self.origin_left);
-            let side_lr_2 = node.point_on_side(&self.endpoint_right);
+            let side_l1 = node.point_on_side(&self.origin_left);
+            let side_l2 = node.point_on_side(&self.endpoint_left);
 
-            let side_rl_1 = node.point_on_side(&self.origin_right);
-            let side_rl_2 = node.point_on_side(&self.endpoint_left);
+            let side_r1 = node.point_on_side(&self.origin_right);
+            let side_r2 = node.point_on_side(&self.endpoint_right);
 
-            if side_lr_1 != side_lr_2 {
-                self.find_ssect_intercepts(node.child_index[side_lr_1], map, count);
-                self.find_ssect_intercepts(node.child_index[side_lr_2], map, count);
-            } else if side_rl_1 != side_rl_2 {
-                self.find_ssect_intercepts(node.child_index[side_rl_1], map, count);
-                self.find_ssect_intercepts(node.child_index[side_rl_2], map, count);
+            if side_l1 != side_l2 {
+                self.find_ssect_intercepts(node.child_index[side_l1], map, count);
+                self.find_ssect_intercepts(node.child_index[side_l2], map, count);
+            } else if side_r1 != side_r2 {
+                self.find_ssect_intercepts(node.child_index[side_r1], map, count);
+                self.find_ssect_intercepts(node.child_index[side_r2], map, count);
             } else {
                 self.find_ssect_intercepts(node.child_index[side1], map, count);
             }
