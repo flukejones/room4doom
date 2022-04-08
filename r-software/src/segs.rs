@@ -386,19 +386,17 @@ impl SegRender {
 
         // render it
         if self.markceiling {
-            rdata.visplanes.ceilingplane = rdata.visplanes.check_plane(
-                self.rw_x,
-                self.rw_stopx - 1,
-                rdata.visplanes.ceilingplane,
-            );
+            rdata.visplanes.ceilingplane =
+                rdata
+                    .visplanes
+                    .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.ceilingplane);
         }
 
         if self.markfloor {
-            rdata.visplanes.floorplane = rdata.visplanes.check_plane(
-                self.rw_x,
-                self.rw_stopx - 1,
-                rdata.visplanes.floorplane,
-            );
+            rdata.visplanes.floorplane =
+                rdata
+                    .visplanes
+                    .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.floorplane);
         }
 
         self.render_seg_loop(seg, player.viewheight, rdata, canvas);

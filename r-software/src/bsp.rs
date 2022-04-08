@@ -150,7 +150,7 @@ impl SoftwareRenderer {
                 let sky_mid = SCREENHEIGHT_HALF;
                 let skytex = textures.sky_pic();
 
-                for x in plane.minx..=plane.maxx + 1 {
+                for x in plane.minx..=plane.maxx {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
@@ -185,7 +185,7 @@ impl SoftwareRenderer {
             plane.view_angle = view_angle;
 
             let mut span_start = [0; SCREENWIDTH];
-            for x in plane.minx..=plane.maxx + 1 {
+            for x in plane.minx..=plane.maxx {
                 let mut step = x - 1;
                 if step < 0 {
                     step = 0;
