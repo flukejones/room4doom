@@ -341,7 +341,7 @@ impl SoftwareRenderer {
                             .point_on_side(&Vec2::new(vis.gx, vis.gy))
                             == 0)
                 {
-                    if seg.maskedtexturecol != 0 {
+                    if seg.maskedtexturecol != -1 {
                         self.render_masked_seg_range(viewz, seg, r1, r2, canvas);
                     }
                     // seg is behind sprite
