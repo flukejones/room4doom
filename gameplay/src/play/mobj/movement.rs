@@ -399,7 +399,7 @@ impl MapObject {
             // Check things in subsectors
             if !ssect
                 .sector
-                .run_func_on_thinglist(|thing| self.pit_check_thing(thing))
+                .run_func_on_thinglist(|thing| self.pit_check_thing(thing, endpoint))
             {
                 return false;
             }
@@ -416,7 +416,7 @@ impl MapObject {
         true
     }
 
-    fn pit_check_thing(&mut self, thing: &mut MapObject) -> bool {
+    fn pit_check_thing(&mut self, thing: &mut MapObject, endpoint: Vec2) -> bool {
         if thing.flags
             & (MapObjectFlag::Solid as u32
                 | MapObjectFlag::Special as u32
@@ -426,9 +426,9 @@ impl MapObject {
             return true;
         }
 
-        let self_xy = self.xy + self.momxy;
         let dist = thing.radius + self.radius;
-        if (thing.xy.x() - self_xy.x()).abs() >= dist || (thing.xy.y() - self_xy.y()).abs() >= dist
+        if (thing.xy.x() - endpoint.x()).abs() >= dist
+            || (thing.xy.y() - endpoint.y()).abs() >= dist
         {
             // No hit
             return true;
@@ -531,8 +531,9 @@ impl MapObject {
         true
     }
 
-    // P_SlideMove
-    // Loop until get a good move or stopped
+    /// Loop until get a good move or stopped
+    ///
+    /// Doom function name `P_SlideMove`
     fn p_slide_move(&mut self) {
         // let ctrl = &mut level.mobj_ctrl;
         let mut hitcount = 0;

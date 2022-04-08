@@ -1,4 +1,4 @@
-- [ ] : A method to find alll SubSectors in a radius
+- [ ] : A method to find all SubSectors in a radius
         This is required for explosion type stuff
 - [ ] : Really need swept-volume collisions
 - [ ] : sound-server using rx/tx channels
@@ -23,6 +23,7 @@
 - [-] : EV_Teleport (todo: telefrag stuff)
 - [-] : Recheck planes
 
+- [X] : FIXED: Needed to pass actual endpoint Vec2 for check: Thing collisions are basic, they need "drift" off the center of a thing
 - [X] : FIXED: incorrect mover. E5M1 second "eye" to shoot doesn't react
 - [X] : Sprite rotations
 - [X] : FIXED: Sprite sorting: impl Ord on VisSprite for rust iiter sorting
@@ -30,7 +31,6 @@
 - [X] : FIXED: Teleport telefrag killing entire sector not just spawn point: Radius check
 - [X] : Implement P_DamageMobj
 - [X] : Doom 2 M4 chopper window bottom plane is not done?
-        + So this is an actual missing texture on lower part
 - [X] : E1M4 round room, floor strip inside of door steps isn't getting a visplane?
         + Same as D2M4. Both checked in Slade. Fixed by ignoring missing texture to ensure
           visplane is built.
