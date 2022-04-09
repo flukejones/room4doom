@@ -363,9 +363,9 @@ impl MapObject {
         // lines per subsector = average 4
         // Lines to check = 4~
         let mut bsp_trace =
-            BSPTrace::new(Vec2::new(left, bottom), Vec2::new(right, top), self.radius);
+            BSPTrace::new_line(Vec2::new(left, bottom), Vec2::new(right, top), self.radius);
         let mut count = 0;
-        bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
+        bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
 
         // path_traverse(
         //     self.xy,
@@ -568,13 +568,9 @@ impl MapObject {
             }
 
             // tail to front, centered
-            let mut bsp_trace = BSPTrace::new(self.xy, self.xy + self.momxy, self.radius);
+            let mut bsp_trace = BSPTrace::new_line(self.xy, self.xy + self.momxy, self.radius);
             let mut count = 0;
-            bsp_trace.find_ssect_intercepts(
-                level.map_data.start_node(),
-                &level.map_data,
-                &mut count,
-            );
+            bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
 
             path_traverse(
                 Vec2::new(leadx, leady),
@@ -731,9 +727,9 @@ impl MapObject {
 
         let level = unsafe { &mut *self.level };
 
-        let mut bsp_trace = BSPTrace::new(origin, endpoint, self.radius);
+        let mut bsp_trace = BSPTrace::new_line(origin, endpoint, self.radius);
         let mut count = 0;
-        bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
+        bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
         debug!("BSP: traversal count for use line: {count}");
 
         path_traverse(

@@ -1,5 +1,4 @@
 use glam::Vec2;
-use log::error;
 
 use crate::{
     info::{SfxEnum, MOBJINFO},
@@ -8,7 +7,7 @@ use crate::{
         specials::shoot_special_line,
         utilities::{p_random, path_traverse, Intercept, MAXRADIUS},
     },
-    DPtr, LineDefFlags, MapObject,
+    DPtr, LineDefFlags, MapObject, MapObjectType,
 };
 
 use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -40,10 +39,10 @@ impl MapObject {
         // demons might overlap from a subsector that isn't caught otherwise (for example demon
         // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
         // NOTE: experiment. The bsp trace works via splitting plane intersection so probably not required.
-        let mut bsp_trace = BSPTrace::new(self.xy, xy2, 1.0);
+        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
-        bsp_trace.find_ssect_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
+        bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
         //bsp_trace.nodes = level.map_data.get_nodes().iter().enumerate().map(|(i,_)| i as u16).collect();
 
         // set up traverser
@@ -73,20 +72,61 @@ impl MapObject {
     /// Doom functrion name `P_RadiusAttack`
     pub fn radius_attack(&mut self, damage: f32) {
         // source is self.target
-        let _dist = damage + MAXRADIUS;
-        error!("radius_attack not implemented");
-        // // origin of block level is bmaporgx and bmaporgy
-        // let yh = (spot.xy.y() + dist - bmaporgy) >> MAPBLOCKSHIFT;
-        // let yl = (spot.xy.y() - dist - bmaporgy) >> MAPBLOCKSHIFT;
-        // let xh = (spot.xy.x() + dist - bmaporgx) >> MAPBLOCKSHIFT;
-        // let xl = (spot.xy.x() - dist - bmaporgx) >> MAPBLOCKSHIFT;
-        // bombspot = spot;
-        // bombsource = source;
-        // bombdamage = damage;
+        // bsp_count is just for debugging BSP descent depth/width
+        let mut bsp_count = 0;
+        let dist = damage + MAXRADIUS;
+        let mut bsp_trace = BSPTrace::new_radius(self.xy, dist);
 
-        // for (y = yl; y <= yh; y++)
-        // for (x = xl; x <= xh; x++)
-        // P_BlockThingsIterator(x, y, PIT_RadiusAttack);
+        let level = unsafe { &mut *self.level };
+        bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut bsp_count);
+
+        let sub_sectors = &mut level.map_data.subsectors;
+        level.valid_count = level.valid_count.wrapping_add(1);
+        for n in bsp_trace.intercepted_subsectors() {
+            let ssect = &mut sub_sectors[*n as usize];
+
+            // Check things in subsectors
+            if !ssect.sector.run_func_on_thinglist(|thing| {
+                if thing.valid_count == level.valid_count {
+                    return true;
+                }
+                thing.valid_count = level.valid_count;
+
+                if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
+                    return true;
+                }
+
+                if matches!(
+                    thing.kind,
+                    MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER
+                ) {
+                    return true;
+                }
+
+                // Could just use vector lengths but it changes Doom behaviour...
+                let dx = (thing.xy.x() - self.xy.x()).abs();
+                let dy = (thing.xy.y() - self.xy.y()).abs();
+                let mut dist = if dx > dy {
+                    dx - thing.radius - self.radius
+                } else {
+                    dy - thing.radius - self.radius
+                };
+
+                if dist < 0.0 {
+                    dist = 0.0;
+                }
+
+                if dist >= damage {
+                    return true; // out of range of blowy
+                }
+
+                // TODO: P_CheckSight, use the existing BSPTrace.
+                thing.p_take_damage(None, None, false, (damage - dist) as i32);
+                true
+            }) {
+                return;
+            }
+        }
     }
 }
 

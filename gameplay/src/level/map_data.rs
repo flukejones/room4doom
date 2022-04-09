@@ -1,10 +1,10 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use crate::{
     angle::Angle,
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
     log::info,
-    play::utilities::bam_to_radian,
+    play::utilities::{bam_to_radian, circle_line_collide},
     DPtr,
 };
 use glam::Vec2;
@@ -442,19 +442,36 @@ impl MapData {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum BSPTraceType {
+    Line,
+    Radius,
+}
+
+impl Default for BSPTraceType {
+    fn default() -> Self {
+        Self::Line
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct BSPTrace {
+    radius: f32,
     origin: Vec2,
     origin_left: Vec2,
     origin_right: Vec2,
     endpoint: Vec2,
     endpoint_left: Vec2,
     endpoint_right: Vec2,
-    radius: f32,
     pub nodes: Vec<u16>,
+    /// If it is a line_trace. If not then it is a radius trace.
+    trace_type: BSPTraceType,
 }
 
 impl BSPTrace {
-    pub fn new(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
+    /// Setup the trace for a line trace. Use `find_line_intercepts()` to find all
+    /// intersections.
+    pub fn new_line(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
         let forward = Angle::from_vector(endpoint - origin);
         let back = Angle::from_vector(origin - endpoint);
         let left_rad_vec = (forward + FRAC_PI_2).unit() * radius;
@@ -469,6 +486,25 @@ impl BSPTrace {
             endpoint_right: endpoint + right_rad_vec + forward.unit() * radius,
             radius,
             nodes: Vec::with_capacity(20),
+            trace_type: BSPTraceType::Line,
+        }
+    }
+
+    pub fn new_radius(origin: Vec2, radius: f32) -> Self {
+        Self {
+            origin,
+            radius,
+            trace_type: BSPTraceType::Radius,
+            ..Self::default()
+        }
+    }
+
+    /// Do the BSP trace. The type of trace done is determined by if the trace was set up
+    /// with `BSPTrace::new_line` or `BSPTrace::new_radius`.
+    pub fn find_intercepts(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+        match self.trace_type {
+            BSPTraceType::Line => self.find_line_inner(node_id, map, count),
+            BSPTraceType::Radius => self.find_radius_inner(node_id, map, count),
         }
     }
 
@@ -478,11 +514,10 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    pub fn find_ssect_intercepts(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+    fn find_line_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
             if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
-                // TODO: Build list of intercepted things and lines as optional
                 self.nodes.push(node_id & !IS_SSECTOR_MASK);
             }
             return;
@@ -497,8 +532,8 @@ impl BSPTrace {
             // On opposite sides of the splitting line, recurse down both sides
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
-            self.find_ssect_intercepts(node.child_index[side1], map, count);
-            self.find_ssect_intercepts(node.child_index[side2], map, count);
+            self.find_line_inner(node.child_index[side1], map, count);
+            self.find_line_inner(node.child_index[side2], map, count);
         } else if self.radius > 1.0 {
             let side_l1 = node.point_on_side(&self.origin_left);
             let side_l2 = node.point_on_side(&self.endpoint_left);
@@ -507,16 +542,50 @@ impl BSPTrace {
             let side_r2 = node.point_on_side(&self.endpoint_right);
 
             if side_l1 != side_l2 {
-                self.find_ssect_intercepts(node.child_index[side_l1], map, count);
-                self.find_ssect_intercepts(node.child_index[side_l2], map, count);
+                self.find_line_inner(node.child_index[side_l1], map, count);
+                self.find_line_inner(node.child_index[side_l2], map, count);
             } else if side_r1 != side_r2 {
-                self.find_ssect_intercepts(node.child_index[side_r1], map, count);
-                self.find_ssect_intercepts(node.child_index[side_r2], map, count);
+                self.find_line_inner(node.child_index[side_r1], map, count);
+                self.find_line_inner(node.child_index[side_r2], map, count);
             } else {
-                self.find_ssect_intercepts(node.child_index[side1], map, count);
+                self.find_line_inner(node.child_index[side1], map, count);
             }
         } else {
-            self.find_ssect_intercepts(node.child_index[side1], map, count);
+            self.find_line_inner(node.child_index[side1], map, count);
+        }
+    }
+
+    fn find_radius_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+        *count += 1;
+
+        let node = if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            &map.nodes[(node_id & !IS_SSECTOR_MASK) as usize]
+        } else {
+            &map.nodes[node_id as usize]
+        };
+
+        let l_start = node.xy;
+        let l_end = l_start + node.delta;
+        let side = node.point_on_side(&self.origin);
+
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            // Commented out because it cuts off some sectors
+            // if node.point_in_bounds(&self.origin, side)
+            //     || circle_line_collide(self.origin, self.radius, l_start, l_end)
+            // {
+            if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
+                self.nodes.push(node_id & !IS_SSECTOR_MASK);
+            }
+            // };
+            return;
+        }
+
+        if circle_line_collide(self.origin, self.radius, l_start, l_end) {
+            let other = if side == 1 { 0 } else { 1 };
+            self.find_radius_inner(node.child_index[side], map, count);
+            self.find_radius_inner(node.child_index[other], map, count);
+        } else {
+            self.find_radius_inner(node.child_index[side], map, count);
         }
     }
 
@@ -549,7 +618,7 @@ mod tests {
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut bsp_trace = BSPTrace::new(origin, endpoint, 1.0);
+        let mut bsp_trace = BSPTrace::new_line(origin, endpoint, 1.0);
         // bsp_trace.trace_to_point(&map);
         // dbg!(&nodes.len());
         // dbg!(&nodes);
@@ -575,7 +644,7 @@ mod tests {
         for x in 705..895 {
             for y in -3551..-3361 {
                 bsp_trace.origin = Vec2::new(x as f32, y as f32);
-                bsp_trace.find_ssect_intercepts(map.start_node, &map, &mut count);
+                bsp_trace.find_line_inner(map.start_node, &map, &mut count);
 
                 // Sector the starting vector is in. 3 segs attached
                 let x = bsp_trace.intercepted_subsectors().first().unwrap();

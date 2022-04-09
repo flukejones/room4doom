@@ -622,7 +622,17 @@ impl Player {
     pub(crate) fn shoot_pistol(&mut self) {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+            let mut bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+            let old_angle = mobj.angle;
+            if bullet_slope.is_none() {
+                mobj.angle += 5.625f32.to_radians();
+                bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+                if bullet_slope.is_none() {
+                    mobj.angle -= 11.25f32.to_radians();
+                    bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+                }
+            }
+            mobj.angle = old_angle;
 
             // TODO: temporary
             if let Some(mut res) = bullet_slope {
