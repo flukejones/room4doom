@@ -432,13 +432,13 @@ fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
 //     lhs.x() * rhs.y() - lhs.y() * rhs.x()
 // }
 
-/// True if the line from point1 to point2 penetrates the circle
+/// True if the line segment from point1 to point2 penetrates the circle
 #[inline]
-pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, point1: Vec2, point2: Vec2) -> bool {
-    let lc = c_origin - point1;
-    let d = point2 - point1;
+pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, s_start: Vec2, s_end: Vec2) -> bool {
+    let lc = c_origin - s_start;
+    let d = s_end - s_start;
     let p = project_vec2(lc, d);
-    let nearest = point1 + p;
+    let nearest = s_start + p;
 
     if circle_point_intersect(c_origin, c_radius, nearest)
         && p.length() < d.length()
@@ -448,6 +448,15 @@ pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, point1: Vec2, point2: V
         return true;
     }
     false
+}
+
+#[inline]
+pub fn circle_line_collide(c_origin: Vec2, c_radius: f32, l_start: Vec2, l_end: Vec2) -> bool {
+    let lc = c_origin - l_start;
+    let p = project_vec2(lc, l_end - l_start);
+    let nearest = l_start + p;
+
+    circle_point_intersect(c_origin, c_radius, nearest)
 }
 
 fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
@@ -460,7 +469,7 @@ fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
 }
 
 #[inline]
-fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
+pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
     let dist = point - origin;
     let len = dist.length();
     if len < radius {
@@ -468,6 +477,21 @@ fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
     }
     false
 }
+
+// #[inline]
+// pub fn circle_circle_intersect(
+//     origin: Vec2,
+//     origin_radius: f32,
+//     point: Vec2,
+//     point_radius: f32,
+// ) -> bool {
+//     let dist = point - origin;
+//     let len = dist.length();
+//     if len < origin_radius + point_radius {
+//         return true; // Some(len - radius);
+//     }
+//     false
+// }
 
 #[cfg(test)]
 mod tests {
@@ -537,8 +561,11 @@ mod tests {
         let ang90: u32 = 0x40000000;
         let ang180: u32 = 0x80000000;
 
+        let one: u32 = 1 << 26;
+
         assert_eq!(bam_to_radian(ang45), FRAC_PI_4);
         assert_eq!(bam_to_radian(ang90), FRAC_PI_2);
         assert_eq!(bam_to_radian(ang180), PI);
+        assert_eq!(bam_to_radian(one).to_degrees(), 5.625);
     }
 }
