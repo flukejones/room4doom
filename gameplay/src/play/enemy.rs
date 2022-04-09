@@ -2,6 +2,8 @@
 
 use log::error;
 
+use crate::{info::SfxEnum, play::utilities::p_random, MapObjectType};
+
 use super::{
     mobj::{MapObject, MapObjectFlag},
     utilities::point_to_angle_2,
@@ -217,58 +219,46 @@ pub fn a_fire(_actor: &mut MapObject) {
     // P_SetThingPosition(actor);
 }
 
-pub fn a_scream(_actor: &mut MapObject) {
-    error!("a_scream not implemented");
-    // int sound;
-    //
-    // switch (actor->info->deathsound)
-    // {
-    // case 0:
-    // return;
-    //
-    // case sfx_podth1:
-    // case sfx_podth2:
-    // case sfx_podth3:
-    // sound = sfx_podth1 + P_Random() % 3;
-    // break;
-    //
-    // case sfx_bgdth1:
-    // case sfx_bgdth2:
-    // sound = sfx_bgdth1 + P_Random() % 2;
-    // break;
-    //
-    // default:
-    // sound = actor->info->deathsound;
-    // break;
-    // }
-    //
-    // // Check for bosses.
-    // if (actor->type == MT_SPIDER || actor->type == MT_CYBORG)
-    // {
-    // // full volume
-    // S_StartSound(NULL, sound);
-    // }
-    // else
-    // S_StartSound(actor, sound);
+pub fn a_scream(actor: &mut MapObject) {
+    let sound: SfxEnum;
+
+    match actor.info.deathsound {
+        SfxEnum::None => return,
+        SfxEnum::podth1 | SfxEnum::podth2 | SfxEnum::podth3 => {
+            sound = SfxEnum::from(SfxEnum::podth1 as u8 + (p_random() % 3) as u8);
+        }
+        SfxEnum::bgdth1 | SfxEnum::bgdth2 => {
+            sound = SfxEnum::from(SfxEnum::bgdth1 as u8 + (p_random() % 2) as u8);
+        }
+        _ => {
+            sound = SfxEnum::from(actor.info.deathsound as u8);
+        }
+    }
+    // Check for bosses.
+    if matches!(
+        actor.kind,
+        MapObjectType::MT_SPIDER | MapObjectType::MT_CYBORG
+    ) {
+        // full volume
+        start_sound("a_scream", None, sound);
+    } else {
+        start_sound("a_scream", Some(actor), sound);
+    }
 }
 
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
     actor.flags &= !(MapObjectFlag::Solid as u32);
-
     // So change this if corpse objects
     // are meant to be obstacles.
 }
 
 pub fn a_explode(actor: &mut MapObject) {
-    println!("BOOOOOOM!");
     actor.radius_attack(128.0);
 }
 
-pub fn a_xscream(_actor: &mut MapObject) {
-    error!("a_xscream not implemented");
-    // if (actor->info->painsound)
-    // S_StartSound(actor, actor->info->painsound);
+pub fn a_xscream(actor: &mut MapObject) {
+    start_sound("a_xscream", Some(actor), SfxEnum::slop);
 }
 
 pub fn a_keendie(_actor: &mut MapObject) {
@@ -300,7 +290,7 @@ pub fn a_brainspit(actor: &mut MapObject) {
 }
 
 pub fn a_brainpain(actor: &mut MapObject) {
-    error!("a_brainpain not implemented");
+    start_sound("a_brainpain", None, SfxEnum::bospn);
 }
 
 pub fn a_brainscream(actor: &mut MapObject) {
@@ -316,7 +306,8 @@ pub fn a_spawnfly(actor: &mut MapObject) {
 }
 
 pub fn a_spawnsound(actor: &mut MapObject) {
-    error!("a_spawnsound not implemented");
+    start_sound("a_spawnsound", Some(actor), SfxEnum::boscub);
+    a_spawnfly(actor);
 }
 
 pub fn a_vilestart(actor: &mut MapObject) {
@@ -380,9 +371,9 @@ pub fn a_troopattack(actor: &mut MapObject) {
 }
 
 pub fn a_pain(actor: &mut MapObject) {
-    error!("a_pain not implemented");
-    // if (actor->info->painsound)
-    // S_StartSound(actor, actor->info->painsound);
+    if actor.info.painsound != SfxEnum::None {
+        start_sound("a_pain", Some(actor), actor.info.painsound);
+    }
 }
 
 pub fn a_painattack(actor: &mut MapObject) {
@@ -441,4 +432,15 @@ pub fn a_firecrackle(actor: &mut MapObject) {
 
 pub fn a_playerscream(actor: &mut MapObject) {
     error!("a_playerscream not implemented");
+}
+
+fn start_sound(tmp: &str, actor: Option<&MapObject>, sound: SfxEnum) {
+    if let Some(actor) = actor {
+        error!(
+            "TODO: {} should play {:?} sound for {:?}",
+            tmp, sound, actor.kind
+        );
+    } else {
+        error!("TODO: {} should play {:?} sound for None", tmp, sound);
+    }
 }
