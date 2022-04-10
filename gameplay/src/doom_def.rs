@@ -1,6 +1,9 @@
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
 
+pub const MELEERANGE: f32 = 64.0;
+pub const MISSILERANGE: f32 = 32.0 * 64.0;
+
 /// DOOM version
 pub static DOOM_VERSION: u8 = 109;
 

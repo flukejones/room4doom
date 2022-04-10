@@ -457,10 +457,10 @@ impl Default for BSPTraceType {
 #[derive(Debug, Default)]
 pub struct BSPTrace {
     radius: f32,
-    origin: Vec2,
+    pub origin: Vec2,
     origin_left: Vec2,
     origin_right: Vec2,
-    endpoint: Vec2,
+    pub endpoint: Vec2,
     endpoint_left: Vec2,
     endpoint_right: Vec2,
     pub nodes: Vec<u16>,

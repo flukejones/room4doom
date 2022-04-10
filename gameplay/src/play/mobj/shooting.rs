@@ -2,12 +2,12 @@ use glam::Vec2;
 
 use crate::{
     info::{SfxEnum, MOBJINFO},
-    level::map_data::BSPTrace,
+    level::{map_data::BSPTrace, map_defs::LineDef},
     play::{
         specials::shoot_special_line,
-        utilities::{p_random, p_subrandom, path_traverse, Intercept, MAXRADIUS},
+        utilities::{p_random, path_traverse, Intercept, PortalZ, MAXRADIUS},
     },
-    DPtr, Level, LineDefFlags, MapObject, MapObjectType,
+    DPtr, LineDefFlags, MapObject, MapObjectType,
 };
 
 use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -88,6 +88,8 @@ impl MapObject {
             attack_range,
             damage,
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
+            bsp_trace.origin,
+            self.angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
         );
 
         let xy2 = Vec2::new(
@@ -167,8 +169,53 @@ impl MapObject {
             }
         }
     }
+
+    pub(crate) fn bullet_slope(
+        &mut self,
+        distance: f32,
+        bsp_trace: &mut BSPTrace,
+    ) -> Option<AimResult> {
+        let mut bullet_slope = self.aim_line_attack(distance, bsp_trace);
+        let old_angle = self.angle;
+        if bullet_slope.is_none() {
+            self.angle += 5.625f32.to_radians();
+            bullet_slope = self.aim_line_attack(distance, bsp_trace);
+            if bullet_slope.is_none() {
+                self.angle -= 11.25f32.to_radians();
+                bullet_slope = self.aim_line_attack(distance, bsp_trace);
+            }
+        }
+        self.angle = old_angle;
+
+        bullet_slope
+    }
+
+    pub(crate) fn gun_shot(
+        &mut self,
+        accurate: bool,
+        distance: f32,
+        bullet_slope: Option<AimResult>,
+        bsp_trace: &mut BSPTrace,
+    ) {
+        let damage = 5.0 * (p_random() % 3 + 1) as f32;
+        let old_angle = self.angle;
+
+        if !accurate {
+            self.angle += 0.2 / ((p_random() - p_random()) as f32);
+        }
+
+        let slope = 0.1 / (p_random() - p_random()) as f32;
+        if let Some(res) = bullet_slope {
+            self.shoot_line_attack(distance, res.aimslope + slope, damage, bsp_trace);
+        } else {
+            self.shoot_line_attack(distance, slope, damage, bsp_trace);
+        }
+
+        self.angle = old_angle;
+    }
 }
 
+#[derive(Clone)]
 pub(crate) struct AimResult {
     pub aimslope: f32,
     pub line_target: DPtr<MapObject>,
@@ -196,11 +243,35 @@ impl AimTraverse {
     /// After `check()` is called, a result should be checked for
     fn check(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
-            // TODO: temporary, move this line to shoot traverse
-            shoot_special_line(line.clone(), shooter);
-
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                return false;
+            }
+
+            let portal = PortalZ::new(line);
+            if portal.bottom_z >= portal.top_z {
+                return false;
+            }
+
+            let dist = self.attack_range * intercept.frac;
+
+            if let Some(backsector) = line.backsector.as_ref() {
+                if line.frontsector.floorheight != backsector.floorheight {
+                    let slope = (portal.bottom_z - self.shootz) / dist;
+                    if slope > self.bot_slope {
+                        self.bot_slope = slope;
+                    }
+                }
+
+                if line.frontsector.ceilingheight != backsector.ceilingheight {
+                    let slope = (portal.top_z - self.shootz) / dist;
+                    if slope < self.top_slope {
+                        self.top_slope = slope;
+                    }
+                }
+            }
+
+            if self.top_slope <= self.bot_slope {
                 return false;
             }
 
@@ -252,35 +323,76 @@ struct ShootTraverse {
     attack_range: f32,
     damage: f32,
     shootz: f32,
+    trace_xy: Vec2,
+    trace_dxy: Vec2,
 }
 
 impl ShootTraverse {
-    fn new(aim_slope: f32, attack_range: f32, damage: f32, shootz: f32) -> Self {
+    fn new(
+        aim_slope: f32,
+        attack_range: f32,
+        damage: f32,
+        shootz: f32,
+        trace_xy: Vec2,
+        trace_dxy: Vec2,
+    ) -> Self {
         Self {
             aim_slope,
             attack_range,
             damage,
             shootz,
+            trace_xy,
+            trace_dxy,
         }
     }
 
-    fn hit_line(&self) {}
+    fn hit_line(&self, shooter: &mut MapObject, frac: f32, line: &LineDef) {
+        let frac = frac - (4.0 / self.attack_range);
+        let x = self.trace_xy.x() + self.trace_dxy.x() * frac;
+        let y = self.trace_xy.y() + self.trace_dxy.y() * frac;
+        let z = self.shootz + self.aim_slope * frac * self.attack_range;
+
+        MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
+            &mut *shooter.level
+        });
+    }
 
     fn resolve(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // TODO: temporary, move this line to shoot traverse
-            shoot_special_line(line.clone(), shooter);
+            if line.special != 0 {
+                shoot_special_line(line.clone(), shooter);
+            }
 
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
-                self.hit_line();
+                self.hit_line(shooter, intercept.frac, &line);
                 return false;
             }
 
+            let portal = PortalZ::new(line);
+            let dist = self.attack_range * intercept.frac;
+
+            if let Some(backsector) = line.backsector.as_ref() {
+                if line.frontsector.floorheight != backsector.floorheight {
+                    let slope = (portal.bottom_z - self.shootz) / dist;
+                    if slope > self.aim_slope {
+                        self.hit_line(shooter, intercept.frac, &line);
+                        return false;
+                    }
+                }
+
+                if line.frontsector.ceilingheight != backsector.ceilingheight {
+                    let slope = (portal.top_z - self.shootz) / dist;
+                    if slope < self.aim_slope {
+                        self.hit_line(shooter, intercept.frac, &line);
+                        return false;
+                    }
+                }
+            }
+
             return true;
-        } else
-        // TODO: temporary
-        if let Some(thing) = intercept.thing.as_mut() {
+        } else if let Some(thing) = intercept.thing.as_mut() {
             // Don't shoot self
             if std::ptr::eq(shooter, thing.as_ref()) {
                 return true;
@@ -290,24 +402,33 @@ impl ShootTraverse {
                 return true;
             }
 
-            for _ in 0..3 {
-                let mobj = MapObject::spawn_map_object(
-                    thing.xy.x() + p_subrandom() as f32 / 255.0 * thing.radius,
-                    thing.xy.y() + p_subrandom() as f32 / 255.0 * thing.radius,
-                    (thing.z + (thing.height * 0.75)) as i32,
-                    crate::MapObjectType::MT_BLOOD,
-                    unsafe { &mut *thing.level },
-                );
-                unsafe {
-                    (*mobj)
-                        .momxy
-                        .set_x(p_subrandom() as f32 / 255.0 * (*mobj).radius); // P_SubRandom() << 12;
-                    (*mobj)
-                        .momxy
-                        .set_y(p_subrandom() as f32 / 255.0 * (*mobj).radius);
-                }
+            let dist = self.attack_range * intercept.frac;
+            let thing_top_slope = (thing.z + thing.height - self.shootz) / dist;
+            if thing_top_slope < self.aim_slope {
+                return true; // Shot over
             }
-            thing.p_take_damage(None, Some(shooter), false, 5);
+
+            let thing_bot_slope = (thing.z - self.shootz) / dist;
+            if thing_bot_slope > self.aim_slope {
+                return true; // Shot below
+            }
+
+            let frac = intercept.frac - (10.0 / self.attack_range);
+            let x = self.trace_xy.x() + self.trace_dxy.x() * frac;
+            let y = self.trace_xy.y() + self.trace_dxy.y() * frac;
+            let z = self.shootz + self.aim_slope * frac * self.attack_range;
+
+            if thing.flags & MapObjectFlag::NoBlood as u32 != 0 {
+                MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
+                    &mut *thing.level
+                })
+            } else {
+                MapObject::spawn_blood(x, y, z as i32, self.damage, unsafe { &mut *thing.level });
+            }
+
+            if self.damage > 0.0 {
+                thing.p_take_damage(None, Some(shooter), false, self.damage as i32);
+            }
         }
 
         false
