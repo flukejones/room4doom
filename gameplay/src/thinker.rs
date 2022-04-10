@@ -5,10 +5,9 @@ use std::{
     ptr::{self, null_mut},
 };
 
-use log::{debug, warn};
+use log::debug;
 
 use crate::{
-    info::MapObjectType,
     level::Level,
     play::{
         ceiling::CeilingMove,
