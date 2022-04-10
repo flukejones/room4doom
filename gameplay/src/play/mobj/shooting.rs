@@ -201,14 +201,13 @@ impl MapObject {
         let old_angle = self.angle;
 
         if !accurate {
-            self.angle += 0.2 / ((p_random() - p_random()) as f32);
+            self.angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
         }
 
-        let slope = 0.1 / (p_random() - p_random()) as f32;
         if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, res.aimslope + slope, damage, bsp_trace);
+            self.shoot_line_attack(distance, res.aimslope, damage, bsp_trace);
         } else {
-            self.shoot_line_attack(distance, slope, damage, bsp_trace);
+            self.shoot_line_attack(distance, 0.0, damage, bsp_trace);
         }
 
         self.angle = old_angle;

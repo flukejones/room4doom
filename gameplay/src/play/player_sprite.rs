@@ -1,14 +1,24 @@
 //! Doom source name `p_pspr`
 
-use super::{mobj::MapObject, player::Player};
+use log::error;
 
-use crate::info::State;
+use super::{
+    mobj::MapObject,
+    player::{Player, PsprNum},
+};
+
+use crate::{
+    doom_def::{MISSILERANGE, WEAPON_INFO},
+    info::{State, StateNum, STATES},
+    tic_cmd::TIC_CMD_BUTTONS,
+    WeaponType,
+};
 
 /// From P_PSPR
 #[derive(Debug)]
 pub struct PspDef {
     /// a NULL state means not active
-    pub state: &'static State,
+    pub state: Option<&'static State>,
     pub tics: i32,
     pub sx: f32,
     pub sy: f32,
@@ -17,28 +27,61 @@ pub struct PspDef {
 /// The player can re-fire the weapon
 /// without lowering it entirely.
 pub fn a_refire(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
-    // // check for fire
-    // //  (if a weaponchange is pending, let it go through instead)
-    //         if ((player -> cmd.buttons & BT_ATTACK) &&player -> pendingweapon == wp_nochange && player -> health)
-    //         {
-    //             player -> refire + +;
-    //             P_FireWeapon(player);
-    //         }
-    //         else
-    //         {
-    //             player -> refire = 0;
-    //             P_CheckAmmo(player);
-    //         }
-    //     }
+    if actor.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0
+        && actor.pendingweapon == WeaponType::NoChange
+        && actor.health != 0
+    {
+        actor.refire += 1;
+        actor.fire_weapon();
+    } else {
+        actor.refire = 0;
+        // TODO: P_CheckAmmo(player);
+    }
+
+    error!("a_refire not completed");
 }
 
 pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+
+        if std::ptr::eq(mobj.state, &STATES[StateNum::S_PLAY_ATK1 as usize])
+            || std::ptr::eq(mobj.state, &STATES[StateNum::S_PLAY_ATK2 as usize])
+        {
+            mobj.set_state(StateNum::S_PLAY);
+        }
+    }
+
+    // TODO: if (player->readyweapon == wp_chainsaw && psp->state == &states[S_SAW]) {
+    //     S_StartSound(player->mo, sfx_sawidl);
+    // }
+
+    // check for change
+    //  if player is dead, put the weapon away
+    if actor.pendingweapon != WeaponType::NoChange || actor.health <= 0 {
+        // change weapon
+        //  (pending weapon should allready be validated)
+        let new_state = WEAPON_INFO[actor.readyweapon as usize].downstate;
+        actor.set_psprite(PsprNum::Weapon as usize, new_state);
+        return;
+    }
+
+    // TODO: TEMPORARY
+    if actor.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
+        if !actor.attackdown {
+            actor.attackdown = true;
+            actor.fire_weapon();
+            return;
+        }
+    } else {
+        actor.attackdown = false;
+    }
+
+    // TODO: weapon swing
 }
 
 pub fn a_lower(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("a_lower not implemented");
 }
 
 pub fn a_raise(actor: &mut Player, _pspr: &mut PspDef) {
@@ -46,11 +89,36 @@ pub fn a_raise(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    let distance = MISSILERANGE;
+    // TODO: S_StartSound(player->mo, sfx_pistol);
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+
+        mobj.set_state(StateNum::S_PLAY_ATK1);
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
+        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+        // TODO: !player->refire
+        mobj.gun_shot(true, distance, bullet_slope, &mut bsp_trace);
+    }
 }
 
 pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    let distance = MISSILERANGE;
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+
+        mobj.set_state(StateNum::S_PLAY_ATK2);
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
+        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+
+        for _ in 0..7 {
+            mobj.gun_shot(false, distance, bullet_slope.clone(), &mut bsp_trace);
+        }
+    }
 }
 
 pub fn a_fireshotgun2(actor: &mut Player, _pspr: &mut PspDef) {

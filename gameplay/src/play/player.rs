@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use glam::Vec2;
 use log::{debug, error, info};
@@ -6,16 +6,16 @@ use log::{debug, error, info};
 use super::{
     mobj::{MapObject, BONUSADD},
     player_sprite::PspDef,
-    utilities::{bam_to_radian, fixed_to_float, p_random, MAXHEALTH, VIEWHEIGHT},
+    utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, MAXHEALTH, VIEWHEIGHT},
 };
 
 use crate::{
     angle::Angle,
     doom_def::{
         AmmoType, Card, PowerDuration, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO,
-        MISSILERANGE,
+        MISSILERANGE, WEAPON_INFO,
     },
-    info::{SpriteNum, StateNum, STATES},
+    info::{ActionF, SpriteNum, State, StateNum, STATES},
     level::Level,
     play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
@@ -24,6 +24,7 @@ use crate::{
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
+const ANG5: f32 = 0.08726646; //5f32.to_radians();
 
 /// Overlay psprites are scaled shapes
 /// drawn directly on the view screen,
@@ -228,7 +229,7 @@ impl Player {
 
             frags: [0; 4],
             readyweapon: WeaponType::Pistol,
-            pendingweapon: WeaponType::NumWeapons,
+            pendingweapon: WeaponType::NoChange,
             weaponowned: [false; WeaponType::NumWeapons as usize],
 
             player_state: PlayerState::Reborn,
@@ -238,13 +239,13 @@ impl Player {
 
             psprites: [
                 PspDef {
-                    state: &STATES[StateNum::S_PISTOL as usize],
+                    state: Some(&STATES[StateNum::S_PISTOL as usize]),
                     tics: 1,
                     sx: 0.0,
                     sy: 0.0,
                 },
                 PspDef {
-                    state: &STATES[StateNum::S_PISTOLFLASH as usize],
+                    state: Some(&STATES[StateNum::S_PISTOLFLASH as usize]),
                     tics: 1,
                     sx: 0.0,
                     sy: 0.0,
@@ -292,8 +293,8 @@ impl Player {
         self.attackdown = false;
         self.player_state = PlayerState::Live;
         self.health = MAXHEALTH;
-        self.readyweapon = WeaponType::Pistol;
-        self.pendingweapon = WeaponType::Pistol;
+        self.readyweapon = WeaponType::Shotgun;
+        self.pendingweapon = WeaponType::NoChange;
         self.weaponowned[WeaponType::Fist as usize] = true;
         self.weaponowned[WeaponType::Pistol as usize] = true;
         self.ammo[AmmoType::Clip as usize] = 50;
@@ -417,6 +418,66 @@ impl Player {
                 && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
             {
                 mobj.set_state(StateNum::S_PLAY_RUN1);
+            }
+        }
+    }
+
+    /// Called every tic by player thinking routine to update sprites and states
+    ///
+    /// Doom function name `P_MovePsprites`
+    fn move_player_sprites(&mut self) {
+        let psps = unsafe { &mut *(&mut self.psprites as *mut [PspDef]) };
+        for (i, psp) in psps.iter_mut().enumerate() {
+            if let Some(state) = psp.state {
+                // a -1 tic count never changes
+                if psp.tics != -1 {
+                    psp.tics -= 1;
+                    if psp.tics == 0 {
+                        self.set_psprite(i, state.next_state);
+                    }
+                }
+            }
+        }
+        self.psprites[PsprNum::Flash as usize].sx = self.psprites[PsprNum::Weapon as usize].sx;
+        self.psprites[PsprNum::Flash as usize].sy = self.psprites[PsprNum::Weapon as usize].sy;
+    }
+
+    pub(crate) fn set_psprite(&mut self, position: usize, mut state_num: StateNum) {
+        loop {
+            if state_num == StateNum::S_NULL {
+                // object removed itself
+                self.psprites[position].state = None;
+                break;
+            }
+
+            let state = &STATES[state_num as usize];
+            self.psprites[position].state = Some(state);
+            self.psprites[position].tics = state.tics;
+
+            if state.misc1 != 0 {
+                self.psprites[position].sx = fixed_to_float(state.misc1);
+                self.psprites[position].sy = fixed_to_float(state.misc2);
+            }
+
+            match state.action {
+                ActionF::Player(func) => {
+                    let psps = unsafe { &mut *(&mut self.psprites[position] as *mut PspDef) };
+                    func(self, psps);
+                    if self.psprites[position].state.is_none() {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+
+            state_num = if let Some(state) = self.psprites[position].state {
+                state.next_state
+            } else {
+                StateNum::S_NULL
+            };
+
+            if self.psprites[position].tics != 0 {
+                break;
             }
         }
     }
@@ -620,38 +681,17 @@ impl Player {
         true
     }
 
-    /// Doom function name `A_FirePistol`
-    fn shoot_pistol(&mut self) {
-        let distance = MISSILERANGE;
-        // TODO: S_StartSound(player->mo, sfx_pistol);
-
+    pub(crate) fn fire_weapon(&mut self) {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-
             mobj.set_state(StateNum::S_PLAY_ATK1);
-
-            let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
-            let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
-            // TODO: !player->refire
-            mobj.gun_shot(true, distance, bullet_slope, &mut bsp_trace);
         }
-    }
 
-    fn shoot_shotgun(&mut self) {
-        let distance = MISSILERANGE;
+        // TODO: if (!P_CheckAmmo(player))
 
-        if let Some(mobj) = self.mobj {
-            let mobj = unsafe { &mut *mobj };
-
-            mobj.set_state(StateNum::S_PLAY_ATK2);
-
-            let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
-            let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
-
-            for _ in 0..7 {
-                mobj.gun_shot(false, distance, bullet_slope.clone(), &mut bsp_trace);
-            }
-        }
+        let new_state = WEAPON_INFO[self.readyweapon as usize].atkstate;
+        self.set_psprite(PsprNum::Weapon as usize, new_state);
+        // TODO: P_NoiseAlert(player->mo, player->mo);
     }
 }
 
@@ -701,42 +741,50 @@ impl Player {
             self.usedown = false;
         }
 
-        if self.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
-            if !self.attackdown {
-                self.attackdown = true;
-                self.shoot_shotgun();
-                // if let Some(mut mobj) = self.mobj {
-                // BT_ATTACK
-                //     }
-                // }
-            }
-        } else {
-            self.attackdown = false;
-        }
+        self.move_player_sprites();
 
         false
     }
 
     pub fn death_think(&mut self, level: &mut Level) {
+        self.move_player_sprites();
+
         if let Some(mobj) = self.mobj {
-            unsafe {
-                if self.viewz >= (*mobj).floorz + 3.0 {
-                    self.viewz -= 1.0;
-                }
-                if self.viewz == 3.0 {
-                    self.viewz -= 1.0;
-                    info!("You died! Press use-button to respawn");
+            let mobj = unsafe { &mut *mobj };
+            if self.viewheight >= 6.0 {
+                self.viewheight -= 1.0;
+            }
+            if self.viewheight == 6.0 {
+                info!("You died! Press use-button to respawn");
+            }
+
+            self.onground = mobj.z <= mobj.floorz;
+            self.calculate_height(level.level_time);
+
+            if let Some(attacker) = self.attacker {
+                let attacker = unsafe { &mut *attacker };
+                if !std::ptr::eq(mobj, attacker) {
+                    let angle = point_to_angle_2(&mobj.xy, &attacker.xy);
+                    let delta = angle - mobj.angle;
+
+                    if delta.rad() < ANG5 || delta.rad() > -ANG5 {
+                        mobj.angle = angle;
+                        if self.damagecount > 0 {
+                            self.damagecount -= 1;
+                        }
+                    } else if delta.rad() < PI {
+                        mobj.angle += ANG5;
+                    } else {
+                        mobj.angle -= ANG5;
+                    }
+                } else if self.damagecount > 0 {
+                    self.damagecount -= 1;
                 }
             }
         }
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
-            if !self.usedown {
-                self.usedown = true;
-                self.player_state = PlayerState::Reborn;
-            }
-        } else {
-            self.usedown = false;
+            self.player_state = PlayerState::Reborn;
         }
     }
 }
