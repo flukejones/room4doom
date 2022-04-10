@@ -66,14 +66,14 @@ pub const RNDTABLE: [i32; 256] = [
 
 pub fn p_random() -> i32 {
     unsafe {
-        PRNDINDEX = (RNDTABLE[PRNDINDEX + 1] & 0xFF) as usize;
+        PRNDINDEX = (PRNDINDEX + 1) & 0xFF;
         RNDTABLE[PRNDINDEX]
     }
 }
 
 pub fn m_random() -> i32 {
     unsafe {
-        RNDINDEX = (RNDTABLE[RNDINDEX + 1] & 0xFF) as usize;
+        RNDINDEX = (RNDINDEX + 1) & 0xFF;
         RNDTABLE[RNDINDEX]
     }
 }

@@ -420,10 +420,8 @@ impl MapObject {
     }
 
     /// Blood! In a game!
-    pub fn spawn_blood(mut x: f32, mut y: f32, mut z: i32, damage: f32, level: &mut Level) {
-        x += (p_random() - p_random()) as f32 / 32.0;
-        y += (p_random() - p_random()) as f32 / 32.0;
-        z += (p_random() - p_random()) / 32;
+    pub fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
+        z += (p_random() - p_random()) / 64;
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_BLOOD, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 2.0;
