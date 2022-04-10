@@ -1,3 +1,5 @@
+use crate::info::StateNum;
+
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
 
@@ -144,3 +146,103 @@ pub enum PowerDuration {
     INFRATICS = (120 * TICRATE) as isize,
     IRONTICS = (60 * TICRATE) as isize,
 }
+
+/// Definition for player sprites (HUD weapon) actions
+pub(crate) struct WeaponInfo {
+    /// Ammto type required
+    pub ammo: AmmoType,
+    /// The starting state for bringing the weapon up
+    pub upstate: StateNum,
+    /// The state for putting weapon down
+    pub downstate: StateNum,
+    /// State for when weapon is *ready to fire*
+    pub readystate: StateNum,
+    /// State for weapon is firing
+    pub atkstate: StateNum,
+    /// Muzzle flashes
+    pub flashstate: StateNum,
+}
+
+pub(crate) const WEAPON_INFO: [WeaponInfo; 9] = [
+    // fist
+    WeaponInfo {
+        ammo: AmmoType::NoAmmo,
+        upstate: StateNum::S_PUNCHUP,
+        downstate: StateNum::S_PUNCHDOWN,
+        readystate: StateNum::S_PUNCH,
+        atkstate: StateNum::S_PUNCH1,
+        flashstate: StateNum::S_NULL,
+    },
+    // pistol
+    WeaponInfo {
+        ammo: AmmoType::Clip,
+        upstate: StateNum::S_PISTOLUP,
+        downstate: StateNum::S_PISTOLDOWN,
+        readystate: StateNum::S_PISTOL,
+        atkstate: StateNum::S_PISTOL1,
+        flashstate: StateNum::S_PISTOLFLASH,
+    },
+    // shotgun
+    WeaponInfo {
+        ammo: AmmoType::Shell,
+        upstate: StateNum::S_SGUNUP,
+        downstate: StateNum::S_SGUNDOWN,
+        readystate: StateNum::S_SGUN,
+        atkstate: StateNum::S_SGUN1,
+        flashstate: StateNum::S_SGUNFLASH1,
+    },
+    // chaingun
+    WeaponInfo {
+        ammo: AmmoType::Clip,
+        upstate: StateNum::S_CHAINUP,
+        downstate: StateNum::S_CHAINDOWN,
+        readystate: StateNum::S_CHAIN,
+        atkstate: StateNum::S_CHAIN1,
+        flashstate: StateNum::S_CHAINFLASH1,
+    },
+    // missile
+    WeaponInfo {
+        ammo: AmmoType::Missile,
+        upstate: StateNum::S_MISSILEUP,
+        downstate: StateNum::S_MISSILEDOWN,
+        readystate: StateNum::S_MISSILE,
+        atkstate: StateNum::S_MISSILE1,
+        flashstate: StateNum::S_MISSILEFLASH1,
+    },
+    // plasma
+    WeaponInfo {
+        ammo: AmmoType::Cell,
+        upstate: StateNum::S_PLASMAUP,
+        downstate: StateNum::S_PLASMADOWN,
+        readystate: StateNum::S_PLASMA,
+        atkstate: StateNum::S_PLASMA1,
+        flashstate: StateNum::S_PLASMAFLASH1,
+    },
+    // Big Fucking Gun
+    WeaponInfo {
+        ammo: AmmoType::Cell,
+        upstate: StateNum::S_BFGUP,
+        downstate: StateNum::S_BFGDOWN,
+        readystate: StateNum::S_BFG,
+        atkstate: StateNum::S_BFG1,
+        flashstate: StateNum::S_BFGFLASH1,
+    },
+    // chainsaw
+    WeaponInfo {
+        ammo: AmmoType::NoAmmo,
+        upstate: StateNum::S_SAWUP,
+        downstate: StateNum::S_SAWDOWN,
+        readystate: StateNum::S_SAW,
+        atkstate: StateNum::S_SAW1,
+        flashstate: StateNum::S_NULL,
+    },
+    // shotgun
+    WeaponInfo {
+        ammo: AmmoType::Shell,
+        upstate: StateNum::S_DSGUNUP,
+        downstate: StateNum::S_DSGUNDOWN,
+        readystate: StateNum::S_DSGUN,
+        atkstate: StateNum::S_DSGUN1,
+        flashstate: StateNum::S_DSGUNFLASH1,
+    },
+];

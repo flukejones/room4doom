@@ -15,7 +15,7 @@ use crate::{
         AmmoType, Card, PowerDuration, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO,
         MISSILERANGE,
     },
-    info::{SpriteNum, StateNum},
+    info::{SpriteNum, StateNum, STATES},
     level::Level,
     play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
@@ -190,7 +190,7 @@ impl Default for Player {
 }
 
 impl Player {
-    pub const fn new() -> Player {
+    pub fn new() -> Player {
         Player {
             viewz: 0.0,
             mobj: None,
@@ -238,13 +238,13 @@ impl Player {
 
             psprites: [
                 PspDef {
-                    state: None,
+                    state: &STATES[StateNum::S_PISTOL as usize],
                     tics: 1,
                     sx: 0.0,
                     sy: 0.0,
                 },
                 PspDef {
-                    state: None,
+                    state: &STATES[StateNum::S_PISTOLFLASH as usize],
                     tics: 1,
                     sx: 0.0,
                     sy: 0.0,

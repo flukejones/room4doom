@@ -428,6 +428,7 @@ impl ShootTraverse {
 
             if self.damage > 0.0 {
                 thing.p_take_damage(None, Some(shooter), false, self.damage as i32);
+                return false;
             }
         }
 
