@@ -8,7 +8,7 @@ pub use interact::*;
 mod movement;
 pub use movement::*;
 mod shooting;
-pub use shooting::*;
+// pub use shooting::*;
 
 use std::ptr::{null_mut, NonNull};
 
@@ -21,7 +21,7 @@ use super::{
 };
 
 use crate::{
-    doom_def::MTF_SINGLE_PLAYER,
+    doom_def::{MELEERANGE, MTF_SINGLE_PLAYER},
     level::Level,
     thinker::{ObjectType, Think, Thinker},
 };
@@ -400,6 +400,43 @@ impl MapObject {
         mobj.angle = Angle::new((mthing.angle as f32).to_radians());
         if mthing.flags & MTF_AMBUSH != 0 {
             mobj.flags |= MapObjectFlag::Ambush as u32;
+        }
+    }
+
+    /// A thinker for metal spark/puff, typically used for gun-strikes against walls or non-fleshy things.
+    pub fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_PUFF, level);
+        let mobj = unsafe { &mut *mobj };
+        mobj.momz = 1.0;
+        mobj.tics -= p_random() & 3;
+
+        if mobj.tics < 1 {
+            mobj.tics = 1;
+        }
+
+        if attack_range == MELEERANGE {
+            mobj.set_state(StateNum::S_PUFF3);
+        }
+    }
+
+    /// Blood! In a game!
+    pub fn spawn_blood(mut x: f32, mut y: f32, mut z: i32, damage: f32, level: &mut Level) {
+        x += (p_random() - p_random()) as f32 / 32.0;
+        y += (p_random() - p_random()) as f32 / 32.0;
+        z += (p_random() - p_random()) / 32;
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_BLOOD, level);
+        let mobj = unsafe { &mut *mobj };
+        mobj.momz = 2.0;
+        mobj.tics -= p_random() & 3;
+
+        if mobj.tics < 1 {
+            mobj.tics = 1;
+        }
+
+        if damage <= 12.0 && damage >= 9.0 {
+            mobj.set_state(StateNum::S_BLOOD2);
+        } else if damage < 9.0 {
+            mobj.set_state(StateNum::S_BLOOD3);
         }
     }
 

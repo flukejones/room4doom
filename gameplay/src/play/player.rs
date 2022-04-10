@@ -13,6 +13,7 @@ use crate::{
     angle::Angle,
     doom_def::{
         AmmoType, Card, PowerDuration, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO,
+        MISSILERANGE,
     },
     info::{SpriteNum, StateNum},
     level::Level,
@@ -619,26 +620,36 @@ impl Player {
         true
     }
 
-    pub(crate) fn shoot_pistol(&mut self) {
-        let distance = 16.0 * 64.0;
+    /// Doom function name `A_FirePistol`
+    fn shoot_pistol(&mut self) {
+        let distance = MISSILERANGE;
+        // TODO: S_StartSound(player->mo, sfx_pistol);
 
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let mut trace = mobj.get_shoot_bsp_trace(distance);
-            let mut bullet_slope = mobj.aim_line_attack(distance, &mut trace);
-            let old_angle = mobj.angle;
-            if bullet_slope.is_none() {
-                mobj.angle += 5.625f32.to_radians();
-                bullet_slope = mobj.aim_line_attack(distance, &mut trace);
-                if bullet_slope.is_none() {
-                    mobj.angle -= 11.25f32.to_radians();
-                    bullet_slope = mobj.aim_line_attack(distance, &mut trace);
-                }
-            }
-            mobj.angle = old_angle;
 
-            if let Some(res) = bullet_slope {
-                mobj.shoot_line_attack(distance, res.aimslope, 5.0, &mut trace);
+            mobj.set_state(StateNum::S_PLAY_ATK1);
+
+            let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
+            let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+            // TODO: !player->refire
+            mobj.gun_shot(true, distance, bullet_slope, &mut bsp_trace);
+        }
+    }
+
+    fn shoot_shotgun(&mut self) {
+        let distance = MISSILERANGE;
+
+        if let Some(mobj) = self.mobj {
+            let mobj = unsafe { &mut *mobj };
+
+            mobj.set_state(StateNum::S_PLAY_ATK2);
+
+            let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
+            let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+
+            for _ in 0..7 {
+                mobj.gun_shot(false, distance, bullet_slope.clone(), &mut bsp_trace);
             }
         }
     }
@@ -693,7 +704,11 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
             if !self.attackdown {
                 self.attackdown = true;
-                self.shoot_pistol();
+                self.shoot_shotgun();
+                // if let Some(mut mobj) = self.mobj {
+                // BT_ATTACK
+                //     }
+                // }
             }
         } else {
             self.attackdown = false;
