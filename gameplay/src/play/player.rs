@@ -620,44 +620,25 @@ impl Player {
     }
 
     pub(crate) fn shoot_pistol(&mut self) {
+        let distance = 16.0 * 64.0;
+
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let mut bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+            let mut trace = mobj.get_shoot_bsp_trace(distance);
+            let mut bullet_slope = mobj.aim_line_attack(distance, &mut trace);
             let old_angle = mobj.angle;
             if bullet_slope.is_none() {
                 mobj.angle += 5.625f32.to_radians();
-                bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+                bullet_slope = mobj.aim_line_attack(distance, &mut trace);
                 if bullet_slope.is_none() {
                     mobj.angle -= 11.25f32.to_radians();
-                    bullet_slope = mobj.aim_line_attack(16.0 * 64.0);
+                    bullet_slope = mobj.aim_line_attack(distance, &mut trace);
                 }
             }
             mobj.angle = old_angle;
 
-            // TODO: temporary
-            if let Some(mut res) = bullet_slope {
-                if res.line_target.player.is_none() {
-                    for _ in 0..3 {
-                        let mobj = MapObject::spawn_map_object(
-                            res.line_target.xy.x()
-                                + super::utilities::p_subrandom() as f32 / 255.0 * mobj.radius,
-                            res.line_target.xy.y()
-                                + super::utilities::p_subrandom() as f32 / 255.0 * mobj.radius,
-                            (res.line_target.z + (res.line_target.height * 0.75)) as i32,
-                            crate::MapObjectType::MT_BLOOD,
-                            unsafe { &mut *res.line_target.level },
-                        );
-                        unsafe {
-                            (*mobj).momxy.set_x(
-                                super::utilities::p_subrandom() as f32 / 255.0 * (*mobj).radius,
-                            ); // P_SubRandom() << 12;
-                            (*mobj).momxy.set_y(
-                                super::utilities::p_subrandom() as f32 / 255.0 * (*mobj).radius,
-                            );
-                        }
-                    }
-                    res.line_target.p_take_damage(None, Some(mobj), false, 5);
-                }
+            if let Some(res) = bullet_slope {
+                mobj.shoot_line_attack(distance, res.aimslope, 5.0, &mut trace);
             }
         }
     }

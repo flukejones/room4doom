@@ -5,9 +5,9 @@ use crate::{
     level::map_data::BSPTrace,
     play::{
         specials::shoot_special_line,
-        utilities::{p_random, path_traverse, Intercept, MAXRADIUS},
+        utilities::{p_random, p_subrandom, path_traverse, Intercept, MAXRADIUS},
     },
-    DPtr, LineDefFlags, MapObject, MapObjectType,
+    DPtr, Level, LineDefFlags, MapObject, MapObjectType,
 };
 
 use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -32,18 +32,24 @@ impl MapObject {
         }
     }
 
-    pub(crate) fn aim_line_attack(&mut self, distance: f32) -> Option<AimResult> {
+    pub(crate) fn get_shoot_bsp_trace(&self, distance: f32) -> BSPTrace {
         let xy2 = self.xy + self.angle.unit() * distance;
-
         // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
         // demons might overlap from a subsector that isn't caught otherwise (for example demon
         // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
-        // NOTE: experiment. The bsp trace works via splitting plane intersection so probably not required.
         let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
-        //bsp_trace.nodes = level.map_data.get_nodes().iter().enumerate().map(|(i,_)| i as u16).collect();
+        bsp_trace
+    }
+
+    pub(crate) fn aim_line_attack(
+        &mut self,
+        distance: f32,
+        bsp_trace: &mut BSPTrace,
+    ) -> Option<AimResult> {
+        let xy2 = self.xy + self.angle.unit() * distance;
 
         // set up traverser
         let mut aim_traverse = AimTraverse::new(
@@ -55,16 +61,49 @@ impl MapObject {
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
         );
 
+        let level = unsafe { &mut *self.level };
         path_traverse(
             self.xy,
             xy2,
             PT_ADDLINES | PT_ADDTHINGS,
             level,
             |t| aim_traverse.check(self, t),
-            &mut bsp_trace,
+            bsp_trace,
         );
 
         aim_traverse.result()
+    }
+
+    /// `shoot_line_attack` is preceeded by `aim_line_attack` in many cases, so the `BSPTrace` can be
+    /// shared between the two.
+    pub(crate) fn shoot_line_attack(
+        &mut self,
+        attack_range: f32,
+        aim_slope: f32,
+        damage: f32,
+        bsp_trace: &mut BSPTrace,
+    ) {
+        let mut shoot_traverse = ShootTraverse::new(
+            aim_slope,
+            attack_range,
+            damage,
+            self.z + (self.height as i32 >> 1) as f32 + 8.0,
+        );
+
+        let xy2 = Vec2::new(
+            self.xy.x() + attack_range * self.angle.cos(),
+            self.xy.y() + attack_range * self.angle.sin(),
+        );
+
+        let level = unsafe { &mut *self.level };
+        path_traverse(
+            self.xy,
+            xy2,
+            PT_ADDLINES | PT_ADDTHINGS,
+            level,
+            |intercept| shoot_traverse.resolve(self, intercept),
+            bsp_trace,
+        );
     }
 
     /// Source is the creature that caused the explosion at spot(self).
@@ -205,5 +244,72 @@ impl AimTraverse {
 
     fn result(&mut self) -> Option<AimResult> {
         self.result.take()
+    }
+}
+
+struct ShootTraverse {
+    aim_slope: f32,
+    attack_range: f32,
+    damage: f32,
+    shootz: f32,
+}
+
+impl ShootTraverse {
+    fn new(aim_slope: f32, attack_range: f32, damage: f32, shootz: f32) -> Self {
+        Self {
+            aim_slope,
+            attack_range,
+            damage,
+            shootz,
+        }
+    }
+
+    fn hit_line(&self) {}
+
+    fn resolve(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+        if let Some(line) = intercept.line.as_mut() {
+            // TODO: temporary, move this line to shoot traverse
+            shoot_special_line(line.clone(), shooter);
+
+            // Check if solid line and stop
+            if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                self.hit_line();
+                return false;
+            }
+
+            return true;
+        } else
+        // TODO: temporary
+        if let Some(thing) = intercept.thing.as_mut() {
+            // Don't shoot self
+            if std::ptr::eq(shooter, thing.as_ref()) {
+                return true;
+            }
+            // Corpse?
+            if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
+                return true;
+            }
+
+            for _ in 0..3 {
+                let mobj = MapObject::spawn_map_object(
+                    thing.xy.x() + p_subrandom() as f32 / 255.0 * thing.radius,
+                    thing.xy.y() + p_subrandom() as f32 / 255.0 * thing.radius,
+                    (thing.z + (thing.height * 0.75)) as i32,
+                    crate::MapObjectType::MT_BLOOD,
+                    unsafe { &mut *thing.level },
+                );
+                unsafe {
+                    (*mobj)
+                        .momxy
+                        .set_x(p_subrandom() as f32 / 255.0 * (*mobj).radius); // P_SubRandom() << 12;
+                    (*mobj)
+                        .momxy
+                        .set_y(p_subrandom() as f32 / 255.0 * (*mobj).radius);
+                }
+            }
+            thing.p_take_damage(None, Some(shooter), false, 5);
+        }
+
+        false
     }
 }
