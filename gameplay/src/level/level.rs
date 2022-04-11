@@ -9,7 +9,7 @@ use crate::{
     pic::Button,
     play::Skill,
     thinker::ThinkerAlloc,
-    DPtr, LineDefFlags, PicData, Sector,
+    DPtr, PicData,
 };
 
 use super::map_defs::LineDef;
@@ -56,6 +56,8 @@ pub struct Level {
     pub line_special_list: Vec<DPtr<LineDef>>,
     /// Need access to texture data for a few things
     pub pic_data: Rc<RefCell<PicData>>,
+    /// Some stuff needs to know the game mode (e.g, switching weapons)
+    pub game_mode: GameMode,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -117,6 +119,7 @@ impl Level {
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
             pic_data,
+            game_mode,
         }
     }
 

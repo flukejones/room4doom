@@ -1,6 +1,6 @@
 //! Doom source name `p_pspr`
 
-use log::error;
+use std::f32::consts::FRAC_PI_2;
 
 use super::{
     mobj::MapObject,
@@ -8,8 +8,9 @@ use super::{
 };
 
 use crate::{
-    doom_def::{MISSILERANGE, WEAPON_INFO},
+    doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO},
     info::{State, StateNum, STATES},
+    play::utilities::{p_random, point_to_angle_2},
     tic_cmd::TIC_CMD_BUTTONS,
     PlayerState, WeaponType,
 };
@@ -42,8 +43,6 @@ pub fn a_refire(actor: &mut Player, _pspr: &mut PspDef) {
         actor.refire = 0;
         actor.check_ammo();
     }
-
-    error!("a_refire not completed");
 }
 
 pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
@@ -78,7 +77,9 @@ pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
 
     // TODO: TEMPORARY
     if actor.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
-        if !actor.attackdown {
+        if !actor.attackdown
+            || (actor.readyweapon != WeaponType::Missile && actor.readyweapon != WeaponType::BFG)
+        {
             actor.attackdown = true;
             actor.fire_weapon();
             return;
@@ -87,11 +88,9 @@ pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
         actor.attackdown = false;
     }
 
-    // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
-    // finemask = 67100672
-    let angle = (level_time as f32) * 0.14;
+    let angle = (level_time as f32) * 0.1;
     pspr.sx = 1.0 + actor.bob * (angle as f32).cos();
-    let angle = (level_time as f32) * 0.18;
+    let angle = (level_time as f32) * 0.2;
     pspr.sy = WEAPONTOP + 5.0 + actor.bob * (angle as f32).sin() * 0.1;
 }
 
@@ -204,7 +203,26 @@ pub fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
-    error!("a_punch not implemented");
+    let mut damage = (p_random() % 10 + 1) as f32;
+    if actor.powers[PowerType::Strength as usize] != 0 {
+        damage *= 10.0;
+    }
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+        let mut angle = mobj.angle;
+        angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(MELEERANGE);
+        let slope = mobj.aim_line_attack(MELEERANGE, &mut bsp_trace);
+        mobj.line_attack(damage, MELEERANGE, slope.clone(), &mut bsp_trace);
+
+        if let Some(res) = slope {
+            let target = res.line_target;
+            // TODO: S_StartSound(player->mo, sfx_punch);
+            mobj.angle = point_to_angle_2(&target.xy, &mobj.xy);
+        }
+    }
 }
 
 pub fn a_checkreload(actor: &mut Player, _pspr: &mut PspDef) {
@@ -224,7 +242,37 @@ pub fn a_closeshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    let damage = 2.0 * (p_random() % 10 + 1) as f32;
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+        let mut angle = mobj.angle;
+        angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(MELEERANGE + 1.0);
+        let slope = mobj.aim_line_attack(MELEERANGE + 1.0, &mut bsp_trace);
+        mobj.line_attack(damage, MELEERANGE + 1.0, slope.clone(), &mut bsp_trace);
+
+        if slope.is_none() {
+            // TODO: S_StartSound(player->mo, sfx_sawful);
+            return;
+        }
+
+        // Have a target
+        // TODO: S_StartSound(player->mo, sfx_sawhit);
+        if let Some(res) = slope {
+            let target = res.line_target;
+            // TODO: S_StartSound(player->mo, sfx_punch);
+            let angle = point_to_angle_2(&target.xy, &mobj.xy);
+
+            let delta = angle.rad() - mobj.angle.rad();
+            if delta > FRAC_PI_2 / 20.0 {
+                mobj.angle += FRAC_PI_2 / 21.0;
+            } else {
+                mobj.angle -= FRAC_PI_2 / 20.0;
+            }
+        }
+    }
 }
 
 pub fn a_light0(actor: &mut Player, _pspr: &mut PspDef) {

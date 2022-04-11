@@ -348,7 +348,7 @@ impl SegRender {
             //  }
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = view_angle - self.rw_normalangle;
-            self.wall_lights = seg.sidedef.sector.lightlevel;
+            self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
         }
 
         // if a floor / ceiling plane is on the wrong side

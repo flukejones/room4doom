@@ -114,7 +114,7 @@ impl SoftwareRenderer {
         }
         self.checked_sectors.push(sector.num);
 
-        let light_level = sector.lightlevel; // TODO: extralight
+        let light_level = (sector.lightlevel >> 4) + player.extralight;
 
         // TODO: sprite lights
         // let sprite_light;
@@ -238,7 +238,7 @@ impl SoftwareRenderer {
         //  - fixed
         if thing.frame & FF_FULLBRIGHT != 0 {
             // full bright
-            vis.light_level = 255;
+            vis.light_level = 255 >> 4;
         } else {
             vis.light_level = light_level as usize;
         }
@@ -303,13 +303,7 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawSprite`
-    fn draw_sprite(
-        &mut self,
-        viewz: f32,
-        _viewheight: f32,
-        vis: &VisSprite,
-        canvas: &mut Canvas<Surface>,
-    ) {
+    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
         let mut clip_bottom = [-2i32; SCREENWIDTH];
         let mut clip_top = [-2i32; SCREENWIDTH];
 
@@ -342,7 +336,7 @@ impl SoftwareRenderer {
                             == 0)
                 {
                     if seg.maskedtexturecol != -1 {
-                        self.render_masked_seg_range(viewz, seg, r1, r2, canvas);
+                        self.render_masked_seg_range(player, seg, r1, r2, canvas);
                     }
                     // seg is behind sprite
                     continue;
@@ -418,6 +412,7 @@ impl SoftwareRenderer {
         } else {
             0
         };
+        let light = (light >> 4) + player.extralight;
 
         for sprite in player.psprites.iter() {
             if sprite.state.is_some() {
@@ -429,6 +424,7 @@ impl SoftwareRenderer {
     fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, canvas: &mut Canvas<Surface>) {
         // TODO:
         let pspriteiscale = 1.0;
+        let pspritescale = 1;
 
         let texture_data = self.texture_data.borrow();
         let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
@@ -437,14 +433,13 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
 
         let mut tx = sprite.sx as i32 - 160 - patch.left_offset;
-        let x1 = (SCREENWIDTH as i32 / 2) + tx * 1;
+        let x1 = (SCREENWIDTH as i32 / 2) + tx * pspritescale;
 
         if x1 > SCREENWIDTH as i32 {
-            dbg!(x1);
             return;
         }
         tx += patch.data.len() as i32;
-        let x2 = ((SCREENWIDTH / 2) as i32 + tx * 1) - 1;
+        let x2 = ((SCREENWIDTH / 2) as i32 + tx * pspritescale) - 1;
 
         if x2 < 0 {
             return;
@@ -459,8 +454,8 @@ impl SoftwareRenderer {
         } else {
             x2
         };
-        vis.scale = pspriteiscale;
-        vis.light_level = light;
+        vis.scale = pspritescale as f32;
+        vis.light_level = light + 2;
 
         if flip != 0 {
             vis.x_iscale = -pspriteiscale;
@@ -479,19 +474,13 @@ impl SoftwareRenderer {
         self.draw_vissprite(&vis, &CLIP_TOP, &CLIP_BOTTOM, canvas)
     }
 
-    pub(crate) fn draw_masked(
-        &mut self,
-        viewz: f32,
-        viewheight: f32,
-        player: &Player,
-        canvas: &mut Canvas<Surface>,
-    ) {
+    pub(crate) fn draw_masked(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort_by(|a, b| a.cmp(b));
         // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
-            self.draw_sprite(viewz, viewheight, vis, canvas);
+            self.draw_sprite(player, vis, canvas);
             if i == self.next_vissprite {
                 break;
             }
@@ -499,7 +488,7 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, canvas);
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, canvas);
         }
 
         self.draw_player_sprites(player, canvas);
@@ -507,7 +496,7 @@ impl SoftwareRenderer {
 
     fn render_masked_seg_range(
         &mut self,
-        viewz: f32,
+        player: &Player,
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
@@ -524,7 +513,7 @@ impl SoftwareRenderer {
                 return;
             }
 
-            let wall_lights = seg.sidedef.sector.lightlevel;
+            let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
             let rw_scalestep = ds.scalestep;
             let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
@@ -538,14 +527,14 @@ impl SoftwareRenderer {
                 };
 
                 let texture_column = textures.wall_pic_column(texnum, 0);
-                dc_texturemid += texture_column.len() as f32 - viewz;
+                dc_texturemid += texture_column.len() as f32 - player.viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
                     frontsector.ceilingheight
                 } else {
                     backsector.ceilingheight
                 };
-                dc_texturemid -= viewz;
+                dc_texturemid -= player.viewz;
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
