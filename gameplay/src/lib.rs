@@ -31,6 +31,7 @@ pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use play::{
     mobj::MapObject,
     player::{Player, PlayerCheat, PlayerState, WBStartStruct},
+    player_sprite::PspDef,
     specials::{spawn_specials, update_specials},
     utilities::m_clear_random,
     Skill,

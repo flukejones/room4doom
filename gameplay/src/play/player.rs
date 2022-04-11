@@ -5,15 +5,15 @@ use log::{debug, error, info};
 
 use super::{
     mobj::{MapObject, BONUSADD},
-    player_sprite::PspDef,
+    player_sprite::{PspDef, WEAPONBOTTOM},
     utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, MAXHEALTH, VIEWHEIGHT},
 };
 
 use crate::{
     angle::Angle,
     doom_def::{
-        AmmoType, Card, PowerDuration, PowerType, WeaponType, CLIP_AMMO, MAXPLAYERS, MAX_AMMO,
-        MISSILERANGE, WEAPON_INFO,
+        AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXPLAYERS,
+        MAX_AMMO, MISSILERANGE, WEAPON_INFO,
     },
     info::{ActionF, SpriteNum, State, StateNum, STATES},
     level::Level,
@@ -175,7 +175,7 @@ pub struct Player {
     colormap: i32,
 
     /// Overlay view sprites (gun, etc).
-    psprites: [PspDef; PsprNum::NumPSprites as usize],
+    pub psprites: [PspDef; PsprNum::NumPSprites as usize],
 
     /// True if secret level has been done.
     pub didsecret: bool,
@@ -239,7 +239,7 @@ impl Player {
 
             psprites: [
                 PspDef {
-                    state: Some(&STATES[StateNum::S_PISTOL as usize]),
+                    state: Some(&STATES[StateNum::S_PISTOLUP as usize]),
                     tics: 1,
                     sx: 0.0,
                     sy: 0.0,
@@ -293,7 +293,7 @@ impl Player {
         self.attackdown = false;
         self.player_state = PlayerState::Live;
         self.health = MAXHEALTH;
-        self.readyweapon = WeaponType::Shotgun;
+        self.readyweapon = WeaponType::Pistol;
         self.pendingweapon = WeaponType::NoChange;
         self.weaponowned[WeaponType::Fist as usize] = true;
         self.weaponowned[WeaponType::Pistol as usize] = true;
@@ -687,11 +687,106 @@ impl Player {
             mobj.set_state(StateNum::S_PLAY_ATK1);
         }
 
-        // TODO: if (!P_CheckAmmo(player))
+        if !self.check_ammo() {
+            return;
+        }
 
         let new_state = WEAPON_INFO[self.readyweapon as usize].atkstate;
         self.set_psprite(PsprNum::Weapon as usize, new_state);
         // TODO: P_NoiseAlert(player->mo, player->mo);
+    }
+
+    pub(crate) fn check_ammo(&mut self) -> bool {
+        let ammo = &WEAPON_INFO[self.readyweapon as usize].ammo;
+        // Minimum for one shot varies with weapon
+        let count = if self.readyweapon == WeaponType::BFG {
+            BFGCELLS
+        } else if self.readyweapon == WeaponType::SuperShotgun {
+            2
+        } else {
+            1
+        };
+
+        // Punch and chainsaw don't need ammo.
+        if *ammo == AmmoType::NoAmmo || self.ammo[*ammo as usize] >= count {
+            dbg!(count);
+            return true;
+        }
+        dbg!(count, ammo, self.ammo[*ammo as usize]);
+
+        // Out of ammo so pick a new weapon
+        loop {
+            if self.weaponowned[WeaponType::Plasma as usize]
+                && self.ammo[AmmoType::Cell as usize] != 0
+            // TODO: && (gamemode != shareware)
+            {
+                self.pendingweapon = WeaponType::Plasma
+            } else if self.weaponowned[WeaponType::SuperShotgun as usize]
+                && self.ammo[AmmoType::Shell as usize] > 2
+            // TODO: && (gamemode == commercial)
+            {
+                self.pendingweapon = WeaponType::SuperShotgun
+            } else if self.weaponowned[WeaponType::Chaingun as usize]
+                && self.ammo[AmmoType::Clip as usize] != 0
+            {
+                self.pendingweapon = WeaponType::Chaingun
+            } else if self.weaponowned[WeaponType::Shotgun as usize]
+                && self.ammo[AmmoType::Shell as usize] != 0
+            {
+                self.pendingweapon = WeaponType::Shotgun
+            } else if self.ammo[AmmoType::Clip as usize] != 0 {
+                self.pendingweapon = WeaponType::Pistol
+            } else if self.weaponowned[WeaponType::Chainsaw as usize] {
+                self.pendingweapon = WeaponType::Chainsaw
+            } else if self.weaponowned[WeaponType::Missile as usize]
+                && self.ammo[AmmoType::Missile as usize] != 0
+            {
+                self.pendingweapon = WeaponType::Missile
+            } else if self.weaponowned[WeaponType::BFG as usize]
+                && self.ammo[AmmoType::Cell as usize] >= 40
+            // TODO: && (gamemode != shareware)
+            {
+                self.pendingweapon = WeaponType::BFG
+            } else {
+                self.pendingweapon = WeaponType::Fist
+            }
+
+            if self.pendingweapon != WeaponType::NoChange {
+                break;
+            }
+        }
+
+        self.set_psprite(
+            PsprNum::Weapon as usize,
+            WEAPON_INFO[self.readyweapon as usize].downstate,
+        );
+
+        return false;
+    }
+
+    pub(crate) fn bring_up_weapon(&mut self) {
+        if self.pendingweapon == WeaponType::NoChange {
+            self.pendingweapon = self.readyweapon;
+        }
+        if self.pendingweapon == WeaponType::Chainsaw {
+            self.pendingweapon = self.readyweapon;
+            // TODO: S_StartSound(player->mo, sfx_sawup);
+        }
+
+        let new_state = WEAPON_INFO[self.pendingweapon as usize].upstate;
+        self.pendingweapon = WeaponType::NoChange;
+        self.psprites[PsprNum::Weapon as usize].sy = WEAPONBOTTOM;
+
+        self.set_psprite(PsprNum::Weapon as usize, new_state);
+    }
+
+    /// Check for mobj and set state of it
+    pub(crate) fn set_mobj_state(&mut self, state: StateNum) {
+        if let Some(mobj) = self.mobj {
+            unsafe {
+                (*mobj).set_state(state);
+            }
+        }
     }
 }
 
