@@ -509,25 +509,65 @@ impl MapObject {
 
                 // Weapons
                 SpriteNum::SPR_BFUG => {
-                    return;
+                    if !player.give_weapon(WeaponType::BFG, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTBFG9000);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_MGUN => {
-                    return;
+                    if !player.give_weapon(
+                        WeaponType::Chaingun,
+                        special.flags & MapObjectFlag::Dropped as u32 != 0,
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTCHAINGUN);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_CSAW => {
-                    return;
+                    if !player.give_weapon(WeaponType::Chainsaw, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCHAINSAW);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_LAUN => {
-                    return;
+                    if !player.give_weapon(WeaponType::Missile, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTLAUNCHER);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_PLAS => {
-                    return;
+                    if !player.give_weapon(WeaponType::Plasma, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTPLASMA);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_SHOT => {
-                    return;
+                    if !player.give_weapon(
+                        WeaponType::Shotgun,
+                        special.flags & MapObjectFlag::Dropped as u32 != 0,
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTSHOTGUN);
+                    _sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_SGN2 => {
-                    return;
+                    if !player.give_weapon(
+                        WeaponType::SuperShotgun,
+                        special.flags & MapObjectFlag::Dropped as u32 != 0,
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTSHOTGUN2);
+                    _sound = SfxEnum::wpnup;
                 }
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),

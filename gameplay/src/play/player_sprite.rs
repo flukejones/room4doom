@@ -46,7 +46,8 @@ pub fn a_refire(actor: &mut Player, _pspr: &mut PspDef) {
     error!("a_refire not completed");
 }
 
-pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
+    let mut level_time = 0;
     if let Some(mobj) = actor.mobj {
         let mobj = unsafe { &mut *mobj };
 
@@ -55,6 +56,8 @@ pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
         {
             mobj.set_state(StateNum::S_PLAY);
         }
+
+        level_time = unsafe { (*mobj.level).level_time };
     }
 
     // TODO: if (player->readyweapon == wp_chainsaw && psp->state == &states[S_SAW]) {
@@ -84,7 +87,12 @@ pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
         actor.attackdown = false;
     }
 
-    // TODO: weapon swing
+    // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
+    // finemask = 67100672
+    let angle = (level_time as f32) * 0.14;
+    pspr.sx = 1.0 + actor.bob * (angle as f32).cos();
+    let angle = (level_time as f32) * 0.18;
+    pspr.sy = WEAPONTOP + 5.0 + actor.bob * (angle as f32).sin() * 0.1;
 }
 
 pub fn a_lower(actor: &mut Player, pspr: &mut PspDef) {

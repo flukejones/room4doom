@@ -228,8 +228,8 @@ impl Player {
             fixedcolormap: 0,
 
             frags: [0; 4],
-            readyweapon: WeaponType::Pistol,
-            pendingweapon: WeaponType::NoChange,
+            readyweapon: WeaponType::NoChange,
+            pendingweapon: WeaponType::Pistol,
             weaponowned: [false; WeaponType::NumWeapons as usize],
 
             player_state: PlayerState::Reborn,
@@ -242,13 +242,13 @@ impl Player {
                     state: Some(&STATES[StateNum::S_PISTOLUP as usize]),
                     tics: 1,
                     sx: 0.0,
-                    sy: 0.0,
+                    sy: WEAPONBOTTOM,
                 },
                 PspDef {
                     state: Some(&STATES[StateNum::S_PISTOLFLASH as usize]),
                     tics: 1,
                     sx: 0.0,
-                    sy: 0.0,
+                    sy: WEAPONBOTTOM,
                 },
             ],
         }
@@ -613,6 +613,28 @@ impl Player {
             _ => {}
         }
         true
+    }
+
+    pub(crate) fn give_weapon(&mut self, weapon: WeaponType, dropped: bool, skill: Skill) -> bool {
+        let mut gave_ammo = false;
+        let mut gave_weapon = false;
+        // TODO: if (netgame && (deathmatch != 2) && !dropped) {
+        let ammo = WEAPON_INFO[weapon as usize].ammo;
+        if ammo != AmmoType::NoAmmo {
+            if dropped {
+                gave_ammo = self.give_ammo(ammo, 1, skill);
+            } else {
+                gave_ammo = self.give_ammo(ammo, 2, skill);
+            }
+        }
+
+        if !self.weaponowned[weapon as usize] {
+            gave_weapon = true;
+            self.weaponowned[weapon as usize] = true;
+            self.pendingweapon = weapon;
+        }
+
+        return gave_ammo || gave_weapon;
     }
 
     pub(crate) fn give_armour(&mut self, armour: i32) -> bool {
