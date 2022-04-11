@@ -7,7 +7,7 @@ use crate::{
         specials::shoot_special_line,
         utilities::{p_random, path_traverse, Intercept, PortalZ, MAXRADIUS},
     },
-    DPtr, LineDefFlags, MapObject, MapObjectType,
+    Angle, DPtr, LineDefFlags, MapObject, MapObjectType,
 };
 
 use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -79,6 +79,7 @@ impl MapObject {
     pub(crate) fn shoot_line_attack(
         &mut self,
         attack_range: f32,
+        angle: Angle,
         aim_slope: f32,
         damage: f32,
         bsp_trace: &mut BSPTrace,
@@ -89,12 +90,12 @@ impl MapObject {
             damage,
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
             bsp_trace.origin,
-            self.angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
+            angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
         );
 
         let xy2 = Vec2::new(
-            self.xy.x() + attack_range * self.angle.cos(),
-            self.xy.y() + attack_range * self.angle.sin(),
+            self.xy.x() + attack_range * angle.cos(),
+            self.xy.y() + attack_range * angle.sin(),
         );
 
         let level = unsafe { &mut *self.level };
@@ -198,32 +199,31 @@ impl MapObject {
         bsp_trace: &mut BSPTrace,
     ) {
         let damage = 5.0 * (p_random() % 3 + 1) as f32;
-        let old_angle = self.angle;
+        let mut angle = self.angle;
 
         if !accurate {
-            self.angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
+            angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
         }
 
         if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, res.aimslope, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, res.aimslope, damage, bsp_trace);
         } else {
-            self.shoot_line_attack(distance, 0.0, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, 0.0, damage, bsp_trace);
         }
-
-        self.angle = old_angle;
     }
 
     pub(crate) fn line_attack(
         &mut self,
         damage: f32,
         distance: f32,
+        angle: Angle,
         bullet_slope: Option<AimResult>,
         bsp_trace: &mut BSPTrace,
     ) {
         if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, res.aimslope, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, res.aimslope, damage, bsp_trace);
         } else {
-            self.shoot_line_attack(distance, 0.0, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, 0.0, damage, bsp_trace);
         }
     }
 }

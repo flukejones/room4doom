@@ -809,6 +809,12 @@ impl Player {
         }
     }
 
+    pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
+        if self.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] != 0 {
+            self.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] -= num;
+        }
+    }
+
     // pub(crate) fn get_mobj_angle(&mut self) -> Angle {
     //     unsafe { (*(self.mobj.unwrap())).angle }
     // }
