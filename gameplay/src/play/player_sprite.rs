@@ -2,6 +2,8 @@
 
 use std::f32::consts::FRAC_PI_2;
 
+use log::error;
+
 use super::{
     mobj::MapObject,
     player::{Player, PsprNum},
@@ -154,8 +156,9 @@ pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
     if let Some(mobj) = actor.mobj {
         let mobj = unsafe { &mut *mobj };
 
+        // TODO: S_StartSound(player->mo, sfx_shotgn);
         mobj.set_state(StateNum::S_PLAY_ATK2);
-        actor.ammo[WEAPON_INFO[actor.readyweapon as usize].ammo as usize] -= 1;
+        actor.subtract_readyweapon_ammo(1);
         actor.set_psprite(
             PsprNum::Flash as usize,
             WEAPON_INFO[actor.readyweapon as usize].flashstate,
@@ -171,27 +174,81 @@ pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_fireshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    let distance = MISSILERANGE;
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+
+        // TODO: S_StartSound(player->mo, sfx_dshtgn);
+        mobj.set_state(StateNum::S_PLAY_ATK2);
+        actor.subtract_readyweapon_ammo(2);
+        actor.set_psprite(
+            PsprNum::Flash as usize,
+            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+        );
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
+        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+
+        for _ in 0..20 {
+            let damage = 5.0 * (p_random() % 3 + 1) as f32;
+            let mut angle = mobj.angle;
+            angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
+            mobj.line_attack(
+                damage,
+                MISSILERANGE,
+                angle,
+                bullet_slope.clone(),
+                &mut bsp_trace,
+            );
+        }
+    }
 }
 
-pub fn a_firecgun(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+pub fn a_firecgun(actor: &mut Player, pspr: &mut PspDef) {
+    // TODO: S_StartSound(player->mo, sfx_pistol);
+    if !actor.check_ammo() {
+        return;
+    }
+
+    if let Some(mobj) = actor.mobj {
+        let mobj = unsafe { &mut *mobj };
+        mobj.set_state(StateNum::S_PLAY_ATK2);
+        actor.subtract_readyweapon_ammo(1);
+
+        let state = StateNum::from(
+            WEAPON_INFO[actor.readyweapon as usize].flashstate as u16
+                + pspr.state.unwrap().next_state as u16
+                - StateNum::S_CHAIN1 as u16
+                - 1,
+        );
+        actor.set_psprite(PsprNum::Flash as usize, state);
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
+        let bullet_slope = mobj.bullet_slope(MISSILERANGE, &mut bsp_trace);
+        mobj.gun_shot(
+            actor.refire == 0,
+            MISSILERANGE,
+            bullet_slope,
+            &mut bsp_trace,
+        );
+    }
 }
 
 pub fn a_fireplasma(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("TODO: a_fireplasma not implemented");
 }
 
 pub fn a_firemissile(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("TODO: a_firemissile not implemented");
 }
 
 pub fn a_firebfg(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("TODO: a_firebfg not implemented");
 }
 
 pub fn a_bfgsound(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("TODO: a_bfgsound not implemented");
 }
 
 pub fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) {
@@ -215,7 +272,7 @@ pub fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(MELEERANGE);
         let slope = mobj.aim_line_attack(MELEERANGE, &mut bsp_trace);
-        mobj.line_attack(damage, MELEERANGE, slope.clone(), &mut bsp_trace);
+        mobj.line_attack(damage, MELEERANGE, angle, slope.clone(), &mut bsp_trace);
 
         if let Some(res) = slope {
             let target = res.line_target;
@@ -230,15 +287,16 @@ pub fn a_checkreload(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_openshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    // TODO: S_StartSound(player->mo, sfx_dbopn);
 }
 
 pub fn a_loadshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    // TODO: S_StartSound(player->mo, sfx_dbload);
 }
 
-pub fn a_closeshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+pub fn a_closeshotgun2(actor: &mut Player, pspr: &mut PspDef) {
+    // S_StartSound(player->mo, sfx_dbcls);
+    a_refire(actor, pspr);
 }
 
 pub fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
@@ -251,7 +309,13 @@ pub fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(MELEERANGE + 1.0);
         let slope = mobj.aim_line_attack(MELEERANGE + 1.0, &mut bsp_trace);
-        mobj.line_attack(damage, MELEERANGE + 1.0, slope.clone(), &mut bsp_trace);
+        mobj.line_attack(
+            damage,
+            MELEERANGE + 1.0,
+            angle,
+            slope.clone(),
+            &mut bsp_trace,
+        );
 
         if slope.is_none() {
             // TODO: S_StartSound(player->mo, sfx_sawful);
