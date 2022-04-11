@@ -3,6 +3,7 @@ use crate::info::StateNum;
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
 
+pub const BFGCELLS: u32 = 40;
 pub const MELEERANGE: f32 = 64.0;
 pub const MISSILERANGE: f32 = 32.0 * 64.0;
 
@@ -96,7 +97,7 @@ pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];
 pub const CLIP_AMMO: [u32; 4] = [10, 4, 20, 1];
 
 /// Ammunition types defined.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AmmoType {
     /// Pistol / chaingun ammo.
     Clip,

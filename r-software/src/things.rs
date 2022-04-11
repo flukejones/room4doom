@@ -3,7 +3,7 @@ use std::{
     f32::consts::{FRAC_PI_2, PI},
 };
 
-use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, Sector};
+use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, PspDef, Sector};
 use glam::Vec2;
 use sdl2::{rect::Rect, render::Canvas, surface::Surface};
 
@@ -412,10 +412,78 @@ impl SoftwareRenderer {
         self.draw_vissprite(vis, &clip_bottom, &clip_top, canvas);
     }
 
+    fn draw_player_sprites(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
+        let light = if let Some(mobj) = player.mobj {
+            unsafe { (*(*mobj).subsector).sector.lightlevel }
+        } else {
+            0
+        };
+
+        for sprite in player.psprites.iter() {
+            if sprite.state.is_some() {
+                self.draw_player_sprite(sprite, light as usize, canvas);
+            }
+        }
+    }
+
+    fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, canvas: &mut Canvas<Surface>) {
+        // TODO:
+        let pspriteiscale = 1.0;
+
+        let texture_data = self.texture_data.borrow();
+        let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
+        let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
+        let patch = texture_data.sprite_patch(frame.lump[0] as usize);
+        let flip = frame.flip[0];
+
+        let mut tx = sprite.sx as i32 - 160 - patch.left_offset;
+        let x1 = (SCREENWIDTH as i32 / 2) + tx * 1;
+
+        if x1 > SCREENWIDTH as i32 {
+            dbg!(x1);
+            return;
+        }
+        tx += patch.data.len() as i32;
+        let x2 = ((SCREENWIDTH / 2) as i32 + tx * 1) - 1;
+
+        if x2 < 0 {
+            return;
+        }
+
+        let mut vis = VisSprite::new();
+        vis.patch = frame.lump[0] as usize;
+        vis.texture_mid = SCREENHEIGHT_HALF as f32 - (sprite.sy - patch.top_offset as f32);
+        vis.x1 = if x1 < 0 { 0 } else { x1 };
+        vis.x2 = if x2 >= SCREENWIDTH as i32 {
+            SCREENWIDTH as i32
+        } else {
+            x2
+        };
+        vis.scale = pspriteiscale;
+        vis.light_level = light;
+
+        if flip != 0 {
+            vis.x_iscale = -pspriteiscale;
+            vis.start_frac = (patch.data.len() - 1) as f32;
+        } else {
+            vis.x_iscale = pspriteiscale;
+            vis.start_frac = 0.0;
+        }
+
+        if vis.x1 > x1 {
+            vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
+        }
+
+        const CLIP_BOTTOM: [i32; SCREENWIDTH] = [0i32; SCREENWIDTH];
+        const CLIP_TOP: [i32; SCREENWIDTH] = [SCREENHEIGHT as i32; SCREENWIDTH];
+        self.draw_vissprite(&vis, &CLIP_TOP, &CLIP_BOTTOM, canvas)
+    }
+
     pub(crate) fn draw_masked(
         &mut self,
         viewz: f32,
         viewheight: f32,
+        player: &Player,
         canvas: &mut Canvas<Surface>,
     ) {
         // Sort only the vissprites used
@@ -434,7 +502,7 @@ impl SoftwareRenderer {
             self.render_masked_seg_range(viewz, ds, ds.x1, ds.x2, canvas);
         }
 
-        // todo: R_DrawPlayerSprites ();
+        self.draw_player_sprites(player, canvas);
     }
 
     fn render_masked_seg_range(

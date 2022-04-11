@@ -11,8 +11,13 @@ use crate::{
     doom_def::{MISSILERANGE, WEAPON_INFO},
     info::{State, StateNum, STATES},
     tic_cmd::TIC_CMD_BUTTONS,
-    WeaponType,
+    PlayerState, WeaponType,
 };
+
+const LOWERSPEED: f32 = 6.0;
+const RAISESPEED: f32 = 6.0;
+pub(crate) const WEAPONBOTTOM: f32 = 128.0;
+const WEAPONTOP: f32 = 32.0;
 
 /// From P_PSPR
 #[derive(Debug)]
@@ -35,7 +40,7 @@ pub fn a_refire(actor: &mut Player, _pspr: &mut PspDef) {
         actor.fire_weapon();
     } else {
         actor.refire = 0;
-        // TODO: P_CheckAmmo(player);
+        actor.check_ammo();
     }
 
     error!("a_refire not completed");
@@ -61,8 +66,10 @@ pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
     if actor.pendingweapon != WeaponType::NoChange || actor.health <= 0 {
         // change weapon
         //  (pending weapon should allready be validated)
-        let new_state = WEAPON_INFO[actor.readyweapon as usize].downstate;
-        actor.set_psprite(PsprNum::Weapon as usize, new_state);
+        if actor.readyweapon != WeaponType::NoChange {
+            let new_state = WEAPON_INFO[actor.readyweapon as usize].downstate;
+            actor.set_psprite(PsprNum::Weapon as usize, new_state);
+        }
         return;
     }
 
@@ -80,12 +87,37 @@ pub fn a_weaponready(actor: &mut Player, _pspr: &mut PspDef) {
     // TODO: weapon swing
 }
 
-pub fn a_lower(actor: &mut Player, _pspr: &mut PspDef) {
-    error!("a_lower not implemented");
+pub fn a_lower(actor: &mut Player, pspr: &mut PspDef) {
+    pspr.sy += LOWERSPEED;
+    if pspr.sy < WEAPONBOTTOM {
+        return;
+    }
+
+    if actor.player_state == PlayerState::Dead {
+        // Keep weapon down if dead
+        pspr.sy = WEAPONBOTTOM;
+        return;
+    }
+
+    if actor.health <= 0 {
+        // Player died so take weapon off screen
+        actor.set_psprite(PsprNum::Weapon as usize, StateNum::S_NULL);
+        return;
+    }
+
+    actor.readyweapon = actor.pendingweapon;
+    actor.bring_up_weapon();
 }
 
-pub fn a_raise(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+pub fn a_raise(actor: &mut Player, pspr: &mut PspDef) {
+    pspr.sy -= RAISESPEED;
+    if pspr.sy > WEAPONTOP {
+        return;
+    }
+    pspr.sy = WEAPONTOP;
+
+    let new_state = WEAPON_INFO[actor.readyweapon as usize].readystate;
+    actor.set_psprite(PsprNum::Weapon as usize, new_state);
 }
 
 pub fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) {
@@ -95,7 +127,12 @@ pub fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) {
     if let Some(mobj) = actor.mobj {
         let mobj = unsafe { &mut *mobj };
 
-        mobj.set_state(StateNum::S_PLAY_ATK1);
+        mobj.set_state(StateNum::S_PLAY_ATK2);
+        actor.ammo[WEAPON_INFO[actor.readyweapon as usize].ammo as usize] -= 1;
+        actor.set_psprite(
+            PsprNum::Flash as usize,
+            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+        );
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
@@ -111,6 +148,11 @@ pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
         let mobj = unsafe { &mut *mobj };
 
         mobj.set_state(StateNum::S_PLAY_ATK2);
+        actor.ammo[WEAPON_INFO[actor.readyweapon as usize].ammo as usize] -= 1;
+        actor.set_psprite(
+            PsprNum::Flash as usize,
+            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+        );
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
@@ -146,15 +188,19 @@ pub fn a_bfgsound(actor: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    actor.set_mobj_state(StateNum::S_PLAY_ATK2);
+    actor.set_psprite(
+        PsprNum::Flash as usize,
+        WEAPON_INFO[actor.readyweapon as usize].flashstate,
+    );
 }
 
 pub fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    error!("a_punch not implemented");
 }
 
 pub fn a_checkreload(actor: &mut Player, _pspr: &mut PspDef) {
-    unimplemented!()
+    actor.check_ammo();
 }
 
 pub fn a_openshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
