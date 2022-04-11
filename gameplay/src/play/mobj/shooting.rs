@@ -212,6 +212,20 @@ impl MapObject {
 
         self.angle = old_angle;
     }
+
+    pub(crate) fn line_attack(
+        &mut self,
+        damage: f32,
+        distance: f32,
+        bullet_slope: Option<AimResult>,
+        bsp_trace: &mut BSPTrace,
+    ) {
+        if let Some(res) = bullet_slope {
+            self.shoot_line_attack(distance, res.aimslope, damage, bsp_trace);
+        } else {
+            self.shoot_line_attack(distance, 0.0, damage, bsp_trace);
+        }
+    }
 }
 
 #[derive(Clone)]

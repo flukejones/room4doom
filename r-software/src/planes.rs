@@ -203,6 +203,7 @@ pub fn make_spans(
     mut b2: i32,
     viewxy: Vec2,
     viewz: f32,
+    extra_light: i32,
     plane: &Visplane,
     span_start: &mut [i32; SCREENWIDTH],
     texture_data: &PicData,
@@ -215,6 +216,7 @@ pub fn make_spans(
             x - 1,
             viewxy,
             viewz,
+            extra_light,
             plane,
             texture_data,
             canvas,
@@ -229,6 +231,7 @@ pub fn make_spans(
             x - 1,
             viewxy,
             viewz,
+            extra_light,
             plane,
             texture_data,
             canvas,
@@ -253,6 +256,7 @@ fn map_plane(
     x2: i32,
     viewxy: Vec2,
     viewz: f32,
+    extra_light: i32,
     plane: &Visplane,
     texture_data: &PicData,
     canvas: &mut Canvas<Surface>,
@@ -277,7 +281,8 @@ fn map_plane(
 
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
     let flat = texture_data.get_flat(plane.picnum);
-    let cm = texture_data.flat_light_colourmap(plane.lightlevel as i32, distance);
+    let light = (plane.lightlevel >> 4) + extra_light;
+    let cm = texture_data.flat_light_colourmap(light, distance);
 
     let mut ds = DrawSpan::new(flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2);
 

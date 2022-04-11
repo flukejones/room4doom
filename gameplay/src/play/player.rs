@@ -13,13 +13,13 @@ use crate::{
     angle::Angle,
     doom_def::{
         AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXPLAYERS,
-        MAX_AMMO, MISSILERANGE, WEAPON_INFO,
+        MAX_AMMO, WEAPON_INFO,
     },
-    info::{ActionF, SpriteNum, State, StateNum, STATES},
+    info::{ActionF, SpriteNum, StateNum, STATES},
     level::Level,
     play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    Skill,
+    GameMode, Skill,
 };
 
 /// 16 pixels of bob
@@ -109,23 +109,23 @@ pub struct Player {
     /// Base height above floor for viewz.
     pub viewheight: f32,
     /// Bob/squat speed.
-    pub deltaviewheight: f32,
+    pub(crate) deltaviewheight: f32,
     /// bounded/scaled total momentum.
-    pub bob: f32,
-    pub onground: bool,
+    pub(crate) bob: f32,
+    pub(crate) onground: bool,
 
     /// This is only used between levels,
     /// mo->health is used during levels.
-    pub health: i32,
+    pub(crate) health: i32,
     pub armorpoints: i32,
     /// Armor type is 0-2.
     // TODO: make enum
     pub armortype: i32,
 
     /// Power ups. invinc and invis are tic counters.
-    pub powers: [i32; PowerType::NumPowers as usize],
+    pub(crate) powers: [i32; PowerType::NumPowers as usize],
     pub cards: [bool; Card::NumCards as usize],
-    pub backpack: bool,
+    pub(crate) backpack: bool,
 
     /// Frags, kills of other players.
     pub frags: [i32; MAXPLAYERS as usize],
@@ -162,7 +162,7 @@ pub struct Player {
     pub bonuscount: i32,
 
     // Who did damage (NULL for floors/ceilings).
-    pub attacker: Option<*mut MapObject>,
+    pub(crate) attacker: Option<*mut MapObject>,
     /// So gun flashes light up areas.
     pub extralight: i32,
 
@@ -290,7 +290,7 @@ impl Player {
         self.secretcount = secret_count;
 
         self.usedown = false;
-        self.attackdown = false;
+        self.attackdown = true;
         self.player_state = PlayerState::Live;
         self.health = MAXHEALTH;
         self.readyweapon = WeaponType::Pistol;
@@ -731,10 +731,8 @@ impl Player {
 
         // Punch and chainsaw don't need ammo.
         if *ammo == AmmoType::NoAmmo || self.ammo[*ammo as usize] >= count {
-            dbg!(count);
             return true;
         }
-        dbg!(count, ammo, self.ammo[*ammo as usize]);
 
         // Out of ammo so pick a new weapon
         loop {
@@ -810,6 +808,18 @@ impl Player {
             }
         }
     }
+
+    // pub(crate) fn get_mobj_angle(&mut self) -> Angle {
+    //     unsafe { (*(self.mobj.unwrap())).angle }
+    // }
+
+    // pub(crate) fn get_mobj_xy(&mut self) -> Vec2 {
+    //     unsafe { (*(self.mobj.unwrap())).xy }
+    // }
+
+    // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut BSPTrace) -> Option<AimResult>{
+    //     unsafe { (*(self.mobj.unwrap())).aim_line_attack(distance, bsp_trace) }
+    // }
 }
 
 /// P_PlayerThink
@@ -844,6 +854,38 @@ impl Player {
         self.calculate_height(level.level_time);
 
         self.in_special_sector(level);
+
+        if self.cmd.buttons & TIC_CMD_BUTTONS.bt_change != 0 {
+            let new_weapon = (self.cmd.buttons & TIC_CMD_BUTTONS.bt_weaponmask)
+                >> TIC_CMD_BUTTONS.bt_weaponshift;
+            let mut new_weapon = WeaponType::from(new_weapon);
+
+            if new_weapon == WeaponType::Fist
+                && self.weaponowned[WeaponType::Chainsaw as usize]
+                && !(self.readyweapon == WeaponType::Chainsaw
+                    && self.powers[PowerType::Strength as usize] == 0)
+            {
+                new_weapon = WeaponType::Chainsaw;
+            }
+
+            if level.game_mode == GameMode::Commercial
+                && new_weapon == WeaponType::Shotgun
+                && self.weaponowned[WeaponType::SuperShotgun as usize]
+                && self.readyweapon != WeaponType::SuperShotgun
+            {
+                new_weapon = WeaponType::SuperShotgun;
+            }
+
+            if self.weaponowned[new_weapon as usize] && new_weapon != self.readyweapon {
+                // Do not go to plasma or BFG in shareware,
+                //  even if cheated.
+                if (new_weapon != WeaponType::Plasma && new_weapon != WeaponType::BFG)
+                    || (level.game_mode != GameMode::Shareware)
+                {
+                    self.pendingweapon = new_weapon;
+                }
+            }
+        }
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {

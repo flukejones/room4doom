@@ -97,7 +97,7 @@ impl Renderer for SoftwareRenderer {
         // TODO: netupdate again
         self.draw_planes(player, canvas);
         // TODO: netupdate again
-        self.draw_masked(player.viewz, player.viewheight, player, canvas);
+        self.draw_masked(player, canvas);
         // TODO: netupdate again
     }
 }
@@ -198,6 +198,7 @@ impl SoftwareRenderer {
                     plane.bottom[x as usize] as i32,
                     mobj.xy,
                     player.viewz,
+                    player.extralight,
                     plane,
                     &mut span_start,
                     &textures,

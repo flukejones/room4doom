@@ -86,11 +86,18 @@ pub enum WeaponType {
     BFG,
     Chainsaw,
     SuperShotgun,
-
     NumWeapons,
-
     // No pending weapon change.
     NoChange,
+}
+
+impl From<u8> for WeaponType {
+    fn from(w: u8) -> Self {
+        if w > WeaponType::NumWeapons as u8 {
+            panic!("{} is not a variant of SfxEnum", w);
+        }
+        unsafe { std::mem::transmute(w) }
+    }
 }
 
 pub const MAX_AMMO: [u32; 4] = [200, 50, 300, 50];

@@ -10,6 +10,7 @@
 - [ ] Automap
 - [ ] Status bar drawing
 - [ ] Sound state machine on new thread
+- [ ] Move "extra light" arg up the call chain to lightmap selection functions
 
 - [-] Sprites colourmap/light selection
 - [-] P_TouchSpecialThing

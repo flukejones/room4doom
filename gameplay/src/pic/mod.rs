@@ -370,7 +370,11 @@ impl PicData {
         light_level: i32,
         wall_scale: f32,
     ) -> &[usize] {
-        let mut light_level = light_level >> 4;
+        let mut light_level = light_level;
+        if light_level >= self.light_scale.len() as i32 {
+            light_level = self.light_scale.len() as i32 - 1;
+        }
+
         if v1.y() == v2.y() {
             if light_level > 1 {
                 light_level -= 1;
@@ -387,11 +391,15 @@ impl PicData {
         &self.light_scale[light_level as usize][colourmap as usize]
     }
 
+    /// Light may need right-shifting by 4
     pub fn sprite_light_colourmap(&self, light_level: usize, scale: f32) -> &[usize] {
-        let light_level = light_level >> 4;
+        let mut light_level = light_level;
+        if light_level >= self.light_scale.len() {
+            light_level = self.light_scale.len() - 1;
+        }
 
-        let mut colourmap = (scale * 15.8).round() as u32;
-        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
+        let mut colourmap = (scale * 15.8).ceil() as u32;
+        if colourmap >= MAXLIGHTSCALE as u32 {
             colourmap = MAXLIGHTSCALE as u32 - 1;
         }
 
@@ -402,12 +410,15 @@ impl PicData {
         &self.light_scale[light_level][colourmap]
     }
 
-    pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
+    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: f32) -> &[usize] {
         let mut dist = (wall_scale as i32 >> 4) as u32;
-        let light_level = light_level >> 4;
 
         if dist >= MAXLIGHTZ as u32 - 1 {
             dist = MAXLIGHTZ as u32 - 1;
+        }
+
+        if light_level >= self.zlight_scale.len() as i32 {
+            light_level = self.zlight_scale.len() as i32 - 1;
         }
 
         &self.zlight_scale[light_level as usize][dist as usize]
