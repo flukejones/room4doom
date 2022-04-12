@@ -14,9 +14,9 @@ use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
 
 impl MapObject {
     /// P_ExplodeMissile
-    fn p_explode_missile(&mut self) {
+    pub(super) fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
-        self.z = 0.0;
+        self.momz = 0.0;
         self.set_state(MOBJINFO[self.kind as usize].deathstate);
 
         self.tics -= p_random() & 3;
@@ -58,7 +58,7 @@ impl MapObject {
             -100.0 / 160.0,
             //
             distance,
-            self.z + (self.height as i32 >> 1) as f32 + 8.0,
+            self.z + (self.height as i32 >> 1) as f32 - 8.0,
         );
 
         let level = unsafe { &mut *self.level };

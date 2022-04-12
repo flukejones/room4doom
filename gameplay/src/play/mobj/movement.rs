@@ -18,11 +18,11 @@ use crate::{
         specials::cross_special_line,
         switch::p_use_special_line,
         utilities::{
-            box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
-            USERANGE, VIEWHEIGHT,
+            box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ,
+            FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
         },
     },
-    DPtr, MapObject,
+    DPtr, MapObject, MapObjectType,
 };
 
 use super::MapObjectFlag;
@@ -106,11 +106,38 @@ impl MapObject {
             }
 
             self.z = self.floorz;
+
+            if self.flags & MapObjectFlag::Missile as u32 != 0
+                && self.flags & MapObjectFlag::NoClip as u32 == 0
+            {
+                self.p_explode_missile();
+                return;
+            }
         } else if self.flags & MapObjectFlag::NoGravity as u32 == 0 {
             if self.momz == 0.0 {
                 self.momz = -1.0 * 2.0;
             } else {
                 self.momz -= 1.0;
+            }
+        }
+
+        if self.z + self.height > self.ceilingz {
+            // hit the ceiling
+            if self.momz > 0.0 {
+                self.momz = 0.0;
+                self.z = self.ceilingz - self.height;
+            }
+
+            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+                // the skull slammed into something
+                self.momz = -self.momz;
+            }
+
+            if self.flags & MapObjectFlag::Missile as u32 != 0
+                && self.flags & MapObjectFlag::NoClip as u32 == 0
+            {
+                self.p_explode_missile();
+                return;
             }
         }
     }
@@ -173,7 +200,7 @@ impl MapObject {
                 if self.player.is_some() {
                     self.p_slide_move();
                 } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
-                    // TODO: explode
+                    self.p_explode_missile();
                 } else {
                     self.momxy.set_x(0.0);
                     self.momxy.set_y(0.0);
@@ -232,7 +259,7 @@ impl MapObject {
     }
 
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
+    pub(super) fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
         // P_CrossSpecialLine
         let mut ctrl = SubSectorMinMax::default();
 
@@ -416,6 +443,7 @@ impl MapObject {
         true
     }
 
+    /// Thing is generally the target
     fn pit_check_thing(&mut self, thing: &mut MapObject, endpoint: Vec2) -> bool {
         if thing.flags
             & (MapObjectFlag::Solid as u32
@@ -440,6 +468,43 @@ impl MapObject {
         }
 
         // TODO: missile and skulls
+        if self.flags & MapObjectFlag::Missile as u32 != 0 {
+            if self.z > thing.z + thing.height {
+                return true; // over
+            }
+            if self.z + thing.height < thing.z {
+                return true; // under
+            }
+
+            if let Some(target) = self.target {
+                let target = unsafe { &mut *target };
+                if target.kind == thing.kind
+                    || (target.kind == MapObjectType::MT_KNIGHT
+                        && thing.kind == MapObjectType::MT_KNIGHT)
+                    || (target.kind == MapObjectType::MT_BRUISER
+                        && thing.kind == MapObjectType::MT_BRUISER)
+                {
+                    // Don't hit same species as originator.
+                    if std::ptr::eq(thing, target) {
+                        return true;
+                    }
+
+                    if thing.kind != MapObjectType::MT_PLAYER {
+                        // Explode, but do no damage.
+                        // Let players missile other players.
+                        return false;
+                    }
+                }
+
+                if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
+                    return thing.flags & MapObjectFlag::Solid as u32
+                        != MapObjectFlag::Solid as u32;
+                }
+
+                let damage = ((p_random() % 8) + 1) * self.info.damage;
+                thing.p_take_damage(Some(self), Some(target), false, damage);
+            }
+        }
 
         // Check special items
         if thing.flags & MapObjectFlag::Special as u32 != 0 {
