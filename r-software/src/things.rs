@@ -267,7 +267,6 @@ impl SoftwareRenderer {
             let tex_column = (frac).floor() as usize;
             if tex_column >= patch.data.len() {
                 break;
-                // tex_column %= patch.data.len();
             }
 
             let sprtopscreen = (SCREENHEIGHT_HALF as f32 + 1.0 - dc_texmid * spryscale).floor();
@@ -435,7 +434,7 @@ impl SoftwareRenderer {
         let mut tx = sprite.sx as i32 - 160 - patch.left_offset;
         let x1 = (SCREENWIDTH as i32 / 2) + tx * pspritescale;
 
-        if x1 > SCREENWIDTH as i32 {
+        if x1 >= SCREENWIDTH as i32 {
             return;
         }
         tx += patch.data.len() as i32;
@@ -619,13 +618,13 @@ fn draw_masked_column(
     let pal = &textures.palette(0);
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let mut select = frac.floor() as i32 & 127;
+        let select = frac.floor() as i32 & 127;
 
         if select >= texture_column.len() as i32 {
-            //select %= texture_column.len() as i32;
-            continue;
+            break;
         }
 
+        // Transparency
         if texture_column[select as usize] as usize == usize::MAX {
             frac += fracstep;
             continue;
