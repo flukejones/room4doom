@@ -5,7 +5,7 @@ use std::{
 
 use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, PspDef, Sector};
 use glam::Vec2;
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use rendering_traits::PixelBuf;
 
 use super::{
     bsp::SoftwareRenderer,
@@ -251,7 +251,7 @@ impl SoftwareRenderer {
         vis: &VisSprite,
         clip_bottom: &[i32],
         clip_top: &[i32],
-        canvas: &mut Canvas<Surface>,
+        pixels: &mut PixelBuf,
     ) {
         let naff = self.texture_data.clone(); // Need to separate lifetimes
         let texture_data = naff.borrow();
@@ -294,7 +294,7 @@ impl SoftwareRenderer {
                     top,
                     bottom,
                     &texture_data,
-                    canvas,
+                    pixels,
                 );
             }
 
@@ -303,7 +303,7 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawSprite`
-    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, canvas: &mut Canvas<Surface>) {
+    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, pixels: &mut PixelBuf) {
         let mut clip_bottom = [-2i32; SCREENWIDTH];
         let mut clip_top = [-2i32; SCREENWIDTH];
 
@@ -336,7 +336,7 @@ impl SoftwareRenderer {
                             == 0)
                 {
                     if seg.maskedtexturecol != -1 {
-                        self.render_masked_seg_range(player, seg, r1, r2, canvas);
+                        self.render_masked_seg_range(player, seg, r1, r2, pixels);
                     }
                     // seg is behind sprite
                     continue;
@@ -394,7 +394,7 @@ impl SoftwareRenderer {
             }
         }
 
-        for x in vis.x1..=vis.x2 {
+        for x in vis.x1..vis.x2 {
             if clip_bottom[x as usize] == -2 {
                 clip_bottom[x as usize] = SCREENHEIGHT as i32;
             }
@@ -403,10 +403,10 @@ impl SoftwareRenderer {
             }
         }
 
-        self.draw_vissprite(vis, &clip_bottom, &clip_top, canvas);
+        self.draw_vissprite(vis, &clip_bottom, &clip_top, pixels);
     }
 
-    fn draw_player_sprites(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
+    fn draw_player_sprites(&mut self, player: &Player, pixels: &mut PixelBuf) {
         let light = if let Some(mobj) = player.mobj {
             unsafe { (*(*mobj).subsector).sector.lightlevel }
         } else {
@@ -416,12 +416,12 @@ impl SoftwareRenderer {
 
         for sprite in player.psprites.iter() {
             if sprite.state.is_some() {
-                self.draw_player_sprite(sprite, light as usize, canvas);
+                self.draw_player_sprite(sprite, light as usize, pixels);
             }
         }
     }
 
-    fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, canvas: &mut Canvas<Surface>) {
+    fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, pixels: &mut PixelBuf) {
         // TODO:
         let pspriteiscale = 1.0;
         let pspritescale = 1;
@@ -471,16 +471,16 @@ impl SoftwareRenderer {
 
         const CLIP_BOTTOM: [i32; SCREENWIDTH] = [0i32; SCREENWIDTH];
         const CLIP_TOP: [i32; SCREENWIDTH] = [SCREENHEIGHT as i32; SCREENWIDTH];
-        self.draw_vissprite(&vis, &CLIP_TOP, &CLIP_BOTTOM, canvas)
+        self.draw_vissprite(&vis, &CLIP_TOP, &CLIP_BOTTOM, pixels)
     }
 
-    pub(crate) fn draw_masked(&mut self, player: &Player, canvas: &mut Canvas<Surface>) {
+    pub(crate) fn draw_masked(&mut self, player: &Player, pixels: &mut PixelBuf) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort_by(|a, b| a.cmp(b));
         // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
-            self.draw_sprite(player, vis, canvas);
+            self.draw_sprite(player, vis, pixels);
             if i == self.next_vissprite {
                 break;
             }
@@ -488,10 +488,10 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, canvas);
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
         }
 
-        self.draw_player_sprites(player, canvas);
+        self.draw_player_sprites(player, pixels);
     }
 
     fn render_masked_seg_range(
@@ -501,7 +501,7 @@ impl SoftwareRenderer {
         x1: i32,
         x2: i32,
 
-        canvas: &mut Canvas<Surface>,
+        pixels: &mut PixelBuf,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
@@ -590,7 +590,7 @@ impl SoftwareRenderer {
                             yl,
                             yh,
                             &textures,
-                            canvas,
+                            pixels,
                         );
 
                         self.r_data.visplanes.openings[index] = i32::MAX;
@@ -614,7 +614,7 @@ fn draw_masked_column(
     yh: i32,
     textures: &PicData,
 
-    canvas: &mut Canvas<Surface>,
+    pixels: &mut PixelBuf,
 ) {
     let pal = &textures.palette(0);
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
@@ -622,7 +622,8 @@ fn draw_masked_column(
         let mut select = frac.floor() as i32 & 127;
 
         if select >= texture_column.len() as i32 {
-            select %= texture_column.len() as i32;
+            //select %= texture_column.len() as i32;
+            continue;
         }
 
         if texture_column[select as usize] as usize == usize::MAX {
@@ -631,11 +632,8 @@ fn draw_masked_column(
         }
 
         let px = colourmap[texture_column[select as usize]];
-        let colour = pal[px];
-        let colour = sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255);
-
-        canvas.set_draw_color(colour);
-        canvas.fill_rect(Rect::new(dc_x, n, 1, 1)).unwrap();
+        let c = pal[px];
+        pixels.set_pixel(dc_x as usize, n as usize, c.r, c.g, c.b, 255);
         frac += fracstep;
     }
 }
