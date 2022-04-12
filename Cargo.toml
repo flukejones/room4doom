@@ -1,5 +1,5 @@
 [workspace]
-members = ["wad", "game", "gameplay", "rendering", "r-software"]
+members = ["wad", "game", "gameplay", "r-traits", "r-software"]
 
 [profile.release]
 lto = true
@@ -9,7 +9,7 @@ panic = "abort"
 
 [profile.dev]
 debug = true
-opt-level = 0
+opt-level = 1
 
 [profile.bench]
 debug = false

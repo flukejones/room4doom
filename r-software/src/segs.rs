@@ -1,5 +1,5 @@
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use rendering_traits::PixelBuf;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
@@ -119,7 +119,7 @@ impl SegRender {
         seg: &Segment,
         player: &Player,
         rdata: &mut RenderData,
-        canvas: &mut Canvas<Surface>,
+        pixels: &mut PixelBuf,
     ) {
         // bounds check before getting ref
         if rdata.ds_p >= rdata.drawsegs.len() {
@@ -399,7 +399,7 @@ impl SegRender {
                     .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.floorplane);
         }
 
-        self.render_seg_loop(seg, player.viewheight, rdata, canvas);
+        self.render_seg_loop(seg, player.viewheight, rdata, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -457,7 +457,7 @@ impl SegRender {
         seg: &Segment,
         view_height: f32,
         rdata: &mut RenderData,
-        canvas: &mut Canvas<Surface>,
+        pixels: &mut PixelBuf,
     ) {
         // R_RenderSegLoop
         let mut yl: i32;
@@ -537,7 +537,7 @@ impl SegRender {
                         yl as i32,
                         yh as i32,
                     );
-                    dc.draw_column(textures, canvas);
+                    dc.draw_column(textures, pixels);
                 };
 
                 rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height as i32;
@@ -570,7 +570,7 @@ impl SegRender {
                                 yl as i32,
                                 mid as i32,
                             );
-                            dc.draw_column(textures, canvas);
+                            dc.draw_column(textures, pixels);
                         }
 
                         rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
@@ -608,7 +608,7 @@ impl SegRender {
                                 mid as i32,
                                 yh as i32,
                             );
-                            dc.draw_column(textures, canvas);
+                            dc.draw_column(textures, pixels);
                         }
                         rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
                     } else {
@@ -669,7 +669,7 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    pub fn draw_column(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
+    pub fn draw_column(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette(0);
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
@@ -685,11 +685,8 @@ impl<'a> DrawColumn<'a> {
             }
 
             let px = self.colourmap[self.texture_column[select as usize]];
-            let colour = pal[px];
-            let colour = sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255);
-
-            canvas.set_draw_color(colour);
-            canvas.fill_rect(Rect::new(self.dc_x, n, 1, 1)).unwrap();
+            let c = pal[px];
+            pixels.set_pixel(self.dc_x as usize, n as usize, c.r, c.g, c.b, 255);
 
             frac += self.fracstep;
         }

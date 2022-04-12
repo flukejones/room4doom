@@ -15,7 +15,7 @@ sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
-rendering-trait = { path = "../rendering" }
+rendering-traits = { path = "../r-traits" }
 software-rendering = { path = "../r-software" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
