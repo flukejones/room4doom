@@ -2,56 +2,55 @@
 
 use gameplay::WallPic;
 
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, surface::Surface};
+use rendering_traits::PixelBuf;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 use crate::game::Game;
 
-pub(crate) fn palette_test(pal_num: usize, game: &mut Game, canvas: &mut Canvas<Surface>) {
-    let height = canvas.surface().height();
+pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut PixelBuf) {
+    let height = pixels.height();
 
     let row_count: i32 = 16;
     let block_size = height as i32 / row_count;
 
-    let x_start = (canvas.surface().width() / 2) as i32 - block_size * row_count / 2;
-    let y_start = (canvas.surface().height() / 2) as i32 - block_size * row_count / 2;
+    let x_start = (pixels.width() / 2) as i32 - block_size * row_count / 2;
+    let y_start = (pixels.height() / 2) as i32 - block_size * row_count / 2;
 
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     for (i, c) in pals[pal_num].0.iter().enumerate() {
-        canvas.set_draw_color(Color::RGB(c.r, c.g, c.b));
-        canvas
-            .fill_rect(Rect::new(
-                i as i32 % row_count * block_size + x_start,
-                i as i32 / row_count * block_size + y_start,
-                block_size as u32,
-                block_size as u32,
-            ))
-            .unwrap();
+        pixels.set_pixel(
+            (i as i32 % row_count * block_size + x_start) as usize,
+            (i as i32 / row_count * block_size + y_start) as usize,
+            c.r,
+            c.g,
+            c.b,
+            255,
+        );
     }
 }
 
-pub(crate) fn image_test(name: &str, game: &Game, canvas: &mut Canvas<Surface>) {
+pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut PixelBuf) {
     let lump = game.wad_data.get_lump(name).unwrap();
     let image = WadPatch::from_lump(lump);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
-    let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
+    let xs = ((pixels.width() - image.width as u32) / 2) as i32;
+    let ys = ((pixels.height() - image.height as u32) / 2) as i32;
 
     let mut x = 0;
     for c in image.columns.iter() {
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
-            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-            canvas
-                .fill_rect(Rect::new(
-                    xs + x as i32,                     // - (image.left_offset as i32),
-                    ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
-                    1,
-                    1,
-                ))
-                .unwrap();
+
+            pixels.set_pixel(
+                (xs + x as i32) as usize, // - (image.left_offset as i32),
+                (ys + y as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
+                colour.r,
+                colour.g,
+                colour.b,
+                255,
+            );
         }
         if c.y_offset == 255 {
             x += 1;
@@ -59,25 +58,24 @@ pub(crate) fn image_test(name: &str, game: &Game, canvas: &mut Canvas<Surface>) 
     }
 }
 
-pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, canvas: &mut Canvas<Surface>) {
+pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut PixelBuf) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((canvas.surface().width() - image.width as u32) / 2) as i32;
-    let ys = ((canvas.surface().height() - image.height as u32) / 2) as i32;
+    let xs = ((pixels.width() - image.width as u32) / 2) as i32;
+    let ys = ((pixels.height() - image.height as u32) / 2) as i32;
 
     let mut x = 0;
     for c in image.columns.iter() {
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
-            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-            canvas
-                .fill_rect(Rect::new(
-                    xs + x as i32,                     // - (image.left_offset as i32),
-                    ys + y as i32 + c.y_offset as i32, // - image.top_offset as i32 - 30,
-                    1,
-                    1,
-                ))
-                .unwrap();
+            pixels.set_pixel(
+                (xs + x as i32) as usize, // - (image.left_offset as i32),
+                (ys + y as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
+                colour.r,
+                colour.g,
+                colour.b,
+                255,
+            );
         }
         if c.y_offset == 255 {
             x += 1;
@@ -85,13 +83,13 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, canvas: &mut Canv
     }
 }
 
-pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, canvas: &mut Canvas<Surface>) {
+pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut PixelBuf) {
     let width = texture.data.len() as u32;
     let height = texture.data[0].len() as u32;
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((canvas.surface().width() - width) / 2) as i32;
-    let ys = ((canvas.surface().height() - height) / 2) as i32;
+    let xs = ((pixels.width() - width) / 2) as i32;
+    let ys = ((pixels.height() - height) / 2) as i32;
     let pal = pals[0].0;
 
     for (x_pos, column) in texture.data.iter().enumerate() {
@@ -100,19 +98,23 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, canvas: &mut C
                 continue;
             }
             let colour = pal[*idx];
-            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-            canvas
-                .fill_rect(Rect::new(xs + x_pos as i32, ys + y_pos as i32, 1, 1))
-                .unwrap();
+            pixels.set_pixel(
+                (xs + x_pos as i32) as usize,
+                (ys + y_pos as i32) as usize,
+                colour.r,
+                colour.g,
+                colour.b,
+                255,
+            );
         }
     }
 }
 
-pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, canvas: &mut Canvas<Surface>) {
+pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut PixelBuf) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((canvas.surface().width() - 64) / 2) as i32;
-    let ys = ((canvas.surface().height() - 64) / 2) as i32;
+    let xs = ((pixels.width() - 64) / 2) as i32;
+    let ys = ((pixels.height() - 64) / 2) as i32;
     let pal = pals[0].0;
 
     for (y, col) in flat.data.chunks(64).enumerate() {
@@ -121,10 +123,14 @@ pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, canvas: &mut Canvas<
                 continue;
             }
             let colour = pal[*px as usize];
-            canvas.set_draw_color(Color::RGB(colour.r, colour.g, colour.b));
-            canvas
-                .fill_rect(Rect::new(xs + x as i32, ys + y as i32, 1, 1))
-                .unwrap();
+            pixels.set_pixel(
+                (xs + x as i32) as usize,
+                (ys + y as i32) as usize,
+                colour.r,
+                colour.g,
+                colour.b,
+                255,
+            );
         }
     }
 }

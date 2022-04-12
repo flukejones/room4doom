@@ -7,7 +7,7 @@ pub const SIL_BOTTOM: i32 = 1;
 pub const SIL_TOP: i32 = 2;
 pub const SIL_BOTH: i32 = 3;
 
-pub const SCREENWIDTH: usize = 321;
+pub const SCREENWIDTH: usize = 320;
 pub const SCREENHEIGHT: usize = 200;
 pub const SCREENHEIGHT_HALF: usize = SCREENHEIGHT / 2;
 
@@ -79,9 +79,9 @@ pub struct Visplane {
     pub maxx: i32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
-    pub top: [u8; SCREENWIDTH],
+    pub top: [u8; SCREENWIDTH + 1],
     /// See above.
-    pub bottom: [u8; SCREENWIDTH],
+    pub bottom: [u8; SCREENWIDTH + 1],
 
     pub basexscale: f32,
     pub baseyscale: f32,
@@ -132,8 +132,8 @@ impl Default for Visplane {
             lightlevel: 0,
             minx: 0,
             maxx: 0,
-            top: [0xff; SCREENWIDTH],
-            bottom: [0; SCREENWIDTH],
+            top: [0xff; SCREENWIDTH + 1],
+            bottom: [0; SCREENWIDTH + 1],
 
             basexscale: 0.0,
             baseyscale: 0.0,

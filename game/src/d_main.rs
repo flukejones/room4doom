@@ -6,15 +6,8 @@ use std::error::Error;
 
 use gameplay::log::{self, info};
 use golem::Context;
-use rendering_trait::Renderer;
-use sdl2::{
-    keyboard::Scancode,
-    pixels::{Color, PixelFormatEnum},
-    rect::Rect,
-    render::Canvas,
-    surface::Surface,
-    video::Window,
-};
+use rendering_traits::{PixelBuf, PlayRenderer};
+use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
 use software_rendering::SoftwareRenderer;
 use wad::lumps::{WadFlat, WadPatch};
 
@@ -42,7 +35,7 @@ pub fn d_doom_loop(
     );
 
     let mut timestep = TimeStep::new();
-    let mut render_buffer = Surface::new(320, 200, PixelFormatEnum::RGBA32)?.into_canvas()?;
+    let mut render_buffer = PixelBuf::new(320, 200);
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
@@ -128,20 +121,8 @@ pub fn d_doom_loop(
             );
         }
 
-        // TODO: Temporary aim point
-        let c = Color::RGB(255, 0, 0);
-        let size = render_buffer.surface().size();
-        render_buffer.set_draw_color(c);
-        render_buffer
-            .fill_rect(Rect::new(size.0 as i32 / 2, size.1 as i32 / 2, 1, 1))
-            .unwrap();
-
-        let pix = render_buffer
-            .read_pixels(render_buffer.surface().rect(), PixelFormatEnum::RGBA32)
-            .unwrap();
-
         shader.clear();
-        shader.set_image_data(&pix, render_buffer.surface().size());
+        shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
         shader.draw().unwrap();
 
         gl.gl_swap_window();
@@ -195,7 +176,7 @@ pub fn d_doom_loop(
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>) {
+fn d_display(rend: &mut impl PlayRenderer, game: &Game, pixels: &mut PixelBuf) {
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
     if let Some(ref level) = game.level {
@@ -204,10 +185,10 @@ fn d_display(rend: &mut impl Renderer, game: &Game, canvas: &mut Canvas<Surface>
         }
 
         let player = &game.players[game.consoleplayer];
-        rend.render_player_view(player, level, canvas);
+        rend.render_player_view(player, level, pixels);
     }
 
-    //canvas.present();
+    //pixels.present();
 
     // // menus go directly to the screen
     // TODO: M_Drawer();	 // menu is drawn even on top of everything

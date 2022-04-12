@@ -88,7 +88,7 @@ impl MapObject {
             aim_slope,
             attack_range,
             damage,
-            self.z + (self.height as i32 >> 1) as f32 + 8.0,
+            self.z + (self.height as i32 >> 1) as f32 - 8.0,
             bsp_trace.origin,
             angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
         );

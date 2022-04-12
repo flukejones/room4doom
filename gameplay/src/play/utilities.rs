@@ -71,13 +71,6 @@ pub fn p_random() -> i32 {
     }
 }
 
-pub fn m_random() -> i32 {
-    unsafe {
-        RNDINDEX = (RNDINDEX + 1) & 0xFF;
-        RNDTABLE[RNDINDEX]
-    }
-}
-
 pub fn m_clear_random() {
     unsafe {
         RNDINDEX = 0;

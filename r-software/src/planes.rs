@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
-use sdl2::{rect::Rect, render::Canvas, surface::Surface};
+use rendering_traits::PixelBuf;
 
 use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
 
@@ -207,7 +207,7 @@ pub fn make_spans(
     plane: &Visplane,
     span_start: &mut [i32; SCREENWIDTH],
     texture_data: &PicData,
-    canvas: &mut Canvas<Surface>,
+    pixels: &mut PixelBuf,
 ) {
     while t1 < t2 && t1 <= b1 {
         map_plane(
@@ -219,7 +219,7 @@ pub fn make_spans(
             extra_light,
             plane,
             texture_data,
-            canvas,
+            pixels,
         );
         t1 += 1;
     }
@@ -234,7 +234,7 @@ pub fn make_spans(
             extra_light,
             plane,
             texture_data,
-            canvas,
+            pixels,
         );
         b1 -= 1;
     }
@@ -259,7 +259,7 @@ fn map_plane(
     extra_light: i32,
     plane: &Visplane,
     texture_data: &PicData,
-    canvas: &mut Canvas<Surface>,
+    pixels: &mut PixelBuf,
 ) {
     let planeheight = (plane.height as f32 - viewz).floor().abs();
     // TODO: maybe cache?
@@ -286,7 +286,7 @@ fn map_plane(
 
     let mut ds = DrawSpan::new(flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2);
 
-    ds.draw(texture_data, canvas);
+    ds.draw(texture_data, pixels);
 }
 
 pub struct DrawSpan<'a> {
@@ -326,7 +326,7 @@ impl<'a> DrawSpan<'a> {
         }
     }
 
-    fn draw(&mut self, textures: &PicData, canvas: &mut Canvas<Surface>) {
+    fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette(0);
         for s in self.ds_x1..=self.ds_x2 {
             let mut x = self.ds_xfrac.floor() as i32 & 127 + 64;
@@ -341,13 +341,8 @@ impl<'a> DrawSpan<'a> {
             }
 
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
-            let colour = pal[px];
-            let colour = sdl2::pixels::Color::RGBA(colour.r, colour.g, colour.b, 255);
-
-            canvas.set_draw_color(colour);
-            canvas
-                .fill_rect(Rect::new(s as i32, self.ds_y as i32, 1, 1))
-                .unwrap();
+            let c = pal[px];
+            pixels.set_pixel(s as usize, self.ds_y as usize, c.r, c.g, c.b, 255);
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;
