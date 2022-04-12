@@ -8,6 +8,7 @@ use crate::{
     DPtr,
 };
 use glam::Vec2;
+use log::error;
 use wad::{lumps::*, WadData};
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
@@ -517,8 +518,18 @@ impl BSPTrace {
     fn find_line_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
-            if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
-                self.nodes.push(node_id & !IS_SSECTOR_MASK);
+            let node = node_id & !IS_SSECTOR_MASK;
+            #[cfg(Debug)]
+            if (node as usize) >= map.nodes.len() {
+                error!(
+                    "Node {} masked to {} was out of bounds",
+                    node_id,
+                    node_id & !IS_SSECTOR_MASK
+                );
+                return;
+            }
+            if !self.nodes.contains(&node) {
+                self.nodes.push(node);
             }
             return;
         }
@@ -558,27 +569,32 @@ impl BSPTrace {
     fn find_radius_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
         *count += 1;
 
-        let node = if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
-            &map.nodes[(node_id & !IS_SSECTOR_MASK) as usize]
-        } else {
-            &map.nodes[node_id as usize]
-        };
-
-        let l_start = node.xy;
-        let l_end = l_start + node.delta;
-        let side = node.point_on_side(&self.origin);
-
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            let node = node_id & !IS_SSECTOR_MASK;
+            #[cfg(Debug)]
+            if (node as usize) >= map.nodes.len() {
+                error!(
+                    "Node {} masked to {} was out of bounds",
+                    node_id,
+                    node_id & !IS_SSECTOR_MASK
+                );
+                return;
+            }
             // Commented out because it cuts off some sectors
             // if node.point_in_bounds(&self.origin, side)
             //     || circle_line_collide(self.origin, self.radius, l_start, l_end)
             // {
-            if !self.nodes.contains(&(node_id & !IS_SSECTOR_MASK)) {
-                self.nodes.push(node_id & !IS_SSECTOR_MASK);
+            if !self.nodes.contains(&node) {
+                self.nodes.push(node);
             }
             // };
             return;
         }
+
+        let node = &map.nodes[node_id as usize];
+        let l_start = node.xy;
+        let l_end = l_start + node.delta;
+        let side = node.point_on_side(&self.origin);
 
         if circle_line_collide(self.origin, self.radius, l_start, l_end) {
             let other = if side == 1 { 0 } else { 1 };

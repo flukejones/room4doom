@@ -34,22 +34,22 @@ pub struct PspDef {
 
 /// The player can re-fire the weapon
 /// without lowering it entirely.
-pub fn a_refire(actor: &mut Player, _pspr: &mut PspDef) {
-    if actor.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0
-        && actor.pendingweapon == WeaponType::NoChange
-        && actor.health != 0
+pub fn a_refire(player: &mut Player, _pspr: &mut PspDef) {
+    if player.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0
+        && player.pendingweapon == WeaponType::NoChange
+        && player.health != 0
     {
-        actor.refire += 1;
-        actor.fire_weapon();
+        player.refire += 1;
+        player.fire_weapon();
     } else {
-        actor.refire = 0;
-        actor.check_ammo();
+        player.refire = 0;
+        player.check_ammo();
     }
 }
 
-pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
+pub fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     let mut level_time = 0;
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
 
         if std::ptr::eq(mobj.state, &STATES[StateNum::S_PLAY_ATK1 as usize])
@@ -67,101 +67,100 @@ pub fn a_weaponready(actor: &mut Player, pspr: &mut PspDef) {
 
     // check for change
     //  if player is dead, put the weapon away
-    if actor.pendingweapon != WeaponType::NoChange || actor.health <= 0 {
+    if player.pendingweapon != WeaponType::NoChange || player.health <= 0 {
         // change weapon
         //  (pending weapon should allready be validated)
-        if actor.readyweapon != WeaponType::NoChange {
-            let new_state = WEAPON_INFO[actor.readyweapon as usize].downstate;
-            actor.set_psprite(PsprNum::Weapon as usize, new_state);
+        if player.readyweapon != WeaponType::NoChange {
+            let new_state = WEAPON_INFO[player.readyweapon as usize].downstate;
+            player.set_psprite(PsprNum::Weapon as usize, new_state);
         }
         return;
     }
 
     // TODO: TEMPORARY
-    if actor.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
-        if !actor.attackdown
-            || (actor.readyweapon != WeaponType::Missile && actor.readyweapon != WeaponType::BFG)
+    if player.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
+        if !player.attackdown
+            || (player.readyweapon != WeaponType::Missile && player.readyweapon != WeaponType::BFG)
         {
-            actor.attackdown = true;
-            actor.fire_weapon();
+            player.attackdown = true;
+            player.fire_weapon();
             return;
         }
     } else {
-        actor.attackdown = false;
+        player.attackdown = false;
     }
 
     let angle = (level_time as f32) * 0.1;
-    pspr.sx = 1.0 + actor.bob * (angle as f32).cos();
+    pspr.sx = 1.0 + player.bob * (angle as f32).cos();
     let angle = (level_time as f32) * 0.2;
-    pspr.sy = WEAPONTOP + 5.0 + actor.bob * (angle as f32).sin() * 0.1;
+    pspr.sy = WEAPONTOP + 5.0 + player.bob * (angle as f32).sin() * 0.1;
 }
 
-pub fn a_lower(actor: &mut Player, pspr: &mut PspDef) {
+pub fn a_lower(player: &mut Player, pspr: &mut PspDef) {
     pspr.sy += LOWERSPEED;
     if pspr.sy < WEAPONBOTTOM {
         return;
     }
 
-    if actor.player_state == PlayerState::Dead {
+    if player.player_state == PlayerState::Dead {
         // Keep weapon down if dead
         pspr.sy = WEAPONBOTTOM;
         return;
     }
 
-    if actor.health <= 0 {
+    if player.health <= 0 {
         // Player died so take weapon off screen
-        actor.set_psprite(PsprNum::Weapon as usize, StateNum::S_NULL);
+        player.set_psprite(PsprNum::Weapon as usize, StateNum::S_NULL);
         return;
     }
 
-    actor.readyweapon = actor.pendingweapon;
-    actor.bring_up_weapon();
+    player.readyweapon = player.pendingweapon;
+    player.bring_up_weapon();
 }
 
-pub fn a_raise(actor: &mut Player, pspr: &mut PspDef) {
+pub fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     pspr.sy -= RAISESPEED;
     if pspr.sy > WEAPONTOP {
         return;
     }
     pspr.sy = WEAPONTOP;
 
-    let new_state = WEAPON_INFO[actor.readyweapon as usize].readystate;
-    actor.set_psprite(PsprNum::Weapon as usize, new_state);
+    let new_state = WEAPON_INFO[player.readyweapon as usize].readystate;
+    player.set_psprite(PsprNum::Weapon as usize, new_state);
 }
 
-pub fn a_firepistol(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
     // TODO: S_StartSound(player->mo, sfx_pistol);
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
 
         mobj.set_state(StateNum::S_PLAY_ATK2);
-        actor.ammo[WEAPON_INFO[actor.readyweapon as usize].ammo as usize] -= 1;
-        actor.set_psprite(
+        player.ammo[WEAPON_INFO[player.readyweapon as usize].ammo as usize] -= 1;
+        player.set_psprite(
             PsprNum::Flash as usize,
-            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+            WEAPON_INFO[player.readyweapon as usize].flashstate,
         );
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
-        // TODO: !player->refire
-        mobj.gun_shot(true, distance, bullet_slope, &mut bsp_trace);
+        mobj.gun_shot(player.refire == 0, distance, bullet_slope, &mut bsp_trace);
     }
 }
 
-pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
 
         // TODO: S_StartSound(player->mo, sfx_shotgn);
         mobj.set_state(StateNum::S_PLAY_ATK2);
-        actor.subtract_readyweapon_ammo(1);
-        actor.set_psprite(
+        player.subtract_readyweapon_ammo(1);
+        player.set_psprite(
             PsprNum::Flash as usize,
-            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+            WEAPON_INFO[player.readyweapon as usize].flashstate,
         );
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
@@ -173,18 +172,18 @@ pub fn a_fireshotgun(actor: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_fireshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
 
         // TODO: S_StartSound(player->mo, sfx_dshtgn);
         mobj.set_state(StateNum::S_PLAY_ATK2);
-        actor.subtract_readyweapon_ammo(2);
-        actor.set_psprite(
+        player.subtract_readyweapon_ammo(2);
+        player.set_psprite(
             PsprNum::Flash as usize,
-            WEAPON_INFO[actor.readyweapon as usize].flashstate,
+            WEAPON_INFO[player.readyweapon as usize].flashstate,
         );
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
@@ -205,29 +204,29 @@ pub fn a_fireshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_firecgun(actor: &mut Player, pspr: &mut PspDef) {
+pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     // TODO: S_StartSound(player->mo, sfx_pistol);
-    if !actor.check_ammo() {
+    if !player.check_ammo() {
         return;
     }
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
         mobj.set_state(StateNum::S_PLAY_ATK2);
-        actor.subtract_readyweapon_ammo(1);
+        player.subtract_readyweapon_ammo(1);
 
         let state = StateNum::from(
-            WEAPON_INFO[actor.readyweapon as usize].flashstate as u16
+            WEAPON_INFO[player.readyweapon as usize].flashstate as u16
                 + pspr.state.unwrap().next_state as u16
                 - StateNum::S_CHAIN1 as u16
                 - 1,
         );
-        actor.set_psprite(PsprNum::Flash as usize, state);
+        player.set_psprite(PsprNum::Flash as usize, state);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
         let bullet_slope = mobj.bullet_slope(MISSILERANGE, &mut bsp_trace);
         mobj.gun_shot(
-            actor.refire == 0,
+            player.refire == 0,
             MISSILERANGE,
             bullet_slope,
             &mut bsp_trace,
@@ -235,37 +234,80 @@ pub fn a_firecgun(actor: &mut Player, pspr: &mut PspDef) {
     }
 }
 
-pub fn a_fireplasma(actor: &mut Player, _pspr: &mut PspDef) {
-    error!("TODO: a_fireplasma not implemented");
+pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
+    player.subtract_readyweapon_ammo(1);
+    let state = StateNum::from(
+        WEAPON_INFO[player.readyweapon as usize].flashstate as u16 + p_random() as u16 & 1,
+    );
+    player.set_psprite(PsprNum::Flash as usize, state);
+    if let Some(mobj) = player.mobj {
+        unsafe {
+            MapObject::spawn_player_missile(
+                &mut *mobj,
+                crate::MapObjectType::MT_PLASMA,
+                &mut (*(*mobj).level),
+            );
+        }
+    }
 }
 
-pub fn a_firemissile(actor: &mut Player, _pspr: &mut PspDef) {
-    error!("TODO: a_firemissile not implemented");
+pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
+    player.subtract_readyweapon_ammo(1);
+    // player.set_psprite(
+    //     PsprNum::Flash as usize,
+    //     WEAPON_INFO[player.readyweapon as usize].flashstate,
+    // );
+    if let Some(mobj) = player.mobj {
+        unsafe {
+            MapObject::spawn_player_missile(
+                &mut *mobj,
+                crate::MapObjectType::MT_ROCKET,
+                &mut (*(*mobj).level),
+            );
+        }
+    }
 }
 
-pub fn a_firebfg(actor: &mut Player, _pspr: &mut PspDef) {
-    error!("TODO: a_firebfg not implemented");
+pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
+    player.subtract_readyweapon_ammo(1);
+    // player.set_psprite(
+    //     PsprNum::Flash as usize,
+    //     WEAPON_INFO[player.readyweapon as usize].flashstate,
+    // );
+    if let Some(mobj) = player.mobj {
+        unsafe {
+            MapObject::spawn_player_missile(
+                &mut *mobj,
+                crate::MapObjectType::MT_BFG,
+                &mut (*(*mobj).level),
+            );
+        }
+    }
 }
 
-pub fn a_bfgsound(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
     error!("TODO: a_bfgsound not implemented");
 }
 
-pub fn a_gunflash(actor: &mut Player, _pspr: &mut PspDef) {
-    actor.set_mobj_state(StateNum::S_PLAY_ATK2);
-    actor.set_psprite(
+pub fn a_bfgspray(player: &mut MapObject) {
+    error!("TODO: a_bfgspray not implemented");
+}
+
+pub fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
+    player.set_mobj_state(StateNum::S_PLAY_ATK2);
+    player.set_psprite(
         PsprNum::Flash as usize,
-        WEAPON_INFO[actor.readyweapon as usize].flashstate,
+        WEAPON_INFO[player.readyweapon as usize].flashstate,
     );
 }
 
-pub fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
     let mut damage = (p_random() % 10 + 1) as f32;
-    if actor.powers[PowerType::Strength as usize] != 0 {
+    if player.powers[PowerType::Strength as usize] != 0 {
         damage *= 10.0;
     }
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
         let mut angle = mobj.angle;
         angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
@@ -282,27 +324,27 @@ pub fn a_punch(actor: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_checkreload(actor: &mut Player, _pspr: &mut PspDef) {
-    actor.check_ammo();
+pub fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
+    player.check_ammo();
 }
 
-pub fn a_openshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     // TODO: S_StartSound(player->mo, sfx_dbopn);
 }
 
-pub fn a_loadshotgun2(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     // TODO: S_StartSound(player->mo, sfx_dbload);
 }
 
-pub fn a_closeshotgun2(actor: &mut Player, pspr: &mut PspDef) {
+pub fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
     // S_StartSound(player->mo, sfx_dbcls);
-    a_refire(actor, pspr);
+    a_refire(player, pspr);
 }
 
-pub fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
+pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
     let damage = 2.0 * (p_random() % 10 + 1) as f32;
 
-    if let Some(mobj) = actor.mobj {
+    if let Some(mobj) = player.mobj {
         let mobj = unsafe { &mut *mobj };
         let mut angle = mobj.angle;
         angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
@@ -339,18 +381,14 @@ pub fn a_saw(actor: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_light0(actor: &mut Player, _pspr: &mut PspDef) {
-    actor.extralight = 0;
+pub fn a_light0(player: &mut Player, _pspr: &mut PspDef) {
+    player.extralight = 0;
 }
 
-pub fn a_light1(actor: &mut Player, _pspr: &mut PspDef) {
-    actor.extralight = 1;
+pub fn a_light1(player: &mut Player, _pspr: &mut PspDef) {
+    player.extralight = 1;
 }
 
-pub fn a_light2(actor: &mut Player, _pspr: &mut PspDef) {
-    actor.extralight = 2;
-}
-
-pub fn a_bfgspray(actor: &mut MapObject) {
-    unimplemented!()
+pub fn a_light2(player: &mut Player, _pspr: &mut PspDef) {
+    player.extralight = 2;
 }

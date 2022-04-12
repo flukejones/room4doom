@@ -177,7 +177,6 @@ impl MapObject {
                     if std::ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
                         && self.info.seestate != StateNum::S_NULL
                     {
-                        dbg!(self.info.seestate);
                         self.set_state(self.info.seestate);
                     }
                 }

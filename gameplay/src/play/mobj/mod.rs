@@ -21,7 +21,8 @@ use super::{
 };
 
 use crate::{
-    doom_def::{MELEERANGE, MTF_SINGLE_PLAYER},
+    doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
+    info::SfxEnum,
     level::Level,
     thinker::{ObjectType, Think, Thinker},
 };
@@ -435,6 +436,58 @@ impl MapObject {
             mobj.set_state(StateNum::S_BLOOD2);
         } else if damage < 9.0 {
             mobj.set_state(StateNum::S_BLOOD3);
+        }
+    }
+
+    /// A thinker for shooty blowy things.
+    ///
+    /// Doom function name is `P_SpawnPlayerMissile`
+    pub fn spawn_player_missile(source: &mut MapObject, kind: MapObjectType, level: &mut Level) {
+        let x = source.xy.x();
+        let y = source.xy.y();
+        let z = source.z + 32.0;
+
+        let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
+        let mobj = unsafe { &mut *mobj };
+        mobj.angle = source.angle;
+
+        let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
+        let mut slope = mobj.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+
+        if slope.is_none() {
+            mobj.angle += 5.625f32.to_radians();
+            slope = mobj.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+            if slope.is_none() {
+                mobj.angle -= 11.25f32.to_radians();
+                slope = mobj.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+            }
+            if slope.is_none() {
+                mobj.angle = source.angle;
+            }
+        }
+
+        if !matches!(mobj.info.seesound, SfxEnum::None | SfxEnum::NumSfx) {
+            // TODO: S_StartSound(th, th->info->seesound);
+        }
+
+        mobj.target = Some(source);
+        mobj.momxy = mobj.angle.unit() * mobj.info.speed;
+        mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
+        mobj.check_missile_spawn();
+    }
+
+    pub fn check_missile_spawn(&mut self) {
+        self.tics -= p_random() & 3;
+
+        if self.tics < 1 {
+            self.tics = 1;
+        }
+
+        self.xy += self.momxy / 2.0;
+        self.z += self.momz / 2.0;
+
+        if !self.p_try_move(self.xy.x(), self.xy.y()) {
+            self.p_explode_missile();
         }
     }
 
