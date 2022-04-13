@@ -14,7 +14,7 @@ use gameplay::{
     SubSector, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use rendering_traits::{PixelBuf, PlayRenderer};
+use render_traits::{PixelBuf, PlayRenderer};
 use std::{
     cell::RefCell,
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},

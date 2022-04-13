@@ -15,8 +15,8 @@ sdl2 = { version = "~0.35.2", features = ["bundled"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
-rendering-traits = { path = "../r-traits" }
-software-rendering = { path = "../r-software" }
+render-traits = { path = "../render-traits" }
+render-soft = { path = "../render-soft" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
 env_logger = { version = "^0.8", default-features = false, features = ["termcolor", "atty"] }

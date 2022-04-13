@@ -5,7 +5,7 @@ use std::{
 
 use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, PspDef, Sector};
 use glam::Vec2;
-use rendering_traits::PixelBuf;
+use render_traits::PixelBuf;
 
 use super::{
     bsp::SoftwareRenderer,
