@@ -459,15 +459,12 @@ impl Player {
                 self.psprites[position].sy = fixed_to_float(state.misc2);
             }
 
-            match state.action {
-                ActionF::Player(func) => {
-                    let psps = unsafe { &mut *(&mut self.psprites[position] as *mut PspDef) };
-                    func(self, psps);
-                    if self.psprites[position].state.is_none() {
-                        break;
-                    }
+            if let ActionF::Player(func) = state.action {
+                let psps = unsafe { &mut *(&mut self.psprites[position] as *mut PspDef) };
+                func(self, psps);
+                if self.psprites[position].state.is_none() {
+                    break;
                 }
-                _ => {}
             }
 
             state_num = if let Some(state) = self.psprites[position].state {
@@ -634,7 +631,7 @@ impl Player {
             self.pendingweapon = weapon;
         }
 
-        return gave_ammo || gave_weapon;
+        gave_ammo || gave_weapon
     }
 
     pub(crate) fn give_armour(&mut self, armour: i32) -> bool {
@@ -672,7 +669,7 @@ impl Player {
     pub(crate) fn give_power(&mut self, power: PowerType) -> bool {
         match power {
             PowerType::Invulnerability => {
-                self.powers[power as usize] = PowerDuration::INVULNTICS as i32;
+                self.powers[power as usize] = PowerDuration::Invulnerability as i32;
                 return true;
             }
             PowerType::Strength => {
@@ -681,15 +678,15 @@ impl Player {
                 return true;
             }
             PowerType::Invisibility => {
-                self.powers[power as usize] = PowerDuration::INVISTICS as i32;
+                self.powers[power as usize] = PowerDuration::Invisibility as i32;
                 return true;
             }
             PowerType::IronFeet => {
-                self.powers[power as usize] = PowerDuration::IRONTICS as i32;
+                self.powers[power as usize] = PowerDuration::IronFeet as i32;
                 return true;
             }
             PowerType::Infrared => {
-                self.powers[power as usize] = PowerDuration::INFRATICS as i32;
+                self.powers[power as usize] = PowerDuration::Infrared as i32;
                 return true;
             }
             _ => {}
@@ -781,7 +778,7 @@ impl Player {
             WEAPON_INFO[self.readyweapon as usize].downstate,
         );
 
-        return false;
+        false
     }
 
     pub(crate) fn bring_up_weapon(&mut self) {
@@ -929,7 +926,7 @@ impl Player {
             if let Some(attacker) = self.attacker {
                 let attacker = unsafe { &mut *attacker };
                 if !std::ptr::eq(mobj, attacker) {
-                    let angle = point_to_angle_2(&mobj.xy, &attacker.xy);
+                    let angle = point_to_angle_2(mobj.xy, attacker.xy);
                     let delta = angle - mobj.angle;
 
                     if delta.rad() < ANG5 || delta.rad() > -ANG5 {

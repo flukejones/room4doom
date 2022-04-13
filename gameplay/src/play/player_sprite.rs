@@ -237,7 +237,7 @@ pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
 pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     let state = StateNum::from(
-        WEAPON_INFO[player.readyweapon as usize].flashstate as u16 + p_random() as u16 & 1,
+        (WEAPON_INFO[player.readyweapon as usize].flashstate as u16 + p_random() as u16) & 1,
     );
     player.set_psprite(PsprNum::Flash as usize, state);
     if let Some(mobj) = player.mobj {
@@ -319,7 +319,7 @@ pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
         if let Some(res) = slope {
             let target = res.line_target;
             // TODO: S_StartSound(player->mo, sfx_punch);
-            mobj.angle = point_to_angle_2(&target.xy, &mobj.xy);
+            mobj.angle = point_to_angle_2(target.xy, mobj.xy);
         }
     }
 }
@@ -369,7 +369,7 @@ pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         if let Some(res) = slope {
             let target = res.line_target;
             // TODO: S_StartSound(player->mo, sfx_punch);
-            let angle = point_to_angle_2(&target.xy, &mobj.xy);
+            let angle = point_to_angle_2(target.xy, mobj.xy);
 
             let delta = angle.rad() - mobj.angle.rad();
             if delta > FRAC_PI_2 / 20.0 {

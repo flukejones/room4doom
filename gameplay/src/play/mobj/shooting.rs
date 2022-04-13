@@ -2,7 +2,7 @@ use glam::Vec2;
 
 use crate::{
     info::{SfxEnum, MOBJINFO},
-    level::{map_data::BSPTrace, map_defs::LineDef},
+    level::map_data::BSPTrace,
     play::{
         specials::shoot_special_line,
         utilities::{p_random, path_traverse, Intercept, PortalZ, MAXRADIUS},
@@ -129,46 +129,51 @@ impl MapObject {
 
             // Check things in subsectors
             if !ssect.sector.run_func_on_thinglist(|thing| {
-                if thing.valid_count == level.valid_count {
-                    return true;
-                }
-                thing.valid_count = level.valid_count;
-
-                if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
-                    return true;
-                }
-
-                if matches!(
-                    thing.kind,
-                    MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER
-                ) {
-                    return true;
-                }
-
-                // Could just use vector lengths but it changes Doom behaviour...
-                let dx = (thing.xy.x() - self.xy.x()).abs();
-                let dy = (thing.xy.y() - self.xy.y()).abs();
-                let mut dist = if dx > dy {
-                    dx - thing.radius - self.radius
-                } else {
-                    dy - thing.radius - self.radius
-                };
-
-                if dist < 0.0 {
-                    dist = 0.0;
-                }
-
-                if dist >= damage {
-                    return true; // out of range of blowy
-                }
-
-                // TODO: P_CheckSight, use the existing BSPTrace.
-                thing.p_take_damage(None, None, false, (damage - dist) as i32);
-                true
+                self.radius_damage_other(thing, damage, level.valid_count)
             }) {
                 return;
             }
         }
+    }
+
+    /// Cause damage to other thing if in radius of self
+    fn radius_damage_other(&mut self, other: &mut MapObject, damage: f32, valid: usize) -> bool {
+        if other.valid_count == valid {
+            return true;
+        }
+        other.valid_count = valid;
+
+        if other.flags & MapObjectFlag::Shootable as u32 == 0 {
+            return true;
+        }
+
+        if matches!(
+            other.kind,
+            MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER
+        ) {
+            return true;
+        }
+
+        // Could just use vector lengths but it changes Doom behaviour...
+        let dx = (other.xy.x() - self.xy.x()).abs();
+        let dy = (other.xy.y() - self.xy.y()).abs();
+        let mut dist = if dx > dy {
+            dx - other.radius - self.radius
+        } else {
+            dy - other.radius - self.radius
+        };
+
+        if dist < 0.0 {
+            dist = 0.0;
+        }
+
+        if dist >= damage {
+            return true; // out of range of blowy
+        }
+
+        // TODO: P_CheckSight, use the existing BSPTrace.
+        other.p_take_damage(None, None, false, (damage - dist) as i32);
+        true
     }
 
     pub(crate) fn bullet_slope(
@@ -359,7 +364,7 @@ impl ShootTraverse {
         }
     }
 
-    fn hit_line(&self, shooter: &mut MapObject, frac: f32, line: &LineDef) {
+    fn hit_line(&self, shooter: &mut MapObject, frac: f32) {
         let frac = frac - (4.0 / self.attack_range);
         let x = self.trace_xy.x() + self.trace_dxy.x() * frac;
         let y = self.trace_xy.y() + self.trace_dxy.y() * frac;
@@ -379,7 +384,7 @@ impl ShootTraverse {
 
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
-                self.hit_line(shooter, intercept.frac, &line);
+                self.hit_line(shooter, intercept.frac);
                 return false;
             }
 
@@ -390,7 +395,7 @@ impl ShootTraverse {
                 if line.frontsector.floorheight != backsector.floorheight {
                     let slope = (portal.bottom_z - self.shootz) / dist;
                     if slope > self.aim_slope {
-                        self.hit_line(shooter, intercept.frac, &line);
+                        self.hit_line(shooter, intercept.frac);
                         return false;
                     }
                 }
@@ -398,7 +403,7 @@ impl ShootTraverse {
                 if line.frontsector.ceilingheight != backsector.ceilingheight {
                     let slope = (portal.top_z - self.shootz) / dist;
                     if slope < self.aim_slope {
-                        self.hit_line(shooter, intercept.frac, &line);
+                        self.hit_line(shooter, intercept.frac);
                         return false;
                     }
                 }

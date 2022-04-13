@@ -222,7 +222,7 @@ pub struct LineDef {
 }
 
 impl LineDef {
-    pub fn point_on_side(&self, v: &Vec2) -> usize {
+    pub fn point_on_side(&self, v: Vec2) -> usize {
         // let r = (self.v2.x() - self.v1.x())*(v.y() - self.v1.y()) - (self.v2.y() - self.v1.y())*(v.x() - self.v1.x());
         // // dbg!(r);
         // if r.is_sign_positive() {

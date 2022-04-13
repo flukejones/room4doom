@@ -3,13 +3,8 @@
 
 use std::collections::hash_set::HashSet;
 
-use gameplay::{log::debug, tic_cmd::*, GameMission, PlayerCheat, Skill, WeaponType};
-use sdl2::{
-    event::Event,
-    keyboard::{Keycode, Scancode as Sc},
-    mouse::MouseButton as Mb,
-    EventPump,
-};
+use gameplay::{tic_cmd::*, WeaponType};
+use sdl2::{event::Event, keyboard::Scancode as Sc, mouse::MouseButton as Mb, EventPump};
 
 use crate::{cheats::Cheats, game::Game};
 
@@ -222,7 +217,7 @@ impl Input {
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
-                    self.cheat_check(sc, game);
+                    self.cheats.check_input(sc, game);
                     self.tic_events.set_kb(sc);
                 }
                 Event::KeyUp {
@@ -254,58 +249,6 @@ impl Input {
     }
     pub fn get_quit(&self) -> bool {
         self.quit
-    }
-
-    /// Cheats skip the ticcmd system and directly affect a game
-    fn cheat_check(&mut self, sc: Sc, game: &mut Game) {
-        let key = if let Some(key) = Keycode::from_scancode(sc) {
-            key as u8 as char
-        } else {
-            return;
-        };
-
-        // TODO: need to check if netgame
-        if !game.is_netgame() && !(game.game_skill() == Skill::Nightmare) {
-            if self.cheats.god.check(key) {
-                debug!("GODMODE");
-                let player = &mut game.players[game.consoleplayer];
-                player.cheats ^= PlayerCheat::Godmode as u32;
-            } else if self.cheats.ammonokey.check(key) {
-                debug!("IDFA");
-                let player = &mut game.players[game.consoleplayer];
-                player.armorpoints = 200;
-                player.armortype = 2;
-
-                for w in player.weaponowned.iter_mut() {
-                    *w = true;
-                }
-                for (i, a) in player.ammo.iter_mut().enumerate() {
-                    *a = player.maxammo[i];
-                }
-            } else if self.cheats.ammo.check(key) {
-                debug!("IDKFA");
-                let player = &mut game.players[game.consoleplayer];
-                player.armorpoints = 200;
-                player.armortype = 2;
-
-                for w in player.weaponowned.iter_mut() {
-                    *w = true;
-                }
-                for (i, a) in player.ammo.iter_mut().enumerate() {
-                    *a = player.maxammo[i];
-                }
-                for k in player.cards.iter_mut() {
-                    *k = true;
-                }
-            } else if (game.game_mission() == GameMission::Doom && self.cheats.noclip.check(key))
-                || (game.game_mission() != GameMission::Doom
-                    && self.cheats.commercial_noclip.check(key))
-            {
-                debug!("NOCLIP");
-                let player = &mut game.players[game.consoleplayer];
-                player.cheats ^= PlayerCheat::Noclip as u32;
-            }
-        }
     }
 }
 

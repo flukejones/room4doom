@@ -148,11 +148,11 @@ pub enum PowerType {
 /// Power up durations: how many seconds till expiration, assuming TICRATE is 35 ticks/second.
 #[derive(Copy, Clone)]
 pub enum PowerDuration {
-    INVULNTICS = (30 * TICRATE) as isize,
-    INVISTICS = (61 * TICRATE) as isize,
+    Invulnerability = (30 * TICRATE) as isize,
+    Invisibility = (61 * TICRATE) as isize,
     // TODO: fix back to 60
-    INFRATICS = (120 * TICRATE) as isize,
-    IRONTICS = (60 * TICRATE) as isize,
+    Infrared = (120 * TICRATE) as isize,
+    IronFeet = (60 * TICRATE) as isize,
 }
 
 /// Definition for player sprites (HUD weapon) actions

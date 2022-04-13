@@ -313,8 +313,8 @@ impl MapObject {
         if self.flags & (MapObjectFlag::Teleport as u32 | MapObjectFlag::NoClip as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
-                let side = ld.point_on_side(&self.xy);
-                let old_side = ld.point_on_side(&old_xy);
+                let side = ld.point_on_side(self.xy);
+                let old_side = ld.point_on_side(old_xy);
                 if side != old_side && ld.special != 0 {
                     cross_special_line(old_side, ld.clone(), self)
                 }
@@ -717,7 +717,7 @@ impl MapObject {
     fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
             if (line.flags as usize) & LineDefFlags::TwoSided as usize == 0 {
-                if line.point_on_side(&self.xy) != 0 {
+                if line.point_on_side(self.xy) != 0 {
                     return true; // Don't hit backside
                 }
                 self.blocking_intercept(intercept);
@@ -835,7 +835,7 @@ impl MapObject {
                 return true;
             }
 
-            let side = line.point_on_side(&self.xy);
+            let side = line.point_on_side(self.xy);
             p_use_special_line(side as i32, line.clone(), self);
         }
         // can't use for than one special line in a row
