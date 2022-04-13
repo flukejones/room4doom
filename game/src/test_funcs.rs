@@ -2,7 +2,7 @@
 
 use gameplay::WallPic;
 
-use rendering_traits::PixelBuf;
+use render_traits::PixelBuf;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 use crate::game::Game;

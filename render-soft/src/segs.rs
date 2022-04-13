@@ -1,5 +1,5 @@
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
-use rendering_traits::PixelBuf;
+use render_traits::PixelBuf;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};

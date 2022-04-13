@@ -1,5 +1,5 @@
 [package]
-name = "software-rendering"
+name = "render-soft"
 version = "0.9.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
@@ -8,7 +8,7 @@ build = "../build.rs"
 [dependencies]
 glam = "0.8.5"
 gameplay = { path = "../gameplay" }
-rendering-traits = { path = "../r-traits" }
+render-traits = { path = "../render-traits" }
 
 [dev-dependencies]
 wad = { path = "../wad" }
