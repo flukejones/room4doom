@@ -11,7 +11,7 @@ name = "diirdoom"
 path = "src/main.rs"
 
 [dependencies]
-sdl2 = { version = "~0.35.2", features = ["bundled"] }
+sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }

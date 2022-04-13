@@ -7,3 +7,5 @@ build = "../build.rs"
 
 [dependencies]
 gameplay = { path = "../gameplay" }
+sound-traits = { path = "../sound-traits" }
+sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
