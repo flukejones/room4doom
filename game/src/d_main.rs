@@ -6,9 +6,9 @@ use std::error::Error;
 
 use gameplay::log::{self, info};
 use golem::Context;
+use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
 use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
-use render_soft::SoftwareRenderer;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
