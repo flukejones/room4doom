@@ -85,7 +85,7 @@ pub fn p_subrandom() -> i32 {
 
 /// Used in path tracing for intercepts
 /// Is divline + trace types
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Trace {
     pub xy: Vec2,
     pub dxy: Vec2,
@@ -203,12 +203,12 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
             p2 = (tmbox.left > ld.v1.x()) as i32;
         }
         SlopeType::Positive => {
-            p1 = ld.point_on_side(&Vec2::new(tmbox.left, tmbox.top)) as i32;
-            p2 = ld.point_on_side(&Vec2::new(tmbox.right, tmbox.bottom)) as i32;
+            p1 = ld.point_on_side(Vec2::new(tmbox.left, tmbox.top)) as i32;
+            p2 = ld.point_on_side(Vec2::new(tmbox.right, tmbox.bottom)) as i32;
         }
         SlopeType::Negative => {
-            p1 = ld.point_on_side(&Vec2::new(tmbox.right, tmbox.top)) as i32;
-            p2 = ld.point_on_side(&Vec2::new(tmbox.left, tmbox.bottom)) as i32;
+            p1 = ld.point_on_side(Vec2::new(tmbox.right, tmbox.top)) as i32;
+            p2 = ld.point_on_side(Vec2::new(tmbox.left, tmbox.bottom)) as i32;
         }
     }
 
@@ -218,7 +218,7 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
     -1
 }
 
-pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
+pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     let x = point1.x() - point2.x();
     let y = point1.y() - point2.y();
     Angle::new(y.atan2(x))
@@ -253,7 +253,7 @@ pub fn path_traverse(
                 }
                 seg.linedef.valid_count = level.valid_count;
 
-                if !add_line_intercepts(&trace, seg.linedef.clone(), &mut intercepts, earlyout) {
+                if !add_line_intercepts(trace, seg.linedef.clone(), &mut intercepts, earlyout) {
                     return false; // early out
                 }
             }
@@ -261,14 +261,14 @@ pub fn path_traverse(
 
         if flags & PT_ADDTHINGS != 0
             && !ssect.sector.run_func_on_thinglist(|thing| {
-                add_thing_intercept(&trace, &mut intercepts, thing, level.valid_count)
+                add_thing_intercept(trace, &mut intercepts, thing, level.valid_count)
             })
         {
             return false; // early out
         }
     }
 
-    intercepts.sort_by(|a, b| a.cmp(b));
+    intercepts.sort();
 
     traverse_intercepts(&mut intercepts, 1.0, trav)
 }
@@ -312,13 +312,13 @@ pub fn traverse_intercepts(
 ///
 /// `line_to_line` is for "perfect" line-to-line collision (shot trace, use line etc)
 pub fn add_line_intercepts(
-    trace: &Trace,
+    trace: Trace,
     line: DPtr<LineDef>,
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(&trace, &line.v1);
-    let s2 = point_on_side(&trace, &line.v2);
+    let s1 = point_on_side(trace, *line.v1);
+    let s2 = point_on_side(trace, *line.v2);
 
     if s1 == s2 {
         // line isn't crossed
@@ -326,7 +326,7 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(*line.v1, (*line.v2) - (*line.v1));
-    let frac = intercept_vector(trace, &dl);
+    let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
         return true;
@@ -351,7 +351,7 @@ pub fn add_line_intercepts(
 
 // TODO: needs a proper line-line intersection test.
 fn add_thing_intercept(
-    trace: &Trace,
+    trace: Trace,
     intercepts: &mut Vec<Intercept>,
     thing: &mut MapObject,
     valid_count: usize,
@@ -374,7 +374,7 @@ fn add_thing_intercept(
     let v2 = thing.xy - p;
 
     let dl = Trace::new(v1, v2 - v1);
-    let frac = intercept_vector(trace, &dl);
+    let frac = intercept_vector(trace, dl);
 
     // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}", thing.kind, trace.xy.x(), trace.xy.y(), thing.xy.x(), thing.xy.y(), thing.radius, frac);
 
@@ -392,7 +392,7 @@ fn add_thing_intercept(
 }
 
 // Determine which side of the trace the vector point is on
-pub fn point_on_side(trace: &Trace, v2: &Vec2) -> usize {
+pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
     let dx = v2.x() - trace.xy.x();
     let dy = v2.y() - trace.xy.y();
 
@@ -410,7 +410,7 @@ pub fn point_on_side(trace: &Trace, v2: &Vec2) -> usize {
 /// to check if intersected by the plane.
 ///
 /// P_InterceptVector
-fn intercept_vector(v2: &Trace, v1: &Trace) -> f32 {
+fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
     // Doom does `v1->dy >> 8`, this is  x * 0.00390625
     let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
     if denominator == f32::EPSILON {

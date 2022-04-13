@@ -8,7 +8,6 @@ pub use interact::*;
 mod movement;
 pub use movement::*;
 mod shooting;
-pub use shooting::*;
 
 use std::ptr::{null_mut, NonNull};
 
@@ -432,7 +431,7 @@ impl MapObject {
             mobj.tics = 1;
         }
 
-        if damage <= 12.0 && damage >= 9.0 {
+        if (9.0..=12.0).contains(&damage) {
             mobj.set_state(StateNum::S_BLOOD2);
         } else if damage < 9.0 {
             mobj.set_state(StateNum::S_BLOOD3);

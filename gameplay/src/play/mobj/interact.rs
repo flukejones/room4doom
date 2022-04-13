@@ -87,7 +87,7 @@ impl MapObject {
             };
 
             if self.flags & MapObjectFlag::NoClip as u32 == 0 && do_push {
-                let mut angle = point_to_angle_2(&inflict.xy, &self.xy);
+                let mut angle = point_to_angle_2(inflict.xy, self.xy);
                 let mut thrust = damage as f32 * 0.001 * 100.0 / self.info.mass as f32;
                 // make fall forwards sometimes
                 if damage < 40

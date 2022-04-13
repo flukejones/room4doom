@@ -15,7 +15,7 @@ pub fn a_facetarget(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
-            let angle = point_to_angle_2(&actor.xy, &(*target).xy);
+            let angle = point_to_angle_2(actor.xy, (*target).xy);
             actor.angle = angle;
 
             if (*target).flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {

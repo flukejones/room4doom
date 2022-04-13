@@ -98,12 +98,12 @@ impl Switches {
                 switch_list.push(
                     textures
                         .wallpic_num_for_name(def.name1)
-                        .expect(&format!("No texture for {}", def.name1)),
+                        .unwrap_or_else(|| panic!("No texture for {}", def.name1)),
                 );
                 switch_list.push(
                     textures
                         .wallpic_num_for_name(def.name2)
-                        .expect(&format!("No texture for {}", def.name2)),
+                        .unwrap_or_else(|| panic!("No texture for {}", def.name2)),
                 );
             }
         }
