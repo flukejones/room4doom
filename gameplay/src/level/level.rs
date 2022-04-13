@@ -123,8 +123,8 @@ impl Level {
         }
     }
 
-    pub fn load(&mut self, wad_data: &WadData) {
-        self.map_data.load(wad_data);
+    pub fn load(&mut self, pic_data: &PicData, wad_data: &WadData) {
+        self.map_data.load(pic_data, wad_data);
         unsafe {
             self.thinkers = ThinkerAlloc::new(self.map_data.get_things().len() + 500);
         }

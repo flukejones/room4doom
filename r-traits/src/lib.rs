@@ -19,18 +19,24 @@ impl PixelBuf {
         }
     }
 
+    #[inline]
     pub fn width(&self) -> u32 {
         self.width
     }
 
+    #[inline]
     pub fn height(&self) -> u32 {
         self.height
     }
 
+    /// Get width and height as a tuple
+    #[inline]
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
+    /// Set this pixel at X|Y to RGBA colour
+    #[inline]
     pub fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, a: u8) {
         // Shitty safeguard. Need to find actual cause of fail
         if x >= self.width as usize || y >= self.height as usize {
@@ -44,6 +50,7 @@ impl PixelBuf {
         self.data[pos + 3] = a;
     }
 
+    /// Read the colour of a single pixel at X|Y
     pub fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
         let pos = y * (self.width as usize * 4) + x * 4;
         (
@@ -54,6 +61,7 @@ impl PixelBuf {
         )
     }
 
+    /// Get the array of pixels. The layout of which is [Row<RGBA>]
     pub fn read_pixels(&self) -> &[u8] {
         &self.data
     }

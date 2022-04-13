@@ -305,7 +305,7 @@ impl SoftwareRenderer {
     ) {
         let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight <= player.viewz {
+        if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
                 subsect.sector.floorheight.floor() as i32,
                 subsect.sector.floorpic,
@@ -314,8 +314,9 @@ impl SoftwareRenderer {
             );
         }
 
-        if subsect.sector.ceilingheight >= player.viewz
-            || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num()
+        if (subsect.sector.ceilingheight >= player.viewz
+            || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num())
+            && subsect.sector.ceilingpic != usize::MAX
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
                 subsect.sector.ceilingheight.floor() as i32,
@@ -756,14 +757,14 @@ fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
 
 #[cfg(test)]
 mod tests {
-    use gameplay::{MapData, IS_SSECTOR_MASK};
+    use gameplay::{MapData, PicData, IS_SSECTOR_MASK};
     use wad::WadData;
 
     #[test]
     fn check_nodes_of_e1m1() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let nodes = map.get_nodes();
         assert_eq!(nodes[0].xy.x() as i32, 1552);

@@ -393,7 +393,7 @@ impl SoftwareRenderer {
             }
         }
 
-        for x in vis.x1..vis.x2 {
+        for x in vis.x1..=vis.x2 {
             if clip_bottom[x as usize] == -2 {
                 clip_bottom[x as usize] = SCREENHEIGHT as i32;
             }
@@ -618,10 +618,10 @@ fn draw_masked_column(
     let pal = &textures.palette(0);
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let select = frac.floor() as i32 & 127;
+        let mut select = frac.floor() as i32 & 127;
 
         if select >= texture_column.len() as i32 {
-            break;
+            select %= texture_column.len() as i32;
         }
 
         // Transparency

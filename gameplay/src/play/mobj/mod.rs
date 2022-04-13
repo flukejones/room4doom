@@ -323,7 +323,7 @@ impl MapObject {
         }
 
         // check for players specially
-        if mthing.kind <= 4 {
+        if mthing.kind <= 4 && mthing.kind != 0 {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
             if !level.deathmatch {

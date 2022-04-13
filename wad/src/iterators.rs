@@ -1,13 +1,31 @@
+use log::debug;
+
 use crate::{lumps::*, Lump, MapLump, WadData};
 use std::marker::PhantomData;
 
 /// An iterator to iter over all items between start and end (exclusive), skipping zero-sized lumps.
 /// This is good for iterating over flats for example, as each `LumpInfo` also contains the name
 /// of the flat and is in order.
+///
+/// When used via the iterator methods such as for flats, with pwads added, then the
+/// iteration returns each flat in each *chunk* if there are multiple, in reverse order.
+///
+/// Wad loading order iwad->pwad1->pwad2 results in:
+/// - iter over flats in pwad2
+/// - iter over flats in pwad1
+/// - iter over flats in iwad
+///
+/// It is the responsibility of the user to dedup the iteration results for Doom.
 pub struct LumpIter<'a, T, F: Fn(&Lump) -> T> {
-    start: usize,
-    end: usize,
+    /// Index to all the starting points. The first is the index to the
+    /// starting point in the last pwad, then the next wad etc.
+    start_lumps: Vec<usize>,
+    /// Index to all the end points, paired with `start_lumps`. The first is the index to the
+    /// starting point in the last pwad, then the next wad etc.
+    end_lumps: Vec<usize>,
     lumps: &'a [Lump],
+    /// Index to the current start+end
+    current_start: usize,
     transformer: F,
 }
 
@@ -18,18 +36,30 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.lumps[self.start].data.is_empty() {
-            self.start += 1;
-            if self.start == self.end {
-                return None;
-            }
-        }
-        if self.start >= self.end {
+        let len = self.start_lumps.len() - 1;
+
+        let start = &mut self.start_lumps[self.current_start];
+        let end = &mut self.end_lumps[self.current_start];
+
+        if start >= end && self.current_start >= len {
             return None;
+        } else if start == end {
+            self.current_start += 1;
         }
 
-        let item = (self.transformer)(&self.lumps[self.start]);
-        self.start += 1;
+        // Skip empty. Good for iterating over two groups of patches with markers between
+        while self.lumps[*start].data.is_empty() {
+            *start += 1;
+            if start == end && self.current_start >= len {
+                return None;
+            } else if start == end {
+                self.current_start += 1;
+                break;
+            }
+        }
+
+        let item = (self.transformer)(&self.lumps[*start]);
+        *start += 1;
         Some(item)
     }
 }
@@ -96,31 +126,35 @@ impl<'a> Iterator for PatchIter<'a> {
 
 impl WadData {
     pub fn flats_iter(&self) -> LumpIter<WadFlat, impl Fn(&Lump) -> WadFlat + '_> {
-        let mut start = usize::MAX;
+        let mut starts = Vec::new();
+        let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate().rev() {
             if info.name == "F_START" {
-                start = i;
-                break;
+                starts.push(i);
+            } else if info.name.contains("F_START") {
+                starts.push(i);
+                debug!("Did not find F_START but found {}", info.name);
             }
-        }
-        let mut end = usize::MAX;
-        for (i, info) in self.lumps.iter().enumerate().rev() {
+
             if info.name == "F_END" {
-                end = i;
-                break;
+                ends.push(i);
+            } else if info.name.contains("F_END") {
+                ends.push(i);
+                debug!("Did not find F_END but found {}", info.name);
             }
         }
-        if start == usize::MAX || end == usize::MAX {
+        if starts.is_empty() {
             panic!("Could not find flats");
         }
 
         LumpIter {
-            end,
+            end_lumps: ends,
             lumps: &self.lumps,
-            start,
+            start_lumps: starts,
+            current_start: 0,
             transformer: move |lump| {
                 let name = lump.name.clone();
-                let mut data = [0; 4096];
+                let mut data = vec![0; lump.data.len()];
                 data.copy_from_slice(&lump.data);
                 WadFlat { name, data }
             },
@@ -128,28 +162,33 @@ impl WadData {
     }
 
     pub fn sprites_iter(&self) -> LumpIter<WadPatch, impl Fn(&Lump) -> WadPatch + '_> {
-        let mut start = usize::MAX;
+        let mut starts = Vec::new();
         for (i, info) in self.lumps.iter().enumerate().rev() {
             if info.name == "S_START" {
-                start = i;
-                break;
+                starts.push(i);
+            } else if info.name.contains("S_START") {
+                starts.push(i);
+                debug!("Did not find S_START but found {}", info.name);
             }
         }
-        let mut end = usize::MAX;
+        let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate().rev() {
             if info.name == "S_END" {
-                end = i;
-                break;
+                ends.push(i);
+            } else if info.name.contains("S_END") {
+                ends.push(i);
+                debug!("Did not find S_END but found {}", info.name);
             }
         }
-        if start == usize::MAX || end == usize::MAX {
+        if starts.is_empty() {
             panic!("Could not find flats");
         }
 
         LumpIter {
-            end,
+            start_lumps: starts,
+            end_lumps: ends,
             lumps: &self.lumps,
-            start,
+            current_start: 0,
             transformer: WadPatch::from_lump,
         }
     }

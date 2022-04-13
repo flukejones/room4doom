@@ -573,7 +573,7 @@ mod tests {
     fn bad_stuff_thinking() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
         let textures = PicData::init(&wad);
 
         let mut l = unsafe {
