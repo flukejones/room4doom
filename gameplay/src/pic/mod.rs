@@ -15,7 +15,7 @@ mod sprites;
 use std::mem::{size_of, size_of_val};
 
 use glam::Vec2;
-use log::debug;
+use log::{debug, warn};
 use wad::{
     lumps::{WadColour, WadPalette, WadPatch, WadTexture},
     WadData,
@@ -50,7 +50,7 @@ pub struct SpritePic {
     pub data: Vec<Vec<usize>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PicData {
     /// Colours for pixels
     palettes: Vec<WadPalette>,
@@ -256,13 +256,25 @@ impl PicData {
         let mut flat_alloc_size = 0;
         for (i, wf) in wad.flats_iter().enumerate() {
             let mut flat = FlatPic {
-                name: wf.name,
+                name: wf.name.clone(),
                 data: [[0; 64]; 64],
             };
+            let mut outofbounds = false;
             for (y, col) in wf.data.chunks(64).enumerate() {
+                if y >= 64 || outofbounds {
+                    outofbounds = true;
+                    break;
+                }
                 for (x, px) in col.iter().enumerate() {
+                    if x >= 64 || outofbounds {
+                        outofbounds = true;
+                        break;
+                    }
                     flat.data[x][y] = *px;
                 }
+            }
+            if outofbounds {
+                warn!("Flat {} was not 64x64 in size", wf.name);
             }
             if flat.name == "F_SKY1" {
                 skynum = flats.len();
@@ -320,7 +332,7 @@ impl PicData {
     }
 
     /// Get the number of the flat used for the sky texture. Sectors using this number
-    /// for the flat will be rendered witht eh skybox.
+    /// for the flat will be rendered with the skybox.
     pub fn sky_num(&self) -> usize {
         self.sky_num
     }

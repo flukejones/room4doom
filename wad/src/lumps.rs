@@ -1,10 +1,12 @@
 use std::str;
 
+use log::error;
+
 use crate::Lump;
 
 pub struct WadFlat {
     pub name: String,
-    pub data: [u8; 4096],
+    pub data: Vec<u8>,
 }
 
 /// Used in a `WadPalette`. Each component byte is stored in the palette in
@@ -478,14 +480,34 @@ impl WadSideDef {
         WadSideDef {
             x_offset,
             y_offset,
-            upper_tex: str::from_utf8(upper_tex)
-                .expect("Invalid upper_tex name")
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
-                .to_owned(),
-            lower_tex: str::from_utf8(lower_tex)
-                .expect("Invalid lower_tex name")
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
-                .to_owned(),
+            upper_tex: if upper_tex[0] == b'-' {
+                String::default()
+            } else {
+                str::from_utf8(upper_tex)
+                    .map_err(|e| {
+                        error!(
+                            "Faulty upper_tex name: {}",
+                            str::from_utf8(&upper_tex[..e.valid_up_to()]).unwrap()
+                        );
+                    })
+                    .unwrap_or_default()
+                    .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                    .to_owned()
+            },
+            lower_tex: if lower_tex[0] == b'-' {
+                String::default()
+            } else {
+                str::from_utf8(lower_tex)
+                    .map_err(|e| {
+                        error!(
+                            "Faulty lower_tex name: {}",
+                            str::from_utf8(&lower_tex[..e.valid_up_to()]).unwrap()
+                        );
+                    })
+                    .unwrap_or_default()
+                    .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                    .to_owned()
+            },
             middle_tex: str::from_utf8(middle_tex)
                 .expect("Invalid middle_tex name")
                 .trim_end_matches('\u{0}') // better to address this early to avoid many casts later

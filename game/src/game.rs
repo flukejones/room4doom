@@ -28,13 +28,12 @@ use crate::DoomOptions;
 /// The current state of the game: whether we are playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
 #[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
 pub enum GameState {
-    FORCE_WIPE = -1,
-    GS_LEVEL,
-    GS_INTERMISSION,
-    GS_FINALE,
-    GS_DEMOSCREEN,
+    ForceWipe = -1,
+    Level,
+    Intermission,
+    Finale,
+    Demo,
 }
 
 pub const BACKUPTICS: usize = 12;
@@ -96,8 +95,6 @@ pub struct Game {
     pub player_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
     pub players: [Player; MAXPLAYERS],
-    /// ?
-    turbodetected: [bool; MAXPLAYERS],
 
     //
     old_game_state: GameState,
@@ -110,7 +107,7 @@ pub struct Game {
     game_tic: u32,
 
     /// If non-zero, exit the level after this number of minutes.
-    time_limit: Option<i32>,
+    _time_limit: Option<i32>,
 
     pub paused: bool,
 
@@ -125,7 +122,7 @@ pub struct Game {
     /// d_net.c
     pub netcmds: [[TicCmd; BACKUPTICS]; MAXPLAYERS],
     /// d_net.c
-    localcmds: [TicCmd; BACKUPTICS],
+    _localcmds: [TicCmd; BACKUPTICS],
 
     game_mode: GameMode,
     game_mission: GameMission,
@@ -248,27 +245,26 @@ impl Game {
             paused: false,
             deathmatch: false,
             netgame: false,
-            turbodetected: [false; MAXPLAYERS],
-            old_game_state: GameState::GS_LEVEL,
+            old_game_state: GameState::Level,
             game_action: GameAction::NewGame, // TODO: default to ga_nothing when more state is done
-            game_state: GameState::GS_LEVEL,
+            game_state: GameState::Level,
             game_skill: options.skill,
             game_tic: 0,
             respawn_monsters,
             game_episode: options.episode,
             game_map: options.map,
-            time_limit: None,
+            _time_limit: None,
             consoleplayer: 0,
             displayplayer: 0,
             level_start_tic: 0,
             wminfo: WBStartStruct::default(),
 
             netcmds: [[TicCmd::new(); BACKUPTICS]; MAXPLAYERS],
-            localcmds: [TicCmd::new(); BACKUPTICS],
+            _localcmds: [TicCmd::new(); BACKUPTICS],
 
             game_mode,
             game_mission,
-            wipe_game_state: GameState::GS_LEVEL,
+            wipe_game_state: GameState::Level,
             usergame: false,
             options,
         }
@@ -284,10 +280,6 @@ impl Game {
 
     pub fn game_mission(&self) -> GameMission {
         self.game_mission
-    }
-
-    pub fn game_mode(&self) -> GameMode {
-        self.game_mode
     }
 
     /// G_InitNew
@@ -419,10 +411,10 @@ impl Game {
         debug!("Entered do_load_level");
         // TODO: check and set sky texture, function R_TextureNumForName
 
-        if self.wipe_game_state == GameState::GS_LEVEL {
-            self.wipe_game_state = GameState::FORCE_WIPE;
+        if self.wipe_game_state == GameState::Level {
+            self.wipe_game_state = GameState::ForceWipe;
         }
-        self.game_state = GameState::GS_LEVEL;
+        self.game_state = GameState::Level;
 
         for player in self.players.iter_mut() {
             if player.player_state == PlayerState::Dead {
@@ -457,7 +449,7 @@ impl Game {
         self.level = Some(level);
 
         if let Some(ref mut level) = self.level {
-            level.load(&self.wad_data);
+            level.load(&self.pic_data.borrow_mut(), &self.wad_data);
 
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
@@ -507,7 +499,7 @@ impl Game {
 
     /// Doom function name `G_DoWorldDone`
     fn do_world_done(&mut self) {
-        self.game_state = GameState::GS_LEVEL;
+        self.game_state = GameState::Level;
         self.game_map = self.wminfo.next + 1;
         self.do_load_level();
         self.game_action = GameAction::Nothing;
@@ -633,7 +625,7 @@ impl Game {
             }
         }
 
-        self.game_state = GameState::GS_INTERMISSION;
+        self.game_state = GameState::Intermission;
     }
 
     /// The ticker which controls the state the game is in. For example the game could be
@@ -717,8 +709,8 @@ impl Game {
             }
         }
 
-        if self.old_game_state == GameState::GS_INTERMISSION
-            && self.game_state != GameState::GS_INTERMISSION
+        if self.old_game_state == GameState::Intermission
+            && self.game_state != GameState::Intermission
         {
             //WI_End();
             error!("TODO: screen wipe with WI_End(). Done between level end and stat show");
@@ -727,7 +719,7 @@ impl Game {
         self.old_game_state = self.game_state;
 
         match self.game_state {
-            GameState::GS_LEVEL => {
+            GameState::Level => {
                 // P_Ticker(); player movements, run thinkers etc
                 self.p_ticker();
                 // ST_Ticker();
@@ -735,18 +727,18 @@ impl Game {
                 // HU_Ticker();
                 self.hu_ticker();
             }
-            GameState::GS_INTERMISSION => {
+            GameState::Intermission => {
                 error!("TODO: show end-of-level stats with WI_Ticker()");
                 // WI_Ticker calls world_done()
                 self.world_done();
             }
-            GameState::GS_FINALE => {
+            GameState::Finale => {
                 // F_Ticker();
             }
-            GameState::GS_DEMOSCREEN => {
+            GameState::Demo => {
                 // D_PageTicker();
             }
-            GameState::FORCE_WIPE => {
+            GameState::ForceWipe => {
                 // do a wipe
             }
         }

@@ -292,19 +292,19 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     MapObjectInfo::new(
         // MT_CHAINGUY
         65,                     // doomednum
-        StateNum::S_POSS_STND,  // spawnstate
+        StateNum::S_CPOS_STND,  // spawnstate
         70,                     // spawnhealth
-        StateNum::S_POSS_RUN1,  // seestate
+        StateNum::S_CPOS_RUN1,  // seestate
         SfxEnum::posit2,        // seesound
         8,                      // reactiontime
         SfxEnum::None,          // attacksound
-        StateNum::S_POSS_PAIN,  // painstate
+        StateNum::S_CPOS_PAIN,  // painstate
         170,                    // painchance
         SfxEnum::popain,        // painsound
         StateNum::S_NULL,       // meleestate
-        StateNum::S_POSS_ATK1,  // missilestate
-        StateNum::S_POSS_DIE1,  // deathstate
-        StateNum::S_POSS_XDIE1, // xdeathstate
+        StateNum::S_CPOS_ATK1,  // missilestate
+        StateNum::S_CPOS_DIE1,  // deathstate
+        StateNum::S_CPOS_XDIE1, // xdeathstate
         SfxEnum::podth2,        // deathsound
         8.0,                    // speed
         20.0,                   // radius
@@ -315,7 +315,7 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
         MapObjectFlag::Solid as u32
             | MapObjectFlag::Shootable as u32
             | MapObjectFlag::CountKill as u32, // flags
-        StateNum::S_POSS_RAISE1, // raisestate
+        StateNum::S_CPOS_RAISE1, // raisestate
     ),
     MapObjectInfo::new(
         // MT_TROOP

@@ -5,10 +5,10 @@ use crate::{
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
     log::info,
     play::utilities::{bam_to_radian, circle_line_collide},
-    DPtr,
+    DPtr, PicData,
 };
 use glam::Vec2;
-use log::error;
+use log::warn;
 use wad::{lumps::*, WadData};
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
@@ -170,7 +170,7 @@ impl MapData {
     }
 
     // TODO: pass in TextureData
-    pub fn load(&mut self, wad: &WadData) {
+    pub fn load(&mut self, pic_data: &PicData, wad: &WadData) {
         // THINGS
         self.things = wad.thing_iter(&self.name).collect();
         info!("{}: Loaded things", self.name);
@@ -190,14 +190,14 @@ impl MapData {
                 num: i as u32,
                 floorheight: s.floor_height as f32,
                 ceilingheight: s.ceil_height as f32,
-                floorpic: wad
-                    .flats_iter()
-                    .position(|f| f.name == s.floor_tex)
-                    .unwrap_or(usize::MAX),
-                ceilingpic: wad
-                    .flats_iter()
-                    .position(|f| f.name == s.ceil_tex)
-                    .unwrap_or(usize::MAX),
+                floorpic: pic_data.flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
+                    warn!("Sectors: Did not find flat for {}", s.floor_tex);
+                    usize::MAX
+                }),
+                ceilingpic: pic_data.flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
+                    warn!("Sectors: Did not find flat for {}", s.ceil_tex);
+                    usize::MAX
+                }),
                 lightlevel: s.light_level as i32,
                 special: s.kind,
                 tag: s.tag,
@@ -616,6 +616,7 @@ mod tests {
     use crate::{
         angle::Angle,
         level::map_data::{BSPTrace, MapData},
+        PicData,
     };
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
@@ -625,7 +626,7 @@ mod tests {
     fn test_tracing_bsp() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
         let origin = Vec2::new(710.0, -3400.0); // left corner from start
         let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
 
@@ -702,7 +703,7 @@ mod tests {
     fn check_e1m1_things() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let things = map.get_things();
         assert_eq!(things[0].x as i32, 1056);
@@ -728,7 +729,7 @@ mod tests {
     fn check_e1m1_vertexes() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let vertexes = map.vertexes();
         assert_eq!(vertexes[0].x() as i32, 1088);
@@ -742,7 +743,7 @@ mod tests {
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let linedefs = map.linedefs();
 
@@ -778,7 +779,7 @@ mod tests {
     fn check_e1m1_linedefs() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let linedefs = map.linedefs();
         assert_eq!(linedefs[0].v1.x() as i32, 1088);
@@ -802,7 +803,7 @@ mod tests {
     fn check_e1m1_sectors() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let sectors = map.sectors();
         assert_eq!(sectors[0].floorheight, 0.0);
@@ -821,7 +822,7 @@ mod tests {
     fn check_e1m1_sidedefs() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let sidedefs = map.sidedefs();
         assert_eq!(sidedefs[0].rowoffset, 0.0);
@@ -838,7 +839,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
 
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         let segments = map.segments();
         assert_eq!(segments[0].v1.x() as i32, 1552);
@@ -864,7 +865,7 @@ mod tests {
     fn find_vertex_using_bsptree() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
-        map.load(&wad);
+        map.load(&PicData::default(), &wad);
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);
