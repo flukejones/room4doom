@@ -6,6 +6,7 @@ edition = "2021"
 build = "../build.rs"
 
 [dependencies]
+wad = { path = "../wad" }
 gameplay = { path = "../gameplay" }
 sound-traits = { path = "../sound-traits" }
 sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
