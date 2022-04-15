@@ -19,7 +19,7 @@ pub mod tic_cmd;
 
 pub use angle::Angle;
 pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
-pub use info::MapObjectType;
+pub use info::{MapObjectType, SfxEnum};
 pub use level::{
     flags::LineDefFlags,
     map_data::{MapData, IS_SSECTOR_MASK},
