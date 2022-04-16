@@ -6,6 +6,8 @@ edition = "2021"
 build = "../build.rs"
 
 [dependencies]
+sound-traits = { path = "../sound-traits" }
+sound-sdl2 = { path = "../sound-sdl2" }
 wad = { path = "../wad" }
 glam = "0.8.5"
 log = "^0.4"

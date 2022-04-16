@@ -3,6 +3,8 @@
 //! Doom source name `p_floor`
 use std::ptr::null_mut;
 
+use sound_traits::SfxEnum;
+
 use crate::{
     level::{
         flags::LineDefFlags,
@@ -19,6 +21,7 @@ use super::{
         find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
         find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
     },
+    switch::start_line_sound,
 };
 
 const FLOORSPEED: f32 = 1.0;
@@ -232,6 +235,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 impl Think for FloorMove {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let floor = object.floor_move();
+        let line = &floor.sector.lines[0];
 
         let res = move_plane(
             floor.sector.clone(),
@@ -244,7 +248,7 @@ impl Think for FloorMove {
 
         if level.level_time & 7 == 0 {
             // TODO: if (!(leveltime & 7))
-            //  S_StartSound(&floor->sector->soundorg, sfx_stnmov);
+            start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
         }
 
         if matches!(res, PlaneResult::PastDest) {

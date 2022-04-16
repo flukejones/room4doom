@@ -3,6 +3,7 @@
 //! Doom source name `p_doors`
 
 use log::{debug, error, warn};
+use sound_traits::SfxEnum;
 use std::{
     fmt::{self, Formatter},
     ptr::null_mut,
@@ -19,7 +20,7 @@ use crate::{
     DPtr,
 };
 
-use super::{mobj::MapObject, specials::find_lowest_ceiling_surrounding};
+use super::{mobj::MapObject, specials::find_lowest_ceiling_surrounding, switch::start_line_sound};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;
@@ -66,8 +67,9 @@ impl fmt::Debug for VerticalDoor {
 }
 
 impl Think for VerticalDoor {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
+    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let door = object.vertical_door();
+        let line = &door.sector.lines[0];
 
         match door.direction {
             0 => {
@@ -77,12 +79,15 @@ impl Think for VerticalDoor {
                     match door.kind {
                         DoorKind::BlazeRaise => {
                             door.direction = -1;
+                            start_line_sound(&line, SfxEnum::bdcls, &level.snd_command);
                         }
                         DoorKind::Normal => {
                             door.direction = -1;
+                            start_line_sound(&line, SfxEnum::dorcls, &level.snd_command);
                         }
                         DoorKind::Close30ThenOpen => {
                             door.direction = -1;
+                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -99,6 +104,7 @@ impl Think for VerticalDoor {
                         DoorKind::RaiseIn5Mins => {
                             door.direction = 1;
                             door.kind = DoorKind::Normal;
+                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -120,6 +126,7 @@ impl Think for VerticalDoor {
                 if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
+                            start_line_sound(&line, SfxEnum::bdcls, &level.snd_command);
                             unsafe {
                                 door.sector.specialdata = None;
                                 (*door.thinker).mark_remove();
@@ -135,6 +142,15 @@ impl Think for VerticalDoor {
                             door.topcountdown = TICRATE * 30;
                         }
                         _ => {}
+                    }
+                } else if matches!(res, PlaneResult::Crushed) {
+                    match door.kind {
+                        DoorKind::BlazeClose | DoorKind::Close => {}
+                        _ => {
+                            door.direction = 1;
+                            door.kind = DoorKind::Normal;
+                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+                        }
                     }
                 }
             }
@@ -217,7 +233,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.topheight -= 4.0;
                 door.direction = 1;
                 if door.topheight != sec.ceilingheight {
-                    // TODO: S_StartSound(&door->sector->soundorg, sfx_doropn);
+                    start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
                 }
             }
             DoorKind::BlazeRaise | DoorKind::BlazeOpen => {
@@ -226,7 +242,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.direction = 1;
                 door.speed *= 4.0;
                 if door.topheight != sec.ceilingheight {
-                    // TODO: S_StartSound(&door->sector->soundorg, sfx_bdopn);
+                    start_line_sound(&line, SfxEnum::bdopn, &level.snd_command);
                 }
             }
             DoorKind::BlazeClose => {
@@ -234,18 +250,18 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.topheight -= 4.0;
                 door.direction = -1;
                 door.speed *= 4.0;
-                // TODO: S_StartSound(&door->sector->soundorg, sfx_bdcls);
+                start_line_sound(&line, SfxEnum::bdcls, &level.snd_command);
             }
             DoorKind::Close30ThenOpen => {
                 door.topheight = sec.ceilingheight;
                 door.direction = -1;
-                // TODO: S_StartSound(&door->sector->soundorg, sfx_dorcls);
+                start_line_sound(&line, SfxEnum::dorcls, &level.snd_command);
             }
             DoorKind::Close => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = -1;
-                // TODO: S_StartSound(&door->sector->soundorg, sfx_dorcls);
+                start_line_sound(&line, SfxEnum::dorcls, &level.snd_command);
             }
             _ => {}
         }
@@ -270,7 +286,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                 if !player.cards[Card::Bluecard as usize] && !player.cards[Card::Blueskull as usize]
                 {
                     // TODO: player->message = DEH_String(PD_BLUEK);
-                    // TODO: S_StartSound(NULL,sfx_oof);
+                    start_line_sound(&line, SfxEnum::oof, &level.snd_command);
                     println!("Ooof! I need the blue card");
                     return;
                 }
@@ -280,7 +296,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                     && !player.cards[Card::Yellowskull as usize]
                 {
                     // TODO: player->message = DEH_String(PD_YELLOWK);
-                    // TODO: S_StartSound(NULL,sfx_oof);
+                    start_line_sound(&line, SfxEnum::oof, &level.snd_command);
                     println!("Ooof! I need the yellow card");
                     return;
                 }
@@ -288,7 +304,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
             28 | 33 => {
                 if !player.cards[Card::Redcard as usize] && !player.cards[Card::Redskull as usize] {
                     // TODO: player->message = DEH_String(PD_REDK);
-                    // TODO: S_StartSound(NULL,sfx_oof);
+                    start_line_sound(&line, SfxEnum::oof, &level.snd_command);
                     println!("Ooof! I need the red card");
                     return;
                 }
@@ -349,21 +365,29 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     };
 
     match line.special {
-        1 | 26 | 27 | 28 => door.kind = DoorKind::Normal,
+        1 | 26 | 27 | 28 => {
+            door.kind = DoorKind::Normal;
+            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+        }
         31 | 32 | 33 | 34 => {
             door.kind = DoorKind::Open;
             line.special = 0;
+            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
         }
         117 => {
             door.kind = DoorKind::BlazeRaise;
             door.speed = VDOOR * 2.0;
+            start_line_sound(&line, SfxEnum::bdopn, &level.snd_command);
         }
         118 => {
             door.kind = DoorKind::BlazeOpen;
             line.special = 0;
             door.speed = VDOOR * 2.0;
+            start_line_sound(&line, SfxEnum::bdopn, &level.snd_command);
         }
-        _ => {}
+        _ => {
+            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+        }
     }
 
     door.topheight = find_lowest_ceiling_surrounding(sec.clone());

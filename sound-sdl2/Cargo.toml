@@ -7,6 +7,6 @@ build = "../build.rs"
 
 [dependencies]
 wad = { path = "../wad" }
-gameplay = { path = "../gameplay" }
 sound-traits = { path = "../sound-traits" }
+log = "^0.4"
 sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }

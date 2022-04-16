@@ -24,10 +24,14 @@ use crate::{
         Level,
     },
     pic::{ButtonWhere, PicAnimation},
-    play::{switch::change_switch_texture, teleport::teleport},
+    play::{
+        switch::{change_switch_texture, start_line_sound},
+        teleport::teleport,
+    },
     DPtr, PicData,
 };
 use log::{debug, error, trace};
+use sound_traits::SfxEnum;
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -753,12 +757,24 @@ pub fn shoot_special_line(line: DPtr<LineDef>, thing: &mut MapObject) {
         24 => {
             debug!("shoot line-special #{}: raise floor!", line.special);
             ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
-            change_switch_texture(line, false, &level.switch_list, &mut level.button_list);
+            change_switch_texture(
+                line,
+                false,
+                &level.switch_list,
+                &mut level.button_list,
+                &level.snd_command,
+            );
         }
         46 => {
             debug!("shoot line-special #{}: open door!", line.special);
             ev_do_door(line.clone(), DoorKind::Open, level);
-            change_switch_texture(line, true, &level.switch_list, &mut level.button_list);
+            change_switch_texture(
+                line,
+                true,
+                &level.switch_list,
+                &mut level.button_list,
+                &level.snd_command,
+            );
         }
         47 => {
             debug!(
@@ -766,7 +782,13 @@ pub fn shoot_special_line(line: DPtr<LineDef>, thing: &mut MapObject) {
                 line.special
             );
             ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
-            change_switch_texture(line, false, &level.switch_list, &mut level.button_list);
+            change_switch_texture(
+                line,
+                false,
+                &level.switch_list,
+                &mut level.button_list,
+                &level.snd_command,
+            );
         }
         _ => {}
     }
@@ -864,7 +886,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
                     ButtonWhere::Middle => b.line.front_sidedef.midtexture = b.texture,
                     ButtonWhere::Bottom => b.line.front_sidedef.bottomtexture = b.texture,
                 }
-                // TODO: S_StartSound(&buttonlist[i].soundorg, sfx_swtchn);
+                start_line_sound(&b.line, SfxEnum::swtchn, &level.snd_command);
             }
         }
     }

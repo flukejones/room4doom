@@ -3,6 +3,8 @@
 //! Doom source name `p_ceiling`
 use std::ptr::null_mut;
 
+use sound_traits::SfxEnum;
+
 use crate::{
     level::{
         map_defs::{LineDef, Sector},
@@ -15,6 +17,7 @@ use crate::{
 use super::{
     mobj::MapObject,
     specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
+    switch::start_line_sound,
 };
 
 const CEILSPEED: f32 = 1.0;
@@ -135,9 +138,10 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 impl Think for CeilingMove {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let ceiling = object.ceiling_move();
+        let line = &ceiling.sector.lines[0];
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
-            // TODO: S_StartSound(&ceiling->sector->soundorg, sfx_stnmov);
+            start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
         }
 
         match ceiling.direction {
@@ -162,7 +166,7 @@ impl Think for CeilingMove {
                             ceiling.direction = -1;
                         }
                         CeilingKind::SilentCrushAndRaise => {
-                            // TODO: S_StartSound(&ceiling->sector->soundorg, sfx_pstop);
+                            start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
                             ceiling.direction = -1;
                         }
                         _ => {}
@@ -197,7 +201,7 @@ impl Think for CeilingMove {
                         CeilingKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
-                            //TODO: S_StartSound(&ceiling->sector->soundorg, sfx_pstop);
+                            start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
                         }
                         _ => {}
                     }

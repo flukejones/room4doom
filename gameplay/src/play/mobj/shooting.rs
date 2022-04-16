@@ -1,7 +1,8 @@
 use glam::Vec2;
+use sound_traits::SfxEnum;
 
 use crate::{
-    info::{SfxEnum, MOBJINFO},
+    info::MOBJINFO,
     level::map_data::BSPTrace,
     play::{
         specials::shoot_special_line,
@@ -28,7 +29,7 @@ impl MapObject {
         self.flags &= !(MapObjectFlag::Missile as u32);
 
         if self.info.deathsound != SfxEnum::None {
-            // TODO: S_StartSound (mo, mo->info->deathsound);
+            self.start_sound(self.info.deathsound);
         }
     }
 

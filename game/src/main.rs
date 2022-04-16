@@ -6,7 +6,7 @@ mod shaders;
 mod test_funcs;
 mod timestep;
 
-use std::{error::Error, io::Write, str::FromStr};
+use std::{error::Error, io::Write, str::FromStr, thread::spawn};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
@@ -14,9 +14,11 @@ use game::Game;
 use golem::*;
 use gumdrop::Options;
 
-use gameplay::{log, Skill};
+use gameplay::{log, m_clear_random, p_random, Skill};
 use input::Input;
 use shaders::Shaders;
+use sound_traits::{SoundAction, SoundObjPosition, SoundServer, SoundServerTic};
+use wad::WadData;
 
 /// Options specific to Doom. This will get phased out for `GameOptions`
 #[derive(Debug)]
@@ -170,6 +172,7 @@ impl From<GameOptions> for DoomOptions {
 /// The main `game` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
     let sdl_ctx = sdl2::init()?;
+    let snd_ctx = sdl_ctx.audio()?;
     let video_ctx = sdl_ctx.video()?;
 
     let events = sdl_ctx.event_pump()?;
@@ -210,7 +213,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap()
     };
 
-    let game = Game::new(options.clone().into());
+    let wad = WadData::new(options.iwad.clone().into());
+
+    let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad)?;
+    let (tx, kill) = snd_server.init()?;
+    let _thread = spawn(move || loop {
+        snd_server.tic()
+    });
+
+    let game = Game::new(options.clone().into(), wad, tx);
 
     if options.fullscreen {
         let mode = if options.width != 320 {
@@ -226,5 +237,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, context, options)
+    d_doom_loop(game, input, window, context, options)?;
+    kill.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
 }

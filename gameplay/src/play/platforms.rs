@@ -4,11 +4,14 @@
 
 use std::ptr::null_mut;
 
+use sound_traits::SfxEnum;
+
 use super::{
     mobj::MapObject,
     specials::{
         find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
     },
+    switch::start_line_sound,
     utilities::p_random,
 };
 
@@ -104,7 +107,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.status = PlatStatus::Up;
                 sec.special = 0;
                 sec.floorpic = line.frontsector.floorpic;
-                // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
+                start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
             }
             PlatKind::RaiseAndChange => {
                 platform.speed /= 2.0;
@@ -112,7 +115,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
                 sec.floorpic = line.frontsector.floorpic;
-                // TODO: S_StartSound(&sec->soundorg, sfx_stnmov);
+                start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
             }
 
             PlatKind::PerpetualRaise => {
@@ -136,7 +139,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                     PlatStatus::Down
                 };
                 // TODO: plat->status = P_Random() & 1;
-                // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
+                start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
             }
             PlatKind::DownWaitUpStay => {
                 platform.speed *= 4.0;
@@ -149,7 +152,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.high = sec.floorheight;
                 platform.wait = TICRATE * PLATWAIT;
                 platform.status = PlatStatus::Down;
-                // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
+                start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
             }
             PlatKind::BlazeDWUS => {
                 platform.speed *= 8.0;
@@ -162,7 +165,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
                 platform.high = sec.floorheight;
                 platform.wait = TICRATE * PLATWAIT;
                 platform.status = PlatStatus::Down;
-                // TODO: S_StartSound(&sec->soundorg, sfx_pstart);
+                start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
             }
         }
 
@@ -180,6 +183,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 impl Think for Platform {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let platform = object.platform();
+        let line = &platform.sector.lines[0];
 
         match platform.status {
             PlatStatus::Up => {
@@ -197,18 +201,17 @@ impl Think for Platform {
                     PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange
                 ) && level.level_time & 7 == 0
                 {
-                    // TODO: if (!(leveltime&7))
-                    //  S_StartSound(&plat->sector->soundorg, sfx_stnmov);
+                    start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
                 }
 
                 if matches!(res, PlaneResult::Crushed) && !platform.crush {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
+                    start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
                 } else if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
+                    start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
 
                     match platform.kind {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
@@ -242,7 +245,7 @@ impl Think for Platform {
                 if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstop);
+                    start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
                 }
             }
             PlatStatus::Waiting => {
@@ -253,7 +256,7 @@ impl Think for Platform {
                     } else {
                         platform.status = PlatStatus::Down;
                     }
-                    // TODO: S_StartSound(&plat->sector->soundorg, sfx_pstart);
+                    start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
                 }
             }
             PlatStatus::InStasis => {}

@@ -56,24 +56,28 @@ pub fn teleport(
                 teleport_move(endpoint.xy, thing, level);
                 thing.z = endpoint.z;
 
-                let _fog = MapObject::spawn_map_object(
+                let fog = MapObject::spawn_map_object(
                     old_xy.x(),
                     old_xy.y(),
                     old_z as i32,
                     MapObjectType::MT_TFOG,
                     level,
                 );
-                // TODO: S_StartSound(fog, sfx_telept);
+                unsafe {
+                    (*fog).start_sound(sound_traits::SfxEnum::telept);
+                }
 
                 let an = endpoint.angle;
-                let _fog = MapObject::spawn_map_object(
+                let fog = MapObject::spawn_map_object(
                     endpoint.xy.x() + 20.0 * an.cos(),
                     endpoint.xy.y() + 20.0 * an.sin(),
                     endpoint.z as i32,
                     MapObjectType::MT_TFOG,
                     level,
                 );
-                // TODO: S_StartSound(fog, sfx_telept);
+                unsafe {
+                    (*fog).start_sound(sound_traits::SfxEnum::telept);
+                }
 
                 if thing.player.is_some() {
                     thing.reactiontime = 18;
