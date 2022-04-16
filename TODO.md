@@ -1,5 +1,9 @@
+- [ ] Average the lines in a sector for sound origins
+- [ ] Sound distances (SDL helpers?)
+- [-] sound-server using rx/tx channels
+- [ ] track the playing sound sources and the channels they are on
+
 - [ ] Really need swept-volume collisions
-- [ ] sound-server using rx/tx channels
 - [ ] HUD using rx/tx channels
 - [ ] angle_to_screen has an impact on sizing and scale
 - [ ] Load sprites
@@ -11,6 +15,7 @@
 - [ ] Status bar drawing
 - [ ] Sound state machine on new thread
 - [ ] Move "extra light" arg up the call chain to lightmap selection functions
+
 
 - [-] Sprites colourmap/light selection
 - [-] P_TouchSpecialThing

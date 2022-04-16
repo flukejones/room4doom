@@ -1,8 +1,9 @@
 //! Doom source name `p_enemy`
 
 use log::error;
+use sound_traits::SfxEnum;
 
-use crate::{info::SfxEnum, play::utilities::p_random, MapObjectType};
+use crate::{play::utilities::p_random, MapObjectType};
 
 use super::{
     mobj::{MapObject, MapObjectFlag},
@@ -240,9 +241,9 @@ pub fn a_scream(actor: &mut MapObject) {
         MapObjectType::MT_SPIDER | MapObjectType::MT_CYBORG
     ) {
         // full volume
-        start_sound("a_scream", None, sound);
+        // TODO: start_sound("a_scream", None, sound);
     } else {
-        start_sound("a_scream", Some(actor), sound);
+        actor.start_sound(sound);
     }
 }
 
@@ -258,7 +259,7 @@ pub fn a_explode(actor: &mut MapObject) {
 }
 
 pub fn a_xscream(actor: &mut MapObject) {
-    start_sound("a_xscream", Some(actor), SfxEnum::slop);
+    actor.start_sound(SfxEnum::slop);
 }
 
 pub fn a_keendie(_actor: &mut MapObject) {
@@ -290,7 +291,7 @@ pub fn a_brainspit(actor: &mut MapObject) {
 }
 
 pub fn a_brainpain(actor: &mut MapObject) {
-    start_sound("a_brainpain", None, SfxEnum::bospn);
+    actor.start_sound(SfxEnum::bospn);
 }
 
 pub fn a_brainscream(actor: &mut MapObject) {
@@ -306,7 +307,7 @@ pub fn a_spawnfly(actor: &mut MapObject) {
 }
 
 pub fn a_spawnsound(actor: &mut MapObject) {
-    start_sound("a_spawnsound", Some(actor), SfxEnum::boscub);
+    actor.start_sound(SfxEnum::boscub);
     a_spawnfly(actor);
 }
 
@@ -372,7 +373,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
 
 pub fn a_pain(actor: &mut MapObject) {
     if actor.info.painsound != SfxEnum::None {
-        start_sound("a_pain", Some(actor), actor.info.painsound);
+        actor.start_sound(actor.info.painsound);
     }
 }
 
@@ -432,15 +433,4 @@ pub fn a_firecrackle(actor: &mut MapObject) {
 
 pub fn a_playerscream(actor: &mut MapObject) {
     error!("a_playerscream not implemented");
-}
-
-fn start_sound(tmp: &str, actor: Option<&MapObject>, sound: SfxEnum) {
-    if let Some(actor) = actor {
-        error!(
-            "TODO: {} should play {:?} sound for {:?}",
-            tmp, sound, actor.kind
-        );
-    } else {
-        error!("TODO: {} should play {:?} sound for None", tmp, sound);
-    }
 }

@@ -7,6 +7,7 @@ mod interact;
 pub use interact::*;
 mod movement;
 pub use movement::*;
+use sound_traits::SfxEnum;
 mod shooting;
 
 use std::ptr::{null_mut, NonNull};
@@ -21,7 +22,6 @@ use super::{
 
 use crate::{
     doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
-    info::SfxEnum,
     level::Level,
     thinker::{ObjectType, Think, Thinker},
 };
@@ -466,7 +466,7 @@ impl MapObject {
         }
 
         if !matches!(mobj.info.seesound, SfxEnum::None | SfxEnum::NumSfx) {
-            // TODO: S_StartSound(th, th->info->seesound);
+            mobj.start_sound(mobj.info.seesound);
         }
 
         mobj.target = Some(source);
@@ -709,6 +709,17 @@ impl MapObject {
         }
 
         true
+    }
+
+    pub fn start_sound(&self, sfx: SfxEnum) {
+        unsafe {
+            (*self.level).start_sound(
+                sfx,
+                (self.xy.x(), self.xy.y()),
+                self.angle.rad(),
+                self as *const Self as usize, // pointer cast as a UID
+            )
+        }
     }
 }
 

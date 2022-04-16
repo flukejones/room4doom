@@ -7,11 +7,10 @@ use std::fmt;
 use crate::play::{mobj::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 mod map_object_info;
-mod sounds;
 mod states;
 
 pub use map_object_info::*;
-pub use sounds::SfxEnum;
+use sound_traits::SfxEnum;
 pub use states::*;
 
 #[derive(Clone)]
@@ -52,7 +51,7 @@ pub const SPRNAMES: [&str; 138] = [
 
 /// The ordering must match SPRNAMES
 #[repr(u16)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(non_camel_case_types, dead_code)]
 pub enum SpriteNum {
     SPR_TROO,

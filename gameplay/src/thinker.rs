@@ -547,7 +547,7 @@ mod tests {
     };
 
     use super::{ObjectType, TestObject, ThinkerAlloc};
-    use std::{cell::RefCell, ptr::null_mut, rc::Rc};
+    use std::{cell::RefCell, ptr::null_mut, rc::Rc, sync::mpsc::channel};
 
     #[test]
     fn bad_stuff() {
@@ -575,6 +575,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
         let textures = PicData::init(&wad);
+        let (tx, _rx) = channel();
 
         let mut l = unsafe {
             Level::new(
@@ -584,6 +585,7 @@ mod tests {
                 GameMode::Shareware,
                 Vec::new(),
                 Rc::new(RefCell::new(textures)),
+                tx,
             )
         };
         let mut x = Thinker {

@@ -4,11 +4,12 @@ use std::ptr;
 
 use glam::Vec2;
 use log::{debug, error, info};
+use sound_traits::SfxEnum;
 
 use super::Skill;
 use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType},
-    info::{MapObjectType, SfxEnum, SpriteNum, StateNum, STATES},
+    info::{MapObjectType, SpriteNum, StateNum, STATES},
     lang::english::*,
     play::{
         mobj::MapObjectFlag,
@@ -276,7 +277,7 @@ impl MapObject {
             return;
         }
 
-        let mut _sound = SfxEnum::itemup;
+        let mut sound = SfxEnum::itemup;
 
         if let Some(player) = self.player {
             let player = unsafe { &mut *player };
@@ -323,14 +324,14 @@ impl MapObject {
                         player.health = 200;
                     }
                     player.message = Some(GOTSUPER);
-                    _sound = SfxEnum::getpow;
+                    sound = SfxEnum::getpow;
                 }
                 SpriteNum::SPR_MEGA => {
                     // TODO: if (gamemode != commercial) return;
                     player.health = 200;
                     player.give_armour(2);
                     player.message = Some(GOTMSPHERE);
-                    _sound = SfxEnum::getpow;
+                    sound = SfxEnum::getpow;
                 }
 
                 // Keycards
@@ -512,7 +513,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTBFG9000);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_MGUN => {
                     if !player.give_weapon(
@@ -523,28 +524,28 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTCHAINGUN);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_CSAW => {
                     if !player.give_weapon(WeaponType::Chainsaw, false, skill) {
                         return;
                     }
                     player.message = Some(GOTCHAINSAW);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_LAUN => {
                     if !player.give_weapon(WeaponType::Missile, false, skill) {
                         return;
                     }
                     player.message = Some(GOTLAUNCHER);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_PLAS => {
                     if !player.give_weapon(WeaponType::Plasma, false, skill) {
                         return;
                     }
                     player.message = Some(GOTPLASMA);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_SHOT => {
                     if !player.give_weapon(
@@ -555,7 +556,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
                 SpriteNum::SPR_SGN2 => {
                     if !player.give_weapon(
@@ -566,7 +567,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN2);
-                    _sound = SfxEnum::wpnup;
+                    sound = SfxEnum::wpnup;
                 }
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),
@@ -582,7 +583,7 @@ impl MapObject {
             player.bonuscount += BONUSADD;
 
             // TODO: if (player == &players[consoleplayer])
-            //  S_StartSound(NULL, sound);
+            self.start_sound(sound);
         }
     }
 }

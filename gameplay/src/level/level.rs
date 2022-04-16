@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use log::info;
+use sound_sdl2::SndServerTx;
+use sound_traits::{SfxEnum, SoundAction, SoundObjPosition};
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
@@ -58,6 +60,8 @@ pub struct Level {
     pub pic_data: Rc<RefCell<PicData>>,
     /// Some stuff needs to know the game mode (e.g, switching weapons)
     pub game_mode: GameMode,
+    /// Provides ability for things to start a sound
+    pub snd_command: SndServerTx,
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -78,6 +82,7 @@ impl Level {
         game_mode: GameMode,
         switch_list: Vec<usize>,
         pic_data: Rc<RefCell<PicData>>,
+        snd_command: SndServerTx,
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -120,6 +125,7 @@ impl Level {
             line_special_list: Vec::with_capacity(50),
             pic_data,
             game_mode,
+            snd_command,
         }
     }
 
@@ -140,5 +146,14 @@ impl Level {
         info!("Secret exited level");
         self.secret_exit = true;
         self.game_action = Some(GameAction::CompletedLevel);
+    }
+
+    pub fn start_sound(&self, sfx: SfxEnum, origin_xy: (f32, f32), angle: f32, uid: usize) {
+        self.snd_command
+            .send(SoundAction::StartSfx {
+                origin: SoundObjPosition::new(uid, origin_xy, angle),
+                sfx,
+            })
+            .unwrap();
     }
 }

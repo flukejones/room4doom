@@ -21,6 +21,8 @@ use gameplay::{
     update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
     Player, PlayerState, Skill, Switches, WBStartStruct, DOOM_VERSION, MAXPLAYERS,
 };
+use sound_sdl2::SndServerTx;
+use sound_traits::{SoundAction, SoundObjPosition};
 use wad::WadData;
 
 use crate::DoomOptions;
@@ -131,14 +133,15 @@ pub struct Game {
 
     /// The options the game exe was started with
     pub options: DoomOptions,
+
+    /// Sound tx
+    snd_command: SndServerTx,
 }
 
 impl Game {
-    pub fn new(mut options: DoomOptions) -> Game {
+    pub fn new(mut options: DoomOptions, mut wad: WadData, snd_command: SndServerTx) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = matches!(options.skill, Skill::Nightmare);
-
-        let mut wad = WadData::new(options.iwad.clone().into());
 
         let (game_mode, game_mission, game_description) = identify_version(&wad);
 
@@ -267,6 +270,7 @@ impl Game {
             wipe_game_state: GameState::Level,
             usergame: false,
             options,
+            snd_command,
         }
     }
 
@@ -442,6 +446,7 @@ impl Game {
                 self.game_mode,
                 self.switch_list.clone(),
                 self.pic_data.clone(),
+                self.snd_command.clone(),
             )
         };
 
@@ -767,6 +772,21 @@ impl Game {
             for (i, player) in self.players.iter_mut().enumerate() {
                 if self.player_in_game[i] && !player.think(level) {
                     // TODO: what to do with dead player?
+                }
+                // Update the listener of the sound server. Will always be consoleplayer.
+                if i == self.consoleplayer {
+                    if let Some(mobj) = player.mobj {
+                        let mobj = unsafe { &*mobj };
+                        self.snd_command
+                            .send(SoundAction::UpdateSound {
+                                listener: SoundObjPosition::new(
+                                    0,
+                                    (mobj.xy.x(), mobj.xy.y()),
+                                    mobj.angle.rad(),
+                                ),
+                            })
+                            .unwrap();
+                    }
                 }
             }
 

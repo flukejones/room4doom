@@ -15,6 +15,8 @@ sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
 glam = "0.8.5"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
+sound-traits = { path = "../sound-traits" }
+sound-sdl2 = { path = "../sound-sdl2" }
 render-traits = { path = "../render-traits" }
 render-soft = { path = "../render-soft" }
 wad = { path = "../wad" }
