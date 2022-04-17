@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use log::info;
 use sound_sdl2::SndServerTx;
-use sound_traits::{SfxEnum, SoundAction, SoundObjPosition};
+use sound_traits::{SfxEnum, SoundAction};
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
@@ -148,11 +148,14 @@ impl Level {
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub fn start_sound(&self, sfx: SfxEnum, origin_xy: (f32, f32), angle: f32, uid: usize) {
+    pub fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, angle: f32, uid: usize) {
         self.snd_command
             .send(SoundAction::StartSfx {
-                origin: SoundObjPosition::new(uid, origin_xy, angle),
+                uid,
                 sfx,
+                x,
+                y,
+                angle,
             })
             .unwrap();
     }

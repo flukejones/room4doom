@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    fmt::Debug,
     sync::{
         atomic::AtomicBool,
         mpsc::{channel, Receiver, Sender},
@@ -13,9 +14,7 @@ use sdl2::{
     mixer::{Chunk, InitFlag, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS},
     AudioSubsystem,
 };
-use sound_traits::{
-    InitResult, SfxEnum, SoundAction, SoundObjPosition, SoundServer, SoundServerTic,
-};
+use sound_traits::{InitResult, SfxEnum, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 use crate::info::SFX_INFO_BASE;
@@ -25,19 +24,40 @@ mod info;
 #[cfg(test)]
 mod test_sdl2;
 
-const MAX_DIST: f32 = 1500.0;
+const MAX_DIST: f32 = 1666.0;
 const MIXER_CHANNELS: i32 = 16;
 
 pub type SndServerRx = Receiver<SoundAction<SfxEnum, i32>>;
 pub type SndServerTx = Sender<SoundAction<SfxEnum, i32>>;
 
-pub fn point_to_angle_2(point1: (f32, f32), point2: (f32, f32)) -> f32 {
-    let x = point1.0 - point2.0;
-    let y = point1.1 - point2.1;
+pub fn point_to_angle_2(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+    let x = x1 - x2;
+    let y = y1 - y2;
     y.atan2(x)
 }
 
-pub(crate) struct SfxInfo {
+#[derive(Debug, Default, Clone, Copy)]
+struct SoundObject<S>
+where
+    S: Copy + Debug,
+{
+    /// Objects unique ID or hash. This should be used to track which
+    /// object owns which sounds so it can be stopped e.g, death, shoot..
+    uid: usize,
+    /// The Sound effect this object has
+    sfx: S,
+    /// The world XY coords of this object
+    x: f32,
+    y: f32,
+    /// Get the angle of this object in radians
+    angle: f32,
+    /// Channel allocated to it (internal)
+    channel: i32,
+    /// Priority of sound
+    priority: i32,
+}
+
+struct SfxInfo {
     /// Up to 6-character name. In the Lump the names are typically prefixed by `DS` or `DP`, so
     /// the full Lump name is 8-char, while the name here has the prefix striped off.
     name: String,
@@ -89,8 +109,8 @@ pub struct Snd {
     tx: SndServerTx,
     kill: Arc<AtomicBool>,
     chunks: Vec<SfxInfo>,
-    listener: SoundObjPosition,
-    sources: Vec<SoundObjPosition>,
+    listener: SoundObject<SfxEnum>,
+    sources: [SoundObject<SfxEnum>; MIXER_CHANNELS as usize],
 }
 
 unsafe impl Send for Snd {}
@@ -117,7 +137,7 @@ impl Snd {
                 if let Some(lump) = wad.get_lump(&name) {
                     let chunk = lump_sfx_to_chunk(lump.data.clone(), AudioFormat::S16LSB, 44_100)
                         .expect("{name} failed to parse");
-                    SfxInfo::new(s.name.to_string(),  s.priority, Some(chunk))
+                    SfxInfo::new(s.name.to_string(), s.priority, Some(chunk))
                 } else {
                     warn!("{name} is missing");
                     SfxInfo::new(s.name.to_string(), s.priority, None)
@@ -133,8 +153,8 @@ impl Snd {
             tx,
             chunks,
             kill: Arc::new(AtomicBool::new(false)),
-            listener: SoundObjPosition::default(),
-            sources: Vec::new(),
+            listener: SoundObject::default(),
+            sources: [SoundObject::default(); MIXER_CHANNELS as usize],
         })
     }
 }
@@ -144,74 +164,96 @@ impl SoundServer<SfxEnum, i32, sdl2::Error> for Snd {
         Ok((self.tx.clone(), self.kill.clone()))
     }
 
-    fn start_sound(&mut self, mut origin: SoundObjPosition, sound: SfxEnum) {
+    fn start_sound(&mut self, uid: usize, sfx: SfxEnum, x: f32, y: f32, angle: f32) {
         // TODO: temporary testing stuff here
-        let dx = self.listener.x() - origin.x();
-        let dy = self.listener.y() - origin.y();
+        let dx = self.listener.x - x;
+        let dy = self.listener.y - y;
         let mut dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs();
         if dist >= MAX_DIST {
             // Not audible
             return;
         }
         // Scale for SDL2
-        dist = dist * MAX_DIST / 255.0;
-        let angle = point_to_angle_2(self.listener.pos(), origin.pos());
+        dist = dist * 255.0 / MAX_DIST;
+        let angle = point_to_angle_2(self.listener.x, self.listener.y, x, y);
 
         // Stop any existing sound this source is emitting
-        self.stop_sound(origin.uid());
+        self.stop_sound(uid);
 
-        if let Some(sfx) = self.chunks[sound as usize].data.as_ref() {
+        let chunk = &self.chunks[sfx as usize];
+        let mut origin = SoundObject {
+            uid,
+            sfx,
+            x,
+            y,
+            angle,
+            channel: 0,
+            priority: chunk.priority,
+        };
+
+        if let Some(sfx) = chunk.data.as_ref() {
             for c in 0..MIXER_CHANNELS {
-                if !sdl2::mixer::Channel(c).is_playing()  {
+                if !sdl2::mixer::Channel(c).is_playing() {
                     sdl2::mixer::Channel(c)
                         .set_position(angle as i16, dist as u8)
                         .unwrap();
                     sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
                     origin.channel = c;
-                    self.sources.push(origin);
-                    break;
+                    self.sources[c as usize] = origin;
+                    return;
+                }
+            }
+
+            // No free channel, need to evict a lower priority sound
+            for c in 0..MIXER_CHANNELS {
+                if self.sources[c as usize].priority <= origin.priority {
+                    sdl2::mixer::Channel(c).expire(0);
+                    sdl2::mixer::Channel(c)
+                        .set_position(angle as i16, dist as u8)
+                        .unwrap();
+                    sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
+                    origin.channel = c;
+                    self.sources[c as usize] = origin;
                 }
             }
         }
     }
 
-    fn update_sound(&mut self, listener: SoundObjPosition) {
-        // TODO: Not efficient at all
-        self.sources = self
-            .sources
-            .iter()
-            .filter_map(|s| {
-                if !sdl2::mixer::Channel(s.channel).is_playing() {
-                    return None;
+    fn update_listener(&mut self, x: f32, y: f32, angle: f32) {
+        self.listener.x = x;
+        self.listener.y = y;
+        self.listener.angle = angle;
+
+        for s in self.sources.iter_mut() {
+            if s.channel != -1 && sdl2::mixer::Channel(s.channel).is_playing() {
+                let dx = self.listener.x - s.x;
+                let dy = self.listener.y - s.y;
+                let dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs() * 255.0 / MAX_DIST;
+
+                // Is it too far away now?
+                if dist >= MAX_DIST {
+                    sdl2::mixer::Channel(s.channel).expire(0);
                 }
 
-                let dx = listener.x() - s.x();
-                let dy = listener.y() - s.y();
-                let dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs() * 35.0 / 255.0;
-                let angle = point_to_angle_2(self.listener.pos(), s.pos());
+                let angle = point_to_angle_2(self.listener.x, self.listener.y, s.x, s.y);
 
                 sdl2::mixer::Channel(s.channel)
                     .set_position(angle as i16, dist as u8)
                     .unwrap();
-                Some(*s)
-            })
-            .collect();
-
-        self.listener = listener;
+            } else {
+                s.channel = -1;
+            }
+        }
     }
 
     fn stop_sound(&mut self, uid: usize) {
-        self.sources = self
-            .sources
-            .iter()
-            .filter_map(|s| {
-                if s.uid() == uid {
+        for s in self.sources.iter() {
+            if s.uid == uid {
+                if sdl2::mixer::Channel(s.channel).is_playing() {
                     sdl2::mixer::Channel(s.channel).expire(0);
-                    return None;
                 }
-                Some(*s)
-            })
-            .collect();
+            }
+        }
     }
 
     fn set_sfx_volume(&mut self, volume: i32) {
