@@ -114,6 +114,12 @@ pub enum SfxEnum {
     NumSfx,
 }
 
+impl Default for SfxEnum {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl From<u8> for SfxEnum {
     fn from(i: u8) -> Self {
         if i > SfxEnum::NumSfx as u8 {

@@ -14,10 +14,10 @@ use game::Game;
 use golem::*;
 use gumdrop::Options;
 
-use gameplay::{log, m_clear_random, p_random, Skill};
+use gameplay::{log, Skill};
 use input::Input;
 use shaders::Shaders;
-use sound_traits::{SoundAction, SoundObjPosition, SoundServer, SoundServerTic};
+use sound_traits::{SoundServer, SoundServerTic};
 use wad::WadData;
 
 /// Options specific to Doom. This will get phased out for `GameOptions`

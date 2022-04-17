@@ -14,61 +14,26 @@ pub use sounds::*;
 /// `S` is SFX enum, `M` is Music enum, `E` is Errors
 pub type InitResult<S, M, E> = Result<(Sender<SoundAction<S, M>>, Arc<AtomicBool>), E>;
 
-// Need sound_origin, player_origin, player_angle...
-// should be trait to get basic positioning.
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct SoundObjPosition {
-    /// Objects unique ID or hash. This should be used to track which
-    /// object owns which sounds so it can be stopped e.g, death, shoot..
-    uid: usize,
-    /// The world XY coords of this object
-    pos: (f32, f32),
-    /// Get the angle of this object in radians
-    angle: f32,
-    /// Channel allocated to it (internal)
-    pub channel: i32,
-}
-
-impl SoundObjPosition {
-    /// The UID is used to track which playing sound is owned by which object.
-    pub fn new(uid: usize, pos: (f32, f32), angle: f32) -> Self {
-        Self {
-            uid,
-            pos,
-            angle,
-            channel: 0,
-        }
-    }
-
-    pub fn x(&self) -> f32 {
-        self.pos.0
-    }
-
-    pub fn y(&self) -> f32 {
-        self.pos.1
-    }
-
-    pub fn pos(&self) -> (f32, f32) {
-        self.pos
-    }
-
-    pub fn angle(&self) -> f32 {
-        self.angle
-    }
-
-    pub fn uid(&self) -> usize {
-        self.uid
-    }
-}
-
-pub enum SoundAction<S: Debug, M: Debug> {
+pub enum SoundAction<S: Debug + Copy, M: Debug> {
     StartSfx {
-        origin: SoundObjPosition,
+        /// Objects unique ID or hash. This should be used to track which
+        /// object owns which sounds so it can be stopped e.g, death, shoot..
+        uid: usize,
+        /// The Sound effect this object has
         sfx: S,
+        /// The world XY coords of this object
+        x: f32,
+        y: f32,
+        /// Get the angle of this object in radians
+        angle: f32,
     },
-    UpdateSound {
-        listener: SoundObjPosition,
+    /// Where in the world the listener is
+    UpdateListener {
+        /// The world XY coords of this object
+        x: f32,
+        y: f32,
+        /// Get the angle of this object in radians
+        angle: f32,
     },
     StopSfx {
         uid: usize,
@@ -88,7 +53,7 @@ pub enum SoundAction<S: Debug, M: Debug> {
 /// typically by a one-liner: `impl SoundServerTic<SndFx> for Snd {}`
 pub trait SoundServer<S, M, E>
 where
-    S: Debug,
+    S: Debug + Copy,
     M: Debug,
     E: std::error::Error,
 {
@@ -98,10 +63,10 @@ where
     fn init(&mut self) -> InitResult<S, M, E>;
 
     /// Playback a sound
-    fn start_sound(&mut self, origin: SoundObjPosition, sound: S);
+    fn start_sound(&mut self, uid: usize, sfx: S, x: f32, y: f32, angle: f32);
 
     /// Update a sounds parameters
-    fn update_sound(&mut self, listener: SoundObjPosition);
+    fn update_listener(&mut self, x: f32, y: f32, angle: f32);
 
     /// Stop this sound playback
     fn stop_sound(&mut self, uid: usize);
@@ -142,7 +107,7 @@ where
 pub trait SoundServerTic<S, M, E>
 where
     Self: SoundServer<S, M, E>,
-    S: Debug,
+    S: Debug + Copy,
     M: Debug,
     E: std::error::Error,
 {
@@ -150,8 +115,14 @@ where
     fn tic(&mut self) {
         if let Ok(sound) = self.get_rx().recv_timeout(Duration::from_micros(500)) {
             match sound {
-                SoundAction::StartSfx { origin, sfx } => self.start_sound(origin, sfx),
-                SoundAction::UpdateSound { listener } => self.update_sound(listener),
+                SoundAction::StartSfx {
+                    uid,
+                    sfx,
+                    x,
+                    y,
+                    angle,
+                } => self.start_sound(uid, sfx, x, y, angle),
+                SoundAction::UpdateListener { x, y, angle } => self.update_listener(x, y, angle),
                 SoundAction::StopSfx { uid } => self.stop_sound(uid),
                 SoundAction::StartMusic(music, looping) => self.start_music(music, looping),
                 SoundAction::PauseMusic => self.pause_music(),
@@ -183,7 +154,7 @@ mod tests {
         },
     };
 
-    use crate::{InitResult, SoundAction, SoundObjPosition, SoundServer, SoundServerTic};
+    use crate::{InitResult, SoundAction, SoundServer, SoundServerTic};
 
     #[derive(Debug)]
     enum FxError {}
@@ -196,7 +167,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     enum SndFx {
         One,
     }
@@ -228,12 +199,12 @@ mod tests {
             Ok((self.tx.clone(), self.kill.clone()))
         }
 
-        fn start_sound(&mut self, origin: SoundObjPosition, sound: SndFx) {
-            dbg!(sound);
+        fn start_sound(&mut self, uid: usize, sfx: SndFx, x: f32, y: f32, angle: f32) {
+            dbg!(uid, sfx, x, y, angle);
         }
 
-        fn update_sound(&mut self, listener: SoundObjPosition) {
-            dbg!(listener);
+        fn update_listener(&mut self, x: f32, y: f32, angle: f32) {
+            dbg!(x, y, angle);
         }
 
         fn stop_sound(&mut self, uid: usize) {
@@ -287,24 +258,34 @@ mod tests {
         let (tx, _kill) = snd.init().unwrap();
 
         tx.send(SoundAction::StartSfx {
-            origin: SoundObjPosition::new(123, (0.3, 0.3), PI),
+            uid: 123,
             sfx: SndFx::One,
+            x: 0.3,
+            y: 0.3,
+            angle: PI,
         })
         .unwrap();
-        tx.send(SoundAction::UpdateSound {
-            listener: SoundObjPosition::new(123, (1.0, 1.0), PI / 2.0),
+        tx.send(SoundAction::UpdateListener {
+            x: 0.3,
+            y: 0.3,
+            angle: PI / 2.0,
         })
         .unwrap();
         tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();
         assert_eq!(snd.rx.try_iter().count(), 3);
 
         tx.send(SoundAction::StartSfx {
-            origin: SoundObjPosition::new(123, (0.3, 0.3), PI),
+            uid: 123,
             sfx: SndFx::One,
+            x: 0.3,
+            y: 0.3,
+            angle: PI,
         })
         .unwrap();
-        tx.send(SoundAction::UpdateSound {
-            listener: SoundObjPosition::new(123, (1.0, 1.0), PI / 2.0),
+        tx.send(SoundAction::UpdateListener {
+            x: 0.3,
+            y: 0.3,
+            angle: PI / 2.0,
         })
         .unwrap();
         tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();

@@ -22,7 +22,7 @@ use gameplay::{
     Player, PlayerState, Skill, Switches, WBStartStruct, DOOM_VERSION, MAXPLAYERS,
 };
 use sound_sdl2::SndServerTx;
-use sound_traits::{SoundAction, SoundObjPosition};
+use sound_traits::SoundAction;
 use wad::WadData;
 
 use crate::DoomOptions;
@@ -778,12 +778,10 @@ impl Game {
                     if let Some(mobj) = player.mobj {
                         let mobj = unsafe { &*mobj };
                         self.snd_command
-                            .send(SoundAction::UpdateSound {
-                                listener: SoundObjPosition::new(
-                                    0,
-                                    (mobj.xy.x(), mobj.xy.y()),
-                                    mobj.angle.rad(),
-                                ),
+                            .send(SoundAction::UpdateListener {
+                                x: mobj.xy.x(),
+                                y: mobj.xy.y(),
+                                angle: mobj.angle.rad(),
                             })
                             .unwrap();
                     }
