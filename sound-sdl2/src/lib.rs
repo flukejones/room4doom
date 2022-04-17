@@ -25,6 +25,9 @@ mod info;
 #[cfg(test)]
 mod test_sdl2;
 
+const MAX_DIST: f32 = 1500.0;
+const MIXER_CHANNELS: i32 = 16;
+
 pub type SndServerRx = Receiver<SoundAction<SfxEnum, i32>>;
 pub type SndServerTx = Sender<SoundAction<SfxEnum, i32>>;
 
@@ -38,11 +41,10 @@ pub(crate) struct SfxInfo {
     /// Up to 6-character name. In the Lump the names are typically prefixed by `DS` or `DP`, so
     /// the full Lump name is 8-char, while the name here has the prefix striped off.
     name: String,
-    /// Sfx singularity (only one at a time)
-    singularity: bool,
     /// Priority of sound
     priority: i32,
 
+    // Not really used
     pitch: i32,
     volume: i32,
 
@@ -54,10 +56,9 @@ pub(crate) struct SfxInfo {
 }
 
 impl SfxInfo {
-    pub(crate) fn new(name: String, singularity: bool, priority: i32, data: Option<Chunk>) -> Self {
+    pub(crate) fn new(name: String, priority: i32, data: Option<Chunk>) -> Self {
         Self {
             name,
-            singularity,
             priority,
             pitch: -1,
             volume: -1,
@@ -82,7 +83,7 @@ pub(crate) fn lump_sfx_to_chunk(
 }
 
 pub struct Snd {
-    audio: AudioSubsystem,
+    _audio: AudioSubsystem,
     _mixer: Sdl2MixerContext,
     rx: SndServerRx,
     tx: SndServerTx,
@@ -103,9 +104,9 @@ impl Snd {
         let chunk_size = 1_024;
 
         sdl2::mixer::open_audio(frequency, format, channels, chunk_size)?;
-        let _mixer = sdl2::mixer::init(InitFlag::MP3 | InitFlag::MOD | InitFlag::OGG)?;
+        let _mixer = sdl2::mixer::init(InitFlag::MOD | InitFlag::OGG)?;
         // Mixer channels are not play/stereo channels
-        sdl2::mixer::allocate_channels(16);
+        sdl2::mixer::allocate_channels(MIXER_CHANNELS);
 
         info!("Using sound driver: {}", audio.current_audio_driver());
 
@@ -116,17 +117,17 @@ impl Snd {
                 if let Some(lump) = wad.get_lump(&name) {
                     let chunk = lump_sfx_to_chunk(lump.data.clone(), AudioFormat::S16LSB, 44_100)
                         .expect("{name} failed to parse");
-                    SfxInfo::new(s.name.to_string(), s.singularity, s.priority, Some(chunk))
+                    SfxInfo::new(s.name.to_string(),  s.priority, Some(chunk))
                 } else {
                     warn!("{name} is missing");
-                    SfxInfo::new(s.name.to_string(), s.singularity, s.priority, None)
+                    SfxInfo::new(s.name.to_string(), s.priority, None)
                 }
             })
             .collect();
 
         let (tx, rx) = channel();
         Ok(Self {
-            audio,
+            _audio: audio,
             _mixer,
             rx,
             tx,
@@ -147,21 +148,20 @@ impl SoundServer<SfxEnum, i32, sdl2::Error> for Snd {
         // TODO: temporary testing stuff here
         let dx = self.listener.x() - origin.x();
         let dy = self.listener.y() - origin.y();
-        let dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs() * 35.0 / 255.0;
+        let mut dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs();
+        if dist >= MAX_DIST {
+            // Not audible
+            return;
+        }
+        // Scale for SDL2
+        dist = dist * MAX_DIST / 255.0;
         let angle = point_to_angle_2(self.listener.pos(), origin.pos());
 
+        // Stop any existing sound this source is emitting
         self.stop_sound(origin.uid());
 
         if let Some(sfx) = self.chunks[sound as usize].data.as_ref() {
-            for obj in self.sources.iter() {
-                if obj.uid() == origin.uid() {
-                    if self.chunks[sound as usize].singularity {
-                        return; // Don't play, it already is.
-                    }
-                    break;
-                }
-            }
-            for c in 0..16 {
+            for c in 0..MIXER_CHANNELS {
                 if !sdl2::mixer::Channel(c).is_playing()  {
                     sdl2::mixer::Channel(c)
                         .set_position(angle as i16, dist as u8)
