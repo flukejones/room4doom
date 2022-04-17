@@ -13,16 +13,14 @@ const MIDI_PRGMCHANGE: u8 = 0xC0; // + new patch
 const MIDI_CHANPRESS: u8 = 0xD0; // + pressure (1 byte)
 const MIDI_PITCHBEND: u8 = 0xE0; // + pitch bend (2 bytes)
 
-const MIDI_HEAD: [u8; 29] = [
-    b'M', b'T', b'h', b'd', //
-    0, 0, 0, 6, //
-    0, 0, // format 0: only one track
-    0, 1, // yes, there is really only one track
-    2, 70, // 70 divisions
-    b'M', b'T', b'r', b'k', //
-    0, 0, 0, 0, //
-    // The first event sets the tempo to 500,000 microsec/quarter note
-    0, 255, 81, 3, 0x07, 0xa1, 0x20,
+const MIDI_HEAD: [u8; 22] = [
+    b'M', b'T', b'h', b'd', // Main header
+    0x00, 0x00, 0x00, 0x06, // Header size
+    0x00, 0x00,             // MIDI type (0)
+    0x00, 0x01,             // Number of tracks
+    0x00, 0x46,             // Resolution
+    b'M', b'T', b'r', b'k',  // Start of track
+    0x00, 0x00, 0x00, 0x00  // Placeholder for track length
 ];
 
 const TRANSLATE: [u8; 15] = [
@@ -46,7 +44,7 @@ const TRANSLATE: [u8; 15] = [
 fn read_var_len(buf: &[u8], time_out: &mut i32) -> usize {
     let mut time: u8 = 0;
     let mut ofs = 0;
-    let mut t = 0;
+    let mut t;
 
     loop {
         ofs += 1;
@@ -63,15 +61,13 @@ fn read_var_len(buf: &[u8], time_out: &mut i32) -> usize {
 
 // Pushes on top of existing
 fn write_var_len(out: &mut Vec<u8>, mut time: i32) -> i32 {
-    let mut buffer: i32;
-    buffer = time & 0x7f;
+    let mut buffer: i32 = time & 0x7f;
     loop {
         time >>= 7;
-        buffer = (buffer << 8) | 0x80 | (time & 0x7f);
-
-        if time <= 0 {
+        if time == 0 {
             break;
         }
+            buffer = (buffer << 8) | ((time & 0x7f) | 0x80);
     }
 
     let mut ofs = 0;
@@ -95,7 +91,7 @@ enum MusEventType {
     SystemEvent = 0x30,
     Controller = 0x40,
     EndOfMeasure = 0x50,
-    Finish = 0x60,
+    ScoreEnd = 0x60,
     Unused,
 }
 
@@ -108,7 +104,7 @@ impl From<u8> for MusEventType {
             0x30 => MusEventType::SystemEvent,
             0x40 => MusEventType::Controller,
             0x50 => MusEventType::EndOfMeasure,
-            0x60 => MusEventType::Finish,
+            0x60 => MusEventType::ScoreEnd,
             _ => MusEventType::Unused,
         }
     }
@@ -161,8 +157,8 @@ fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<u8> {
     let mut status = 0;
     let mut delta_time = 0;
     for _ in header.offset..(header.offset + header.length) {
-        if event & 0x70 == MusEventType::Finish as u8
-        //|| marker >= (header.offset + header.length - 2) as usize
+        dbg!(marker,event & 0x70);
+        if event & 0x70 == MusEventType::ScoreEnd as u8
         {
             break;
         }
@@ -171,7 +167,7 @@ fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<u8> {
         event = buf[marker];
 
         let mut t = 0;
-        if event & 0x70 != MusEventType::Finish as u8 {
+        if event & 0x70 != MusEventType::ScoreEnd as u8 {
             marker += 1;
             t = buf[marker];
         }
@@ -235,23 +231,33 @@ fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<u8> {
                 }
             }
 
-            MusEventType::Finish => {
+            MusEventType::ScoreEnd => {
                 mid_status = MIDI_META;
                 mid1 = MIDI_META_EOT;
                 mid2 = 0;
             }
-            MusEventType::SystemEvent => todo!(),
-            MusEventType::EndOfMeasure => todo!(),
+            MusEventType::SystemEvent => {
+                if t < 10 || t > 14 {
+                    no_op = true;
+                } else {
+                    mid_status |= MIDI_CTRLCHANGE;
+                    mid1 = TRANSLATE[t as usize];
+                    mid2 = 12;
+                    t = 12;
+                }
+            },
+            MusEventType::EndOfMeasure => {},
             MusEventType::Unused => {}
         }
 
         if no_op {
             mid_status = MIDI_META;
-            mid1 = MIDI_META_EOT;
+            mid1 = MIDI_META_SSPEC;
             mid2 = 0;
         }
 
         write_var_len(&mut track, delta_time);
+        dbg!(delta_time);
 
         if mid_status != status {
             status = mid_status;
@@ -264,17 +270,17 @@ fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<u8> {
             track.push(mid2);
         }
         if event & 128 != 0 {
-            marker += read_var_len(&track, &mut delta_time);
+            marker += read_var_len(&track[marker..], &mut delta_time);
         } else {
             delta_time = 0;
         }
     }
 
     let len = track.len() as u32 - 22;
-    track[18] = ((len >> 24) & 255) as u8;
-    track[19] = ((len >> 16) & 255) as u8;
-    track[20] = ((len >> 8) & 255) as u8;
-    track[21] = (len & 255) as u8;
+    track[18] = ((len >> 24) & 0xff) as u8;
+    track[19] = ((len >> 16) & 0xff) as u8;
+    track[20] = ((len >> 8) & 0xff) as u8;
+    track[21] = (len & 0xff) as u8;
     track
 }
 
