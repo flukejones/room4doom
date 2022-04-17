@@ -20,6 +20,7 @@ use wad::WadData;
 use crate::info::SFX_INFO_BASE;
 
 mod info;
+pub mod music;
 
 #[cfg(test)]
 mod test_sdl2;
@@ -276,10 +277,12 @@ impl SoundServer<SfxEnum, i32, sdl2::Error> for Snd {
 
     fn stop_music(&mut self) {}
 
-    fn set_mus_volume(&mut self, volume: i32) {}
+    fn set_mus_volume(&mut self, volume: i32) {
+        sdl2::mixer::Music::set_volume(volume)
+    }
 
     fn get_mus_volume(&mut self) -> i32 {
-        128
+        sdl2::mixer::Music::get_volume()
     }
 
     fn update_self(&mut self) {}
