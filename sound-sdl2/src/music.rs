@@ -1,26 +1,19 @@
-const MIDI_SYSEX: u8 = 0xF0; // SysEx begin
-const MIDI_SYSEXEND: u8 = 0xF7; // SysEx end
-const MIDI_META: u8 = 0xFF; // Meta event begin
-const MIDI_META_TEMPO: u8 = 0x51;
-const MIDI_META_EOT: u8 = 0x2F; // End-of-track
-const MIDI_META_SSPEC: u8 = 0x7F; // System-specific event
-
 const MIDI_NOTEOFF: u8 = 0x80; // + note + velocity
 const MIDI_NOTEON: u8 = 0x90; // + note + velocity
-const MIDI_POLYPRESS: u8 = 0xA0; // + pressure (2 bytes)
 const MIDI_CTRLCHANGE: u8 = 0xB0; // + ctrlr + value
 const MIDI_PRGMCHANGE: u8 = 0xC0; // + new patch
-const MIDI_CHANPRESS: u8 = 0xD0; // + pressure (1 byte)
 const MIDI_PITCHBEND: u8 = 0xE0; // + pitch bend (2 bytes)
 
-const MIDI_HEAD: [u8; 22] = [
+const MIDI_HEAD: [u8; 12] = [
     b'M', b'T', b'h', b'd', // Main header
     0x00, 0x00, 0x00, 0x06, // Header size
-    0x00, 0x00,             // MIDI type (0)
-    0x00, 0x01,             // Number of tracks
-    0x00, 0x46,             // Resolution
-    b'M', b'T', b'r', b'k',  // Start of track
-    0x00, 0x00, 0x00, 0x00  // Placeholder for track length
+    0x00, 0x00, // MIDI type (0)
+    0x00, 0x01, // Number of tracks
+];
+
+const MIDI_HEAD2: [u8; 8] = [
+    b'M', b'T', b'r', b'k', // Start of track
+    0x00, 0x00, 0x00, 0x00, // Placeholder for track length
 ];
 
 const TRANSLATE: [u8; 15] = [
@@ -41,49 +34,7 @@ const TRANSLATE: [u8; 15] = [
     121, // reset all controllers
 ];
 
-fn read_var_len(buf: &[u8], time_out: &mut i32) -> usize {
-    let mut time: u8 = 0;
-    let mut ofs = 0;
-    let mut t;
-
-    loop {
-        ofs += 1;
-        t = buf[ofs];
-        time = (time << 7) | (t & 127);
-
-        if t & 128 == 0 {
-            break;
-        }
-    }
-    *time_out = time as i32;
-    return ofs;
-}
-
-// Pushes on top of existing
-fn write_var_len(out: &mut Vec<u8>, mut time: i32) -> i32 {
-    let mut buffer: i32 = time & 0x7f;
-    loop {
-        time >>= 7;
-        if time == 0 {
-            break;
-        }
-            buffer = (buffer << 8) | ((time & 0x7f) | 0x80);
-    }
-
-    let mut ofs = 0;
-    loop {
-        out.push((buffer & 0xff) as u8);
-        if buffer & 0x80 != 0 {
-            buffer >>= 8;
-        } else {
-            break;
-        }
-        ofs += 1;
-    }
-    return ofs;
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 enum MusEventType {
     ReleaseNote = 0x00,
     PlayNote = 0x10,
@@ -110,6 +61,7 @@ impl From<u8> for MusEventType {
     }
 }
 
+#[allow(unused)]
 struct MusHeader {
     id: [u8; 4],
     length: u16,
@@ -117,6 +69,7 @@ struct MusHeader {
     primary: u16,
     secondary: u16,
     num_instruments: u16,
+    instruments: Vec<u16>,
     padding: u16,
 }
 
@@ -125,197 +78,459 @@ impl MusHeader {
         let mut id = [0; 4];
         id.copy_from_slice(&buf[..4]);
 
+        let num_instruments = u16::from_le_bytes([buf[12], buf[13]]);
+        let mut instruments = Vec::new();
+        let mut marker = 16;
+        for _ in 0..num_instruments {
+            let n = u16::from_le_bytes([buf[marker], buf[marker + 1]]);
+            instruments.push(n);
+            marker += 2;
+        }
+
         Self {
             id,
             length: u16::from_le_bytes([buf[4], buf[5]]),
             offset: u16::from_le_bytes([buf[6], buf[7]]),
             primary: u16::from_le_bytes([buf[8], buf[9]]),
             secondary: u16::from_le_bytes([buf[10], buf[11]]),
-            num_instruments: u16::from_le_bytes([buf[12], buf[13]]),
+            num_instruments,
+            instruments,
             padding: u16::from_le_bytes([buf[14], buf[15]]),
         }
     }
 }
 
-fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<u8> {
-    let mut marker = header.offset as usize;
-    let mut track = Vec::with_capacity(MIDI_HEAD.len() + header.length as usize);
-    for i in MIDI_HEAD {
-        track.push(i);
+fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
+    if !last {
+        return 0;
     }
 
-    let mut mid1 = 0;
-    let mut mid2 = 0;
-    let mut mid_status;
-    let mut mid_args;
-    let mut no_op = false;
+    let mut byte = 0x80;
+    let mut delay = 0;
+    while byte & 0x80 != 0 {
+        *marker += 1;
+        byte = buf[*marker];
+        delay = delay * 128 + (byte & 0x7f);
+    }
+    delay
+}
 
-    let mut channel_used = [0u8; 16];
-    let mut last_vel = [100u8; 16];
+struct EventByte {
+    last: bool,
+    kind: MusEventType,
+    channel: u8,
+}
+impl EventByte {
+    fn read(buf: &[u8], marker: &mut usize) -> Self {
+        *marker += 1;
+        let byte = buf[*marker];
 
-    let mut event = 0;
-    let mut status = 0;
-    let mut delta_time = 0;
-    for _ in header.offset..(header.offset + header.length) {
-        dbg!(marker,event & 0x70);
-        if event & 0x70 == MusEventType::ScoreEnd as u8
-        {
-            break;
+        Self {
+            last: (byte & 0x80) == 0x80,
+            kind: MusEventType::from(byte & 0x70),
+            channel: (byte & 0xf),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+struct MusEvent {
+    delay: u8,
+    kind: MusEventType,
+    channel: u8,
+    /// not, pitch bend etc
+    data1: u8,
+    data2: u8,
+    volume: u8,
+}
+
+impl MusEvent {
+    fn read_release_note(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> Self {
+        let byte = EventByte::read(buf, marker);
+        *marker += 1;
+        let data = buf[*marker];
+        let delay = read_delay(buf, marker, byte.last);
+
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1: data & 0x7f,
+            data2: 0,
+            volume: channels[byte.channel as usize],
+        }
+    }
+
+    fn read_play_note(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> Self {
+        let byte = EventByte::read(buf, marker);
+        *marker += 1;
+        let data = buf[*marker];
+
+        if data & 0x80 == 0x80 {
+            *marker += 1;
+            channels[byte.channel as usize] = buf[*marker] & 0x7f;
         }
 
-        marker += 1;
-        event = buf[marker];
+        let delay = read_delay(buf, marker, byte.last);
 
-        let mut t = 0;
-        if event & 0x70 != MusEventType::ScoreEnd as u8 {
-            marker += 1;
-            t = buf[marker];
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1: data & 0x7f,
+            data2: 0,
+            volume: channels[byte.channel as usize],
+        }
+    }
+
+    fn read_pitch_bend(buf: &[u8], marker: &mut usize) -> Self {
+        let byte = EventByte::read(buf, marker);
+        *marker += 1;
+        let data = buf[*marker];
+        let delay = read_delay(buf, marker, byte.last);
+
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1: data,
+            data2: 0,
+            volume: 0,
+        }
+    }
+
+    fn read_system_event(buf: &[u8], marker: &mut usize) -> Self {
+        let byte = EventByte::read(buf, marker);
+        *marker += 1;
+        let data = buf[*marker] & 0x7f;
+        if data < 10 || data > 15 {
+            panic!("Nope! {}", data);
         }
 
-        let mut channel = event & 15;
-        if channel == 15 {
-            channel = 9;
-        } else if channel >= 9 {
-            channel += 1;
+        let delay = read_delay(buf, marker, byte.last);
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1: data,
+            data2: 0,
+            volume: 0,
+        }
+    }
+
+    fn read_controller(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> Self {
+        let byte = EventByte::read(buf, marker);
+        *marker += 1;
+        let data1 = buf[*marker] & 0x7f;
+        if data1 > 9 {
+            panic!("Nope! {}", data1);
         }
 
-        if channel_used[channel as usize] == 0 {
-            // This is the first time this channel has been used,
-            // so sets its volume to 127.
-            channel_used[channel as usize] = 1;
-            track.push(0);
-            track.push(0xB0 | channel);
-            track.push(7);
-            track.push(127);
+        *marker += 1;
+        let data2 = buf[*marker] & 0x7f;
+        let delay = read_delay(buf, marker, byte.last);
+
+        if data1 == 3 {
+            channels[byte.channel as usize] = data2;
         }
 
-        mid_status = channel;
-        mid_args = 0;
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1,
+            data2,
+            volume: 0,
+        }
+    }
 
-        match MusEventType::from(event & 0x70) {
+    fn read_generic(buf: &[u8], marker: &mut usize) -> Self {
+        let byte = EventByte::read(buf, marker);
+        let delay = read_delay(buf, marker, byte.last);
+        *marker += 1;
+
+        Self {
+            delay,
+            kind: byte.kind,
+            channel: byte.channel,
+            data1: 0,
+            data2: 0,
+            volume: 0,
+        }
+    }
+
+    fn convert_channel(&mut self) {
+        if self.channel == 15 {
+            self.channel = 9
+        }
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self.kind {
             MusEventType::ReleaseNote => {
-                mid_status |= MIDI_NOTEOFF;
-                mid1 = t & 127;
-                mid2 = 64;
+                out.push(MIDI_NOTEOFF | self.channel);
+                out.push(self.data1);
+                out.push(self.volume);
             }
             MusEventType::PlayNote => {
-                mid_status |= MIDI_NOTEON;
-                mid1 = t & 127;
-                if (t & 128) != 0 {
-                    marker += 1;
-                    last_vel[channel as usize] = buf[marker] & 127;
-                }
-                mid2 = last_vel[channel as usize];
+                out.push(MIDI_NOTEON | self.channel);
+                out.push(self.data1);
+                out.push(self.volume);
             }
             MusEventType::PitchBend => {
-                mid_status |= MIDI_PITCHBEND;
-                mid1 = (t & 1) << 6;
-                mid2 = (t >> 1) & 127;
-            }
-
-            MusEventType::Controller => {
-                if t == 0 {
-                    // program change
-                    mid_args = 1;
-                    mid_status |= MIDI_PRGMCHANGE;
-                    marker += 1;
-                    mid1 = buf[marker] & 127;
-                    mid2 = 0;
-                } else if t > 0 && t < 10 {
-                    mid_status |= MIDI_CTRLCHANGE;
-                    mid1 = TRANSLATE[t as usize];
-                    marker += 1;
-                    mid2 = buf[marker];
-                } else {
-                    no_op = true;
-                }
-            }
-
-            MusEventType::ScoreEnd => {
-                mid_status = MIDI_META;
-                mid1 = MIDI_META_EOT;
-                mid2 = 0;
+                let msb = self.data1 >> 1;
+                let lsb = (self.data1 << 7) & 0x80;
+                out.push(MIDI_PITCHBEND | self.channel);
+                out.push(lsb);
+                out.push(msb);
             }
             MusEventType::SystemEvent => {
-                if t < 10 || t > 14 {
-                    no_op = true;
+                out.push(MIDI_CTRLCHANGE | self.channel);
+                out.push(TRANSLATE[self.data1 as usize]);
+                out.push(self.data2);
+            }
+            MusEventType::Controller => {
+                let controller = self.data1;
+                if controller == 0 {
+                    out.push(MIDI_PRGMCHANGE | self.channel);
+                    out.push(self.data2);
                 } else {
-                    mid_status |= MIDI_CTRLCHANGE;
-                    mid1 = TRANSLATE[t as usize];
-                    mid2 = 12;
-                    t = 12;
+                    out.push(MIDI_CTRLCHANGE | self.channel);
+                    out.push(TRANSLATE[self.data1 as usize]);
+                    out.push(self.data2);
                 }
-            },
-            MusEventType::EndOfMeasure => {},
-            MusEventType::Unused => {}
-        }
-
-        if no_op {
-            mid_status = MIDI_META;
-            mid1 = MIDI_META_SSPEC;
-            mid2 = 0;
-        }
-
-        write_var_len(&mut track, delta_time);
-        dbg!(delta_time);
-
-        if mid_status != status {
-            status = mid_status;
-            track.push(status);
-        }
-
-        track.push(mid1);
-
-        if mid_args == 0 {
-            track.push(mid2);
-        }
-        if event & 128 != 0 {
-            marker += read_var_len(&track[marker..], &mut delta_time);
-        } else {
-            delta_time = 0;
+            }
+            MusEventType::ScoreEnd => {
+                out.push(0xff);
+                out.push(0x2f);
+                out.push(0);
+            }
+            MusEventType::EndOfMeasure => {}
+            MusEventType::Unused => todo!(),
         }
     }
+}
 
-    let len = track.len() as u32 - 22;
-    track[18] = ((len >> 24) & 0xff) as u8;
-    track[19] = ((len >> 16) & 0xff) as u8;
-    track[20] = ((len >> 8) & 0xff) as u8;
-    track[21] = (len & 0xff) as u8;
+fn read_mus_event(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> MusEvent {
+    let event = buf[*marker + 1] & 0x70;
+
+    match MusEventType::from(event) {
+        MusEventType::ReleaseNote => MusEvent::read_release_note(buf, marker, channels),
+        MusEventType::PlayNote => MusEvent::read_play_note(buf, marker, channels),
+        MusEventType::PitchBend => MusEvent::read_pitch_bend(buf, marker),
+        MusEventType::SystemEvent => MusEvent::read_system_event(buf, marker),
+        MusEventType::Controller => MusEvent::read_controller(buf, marker, channels),
+
+        MusEventType::EndOfMeasure | MusEventType::ScoreEnd => MusEvent::read_generic(buf, marker),
+        MusEventType::Unused => panic!("Nope!"),
+    }
+}
+
+fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
+    let mut track = Vec::new();
+    let mut marker = header.offset as usize - 1;
+    let mut channels = [0u8; 16];
+
+    for _ in header.offset..header.length + header.offset {
+        if marker >= (header.length + header.offset) as usize - 1 {
+            break;
+        }
+        let res = read_mus_event(buf, &mut marker, &mut channels);
+        track.push(res);
+    }
+
     track
 }
 
-pub fn read_mus(buf: &[u8]) -> Vec<u8> {
+pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
     let header = MusHeader::read_header(buf);
-    convert_mus(buf, &header)
+    let track = convert_mus(buf, &header);
+
+    let mut out = Vec::with_capacity(MIDI_HEAD.len() + header.length as usize);
+    for i in MIDI_HEAD {
+        out.push(i);
+    }
+    // timestamp
+    for i in 560u16.to_be_bytes() {
+        out.push(i);
+    }
+    // signature + length
+    for i in MIDI_HEAD2 {
+        out.push(i);
+    }
+    // tempo
+    let tmp = [0, 0xff, 0x51, 0x03, 0x0f, 0x42, 0x40];
+    for i in tmp {
+        out.push(i);
+    }
+
+    let mut delay = 0;
+    for event in track.iter() {
+        if delay == 0 {
+            out.push(0);
+        } else {
+            let tmp_delay = (delay as u32) * 4;
+            if tmp_delay >= 0x20_0000 {
+                out.push(((tmp_delay & 0xfe0_0000) >> 21) as u8 | 0x80);
+            }
+            if tmp_delay >= 0x4000 {
+                out.push(((tmp_delay & 0x1f_c000) >> 14) as u8 | 0x80);
+            }
+            if tmp_delay >= 0x80 {
+                out.push(((tmp_delay & 0x3f80) >> 7) as u8 | 0x80);
+            }
+            out.push(tmp_delay as u8 & 0x7f);
+        }
+
+        // write the event
+        let mut event = (*event).clone();
+        event.convert_channel();
+        event.write(&mut out);
+        //
+        delay = event.delay;
+    }
+
+    // write the length
+    let len = (out.len() as u32 - 22).to_be_bytes();
+    out[18] = len[0] as u8;
+    out[19] = len[1] as u8;
+    out[20] = len[2] as u8;
+    out[21] = len[3] as u8;
+
+    out
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Write, time::Duration};
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        time::Duration,
+    };
 
     use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
     use wad::WadData;
 
-    use crate::music::MusHeader;
+    use crate::music::{convert_mus, MusEvent, MusEventType, MusHeader};
 
-    use super::read_mus;
+    use super::read_mus_to_midi;
 
     #[test]
-    fn mus2midi() {
-        let wad = WadData::new("../doom1.wad".into());
+    fn spot_check() {
+        let mut file = File::open("data/e1m2.mus").unwrap();
+        let mut tmp = Vec::new();
+        file.read_to_end(&mut tmp).unwrap();
+        let header = MusHeader::read_header(&tmp);
+        let mus2mid = convert_mus(&tmp, &header);
 
-        let lump = wad.get_lump("D_E1M1").unwrap();
+        assert_eq!(
+            mus2mid[0],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 0,
+                data2: 48,
+                volume: 0,
+            }
+        );
 
-        let header = MusHeader::read_header(&lump.data);
-        assert_eq!(header.id[0], b'M');
-        assert_eq!(header.id[1], b'U');
-        assert_eq!(header.id[2], b'S');
+        assert_eq!(
+            mus2mid[1],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 0,
+                volume: 0,
+            }
+        );
 
-        assert_eq!(header.length, 17334);
-        // assert_eq!(header.length, 17237); // Doom registered
+        assert_eq!(
+            mus2mid[10],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 1,
+                data1: 3,
+                data2: 0,
+                volume: 0,
+            }
+        );
 
-        let res = read_mus(&lump.data);
-        dbg!(&res[18..22]);
+        assert_eq!(
+            mus2mid[11],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 1,
+                data1: 4,
+                data2: 114,
+                volume: 0,
+            }
+        );
+
+        assert_eq!(
+            mus2mid[12],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 2,
+                data1: 0,
+                data2: 37,
+                volume: 0,
+            }
+        );
+
+        assert_eq!(
+            mus2mid[50],
+            MusEvent {
+                delay: 2,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 93,
+                volume: 0,
+            }
+        );
+
+        assert_eq!(
+            mus2mid[200],
+            MusEvent {
+                delay: 1,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 126,
+                volume: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn e1m2_compare() {
+        let mut file = File::open("data/e1m2.mus").unwrap();
+        let mut tmp = Vec::new();
+        file.read_to_end(&mut tmp).unwrap();
+        let mus2mid = read_mus_to_midi(&tmp);
+
+        let mut file = File::open("data/e1m2.mid").unwrap();
+        let mut e1m2 = Vec::new();
+        file.read_to_end(&mut e1m2).unwrap();
+
+        assert_eq!(mus2mid.len(), e1m2.len());
+        assert_eq!(mus2mid[112], e1m2[112]);
+        assert_eq!(mus2mid[140], e1m2[140]);
+        assert_eq!(mus2mid[2833], e1m2[2833]);
+
+        for (i, d) in mus2mid.iter().enumerate() {
+            //println!("i={i}, d={d} | {}", e1m2[i]);
+            // if i > 120 {
+            //     break;
+            // }
+            assert_eq!(d, &e1m2[i]);
+        }
     }
 
     #[test]
@@ -323,7 +538,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M1").unwrap();
-        let res = read_mus(&lump.data);
+        let res = read_mus_to_midi(&lump.data);
 
         let sdl = sdl2::init().unwrap();
         let _audio = sdl.audio().unwrap();
@@ -337,7 +552,7 @@ mod tests {
 
         // Number of mixing channels available for sound effect `Chunk`s to play
         // simultaneously.
-        sdl2::mixer::allocate_channels(4);
+        sdl2::mixer::allocate_channels(16);
 
         let mut file = File::create("tmp.mid").unwrap();
         file.write_all(&res).unwrap();
@@ -349,6 +564,6 @@ mod tests {
         println!("music volume => {:?}", sdl2::mixer::Music::get_volume());
         println!("play => {:?}", music.play(1));
 
-        std::thread::sleep(Duration::from_secs(3));
+        std::thread::sleep(Duration::from_secs(7));
     }
 }
