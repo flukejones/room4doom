@@ -18,3 +18,5 @@ build
 SDL2.dll
 cargo-sources.json
 player_movement_test.wad
+
+sound-sdl2/tmp.mid
