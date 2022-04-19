@@ -308,7 +308,7 @@ fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
     while byte & 0x80 != 0 {
         *marker += 1;
         byte = buf[*marker];
-        delay = delay * 128 + (byte & 0x7f);
+        delay = (delay as u16 * 128 + (byte as u16 & 0x7f)) as u8;
     }
     delay
 }
@@ -543,7 +543,7 @@ mod tests {
     fn play_midi_basic() {
         let wad = WadData::new("../doom1.wad".into());
 
-        let lump = wad.get_lump("D_E1M3").unwrap();
+        let lump = wad.get_lump("D_E1M8").unwrap();
         let res = read_mus_to_midi(&lump.data);
 
         let sdl = sdl2::init().unwrap();
