@@ -10,6 +10,8 @@ use std::{
 
 mod sounds;
 pub use sounds::*;
+mod music;
+pub use music::*;
 
 /// `S` is SFX enum, `M` is Music enum, `E` is Errors
 pub type InitResult<S, M, E> = Result<(Sender<SoundAction<S, M>>, Arc<AtomicBool>), E>;
@@ -38,6 +40,7 @@ pub enum SoundAction<S: Debug + Copy, M: Debug> {
     StopSfx {
         uid: usize,
     },
+    StopSfxAll,
     SfxVolume(i32),
     MusicVolume(i32),
 
@@ -70,6 +73,8 @@ where
 
     /// Stop this sound playback
     fn stop_sound(&mut self, uid: usize);
+
+    fn stop_sound_all(&mut self);
 
     fn set_sfx_volume(&mut self, volume: i32);
 
@@ -124,6 +129,7 @@ where
                 } => self.start_sound(uid, sfx, x, y, angle),
                 SoundAction::UpdateListener { x, y, angle } => self.update_listener(x, y, angle),
                 SoundAction::StopSfx { uid } => self.stop_sound(uid),
+                SoundAction::StopSfxAll => self.stop_sound_all(),
                 SoundAction::StartMusic(music, looping) => self.start_music(music, looping),
                 SoundAction::PauseMusic => self.pause_music(),
                 SoundAction::ResumeMusic => self.resume_music(),
@@ -210,6 +216,8 @@ mod tests {
         fn stop_sound(&mut self, uid: usize) {
             dbg!(uid);
         }
+
+        fn stop_sound_all(&mut self) {}
 
         fn start_music(&mut self, music: Music, _looping: bool) {
             dbg!(music);

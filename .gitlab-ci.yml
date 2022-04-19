@@ -15,7 +15,7 @@ test:
   <<: *rust_cache
   script:
     - apt update
-    - apt install -y libsdl2-dev libsdl2-gfx-dev cmake
+    - apt install -y libsdl2-dev libsdl2-gfx-dev libsdl2-mixer-dev cmake
     - cargo check --verbose --all
     - cargo test --verbose --all
 

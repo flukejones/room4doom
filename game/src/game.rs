@@ -22,7 +22,7 @@ use gameplay::{
     Player, PlayerState, Skill, Switches, WBStartStruct, DOOM_VERSION, MAXPLAYERS,
 };
 use sound_sdl2::SndServerTx;
-use sound_traits::SoundAction;
+use sound_traits::{MusEnum, SoundAction, EPISODE4_MUS};
 use wad::WadData;
 
 use crate::DoomOptions;
@@ -485,7 +485,28 @@ impl Game {
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
-        // TODO: S_Start();
+        self.change_music(MusEnum::None);
+    }
+
+    fn change_music(&self, mus: MusEnum) {
+        let music = if mus == MusEnum::None {
+            if self.game_mode == GameMode::Commercial {
+                MusEnum::runnin as usize + self.game_map as usize - 1
+            } else if self.game_episode < 4 {
+                MusEnum::e1m1 as usize
+                    + (self.game_episode as usize - 1) * 9
+                    + self.game_map as usize
+                    - 1
+            } else {
+                EPISODE4_MUS[self.game_map as usize - 1] as usize
+            }
+        } else {
+            mus as usize
+        };
+
+        self.snd_command
+            .send(SoundAction::ChangeMusic(music, true))
+            .unwrap();
     }
 
     pub fn running(&self) -> bool {

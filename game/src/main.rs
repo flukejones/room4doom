@@ -6,7 +6,9 @@ mod shaders;
 mod test_funcs;
 mod timestep;
 
-use std::{error::Error, io::Write, str::FromStr, thread::spawn};
+use std::{
+    env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr, thread::spawn,
+};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
@@ -17,6 +19,7 @@ use gumdrop::Options;
 use gameplay::{log, Skill};
 use input::Input;
 use shaders::Shaders;
+use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 use sound_traits::{SoundServer, SoundServerTic};
 use wad::WadData;
 
@@ -214,6 +217,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let wad = WadData::new(options.iwad.clone().into());
+
+    set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+    set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
+    let base = env!("CARGO_MANIFEST_DIR");
+    let mut path = PathBuf::new();
+    path.push(base);
+    path.pop();
+    path.push("data/sound/");
+    if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
+        let mut file = File::create("/tmp/timidity.cfg").unwrap();
+        file.write_all(&cfg).unwrap();
+    }
 
     let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad)?;
     let (tx, kill) = snd_server.init()?;
