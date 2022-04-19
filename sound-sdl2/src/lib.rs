@@ -20,7 +20,8 @@ use wad::WadData;
 use crate::info::SFX_INFO_BASE;
 
 mod info;
-pub mod music;
+pub mod mus2midi;
+pub mod timidity;
 
 #[cfg(test)]
 mod test_sdl2;

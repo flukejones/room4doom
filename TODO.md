@@ -1,8 +1,11 @@
 - [ ] Average the lines in a sector for sound origins
-- [ ] Sound distances (SDL helpers?)
-- [-] sound-server using rx/tx channels
-- [ ] track the playing sound sources and the channels they are on
-
+- [X] Sound distances (SDL helpers?)
+- [X] sound-server using rx/tx channels
+- [X] track the playing sound sources and the channels they are on
+- [ ] Music:
+        - [X] Convert MUS to MIDI
+        - [X] Play using basic SDL2 + fluidsynth
+        - [ ] Play using GUS via SDL2 + timidity (`DMXGUS` lump)
 - [ ] Really need swept-volume collisions
 - [ ] HUD using rx/tx channels
 - [ ] angle_to_screen has an impact on sizing and scale

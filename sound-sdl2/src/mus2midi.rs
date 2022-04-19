@@ -1,3 +1,5 @@
+//! Convert Doom MUS format to MIDI format for use with e.g, SDL Music
+
 const MIDI_NOTEOFF: u8 = 0x80; // + note + velocity
 const MIDI_NOTEON: u8 = 0x90; // + note + velocity
 const MIDI_CTRLCHANGE: u8 = 0xB0; // + ctrlr + value
@@ -74,7 +76,7 @@ struct MusHeader {
 }
 
 impl MusHeader {
-    fn read_header(buf: &[u8]) -> Self {
+    fn read(buf: &[u8]) -> Self {
         let mut id = [0; 4];
         id.copy_from_slice(&buf[..4]);
 
@@ -98,21 +100,6 @@ impl MusHeader {
             padding: u16::from_le_bytes([buf[14], buf[15]]),
         }
     }
-}
-
-fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
-    if !last {
-        return 0;
-    }
-
-    let mut byte = 0x80;
-    let mut delay = 0;
-    while byte & 0x80 != 0 {
-        *marker += 1;
-        byte = buf[*marker];
-        delay = delay * 128 + (byte & 0x7f);
-    }
-    delay
 }
 
 struct EventByte {
@@ -203,8 +190,8 @@ impl MusEvent {
         let byte = EventByte::read(buf, marker);
         *marker += 1;
         let data = buf[*marker] & 0x7f;
-        if data < 10 || data > 15 {
-            panic!("Nope! {}", data);
+        if !(10..=15).contains(&data) {
+            panic!("MUS data contained invalid system event: {}", data);
         }
 
         let delay = read_delay(buf, marker, byte.last);
@@ -223,7 +210,7 @@ impl MusEvent {
         *marker += 1;
         let data1 = buf[*marker] & 0x7f;
         if data1 > 9 {
-            panic!("Nope! {}", data1);
+            panic!("MUS data contained invalid controller event: {}", data1);
         }
 
         *marker += 1;
@@ -265,7 +252,7 @@ impl MusEvent {
         }
     }
 
-    fn write(&self, out: &mut Vec<u8>) {
+    fn to_midi(&self, out: &mut Vec<u8>) {
         match self.kind {
             MusEventType::ReleaseNote => {
                 out.push(MIDI_NOTEOFF | self.channel);
@@ -311,22 +298,36 @@ impl MusEvent {
     }
 }
 
-fn read_mus_event(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> MusEvent {
-    let event = buf[*marker + 1] & 0x70;
+fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
+    if !last {
+        return 0;
+    }
 
+    let mut byte = 0x80;
+    let mut delay = 0;
+    while byte & 0x80 != 0 {
+        *marker += 1;
+        byte = buf[*marker];
+        delay = delay * 128 + (byte & 0x7f);
+    }
+    delay
+}
+
+fn read_mus_event(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> MusEvent {
+    // Decide which function to call with this event type
+    let event = buf[*marker + 1] & 0x70;
     match MusEventType::from(event) {
         MusEventType::ReleaseNote => MusEvent::read_release_note(buf, marker, channels),
         MusEventType::PlayNote => MusEvent::read_play_note(buf, marker, channels),
         MusEventType::PitchBend => MusEvent::read_pitch_bend(buf, marker),
         MusEventType::SystemEvent => MusEvent::read_system_event(buf, marker),
         MusEventType::Controller => MusEvent::read_controller(buf, marker, channels),
-
         MusEventType::EndOfMeasure | MusEventType::ScoreEnd => MusEvent::read_generic(buf, marker),
-        MusEventType::Unused => panic!("Nope!"),
+        MusEventType::Unused => panic!("MUS event was some sort of invalid data"),
     }
 }
 
-fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
+fn read_track(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
     let mut track = Vec::new();
     let mut marker = header.offset as usize - 1;
     let mut channels = [0u8; 16];
@@ -342,9 +343,10 @@ fn convert_mus(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
     track
 }
 
+/// Take an array of MUS data and convert directly to an array of MIDI data
 pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
-    let header = MusHeader::read_header(buf);
-    let track = convert_mus(buf, &header);
+    let header = MusHeader::read(buf);
+    let track = read_track(buf, &header);
 
     let mut out = Vec::with_capacity(MIDI_HEAD.len() + header.length as usize);
     for i in MIDI_HEAD {
@@ -369,6 +371,8 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
         if delay == 0 {
             out.push(0);
         } else {
+            // Original implementation of this used two loops, one to first build
+            // up a u32 "buffer", then a second loop to do a similar bitshift.
             let tmp_delay = (delay as u32) * 4;
             if tmp_delay >= 0x20_0000 {
                 out.push(((tmp_delay & 0xfe0_0000) >> 21) as u8 | 0x80);
@@ -385,7 +389,7 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
         // write the event
         let mut event = (*event).clone();
         event.convert_channel();
-        event.write(&mut out);
+        event.to_midi(&mut out);
         //
         delay = event.delay;
     }
@@ -403,6 +407,7 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use std::{
+        env::set_var,
         fs::File,
         io::{Read, Write},
         time::Duration,
@@ -411,7 +416,7 @@ mod tests {
     use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
     use wad::WadData;
 
-    use crate::music::{convert_mus, MusEvent, MusEventType, MusHeader};
+    use crate::mus2midi::{read_track, MusEvent, MusEventType, MusHeader};
 
     use super::read_mus_to_midi;
 
@@ -420,8 +425,8 @@ mod tests {
         let mut file = File::open("data/e1m2.mus").unwrap();
         let mut tmp = Vec::new();
         file.read_to_end(&mut tmp).unwrap();
-        let header = MusHeader::read_header(&tmp);
-        let mus2mid = convert_mus(&tmp, &header);
+        let header = MusHeader::read(&tmp);
+        let mus2mid = read_track(&tmp, &header);
 
         assert_eq!(
             mus2mid[0],
@@ -533,8 +538,46 @@ mod tests {
         }
     }
 
+    #[ignore = "CI doesn't have a sound device"]
+    #[test]
+    fn play_midi_basic() {
+        let wad = WadData::new("../doom1.wad".into());
+
+        let lump = wad.get_lump("D_E1M3").unwrap();
+        let res = read_mus_to_midi(&lump.data);
+
+        let sdl = sdl2::init().unwrap();
+        let _audio = sdl.audio().unwrap();
+
+        let frequency = 44_100;
+        let format = AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order
+        let channels = DEFAULT_CHANNELS; // Stereo
+        let chunk_size = 1_024;
+        sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
+        let _mixer_context = sdl2::mixer::init(InitFlag::MOD).unwrap();
+
+        // Number of mixing channels available for sound effect `Chunk`s to play
+        // simultaneously.
+        sdl2::mixer::allocate_channels(16);
+
+        let mut file = File::create("/tmp/doom.mid").unwrap();
+        file.write_all(&res).unwrap();
+
+        let music = sdl2::mixer::Music::from_file("/tmp/doom.mid").unwrap();
+
+        println!("music => {:?}", music);
+        println!("music type => {:?}", music.get_type());
+        println!("music volume => {:?}", sdl2::mixer::Music::get_volume());
+        println!("play => {:?}", music.play(1));
+
+        std::thread::sleep(Duration::from_secs(10));
+    }
+
+    #[ignore = "CI doesn't have a sound device"]
     #[test]
     fn play_midi() {
+        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+        set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
         let wad = WadData::new("../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M1").unwrap();
@@ -554,16 +597,16 @@ mod tests {
         // simultaneously.
         sdl2::mixer::allocate_channels(16);
 
-        let mut file = File::create("tmp.mid").unwrap();
+        let mut file = File::create("/tmp/doom.mid").unwrap();
         file.write_all(&res).unwrap();
 
-        let music = sdl2::mixer::Music::from_file("tmp.mid").unwrap();
+        let music = sdl2::mixer::Music::from_file("/tmp/doom.mid").unwrap();
 
         println!("music => {:?}", music);
         println!("music type => {:?}", music.get_type());
         println!("music volume => {:?}", sdl2::mixer::Music::get_volume());
         println!("play => {:?}", music.play(1));
 
-        std::thread::sleep(Duration::from_secs(7));
+        std::thread::sleep(Duration::from_secs(10));
     }
 }
