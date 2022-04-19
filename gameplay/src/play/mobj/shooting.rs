@@ -95,8 +95,8 @@ impl MapObject {
         );
 
         let xy2 = Vec2::new(
-            self.xy.x() + attack_range * angle.cos(),
-            self.xy.y() + attack_range * angle.sin(),
+            self.xy.x + attack_range * angle.cos(),
+            self.xy.y + attack_range * angle.sin(),
         );
 
         let level = unsafe { &mut *self.level };
@@ -156,8 +156,8 @@ impl MapObject {
         }
 
         // Could just use vector lengths but it changes Doom behaviour...
-        let dx = (other.xy.x() - self.xy.x()).abs();
-        let dy = (other.xy.y() - self.xy.y()).abs();
+        let dx = (other.xy.x - self.xy.x).abs();
+        let dy = (other.xy.y - self.xy.y).abs();
         let mut dist = if dx > dy {
             dx - other.radius - self.radius
         } else {
@@ -367,8 +367,8 @@ impl ShootTraverse {
 
     fn hit_line(&self, shooter: &mut MapObject, frac: f32) {
         let frac = frac - (4.0 / self.attack_range);
-        let x = self.trace_xy.x() + self.trace_dxy.x() * frac;
-        let y = self.trace_xy.y() + self.trace_dxy.y() * frac;
+        let x = self.trace_xy.x + self.trace_dxy.x * frac;
+        let y = self.trace_xy.y + self.trace_dxy.y * frac;
         let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
         MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
@@ -433,8 +433,8 @@ impl ShootTraverse {
             }
 
             let frac = intercept.frac - (10.0 / self.attack_range);
-            let x = self.trace_xy.x() + self.trace_dxy.x() * frac;
-            let y = self.trace_xy.y() + self.trace_dxy.y() * frac;
+            let x = self.trace_xy.x + self.trace_dxy.x * frac;
+            let y = self.trace_xy.y + self.trace_dxy.y * frac;
             let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
             if thing.flags & MapObjectFlag::NoBlood as u32 != 0 {

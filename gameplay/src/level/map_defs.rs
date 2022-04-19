@@ -162,20 +162,20 @@ impl BBox {
     pub fn new(v1: Vec2, v2: Vec2) -> Self {
         let mut bbox = BBox::default();
 
-        if v1.x() < v2.x() {
-            bbox.left = v1.x();
-            bbox.right = v2.x();
+        if v1.x < v2.x {
+            bbox.left = v1.x;
+            bbox.right = v2.x;
         } else {
-            bbox.left = v2.x();
-            bbox.right = v1.x();
+            bbox.left = v2.x;
+            bbox.right = v1.x;
         }
 
-        if v1.y() < v2.y() {
-            bbox.bottom = v1.y();
-            bbox.top = v2.y();
+        if v1.y < v2.y {
+            bbox.bottom = v1.y;
+            bbox.top = v2.y;
         } else {
-            bbox.bottom = v2.y();
-            bbox.top = v1.y();
+            bbox.bottom = v2.y;
+            bbox.top = v1.y;
         }
 
         bbox
@@ -223,17 +223,17 @@ pub struct LineDef {
 
 impl LineDef {
     pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x() - self.v1.x())*(v.y() - self.v1.y()) - (self.v2.y() - self.v1.y())*(v.x() - self.v1.x());
+        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y - self.v1.y)*(v.x - self.v1.x);
         // // dbg!(r);
         // if r.is_sign_positive() {
         //     return 1; // Back side
         // }
         // 0 // Front side
 
-        let dx = v.x() - self.v1.x();
-        let dy = v.y() - self.v1.y();
+        let dx = v.x - self.v1.x;
+        let dy = v.y - self.v1.y;
 
-        if (dy * self.delta.x()) <= (self.delta.y() * dx) {
+        if (dy * self.delta.x) <= (self.delta.y * dx) {
             // Front side
             return 0;
         }
@@ -271,8 +271,7 @@ impl Segment {
         let start = &self.v1;
         let end = &self.v2;
 
-        let d = (end.y() - start.y()) * (start.x() - point.x())
-            - (end.x() - start.x()) * (start.y() - point.y());
+        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
         if d <= f32::EPSILON {
             return true;
         }
@@ -280,18 +279,18 @@ impl Segment {
     }
 
     pub fn point_on_side(&self, v: &Vec2) -> usize {
-        // let r = (self.v2.x() - self.v1.x())*(v.y() - self.v1.y()) - (self.v2.y() - self.v1.y())*(v.x() - self.v1.x());
+        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y - self.v1.y)*(v.x - self.v1.x);
         // // dbg!(r);
         // if r.is_sign_positive() {
         //     return 1; // Back side
         // }
         // 0 // Front side
 
-        let dx = v.x() - self.v1.x();
-        let dy = v.y() - self.v1.y();
+        let dx = v.x - self.v1.x;
+        let dy = v.y - self.v1.y;
         let this_delta = *self.v2 - *self.v1;
 
-        if (dy * this_delta.x()) <= (this_delta.y() * dx) {
+        if (dy * this_delta.x) <= (this_delta.y * dx) {
             // Front side
             return 0;
         }
@@ -378,7 +377,7 @@ mod tests {
     use glam::Vec2;
 
     fn point_on_side(v1: Vec2, v2: Vec2, v: Vec2) -> usize {
-        let r = (v2.x() - v1.x()) * (v.y() - v1.y()) - (v2.y() - v1.y()) * (v.x() - v1.x());
+        let r = (v2.x - v1.x) * (v.y - v1.y) - (v2.y - v1.y) * (v.x - v1.x);
         // dbg!(r);
         if r.is_sign_positive() {
             return 1; // Back side
@@ -388,7 +387,7 @@ mod tests {
 
     #[test]
     fn line_side_problem() {
-        // seg.v2.x() == 968.0 && seg.v2.y() == -2880.0 && seg.v1.x() == 832.0 && seg.v1.y() == -2944.0
+        // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y == -2944.0
         let v1 = Vec2::new(832.0, -2944.0);
         let v2 = Vec2::new(968.0, -2880.0);
 

@@ -328,8 +328,8 @@ impl Player {
         //  like a ramp with low health.
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let x = mobj.momxy.x();
-            let y = mobj.momxy.y();
+            let x = mobj.momxy.x;
+            let y = mobj.momxy.y;
             self.bob = x * x + y * y;
 
             // Reduce precision

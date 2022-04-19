@@ -57,8 +57,8 @@ pub fn teleport(
                 thing.z = endpoint.z;
 
                 let fog = MapObject::spawn_map_object(
-                    old_xy.x(),
-                    old_xy.y(),
+                    old_xy.x,
+                    old_xy.y,
                     old_z as i32,
                     MapObjectType::MT_TFOG,
                     level,
@@ -69,8 +69,8 @@ pub fn teleport(
 
                 let an = endpoint.angle;
                 let fog = MapObject::spawn_map_object(
-                    endpoint.xy.x() + 20.0 * an.cos(),
-                    endpoint.xy.y() + 20.0 * an.sin(),
+                    endpoint.xy.x + 20.0 * an.cos(),
+                    endpoint.xy.y + 20.0 * an.sin(),
                     endpoint.z as i32,
                     MapObjectType::MT_TFOG,
                     level,
@@ -124,9 +124,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i3
     let thing_xy = this_thing.xy;
     sector.run_func_on_thinglist(move |thing| {
         let dist = this_thing.radius + thing.radius;
-        if (thing.xy.x() - thing_xy.x()).abs() >= dist
-            || (thing.xy.y() - thing_xy.y()).abs() >= dist
-        {
+        if (thing.xy.x - thing_xy.x).abs() >= dist || (thing.xy.y - thing_xy.y).abs() >= dist {
             return true;
         }
 

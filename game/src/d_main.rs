@@ -45,8 +45,8 @@ pub fn d_doom_loop(
     let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
 
     ctx.set_viewport(
-        crop_rect.x() as u32,
-        crop_rect.y() as u32,
+        crop_rect.x as u32,
+        crop_rect.y as u32,
         crop_rect.width(),
         crop_rect.height(),
     );

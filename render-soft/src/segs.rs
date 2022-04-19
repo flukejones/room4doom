@@ -155,7 +155,7 @@ impl SegRender {
         let mobj = unsafe { &*(player.mobj.unwrap()) };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
-        let hyp = point_to_dist(seg.v1.x(), seg.v1.y(), mobj.xy); // verified correct
+        let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270

@@ -256,8 +256,8 @@ impl MapObject {
 
         unsafe {
             let mobj = MapObject::spawn_map_object(
-                self.xy.x(),
-                self.xy.y(),
+                self.xy.x,
+                self.xy.y,
                 self.floorz as i32,
                 item,
                 &mut *self.level,

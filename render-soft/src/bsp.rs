@@ -595,17 +595,17 @@ impl SoftwareRenderer {
 
         let boxx;
         let boxy;
-        if mobj.xy.x() <= lt.x() {
+        if mobj.xy.x <= lt.x {
             boxx = 0;
-        } else if mobj.xy.x() < rb.x() {
+        } else if mobj.xy.x < rb.x {
             boxx = 1;
         } else {
             boxx = 2;
         }
 
-        if mobj.xy.y() >= lt.y() {
+        if mobj.xy.y >= lt.y {
             boxy = 0;
-        } else if mobj.xy.y() > rb.y() {
+        } else if mobj.xy.y > rb.y {
             boxy = 1;
         } else {
             boxy = 2;
@@ -620,11 +620,11 @@ impl SoftwareRenderer {
         let v2;
         match boxpos {
             0 => {
-                v1 = Vec2::new(rb.x(), lt.y());
-                v2 = Vec2::new(lt.x(), rb.y());
+                v1 = Vec2::new(rb.x, lt.y);
+                v2 = Vec2::new(lt.x, rb.y);
             }
             1 => {
-                v1 = Vec2::new(rb.x(), lt.y());
+                v1 = Vec2::new(rb.x, lt.y);
                 v2 = lt;
             }
             2 => {
@@ -633,23 +633,23 @@ impl SoftwareRenderer {
             }
             4 => {
                 v1 = lt;
-                v2 = Vec2::new(lt.x(), rb.y());
+                v2 = Vec2::new(lt.x, rb.y);
             }
             6 => {
                 v1 = rb;
-                v2 = Vec2::new(rb.x(), lt.y());
+                v2 = Vec2::new(rb.x, lt.y);
             }
             8 => {
                 v1 = lt;
                 v2 = rb;
             }
             9 => {
-                v1 = Vec2::new(lt.x(), rb.y());
+                v1 = Vec2::new(lt.x, rb.y);
                 v2 = rb;
             }
             10 => {
-                v1 = Vec2::new(lt.x(), rb.y());
-                v2 = Vec2::new(rb.x(), lt.y());
+                v1 = Vec2::new(lt.x, rb.y);
+                v2 = Vec2::new(rb.x, lt.y);
             }
             _ => {
                 return false;
@@ -744,14 +744,14 @@ fn angle_to_screen(mut radian: f32) -> i32 {
 ///
 /// The flipping isn't done here...
 fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
-    let x = vertex.x() - mobj.xy.x();
-    let y = vertex.y() - mobj.xy.y();
+    let x = vertex.x - mobj.xy.x;
+    let y = vertex.y - mobj.xy.y;
     Angle::new(y.atan2(x))
 }
 
 // pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
-//     let x = point1.x() - point2.x();
-//     let y = point1.y() - point2.y();
+//     let x = point1.x - point2.x;
+//     let y = point1.y - point2.y;
 //     Angle::new(y.atan2(x))
 // }
 
@@ -767,27 +767,27 @@ mod tests {
         map.load(&PicData::default(), &wad);
 
         let nodes = map.get_nodes();
-        assert_eq!(nodes[0].xy.x() as i32, 1552);
-        assert_eq!(nodes[0].xy.y() as i32, -2432);
-        assert_eq!(nodes[0].delta.x() as i32, 112);
-        assert_eq!(nodes[0].delta.y() as i32, 0);
+        assert_eq!(nodes[0].xy.x as i32, 1552);
+        assert_eq!(nodes[0].xy.y as i32, -2432);
+        assert_eq!(nodes[0].delta.x as i32, 112);
+        assert_eq!(nodes[0].delta.y as i32, 0);
 
-        assert_eq!(nodes[0].bounding_boxes[0][0].x() as i32, 1552); //left
-        assert_eq!(nodes[0].bounding_boxes[0][0].y() as i32, -2432); //top
-        assert_eq!(nodes[0].bounding_boxes[0][1].x() as i32, 1664); //right
-        assert_eq!(nodes[0].bounding_boxes[0][1].y() as i32, -2560); //bottom
+        assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //left
+        assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //top
+        assert_eq!(nodes[0].bounding_boxes[0][1].x as i32, 1664); //right
+        assert_eq!(nodes[0].bounding_boxes[0][1].y as i32, -2560); //bottom
 
-        assert_eq!(nodes[0].bounding_boxes[1][0].x() as i32, 1600);
-        assert_eq!(nodes[0].bounding_boxes[1][0].y() as i32, -2048);
+        assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
+        assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
 
         assert_eq!(nodes[0].child_index[0], 32768);
         assert_eq!(nodes[0].child_index[1], 32769);
         assert_eq!(IS_SSECTOR_MASK, 0x8000);
 
-        assert_eq!(nodes[235].xy.x() as i32, 2176);
-        assert_eq!(nodes[235].xy.y() as i32, -3776);
-        assert_eq!(nodes[235].delta.x() as i32, 0);
-        assert_eq!(nodes[235].delta.y() as i32, -32);
+        assert_eq!(nodes[235].xy.x as i32, 2176);
+        assert_eq!(nodes[235].xy.y as i32, -3776);
+        assert_eq!(nodes[235].delta.x as i32, 0);
+        assert_eq!(nodes[235].delta.y as i32, -32);
         assert_eq!(nodes[235].child_index[0], 128);
         assert_eq!(nodes[235].child_index[1], 234);
 

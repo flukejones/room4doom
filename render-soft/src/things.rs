@@ -20,8 +20,8 @@ const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
 const FRAME_ROT_SELECT: f32 = 8.0 / (PI * 2.0);
 
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
-    let x = point1.x() - point2.x();
-    let y = point1.y() - point2.y();
+    let x = point1.x - point2.x;
+    let y = point1.y - point2.y;
     Angle::new(y.atan2(x))
 }
 
@@ -144,8 +144,8 @@ impl SoftwareRenderer {
         let view_sin = player_mobj.angle.sin();
 
         // transform the origin point
-        let tr_x = thing.xy.x() - player_mobj.xy.x();
-        let tr_y = thing.xy.y() - player_mobj.xy.y();
+        let tr_x = thing.xy.x - player_mobj.xy.x;
+        let tr_y = thing.xy.y - player_mobj.xy.y;
         let gxt = tr_x * view_cos;
         let gyt = -(tr_y * view_sin);
         let tz = gxt - gyt;
@@ -208,8 +208,8 @@ impl SoftwareRenderer {
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
         vis.scale = x_scale;
-        vis.gx = thing.xy.x();
-        vis.gy = thing.xy.y();
+        vis.gx = thing.xy.x;
+        vis.gy = thing.xy.y;
         vis.gz = thing.z;
         vis.gzt = thing.z + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;

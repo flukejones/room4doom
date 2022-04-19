@@ -442,8 +442,8 @@ impl MapObject {
     ///
     /// Doom function name is `P_SpawnPlayerMissile`
     pub fn spawn_player_missile(source: &mut MapObject, kind: MapObjectType, level: &mut Level) {
-        let x = source.xy.x();
-        let y = source.xy.y();
+        let x = source.xy.x;
+        let y = source.xy.y;
         let z = source.z + 32.0;
 
         let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
@@ -485,7 +485,7 @@ impl MapObject {
         self.xy += self.momxy / 2.0;
         self.z += self.momz / 2.0;
 
-        if !self.p_try_move(self.xy.x(), self.xy.y()) {
+        if !self.p_try_move(self.xy.x, self.xy.y) {
             self.p_explode_missile();
         }
     }
@@ -696,15 +696,15 @@ impl MapObject {
             debug!("Crushing!");
             self.p_take_damage(None, None, false, 10);
             let mobj = MapObject::spawn_map_object(
-                self.xy.x(),
-                self.xy.y(),
+                self.xy.x,
+                self.xy.y,
                 (self.z + self.height) as i32 / 2,
                 MapObjectType::MT_BLOOD,
                 unsafe { &mut *self.level },
             );
             unsafe {
-                (*mobj).momxy.set_x(p_subrandom() as f32 * 0.6); // P_SubRandom() << 12;
-                (*mobj).momxy.set_y(p_subrandom() as f32 * 0.6);
+                (*mobj).momxy.x = p_subrandom() as f32 * 0.6; // P_SubRandom() << 12;
+                (*mobj).momxy.y = p_subrandom() as f32 * 0.6;
             }
         }
 
@@ -715,8 +715,8 @@ impl MapObject {
         unsafe {
             (*self.level).start_sound(
                 sfx,
-                self.xy.x(),
-                self.xy.y(),
+                self.xy.x,
+                self.xy.y,
                 self.angle.rad(),
                 self as *const Self as usize, // pointer cast as a UID
             )
@@ -728,7 +728,7 @@ impl Think for MapObject {
     fn think(object: &mut ObjectType, level: &mut Level) -> bool {
         let this = object.mobj();
 
-        if this.momxy.x() != 0.0 || this.momxy.y() != 0.0 || MapObjectFlag::SkullFly as u32 != 0 {
+        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjectFlag::SkullFly as u32 != 0 {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {

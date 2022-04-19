@@ -195,12 +195,12 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
 
     match ld.slopetype {
         SlopeType::Horizontal => {
-            p1 = (tmbox.top > ld.v1.y()) as i32;
-            p2 = (tmbox.bottom > ld.v1.y()) as i32;
+            p1 = (tmbox.top > ld.v1.y) as i32;
+            p2 = (tmbox.bottom > ld.v1.y) as i32;
         }
         SlopeType::Vertical => {
-            p1 = (tmbox.right > ld.v1.x()) as i32;
-            p2 = (tmbox.left > ld.v1.x()) as i32;
+            p1 = (tmbox.right > ld.v1.x) as i32;
+            p2 = (tmbox.left > ld.v1.x) as i32;
         }
         SlopeType::Positive => {
             p1 = ld.point_on_side(Vec2::new(tmbox.left, tmbox.top)) as i32;
@@ -219,8 +219,8 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
 }
 
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
-    let x = point1.x() - point2.x();
-    let y = point1.y() - point2.y();
+    let x = point1.x - point2.x;
+    let y = point1.y - point2.y;
     Angle::new(y.atan2(x))
 }
 
@@ -369,14 +369,14 @@ fn add_thing_intercept(
     }
     // Get vector clockwise-perpendicular to trace
     let r = thing.radius;
-    let p = Vec2::new(trace.xy.y(), -trace.xy.x()).normalize() * r;
+    let p = Vec2::new(trace.xy.y, -trace.xy.x).normalize() * r;
     let v1 = thing.xy + p;
     let v2 = thing.xy - p;
 
     let dl = Trace::new(v1, v2 - v1);
     let frac = intercept_vector(trace, dl);
 
-    // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}", thing.kind, trace.xy.x(), trace.xy.y(), thing.xy.x(), thing.xy.y(), thing.radius, frac);
+    // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}", thing.kind, trace.xy.x, trace.xy.y, thing.xy.x, thing.xy.y, thing.radius, frac);
 
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
@@ -393,10 +393,10 @@ fn add_thing_intercept(
 
 // Determine which side of the trace the vector point is on
 pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
-    let dx = v2.x() - trace.xy.x();
-    let dy = v2.y() - trace.xy.y();
+    let dx = v2.x - trace.xy.x;
+    let dy = v2.y - trace.xy.y;
 
-    if (dy * trace.dxy.x()) <= (trace.dxy.y() * dx) {
+    if (dy * trace.dxy.x) <= (trace.dxy.y * dx) {
         // Front side
         return 0;
     }
@@ -412,17 +412,17 @@ pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
 /// P_InterceptVector
 fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
     // Doom does `v1->dy >> 8`, this is  x * 0.00390625
-    let denominator = (v1.dxy.y() * v2.dxy.x()) - (v1.dxy.x() * v2.dxy.y());
+    let denominator = (v1.dxy.y * v2.dxy.x) - (v1.dxy.x * v2.dxy.y);
     if denominator == f32::EPSILON {
         return -0.0;
     }
-    let numerator = ((v1.xy.x() - v2.xy.x()) * v1.dxy.y()) + ((v2.xy.y() - v1.xy.y()) * v1.dxy.x());
+    let numerator = ((v1.xy.x - v2.xy.x) * v1.dxy.y) + ((v2.xy.y - v1.xy.y) * v1.dxy.x);
     numerator / denominator
 }
 
 // #[inline]
 // pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
-//     lhs.x() * rhs.y() - lhs.y() * rhs.x()
+//     lhs.x * rhs.y - lhs.y * rhs.x
 // }
 
 /// True if the line segment from point1 to point2 penetrates the circle
