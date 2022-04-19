@@ -276,8 +276,8 @@ fn map_plane(
         .abs();
     let length = distance * (1.0 / distscale);
     let angle = plane.view_angle + (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians());
-    let ds_xfrac = viewxy.x() + angle.cos() * length;
-    let ds_yfrac = -viewxy.y() - angle.sin() * length;
+    let ds_xfrac = viewxy.x + angle.cos() * length;
+    let ds_yfrac = -viewxy.y - angle.sin() * length;
 
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
     let flat = texture_data.get_flat(plane.picnum);

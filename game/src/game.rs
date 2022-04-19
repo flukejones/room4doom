@@ -800,8 +800,8 @@ impl Game {
                         let mobj = unsafe { &*mobj };
                         self.snd_command
                             .send(SoundAction::UpdateListener {
-                                x: mobj.xy.x(),
-                                y: mobj.xy.y(),
+                                x: mobj.xy.x,
+                                y: mobj.xy.y,
                                 angle: mobj.angle.rad(),
                             })
                             .unwrap();

@@ -49,7 +49,7 @@ impl Angle {
     //pub fn tan(&self) -> f32 { self.0.tan() }
 
     pub fn from_vector(input: Vec2) -> Self {
-        Angle::new(input.y().atan2(input.x()))
+        Angle::new(input.y.atan2(input.x))
     }
 }
 

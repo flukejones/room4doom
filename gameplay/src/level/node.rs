@@ -8,20 +8,20 @@ impl Node {
     ///
     /// Determine with cross-product which side of a splitting line the point is on
     pub fn point_on_side(&self, v: &Vec2) -> usize {
-        let dx = v.x() - self.xy.x();
-        let dy = v.y() - self.xy.y();
+        let dx = v.x - self.xy.x;
+        let dy = v.y - self.xy.y;
 
-        if (self.delta.y() * dx) > (dy * self.delta.x()) {
+        if (self.delta.y * dx) > (dy * self.delta.x) {
             return 0;
         }
         1
     }
 
     pub fn point_in_bounds(&self, v: &Vec2, side: usize) -> bool {
-        if v.x() > self.bounding_boxes[side][0].x()
-            && v.x() < self.bounding_boxes[side][1].x()
-            && v.y() < self.bounding_boxes[side][0].y()
-            && v.y() > self.bounding_boxes[side][1].y()
+        if v.x > self.bounding_boxes[side][0].x
+            && v.x < self.bounding_boxes[side][1].x
+            && v.y < self.bounding_boxes[side][0].y
+            && v.y > self.bounding_boxes[side][1].y
         {
             return true;
         }
@@ -30,7 +30,7 @@ impl Node {
 
     // #[inline]
     // pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
-    //     lhs.x() * rhs.y() - lhs.y() * rhs.x()
+    //     lhs.x * rhs.y - lhs.y * rhs.x
     // }
 
     // #[inline]
@@ -43,7 +43,7 @@ impl Node {
     //     let direction = unit_vec_from(direction);
     //     let v1 = *origin - *point1;
     //     let v2 = *point2 - *point1;
-    //     let v3 = Vec2::new(-direction.y(), direction.x());
+    //     let v3 = Vec2::new(-direction.y, direction.x);
     //     let dot = v2.dot(v3);
     //     if dot.abs() < 0.000001 {
     //         return None;
@@ -65,8 +65,8 @@ impl Node {
     //     // Fine phase, check if a ray intersects any box line made from diagonals from corner
     //     // to corner. This will often catch cases where we want to see what's in a BB, but the FOV
     //     // is passing through the box with extents on outside of FOV
-    //     let top_right = Vec2::new(bottom_right.x(), top_left.y());
-    //     let bottom_left = Vec2::new(top_left.x(), bottom_right.y());
+    //     let top_right = Vec2::new(bottom_right.x, top_left.y);
+    //     let bottom_left = Vec2::new(top_left.x, bottom_right.y);
     //     // Start from FOV edges to catch the FOV passing through a BB case early
     //     // In reality this hardly ever fires for BB
     //     for i in (0..=steps as u32).rev().step_by(step_size) {

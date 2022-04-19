@@ -64,8 +64,8 @@ pub static CLASSIC_SCREEN_X_TO_VIEW: [f32; 321] = [
 
 /// R_PointToDist
 pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
-    let mut dx = (x - to.x()).abs();
-    let mut dy = (y - to.y()).abs();
+    let mut dx = (x - to.x).abs();
+    let mut dy = (y - to.y).abs();
 
     if dy > dx {
         std::mem::swap(&mut dx, &mut dy);

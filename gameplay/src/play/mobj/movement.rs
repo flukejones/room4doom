@@ -144,7 +144,7 @@ impl MapObject {
 
     /// P_XYMovement
     pub(super) fn p_xy_movement(&mut self) {
-        if self.momxy.x() == f32::EPSILON && self.momxy.y() == f32::EPSILON {
+        if self.momxy.x == f32::EPSILON && self.momxy.y == f32::EPSILON {
             if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
                 self.flags &= !(MapObjectFlag::SkullFly as u32);
                 self.momxy = Vec2::default();
@@ -154,16 +154,16 @@ impl MapObject {
             return;
         }
 
-        if self.momxy.x() > MAXMOVE {
-            self.momxy.set_x(MAXMOVE);
-        } else if self.momxy.x() < -MAXMOVE {
-            self.momxy.set_x(-MAXMOVE);
+        if self.momxy.x > MAXMOVE {
+            self.momxy.x = MAXMOVE;
+        } else if self.momxy.x < -MAXMOVE {
+            self.momxy.x = -MAXMOVE;
         }
 
-        if self.momxy.y() > MAXMOVE {
-            self.momxy.set_y(MAXMOVE);
-        } else if self.momxy.y() < -MAXMOVE {
-            self.momxy.set_y(-MAXMOVE);
+        if self.momxy.y > MAXMOVE {
+            self.momxy.y = MAXMOVE;
+        } else if self.momxy.y < -MAXMOVE {
+            self.momxy.y = -MAXMOVE;
         }
 
         // This whole loop is a bit crusty. It consists of looping over progressively smaller
@@ -179,19 +179,19 @@ impl MapObject {
 
         // P_XYMovement
         // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
-        let mut xmove = self.momxy.x();
-        let mut ymove = self.momxy.y();
+        let mut xmove = self.momxy.x;
+        let mut ymove = self.momxy.y;
         let mut ptryx;
         let mut ptryy;
         loop {
             if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
-                ptryx = self.xy.x() + xmove / 2.0;
-                ptryy = self.xy.y() + ymove / 2.0;
+                ptryx = self.xy.x + xmove / 2.0;
+                ptryy = self.xy.y + ymove / 2.0;
                 xmove /= 2.0;
                 ymove /= 2.0;
             } else {
-                ptryx = self.xy.x() + xmove;
-                ptryy = self.xy.y() + ymove;
+                ptryx = self.xy.x + xmove;
+                ptryy = self.xy.y + ymove;
                 xmove = 0.0;
                 ymove = 0.0;
             }
@@ -202,8 +202,8 @@ impl MapObject {
                 } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
                     self.p_explode_missile();
                 } else {
-                    self.momxy.set_x(0.0);
-                    self.momxy.set_y(0.0);
+                    self.momxy.x = 0.0;
+                    self.momxy.y = 0.0;
                 }
             }
 
@@ -226,20 +226,20 @@ impl MapObject {
         if self.flags & MapObjectFlag::Corpse as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
-            if (self.momxy.x() > FRACUNIT_DIV4
-                || self.momxy.x() < -FRACUNIT_DIV4
-                || self.momxy.y() > FRACUNIT_DIV4
-                || self.momxy.y() < -FRACUNIT_DIV4)
+            if (self.momxy.x > FRACUNIT_DIV4
+                || self.momxy.x < -FRACUNIT_DIV4
+                || self.momxy.y > FRACUNIT_DIV4
+                || self.momxy.y < -FRACUNIT_DIV4)
                 && (self.floorz - floorheight).abs() > f32::EPSILON
             {
                 return;
             }
         }
 
-        if self.momxy.x() > -STOPSPEED
-            && self.momxy.x() < STOPSPEED
-            && self.momxy.y() > -STOPSPEED
-            && self.momxy.y() < STOPSPEED
+        if self.momxy.x > -STOPSPEED
+            && self.momxy.x < STOPSPEED
+            && self.momxy.y > -STOPSPEED
+            && self.momxy.y < STOPSPEED
         {
             if self.player.is_none() {
                 self.momxy = Vec2::default();
@@ -352,10 +352,10 @@ impl MapObject {
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
     pub(super) fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
-        let left = endpoint.x() - self.radius;
-        let right = endpoint.x() + self.radius;
-        let top = endpoint.y() + self.radius;
-        let bottom = endpoint.y() - self.radius;
+        let left = endpoint.x - self.radius;
+        let right = endpoint.x + self.radius;
+        let top = endpoint.y + self.radius;
+        let bottom = endpoint.y - self.radius;
         let tmbbox = BBox {
             top,
             bottom,
@@ -455,9 +455,7 @@ impl MapObject {
         }
 
         let dist = thing.radius + self.radius;
-        if (thing.xy.x() - endpoint.x()).abs() >= dist
-            || (thing.xy.y() - endpoint.y()).abs() >= dist
-        {
+        if (thing.xy.x - endpoint.x).abs() >= dist || (thing.xy.y - endpoint.y).abs() >= dist {
             // No hit
             return true;
         }
@@ -609,20 +607,20 @@ impl MapObject {
         let trailx;
         let traily;
 
-        if self.momxy.x() > 0.0 {
-            leadx = self.xy.x() + self.radius;
-            trailx = self.xy.x() - self.radius;
+        if self.momxy.x > 0.0 {
+            leadx = self.xy.x + self.radius;
+            trailx = self.xy.x - self.radius;
         } else {
-            leadx = self.xy.x() - self.radius;
-            trailx = self.xy.x() + self.radius;
+            leadx = self.xy.x - self.radius;
+            trailx = self.xy.x + self.radius;
         }
 
-        if self.momxy.y() > 0.0 {
-            leady = self.xy.y() + self.radius;
-            traily = self.xy.y() - self.radius;
+        if self.momxy.y > 0.0 {
+            leady = self.xy.y + self.radius;
+            traily = self.xy.y - self.radius;
         } else {
-            leady = self.xy.y() - self.radius;
-            traily = self.xy.y() + self.radius;
+            leady = self.xy.y - self.radius;
+            traily = self.xy.y + self.radius;
         }
 
         let level = unsafe { &mut *self.level };
@@ -671,7 +669,7 @@ impl MapObject {
             self.best_slide.best_slide_frac -= 0.031250;
             if self.best_slide.best_slide_frac > 0.0 {
                 let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
-                if !self.p_try_move(self.xy.x() + slide_move.x(), self.xy.y() + slide_move.y()) {
+                if !self.p_try_move(self.xy.x + slide_move.x, self.xy.y + slide_move.y) {
                     self.stair_step();
                     return;
                 }
@@ -697,7 +695,7 @@ impl MapObject {
             self.momxy = slide_move;
 
             let endpoint = self.xy + slide_move;
-            if self.p_try_move(endpoint.x(), endpoint.y()) {
+            if self.p_try_move(endpoint.x, endpoint.y) {
                 return;
             }
 
@@ -743,19 +741,19 @@ impl MapObject {
 
     fn stair_step(&mut self) {
         // Line might have hit the middle, end-on?
-        if !self.p_try_move(self.xy.x(), self.xy.y() + self.momxy.y()) {
-            self.p_try_move(self.xy.x() + self.momxy.x(), self.xy.y());
+        if !self.p_try_move(self.xy.x, self.xy.y + self.momxy.y) {
+            self.p_try_move(self.xy.x + self.momxy.x, self.xy.y);
         }
     }
 
     /// P_HitSlideLine
     fn hit_slide_line(&self, slide_move: &mut Vec2, line: &LineDef) {
         if matches!(line.slopetype, SlopeType::Horizontal) {
-            slide_move.set_y(0.0);
+            slide_move.y = 0.0;
             return;
         }
         if matches!(line.slopetype, SlopeType::Vertical) {
-            slide_move.set_x(0.0);
+            slide_move.x = 0.0;
             return;
         }
 
@@ -763,7 +761,7 @@ impl MapObject {
         let line_angle = Angle::from_vector(line.delta);
         // if side == 1 {
         //     //line_angle += FRAC_PI_2;
-        //     line_angle = Angle::from_vector(Vec2::new(line.delta.x() * -1.0, line.delta.y() * -1.0));
+        //     line_angle = Angle::from_vector(Vec2::new(line.delta.x * -1.0, line.delta.y * -1.0));
         // }
 
         let move_angle = Angle::from_vector(*slide_move);
@@ -812,13 +810,13 @@ impl MapObject {
         if let Some(line) = &intercept.line {
             debug!(
                 "Line v1 x:{},y:{}, v2 x:{},y:{}, special: {:?} - self.x:{},y:{} - frac {}",
-                line.v1.x(),
-                line.v1.y(),
-                line.v2.x(),
-                line.v2.y(),
+                line.v1.x,
+                line.v1.y,
+                line.v2.x,
+                line.v2.y,
                 line.special,
-                self.xy.x() as i32,
-                self.xy.y() as i32,
+                self.xy.x as i32,
+                self.xy.y as i32,
                 intercept.frac,
             );
 

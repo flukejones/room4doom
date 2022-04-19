@@ -62,8 +62,8 @@ pub(crate) fn start_line_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) 
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
-        x: sfx_origin.x(),
-        y: sfx_origin.y(),
+        x: sfx_origin.x,
+        y: sfx_origin.y,
         angle: 0.0,
     })
     .unwrap();

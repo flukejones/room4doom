@@ -141,7 +141,7 @@ impl<'c> Drawer for Cgwgcrt<'c> {
         )?;
         self.crt_shader.set_uniform(
             "modelMat",
-            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
+            UniformValue::Matrix4(glam::f32::Mat4::IDENTITY.to_cols_array()),
         )?;
 
         self.crt_shader.set_uniform(

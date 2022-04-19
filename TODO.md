@@ -1,3 +1,4 @@
+[ ] Make powerups count down
 [ ] Average the lines in a sector for sound origins
 [ ] Really need swept-volume collisions
 [ ] HUD using rx/tx channels

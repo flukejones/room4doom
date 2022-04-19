@@ -8,7 +8,7 @@ use crate::{
     DPtr, PicData,
 };
 use glam::Vec2;
-use log::warn;
+use log::{error, warn};
 use wad::{lumps::*, WadData};
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
@@ -77,25 +77,25 @@ impl MapData {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
         // then a min vertex of -3542 won't be set since it's negative
-        self.extents.min_vertex.set_x(self.vertexes[0].x());
-        self.extents.min_vertex.set_y(self.vertexes[0].y());
-        self.extents.max_vertex.set_x(self.vertexes[0].x());
-        self.extents.max_vertex.set_y(self.vertexes[0].y());
+        self.extents.min_vertex.x = self.vertexes[0].x;
+        self.extents.min_vertex.y = self.vertexes[0].y;
+        self.extents.max_vertex.x = self.vertexes[0].x;
+        self.extents.max_vertex.y = self.vertexes[0].y;
         for v in &self.vertexes {
-            if self.extents.min_vertex.x() > v.x() {
-                self.extents.min_vertex.set_x(v.x());
-            } else if self.extents.max_vertex.x() < v.x() {
-                self.extents.max_vertex.set_x(v.x());
+            if self.extents.min_vertex.x > v.x {
+                self.extents.min_vertex.x = v.x;
+            } else if self.extents.max_vertex.x < v.x {
+                self.extents.max_vertex.x = v.x;
             }
 
-            if self.extents.min_vertex.y() > v.y() {
-                self.extents.min_vertex.set_y(v.y());
-            } else if self.extents.max_vertex.y() < v.y() {
-                self.extents.max_vertex.set_y(v.y());
+            if self.extents.min_vertex.y > v.y {
+                self.extents.min_vertex.y = v.y;
+            } else if self.extents.max_vertex.y < v.y {
+                self.extents.max_vertex.y = v.y;
             }
         }
-        self.extents.width = self.extents.max_vertex.x() - self.extents.min_vertex.x();
-        self.extents.height = self.extents.max_vertex.y() - self.extents.min_vertex.y();
+        self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
+        self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
     }
 
     #[inline]
@@ -262,8 +262,8 @@ impl MapData {
                         .map(|index| self.sidedefs()[index as usize].sector.clone())
                 };
 
-                let dx = v2.x() - v1.x();
-                let dy = v2.y() - v1.y();
+                let dx = v2.x - v1.x;
+                let dy = v2.y - v1.y;
 
                 let slope = if dx == 0.0 {
                     SlopeType::Vertical
@@ -668,33 +668,33 @@ mod tests {
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 // Bottom horizontal line
-                assert_eq!(segs[start].v1.x(), 832.0);
-                assert_eq!(segs[start].v1.y(), -3552.0);
-                assert_eq!(segs[start].v2.x(), 704.0);
-                assert_eq!(segs[start].v2.y(), -3552.0);
+                assert_eq!(segs[start].v1.x, 832.0);
+                assert_eq!(segs[start].v1.y, -3552.0);
+                assert_eq!(segs[start].v2.x, 704.0);
+                assert_eq!(segs[start].v2.y, -3552.0);
                 // Left side of the pillar
-                assert_eq!(segs[start + 1].v1.x(), 896.0);
-                assert_eq!(segs[start + 1].v1.y(), -3360.0);
-                assert_eq!(segs[start + 1].v2.x(), 896.0);
-                assert_eq!(segs[start + 1].v2.y(), -3392.0);
+                assert_eq!(segs[start + 1].v1.x, 896.0);
+                assert_eq!(segs[start + 1].v1.y, -3360.0);
+                assert_eq!(segs[start + 1].v2.x, 896.0);
+                assert_eq!(segs[start + 1].v2.y, -3392.0);
                 // Left wall
-                assert_eq!(segs[start + 2].v1.x(), 704.0);
-                assert_eq!(segs[start + 2].v1.y(), -3552.0);
-                assert_eq!(segs[start + 2].v2.x(), 704.0);
-                assert_eq!(segs[start + 2].v2.y(), -3360.0);
+                assert_eq!(segs[start + 2].v1.x, 704.0);
+                assert_eq!(segs[start + 2].v1.y, -3552.0);
+                assert_eq!(segs[start + 2].v2.x, 704.0);
+                assert_eq!(segs[start + 2].v2.y, -3360.0);
 
                 // Last sector directly above starting vector
                 let x = bsp_trace.intercepted_subsectors().last().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
-                assert_eq!(segs[start].v1.x(), 896.0);
-                assert_eq!(segs[start].v1.y(), -3072.0);
-                assert_eq!(segs[start].v2.x(), 896.0);
-                assert_eq!(segs[start].v2.y(), -3104.0);
-                assert_eq!(segs[start + 1].v1.x(), 704.0);
-                assert_eq!(segs[start + 1].v1.y(), -3104.0);
-                assert_eq!(segs[start + 1].v2.x(), 704.0);
-                assert_eq!(segs[start + 1].v2.y(), -2944.0);
+                assert_eq!(segs[start].v1.x, 896.0);
+                assert_eq!(segs[start].v1.y, -3072.0);
+                assert_eq!(segs[start].v2.x, 896.0);
+                assert_eq!(segs[start].v2.y, -3104.0);
+                assert_eq!(segs[start + 1].v1.x, 704.0);
+                assert_eq!(segs[start + 1].v1.y, -3104.0);
+                assert_eq!(segs[start + 1].v2.x, 704.0);
+                assert_eq!(segs[start + 1].v2.y, -2944.0);
             }
         }
     }
@@ -732,10 +732,10 @@ mod tests {
         map.load(&PicData::default(), &wad);
 
         let vertexes = map.vertexes();
-        assert_eq!(vertexes[0].x() as i32, 1088);
-        assert_eq!(vertexes[0].y() as i32, -3680);
-        assert_eq!(vertexes[466].x() as i32, 2912);
-        assert_eq!(vertexes[466].y() as i32, -4848);
+        assert_eq!(vertexes[0].x as i32, 1088);
+        assert_eq!(vertexes[0].y as i32, -3680);
+        assert_eq!(vertexes[466].x as i32, 2912);
+        assert_eq!(vertexes[466].y as i32, -4848);
     }
 
     #[test]
@@ -749,8 +749,8 @@ mod tests {
 
         // Check links
         // LINEDEF->VERTEX
-        assert_eq!(linedefs[2].v1.x() as i32, 1088);
-        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+        assert_eq!(linedefs[2].v1.x as i32, 1088);
+        assert_eq!(linedefs[2].v2.x as i32, 1088);
         // // LINEDEF->SIDEDEF
         // assert_eq!(linedefs[2].front_sidedef.midtexture, "LITE3");
         // // LINEDEF->SIDEDEF->SECTOR
@@ -760,8 +760,8 @@ mod tests {
 
         let segments = map.segments();
         // SEGMENT->VERTEX
-        assert_eq!(segments[0].v1.x() as i32, 1552);
-        assert_eq!(segments[0].v2.x() as i32, 1552);
+        assert_eq!(segments[0].v1.x as i32, 1552);
+        assert_eq!(segments[0].v2.x as i32, 1552);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
         // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
         // assert_eq!(
@@ -782,13 +782,13 @@ mod tests {
         map.load(&PicData::default(), &wad);
 
         let linedefs = map.linedefs();
-        assert_eq!(linedefs[0].v1.x() as i32, 1088);
-        assert_eq!(linedefs[0].v2.x() as i32, 1024);
-        assert_eq!(linedefs[2].v1.x() as i32, 1088);
-        assert_eq!(linedefs[2].v2.x() as i32, 1088);
+        assert_eq!(linedefs[0].v1.x as i32, 1088);
+        assert_eq!(linedefs[0].v2.x as i32, 1024);
+        assert_eq!(linedefs[2].v1.x as i32, 1088);
+        assert_eq!(linedefs[2].v2.x as i32, 1088);
 
-        assert_eq!(linedefs[474].v1.x() as i32, 3536);
-        assert_eq!(linedefs[474].v2.x() as i32, 3520);
+        assert_eq!(linedefs[474].v1.x as i32, 3536);
+        assert_eq!(linedefs[474].v2.x as i32, 3520);
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
@@ -842,10 +842,10 @@ mod tests {
         map.load(&PicData::default(), &wad);
 
         let segments = map.segments();
-        assert_eq!(segments[0].v1.x() as i32, 1552);
-        assert_eq!(segments[0].v2.x() as i32, 1552);
-        assert_eq!(segments[731].v1.x() as i32, 3040);
-        assert_eq!(segments[731].v2.x() as i32, 2976);
+        assert_eq!(segments[0].v1.x as i32, 1552);
+        assert_eq!(segments[0].v2.x as i32, 1552);
+        assert_eq!(segments[731].v1.x as i32, 3040);
+        assert_eq!(segments[731].v2.x as i32, 2976);
         assert_eq!(segments[0].angle, Angle::new(FRAC_PI_2));
         assert_eq!(segments[0].offset, 0.0);
 
@@ -856,9 +856,9 @@ mod tests {
         assert_eq!(subsectors[0].seg_count, 4);
         assert_eq!(subsectors[124].seg_count, 3);
         assert_eq!(subsectors[236].seg_count, 4);
-        //assert_eq!(subsectors[0].start_seg.start_vertex.x() as i32, 1552);
-        //assert_eq!(subsectors[124].start_seg.start_vertex.x() as i32, 472);
-        //assert_eq!(subsectors[236].start_seg.start_vertex.x() as i32, 3040);
+        //assert_eq!(subsectors[0].start_seg.start_vertex.x as i32, 1552);
+        //assert_eq!(subsectors[124].start_seg.start_vertex.x as i32, 472);
+        //assert_eq!(subsectors[236].start_seg.start_vertex.x as i32, 3040);
     }
 
     #[test]

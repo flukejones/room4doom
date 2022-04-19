@@ -121,7 +121,7 @@ impl<'c> Drawer for LottesCRT<'c> {
         )?;
         self.crt_shader.set_uniform(
             "modelMat",
-            UniformValue::Matrix4(Mat4::identity().to_cols_array()),
+            UniformValue::Matrix4(glam::f32::Mat4::IDENTITY.to_cols_array()),
         )?;
 
         // CRT settings
@@ -334,7 +334,7 @@ void main(void)
     vec2 pos = radialDistortion(texCoord);
     gl_FragColor.rgb = Tri(pos) * Mask(gl_FragCoord.xy) * vec3(corner(pos));
     gl_FragColor.rgb += brightMult*pow(gl_FragColor.rgb,gammaBoost);
-    
+
     if (toSRGB == 1.0) {
         gl_FragColor.rgb = ToSrgb(gl_FragColor.rgb);
     }
