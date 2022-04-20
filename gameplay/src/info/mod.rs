@@ -1176,7 +1176,7 @@ pub enum StateNum {
 
 impl From<u16> for StateNum {
     fn from(w: u16) -> Self {
-        if w > StateNum::NUMSTATES as u16 {
+        if w >= StateNum::NUMSTATES as u16 {
             panic!("{} is not a variant of StateNum", w);
         }
         unsafe { std::mem::transmute(w) }

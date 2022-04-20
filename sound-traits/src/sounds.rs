@@ -122,7 +122,7 @@ impl Default for SfxEnum {
 
 impl From<u8> for SfxEnum {
     fn from(i: u8) -> Self {
-        if i > SfxEnum::NumSfx as u8 {
+        if i >= SfxEnum::NumSfx as u8 {
             panic!("{} is not a variant of SfxEnum", i);
         }
         unsafe { std::mem::transmute(i) }

@@ -24,7 +24,7 @@ use gameplay::{log, log::info, Skill};
 use input::Input;
 use shaders::Shaders;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
-use sound_traits::{SoundServer, SoundServerTic};
+use sound_traits::{SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 const SOUND_DIR: &str = "room4doom/sound/";
@@ -243,6 +243,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _thread = spawn(move || loop {
         snd_server.tic()
     });
+    tx.send(SoundAction::SfxVolume(30)).unwrap();
+    tx.send(SoundAction::MusicVolume(25)).unwrap();
 
     let game = Game::new(options.clone().into(), wad, tx);
 
