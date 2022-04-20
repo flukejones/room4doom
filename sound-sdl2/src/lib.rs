@@ -214,11 +214,21 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
 
         if let Some(sfx) = chunk.data.as_ref() {
             for c in 0..MIXER_CHANNELS {
-                if !sdl2::mixer::Channel(c).is_playing()
-                    || sdl2::mixer::Channel(c).is_paused()
-                    || self.sources[c as usize].priority >= origin.priority
-                    || self.sources[c as usize].uid == 0
-                {
+                if !sdl2::mixer::Channel(c).is_playing() || sdl2::mixer::Channel(c).is_paused() {
+                    // TODO: Set a volume for player sounds
+                    if origin.uid != self.listener.uid {
+                        sdl2::mixer::Channel(c)
+                            .set_position(angle as i16, dist as u8)
+                            .unwrap();
+                    }
+                    sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
+                    origin.channel = c;
+                    self.sources[c as usize] = origin;
+                    break;
+                }
+            }
+            for c in 0..MIXER_CHANNELS {
+                if self.sources[c as usize].priority >= origin.priority {
                     sdl2::mixer::Channel(c).halt();
                     // TODO: Set a volume for player sounds
                     if origin.uid != self.listener.uid {
@@ -229,6 +239,7 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
                     sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
                     origin.channel = c;
                     self.sources[c as usize] = origin;
+                    break;
                 }
             }
         }
@@ -240,7 +251,7 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         self.listener.angle = angle;
 
         for s in self.sources.iter_mut() {
-            if s.channel != -1 && sdl2::mixer::Channel(s.channel).is_playing() {
+            if s.uid != 0 && sdl2::mixer::Channel(s.channel).is_playing() {
                 let dx = self.listener.x - s.x;
                 let dy = self.listener.y - s.y;
                 let dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs() * 255.0 / MAX_DIST;
@@ -255,8 +266,6 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
                 sdl2::mixer::Channel(s.channel)
                     .set_position(angle as i16, dist as u8)
                     .unwrap();
-            } else {
-                s.channel = -1;
             }
         }
     }
@@ -272,19 +281,16 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
 
     fn stop_sound_all(&mut self) {
         for s in self.sources.iter_mut() {
-            sdl2::mixer::Channel(s.channel).halt();
             *s = SoundObject::default();
+        }
+        for c in 0..MIXER_CHANNELS {
+            sdl2::mixer::Channel(c).halt()
         }
     }
 
     fn set_sfx_volume(&mut self, volume: i32) {
-        sdl2::mixer::Channel::all().set_volume(volume);
         self.sfx_vol = volume;
-        for c in self.chunks.iter_mut() {
-            if let Some(sfx) = c.data.as_mut() {
-                sfx.set_volume(volume);
-            }
-        }
+        sdl2::mixer::Channel::all().set_volume(self.sfx_vol);
     }
 
     fn get_sfx_volume(&mut self) -> i32 {
@@ -327,16 +333,7 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         sdl2::mixer::Music::get_volume()
     }
 
-    fn update_self(&mut self) {
-        for s in self.sources.iter_mut() {
-            if sdl2::mixer::Channel(s.channel).is_paused()
-                || !sdl2::mixer::Channel(s.channel).is_playing()
-            {
-                sdl2::mixer::Channel(s.channel).expire(1);
-                *s = SoundObject::default();
-            }
-        }
-    }
+    fn update_self(&mut self) {}
 
     fn get_rx(&mut self) -> &mut SndServerRx {
         &mut self.rx
@@ -348,10 +345,8 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
 
     fn shutdown_sound(&mut self) {
         info!("Shutdown sound server");
-        sdl2::mixer::Music::halt();
-        for s in self.sources.iter_mut() {
-            sdl2::mixer::Channel(s.channel).halt()
-        }
+        self.stop_sound_all();
+        self.stop_music();
     }
 }
 
