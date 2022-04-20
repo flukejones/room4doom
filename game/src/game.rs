@@ -191,37 +191,34 @@ impl Game {
 
         // Mimic the OG output
         println!(
-            "\n{} v{}.{} - Room v{}\n",
+            "\nROOM-4-DOOM v{}. Playing {}",
+            env!("CARGO_PKG_VERSION"),
             game_description,
-            DOOM_VERSION / 100,
-            DOOM_VERSION % 100,
-            env!("CARGO_PKG_VERSION")
         );
 
         match game_mode {
             GameMode::Shareware => {
                 println!(
-                    "==========================================================================="
-                );
-                println!("                                Shareware!");
-                println!(
-                    "==========================================================================="
+                    r#"
+===========================================================================
+                            Shareware!
+===========================================================================
+"#
                 );
             }
             _ => {
                 println!(
-                    "==========================================================================="
-                );
-                println!("                 Commercial product - do not distribute!");
-                println!("         Please report software piracy to the SPA: 1-800-388-PIR8");
-                println!(
-                    "===========================================================================\n"
+                    r#"
+===========================================================================
+             Commercial product - do not distribute!
+===========================================================================
+"#
                 );
             }
         }
 
         let pic_data = PicData::init(&wad);
-        println!("Init playloop state.");
+        info!("Init playloop state.");
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
         // TODO: S_Init (sfxVolume * 8, musicVolume * 8);
