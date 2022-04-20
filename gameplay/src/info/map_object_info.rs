@@ -70,19 +70,19 @@ pub const MOBJINFO: [MapObjectInfo; NUM_CATEGORIES] = [
     MapObjectInfo::new(
         // MT_SHOTGUY
         9,                      // doomednum
-        StateNum::S_POSS_STND,  // spawnstate
+        StateNum::S_SPOS_STND,  // spawnstate
         30,                     // spawnhealth
-        StateNum::S_POSS_RUN1,  // seestate
+        StateNum::S_SPOS_RUN1,  // seestate
         SfxEnum::posit2,        // seesound
         8,                      // reactiontime
         SfxEnum::None,          // attacksound
-        StateNum::S_POSS_PAIN,  // painstate
+        StateNum::S_SPOS_PAIN,  // painstate
         170,                    // painchance
         SfxEnum::popain,        // painsound
         StateNum::S_NULL,       // meleestate
-        StateNum::S_POSS_ATK1,  // missilestate
-        StateNum::S_POSS_DIE1,  // deathstate
-        StateNum::S_POSS_XDIE1, // xdeathstate
+        StateNum::S_SPOS_ATK1,  // missilestate
+        StateNum::S_SPOS_DIE1,  // deathstate
+        StateNum::S_SPOS_XDIE1, // xdeathstate
         SfxEnum::podth2,        // deathsound
         8.0,                    // speed
         20.0,                   // radius
