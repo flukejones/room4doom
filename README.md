@@ -19,15 +19,31 @@ The code can dramatically change as I learn new or better ways to do things.
 - Cheats (partial for debugging)
 - CLI options (use `--help`)
 - Basic surface shaders (ROOM renders to a surface that a shader can manipulate)
+- Sound
+- Music
+- Shooting
+- Item pickup and use
 
 **Some of the improvements I've made:**
 
 - BSP used for collisions (Doom used the blockmap)
+- BSP used for aiming, shooting, and LoS (Doom used the blockmap)
 - Floats instead of fixed-point (this may cause slight behaviour changes)
 
 **TODO:**
 
 I keep a half-baked list of things to do in [TODO](./TODO.md)
+
+**Building**
+
+I use and develop on Linux exclusively so although I once did a Windows build I don't maintain it.
+
+- Bundled SDL2: `cargo build --features "sdl2-bundled"`
+- Distro SDL2: `cargo build`
+
+The distro requires SDL2 + SDL2-mixer to be installed along with the related dev packages.
+Music support requires fluidsynth or timidity to be installed along with files in the `data/sound/`
+being installed to `~/.local/share/room4doom/sound/`.
 
 ## Screenshots
 

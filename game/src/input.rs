@@ -1,7 +1,7 @@
 //! All input handling. The output is generally a `TicCmd` used to run
 //! inputs in the `Game` in a generalised way.
 
-use std::collections::hash_set::HashSet;
+use std::{collections::hash_set::HashSet, num::ParseIntError};
 
 use gameplay::{tic_cmd::*, WeaponType};
 use sdl2::{event::Event, keyboard::Scancode as Sc, mouse::MouseButton as Mb, EventPump};
@@ -252,21 +252,81 @@ impl Input {
     }
 }
 
-pub struct InputConfig {
-    key_right: Sc,
-    key_left: Sc,
+use serde::{de, Deserialize, Serialize, Serializer};
 
+fn serialize_scancode<S>(sc: &Sc, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_i32(*sc as i32)
+}
+
+fn deserialize_scancode<'de, D>(deserializer: D) -> Result<Sc, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let sc: i32 = de::Deserialize::deserialize(deserializer)?;
+    let sc = Sc::from_i32(sc).unwrap_or_else(|| panic!("Could not deserialise key config"));
+    Ok(sc)
+}
+
+fn serialize_mb<S>(sc: &Mb, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_u8(*sc as u8)
+}
+
+fn deserialize_mb<'de, D>(deserializer: D) -> Result<Mb, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let sc: u8 = de::Deserialize::deserialize(deserializer)?;
+    let sc = Mb::from_ll(sc);
+    Ok(sc)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InputConfig {
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
+    key_right: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
+    key_left: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_up: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_down: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_strafeleft: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_straferight: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_fire: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_use: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_strafe: Sc,
+    #[serde(serialize_with = "serialize_scancode")]
+    #[serde(deserialize_with = "deserialize_scancode")]
     key_speed: Sc,
 
+    #[serde(serialize_with = "serialize_mb")]
+    #[serde(deserialize_with = "deserialize_mb")]
     mousebfire: Mb,
+    #[serde(serialize_with = "serialize_mb")]
+    #[serde(deserialize_with = "deserialize_mb")]
     mousebstrafe: Mb,
+    #[serde(serialize_with = "serialize_mb")]
+    #[serde(deserialize_with = "deserialize_mb")]
     mousebforward: Mb,
 }
 

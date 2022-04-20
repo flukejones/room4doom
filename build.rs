@@ -1,10 +1,10 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "sdl2-bundled"))]
     println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "sdl2-bundled"))]
     println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN");
 
     let target = env::var("TARGET").unwrap();

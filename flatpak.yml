@@ -4,7 +4,7 @@ runtime-version: '21.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-command: diirdoom
+command: room4doom
 finish-args:
   - --device=all
   #- --filesystem=xdg-pictures/veloren:create
@@ -34,17 +34,17 @@ modules:
 #          version-pattern: nightly-(\d\d\d\d-\d\d-\d\d)
 #          url-template: https://static.rust-lang.org/dist/$version/rust-nightly-x86_64-unknown-linux-gnu.tar.xz
 
-  - name: diirdoom
+  - name: room4doom
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin
       env:
-        CARGO_HOME: /run/build/diirdoom/cargo
+        CARGO_HOME: /run/build/room4doom/cargo
         #RUSTFLAGS: --error-format=short --remap-path-prefix =../
         RUST_BACKTRACE: "1"
     buildsystem: simple
     build-commands:
-      - cargo --offline build --release
-      - install -D -m 755 ./target/release/diirdoom -t /app/bin/
+      - cargo --offline build --release --features "sdl2-bundled"
+      - install -D -m 755 ./target/release/room4doom -t /app/bin/
       - install -D -m 755 ./target/release/libSDL2.so -t /app/bin/
       - install -D -m 755 ./target/release/libSDL2-2.0.so -t /app/bin/
       - install -D -m 755 ./target/release/libSDL2-2.0.so.0 -t /app/bin/
