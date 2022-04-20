@@ -5,8 +5,12 @@ authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 build = "../build.rs"
 
+[features]
+default = []
+sdl2-bundled = ["sdl2/bundled"]
+
 [dependencies]
 wad = { path = "../wad" }
 sound-traits = { path = "../sound-traits" }
 log = "^0.4"
-sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
+sdl2 = { version = "~0.35.2", features = ["mixer"] }

@@ -1,4 +1,5 @@
 mod cheats;
+mod config;
 mod d_main;
 mod game;
 mod input;
@@ -6,6 +7,8 @@ mod shaders;
 mod test_funcs;
 mod timestep;
 
+use dirs::{cache_dir, data_dir};
+use serde::{Deserialize, Serialize};
 use std::{
     env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr, thread::spawn,
 };
@@ -16,12 +19,17 @@ use game::Game;
 use golem::*;
 use gumdrop::Options;
 
-use gameplay::{log, Skill};
+use crate::config::UserConfig;
+use gameplay::{log, log::info, Skill};
 use input::Input;
 use shaders::Shaders;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 use sound_traits::{SoundServer, SoundServerTic};
 use wad::WadData;
+
+const SOUND_DIR: &str = "room4doom/sound/";
+const TIMIDITY_CFG: &str = "timidity.cfg";
+const BASE_DIR: &str = "room4doom/";
 
 /// Options specific to Doom. This will get phased out for `GameOptions`
 #[derive(Debug)]
@@ -90,21 +98,16 @@ pub struct GameOptions {
         default = "info"
     )]
     pub verbose: log::LevelFilter,
-    #[options(
-        no_short,
-        meta = "",
-        help = "path to game WAD",
-        default = "./doom1.wad"
-    )]
+    #[options(no_short, meta = "", help = "path to game WAD")]
     pub iwad: String,
     #[options(no_short, meta = "", help = "path to patch WAD")]
     pub pwad: Option<String>,
-    #[options(meta = "", help = "resolution width in pixels", default = "640")]
+    #[options(meta = "", help = "resolution width in pixels", default = "0")]
     pub width: u32,
-    #[options(meta = "", help = "resolution height in pixels", default = "480")]
+    #[options(meta = "", help = "resolution height in pixels", default = "0")]
     pub height: u32,
     #[options(help = "fullscreen?")]
-    pub fullscreen: bool,
+    pub fullscreen: Option<bool>,
 
     // #[options(help = "Disable monsters")]
     // pub no_monsters: bool,
@@ -174,6 +177,8 @@ impl From<GameOptions> for DoomOptions {
 
 /// The main `game` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
+    let mut user_config = UserConfig::load();
+
     let sdl_ctx = sdl2::init()?;
     let snd_ctx = sdl_ctx.audio()?;
     let video_ctx = sdl_ctx.video()?;
@@ -181,7 +186,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let events = sdl_ctx.event_pump()?;
     let input = Input::new(events);
 
-    let options = GameOptions::parse_args_default_or_exit();
+    let mut options = GameOptions::parse_args_default_or_exit();
+    user_config.sync_cli(&mut options);
+    user_config.write();
 
     let mut logger = env_logger::Builder::new();
     logger
@@ -202,7 +209,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .init();
 
     let mut window = video_ctx
-        .window("ROOM (Rusty DOOM)", options.width, options.height)
+        .window("ROOM for DOOM", options.width, options.height)
         .allow_highdpi()
         .position_centered()
         .opengl()
@@ -218,16 +225,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let wad = WadData::new(options.iwad.clone().into());
 
-    set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
-    set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
-    let base = env!("CARGO_MANIFEST_DIR");
-    let mut path = PathBuf::new();
-    path.push(base);
-    path.pop();
-    path.push("data/sound/");
-    if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
-        let mut file = File::create("/tmp/timidity.cfg").unwrap();
-        file.write_all(&cfg).unwrap();
+    if let Some(mut path) = data_dir() {
+        path.push(SOUND_DIR);
+        let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        cache_dir.push(TIMIDITY_CFG);
+        if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
+            let mut file = File::create(cache_dir.as_path()).unwrap();
+            file.write_all(&cfg).unwrap();
+        }
+        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+        set_var("TIMIDITY_CFG", cache_dir.as_path());
+        info!("Using timidity for sound");
     }
 
     let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad)?;
@@ -238,13 +246,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let game = Game::new(options.clone().into(), wad, tx);
 
-    if options.fullscreen {
-        let mode = if options.width != 320 {
-            sdl2::video::FullscreenType::Desktop
-        } else {
-            sdl2::video::FullscreenType::True
-        };
-        window.set_fullscreen(mode)?;
+    if let Some(fullscreen) = options.fullscreen {
+        if fullscreen {
+            let mode = if options.width != 320 {
+                sdl2::video::FullscreenType::Desktop
+            } else {
+                sdl2::video::FullscreenType::True
+            };
+            window.set_fullscreen(mode)?;
+        }
     }
     window.show();
 

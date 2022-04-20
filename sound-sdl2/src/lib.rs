@@ -210,20 +210,11 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
 
         if let Some(sfx) = chunk.data.as_ref() {
             for c in 0..MIXER_CHANNELS {
-                if !sdl2::mixer::Channel(c).is_playing() || sdl2::mixer::Channel(c).is_paused() {
-                    sdl2::mixer::Channel(c)
-                        .set_position(angle as i16, dist as u8)
-                        .unwrap();
-                    sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
-                    origin.channel = c;
-                    self.sources[c as usize] = origin;
-                    return;
-                }
-            }
-
-            // No free channel, need to evict a lower priority sound
-            for c in 0..MIXER_CHANNELS {
-                if self.sources[c as usize].priority <= origin.priority {
+                if !sdl2::mixer::Channel(c).is_playing()
+                    || sdl2::mixer::Channel(c).is_paused()
+                    || self.sources[c as usize].priority >= origin.priority
+                    || self.sources[c as usize].uid == 0
+                {
                     sdl2::mixer::Channel(c).halt();
                     // TODO: Set a volume for player sounds
                     if origin.uid != self.listener.uid {

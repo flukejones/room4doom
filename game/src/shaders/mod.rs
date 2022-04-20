@@ -1,12 +1,12 @@
-use std::str::FromStr;
-
 use golem::GolemError;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 pub mod basic;
 pub mod cgwg_crt;
 pub mod lottes_crt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Shaders {
     Basic,
     Lottes,

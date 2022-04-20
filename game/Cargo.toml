@@ -1,5 +1,5 @@
 [package]
-name = "diirdoom"
+name = "room4doom"
 version = "0.9.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
@@ -7,11 +7,15 @@ license = "MPL-2.0"
 build = "../build.rs"
 
 [[bin]]
-name = "diirdoom"
+name = "room4doom"
 path = "src/main.rs"
 
+[features]
+default = []
+sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
+
 [dependencies]
-sdl2 = { version = "~0.35.2", features = ["bundled", "mixer"] }
+sdl2 = { version = "~0.35.2", features = ["mixer"] }
 glam = "~0.20"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
@@ -21,4 +25,8 @@ render-traits = { path = "../render-traits" }
 render-soft = { path = "../render-soft" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
+# utility deps
 env_logger = { version = "^0.9", default-features = false, features = ["termcolor", "atty"] }
+dirs = "~4.0"
+toml = "0.5"
+serde = { version = "1.0", features = ["serde_derive"] }

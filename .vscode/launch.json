@@ -68,10 +68,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -96,10 +96,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -124,10 +124,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -151,10 +151,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -181,10 +181,10 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -207,15 +207,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug release 'diirdoom'",
+            "name": "Debug release 'room4doom'",
             "cargo": {
                 "args": [
                     "build",
                     "--release",
-                    "--bin=diirdoom"
+                    "--bin=room4doom"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },
@@ -236,16 +236,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'diirdoom'",
+            "name": "Debug unit tests in executable 'room4doom'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=diirdoom",
+                    "--bin=room4doom",
                     "--package=game"
                 ],
                 "filter": {
-                    "name": "diirdoom",
+                    "name": "room4doom",
                     "kind": "bin"
                 }
             },

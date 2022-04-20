@@ -105,7 +105,6 @@ impl MapObject {
         }
 
         if let Some(player) = self.player {
-            info!("Ouch!");
             unsafe {
                 let mut player = &mut *player;
 
