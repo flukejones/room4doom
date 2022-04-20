@@ -243,8 +243,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _thread = spawn(move || loop {
         snd_server.tic()
     });
-    tx.send(SoundAction::SfxVolume(30)).unwrap();
-    tx.send(SoundAction::MusicVolume(25)).unwrap();
+    tx.send(SoundAction::SfxVolume(user_config.sfx_vol))
+        .unwrap();
+    tx.send(SoundAction::MusicVolume(user_config.mus_vol))
+        .unwrap();
 
     let game = Game::new(options.clone().into(), wad, tx);
 

@@ -22,6 +22,14 @@ fn get_cfg_file() -> PathBuf {
     dir
 }
 
+fn default_sfx_vol() -> i32 {
+    100
+}
+
+fn default_mus_vol() -> i32 {
+    85
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct UserConfig {
     pub iwad: String,
@@ -29,6 +37,10 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub shader: Option<Shaders>,
+    #[serde(default = "default_sfx_vol")]
+    pub sfx_vol: i32,
+    #[serde(default = "default_mus_vol")]
+    pub mus_vol: i32,
     pub input: InputConfig,
 }
 
@@ -68,23 +80,6 @@ impl UserConfig {
         file.write_all(json.as_bytes())
             .unwrap_or_else(|_| panic!("Could not write {:?}", get_cfg_file()));
         config
-    }
-
-    pub fn read(&mut self) {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(get_cfg_file())
-            .unwrap_or_else(|err| panic!("Error reading {:?}: {}", get_cfg_file(), err));
-        let mut buf = String::new();
-        if let Ok(l) = file.read_to_string(&mut buf) {
-            if l == 0 {
-                warn!("File is empty {:?}", get_cfg_file());
-            } else {
-                let x: UserConfig = toml::from_str(&buf)
-                    .unwrap_or_else(|_| panic!("Could not deserialise {:?}", get_cfg_file()));
-                *self = x;
-            }
-        }
     }
 
     pub fn write(&self) {
