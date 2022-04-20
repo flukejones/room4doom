@@ -191,7 +191,7 @@ impl Default for MusEnum {
 
 impl From<u8> for MusEnum {
     fn from(i: u8) -> Self {
-        if i > MusEnum::NumMus as u8 {
+        if i >= MusEnum::NumMus as u8 {
             panic!("{} is not a variant of MusEnum", i);
         }
         unsafe { std::mem::transmute(i) }

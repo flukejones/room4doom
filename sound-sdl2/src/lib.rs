@@ -114,6 +114,8 @@ pub struct Snd<'a> {
     music: Option<Music<'a>>,
     listener: SoundObject<SfxEnum>,
     sources: [SoundObject<SfxEnum>; MIXER_CHANNELS as usize],
+    sfx_vol: i32,
+    mus_vol: i32,
 }
 
 unsafe impl<'a> Send for Snd<'a> {}
@@ -172,6 +174,8 @@ impl<'a> Snd<'a> {
             kill: Arc::new(AtomicBool::new(false)),
             listener: SoundObject::default(),
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
+            sfx_vol: 64,
+            mus_vol: 64,
         })
     }
 }
@@ -275,10 +279,16 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
 
     fn set_sfx_volume(&mut self, volume: i32) {
         sdl2::mixer::Channel::all().set_volume(volume);
+        self.sfx_vol = volume;
+        for c in self.chunks.iter_mut() {
+            if let Some(sfx) = c.data.as_mut() {
+                sfx.set_volume(volume);
+            }
+        }
     }
 
     fn get_sfx_volume(&mut self) -> i32 {
-        sdl2::mixer::Channel::all().get_volume()
+        self.sfx_vol
     }
 
     fn start_music(&mut self, music: usize, looping: bool) {
@@ -286,6 +296,7 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
             let music = sdl2::mixer::Music::from_static_bytes(MUS_DATA[music].data()).unwrap();
             music.play(if looping { -1 } else { 0 }).unwrap();
             self.music = Some(music);
+            sdl2::mixer::Music::set_volume(self.mus_vol);
         }
     }
 
@@ -308,7 +319,8 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
     }
 
     fn set_mus_volume(&mut self, volume: i32) {
-        sdl2::mixer::Music::set_volume(volume)
+        sdl2::mixer::Music::set_volume(volume);
+        self.mus_vol = volume;
     }
 
     fn get_mus_volume(&mut self) -> i32 {

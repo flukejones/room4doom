@@ -93,7 +93,7 @@ pub enum WeaponType {
 
 impl From<u8> for WeaponType {
     fn from(w: u8) -> Self {
-        if w > WeaponType::NumWeapons as u8 {
+        if w >= WeaponType::NumWeapons as u8 {
             panic!("{} is not a variant of WeaponType", w);
         }
         unsafe { std::mem::transmute(w) }
