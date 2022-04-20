@@ -27,7 +27,7 @@ pub mod timidity;
 mod test_sdl2;
 
 const MAX_DIST: f32 = 1666.0;
-const MIXER_CHANNELS: i32 = 16;
+const MIXER_CHANNELS: i32 = 32;
 
 pub type SndServerRx = Receiver<SoundAction<SfxEnum, usize>>;
 pub type SndServerTx = Sender<SoundAction<SfxEnum, usize>>;
@@ -91,7 +91,7 @@ impl SfxInfo {
 }
 
 /// `to_fmt` is almost always going to be `AudioFormat::S16LSB`, `to_rate` typically `44_100`.
-pub(crate) fn lump_sfx_to_chunk(
+fn lump_sfx_to_chunk(
     raw_lump: Vec<u8>,
     to_fmt: AudioFormat,
     to_rate: i32,
