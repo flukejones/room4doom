@@ -3,6 +3,7 @@
 
 use std::{num::ParseIntError, path::PathBuf};
 
+use log::warn;
 use wad::WadData;
 
 #[derive(Debug, Copy, Clone)]
@@ -102,6 +103,7 @@ pub fn make_timidity_cfg(
     data.push(b'\n');
 
     let mut count = 0;
+    let mut complete = true;
     for g in gus.iter() {
         if count == 128 {
             for s in "drumset 0".as_bytes() {
@@ -112,11 +114,21 @@ pub fn make_timidity_cfg(
             continue;
         }
 
+        let mut tmp_path = patch_path.clone();
+        tmp_path.push(format!("{}.pat", g.name));
+        if !tmp_path.exists() {
+            warn!("Missing: {:?}", tmp_path);
+            complete = false;
+        }
+
         for b in g.gen_line(&gus, patch_path.clone(), mem_size).as_bytes() {
             data.push(*b);
         }
         data.push(b'\n');
         count += 1;
+    }
+    if !complete {
+        return None;
     }
     Some(data)
 }
