@@ -488,7 +488,7 @@ impl Game {
         self.change_music(MusEnum::None);
     }
 
-    fn change_music(&self, mus: MusEnum) {
+    pub fn change_music(&self, mus: MusEnum) {
         let music = if mus == MusEnum::None {
             if self.game_mode == GameMode::Commercial {
                 MusEnum::runnin as usize + self.game_map as usize - 1

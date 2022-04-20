@@ -2,6 +2,8 @@
 
 use gameplay::{log::debug, GameMission, PlayerCheat, Skill};
 use sdl2::keyboard::{Keycode, Scancode};
+use sound_traits::MusEnum;
+use std::str::FromStr;
 
 use crate::game::Game;
 
@@ -38,7 +40,7 @@ impl Cheats {
     pub fn new() -> Self {
         Self {
             god: Cheat::new("iddqd", 0),
-            mus: Cheat::new("idmus", 0),
+            mus: Cheat::new("idmus", 2),
             ammo: Cheat::new("idkfa", 0),
             ammonokey: Cheat::new("idfa", 0),
             noclip: Cheat::new("idspispopd", 0),
@@ -104,6 +106,15 @@ impl Cheats {
                 debug!("NOCLIP");
                 let player = &mut game.players[game.consoleplayer];
                 player.cheats ^= PlayerCheat::Noclip as u32;
+            } else if self.mus.check(key) {
+                debug!(
+                    "MUS{}{}",
+                    self.mus.parameter_buf[0], self.mus.parameter_buf[1]
+                );
+                let s = format!("{}{}", self.mus.parameter_buf[0], self.mus.parameter_buf[1]);
+                let s = s.as_str().parse::<u8>().unwrap_or_default();
+                let s = MusEnum::from(s);
+                game.change_music(s);
             }
         }
     }
