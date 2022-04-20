@@ -20,7 +20,10 @@ use golem::*;
 use gumdrop::Options;
 
 use crate::config::UserConfig;
-use gameplay::{log, log::info, Skill};
+use gameplay::{
+    log::{self, info, warn},
+    Skill,
+};
 use input::Input;
 use shaders::Shaders;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
@@ -227,15 +230,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(mut path) = data_dir() {
         path.push(SOUND_DIR);
-        let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-        cache_dir.push(TIMIDITY_CFG);
-        if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
-            let mut file = File::create(cache_dir.as_path()).unwrap();
-            file.write_all(&cfg).unwrap();
+        if path.exists() {
+            let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+            cache_dir.push(TIMIDITY_CFG);
+            if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
+                let mut file = File::create(cache_dir.as_path()).unwrap();
+                file.write_all(&cfg).unwrap();
+                set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+                set_var("TIMIDITY_CFG", cache_dir.as_path());
+                info!("Using timidity for sound");
+            } else {
+                warn!("Sound fonts were missing, using fluidsynth instead");
+            }
+        } else {
+            info!("No sound fonts installed to {:?}", path);
+            info!("Using fluidsynth for sound");
         }
-        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
-        set_var("TIMIDITY_CFG", cache_dir.as_path());
-        info!("Using timidity for sound");
     }
 
     let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad)?;

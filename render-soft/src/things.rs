@@ -273,7 +273,7 @@ impl SoftwareRenderer {
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * (texture_column.len() as f32 - 1.5)).floor() as i32;
+            let mut bottom = top + (spryscale * (texture_column.len() as f32 + 1.0)).floor() as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -422,7 +422,7 @@ impl SoftwareRenderer {
 
     fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, pixels: &mut PixelBuf) {
         // TODO:
-        let pspriteiscale = 1.0;
+        let pspriteiscale = 0.99;
         let pspritescale = 1;
 
         let texture_data = self.texture_data.borrow();
@@ -446,7 +446,7 @@ impl SoftwareRenderer {
 
         let mut vis = VisSprite::new();
         vis.patch = frame.lump[0] as usize;
-        vis.texture_mid = SCREENHEIGHT_HALF as f32 - (sprite.sy - patch.top_offset as f32);
+        vis.texture_mid = SCREENHEIGHT_HALF as f32 - (sprite.sy.floor() - patch.top_offset as f32);
         vis.x1 = if x1 < 0 { 0 } else { x1 };
         vis.x2 = if x2 >= SCREENWIDTH as i32 {
             SCREENWIDTH as i32
@@ -458,7 +458,7 @@ impl SoftwareRenderer {
 
         if flip != 0 {
             vis.x_iscale = -pspriteiscale;
-            vis.start_frac = (patch.data.len() - 1) as f32;
+            vis.start_frac = (patch.data[0].len() - 1) as f32;
         } else {
             vis.x_iscale = pspriteiscale;
             vis.start_frac = 0.0;
@@ -612,20 +612,19 @@ fn draw_masked_column(
     yl: i32,
     yh: i32,
     textures: &PicData,
-
     pixels: &mut PixelBuf,
 ) {
     let pal = &textures.palette(0);
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let mut select = frac.floor() as i32 & 127;
+        let select = frac.floor() as usize;
 
-        if select >= texture_column.len() as i32 {
-            select %= texture_column.len() as i32;
+        if select >= texture_column.len() {
+            break;
         }
 
         // Transparency
-        if texture_column[select as usize] as usize == usize::MAX {
+        if texture_column[select] as usize == usize::MAX {
             frac += fracstep;
             continue;
         }
