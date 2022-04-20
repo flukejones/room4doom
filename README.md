@@ -49,13 +49,13 @@ being installed to `~/.local/share/room4doom/sound/`.
 
 **Comparison:**
 
-![](./misc/compare/room.png)
-![](./misc/compare/doom.png)
+![](./misc/compare/e1m1-room.png)
+![](./misc/compare/e1m1-doom.png)
 
 **SI6IL**
 
-![](./misc/compare/room-e5m7.png)
-![](./misc/compare/doom-e5m7.png)
+![](./misc/compare/e5m7-room.png)
+![](./misc/compare/e5m7-doom.png)
 
 
 # License change
