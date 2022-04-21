@@ -114,6 +114,17 @@ impl Cheats {
                 let s = s.as_str().parse::<u8>().unwrap_or_default();
                 let s = MusEnum::from(s);
                 game.change_music(s);
+            } else if self.mypos.check(key) {
+                debug!("MYPOS",);
+                let player = &mut game.players[game.consoleplayer];
+                if let Some(mobj) = player.mobj {
+                    let mobj = unsafe {
+                        {
+                            &*mobj
+                        }
+                    };
+                    println!("MYPOS: X:{} Y:{}", mobj.xy.x as i32, mobj.xy.y as i32);
+                }
             }
         }
     }
