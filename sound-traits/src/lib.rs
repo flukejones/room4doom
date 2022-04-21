@@ -1,10 +1,6 @@
 use std::{
     fmt::Debug,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, Sender},
-        Arc,
-    },
+    sync::mpsc::{Receiver, Sender},
     time::Duration,
 };
 
@@ -14,7 +10,7 @@ mod music;
 pub use music::*;
 
 /// `S` is SFX enum, `M` is Music enum, `E` is Errors
-pub type InitResult<S, M, E> = Result<(Sender<SoundAction<S, M>>, Arc<AtomicBool>), E>;
+pub type InitResult<S, M, E> = Result<Sender<SoundAction<S, M>>, E>;
 
 pub enum SoundAction<S: Debug + Copy, M: Debug> {
     StartSfx {
@@ -50,6 +46,7 @@ pub enum SoundAction<S: Debug + Copy, M: Debug> {
     ResumeMusic,
     ChangeMusic(M, bool),
     StopMusic,
+    Shutdown,
 }
 
 /// A sound server implementing `SoundServer` must also implement `SoundServerTic`
@@ -101,9 +98,6 @@ where
     /// Helper function used by the `SoundServerTic` trait
     fn get_rx(&mut self) -> &mut Receiver<SoundAction<S, M>>;
 
-    /// Atomic for shutting down the `SoundServer`
-    fn get_shutdown(&self) -> &AtomicBool;
-
     /// Stop all sound and release the sound device
     fn shutdown_sound(&mut self);
 }
@@ -116,8 +110,9 @@ where
     M: Debug,
     E: std::error::Error,
 {
-    /// Will be called every period on a thread containing `SoundServer`
-    fn tic(&mut self) {
+    /// Will be called every period on a thread containing `SoundServer`, returns
+    /// `true` if the thread should continue running, else `false` if it should exit.
+    fn tic(&mut self) -> bool {
         if let Ok(sound) = self.get_rx().recv_timeout(Duration::from_micros(500)) {
             match sound {
                 SoundAction::StartSfx {
@@ -137,13 +132,13 @@ where
                 SoundAction::StopMusic => self.stop_music(),
                 SoundAction::SfxVolume(v) => self.set_sfx_volume(v),
                 SoundAction::MusicVolume(v) => self.set_mus_volume(v),
+                SoundAction::Shutdown => {
+                    self.shutdown_sound();
+                    return false;
+                }
             }
         }
-
-        if self.get_shutdown().load(Ordering::SeqCst) {
-            self.get_shutdown().store(false, Ordering::Relaxed);
-            self.shutdown_sound();
-        }
+        true
     }
 }
 
@@ -153,11 +148,7 @@ mod tests {
         error::Error,
         f32::consts::PI,
         fmt::Display,
-        sync::{
-            atomic::AtomicBool,
-            mpsc::{channel, Receiver, Sender},
-            Arc,
-        },
+        sync::mpsc::{channel, Receiver, Sender},
     };
 
     use crate::{InitResult, SoundAction, SoundServer, SoundServerTic};
@@ -186,23 +177,18 @@ mod tests {
     struct Snd {
         rx: Receiver<SoundAction<SndFx, Music>>,
         tx: Sender<SoundAction<SndFx, Music>>,
-        kill: Arc<AtomicBool>,
     }
 
     impl Snd {
         fn new() -> Self {
             let (tx, rx) = channel();
-            Self {
-                rx,
-                tx,
-                kill: Arc::new(AtomicBool::new(false)),
-            }
+            Self { rx, tx }
         }
     }
 
     impl SoundServer<SndFx, Music, FxError> for Snd {
         fn init(&mut self) -> InitResult<SndFx, Music, FxError> {
-            Ok((self.tx.clone(), self.kill.clone()))
+            Ok(self.tx.clone())
         }
 
         fn start_sound(&mut self, uid: usize, sfx: SndFx, x: f32, y: f32, angle: f32) {
@@ -249,10 +235,6 @@ mod tests {
             &mut self.rx
         }
 
-        fn get_shutdown(&self) -> &AtomicBool {
-            self.kill.as_ref()
-        }
-
         fn shutdown_sound(&mut self) {
             todo!()
         }
@@ -263,7 +245,7 @@ mod tests {
     #[test]
     fn run_tic() {
         let mut snd = Snd::new();
-        let (tx, _kill) = snd.init().unwrap();
+        let tx = snd.init().unwrap();
 
         tx.send(SoundAction::StartSfx {
             uid: 123,

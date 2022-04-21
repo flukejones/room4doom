@@ -1,7 +1,7 @@
 //! All input handling. The output is generally a `TicCmd` used to run
 //! inputs in the `Game` in a generalised way.
 
-use std::{collections::hash_set::HashSet, num::ParseIntError};
+use std::collections::hash_set::HashSet;
 
 use gameplay::{tic_cmd::*, WeaponType};
 use sdl2::{event::Event, keyboard::Scancode as Sc, mouse::MouseButton as Mb, EventPump};

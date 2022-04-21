@@ -76,9 +76,13 @@ struct MusHeader {
 }
 
 impl MusHeader {
-    fn read(buf: &[u8]) -> Self {
+    fn read(buf: &[u8]) -> Option<Self> {
         let mut id = [0; 4];
         id.copy_from_slice(&buf[..4]);
+
+        if id == MIDI_HEAD[..4] {
+            return None;
+        }
 
         let num_instruments = u16::from_le_bytes([buf[12], buf[13]]);
         let mut instruments = Vec::new();
@@ -89,7 +93,7 @@ impl MusHeader {
             marker += 2;
         }
 
-        Self {
+        Some(Self {
             id,
             length: u16::from_le_bytes([buf[4], buf[5]]),
             offset: u16::from_le_bytes([buf[6], buf[7]]),
@@ -98,7 +102,7 @@ impl MusHeader {
             num_instruments,
             instruments,
             padding: u16::from_le_bytes([buf[14], buf[15]]),
-        }
+        })
     }
 }
 
@@ -344,8 +348,8 @@ fn read_track(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
 }
 
 /// Take an array of MUS data and convert directly to an array of MIDI data
-pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
-    let header = MusHeader::read(buf);
+pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
+    let header = MusHeader::read(buf)?;
     let track = read_track(buf, &header);
 
     let mut out = Vec::with_capacity(MIDI_HEAD.len() + header.length as usize);
@@ -401,7 +405,7 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Vec<u8> {
     out[20] = len[2] as u8;
     out[21] = len[3] as u8;
 
-    out
+    Some(out)
 }
 
 #[cfg(test)]
@@ -425,7 +429,7 @@ mod tests {
         let mut file = File::open("data/e1m2.mus").unwrap();
         let mut tmp = Vec::new();
         file.read_to_end(&mut tmp).unwrap();
-        let header = MusHeader::read(&tmp);
+        let header = MusHeader::read(&tmp).unwrap();
         let mus2mid = read_track(&tmp, &header);
 
         assert_eq!(
@@ -518,7 +522,7 @@ mod tests {
         let mut file = File::open("data/e1m2.mus").unwrap();
         let mut tmp = Vec::new();
         file.read_to_end(&mut tmp).unwrap();
-        let mus2mid = read_mus_to_midi(&tmp);
+        let mus2mid = read_mus_to_midi(&tmp).unwrap();
 
         let mut file = File::open("data/e1m2.mid").unwrap();
         let mut e1m2 = Vec::new();
@@ -544,7 +548,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M8").unwrap();
-        let res = read_mus_to_midi(&lump.data);
+        let res = read_mus_to_midi(&lump.data).unwrap();
 
         let sdl = sdl2::init().unwrap();
         let _audio = sdl.audio().unwrap();
@@ -581,7 +585,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M1").unwrap();
-        let res = read_mus_to_midi(&lump.data);
+        let res = read_mus_to_midi(&lump.data).unwrap();
 
         let sdl = sdl2::init().unwrap();
         let _audio = sdl.audio().unwrap();

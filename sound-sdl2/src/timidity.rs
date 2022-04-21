@@ -1,18 +1,25 @@
 //! Configuration data for timidity to emulate GUS. Reads either `DMXGUS` or
 //! `DMXGUSC` from the Wad data.
 
+use serde::{Deserialize, Serialize};
 use std::{num::ParseIntError, path::PathBuf};
 
 use log::warn;
 use wad::WadData;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum GusMemSize {
-    P256,
-    P512,
-    P768,
-    P1024,
+    M256Kb,
+    M512Kb,
+    M768Kb,
+    M1024Kb,
     Perfect,
+}
+
+impl Default for GusMemSize {
+    fn default() -> Self {
+        Self::Perfect
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -38,10 +45,10 @@ impl TimidityMapping {
         }
 
         let link_num = match mem_size {
-            GusMemSize::P256 => self.link_256k,
-            GusMemSize::P512 => self.link_512k,
-            GusMemSize::P768 => self.link_768k,
-            GusMemSize::P1024 => self.link_1024k,
+            GusMemSize::M256Kb => self.link_256k,
+            GusMemSize::M512Kb => self.link_512k,
+            GusMemSize::M768Kb => self.link_768k,
+            GusMemSize::M1024Kb => self.link_1024k,
             GusMemSize::Perfect => self.base_num,
         };
 
@@ -170,7 +177,7 @@ mod tests {
         path.push(base);
         path.pop();
         path.push("data/sound/");
-        if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::P1024) {
+        if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::M1024Kb) {
             let mut file = File::create("/tmp/timidity_1024k.cfg").unwrap();
             file.write_all(&cfg).unwrap();
         }

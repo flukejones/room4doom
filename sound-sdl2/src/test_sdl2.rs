@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, sync::atomic::Ordering};
+use std::f32::consts::PI;
 
 use sound_traits::{SfxEnum, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
@@ -12,7 +12,7 @@ fn play_weapons_snd() {
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
-    let (tx, kill) = snd.init().unwrap();
+    let tx = snd.init().unwrap();
 
     let _thread = std::thread::spawn(move || loop {
         snd.tic();
@@ -56,7 +56,7 @@ fn play_weapons_snd() {
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    kill.store(true, Ordering::Relaxed);
+    tx.send(SoundAction::Shutdown).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 }
 
@@ -67,7 +67,7 @@ fn play_demons_snd() {
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
-    let (tx, kill) = snd.init().unwrap();
+    let tx = snd.init().unwrap();
 
     let _thread = std::thread::spawn(move || loop {
         snd.tic();
@@ -102,7 +102,7 @@ fn play_demons_snd() {
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    kill.store(true, Ordering::Relaxed);
+    tx.send(SoundAction::Shutdown).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 }
 
@@ -113,7 +113,7 @@ fn play_music() {
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
-    let (tx, kill) = snd.init().unwrap();
+    let tx = snd.init().unwrap();
 
     let _thread = std::thread::spawn(move || loop {
         snd.tic();
@@ -123,6 +123,6 @@ fn play_music() {
     tx.send(SoundAction::StartMusic(1, false)).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    kill.store(true, Ordering::Relaxed);
+    tx.send(SoundAction::Shutdown).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
 }
