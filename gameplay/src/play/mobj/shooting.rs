@@ -59,7 +59,7 @@ impl MapObject {
             -100.0 / 160.0,
             //
             distance,
-            self.z + (self.height as i32 >> 1) as f32 - 8.0,
+            self.z + (self.height as i32 >> 1) as f32 + 8.0,
         );
 
         let level = unsafe { &mut *self.level };
@@ -89,7 +89,7 @@ impl MapObject {
             aim_slope,
             attack_range,
             damage,
-            self.z + (self.height as i32 >> 1) as f32 - 8.0,
+            self.z + (self.height as i32 >> 1) as f32 + 8.0,
             bsp_trace.origin,
             angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
         );
