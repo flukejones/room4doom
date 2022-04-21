@@ -120,6 +120,36 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug Sigil E3M1",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=room4doom"
+                ],
+                "filter": {
+                    "name": "room4doom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "/home/luke/DOOM/doom.wad",
+                "-w",
+                "1024",
+                "-h",
+                "768",
+                "-e3",
+                "-m1",
+                "-v",
+                "debug",
+                "/home/luke/DOOM/sigil.wad",
+                "/home/luke/DOOM/SIGIL_COMPAT_v1_21.wad"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug Map23",
             "cargo": {
                 "args": [

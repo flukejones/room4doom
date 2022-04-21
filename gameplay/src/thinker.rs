@@ -114,7 +114,7 @@ impl ThinkerAlloc {
             current = next;
 
             if ptr::eq(current, self.head) {
-                return;
+                break;
             }
         }
     }
@@ -251,6 +251,9 @@ impl ThinkerAlloc {
     pub fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker: {:?}", thinker);
         unsafe {
+            if ptr::eq(thinker, self.head) {
+                self.head = thinker.next;
+            }
             (*thinker.next).prev = (*thinker).prev;
             (*thinker.prev).next = (*thinker).next;
 
