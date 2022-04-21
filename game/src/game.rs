@@ -12,7 +12,7 @@
 //!
 //! A state can be affected by `GameAction` such as load/save/new.
 
-use std::{cell::RefCell, rc::Rc, thread::JoinHandle};
+use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
 
 use gameplay::{
     log::{debug, error, info, trace, warn},
@@ -137,13 +137,15 @@ pub struct Game {
 
     /// Sound tx
     snd_command: SndServerTx,
-    snd_thread: JoinHandle<()>,
+    _snd_thread: JoinHandle<()>,
 }
 
 impl Drop for Game {
     fn drop(&mut self) {
         self.snd_command.send(SoundAction::Shutdown).unwrap();
-        while !self.snd_thread.is_finished() {}
+        // Nightly only
+        // while !self.snd_thread.is_finished() {}
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -298,7 +300,7 @@ impl Game {
             usergame: false,
             options,
             snd_command: tx,
-            snd_thread,
+            _snd_thread: snd_thread,
         }
     }
 
