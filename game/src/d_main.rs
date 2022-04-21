@@ -17,7 +17,7 @@ use crate::{
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     test_funcs::*,
     timestep::TimeStep,
-    GameOptions,
+    CLIOptions,
 };
 
 /// Never returns
@@ -26,7 +26,7 @@ pub fn d_doom_loop(
     mut input: Input,
     gl: Window,
     ctx: Context,
-    options: GameOptions,
+    options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(

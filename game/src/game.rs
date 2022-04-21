@@ -12,20 +12,21 @@
 //!
 //! A state can be affected by `GameAction` such as load/save/new.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, thread::JoinHandle};
 
 use gameplay::{
     log::{debug, error, info, trace, warn},
     m_clear_random, spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
-    Player, PlayerState, Skill, Switches, WBStartStruct, DOOM_VERSION, MAXPLAYERS,
+    Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
+use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
-use sound_traits::{MusEnum, SoundAction, EPISODE4_MUS};
+use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic, EPISODE4_MUS};
 use wad::WadData;
 
-use crate::DoomOptions;
+use crate::{config::UserConfig, DoomOptions};
 
 /// The current state of the game: whether we are playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
@@ -136,10 +137,23 @@ pub struct Game {
 
     /// Sound tx
     snd_command: SndServerTx,
+    snd_thread: JoinHandle<()>,
+}
+
+impl Drop for Game {
+    fn drop(&mut self) {
+        self.snd_command.send(SoundAction::Shutdown).unwrap();
+        while !self.snd_thread.is_finished() {}
+    }
 }
 
 impl Game {
-    pub fn new(mut options: DoomOptions, mut wad: WadData, snd_command: SndServerTx) -> Game {
+    pub fn new(
+        mut options: DoomOptions,
+        mut wad: WadData,
+        snd_ctx: AudioSubsystem,
+        user_config: UserConfig,
+    ) -> Game {
         // TODO: a bunch of version checks here to determine what game mode
         let respawn_monsters = matches!(options.skill, Skill::Nightmare);
 
@@ -147,7 +161,7 @@ impl Game {
 
         debug!("Game: new mode = {:?}", game_mode);
         if game_mode == GameMode::Retail {
-            if options.episode > 4 && options.pwad.is_none() {
+            if options.episode > 4 && options.pwad.is_empty() {
                 warn!(
                     "Game: new: {:?} mode (no pwad) but episode {} is greater than 4",
                     game_mode, options.episode
@@ -185,8 +199,11 @@ impl Game {
             options.map = 9;
         }
 
-        if let Some(ref pwad) = options.pwad {
-            wad.add_file(pwad.into());
+        if !options.pwad.is_empty() {
+            for pwad in options.pwad.iter() {
+                info!("Adding PWAD: {}", pwad);
+                wad.add_file(pwad.into());
+            }
         }
 
         // Mimic the OG output
@@ -221,6 +238,19 @@ impl Game {
         info!("Init playloop state.");
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
+
+        let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad).unwrap();
+        let tx = snd_server.init().unwrap();
+        let snd_thread = std::thread::spawn(move || loop {
+            if !snd_server.tic() {
+                break;
+            }
+        });
+        tx.send(SoundAction::SfxVolume(user_config.sfx_vol))
+            .unwrap();
+        tx.send(SoundAction::MusicVolume(user_config.mus_vol))
+            .unwrap();
+
         // TODO: S_Init (sfxVolume * 8, musicVolume * 8);
         // TODO: D_CheckNetGame ();
         // TODO: HU_Init ();
@@ -267,7 +297,8 @@ impl Game {
             wipe_game_state: GameState::Level,
             usergame: false,
             options,
-            snd_command,
+            snd_command: tx,
+            snd_thread,
         }
     }
 
@@ -488,9 +519,9 @@ impl Game {
     pub fn change_music(&self, mus: MusEnum) {
         let music = if mus == MusEnum::None {
             if self.game_mode == GameMode::Commercial {
-                MusEnum::runnin as usize + self.game_map as usize - 1
+                MusEnum::Runnin as usize + self.game_map as usize - 1
             } else if self.game_episode < 4 {
-                MusEnum::e1m1 as usize
+                MusEnum::E1M1 as usize
                     + (self.game_episode as usize - 1) * 9
                     + self.game_map as usize
                     - 1

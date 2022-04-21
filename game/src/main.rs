@@ -8,10 +8,7 @@ mod test_funcs;
 mod timestep;
 
 use dirs::{cache_dir, data_dir};
-use serde::{Deserialize, Serialize};
-use std::{
-    env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr, thread::spawn,
-};
+use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
@@ -27,7 +24,6 @@ use gameplay::{
 use input::Input;
 use shaders::Shaders;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
-use sound_traits::{SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 const SOUND_DIR: &str = "room4doom/sound/";
@@ -38,7 +34,7 @@ const BASE_DIR: &str = "room4doom/";
 #[derive(Debug)]
 pub struct DoomOptions {
     pub iwad: String,
-    pub pwad: Option<String>,
+    pub pwad: Vec<String>,
     pub no_monsters: bool,
     pub respawn_parm: bool,
     pub fast_parm: bool,
@@ -95,7 +91,7 @@ impl FromStr for ShaderType {
 
 /// CLI options for the game
 #[derive(Debug, Clone, Options)]
-pub struct GameOptions {
+pub struct CLIOptions {
     #[options(
         help = "verbose level: off, error, warn, info, debug",
         default = "info"
@@ -103,13 +99,13 @@ pub struct GameOptions {
     pub verbose: log::LevelFilter,
     #[options(no_short, meta = "", help = "path to game WAD")]
     pub iwad: String,
-    #[options(no_short, meta = "", help = "path to patch WAD")]
-    pub pwad: Option<String>,
+    #[options(free, help = "path to patch WAD")]
+    pub pwad: Vec<String>,
     #[options(meta = "", help = "resolution width in pixels", default = "0")]
     pub width: u32,
     #[options(meta = "", help = "resolution height in pixels", default = "0")]
     pub height: u32,
-    #[options(help = "fullscreen?")]
+    #[options(meta = "", help = "fullscreen?")]
     pub fullscreen: Option<bool>,
 
     // #[options(help = "Disable monsters")]
@@ -158,8 +154,8 @@ pub struct GameOptions {
     pub shader: Option<Shaders>,
 }
 
-impl From<GameOptions> for DoomOptions {
-    fn from(g: GameOptions) -> Self {
+impl From<CLIOptions> for DoomOptions {
+    fn from(g: CLIOptions) -> Self {
         DoomOptions {
             iwad: g.iwad,
             pwad: g.pwad,
@@ -189,7 +185,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let events = sdl_ctx.event_pump()?;
     let input = Input::new(events);
 
-    let mut options = GameOptions::parse_args_default_or_exit();
+    let mut options = CLIOptions::parse_args_default_or_exit();
     user_config.sync_cli(&mut options);
     user_config.write();
 
@@ -248,17 +244,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad)?;
-    let (tx, kill) = snd_server.init()?;
-    let _thread = spawn(move || loop {
-        snd_server.tic()
-    });
-    tx.send(SoundAction::SfxVolume(user_config.sfx_vol))
-        .unwrap();
-    tx.send(SoundAction::MusicVolume(user_config.mus_vol))
-        .unwrap();
-
-    let game = Game::new(options.clone().into(), wad, tx);
+    let game = Game::new(options.clone().into(), wad, snd_ctx, user_config);
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
@@ -277,6 +263,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, context, options)?;
-    kill.store(true, std::sync::atomic::Ordering::Relaxed);
+    // kill.store(true, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }

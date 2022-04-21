@@ -170,8 +170,8 @@ impl WadData {
     pub fn new(file_path: PathBuf) -> WadData {
         let mut wad = WadData { lumps: Vec::new() };
 
-        let mut file =
-            File::open(&file_path).unwrap_or_else(|_| panic!("Could not open {:?}", &file_path));
+        let mut file = File::open(&file_path)
+            .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
 
         let file_len = file.metadata().unwrap().len();
         let mut file_data = Vec::with_capacity(file_len as usize);

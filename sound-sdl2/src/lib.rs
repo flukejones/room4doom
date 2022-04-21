@@ -1,14 +1,10 @@
 use std::{
     error::Error,
     fmt::Debug,
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{channel, Receiver, Sender},
-        Arc,
-    },
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
-use log::{debug, info, warn};
+use log::{debug, info};
 use sdl2::{
     audio::{AudioCVT, AudioFormat},
     mixer::{Chunk, InitFlag, Music, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS},
@@ -28,6 +24,8 @@ mod test_sdl2;
 
 const MAX_DIST: f32 = 1666.0;
 const MIXER_CHANNELS: i32 = 32;
+const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1a];
+const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
 
 pub type SndServerRx = Receiver<SoundAction<SfxEnum, usize>>;
 pub type SndServerTx = Sender<SoundAction<SfxEnum, usize>>;
@@ -109,7 +107,6 @@ pub struct Snd<'a> {
     _mixer: Sdl2MixerContext,
     rx: SndServerRx,
     tx: SndServerTx,
-    kill: Arc<AtomicBool>,
     chunks: Vec<SfxInfo>,
     music: Option<Music<'a>>,
     listener: SoundObject<SfxEnum>,
@@ -155,9 +152,18 @@ impl<'a> Snd<'a> {
         unsafe {
             for mus in MUS_DATA.iter_mut() {
                 if let Some(lump) = wad.get_lump(mus.lump_name().as_str()) {
-                    let res = read_mus_to_midi(&lump.data);
-                    mus.set_data(res);
-                    mus_count += 1;
+                    if lump.data[..4] == MUS_ID {
+                        if let Some(res) = read_mus_to_midi(&lump.data) {
+                            mus.set_data(res);
+                            mus_count += 1;
+                        }
+                    } else if lump.data[..4] == MID_ID {
+                        // It's MIDI
+                        mus.set_data(lump.data.clone());
+                        mus_count += 1;
+                    }
+                } else {
+                    debug!("{} is missing", mus.lump_name().as_str());
                 }
             }
         }
@@ -171,7 +177,6 @@ impl<'a> Snd<'a> {
             tx,
             chunks,
             music: None,
-            kill: Arc::new(AtomicBool::new(false)),
             listener: SoundObject::default(),
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
             sfx_vol: 64,
@@ -182,7 +187,7 @@ impl<'a> Snd<'a> {
 
 impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
     fn init(&mut self) -> InitResult<SfxEnum, usize, sdl2::Error> {
-        Ok((self.tx.clone(), self.kill.clone()))
+        Ok(self.tx.clone())
     }
 
     fn start_sound(&mut self, uid: usize, sfx: SfxEnum, x: f32, y: f32, angle: f32) {
@@ -339,10 +344,6 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         &mut self.rx
     }
 
-    fn get_shutdown(&self) -> &AtomicBool {
-        self.kill.as_ref()
-    }
-
     fn shutdown_sound(&mut self) {
         info!("Shutdown sound server");
         self.stop_sound_all();
@@ -369,7 +370,7 @@ mod tests {
             for mus in MUS_DATA.iter_mut() {
                 if let Some(lump) = wad.get_lump(mus.lump_name().as_str()) {
                     dbg!(mus.lump_name());
-                    let res = read_mus_to_midi(&lump.data);
+                    let res = read_mus_to_midi(&lump.data).unwrap();
                     mus.set_data(res);
                 }
             }

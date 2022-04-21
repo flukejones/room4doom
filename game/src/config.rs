@@ -1,11 +1,11 @@
 use crate::{
     input::InputConfig,
-    log,
     log::{error, warn},
-    GameOptions, Shaders, BASE_DIR,
+    CLIOptions, Shaders, BASE_DIR,
 };
 use dirs::config_dir;
 use serde::{Deserialize, Serialize};
+use sound_sdl2::timidity::GusMemSize;
 use std::{
     fs::{create_dir, File, OpenOptions},
     io::{Read, Write},
@@ -22,14 +22,6 @@ fn get_cfg_file() -> PathBuf {
     dir
 }
 
-fn default_sfx_vol() -> i32 {
-    100
-}
-
-fn default_mus_vol() -> i32 {
-    85
-}
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct UserConfig {
     pub iwad: String,
@@ -37,24 +29,23 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub shader: Option<Shaders>,
-    #[serde(default = "default_sfx_vol")]
     pub sfx_vol: i32,
-    #[serde(default = "default_mus_vol")]
     pub mus_vol: i32,
+    pub gus_mem_size: GusMemSize,
     pub input: InputConfig,
 }
 
 impl UserConfig {
-    /// `load` will attempt to read the config, and panic if the dir is missing
+    /// `load` will attempt to read the config, and panic if errored
     pub fn load() -> Self {
-        if !get_cfg_file().exists() {}
+        let path = get_cfg_file();
 
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(get_cfg_file())
-            .unwrap_or_else(|_| panic!("The file {:?} is missing", get_cfg_file())); // okay to cause panic here
+            .open(path.clone())
+            .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
         let mut buf = String::new();
         if let Ok(read_len) = file.read_to_string(&mut buf) {
             if read_len == 0 {
@@ -63,10 +54,7 @@ impl UserConfig {
                 if let Ok(data) = toml::from_str(&buf) {
                     return data;
                 }
-                warn!(
-                    "Could not deserialise {:?} recreating config",
-                    get_cfg_file()
-                );
+                warn!("Could not deserialise {:?} recreating config", path);
             }
         }
         UserConfig::create_default(&mut file)
@@ -74,7 +62,13 @@ impl UserConfig {
 
     fn create_default(file: &mut File) -> Self {
         // create a default config here
-        let mut config = UserConfig::default();
+        let config = UserConfig {
+            width: 640,
+            height: 480,
+            sfx_vol: 100,
+            mus_vol: 80,
+            ..UserConfig::default()
+        };
         // Should be okay to unwrap this as is since it is a Default
         let json = toml::to_string(&config).unwrap();
         file.write_all(json.as_bytes())
@@ -90,7 +84,7 @@ impl UserConfig {
     }
 
     /// Sync the CLI options and UserOptions with each other
-    pub fn sync_cli(&mut self, cli: &mut GameOptions) {
+    pub fn sync_cli(&mut self, cli: &mut CLIOptions) {
         if !cli.iwad.is_empty() && cli.iwad != self.iwad {
             self.iwad = cli.iwad.clone();
         } else {
