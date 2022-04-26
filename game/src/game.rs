@@ -12,8 +12,12 @@
 //!
 //! A state can be affected by `GameAction` such as load/save/new.
 
-use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
+use std::{
+    cell::RefCell, env::set_var, fs::File, io::Write, path::PathBuf, rc::Rc, thread::JoinHandle,
+    time::Duration,
+};
 
+use dirs::{cache_dir, data_dir};
 use gameplay::{
     log::{debug, error, info, trace, warn},
     m_clear_random, spawn_specials,
@@ -26,7 +30,8 @@ use sound_sdl2::SndServerTx;
 use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic, EPISODE4_MUS};
 use wad::WadData;
 
-use crate::{config::UserConfig, DoomOptions};
+use crate::{config::UserConfig, DoomOptions, SOUND_DIR, TIMIDITY_CFG};
+use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 
 /// The current state of the game: whether we are playing, gazing at the intermission screen,
 /// the game final animation, or a demo.
@@ -241,6 +246,7 @@ impl Game {
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
 
+        Self::setup_timidity(&wad);
         let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad).unwrap();
         let tx = snd_server.init().unwrap();
         let snd_thread = std::thread::spawn(move || loop {
@@ -301,6 +307,28 @@ impl Game {
             options,
             snd_command: tx,
             _snd_thread: snd_thread,
+        }
+    }
+
+    fn setup_timidity(wad: &WadData) {
+        if let Some(mut path) = data_dir() {
+            path.push(SOUND_DIR);
+            if path.exists() {
+                let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+                cache_dir.push(TIMIDITY_CFG);
+                if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
+                    let mut file = File::create(cache_dir.as_path()).unwrap();
+                    file.write_all(&cfg).unwrap();
+                    set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+                    set_var("TIMIDITY_CFG", cache_dir.as_path());
+                    info!("Using timidity for sound");
+                } else {
+                    warn!("Sound fonts were missing, using fluidsynth instead");
+                }
+            } else {
+                info!("No sound fonts installed to {:?}", path);
+                info!("Using fluidsynth for sound");
+            }
         }
     }
 

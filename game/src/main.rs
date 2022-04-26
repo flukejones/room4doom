@@ -7,8 +7,7 @@ mod shaders;
 mod test_funcs;
 mod timestep;
 
-use dirs::{cache_dir, data_dir};
-use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
+use std::{error::Error, io::Write, str::FromStr};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
@@ -17,13 +16,10 @@ use golem::*;
 use gumdrop::Options;
 
 use crate::config::UserConfig;
-use gameplay::{
-    log::{self, info, warn},
-    Skill,
-};
+use gameplay::{log, Skill};
 use input::Input;
 use shaders::Shaders;
-use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
+
 use wad::WadData;
 
 const SOUND_DIR: &str = "room4doom/sound/";
@@ -223,26 +219,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let wad = WadData::new(options.iwad.clone().into());
-
-    if let Some(mut path) = data_dir() {
-        path.push(SOUND_DIR);
-        if path.exists() {
-            let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-            cache_dir.push(TIMIDITY_CFG);
-            if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
-                let mut file = File::create(cache_dir.as_path()).unwrap();
-                file.write_all(&cfg).unwrap();
-                set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
-                set_var("TIMIDITY_CFG", cache_dir.as_path());
-                info!("Using timidity for sound");
-            } else {
-                warn!("Sound fonts were missing, using fluidsynth instead");
-            }
-        } else {
-            info!("No sound fonts installed to {:?}", path);
-            info!("Using fluidsynth for sound");
-        }
-    }
 
     let game = Game::new(options.clone().into(), wad, snd_ctx, user_config);
 
