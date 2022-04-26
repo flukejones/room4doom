@@ -1,6 +1,6 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
-use gameplay::{log::debug, GameMission, PlayerCheat, Skill};
+use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use sdl2::keyboard::{Keycode, Scancode};
 use sound_traits::MusEnum;
 
@@ -69,11 +69,21 @@ impl Cheats {
 
         if !game.is_netgame() && !(game.game_skill() == Skill::Nightmare) {
             if self.god.check(key) {
-                debug!("GODMODE");
                 let player = &mut game.players[game.consoleplayer];
                 player.cheats ^= PlayerCheat::Godmode as u32;
+
+                if player.cheats & PlayerCheat::Godmode as u32 != 0 {
+                    if let Some(mobj) = player.mobj {
+                        unsafe {
+                            (*mobj).health = 100;
+                        }
+                    }
+                    player.health = 100;
+                    player.message = Some(english::STSTR_DQDON);
+                } else {
+                    player.message = Some(english::STSTR_DQDOFF);
+                }
             } else if self.ammonokey.check(key) {
-                debug!("IDFA");
                 let player = &mut game.players[game.consoleplayer];
                 player.armorpoints = 200;
                 player.armortype = 2;
@@ -84,8 +94,8 @@ impl Cheats {
                 for (i, a) in player.ammo.iter_mut().enumerate() {
                     *a = player.maxammo[i];
                 }
+                player.message = Some(english::STSTR_FAADDED);
             } else if self.ammo.check(key) {
-                debug!("IDKFA");
                 let player = &mut game.players[game.consoleplayer];
                 player.armorpoints = 200;
                 player.armortype = 2;
@@ -99,21 +109,30 @@ impl Cheats {
                 for k in player.cards.iter_mut() {
                     *k = true;
                 }
+                player.message = Some(english::STSTR_KFAADDED);
             } else if (game.game_mission() == GameMission::Doom && self.noclip.check(key))
                 || (game.game_mission() != GameMission::Doom && self.commercial_noclip.check(key))
             {
-                debug!("NOCLIP");
                 let player = &mut game.players[game.consoleplayer];
                 player.cheats ^= PlayerCheat::Noclip as u32;
+                if player.cheats & PlayerCheat::Noclip as u32 != 0 {
+                    player.message = Some(english::STSTR_NCON);
+                } else {
+                    player.message = Some(english::STSTR_NCOFF);
+                }
             } else if self.mus.check(key) {
                 debug!(
                     "MUS{}{}",
                     self.mus.parameter_buf[0], self.mus.parameter_buf[1]
                 );
                 let s = format!("{}{}", self.mus.parameter_buf[0], self.mus.parameter_buf[1]);
-                let s = s.as_str().parse::<u8>().unwrap_or_default();
-                let s = MusEnum::from(s);
-                game.change_music(s);
+                if let Ok(s) = s.as_str().parse::<u8>() {
+                    let s = MusEnum::from(s);
+                    game.change_music(s);
+                    game.players[game.consoleplayer].message = Some(english::STSTR_MUS);
+                } else {
+                    game.players[game.consoleplayer].message = Some(english::STSTR_NOMUS);
+                }
             } else if self.mypos.check(key) {
                 debug!("MYPOS",);
                 let player = &mut game.players[game.consoleplayer];

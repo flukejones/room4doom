@@ -11,6 +11,7 @@ use std::{
 
 use crate::{
     doom_def::{Card, TICRATE},
+    lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK},
     level::{
         map_defs::{LineDef, Sector},
         Level,
@@ -285,9 +286,8 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
             26 | 32 => {
                 if !player.cards[Card::Bluecard as usize] && !player.cards[Card::Blueskull as usize]
                 {
-                    // TODO: player->message = DEH_String(PD_BLUEK);
+                    player.message = Some(PD_BLUEK);
                     start_line_sound(&line, SfxEnum::oof, &level.snd_command);
-                    println!("Ooof! I need the blue card");
                     return;
                 }
             }
@@ -295,17 +295,15 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                 if !player.cards[Card::Yellowcard as usize]
                     && !player.cards[Card::Yellowskull as usize]
                 {
-                    // TODO: player->message = DEH_String(PD_YELLOWK);
+                    player.message = Some(PD_YELLOWK);
                     start_line_sound(&line, SfxEnum::oof, &level.snd_command);
-                    println!("Ooof! I need the yellow card");
                     return;
                 }
             }
             28 | 33 => {
                 if !player.cards[Card::Redcard as usize] && !player.cards[Card::Redskull as usize] {
-                    // TODO: player->message = DEH_String(PD_REDK);
+                    player.message = Some(PD_REDK);
                     start_line_sound(&line, SfxEnum::oof, &level.snd_command);
-                    println!("Ooof! I need the red card");
                     return;
                 }
             }

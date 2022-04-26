@@ -39,3 +39,27 @@ pub const GOTLAUNCHER: &str = "You got the rocket launcher!";
 pub const GOTPLASMA: &str = "You got the plasma gun!";
 pub const GOTSHOTGUN: &str = "You got the shotgun!";
 pub const GOTSHOTGUN2: &str = "You got the super shotgun!";
+
+pub const PD_BLUEO: &str = "You need a blue key to activate this object";
+pub const PD_REDO: &str = "You need a red key to activate this object";
+pub const PD_YELLOWO: &str = "You need a yellow key to activate this object";
+pub const PD_BLUEK: &str = "You need a blue key to open this door";
+pub const PD_REDK: &str = "You need a red key to open this door";
+pub const PD_YELLOWK: &str = "You need a yellow key to open this door";
+
+pub const STSTR_MUS: &str = "Music Change";
+pub const STSTR_NOMUS: &str = "IMPOSSIBLE SELECTION";
+pub const STSTR_DQDON: &str = "Degreelessness Mode On";
+pub const STSTR_DQDOFF: &str = "Degreelessness Mode Off";
+
+pub const STSTR_KFAADDED: &str = "Very Happy Ammo Added";
+pub const STSTR_FAADDED: &str = "Ammo (no keys) Added";
+
+pub const STSTR_NCON: &str = "No Clipping Mode ON";
+pub const STSTR_NCOFF: &str = "No Clipping Mode OFF";
+
+pub const STSTR_BEHOLD: &str = "inVuln, Str, Inviso, Rad, Allmap, or Lite-amp";
+pub const STSTR_BEHOLDX: &str = "Power-up Toggled";
+
+pub const STSTR_CHOPPERS: &str = "... doesn't suck - GM";
+pub const STSTR_CLEV: &str = "Changing Level...";
