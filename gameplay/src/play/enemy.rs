@@ -221,20 +221,17 @@ pub fn a_fire(_actor: &mut MapObject) {
 }
 
 pub fn a_scream(actor: &mut MapObject) {
-    let sound: SfxEnum;
-
-    match actor.info.deathsound {
+    let sound = match actor.info.deathsound {
         SfxEnum::None => return,
         SfxEnum::podth1 | SfxEnum::podth2 | SfxEnum::podth3 => {
-            sound = SfxEnum::from(SfxEnum::podth1 as u8 + (p_random() % 3) as u8);
+            SfxEnum::from(SfxEnum::podth1 as u8 + (p_random() % 3) as u8)
         }
         SfxEnum::bgdth1 | SfxEnum::bgdth2 => {
-            sound = SfxEnum::from(SfxEnum::bgdth1 as u8 + (p_random() % 2) as u8);
+            SfxEnum::from(SfxEnum::bgdth1 as u8 + (p_random() % 2) as u8)
         }
-        _ => {
-            sound = SfxEnum::from(actor.info.deathsound as u8);
-        }
-    }
+        _ => SfxEnum::from(actor.info.deathsound as u8),
+    };
+
     // Check for bosses.
     if matches!(
         actor.kind,

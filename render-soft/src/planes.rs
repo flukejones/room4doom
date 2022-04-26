@@ -282,9 +282,11 @@ fn map_plane(
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
     let flat = texture_data.get_flat(plane.picnum);
     let light = (plane.lightlevel >> 4) + extra_light;
-    let cm = texture_data.flat_light_colourmap(light, distance);
+    let colourmap = texture_data.flat_light_colourmap(light, distance);
 
-    let mut ds = DrawSpan::new(flat, cm, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2);
+    let mut ds = DrawSpan::new(
+        flat, colourmap, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2,
+    );
 
     ds.draw(texture_data, pixels);
 }
@@ -327,7 +329,7 @@ impl<'a> DrawSpan<'a> {
     }
 
     fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
-        let pal = textures.palette(0);
+        let pal = textures.palette();
         for s in self.ds_x1..=self.ds_x2 {
             let mut x = (self.ds_xfrac.floor() as i32 & 127) + 64;
             let mut y = (self.ds_yfrac.floor() as i32 & 127) + 64;

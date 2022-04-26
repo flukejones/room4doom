@@ -671,7 +671,7 @@ impl<'a> DrawColumn<'a> {
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
     pub fn draw_column(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
-        let pal = textures.palette(0);
+        let pal = textures.palette();
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 

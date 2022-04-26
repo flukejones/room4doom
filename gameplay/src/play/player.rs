@@ -17,6 +17,7 @@ use crate::{
     },
     info::{ActionF, SpriteNum, StateNum, STATES},
     level::Level,
+    pic::INVERSECOLORMAP,
     play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     GameMode, Skill,
@@ -166,8 +167,8 @@ pub struct Player {
     /// So gun flashes light up areas.
     pub extralight: i32,
 
-    /// Current PLAYPAL, ???
-    ///  can be set to REDCOLORMAP for pain, etc.
+    /// Can be set to REDCOLORMAP for pain, etc.
+    /// 0 = off.
     pub fixedcolormap: i32,
 
     /// Player skin colorshift,
@@ -904,6 +905,63 @@ impl Player {
         }
 
         self.move_player_sprites();
+
+        // Powers and timers
+        if self.powers[PowerType::Strength as usize] != 0 {
+            // Strength counts up to diminish fade.
+            self.powers[PowerType::Strength as usize] += 1;
+        }
+
+        if self.powers[PowerType::Invulnerability as usize] != 0 {
+            self.powers[PowerType::Invulnerability as usize] -= 1;
+        }
+
+        if self.powers[PowerType::Infrared as usize] != 0 {
+            self.powers[PowerType::Infrared as usize] -= 1;
+        }
+
+        if self.powers[PowerType::IronFeet as usize] != 0 {
+            self.powers[PowerType::IronFeet as usize] -= 1;
+        }
+
+        if self.powers[PowerType::Invisibility as usize] != 0 {
+            self.powers[PowerType::Invisibility as usize] -= 1;
+            if self.powers[PowerType::Invisibility as usize] == 0 {
+                if let Some(mobj) = self.mobj {
+                    unsafe {
+                        (*mobj).flags &= !(MapObjectFlag::Shadow as u32);
+                    }
+                }
+            }
+        }
+
+        // Screen flashing, red, damage etc
+        if self.damagecount != 0 {
+            self.damagecount -= 1;
+        }
+
+        if self.bonuscount != 0 {
+            self.bonuscount -= 1;
+        }
+
+        // Setting the colourmaps
+        let invulnerability = self.powers[PowerType::Invulnerability as usize];
+        let infrared = self.powers[PowerType::Infrared as usize];
+        if invulnerability != 0 {
+            if invulnerability > 4 * 32 || (invulnerability & 8 != 0) {
+                self.fixedcolormap = INVERSECOLORMAP;
+            } else {
+                self.fixedcolormap = 0;
+            }
+        } else if infrared != 0 {
+            if infrared > 4 * 32 || (infrared & 8 != 0) {
+                self.fixedcolormap = 1; // almost fullbright
+            } else {
+                self.fixedcolormap = 0;
+            }
+        } else {
+            self.fixedcolormap = 0;
+        }
 
         false
     }

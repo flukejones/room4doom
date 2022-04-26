@@ -84,9 +84,6 @@ pub fn change_switch_texture(
         sfx = SfxEnum::swtchn;
     }
 
-    let tex_mid = line.front_sidedef.midtexture;
-    let tex_low = line.front_sidedef.bottomtexture;
-
     for i in 0..switch_list.len() {
         let sw = switch_list[i];
         if let Some(tex_top) = line.front_sidedef.toptexture {

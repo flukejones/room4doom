@@ -317,7 +317,7 @@ impl Game {
             if path.exists() {
                 let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
                 cache_dir.push(TIMIDITY_CFG);
-                if let Some(cfg) = make_timidity_cfg(&wad, path, GusMemSize::Perfect) {
+                if let Some(cfg) = make_timidity_cfg(wad, path, GusMemSize::Perfect) {
                     let mut file = File::create(cache_dir.as_path()).unwrap();
                     file.write_all(&cfg).unwrap();
                     set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");

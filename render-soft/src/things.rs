@@ -233,12 +233,11 @@ impl SoftwareRenderer {
         }
 
         vis.patch = patch_index;
-        // TODO: colourmap index
+        // TODO: fixedcolourmap index
         //  - shadow
-        //  - fixed
         if thing.frame & FF_FULLBRIGHT != 0 {
             // full bright
-            vis.light_level = 255 >> 4;
+            vis.light_level = 255;
         } else {
             vis.light_level = light_level as usize;
         }
@@ -614,7 +613,7 @@ fn draw_masked_column(
     textures: &PicData,
     pixels: &mut PixelBuf,
 ) {
-    let pal = &textures.palette(0);
+    let pal = &textures.palette();
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
         let select = frac.floor() as usize;

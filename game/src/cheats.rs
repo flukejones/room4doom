@@ -198,8 +198,4 @@ impl Cheat {
 
         false
     }
-
-    pub fn get_parameter(&self) -> String {
-        String::from_iter(self.parameter_buf[0..self.parameter_chars].iter())
-    }
 }
