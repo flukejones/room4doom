@@ -116,7 +116,7 @@ pub struct Player {
 
     /// This is only used between levels,
     /// mo->health is used during levels.
-    pub(crate) health: i32,
+    pub health: i32,
     pub armorpoints: i32,
     /// Armor type is 0-2.
     // TODO: make enum

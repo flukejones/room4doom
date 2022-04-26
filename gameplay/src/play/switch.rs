@@ -15,6 +15,7 @@ use super::{
 
 use crate::{
     doom_def::Card,
+    lang::english::{PD_BLUEO, PD_REDO, PD_YELLOWO},
     level::{flags::LineDefFlags, map_defs::LineDef},
     pic::{Button, ButtonWhere},
     DPtr,
@@ -465,8 +466,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                 if cards[Card::Bluecard as usize] || cards[Card::Blueskull as usize] {
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
-                    // TODO: p->message = DEH_String(PD_BLUEO);
-                    //player.message = Some(BLUE)
+                    player.message = Some(PD_BLUEO);
 			        if let Some(mobj) = player.mobj {
                         unsafe {
                             (*mobj).start_sound(SfxEnum::oof);
@@ -483,7 +483,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                 if cards[Card::Redcard as usize] || cards[Card::Redskull as usize] {
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
-                    // TODO: p->message = DEH_String(PD_BLUEO);
+                    player.message = Some(PD_REDO);
 			        if let Some(mobj) = player.mobj {
                         unsafe {
                             (*mobj).start_sound(SfxEnum::oof);
@@ -500,7 +500,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                 if cards[Card::Yellowcard as usize] || cards[Card::Yellowskull as usize] {
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
-                    // TODO: p->message = DEH_String(PD_BLUEO);
+                    player.message = Some(PD_YELLOWO);
 			        if let Some(mobj) = player.mobj {
                         unsafe {
                             (*mobj).start_sound(SfxEnum::oof);
