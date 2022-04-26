@@ -88,7 +88,7 @@ pub trait AutomapRenderer {
     /// `Surface`.
     ///
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_hud(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
+    fn render_automap(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
 }
 
 pub trait MenuRenderer {
@@ -96,7 +96,7 @@ pub trait MenuRenderer {
     /// `Surface`.
     ///
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_hud(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
+    fn render_menu(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
 }
 
 #[cfg(test)]

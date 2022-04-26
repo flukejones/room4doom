@@ -80,15 +80,15 @@ impl Think for VerticalDoor {
                     match door.kind {
                         DoorKind::BlazeRaise => {
                             door.direction = -1;
-                            start_line_sound(&line, SfxEnum::bdcls, &level.snd_command);
+                            start_line_sound(line, SfxEnum::bdcls, &level.snd_command);
                         }
                         DoorKind::Normal => {
                             door.direction = -1;
-                            start_line_sound(&line, SfxEnum::dorcls, &level.snd_command);
+                            start_line_sound(line, SfxEnum::dorcls, &level.snd_command);
                         }
                         DoorKind::Close30ThenOpen => {
                             door.direction = -1;
-                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+                            start_line_sound(line, SfxEnum::doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -105,7 +105,7 @@ impl Think for VerticalDoor {
                         DoorKind::RaiseIn5Mins => {
                             door.direction = 1;
                             door.kind = DoorKind::Normal;
-                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+                            start_line_sound(line, SfxEnum::doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -127,7 +127,7 @@ impl Think for VerticalDoor {
                 if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
-                            start_line_sound(&line, SfxEnum::bdcls, &level.snd_command);
+                            start_line_sound(line, SfxEnum::bdcls, &level.snd_command);
                             unsafe {
                                 door.sector.specialdata = None;
                                 (*door.thinker).mark_remove();
@@ -150,7 +150,7 @@ impl Think for VerticalDoor {
                         _ => {
                             door.direction = 1;
                             door.kind = DoorKind::Normal;
-                            start_line_sound(&line, SfxEnum::doropn, &level.snd_command);
+                            start_line_sound(line, SfxEnum::doropn, &level.snd_command);
                         }
                     }
                 }

@@ -80,6 +80,12 @@ impl PlayRenderer for SoftwareRenderer {
         // TODO: netupdate
         let mut count = 0;
         self.checked_sectors.clear();
+
+        self.texture_data
+            .borrow_mut()
+            .set_fixed_lightscale(player.fixedcolormap as usize);
+        self.texture_data.borrow_mut().set_player_palette(player);
+
         self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again

@@ -21,7 +21,12 @@ use wad::{
     WadData,
 };
 
-use crate::{doom_def::GameMode, info::SPRNAMES, pic::sprites::init_spritedefs};
+use crate::{
+    doom_def::{GameMode, PowerType},
+    info::SPRNAMES,
+    pic::sprites::init_spritedefs,
+    Player,
+};
 
 use self::sprites::SpriteDef;
 
@@ -29,6 +34,12 @@ const MAXLIGHTZ: i32 = 128;
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
+pub const INVERSECOLORMAP: i32 = 32;
+const STARTREDPALS: usize = 1;
+const NUMREDPALS: usize = 8;
+const STARTBONUSPALS: usize = 9;
+const NUMBONUSPALS: usize = 8;
+const RADIATIONPAL: usize = 13;
 
 #[derive(Debug)]
 pub struct FlatPic {
@@ -57,6 +68,7 @@ pub struct PicData {
     // Usually 34 blocks of 256, each u8 being an index in to the palette
     colourmap: Vec<Vec<usize>>,
     light_scale: Vec<Vec<Vec<usize>>>,
+    use_fixed_colourmap: usize,
     zlight_scale: Vec<Vec<Vec<usize>>>,
     walls: Vec<WallPic>,
     /// Used in animations
@@ -71,6 +83,9 @@ pub struct PicData {
     //
     sprite_patches: Vec<SpritePic>,
     sprite_defs: Vec<SpriteDef>,
+    /// The pallette to be used. Can be set with `set_pallette()` or `set_player_palette()`,
+    /// typically done on frame start to set effects like take-damage.
+    use_pallette: usize,
 }
 
 impl PicData {
@@ -137,8 +152,10 @@ impl PicData {
             light_scale,
             zlight_scale,
             colourmap,
+            use_fixed_colourmap: 0,
             sprite_patches,
             sprite_defs,
+            use_pallette: 0,
         }
     }
 
@@ -176,6 +193,11 @@ impl PicData {
                     .collect()
             })
             .collect()
+    }
+
+    /// A non-zero value is the the colourmap number forced to use for all light-levels
+    pub fn set_fixed_lightscale(&mut self, colourmap: usize) {
+        self.use_fixed_colourmap = colourmap
     }
 
     fn init_zlight_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
@@ -327,8 +349,47 @@ impl PicData {
         }
     }
 
-    pub fn palette(&self, num: usize) -> &[WadColour] {
-        &self.palettes[num].0
+    pub fn palette(&self) -> &[WadColour] {
+        &self.palettes[self.use_pallette].0
+    }
+
+    pub fn set_palette(&mut self, num: usize) {
+        self.use_pallette = num;
+    }
+
+    /// Used to set effects for the player visually, such as damage
+    pub fn set_player_palette(&mut self, player: &Player) {
+        let mut damagecount = player.damagecount;
+        let berkers;
+
+        if player.powers[PowerType::Strength as usize] != 0 {
+            // slowly fade the berzerk out
+            berkers = 12 - (player.powers[PowerType::Strength as usize] >> 6);
+
+            if berkers > damagecount {
+                damagecount = berkers;
+            }
+        }
+
+        if damagecount != 0 {
+            self.use_pallette = ((damagecount + 7) >> 3) as usize;
+            if self.use_pallette >= NUMREDPALS {
+                self.use_pallette = NUMREDPALS - 1;
+            }
+            self.use_pallette += STARTREDPALS;
+        } else if player.bonuscount != 0 {
+            self.use_pallette = ((player.bonuscount + 7) >> 3) as usize;
+            if self.use_pallette >= NUMBONUSPALS {
+                self.use_pallette = NUMBONUSPALS - 1;
+            }
+            self.use_pallette += STARTBONUSPALS;
+        } else if player.powers[PowerType::IronFeet as usize] > 4 * 32
+            || player.powers[PowerType::IronFeet as usize] & 8 != 0
+        {
+            self.use_pallette = RADIATIONPAL;
+        } else {
+            self.use_pallette = 0;
+        }
     }
 
     /// Get the number of the flat used for the sky texture. Sectors using this number
@@ -382,6 +443,10 @@ impl PicData {
         light_level: i32,
         wall_scale: f32,
     ) -> &[usize] {
+        if self.use_fixed_colourmap != 0 {
+            return &self.colourmap[self.use_fixed_colourmap];
+        }
+
         let mut light_level = light_level;
         if light_level >= self.light_scale.len() as i32 {
             light_level = self.light_scale.len() as i32 - 1;
@@ -405,6 +470,10 @@ impl PicData {
 
     /// Light may need right-shifting by 4
     pub fn sprite_light_colourmap(&self, light_level: usize, scale: f32) -> &[usize] {
+        if self.use_fixed_colourmap != 0 {
+            return &self.colourmap[self.use_fixed_colourmap];
+        }
+
         let mut light_level = light_level;
         if light_level >= self.light_scale.len() {
             light_level = self.light_scale.len() - 1;
@@ -418,11 +487,15 @@ impl PicData {
         &self.light_scale[light_level as usize][colourmap as usize]
     }
 
-    pub fn light_colourmap(&self, light_level: usize, colourmap: usize) -> &[usize] {
-        &self.light_scale[light_level][colourmap]
-    }
+    // pub fn light_colourmap(&self, light_level: usize, colourmap: usize) -> &[usize] {
+    //     &self.light_scale[light_level][colourmap]
+    // }
 
     pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: f32) -> &[usize] {
+        if self.use_fixed_colourmap != 0 {
+            return &self.colourmap[self.use_fixed_colourmap];
+        }
+
         let mut dist = (wall_scale as i32 >> 4) as u32;
 
         if dist >= MAXLIGHTZ as u32 - 1 {

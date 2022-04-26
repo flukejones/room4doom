@@ -13,6 +13,7 @@ sdl2-bundled = ["sdl2/bundled"]
 wad = { path = "../wad" }
 sound-traits = { path = "../sound-traits" }
 log = "^0.4"
+glam = "~0.20"
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
 # Required for config options
 serde = { version = "1.0", features = ["serde_derive"] }

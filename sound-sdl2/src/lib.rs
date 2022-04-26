@@ -4,6 +4,7 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 
+use glam::Vec2;
 use log::{debug, info};
 use sdl2::{
     audio::{AudioCVT, AudioFormat},
@@ -34,6 +35,13 @@ pub fn point_to_angle_2(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     let x = x1 - x2;
     let y = y1 - y2;
     y.atan2(x)
+}
+
+pub fn angle_between(listener_angle: f32, other_x: f32, other_y: f32) -> f32 {
+    let (y, x) = listener_angle.sin_cos();
+    let v1 = Vec2::new(x, y);
+    let other = Vec2::new(other_x, other_y);
+    v1.angle_between(other)
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -201,7 +209,16 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         }
         // Scale for SDL2
         dist = dist * 255.0 / MAX_DIST;
-        let angle = point_to_angle_2(self.listener.x, self.listener.y, x, y);
+        let angle = 0.0;
+        // if uid != self.listener.uid {
+        // //     angle = point_to_angle_2(self.listener.x, self.listener.y, x, y);
+        // //     angle -= self.listener.angle - FRAC_2_PI * 3.0;
+        //     angle = angle_between(self.listener.angle, x, y);
+        //     if angle.is_sign_negative() {
+        //         angle += PI * 2.0;
+        //     }
+        //     angle = 360.0 - angle.to_degrees();
+        // }
 
         // Stop any existing sound this source is emitting
         self.stop_sound(uid);
@@ -266,7 +283,16 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
                     sdl2::mixer::Channel(s.channel).pause();
                 }
 
-                let angle = point_to_angle_2(self.listener.x, self.listener.y, s.x, s.y);
+                let angle = 0.0;
+                // if s.uid != self.listener.uid {
+                // //     angle = point_to_angle_2(self.listener.x, self.listener.y, s.x, s.y);
+                // //     angle -= self.listener.angle - FRAC_2_PI * 3.0;
+                //     angle = angle_between(self.listener.angle, x, y);
+                //     if angle.is_sign_negative() {
+                //         angle += PI * 2.0;
+                //     }
+                //     angle = 360.0 - angle.to_degrees();
+                // }
 
                 sdl2::mixer::Channel(s.channel)
                     .set_position(angle as i16, dist as u8)

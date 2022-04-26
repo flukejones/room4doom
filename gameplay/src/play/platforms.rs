@@ -201,17 +201,17 @@ impl Think for Platform {
                     PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange
                 ) && level.level_time & 7 == 0
                 {
-                    start_line_sound(&line, SfxEnum::stnmov, &level.snd_command);
+                    start_line_sound(line, SfxEnum::stnmov, &level.snd_command);
                 }
 
                 if matches!(res, PlaneResult::Crushed) && !platform.crush {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
+                    start_line_sound(line, SfxEnum::pstart, &level.snd_command);
                 } else if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
+                    start_line_sound(line, SfxEnum::pstop, &level.snd_command);
 
                     match platform.kind {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
@@ -245,7 +245,7 @@ impl Think for Platform {
                 if matches!(res, PlaneResult::PastDest) {
                     platform.count = platform.wait;
                     platform.status = PlatStatus::Waiting;
-                    start_line_sound(&line, SfxEnum::pstop, &level.snd_command);
+                    start_line_sound(line, SfxEnum::pstop, &level.snd_command);
                 }
             }
             PlatStatus::Waiting => {
@@ -256,7 +256,7 @@ impl Think for Platform {
                     } else {
                         platform.status = PlatStatus::Down;
                     }
-                    start_line_sound(&line, SfxEnum::pstart, &level.snd_command);
+                    start_line_sound(line, SfxEnum::pstart, &level.snd_command);
                 }
             }
             PlatStatus::InStasis => {}

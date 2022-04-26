@@ -137,7 +137,6 @@ impl MapObject {
                 && self.flags & MapObjectFlag::NoClip as u32 == 0
             {
                 self.p_explode_missile();
-                return;
             }
         }
     }
