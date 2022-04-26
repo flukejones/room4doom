@@ -33,10 +33,10 @@ pub(crate) struct SegRender {
     maskedtexture: bool,
     /// Index in to `openings` array
     maskedtexturecol: i32,
-    // Texture ID's
-    toptexture: i32,
-    bottomtexture: i32,
-    midtexture: i32,
+    // Texture exists?
+    toptexture: bool,
+    bottomtexture: bool,
+    midtexture: bool,
     //
     rw_normalangle: Angle,
     // regular wall
@@ -80,9 +80,9 @@ impl SegRender {
             markceiling: false,
             maskedtexture: false,
             maskedtexturecol: -1,
-            toptexture: -1,
-            bottomtexture: -1,
-            midtexture: -1,
+            toptexture: false,
+            bottomtexture: false,
+            midtexture: false,
             rw_normalangle: Angle::default(),
             rw_x: 0,
             rw_stopx: 0,
@@ -193,24 +193,28 @@ impl SegRender {
         self.worldtop = (frontsector.ceilingheight - viewz) as i32;
         self.worldbottom = (frontsector.floorheight - viewz) as i32;
 
-        self.midtexture = -1;
-        self.toptexture = -1;
-        self.bottomtexture = -1;
+        self.midtexture = false;
+        self.toptexture = false;
+        self.bottomtexture = false;
         self.maskedtexture = false;
         self.maskedtexturecol = -1;
 
         if seg.backsector.is_none() {
-            let textures = &self.texture_data.borrow();
-            // single sided line
-            self.midtexture = sidedef.midtexture as i32;
             self.markfloor = true;
             self.markceiling = true;
-            if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0
-                && seg.sidedef.midtexture != usize::MAX
-            {
-                let texture_column = textures.wall_pic_column(seg.sidedef.midtexture, 0);
-                let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
-                self.rw_midtexturemid = vtop - viewz;
+            let textures = &self.texture_data.borrow();
+            // single sided line
+            self.midtexture = seg.sidedef.midtexture.is_some();
+
+            if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
+                if let Some(mid_tex) = seg.sidedef.midtexture {
+                    let texture_column = textures.wall_pic_column(mid_tex, 0);
+                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
+                    self.rw_midtexturemid = vtop - viewz;
+                } else {
+                    // top of texture at top
+                    self.rw_midtexturemid = self.worldtop as f32;
+                }
             } else {
                 // top of texture at top
                 self.rw_midtexturemid = self.worldtop as f32;
@@ -302,18 +306,18 @@ impl SegRender {
             }
 
             if self.worldhigh < self.worldtop {
-                self.toptexture = sidedef.toptexture as i32;
+                self.toptexture = sidedef.toptexture.is_some();
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
                     self.rw_toptexturemid = self.worldtop as f32;
-                } else if seg.sidedef.toptexture != usize::MAX {
-                    let texture_column = textures.wall_pic_column(seg.sidedef.toptexture, 0);
+                } else if let Some(top_tex) = seg.sidedef.toptexture {
+                    let texture_column = textures.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - viewz;
                 }
             }
 
             if self.worldlow > self.worldbottom {
-                self.bottomtexture = sidedef.bottomtexture as i32;
+                self.bottomtexture = sidedef.bottomtexture.is_some();
                 if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                     self.rw_bottomtexturemid = self.worldtop as f32;
                 } else {
@@ -325,18 +329,18 @@ impl SegRender {
             self.rw_toptexturemid += sidedef.rowoffset;
             self.rw_bottomtexturemid += sidedef.rowoffset;
 
-            if sidedef.midtexture != 0 {
-                self.maskedtexture = true;
-                // Set the indexes in to visplanes.openings
-                self.maskedtexturecol = rdata.visplanes.lastopening - self.rw_x;
-                ds_p.maskedtexturecol = self.maskedtexturecol;
+            // if sidedef.midtexture.is_some() {
+            self.maskedtexture = true;
+            // Set the indexes in to visplanes.openings
+            self.maskedtexturecol = rdata.visplanes.lastopening - self.rw_x;
+            ds_p.maskedtexturecol = self.maskedtexturecol;
 
-                rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
-            }
+            rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
+            // }
         }
 
         // calculate rw_offset (only needed for textured lines)
-        if self.midtexture | self.toptexture | self.bottomtexture | self.maskedtexture as i32 != 0 {
+        if self.midtexture || self.toptexture || self.bottomtexture || self.maskedtexture {
             self.segtextured = true;
         }
 
@@ -518,11 +522,10 @@ impl SegRender {
                 dc_iscale = 1.0 / self.rw_scale;
             }
 
-            if self.midtexture != -1 {
-                if seg.sidedef.midtexture != usize::MAX {
+            if self.midtexture {
+                if let Some(mid_tex) = seg.sidedef.midtexture {
                     let textures = &self.texture_data.borrow();
-                    let texture_column =
-                        textures.wall_pic_column(seg.sidedef.midtexture, texture_column);
+                    let texture_column = textures.wall_pic_column(mid_tex, texture_column);
                     let mut dc = DrawColumn::new(
                         texture_column,
                         textures.wall_light_colourmap(
@@ -544,7 +547,7 @@ impl SegRender {
                 rdata.portal_clip.floorclip[self.rw_x as usize] = -1;
             } else {
                 let textures = &self.texture_data.borrow();
-                if self.toptexture != -1 {
+                if self.toptexture {
                     mid = self.pixhigh as i32; // - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
@@ -553,9 +556,8 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        if seg.sidedef.toptexture != usize::MAX {
-                            let texture_column =
-                                textures.wall_pic_column(seg.sidedef.toptexture, texture_column);
+                        if let Some(top_tex) = seg.sidedef.toptexture {
+                            let texture_column = textures.wall_pic_column(top_tex, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.wall_light_colourmap(
@@ -581,7 +583,7 @@ impl SegRender {
                     rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1;
                 }
 
-                if self.bottomtexture != -1 {
+                if self.bottomtexture {
                     // TODO: this affects some placement
                     mid = self.pixlow as i32 + 1;
                     self.pixlow += self.pixlowstep;
@@ -591,9 +593,8 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        if seg.sidedef.bottomtexture != usize::MAX {
-                            let texture_column =
-                                textures.wall_pic_column(seg.sidedef.bottomtexture, texture_column);
+                        if let Some(bot_tex) = seg.sidedef.bottomtexture {
+                            let texture_column = textures.wall_pic_column(bot_tex, texture_column);
                             let mut dc = DrawColumn::new(
                                 texture_column,
                                 textures.wall_light_colourmap(

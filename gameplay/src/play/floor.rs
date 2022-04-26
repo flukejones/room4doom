@@ -147,23 +147,20 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
                 floor.direction = 1;
                 for line in sec.lines.iter() {
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
-                        if line.front_sidedef.bottomtexture != usize::MAX {
-                            let tmp = level
-                                .pic_data
-                                .borrow()
-                                .get_texture(line.front_sidedef.bottomtexture)
-                                .data[0]
+                        if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
+                            let tmp = level.pic_data.borrow().get_texture(bottomtexture).data[0]
                                 .len() as f32;
                             if tmp < min {
                                 min = tmp;
                             }
                         }
                         if let Some(side) = line.back_sidedef.as_ref() {
-                            let tmp = level.pic_data.borrow().get_texture(side.bottomtexture).data
-                                [0]
-                            .len() as f32;
-                            if tmp < min {
-                                min = tmp;
+                            if let Some(bottomtexture) = side.bottomtexture {
+                                let tmp = level.pic_data.borrow().get_texture(bottomtexture).data[0]
+                                    .len() as f32;
+                                if tmp < min {
+                                    min = tmp;
+                                }
                             }
                         }
                         //todo!("side = getSide(secnum, i, 0); and stuff");

@@ -172,23 +172,12 @@ impl From<CLIOptions> for DoomOptions {
 
 /// The main `game` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut user_config = UserConfig::load();
-
-    let sdl_ctx = sdl2::init()?;
-    let snd_ctx = sdl_ctx.audio()?;
-    let video_ctx = sdl_ctx.video()?;
-
-    let events = sdl_ctx.event_pump()?;
-    let input = Input::new(events);
-
     let mut options = CLIOptions::parse_args_default_or_exit();
-    user_config.sync_cli(&mut options);
-    user_config.write();
 
     let mut logger = env_logger::Builder::new();
     logger
         .target(env_logger::Target::Stdout)
-        .format(|buf, record| {
+        .format(move |buf, record| {
             let mut style = buf.style();
             let colour = match record.level() {
                 log::Level::Error => Color::Red,
@@ -198,10 +187,34 @@ fn main() -> Result<(), Box<dyn Error>> {
                 log::Level::Trace => Color::Magenta,
             };
             style.set_color(colour);
-            writeln!(buf, "{}: {}", style.value(record.level()), record.args())
+
+            if options.verbose == log::Level::Debug {
+                writeln!(
+                    buf,
+                    "{}: {}: {}",
+                    style.value(record.level()),
+                    record.target(),
+                    record.args()
+                )
+            } else {
+                //record.target().split("::").last().unwrap_or("")
+                writeln!(buf, "{}: {}", style.value(record.level()), record.args())
+            }
         })
         .filter(None, options.verbose)
         .init();
+
+    let mut user_config = UserConfig::load();
+
+    let sdl_ctx = sdl2::init()?;
+    let snd_ctx = sdl_ctx.audio()?;
+    let video_ctx = sdl_ctx.video()?;
+
+    let events = sdl_ctx.event_pump()?;
+    let input = Input::new(events);
+
+    user_config.sync_cli(&mut options);
+    user_config.write();
 
     let mut window = video_ctx
         .window("ROOM for DOOM", options.width, options.height)

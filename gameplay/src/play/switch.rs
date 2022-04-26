@@ -83,51 +83,56 @@ pub fn change_switch_texture(
         sfx = SfxEnum::swtchn;
     }
 
-    let tex_top = line.front_sidedef.toptexture;
     let tex_mid = line.front_sidedef.midtexture;
     let tex_low = line.front_sidedef.bottomtexture;
 
     for i in 0..switch_list.len() {
         let sw = switch_list[i];
-        if sw == tex_top {
-            start_line_sound(&line, sfx, snd);
-            line.front_sidedef.toptexture = switch_list[i ^ 1];
-            if use_again {
-                start_button(
-                    line,
-                    ButtonWhere::Top,
-                    switch_list[i],
-                    BUTTONTIME,
-                    button_list,
-                );
+        if let Some(tex_top) = line.front_sidedef.toptexture {
+            if sw == tex_top {
+                start_line_sound(&line, sfx, snd);
+                line.front_sidedef.toptexture = Some(switch_list[i ^ 1]);
+                if use_again {
+                    start_button(
+                        line,
+                        ButtonWhere::Top,
+                        switch_list[i],
+                        BUTTONTIME,
+                        button_list,
+                    );
+                }
+                return;
             }
-            return;
-        } else if sw == tex_mid {
-            start_line_sound(&line, sfx, snd);
-            line.front_sidedef.midtexture = switch_list[i ^ 1];
-            if use_again {
-                start_button(
-                    line,
-                    ButtonWhere::Middle,
-                    switch_list[i],
-                    BUTTONTIME,
-                    button_list,
-                );
+        } else if let Some(tex_mid) = line.front_sidedef.midtexture {
+            if sw == tex_mid {
+                start_line_sound(&line, sfx, snd);
+                line.front_sidedef.midtexture = Some(switch_list[i ^ 1]);
+                if use_again {
+                    start_button(
+                        line,
+                        ButtonWhere::Middle,
+                        switch_list[i],
+                        BUTTONTIME,
+                        button_list,
+                    );
+                }
+                return;
             }
-            return;
-        } else if sw == tex_low {
-            start_line_sound(&line, sfx, snd);
-            line.front_sidedef.bottomtexture = switch_list[i ^ 1];
-            if use_again {
-                start_button(
-                    line,
-                    ButtonWhere::Bottom,
-                    switch_list[i],
-                    BUTTONTIME,
-                    button_list,
-                );
+        } else if let Some(tex_low) = line.front_sidedef.bottomtexture {
+            if sw == tex_low {
+                start_line_sound(&line, sfx, snd);
+                line.front_sidedef.bottomtexture = Some(switch_list[i ^ 1]);
+                if use_again {
+                    start_button(
+                        line,
+                        ButtonWhere::Bottom,
+                        switch_list[i],
+                        BUTTONTIME,
+                        button_list,
+                    );
+                }
+                return;
             }
-            return;
         }
     }
 }

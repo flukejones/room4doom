@@ -4,6 +4,7 @@ use crate::{
     CLIOptions, Shaders, BASE_DIR,
 };
 use dirs::config_dir;
+use gameplay::log::info;
 use serde::{Deserialize, Serialize};
 use sound_sdl2::timidity::GusMemSize;
 use std::{
@@ -12,11 +13,15 @@ use std::{
     path::PathBuf,
 };
 
+const LOG_TAG: &str = "UserConfig";
+
 fn get_cfg_file() -> PathBuf {
-    let mut dir = config_dir().unwrap_or_else(|| panic!("Couldn't open user config dir"));
+    let mut dir =
+        config_dir().unwrap_or_else(|| panic!("{}: Couldn't open user config dir", LOG_TAG));
     dir.push(BASE_DIR);
     if !dir.exists() {
-        create_dir(&dir).unwrap_or_else(|e| panic!("Couldn't create {:?}: {}", dir, e));
+        create_dir(&dir)
+            .unwrap_or_else(|e| panic!("{}: Couldn't create {:?}: {}", LOG_TAG, dir, e));
     }
     dir.push("user.toml");
     dir
@@ -52,6 +57,7 @@ impl UserConfig {
                 return UserConfig::create_default(&mut file);
             } else {
                 if let Ok(data) = toml::from_str(&buf) {
+                    info!(target: LOG_TAG, "Loaded user config file");
                     return data;
                 }
                 warn!("Could not deserialise {:?} recreating config", path);
@@ -69,10 +75,12 @@ impl UserConfig {
             mus_vol: 80,
             ..UserConfig::default()
         };
+        info!("Created default user config file");
         // Should be okay to unwrap this as is since it is a Default
         let json = toml::to_string(&config).unwrap();
         file.write_all(json.as_bytes())
             .unwrap_or_else(|_| panic!("Could not write {:?}", get_cfg_file()));
+        info!("Saved user config to {:?}", get_cfg_file());
         config
     }
 
@@ -85,8 +93,11 @@ impl UserConfig {
 
     /// Sync the CLI options and UserOptions with each other
     pub fn sync_cli(&mut self, cli: &mut CLIOptions) {
+        info!("Checking CLI options");
+
         if !cli.iwad.is_empty() && cli.iwad != self.iwad {
             self.iwad = cli.iwad.clone();
+            info!("IWAD changed to: {}", &cli.iwad);
         } else {
             cli.iwad = self.iwad.clone();
         }

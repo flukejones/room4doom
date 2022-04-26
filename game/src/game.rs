@@ -207,9 +207,10 @@ impl Game {
         }
 
         if !options.pwad.is_empty() {
+            info!("Init PWADfiles");
             for pwad in options.pwad.iter() {
-                info!("Adding PWAD: {}", pwad);
                 wad.add_file(pwad.into());
+                info!("Added: {}", pwad);
             }
         }
 

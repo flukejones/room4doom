@@ -1,3 +1,4 @@
+[ ] Lift sounds for E5M3 don't stop
 [ ] Make powerups count down
 [ ] Average the lines in a sector for sound origins
 [ ] Really need swept-volume collisions

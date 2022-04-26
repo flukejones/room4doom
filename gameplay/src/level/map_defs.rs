@@ -142,9 +142,9 @@ pub struct SideDef {
     pub rowoffset: f32,
 
     // TODO: link to textures by pointer?
-    pub toptexture: usize,
-    pub bottomtexture: usize,
-    pub midtexture: usize,
+    pub toptexture: Option<usize>,
+    pub bottomtexture: Option<usize>,
+    pub midtexture: Option<usize>,
 
     // Sector the SideDef is facing.
     pub sector: DPtr<Sector>,

@@ -882,9 +882,21 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
             if b.timer == 0 {
                 debug!("Button {:?} is switching after countdown", b.line.as_ptr());
                 match b.bwhere {
-                    ButtonWhere::Top => b.line.front_sidedef.toptexture = b.texture,
-                    ButtonWhere::Middle => b.line.front_sidedef.midtexture = b.texture,
-                    ButtonWhere::Bottom => b.line.front_sidedef.bottomtexture = b.texture,
+                    ButtonWhere::Top => {
+                        if let Some(t) = b.line.front_sidedef.toptexture.as_mut() {
+                            *t = b.texture;
+                        }
+                    }
+                    ButtonWhere::Middle => {
+                        if let Some(t) = b.line.front_sidedef.midtexture.as_mut() {
+                            *t = b.texture;
+                        }
+                    }
+                    ButtonWhere::Bottom => {
+                        if let Some(t) = b.line.front_sidedef.bottomtexture.as_mut() {
+                            *t = b.texture;
+                        }
+                    }
                 }
                 start_line_sound(&b.line, SfxEnum::swtchn, &level.snd_command);
             }
