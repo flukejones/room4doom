@@ -285,7 +285,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingpic == front_sector.ceilingpic
                 && back_sector.floorpic == front_sector.floorpic
                 && back_sector.lightlevel == front_sector.lightlevel
-                && seg.sidedef.midtexture == usize::MAX
+                && seg.sidedef.midtexture.is_none()
             {
                 return;
             }

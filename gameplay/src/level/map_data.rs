@@ -227,16 +227,13 @@ impl MapData {
                     rowoffset: s.y_offset as f32,
                     toptexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.upper_tex.to_ascii_uppercase())
-                        .unwrap_or(usize::MAX),
+                        .position(|n| n.name == s.upper_tex.to_ascii_uppercase()),
                     bottomtexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.lower_tex.to_ascii_uppercase())
-                        .unwrap_or(usize::MAX),
+                        .position(|n| n.name == s.lower_tex.to_ascii_uppercase()),
                     midtexture: tex_order
                         .iter()
-                        .position(|n| n.name == s.middle_tex.to_ascii_uppercase())
-                        .unwrap_or(usize::MAX),
+                        .position(|n| n.name == s.middle_tex.to_ascii_uppercase()),
                     sector: DPtr::new(sector),
                 }
             })

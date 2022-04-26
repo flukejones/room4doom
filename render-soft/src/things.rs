@@ -507,10 +507,10 @@ impl SoftwareRenderer {
 
         if let Some(backsector) = seg.backsector.as_ref() {
             let textures = self.texture_data.borrow();
-            let texnum = seg.sidedef.midtexture;
-            if texnum == usize::MAX {
+            if seg.sidedef.midtexture.is_none() {
                 return;
             }
+            let texnum = unsafe { seg.sidedef.midtexture.unwrap_unchecked() };
 
             let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
@@ -546,10 +546,10 @@ impl SoftwareRenderer {
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
                     if self.r_data.visplanes.openings[index] != i32::MAX
-                        && seg.sidedef.midtexture != usize::MAX
+                        && seg.sidedef.midtexture.is_some()
                     {
                         let texture_column = textures.wall_pic_column(
-                            seg.sidedef.midtexture,
+                            unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
                             self.r_data.visplanes.openings[index],
                         );
 
