@@ -3,7 +3,7 @@
 use log::error;
 use sound_traits::SfxEnum;
 
-use crate::{play::utilities::p_random, MapObjectType};
+use crate::{doom_def::MISSILERANGE, info::StateNum, play::utilities::p_random, MapObjectType};
 
 use super::{
     mobj::{MapObject, MapObjectFlag},
@@ -16,11 +16,11 @@ pub fn a_facetarget(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
-            let angle = point_to_angle_2(actor.xy, (*target).xy);
+            let angle = point_to_angle_2((*target).xy, actor.xy);
             actor.angle = angle;
 
             if (*target).flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
-                // TODO: actor.angle += P_SubRandom() << 21;
+                actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
             }
         }
     }
@@ -37,7 +37,9 @@ pub fn a_chase(actor: &mut MapObject) {
     if actor.threshold > 0 {
         if
         // TODO: gameversion > exe_doom_1_2 &&
-        actor.target.is_none() || actor.target.is_some() {
+        actor.target.is_none() {
+            actor.threshold -= 1;
+        } else {
             // unsafe { actor.target.as_ref().unwrap().health <= 0 }
             if let Some(target) = actor.target {
                 unsafe {
@@ -46,72 +48,60 @@ pub fn a_chase(actor: &mut MapObject) {
                     }
                 }
             }
-        } else {
-            actor.threshold -= 1;
         }
     }
 
-    actor.set_state(actor.info.spawnstate);
-    //
+    if let Some(target) = actor.target {
+        unsafe {
+            // Inanimate object, try to find new target
+            if (*target).flags & MapObjectFlag::Shootable as u32 == 0 {
+                // TODO: if (P_LookForPlayers(actor, true))
+                // return;
+                actor.set_state(actor.info.spawnstate);
+                return;
+            }
+        }
+    } else {
+        // No target, let's look
+        // TODO: if (P_LookForPlayers(actor, true))
+        // return;
+        actor.set_state(actor.info.spawnstate);
+        return;
+    }
 
-    //
-    // // turn towards movement direction if not there yet
-    // if (actor->movedir < 8)
-    // {
-    // actor->angle &= (7 << 29);
-    // delta = actor->angle - (actor->movedir << 29);
-    //
-    // if (delta > 0)
-    // actor->angle -= ANG90 / 2;
-    // else if (delta < 0)
-    // actor->angle += ANG90 / 2;
-    // }
-    //
-    // if (!actor->target || !(actor->target->flags & SHOOTABLE))
-    // {
-    // // look for a new target
-    // if (P_LookForPlayers(actor, true))
-    // return; // got a new target
-    //
-    // P_SetMobjState(actor, actor->info->spawnstate);
-    // return;
-    // }
-    //
-    // // do not attack twice in a row
-    // if (actor->flags & JUSTATTACKED)
-    // {
-    // actor->flags &= ~JUSTATTACKED;
-    // if (gameskill != sk_nightmare && !fastparm)
-    // P_NewChaseDir(actor);
-    // return;
-    // }
-    //
-    // // check for melee attack
-    // if (actor->info->meleestate && P_CheckMeleeRange(actor))
-    // {
-    // if (actor->info->attacksound)
-    // S_StartSound(actor, actor->info->attacksound);
-    //
-    // P_SetMobjState(actor, actor->info->meleestate);
-    // return;
-    // }
-    //
-    // // check for missile attack
-    // if (actor->info->missilestate)
-    // {
-    // if (gameskill < sk_nightmare && !fastparm && actor->movecount)
-    // {
-    // goto nomissile;
-    // }
-    //
-    // if (!P_CheckMissileRange(actor))
-    // goto nomissile;
-    //
-    // P_SetMobjState(actor, actor->info->missilestate);
-    // actor->flags |= JUSTATTACKED;
-    // return;
-    // }
-    //
+    if actor.flags & MapObjectFlag::JustAttacked as u32 != 0 {
+        actor.flags ^= MapObjectFlag::JustAttacked as u32;
+        // if (gameskill != sk_nightmare && !fastparm)
+        //     P_NewChaseDir(actor);
+
+        // TODO: TEMPORARY TESTING LINE
+        actor.set_state(actor.info.spawnstate);
+        return;
+    }
+
+    // Melee attack?
+    if actor.info.meleestate != StateNum::S_NULL {
+        // TODO: && P_CheckMeleeRange(actor)
+        if actor.info.attacksound != SfxEnum::None {
+            actor.start_sound(actor.info.attacksound);
+        }
+        actor.set_state(actor.info.meleestate);
+    }
+
+    // Missile attack?
+    if actor.info.missilestate != StateNum::S_NULL {
+        // if (gameskill < sk_nightmare && !fastparm && actor->movecount)
+        // {
+        // goto nomissile;
+        // }
+        // if (!P_CheckMissileRange(actor))
+        // goto nomissile;
+        //
+        actor.flags |= MapObjectFlag::JustAttacked as u32;
+        actor.set_state(actor.info.missilestate);
+        return;
+    }
+
     // // ?
     // nomissile:
     // // possibly choose another target
@@ -127,11 +117,10 @@ pub fn a_chase(actor: &mut MapObject) {
     // P_NewChaseDir(actor);
     // }
     //
-    // // make active sound
-    // if (actor->info->activesound && P_Random() < 3)
-    // {
-    // S_StartSound(actor, actor->info->activesound);
-    // }
+    // make active sound
+    if actor.info.activesound != SfxEnum::None && p_random() < 3 {
+        actor.start_sound(actor.info.activesound);
+    }
 }
 
 /// Stay in state until a player is sighted.
@@ -139,60 +128,60 @@ pub fn a_look(actor: &mut MapObject) {
     //error!("a_look not implemented");
     // mobj_t *targ;
     //
-    // actor->threshold = 0; // any shot will wake up
-    // targ = actor->subsector->sector->soundtarget;
-    //
-    // if (targ && (targ->flags & SHOOTABLE))
-    // {
-    // actor->target = targ;
-    //
-    // if (actor->flags & AMBUSH)
-    // {
-    // if (P_CheckSight(actor, actor->target))
-    // goto seeyou;
-    // }
-    // else
-    // goto seeyou;
-    // }
-    //
-    // if (!P_LookForPlayers(actor, false))
-    // return;
-    //
-    // // go into chase state
-    // seeyou:
-    // if (actor->info->seesound)
-    // {
-    // int sound;
-    //
-    // switch (actor->info->seesound)
-    // {
-    // case sfx_posit1:
-    // case sfx_posit2:
-    // case sfx_posit3:
-    // sound = sfx_posit1 + P_Random() % 3;
-    // break;
-    //
-    // case sfx_bgsit1:
-    // case sfx_bgsit2:
-    // sound = sfx_bgsit1 + P_Random() % 2;
-    // break;
-    //
-    // default:
-    // sound = actor->info->seesound;
-    // break;
-    // }
-    //
-    // if (actor->type == MT_SPIDER || actor->type == MT_CYBORG)
-    // {
-    // // full volume
-    // S_StartSound(NULL, sound);
-    // }
-    // else
-    // S_StartSound(actor, sound);
-    // }
-    //
-    // P_SetMobjState(actor, actor->info->seestate);
-    // actor.set_state(actor.info.seestate);
+    actor.threshold = 0; // any shot will wake up
+                         // targ = actor->subsector->sector->soundtarget;
+                         //
+                         // if (targ && (targ->flags & SHOOTABLE))
+                         // {
+                         // actor->target = targ;
+                         //
+                         // if (actor->flags & AMBUSH)
+                         // {
+                         // if (P_CheckSight(actor, actor->target))
+                         // goto seeyou;
+                         // }
+                         // else
+                         // goto seeyou;
+                         // }
+                         //
+                         // if (!P_LookForPlayers(actor, false))
+                         // return;
+                         //
+                         // // go into chase state
+                         // seeyou:
+                         // if (actor->info->seesound)
+                         // {
+                         // int sound;
+                         //
+                         // switch (actor->info->seesound)
+                         // {
+                         // case sfx_posit1:
+                         // case sfx_posit2:
+                         // case sfx_posit3:
+                         // sound = sfx_posit1 + P_Random() % 3;
+                         // break;
+                         //
+                         // case sfx_bgsit1:
+                         // case sfx_bgsit2:
+                         // sound = sfx_bgsit1 + P_Random() % 2;
+                         // break;
+                         //
+                         // default:
+                         // sound = actor->info->seesound;
+                         // break;
+                         // }
+                         //
+                         // if (actor->type == MT_SPIDER || actor->type == MT_CYBORG)
+                         // {
+                         // // full volume
+                         // S_StartSound(NULL, sound);
+                         // }
+                         // else
+                         // S_StartSound(actor, sound);
+                         // }
+                         //
+                         // P_SetMobjState(actor, actor->info->seestate);
+                         // actor.set_state(actor.info.seestate);
 }
 
 pub fn a_fire(_actor: &mut MapObject) {
@@ -247,8 +236,7 @@ pub fn a_scream(actor: &mut MapObject) {
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
     actor.flags &= !(MapObjectFlag::Solid as u32);
-    // So change this if corpse objects
-    // are meant to be obstacles.
+    // So change this if corpse objects are meant to be obstacles.
 }
 
 pub fn a_explode(actor: &mut MapObject) {
@@ -325,11 +313,45 @@ pub fn a_vileattack(actor: &mut MapObject) {
 }
 
 pub fn a_posattack(actor: &mut MapObject) {
-    error!("a_posattack not implemented");
+    if actor.target.is_none() {
+        return;
+    }
+
+    a_facetarget(actor);
+    let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
+    let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+
+    actor.start_sound(SfxEnum::pistol);
+
+    let mut angle = actor.angle;
+    angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
+    let damage = ((p_random() % 5) + 1) * 3;
+    actor.line_attack(damage as f32, MISSILERANGE, angle, slope, &mut bsp_trace);
 }
 
 pub fn a_sposattack(actor: &mut MapObject) {
-    error!("a_sposattack not implemented");
+    if actor.target.is_none() {
+        return;
+    }
+
+    a_facetarget(actor);
+    let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
+    let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+
+    actor.start_sound(SfxEnum::pistol);
+
+    let mut angle;
+    for _ in 0..3 {
+        angle = actor.angle + (((p_random() - p_random()) >> 4) as f32).to_radians();
+        let damage = ((p_random() % 5) + 1) * 3;
+        actor.line_attack(
+            damage as f32,
+            MISSILERANGE,
+            angle,
+            slope.clone(),
+            &mut bsp_trace,
+        );
+    }
 }
 
 pub fn a_cposattack(actor: &mut MapObject) {
@@ -365,6 +387,11 @@ pub fn a_cyberattack(actor: &mut MapObject) {
 }
 
 pub fn a_troopattack(actor: &mut MapObject) {
+    if actor.target.is_none() {
+        return;
+    }
+
+    a_facetarget(actor);
     error!("a_troopattack not implemented");
 }
 
