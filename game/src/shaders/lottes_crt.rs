@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_4;
 
-use glam::{Mat4, Vec3};
+use gameplay::glam::{Mat4, Vec3};
 use golem::{Dimension::*, *};
 
 use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
@@ -121,7 +121,7 @@ impl<'c> Drawer for LottesCRT<'c> {
         )?;
         self.crt_shader.set_uniform(
             "modelMat",
-            UniformValue::Matrix4(glam::f32::Mat4::IDENTITY.to_cols_array()),
+            UniformValue::Matrix4(Mat4::IDENTITY.to_cols_array()),
         )?;
 
         // CRT settings

@@ -22,11 +22,12 @@ pub enum SoundAction<S: Debug + Copy, M: Debug> {
         /// The world XY coords of this object
         x: f32,
         y: f32,
-        /// Get the angle of this object in radians
-        angle: f32,
     },
     /// Where in the world the listener is
     UpdateListener {
+        /// UID of the listener. This should be used to help position or stop
+        /// sounds relative to the player
+        uid: usize,
         /// The world XY coords of this object
         x: f32,
         y: f32,
@@ -63,10 +64,10 @@ where
     fn init(&mut self) -> InitResult<S, M, E>;
 
     /// Playback a sound
-    fn start_sound(&mut self, uid: usize, sfx: S, x: f32, y: f32, angle: f32);
+    fn start_sound(&mut self, uid: usize, sfx: S, x: f32, y: f32);
 
     /// Update a sounds parameters
-    fn update_listener(&mut self, x: f32, y: f32, angle: f32);
+    fn update_listener(&mut self, uid: usize, x: f32, y: f32, angle: f32);
 
     /// Stop this sound playback
     fn stop_sound(&mut self, uid: usize);
@@ -115,14 +116,10 @@ where
     fn tic(&mut self) -> bool {
         if let Ok(sound) = self.get_rx().recv_timeout(Duration::from_micros(500)) {
             match sound {
-                SoundAction::StartSfx {
-                    uid,
-                    sfx,
-                    x,
-                    y,
-                    angle,
-                } => self.start_sound(uid, sfx, x, y, angle),
-                SoundAction::UpdateListener { x, y, angle } => self.update_listener(x, y, angle),
+                SoundAction::StartSfx { uid, sfx, x, y } => self.start_sound(uid, sfx, x, y),
+                SoundAction::UpdateListener { uid, x, y, angle } => {
+                    self.update_listener(uid, x, y, angle)
+                }
                 SoundAction::StopSfx { uid } => self.stop_sound(uid),
                 SoundAction::StopSfxAll => self.stop_sound_all(),
                 SoundAction::StartMusic(music, looping) => self.start_music(music, looping),
@@ -191,12 +188,12 @@ mod tests {
             Ok(self.tx.clone())
         }
 
-        fn start_sound(&mut self, uid: usize, sfx: SndFx, x: f32, y: f32, angle: f32) {
-            dbg!(uid, sfx, x, y, angle);
+        fn start_sound(&mut self, uid: usize, sfx: SndFx, x: f32, y: f32) {
+            dbg!(uid, sfx, x, y);
         }
 
-        fn update_listener(&mut self, x: f32, y: f32, angle: f32) {
-            dbg!(x, y, angle);
+        fn update_listener(&mut self, uid: usize, x: f32, y: f32, angle: f32) {
+            dbg!(uid, x, y, angle);
         }
 
         fn stop_sound(&mut self, uid: usize) {
@@ -252,10 +249,10 @@ mod tests {
             sfx: SndFx::One,
             x: 0.3,
             y: 0.3,
-            angle: PI,
         })
         .unwrap();
         tx.send(SoundAction::UpdateListener {
+            uid: 42,
             x: 0.3,
             y: 0.3,
             angle: PI / 2.0,
@@ -269,10 +266,10 @@ mod tests {
             sfx: SndFx::One,
             x: 0.3,
             y: 0.3,
-            angle: PI,
         })
         .unwrap();
         tx.send(SoundAction::UpdateListener {
+            uid: 42,
             x: 0.3,
             y: 0.3,
             angle: PI / 2.0,

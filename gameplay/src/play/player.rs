@@ -254,7 +254,14 @@ impl Player {
             ],
         }
     }
-    // TODO: needs p_pspr.c, p_inter.c
+
+    pub fn mobj_unchecked(&self) -> &MapObject {
+        unsafe { &*self.mobj.unwrap_unchecked() }
+    }
+
+    pub fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
+        unsafe { &mut *self.mobj.unwrap_unchecked() }
+    }
 
     /// Doom function `G_PlayerFinishLevel`, mostly.
     pub fn finish_level(&mut self) {
@@ -269,12 +276,7 @@ impl Player {
         self.fixedcolormap = 0;
         self.damagecount = 0;
         self.bonuscount = 0;
-
-        if let Some(mobj) = self.mobj {
-            unsafe {
-                (*mobj).flags &= !(MapObjectFlag::Shadow as u32);
-            }
-        }
+        self.mobj_mut_unchecked().flags &= !(MapObjectFlag::Shadow as u32);
 
         info!("Reset level items and powers for player");
     }
@@ -310,12 +312,7 @@ impl Player {
         let x = mv as f32 * angle.cos();
         let y = mv as f32 * angle.sin();
         let mxy = Vec2::new(x, y);
-
-        if let Some(mobj) = self.mobj {
-            unsafe {
-                (*mobj).momxy += mxy;
-            }
-        }
+        self.mobj_mut_unchecked().momxy += mxy;
     }
 
     /// P_CalcHeight
@@ -800,11 +797,7 @@ impl Player {
 
     /// Check for mobj and set state of it
     pub(crate) fn set_mobj_state(&mut self, state: StateNum) {
-        if let Some(mobj) = self.mobj {
-            unsafe {
-                (*mobj).set_state(state);
-            }
-        }
+        self.mobj_mut_unchecked().set_state(state);
     }
 
     pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
@@ -838,6 +831,14 @@ impl Player {
             } else {
                 mobj.flags &= !(MapObjectFlag::NoClip as u32);
             }
+
+            let cmd = &mut self.cmd;
+            if mobj.flags & MapObjectFlag::JustAttacked as u32 != 0 {
+                cmd.angleturn = 0;
+                cmd.forwardmove = (0xc800 / 512) as i8;
+                cmd.sidemove = 0;
+                mobj.flags &= !(MapObjectFlag::JustAttacked as u32);
+            }
         }
 
         if self.player_state == PlayerState::Dead {
@@ -846,15 +847,12 @@ impl Player {
         }
 
         // TODO: not feature complete with P_PlayerThink
-        if let Some(mut mobj) = self.mobj {
-            unsafe {
-                if (*mobj).reactiontime > 0 {
-                    (*mobj).reactiontime -= 1;
-                } else {
-                    self.move_player();
-                }
-            }
+        if self.mobj_mut_unchecked().reactiontime > 0 {
+            self.mobj_mut_unchecked().reactiontime -= 1;
+        } else {
+            self.move_player();
         }
+
         self.calculate_height(level.level_time);
 
         self.in_special_sector(level);
@@ -894,11 +892,7 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {
                 self.usedown = true;
-                if let Some(mobj) = self.mobj {
-                    unsafe {
-                        (*mobj).use_lines();
-                    }
-                }
+                self.mobj_mut_unchecked().use_lines();
             }
         } else {
             self.usedown = false;
@@ -927,11 +921,7 @@ impl Player {
         if self.powers[PowerType::Invisibility as usize] != 0 {
             self.powers[PowerType::Invisibility as usize] -= 1;
             if self.powers[PowerType::Invisibility as usize] == 0 {
-                if let Some(mobj) = self.mobj {
-                    unsafe {
-                        (*mobj).flags &= !(MapObjectFlag::Shadow as u32);
-                    }
-                }
+                self.mobj_mut_unchecked().flags &= !(MapObjectFlag::Shadow as u32);
             }
         }
 
@@ -966,6 +956,9 @@ impl Player {
         false
     }
 
+    /// Fall down and put weapon away on death
+    ///
+    /// Doom function name `P_DeathThink`
     pub fn death_think(&mut self, level: &mut Level) {
         self.move_player_sprites();
 
@@ -997,9 +990,9 @@ impl Player {
                     } else {
                         mobj.angle -= ANG5;
                     }
-                } else if self.damagecount > 0 {
-                    self.damagecount -= 1;
                 }
+            } else if self.damagecount > 0 {
+                self.damagecount -= 1;
             }
         }
 

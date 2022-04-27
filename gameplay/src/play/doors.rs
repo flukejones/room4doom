@@ -87,7 +87,7 @@ impl Think for VerticalDoor {
                             start_line_sound(line, SfxEnum::dorcls, &level.snd_command);
                         }
                         DoorKind::Close30ThenOpen => {
-                            door.direction = -1;
+                            door.direction = 1;
                             start_line_sound(line, SfxEnum::doropn, &level.snd_command);
                         }
                         _ => {

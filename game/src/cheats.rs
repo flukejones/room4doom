@@ -73,11 +73,7 @@ impl Cheats {
                 player.cheats ^= PlayerCheat::Godmode as u32;
 
                 if player.cheats & PlayerCheat::Godmode as u32 != 0 {
-                    if let Some(mobj) = player.mobj {
-                        unsafe {
-                            (*mobj).health = 100;
-                        }
-                    }
+                    player.mobj_mut_unchecked().health = 100;
                     player.health = 100;
                     player.message = Some(english::STSTR_DQDON);
                 } else {

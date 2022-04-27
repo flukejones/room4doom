@@ -717,7 +717,6 @@ impl MapObject {
                 sfx,
                 self.xy.x,
                 self.xy.y,
-                self.angle.rad(),
                 self as *const Self as usize, // pointer cast as a UID
             )
         }

@@ -1,30 +1,37 @@
+## TODO
+
+[ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
-[ ] Make powerups count down
 [ ] Average the lines in a sector for sound origins
 [ ] Really need swept-volume collisions
 [ ] HUD using rx/tx channels
 [ ] angle_to_screen has an impact on sizing and scale
-[ ] Load sprites
-[ ] fixed-colourmap (special effects like rad suit, invuln, player-hit)
 [ ] Fix the types in texture module
 [ ] Colours seem off for darker areas?
 [ ] Menu screens
 [ ] Automap
 [ ] Status bar drawing
-[ ] Sound state machine on new thread
-[ ] Move "extra light" arg up the call chain to lightmap selection functions
 [ ] Shadow-pinkies
 
-[-] Sprites colourmap/light selection
-[-] P_TouchSpecialThing
-[-] Shooting
-[-] Shooting special items/lines
-[-] Thing collisions
-[-] P_KillMobj
+## PARTIAL-COMPLETE
+
+[-] Sprites colourmap/light selection (spectors)
+[-] P_KillMobj (target/source stuff)
 [-] P_UpdateSpecials (todo: level timer)
-[-] EV_Teleport (todo: telefrag stuff)
 [-] Recheck planes
 
+## DONE
+
+[+] Make powerups count down
+[+] Load sprites
+[+] fixed-colourmap (special effects like rad suit, invuln, player-hit)
+[+] Sound state machine on new thread
+[+] Move "extra light" arg up the call chain to lightmap selection functions
+[+] P_TouchSpecialThing
+[+] Shooting
+[+] Shooting special items/lines
+[+] Thing collisions
+[+] EV_Teleport (todo: telefrag stuff)
 [+] Sound distances (SDL helpers?)
 [+] sound-server using rx/tx channels
 [+] track the playing sound sources and the channels they are on

@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    f32::consts::PI,
     fmt::Debug,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -191,6 +192,25 @@ impl<'a> Snd<'a> {
             mus_vol: 64,
         })
     }
+
+    fn listener_to_source_angle(&self, sx: f32, sy: f32) -> f32 {
+        let (y, x) = point_to_angle_2(sx, sy, self.listener.x, self.listener.y).sin_cos();
+        let mut angle = angle_between(self.listener.angle, x, y);
+        if angle.is_sign_negative() {
+            angle += PI * 2.0;
+        }
+        360.0 - angle.to_degrees()
+    }
+
+    fn dist_from_listener(&self, sx: f32, sy: f32) -> f32 {
+        let dx = self.listener.x - sx;
+        let dy = self.listener.y - sy;
+        (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs()
+    }
+
+    fn dist_scale_sdl2(dist: f32) -> f32 {
+        dist * 255.0 / MAX_DIST
+    }
 }
 
 impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
@@ -198,27 +218,18 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         Ok(self.tx.clone())
     }
 
-    fn start_sound(&mut self, uid: usize, sfx: SfxEnum, x: f32, y: f32, angle: f32) {
-        // TODO: temporary testing stuff here
-        let dx = self.listener.x - x;
-        let dy = self.listener.y - y;
-        let mut dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs();
+    fn start_sound(&mut self, uid: usize, sfx: SfxEnum, x: f32, y: f32) {
+        let mut dist = self.dist_from_listener(x, y);
         if dist >= MAX_DIST {
             // Not audible
             return;
         }
         // Scale for SDL2
-        dist = dist * 255.0 / MAX_DIST;
-        let angle = 0.0;
-        // if uid != self.listener.uid {
-        // //     angle = point_to_angle_2(self.listener.x, self.listener.y, x, y);
-        // //     angle -= self.listener.angle - FRAC_2_PI * 3.0;
-        //     angle = angle_between(self.listener.angle, x, y);
-        //     if angle.is_sign_negative() {
-        //         angle += PI * 2.0;
-        //     }
-        //     angle = 360.0 - angle.to_degrees();
-        // }
+        dist = Self::dist_scale_sdl2(dist);
+        let mut angle = 0.0;
+        if uid != self.listener.uid {
+            angle = self.listener_to_source_angle(x, y);
+        }
 
         // Stop any existing sound this source is emitting
         self.stop_sound(uid);
@@ -267,32 +278,27 @@ impl<'a> SoundServer<SfxEnum, usize, sdl2::Error> for Snd<'a> {
         }
     }
 
-    fn update_listener(&mut self, x: f32, y: f32, angle: f32) {
+    fn update_listener(&mut self, uid: usize, x: f32, y: f32, angle: f32) {
+        self.listener.uid = uid;
         self.listener.x = x;
         self.listener.y = y;
         self.listener.angle = angle;
 
-        for s in self.sources.iter_mut() {
+        for s in self.sources.iter() {
             if s.uid != 0 && sdl2::mixer::Channel(s.channel).is_playing() {
-                let dx = self.listener.x - s.x;
-                let dy = self.listener.y - s.y;
-                let dist = (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs() * 255.0 / MAX_DIST;
-
+                let mut dist = self.dist_from_listener(s.x, s.y);
                 // Is it too far away now?
                 if dist >= MAX_DIST {
-                    sdl2::mixer::Channel(s.channel).pause();
+                    sdl2::mixer::Channel(s.channel).halt();
+                    continue;
                 }
+                // Scale for SDL2
+                dist = Self::dist_scale_sdl2(dist);
 
-                let angle = 0.0;
-                // if s.uid != self.listener.uid {
-                // //     angle = point_to_angle_2(self.listener.x, self.listener.y, s.x, s.y);
-                // //     angle -= self.listener.angle - FRAC_2_PI * 3.0;
-                //     angle = angle_between(self.listener.angle, x, y);
-                //     if angle.is_sign_negative() {
-                //         angle += PI * 2.0;
-                //     }
-                //     angle = 360.0 - angle.to_degrees();
-                // }
+                let mut angle = 0.0;
+                if s.uid != self.listener.uid {
+                    angle = self.listener_to_source_angle(s.x, s.y);
+                }
 
                 sdl2::mixer::Channel(s.channel)
                     .set_position(angle as i16, dist as u8)

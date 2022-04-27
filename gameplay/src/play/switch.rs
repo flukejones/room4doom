@@ -65,7 +65,6 @@ pub(crate) fn start_line_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) 
         sfx,
         x: sfx_origin.x,
         y: sfx_origin.y,
-        angle: 0.0,
     })
     .unwrap();
 }
@@ -464,11 +463,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                     player.message = Some(PD_BLUEO);
-			        if let Some(mobj) = player.mobj {
-                        unsafe {
-                            (*mobj).start_sound(SfxEnum::oof);
-                        }
-                    }
+                    player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
                 }
             }
         }
@@ -481,11 +476,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                     player.message = Some(PD_REDO);
-			        if let Some(mobj) = player.mobj {
-                        unsafe {
-                            (*mobj).start_sound(SfxEnum::oof);
-                        }
-                    }
+			        player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
                 }
             }
         }
@@ -498,11 +489,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                     player.message = Some(PD_YELLOWO);
-			        if let Some(mobj) = player.mobj {
-                        unsafe {
-                            (*mobj).start_sound(SfxEnum::oof);
-                        }
-                    }
+			        player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
                 }
             }
         }

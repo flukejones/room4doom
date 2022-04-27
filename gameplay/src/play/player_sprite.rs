@@ -297,11 +297,7 @@ pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
-    if let Some(mobj) = player.mobj {
-        unsafe {
-            (*mobj).start_sound(SfxEnum::bfg);
-        }
-    }
+    player.mobj_mut_unchecked().start_sound(SfxEnum::bfg);
 }
 
 pub fn a_bfgspray(player: &mut MapObject) {
@@ -345,27 +341,15 @@ pub fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    if let Some(mobj) = player.mobj {
-        unsafe {
-            (*mobj).start_sound(SfxEnum::dbopn);
-        }
-    }
+    player.mobj_mut_unchecked().start_sound(SfxEnum::dbopn);
 }
 
 pub fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    if let Some(mobj) = player.mobj {
-        unsafe {
-            (*mobj).start_sound(SfxEnum::dbload);
-        }
-    }
+    player.mobj_mut_unchecked().start_sound(SfxEnum::dbload);
 }
 
 pub fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
-    if let Some(mobj) = player.mobj {
-        unsafe {
-            (*mobj).start_sound(SfxEnum::dbcls);
-        }
-    }
+    player.mobj_mut_unchecked().start_sound(SfxEnum::dbcls);
     a_refire(player, pspr);
 }
 
