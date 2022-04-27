@@ -1,5 +1,7 @@
 ## TODO
 
+[ ] EV_DoDonut
+[ ] EV_StopPlat
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
 [ ] Average the lines in a sector for sound origins
