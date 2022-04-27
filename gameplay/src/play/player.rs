@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::{FRAC_2_PI, FRAC_PI_2, PI};
 
 use glam::Vec2;
 use log::{debug, error, info};
@@ -977,15 +977,15 @@ impl Player {
             if let Some(attacker) = self.attacker {
                 let attacker = unsafe { &mut *attacker };
                 if !std::ptr::eq(mobj, attacker) {
-                    let angle = point_to_angle_2(mobj.xy, attacker.xy);
-                    let delta = angle - mobj.angle;
+                    let angle = point_to_angle_2(attacker.xy, mobj.xy);
+                    let delta = mobj.angle.unit().angle_between(angle.unit());
 
-                    if delta.rad() < ANG5 || delta.rad() > -ANG5 {
+                    if delta.abs() <= ANG5 {
                         mobj.angle = angle;
                         if self.damagecount > 0 {
                             self.damagecount -= 1;
                         }
-                    } else if delta.rad() < PI {
+                    } else if delta > -ANG5 {
                         mobj.angle += ANG5;
                     } else {
                         mobj.angle -= ANG5;
