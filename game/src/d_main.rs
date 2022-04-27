@@ -12,7 +12,7 @@ use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
-    game::Game,
+    game::{Game, GameState},
     input::Input,
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     test_funcs::*,
@@ -177,18 +177,49 @@ pub fn d_doom_loop(
 /// D_Display
 /// Does a bunch of stuff in Doom...
 fn d_display(rend: &mut impl PlayRenderer, game: &Game, pixels: &mut PixelBuf) {
+    let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
-    if let Some(ref level) = game.level {
-        if !game.player_in_game[0] {
-            return;
-        }
+    let wipe = if game.game_state != game.wipe_game_state {
+        // TODO: wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
+        true
+    } else {
+        false
+    };
 
-        let player = &game.players[game.consoleplayer];
-        rend.render_player_view(player, level, pixels);
+    // Drawing order is different for RUST4DOOM as the screensize-statusbar is
+    // never taken in to account. A full Doom-style statusbar will never be added
+    // instead an "overlay" style bar will be done.
+    if game.game_state == GameState::Level && game.game_tic != 0 {
+        if !automap_active {
+            if let Some(ref level) = game.level {
+                if !game.player_in_game[0] {
+                    return;
+                }
+                let player = &game.players[game.consoleplayer];
+                rend.render_player_view(player, level, pixels);
+            }
+        }
+        // TODO: HU_Drawer();
+        pixels.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
     }
 
-    //pixels.present();
+    match game.game_state {
+        crate::game::GameState::Level => {
+            // TODO: Automap draw
+            // TODO: Statusbar draw
+        }
+        crate::game::GameState::Intermission => {
+            // TODO: WI_Drawer();
+        }
+        crate::game::GameState::Finale => {
+            // TODO: F_Drawer();
+        }
+        crate::game::GameState::Demo => {
+            // TODO: D_PageDrawer();
+        }
+        _ => {}
+    }
 
     // // menus go directly to the screen
     // TODO: M_Drawer();	 // menu is drawn even on top of everything
@@ -221,5 +252,6 @@ fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
     timestep.run_this(|_| {
         // G_Ticker
         game.ticker();
+        game.game_tic += 1;
     });
 }

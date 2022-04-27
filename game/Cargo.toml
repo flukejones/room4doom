@@ -1,6 +1,6 @@
 [package]
 name = "room4doom"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 license = "MPL-2.0"
@@ -16,7 +16,6 @@ sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
 
 [dependencies]
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
-glam = "~0.20"
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
 sound-traits = { path = "../sound-traits" }

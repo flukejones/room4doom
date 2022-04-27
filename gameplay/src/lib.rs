@@ -19,6 +19,7 @@ pub mod tic_cmd;
 
 pub use angle::Angle;
 pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
+pub use glam;
 pub use info::MapObjectType;
 pub use lang::english;
 pub use level::{

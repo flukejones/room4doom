@@ -72,7 +72,7 @@ impl UserConfig {
             width: 640,
             height: 480,
             sfx_vol: 100,
-            mus_vol: 80,
+            mus_vol: 70,
             ..UserConfig::default()
         };
         info!("Created default user config file");

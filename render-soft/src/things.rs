@@ -405,11 +405,7 @@ impl SoftwareRenderer {
     }
 
     fn draw_player_sprites(&mut self, player: &Player, pixels: &mut PixelBuf) {
-        let light = if let Some(mobj) = player.mobj {
-            unsafe { (*(*mobj).subsector).sector.lightlevel }
-        } else {
-            0
-        };
+        let light = unsafe { (*player.mobj_unchecked().subsector).sector.lightlevel };
         let light = (light >> 4) + player.extralight;
 
         for sprite in player.psprites.iter() {
@@ -420,7 +416,6 @@ impl SoftwareRenderer {
     }
 
     fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, pixels: &mut PixelBuf) {
-        // TODO:
         let pspriteiscale = 0.99;
         let pspritescale = 1;
 

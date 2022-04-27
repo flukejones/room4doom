@@ -107,12 +107,12 @@ pub struct Game {
     //
     old_game_state: GameState,
     game_action: GameAction,
-    game_state: GameState,
+    pub game_state: GameState,
     game_skill: Skill,
     respawn_monsters: bool,
     game_episode: i32,
     game_map: i32,
-    game_tic: u32,
+    pub game_tic: u32,
 
     /// If non-zero, exit the level after this number of minutes.
     _time_limit: Option<i32>,
@@ -134,7 +134,7 @@ pub struct Game {
 
     game_mode: GameMode,
     game_mission: GameMission,
-    wipe_game_state: GameState,
+    pub wipe_game_state: GameState,
     usergame: bool,
 
     /// The options the game exe was started with
@@ -856,9 +856,11 @@ impl Game {
                 // Update the listener of the sound server. Will always be consoleplayer.
                 if i == self.consoleplayer {
                     if let Some(mobj) = player.mobj {
+                        let uid = mobj as usize;
                         let mobj = unsafe { &*mobj };
                         self.snd_command
                             .send(SoundAction::UpdateListener {
+                                uid,
                                 x: mobj.xy.x,
                                 y: mobj.xy.y,
                                 angle: mobj.angle.rad(),

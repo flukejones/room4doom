@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use sound_traits::{SfxEnum, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
@@ -24,7 +22,6 @@ fn play_weapons_snd() {
         sfx: SfxEnum::pistol,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -33,7 +30,6 @@ fn play_weapons_snd() {
         sfx: SfxEnum::shotgn,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -42,7 +38,6 @@ fn play_weapons_snd() {
         sfx: SfxEnum::chgun,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -51,7 +46,6 @@ fn play_weapons_snd() {
         sfx: SfxEnum::rlaunc,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -79,7 +73,6 @@ fn play_demons_snd() {
         sfx: SfxEnum::bgsit1,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -88,7 +81,6 @@ fn play_demons_snd() {
         sfx: SfxEnum::bgdth1,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(300));
@@ -97,7 +89,6 @@ fn play_demons_snd() {
         sfx: SfxEnum::posit2,
         x: 0.3,
         y: 0.3,
-        angle: PI,
     })
     .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(500));

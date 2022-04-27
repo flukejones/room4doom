@@ -148,15 +148,9 @@ impl Level {
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, angle: f32, uid: usize) {
+    pub fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, uid: usize) {
         self.snd_command
-            .send(SoundAction::StartSfx {
-                uid,
-                sfx,
-                x,
-                y,
-                angle,
-            })
+            .send(SoundAction::StartSfx { uid, sfx, x, y })
             .unwrap();
     }
 }
