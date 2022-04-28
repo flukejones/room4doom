@@ -55,27 +55,25 @@ pub fn a_chase(actor: &mut MapObject) {
         unsafe {
             // Inanimate object, try to find new target
             if (*target).flags & MapObjectFlag::Shootable as u32 == 0 {
-                // TODO: if (P_LookForPlayers(actor, true))
-                // return;
+                if actor.look_for_players() {
+                    return; // Found a new target
+                }
                 actor.set_state(actor.info.spawnstate);
                 return;
             }
         }
     } else {
-        // No target, let's look
-        // TODO: if (P_LookForPlayers(actor, true))
-        // return;
+        if actor.look_for_players() {
+            return; // Found a new target
+        }
         actor.set_state(actor.info.spawnstate);
         return;
     }
 
     if actor.flags & MapObjectFlag::JustAttacked as u32 != 0 {
         actor.flags ^= MapObjectFlag::JustAttacked as u32;
-        // if (gameskill != sk_nightmare && !fastparm)
-        //     P_NewChaseDir(actor);
-
-        // TODO: TEMPORARY TESTING LINE
-        actor.set_state(actor.info.spawnstate);
+        // TODO: if (gameskill != sk_nightmare && !fastparm)
+        actor.new_chase_dir();
         return;
     }
 
@@ -97,12 +95,16 @@ pub fn a_chase(actor: &mut MapObject) {
         // if (!P_CheckMissileRange(actor))
         // goto nomissile;
         //
-        actor.flags |= MapObjectFlag::JustAttacked as u32;
-        actor.set_state(actor.info.missilestate);
-        return;
+        if actor.look_for_players() {
+            //  TODO: is a shortcut for if (!P_CheckMissileRange(actor))
+            if actor.movecount <= 0 {
+                actor.flags |= MapObjectFlag::JustAttacked as u32;
+                actor.set_state(actor.info.missilestate);
+                return;
+            }
+        }
     }
 
-    // // ?
     // nomissile:
     // // possibly choose another target
     // if (netgame && !actor->threshold && !P_CheckSight(actor, actor->target))
@@ -110,13 +112,13 @@ pub fn a_chase(actor: &mut MapObject) {
     // if (P_LookForPlayers(actor, true))
     // return; // got a new target
     // }
-    //
+
     // // chase towards player
-    // if (--actor->movecount < 0 || !P_Move(actor))
-    // {
-    // P_NewChaseDir(actor);
-    // }
-    //
+    actor.movecount -= 1;
+    if actor.movecount < 0 || !actor.do_move() {
+        actor.new_chase_dir()
+    }
+
     // make active sound
     if actor.info.activesound != SfxEnum::None && p_random() < 3 {
         actor.start_sound(actor.info.activesound);
@@ -125,63 +127,49 @@ pub fn a_chase(actor: &mut MapObject) {
 
 /// Stay in state until a player is sighted.
 pub fn a_look(actor: &mut MapObject) {
-    //error!("a_look not implemented");
-    // mobj_t *targ;
+    actor.threshold = 0;
+
+    // TODO: any shot will wake up
+    // targ = actor->subsector->sector->soundtarget;
     //
-    actor.threshold = 0; // any shot will wake up
-                         // targ = actor->subsector->sector->soundtarget;
-                         //
-                         // if (targ && (targ->flags & SHOOTABLE))
-                         // {
-                         // actor->target = targ;
-                         //
-                         // if (actor->flags & AMBUSH)
-                         // {
-                         // if (P_CheckSight(actor, actor->target))
-                         // goto seeyou;
-                         // }
-                         // else
-                         // goto seeyou;
-                         // }
-                         //
-                         // if (!P_LookForPlayers(actor, false))
-                         // return;
-                         //
-                         // // go into chase state
-                         // seeyou:
-                         // if (actor->info->seesound)
-                         // {
-                         // int sound;
-                         //
-                         // switch (actor->info->seesound)
-                         // {
-                         // case sfx_posit1:
-                         // case sfx_posit2:
-                         // case sfx_posit3:
-                         // sound = sfx_posit1 + P_Random() % 3;
-                         // break;
-                         //
-                         // case sfx_bgsit1:
-                         // case sfx_bgsit2:
-                         // sound = sfx_bgsit1 + P_Random() % 2;
-                         // break;
-                         //
-                         // default:
-                         // sound = actor->info->seesound;
-                         // break;
-                         // }
-                         //
-                         // if (actor->type == MT_SPIDER || actor->type == MT_CYBORG)
-                         // {
-                         // // full volume
-                         // S_StartSound(NULL, sound);
-                         // }
-                         // else
-                         // S_StartSound(actor, sound);
-                         // }
-                         //
-                         // P_SetMobjState(actor, actor->info->seestate);
-                         // actor.set_state(actor.info.seestate);
+    // if (targ && (targ->flags & SHOOTABLE))
+    // {
+    // actor->target = targ;
+    //
+    // if (actor->flags & AMBUSH)
+    // {
+    // if (P_CheckSight(actor, actor->target))
+    // goto seeyou;
+    // }
+    // else
+    // goto seeyou;
+    // }
+    //
+
+    if !actor.look_for_players() {
+        return;
+    }
+
+    if actor.info.seesound != SfxEnum::None {
+        let sound = match actor.info.seesound {
+            SfxEnum::posit1 | SfxEnum::posit2 | SfxEnum::posit3 => {
+                SfxEnum::from((SfxEnum::posit1 as i32 + p_random() % 3) as u8)
+            }
+            SfxEnum::bgsit1 | SfxEnum::bgsit2 => {
+                SfxEnum::from((SfxEnum::bgsit1 as i32 + p_random() % 3) as u8)
+            }
+            _ => actor.info.seesound,
+        };
+
+        if actor.kind == MapObjectType::MT_SPIDER || actor.kind == MapObjectType::MT_CYBORG {
+            // TODO: FULL VOLUME!
+            actor.start_sound(sound);
+        } else {
+            actor.start_sound(sound);
+        }
+    }
+
+    actor.set_state(actor.info.seestate);
 }
 
 pub fn a_fire(_actor: &mut MapObject) {

@@ -11,7 +11,7 @@ use crate::{
     pic::Button,
     play::Skill,
     thinker::ThinkerAlloc,
-    DPtr, PicData,
+    DPtr, PicData, Player,
 };
 
 use super::map_defs::LineDef;
@@ -62,6 +62,11 @@ pub struct Level {
     pub game_mode: GameMode,
     /// Provides ability for things to start a sound
     pub snd_command: SndServerTx,
+
+    /// Tracks which players are currently active, set by d_net.c loop
+    player_in_game: *const [bool; MAXPLAYERS],
+    /// Each player in the array may be controlled
+    players: *const [Player; MAXPLAYERS],
 }
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
@@ -83,6 +88,8 @@ impl Level {
         switch_list: Vec<usize>,
         pic_data: Rc<RefCell<PicData>>,
         snd_command: SndServerTx,
+        player_in_game: &[bool; MAXPLAYERS],
+        players: &[Player; MAXPLAYERS],
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -126,7 +133,17 @@ impl Level {
             pic_data,
             game_mode,
             snd_command,
+            player_in_game,
+            players,
         }
+    }
+
+    pub fn player_in_game(&self) -> &[bool; MAXPLAYERS] {
+        unsafe { &*self.player_in_game }
+    }
+
+    pub fn players(&self) -> &[Player; MAXPLAYERS] {
+        unsafe { &*self.players }
     }
 
     pub fn load(&mut self, pic_data: &PicData, wad_data: &WadData) {

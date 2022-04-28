@@ -546,7 +546,7 @@ mod tests {
         level::{map_data::MapData, Level},
         play::Skill,
         thinker::{Think, Thinker},
-        PicData,
+        PicData, Player, MAXPLAYERS,
     };
 
     use super::{ObjectType, TestObject, ThinkerAlloc};
@@ -589,6 +589,13 @@ mod tests {
                 Vec::new(),
                 Rc::new(RefCell::new(textures)),
                 tx,
+                &[false; MAXPLAYERS],
+                &[
+                    Player::default(),
+                    Player::default(),
+                    Player::default(),
+                    Player::default(),
+                ],
             )
         };
         let mut x = Thinker {

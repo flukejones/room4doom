@@ -1,5 +1,6 @@
 ## TODO
 
+[ ] Sector sound targets
 [ ] EV_DoDonut
 [ ] EV_StopPlat
 [ ] E1M5 Candelebra not on ground?

@@ -153,9 +153,9 @@ pub struct MapObject {
     pub health: i32,
     /// Movement direction, movement generation (zig-zagging).
     /// 0-7
-    movedir: i32,
+    movedir: DirType,
     /// when 0, select a new dir
-    movecount: i32,
+    pub movecount: i32,
     /// The best slide move for a player object
     pub best_slide: BestSlide,
     /// Thing being chased/attacked (or NULL),
@@ -170,7 +170,7 @@ pub struct MapObject {
     /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
     /// RUST: If this is not `None` then the pointer is guaranteed to point to a player
     pub player: Option<*mut Player>,
-    /// Player number last looked for.
+    /// Player number last looked for, 1-4 (does not start at 0)
     lastlook: i32,
     /// For nightmare respawn.
     spawn_point: Option<WadThing>,
@@ -210,7 +210,7 @@ impl MapObject {
             flags: info.flags,
             health: info.spawnhealth,
             tics: state.tics,
-            movedir: 0,
+            movedir: DirType::North,
             movecount: 0,
             best_slide: BestSlide::default(),
             reactiontime,
@@ -226,6 +226,14 @@ impl MapObject {
             kind,
             level,
         }
+    }
+
+    pub fn level(&self) -> &Level {
+        unsafe { &*self.level }
+    }
+
+    pub fn level_mut(&mut self) -> &mut Level {
+        unsafe { &mut *self.level }
     }
 
     /// P_SpawnPlayer
@@ -485,7 +493,7 @@ impl MapObject {
         self.xy += self.momxy / 2.0;
         self.z += self.momz / 2.0;
 
-        if !self.p_try_move(self.xy.x, self.xy.y) {
+        if !self.p_try_move(self.xy.x, self.xy.y, &mut SubSectorMinMax::default()) {
             self.p_explode_missile();
         }
     }

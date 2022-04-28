@@ -232,6 +232,134 @@ impl MapObject {
             self.shoot_line_attack(distance, angle, 0.0, damage, bsp_trace);
         }
     }
+
+    pub(crate) fn get_sight_bsp_trace(&self, xy2: Vec2) -> BSPTrace {
+        // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
+        // demons might overlap from a subsector that isn't caught otherwise (for example demon
+        // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
+        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
+        let mut count = 0;
+        let level = unsafe { &mut *self.level };
+        bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
+        bsp_trace
+    }
+
+    pub(crate) fn check_sight(
+        &mut self,
+        to_xy: Vec2,
+        to_z: f32,
+        to_height: f32,
+        bsp_trace: &mut BSPTrace,
+    ) -> bool {
+        let z_start = self.z + (self.height as i32 >> 1) as f32 + 8.0;
+        let mut sight_traverse =
+            SubSectTraverse::new(to_z + to_height - z_start, to_z - z_start, z_start);
+
+        let level = unsafe { &mut *self.level };
+        path_traverse(
+            self.xy,
+            to_xy,
+            PT_ADDLINES,
+            level,
+            |t| sight_traverse.check(t),
+            bsp_trace,
+        )
+    }
+
+    pub(crate) fn look_for_players(&mut self) -> bool {
+        let mut see = 0;
+        let stop = (self.lastlook - 1) & 3;
+
+        loop {
+            self.lastlook = (self.lastlook - 1) & 3;
+
+            if !self.level().player_in_game()[self.lastlook as usize] {
+                continue;
+            }
+            see += 1;
+            if see == 2 || self.lastlook == stop {
+                return false;
+            }
+
+            if self.level().players()[self.lastlook as usize].health <= 0 {
+                continue;
+            }
+
+            let xy = self.level().players()[self.lastlook as usize]
+                .mobj_unchecked()
+                .xy;
+            let z = self.level().players()[self.lastlook as usize]
+                .mobj_unchecked()
+                .z;
+            let height = self.level().players()[self.lastlook as usize]
+                .mobj_unchecked()
+                .height;
+            let mut bsp_trace = self.get_sight_bsp_trace(xy);
+            if !self.check_sight(xy, z, height, &mut bsp_trace) {
+                continue;
+            }
+
+            self.target = self.level().players()[self.lastlook as usize].mobj;
+            return true;
+        }
+    }
+}
+
+struct SubSectTraverse {
+    top_slope: f32,
+    bot_slope: f32,
+    shootz: f32,
+}
+
+impl SubSectTraverse {
+    fn new(top_slope: f32, bot_slope: f32, shootz: f32) -> Self {
+        Self {
+            top_slope,
+            bot_slope,
+            shootz,
+        }
+    }
+
+    /// Returns false if the intercept blocks the target
+    fn check(&mut self, intercept: &mut Intercept) -> bool {
+        if let Some(line) = intercept.line.as_mut() {
+            // Check if solid line and stop
+            if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                return false;
+            }
+
+            let portal = PortalZ::new(line);
+            if portal.bottom_z >= portal.top_z {
+                return false;
+            }
+
+            let dist = intercept.frac;
+
+            if let Some(backsector) = line.backsector.as_ref() {
+                if line.frontsector.floorheight != backsector.floorheight {
+                    let slope = (portal.bottom_z - self.shootz) / dist;
+                    if slope > self.bot_slope {
+                        self.bot_slope = slope;
+                    }
+                }
+
+                if line.frontsector.ceilingheight != backsector.ceilingheight {
+                    let slope = (portal.top_z - self.shootz) / dist;
+                    if slope < self.top_slope {
+                        self.top_slope = slope;
+                    }
+                }
+            }
+
+            if self.top_slope <= self.bot_slope {
+                return false;
+            }
+
+            return true;
+        }
+
+        false
+    }
 }
 
 #[derive(Clone)]

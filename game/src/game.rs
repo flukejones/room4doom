@@ -506,6 +506,8 @@ impl Game {
                 self.switch_list.clone(),
                 self.pic_data.clone(),
                 self.snd_command.clone(),
+                &self.player_in_game,
+                &self.players,
             )
         };
 
