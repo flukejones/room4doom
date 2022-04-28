@@ -4,7 +4,7 @@
 use std::ptr;
 
 use glam::Vec2;
-use log::debug;
+use log::{debug, error};
 
 use crate::{
     angle::Angle,
@@ -18,8 +18,8 @@ use crate::{
         specials::cross_special_line,
         switch::p_use_special_line,
         utilities::{
-            box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ,
-            FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
+            box_on_line_side, p_random, path_traverse, BestSlide, Intercept,
+            PortalZ, FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
         },
     },
     DPtr, MapObject, MapObjectType,
@@ -195,7 +195,7 @@ impl MapObject {
                 ymove = 0.0;
             }
 
-            if !self.p_try_move(ptryx, ptryy) {
+            if !self.p_try_move(ptryx, ptryy, &mut SubSectorMinMax::default()) {
                 if self.player.is_some() {
                     self.p_slide_move();
                 } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
@@ -258,14 +258,17 @@ impl MapObject {
     }
 
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    pub(super) fn p_try_move(&mut self, ptryx: f32, ptryy: f32) -> bool {
+    pub(super) fn p_try_move(
+        &mut self,
+        ptryx: f32,
+        ptryy: f32,
+        ctrl: &mut SubSectorMinMax,
+    ) -> bool {
         // P_CrossSpecialLine
-        let mut ctrl = SubSectorMinMax::default();
-
         let try_move = Vec2::new(ptryx, ptryy);
 
         ctrl.floatok = true;
-        if !self.p_check_position(try_move, &mut ctrl) {
+        if !self.p_check_position(try_move, ctrl) {
             return false;
         }
 
@@ -668,7 +671,11 @@ impl MapObject {
             self.best_slide.best_slide_frac -= 0.031250;
             if self.best_slide.best_slide_frac > 0.0 {
                 let slide_move = self.momxy * self.best_slide.best_slide_frac; // bestfrac
-                if !self.p_try_move(self.xy.x + slide_move.x, self.xy.y + slide_move.y) {
+                if !self.p_try_move(
+                    self.xy.x + slide_move.x,
+                    self.xy.y + slide_move.y,
+                    &mut SubSectorMinMax::default(),
+                ) {
                     self.stair_step();
                     return;
                 }
@@ -694,7 +701,7 @@ impl MapObject {
             self.momxy = slide_move;
 
             let endpoint = self.xy + slide_move;
-            if self.p_try_move(endpoint.x, endpoint.y) {
+            if self.p_try_move(endpoint.x, endpoint.y, &mut SubSectorMinMax::default()) {
                 return;
             }
 
@@ -740,8 +747,16 @@ impl MapObject {
 
     fn stair_step(&mut self) {
         // Line might have hit the middle, end-on?
-        if !self.p_try_move(self.xy.x, self.xy.y + self.momxy.y) {
-            self.p_try_move(self.xy.x + self.momxy.x, self.xy.y);
+        if !self.p_try_move(
+            self.xy.x,
+            self.xy.y + self.momxy.y,
+            &mut SubSectorMinMax::default(),
+        ) {
+            self.p_try_move(
+                self.xy.x + self.momxy.x,
+                self.xy.y,
+                &mut SubSectorMinMax::default(),
+            );
         }
     }
 
@@ -838,4 +853,201 @@ impl MapObject {
         // can't use for than one special line in a row
         false
     }
+
+    pub(crate) fn new_chase_dir(&mut self) {
+        if self.target.is_none() {
+            error!("new_chase_dir called with no target");
+            return;
+        }
+
+        let old_dir = self.movedir;
+        let mut dirs = [DirType::NoDir, DirType::NoDir, DirType::NoDir];
+        let turnaround = DIR_OPPOSITE[self.movedir as usize];
+
+        let target = unsafe { &**self.target.as_ref().unwrap() };
+        let dx = target.xy.x - self.xy.x;
+        let dy = target.xy.y - self.xy.y;
+        // Select a cardinal angle based on delta
+        if dx > 10.0 {
+            dirs[1] = DirType::East;
+        } else if dx < -10.0 {
+            dirs[1] = DirType::West;
+        } else {
+            dirs[1] = DirType::NoDir;
+        }
+
+        if dy < -10.0 {
+            dirs[2] = DirType::South;
+        } else if dy > 10.0 {
+            dirs[2] = DirType::North;
+        } else {
+            dirs[2] = DirType::NoDir;
+        }
+
+        // try direct route
+        if dirs[1] != DirType::NoDir && dirs[2] != DirType::NoDir {
+            self.movedir = DIR_DIAGONALS[(((dy < 0.0) as usize) << 1) + (dx > 0.0) as usize];
+            if self.movedir != turnaround && self.try_walk() {
+                return;
+            }
+        }
+
+        // try other directions
+        if p_random() > 200 || dy.abs() > dx.abs() {
+            dirs.swap(1, 2);
+        }
+        if dirs[1] == turnaround {
+            dirs[1] = DirType::NoDir;
+        }
+        if dirs[2] == turnaround {
+            dirs[2] = DirType::NoDir;
+        }
+
+        if dirs[1] != DirType::NoDir {
+            self.movedir = dirs[1];
+            if self.try_walk() {
+                // either moved forward or attacked
+                return;
+            }
+        }
+
+        if dirs[2] != DirType::NoDir {
+            self.movedir = dirs[2];
+            if self.try_walk() {
+                // either moved forward or attacked
+                return;
+            }
+        }
+
+        // there is no direct path to the player, so pick another direction.
+        if old_dir != DirType::NoDir {
+            self.movedir = old_dir;
+            if self.try_walk() {
+                return;
+            }
+        }
+
+        // randomly determine direction of search
+        if p_random() & 1 != 0 {
+            for t in DirType::East as usize..=DirType::SouthEast as usize {
+                let tdir = DirType::from(t);
+                if tdir != turnaround {
+                    self.movedir = tdir;
+                    if self.try_walk() {
+                        return;
+                    }
+                }
+            }
+        } else {
+            for t in (DirType::East as usize..=DirType::SouthEast as usize).rev() {
+                let tdir = DirType::from(t);
+                if tdir != turnaround {
+                    self.movedir = tdir;
+                    if self.try_walk() {
+                        return;
+                    }
+                }
+            }
+        }
+
+        if turnaround != DirType::NoDir {
+            self.movedir = turnaround;
+            if self.try_walk() {
+                return;
+            }
+        }
+
+        // Can't move
+        self.movedir = DirType::NoDir;
+    }
+
+    pub(crate) fn try_walk(&mut self) -> bool {
+        if !self.do_move() {
+            return false;
+        }
+        self.movecount = p_random() & 15;
+        true
+    }
+
+    pub(crate) fn do_move(&mut self) -> bool {
+        if self.movedir == DirType::NoDir {
+            return false;
+        }
+
+        let tryx = self.xy.x + self.info.speed * DIR_XSPEED[self.movedir as usize];
+        let tryy = self.xy.y + self.info.speed * DIR_YSPEED[self.movedir as usize];
+
+        let mut specs = SubSectorMinMax::default();
+        if !self.p_try_move(tryx, tryy, &mut specs) {
+            // open any specials
+            // TODO: if (actor->flags & MF_FLOAT && floatok)
+            // {
+            //     // must adjust height
+            //     if (actor->z < tmfloorz)
+            //         actor->z += FLOATSPEED;
+            //     else
+            //         actor->z -= FLOATSPEED;
+
+            //     actor->flags |= MF_INFLOAT;
+            //     return true;
+            // }
+
+            self.movedir = DirType::NoDir;
+            let mut good = false;
+            for ld in &specs.spec_hits {
+                if p_use_special_line(0, ld.clone(), self) {
+                    good = true;
+                }
+            }
+            return good;
+        }
+
+        true
+    }
 }
+
+#[repr(usize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub(crate) enum DirType {
+    East,
+    NorthEast,
+    North,
+    NorthWest,
+    West,
+    SouthWest,
+    South,
+    SouthEast,
+    NoDir,
+    NumDirs,
+}
+
+impl From<usize> for DirType {
+    fn from(w: usize) -> Self {
+        if w >= DirType::NumDirs as usize {
+            panic!("{} is not a variant of DirType", w);
+        }
+        unsafe { std::mem::transmute(w) }
+    }
+}
+
+const DIR_OPPOSITE: [DirType; 9] = [
+    DirType::West,
+    DirType::SouthWest,
+    DirType::South,
+    DirType::SouthEast,
+    DirType::East,
+    DirType::NorthEast,
+    DirType::North,
+    DirType::NorthWest,
+    DirType::NoDir,
+];
+
+const DIR_DIAGONALS: [DirType; 4] = [
+    DirType::NorthWest,
+    DirType::NorthEast,
+    DirType::SouthWest,
+    DirType::SouthEast,
+];
+
+const DIR_XSPEED: [f32; 8] = [1.0, 0.47, 0.0, -0.47, -1.0, -0.47, 0.0, 0.47];
+const DIR_YSPEED: [f32; 8] = [0.0, 0.47, 1.0, 0.47, 0.0, -0.47, -1.0, -0.47];
