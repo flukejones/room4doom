@@ -207,6 +207,7 @@ impl MapData {
                 specialdata: None,
                 lines: Vec::new(),
                 thinglist: None,
+                sound_target: None,
             })
             .collect();
         info!("{}: Loaded segments", self.name);

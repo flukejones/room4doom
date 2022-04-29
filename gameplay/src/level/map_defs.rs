@@ -40,7 +40,7 @@ pub struct Sector {
     // TODO: degenmobj_t	soundorg;
 
     // if == validcount, already checked
-    pub validcount: i32,
+    pub validcount: usize,
 
     // list of mobjs in sector
     pub thinglist: Option<NonNull<MapObject>>,
@@ -48,6 +48,8 @@ pub struct Sector {
     // thinker_t for reversable actions
     pub specialdata: Option<*mut Thinker>,
     pub lines: Vec<DPtr<LineDef>>,
+
+    pub sound_target: Option<*mut MapObject>,
 }
 
 impl Sector {

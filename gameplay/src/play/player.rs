@@ -4,6 +4,7 @@ use glam::Vec2;
 use log::{debug, error, info};
 
 use super::{
+    enemy::noise_alert,
     mobj::{MapObject, BONUSADD},
     player_sprite::{PspDef, WEAPONBOTTOM},
     utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, MAXHEALTH, VIEWHEIGHT},
@@ -710,7 +711,7 @@ impl Player {
 
         let new_state = WEAPON_INFO[self.readyweapon as usize].atkstate;
         self.set_psprite(PsprNum::Weapon as usize, new_state);
-        // TODO: P_NoiseAlert(player->mo, player->mo);
+        noise_alert(self.mobj_mut_unchecked());
     }
 
     pub(crate) fn check_ammo(&mut self) -> bool {

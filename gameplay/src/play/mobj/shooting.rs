@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_2_PI, PI};
 
 use glam::Vec2;
 use sound_traits::SfxEnum;
@@ -305,7 +305,7 @@ impl MapObject {
 
             if !all_around {
                 let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
-                if angle.abs() > PI && self.xy.distance(xy) > MELEERANGE {
+                if angle.abs() > FRAC_2_PI && self.xy.distance(xy) > MELEERANGE {
                     continue;
                 }
             }
@@ -313,6 +313,11 @@ impl MapObject {
             self.target = self.level().players()[self.lastlook as usize].mobj;
             return true;
         }
+    }
+
+    pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
+        let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
+        self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)
     }
 
     pub(crate) fn check_melee_range(&mut self) -> bool {

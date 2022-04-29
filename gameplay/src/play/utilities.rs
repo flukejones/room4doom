@@ -141,6 +141,7 @@ impl BestSlide {
     }
 }
 
+/// Functions like `P_LineOpening`
 #[derive(Default, Debug)]
 pub struct PortalZ {
     /// The lowest ceiling of the portal line

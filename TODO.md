@@ -1,7 +1,6 @@
 ## TODO
 
-[ ] reactiontime + threshold
-[ ] Sector sound targets
+[ ] Some buttons no-longer change?
 [ ] EV_DoDonut
 [ ] EV_StopPlat
 [ ] E1M5 Candelebra not on ground?
@@ -22,10 +21,12 @@
 [-] Sprites colourmap/light selection (spectors)
 [-] P_KillMobj (target/source stuff)
 [-] P_UpdateSpecials (todo: level timer)
-[-] Recheck planes
 
 ## DONE
 
+[+] P_RecursiveSound - use flood through sectors. P_NoiseAlert
+[+] Sector sound targets - done with P_RecursiveSound
+[+] Recheck planes (seems correct now)
 [+] Make powerups count down
 [+] Load sprites
 [+] fixed-colourmap (special effects like rad suit, invuln, player-hit)
