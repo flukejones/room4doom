@@ -78,7 +78,7 @@ pub fn a_chase(actor: &mut MapObject) {
     }
 
     // Melee attack?
-    if actor.info.meleestate != StateNum::S_NULL {
+    if actor.info.meleestate != StateNum::S_NULL && actor.check_melee_range() {
         // TODO: && P_CheckMeleeRange(actor)
         if actor.info.attacksound != SfxEnum::None {
             actor.start_sound(actor.info.attacksound);
@@ -375,12 +375,21 @@ pub fn a_cyberattack(actor: &mut MapObject) {
 }
 
 pub fn a_troopattack(actor: &mut MapObject) {
-    if actor.target.is_none() {
-        return;
-    }
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
 
-    a_facetarget(actor);
-    error!("a_troopattack not implemented");
+        let target = unsafe { &mut *target };
+
+        if actor.check_melee_range() {
+            actor.start_sound(SfxEnum::claw);
+            let damage = ((p_random() % 8) + 1) * 3;
+            target.p_take_damage(Some(actor), None, true, damage);
+            return;
+        }
+
+        let level = unsafe { &mut *actor.level };
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_TROOPSHOT, level);
+    }
 }
 
 pub fn a_pain(actor: &mut MapObject) {

@@ -2,6 +2,7 @@ use glam::Vec2;
 use sound_traits::SfxEnum;
 
 use crate::{
+    doom_def::MELEERANGE,
     info::MOBJINFO,
     level::map_data::BSPTrace,
     play::{
@@ -302,6 +303,23 @@ impl MapObject {
             self.target = self.level().players()[self.lastlook as usize].mobj;
             return true;
         }
+    }
+
+    pub(crate) fn check_melee_range(&mut self) -> bool {
+        if let Some(target) = self.target {
+            let target = unsafe { &*target };
+
+            let dist = self.xy.distance(target.xy);
+            if dist >= MELEERANGE - 20.0 + target.radius {
+                return false;
+            }
+
+            let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
+            if self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
+                return true;
+            }
+        }
+        false
     }
 }
 
