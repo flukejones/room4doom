@@ -100,7 +100,8 @@ pub fn change_switch_texture(
                 }
                 return;
             }
-        } else if let Some(tex_mid) = line.front_sidedef.midtexture {
+        }
+        if let Some(tex_mid) = line.front_sidedef.midtexture {
             if sw == tex_mid {
                 start_line_sound(&line, sfx, snd);
                 line.front_sidedef.midtexture = Some(switch_list[i ^ 1]);
@@ -115,7 +116,8 @@ pub fn change_switch_texture(
                 }
                 return;
             }
-        } else if let Some(tex_low) = line.front_sidedef.bottomtexture {
+        }
+        if let Some(tex_low) = line.front_sidedef.bottomtexture {
             if sw == tex_low {
                 start_line_sound(&line, sfx, snd);
                 line.front_sidedef.bottomtexture = Some(switch_list[i ^ 1]);

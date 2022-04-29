@@ -252,6 +252,5 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, context, options)?;
-    // kill.store(true, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }

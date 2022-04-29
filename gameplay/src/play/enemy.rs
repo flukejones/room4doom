@@ -7,7 +7,7 @@
 //! but some can be made preaware
 //!
 
-use std::f32::consts::FRAC_PI_4;
+use std::{f32::consts::FRAC_PI_4, ptr};
 
 use log::error;
 use sound_traits::SfxEnum;
@@ -16,12 +16,63 @@ use crate::{
     doom_def::MISSILERANGE,
     info::StateNum,
     play::{mobj::DirType, utilities::p_random},
-    Angle, MapObjectType, Skill,
+    Angle, DPtr, LineDefFlags, MapObjectType, Sector, Skill,
 };
+
+/// This was only ever called with the player as the target, so it never follows
+/// the original comment stating that if a monster yells it alerts surrounding monsters
+pub(crate) fn noise_alert(target: &mut MapObject) {
+    let vc = unsafe {
+        (*target.level).valid_count += 1;
+        (*target.level).valid_count
+    };
+    let sect = unsafe { (*target.subsector).sector.clone() };
+    sound_flood(sect, vc, 0, target);
+}
+
+fn sound_flood(
+    mut sector: DPtr<Sector>,
+    valid_count: usize,
+    sound_blocks: i32,
+    target: &mut MapObject,
+) {
+    if sector.validcount == valid_count && sector.soundtraversed <= sound_blocks + 1 {
+        return; // Done with this sector, it's flooded
+    }
+
+    sector.validcount = valid_count;
+    sector.soundtraversed = sound_blocks + 1;
+    sector.sound_target = Some(target);
+
+    for line in sector.lines.iter() {
+        if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+            continue;
+        }
+
+        let line_opening = PortalZ::new(line);
+        if line_opening.range <= 0.0 {
+            continue; // A door, and it's closed
+        }
+
+        let other = if ptr::eq(line.front_sidedef.sector.as_ptr(), sector.as_ptr()) {
+            line.back_sidedef.as_ref().unwrap().sector.clone()
+        } else {
+            line.front_sidedef.sector.clone()
+        };
+
+        if line.flags & LineDefFlags::BlockSound as u32 != 0 {
+            if sound_blocks == 0 {
+                sound_flood(other, valid_count, 1, target);
+            }
+        } else {
+            sound_flood(other, valid_count, sound_blocks, target);
+        }
+    }
+}
 
 use super::{
     mobj::{MapObject, MapObjectFlag},
-    utilities::point_to_angle_2,
+    utilities::{point_to_angle_2, PortalZ},
 };
 
 /// A_FaceTarget
@@ -143,26 +194,23 @@ pub fn a_chase(actor: &mut MapObject) {
 /// Stay in this state until a player is sighted.
 pub fn a_look(actor: &mut MapObject) {
     actor.threshold = 0;
-
     // TODO: any shot will wake up
-    // targ = actor->subsector->sector->soundtarget;
-    //
-    // if (targ && (targ->flags & SHOOTABLE))
-    // {
-    // actor->target = targ;
-    //
-    // if (actor->flags & AMBUSH)
-    // {
-    // if (P_CheckSight(actor, actor->target))
-    // goto seeyou;
-    // }
-    // else
-    // goto seeyou;
-    // }
-    //
+    unsafe {
+        if let Some(target) = (*actor.subsector).sector.sound_target {
+            let target = &*target;
+            if target.flags & MapObjectFlag::Shootable as u32 != 0 {
+                actor.target = (*actor.subsector).sector.sound_target;
 
-    if !actor.look_for_players(false) {
-        return;
+                if actor.flags & MapObjectFlag::Ambush as u32 != 0
+                    && !actor.check_sight_target(target)
+                    && !actor.look_for_players(false)
+                {
+                    return;
+                }
+            }
+        } else if !actor.look_for_players(false) {
+            return;
+        }
     }
 
     if actor.info.seesound != SfxEnum::None {
