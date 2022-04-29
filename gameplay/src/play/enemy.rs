@@ -1,9 +1,23 @@
 //! Doom source name `p_enemy`
+//!
+//! ENEMY THINKING
+//! Enemies are allways spawned
+//! with targetplayer = -1, threshold = 0
+//! Most monsters are spawned unaware of all players,
+//! but some can be made preaware
+//!
+
+use std::f32::consts::FRAC_PI_4;
 
 use log::error;
 use sound_traits::SfxEnum;
 
-use crate::{doom_def::MISSILERANGE, info::StateNum, play::utilities::p_random, MapObjectType};
+use crate::{
+    doom_def::MISSILERANGE,
+    info::StateNum,
+    play::{mobj::DirType, utilities::p_random},
+    Angle, MapObjectType, Skill,
+};
 
 use super::{
     mobj::{MapObject, MapObjectFlag},
@@ -35,19 +49,25 @@ pub fn a_chase(actor: &mut MapObject) {
 
     // modify target threshold
     if actor.threshold > 0 {
-        if
-        // TODO: gameversion > exe_doom_1_2 &&
-        actor.target.is_none() {
-            actor.threshold -= 1;
-        } else {
-            // unsafe { actor.target.as_ref().unwrap().health <= 0 }
-            if let Some(target) = actor.target {
-                unsafe {
-                    if (*target).health <= 0 {
-                        actor.threshold = 0;
-                    }
+        if let Some(target) = actor.target {
+            unsafe {
+                if (*target).health <= 0 {
+                    actor.threshold = 0;
+                } else {
+                    actor.threshold -= 1;
                 }
             }
+        } else {
+            actor.threshold = 0;
+        }
+    }
+
+    if actor.movedir < DirType::NoDir {
+        let delta = actor.angle.rad() - Angle::from(actor.movedir).rad();
+        if delta > FRAC_PI_4 {
+            actor.angle -= FRAC_PI_4;
+        } else if delta < -FRAC_PI_4 {
+            actor.angle += FRAC_PI_4;
         }
     }
 
@@ -55,7 +75,7 @@ pub fn a_chase(actor: &mut MapObject) {
         unsafe {
             // Inanimate object, try to find new target
             if (*target).flags & MapObjectFlag::Shootable as u32 == 0 {
-                if actor.look_for_players() {
+                if actor.look_for_players(true) {
                     return; // Found a new target
                 }
                 actor.set_state(actor.info.spawnstate);
@@ -63,7 +83,7 @@ pub fn a_chase(actor: &mut MapObject) {
             }
         }
     } else {
-        if actor.look_for_players() {
+        if actor.look_for_players(true) {
             return; // Found a new target
         }
         actor.set_state(actor.info.spawnstate);
@@ -79,7 +99,6 @@ pub fn a_chase(actor: &mut MapObject) {
 
     // Melee attack?
     if actor.info.meleestate != StateNum::S_NULL && actor.check_melee_range() {
-        // TODO: && P_CheckMeleeRange(actor)
         if actor.info.attacksound != SfxEnum::None {
             actor.start_sound(actor.info.attacksound);
         }
@@ -88,16 +107,12 @@ pub fn a_chase(actor: &mut MapObject) {
 
     // Missile attack?
     if actor.info.missilestate != StateNum::S_NULL {
-        // if (gameskill < sk_nightmare && !fastparm && actor->movecount)
-        // {
-        // goto nomissile;
-        // }
-        // if (!P_CheckMissileRange(actor))
-        // goto nomissile;
-        //
-        if actor.look_for_players() {
-            //  TODO: is a shortcut for if (!P_CheckMissileRange(actor))
-            if actor.movecount <= 0 {
+        let skill = unsafe { (*actor.level).game_skill };
+        if skill >= Skill::Nightmare || actor.movecount <= 0 {
+            // if (gameskill < sk_nightmare && !fastparm && actor->movecount) {
+            // goto nomissile;
+            // }
+            if actor.check_missile_range() {
                 actor.flags |= MapObjectFlag::JustAttacked as u32;
                 actor.set_state(actor.info.missilestate);
                 return;
@@ -125,7 +140,7 @@ pub fn a_chase(actor: &mut MapObject) {
     }
 }
 
-/// Stay in state until a player is sighted.
+/// Stay in this state until a player is sighted.
 pub fn a_look(actor: &mut MapObject) {
     actor.threshold = 0;
 
@@ -146,7 +161,7 @@ pub fn a_look(actor: &mut MapObject) {
     // }
     //
 
-    if !actor.look_for_players() {
+    if !actor.look_for_players(false) {
         return;
     }
 

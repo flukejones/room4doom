@@ -1,7 +1,10 @@
 //! Almost all of the methods here are on `MapObject`.
 //! Movement, collision handling. Shooting and aiming.
 
-use std::ptr;
+use std::{
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
+    ptr,
+};
 
 use glam::Vec2;
 use log::{debug, error};
@@ -862,7 +865,7 @@ impl MapObject {
 
         let old_dir = self.movedir;
         let mut dirs = [DirType::NoDir, DirType::NoDir, DirType::NoDir];
-        let turnaround = DIR_OPPOSITE[self.movedir as usize];
+        let turnaround = DIR_OPPOSITE[old_dir as usize];
 
         let target = unsafe { &**self.target.as_ref().unwrap() };
         let dx = target.xy.x - self.xy.x;
@@ -961,6 +964,8 @@ impl MapObject {
         self.movedir = DirType::NoDir;
     }
 
+    /// Try to move in current direction. If blocked by a wall or other actor it
+    /// returns false, otherwise tries to open a door if the block is one, and continue.
     pub(crate) fn try_walk(&mut self) -> bool {
         if !self.do_move() {
             return false;
@@ -991,15 +996,24 @@ impl MapObject {
             //     actor->flags |= MF_INFLOAT;
             //     return true;
             // }
+            if specs.spec_hits.is_empty() {
+                return false;
+            }
 
             self.movedir = DirType::NoDir;
             let mut good = false;
             for ld in &specs.spec_hits {
-                if p_use_special_line(0, ld.clone(), self) {
+                if p_use_special_line(0, ld.clone(), self) || ld.special == 0 {
                     good = true;
                 }
             }
             return good;
+        } else {
+            self.flags ^= MapObjectFlag::InFloat as u32;
+        }
+
+        if self.flags & MapObjectFlag::Float as u32 == 0 {
+            self.z = self.floorz;
         }
 
         true
@@ -1027,6 +1041,22 @@ impl From<usize> for DirType {
             panic!("{} is not a variant of DirType", w);
         }
         unsafe { std::mem::transmute(w) }
+    }
+}
+
+impl From<DirType> for Angle {
+    fn from(d: DirType) -> Angle {
+        match d {
+            DirType::East => Angle::default(),
+            DirType::NorthEast => Angle::new(FRAC_PI_4),
+            DirType::North => Angle::new(FRAC_PI_2),
+            DirType::NorthWest => Angle::new(FRAC_PI_2 + FRAC_PI_4),
+            DirType::West => Angle::new(PI),
+            DirType::SouthWest => Angle::new(PI + FRAC_PI_4),
+            DirType::South => Angle::new(PI + FRAC_PI_2),
+            DirType::SouthEast => Angle::new(PI + FRAC_PI_2 + FRAC_PI_4),
+            _ => Angle::default(),
+        }
     }
 }
 
