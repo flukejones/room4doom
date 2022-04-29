@@ -16,7 +16,9 @@ use self::movement::SubSectorMinMax;
 
 use super::{
     player::{Player, PlayerState},
-    utilities::{p_random, p_subrandom, BestSlide, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT},
+    utilities::{
+        p_random, p_subrandom, point_to_angle_2, BestSlide, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT,
+    },
     Skill,
 };
 
@@ -480,6 +482,44 @@ impl MapObject {
         mobj.target = Some(source);
         mobj.momxy = mobj.angle.unit() * mobj.info.speed;
         mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
+        mobj.check_missile_spawn();
+    }
+
+    /// A thinker for shooty blowy things.
+    ///
+    /// Doom function name is `P_SpawnMissile`
+    pub fn spawn_missile(
+        source: &mut MapObject,
+        target: &mut MapObject,
+        kind: MapObjectType,
+        level: &mut Level,
+    ) {
+        let x = source.xy.x;
+        let y = source.xy.y;
+        let z = source.z + 32.0;
+
+        let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
+        let mobj = unsafe { &mut *mobj };
+
+        if !matches!(mobj.info.seesound, SfxEnum::None | SfxEnum::NumSfx) {
+            mobj.start_sound(mobj.info.seesound);
+        }
+
+        mobj.angle = point_to_angle_2(target.xy, source.xy);
+        // fuzzy player
+        if target.flags & MapObjectFlag::Shadow as u32 != 0 {
+            mobj.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
+        }
+
+        mobj.target = Some(source);
+        mobj.momxy = mobj.angle.unit() * mobj.info.speed;
+        //mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
+        let mut dist = mobj.xy.distance(target.xy) / mobj.info.speed;
+        if dist < 1.0 {
+            dist = 1.0;
+        }
+        mobj.momz = (target.z - source.z) / dist;
+
         mobj.check_missile_spawn();
     }
 

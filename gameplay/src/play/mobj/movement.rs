@@ -18,8 +18,8 @@ use crate::{
         specials::cross_special_line,
         switch::p_use_special_line,
         utilities::{
-            box_on_line_side, p_random, path_traverse, BestSlide, Intercept,
-            PortalZ, FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
+            box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ,
+            FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
         },
     },
     DPtr, MapObject, MapObjectType,
