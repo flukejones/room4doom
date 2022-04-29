@@ -1,13 +1,15 @@
+use std::f32::consts::PI;
+
 use glam::Vec2;
 use sound_traits::SfxEnum;
 
 use crate::{
     doom_def::MELEERANGE,
-    info::MOBJINFO,
+    info::{StateNum, MOBJINFO},
     level::map_data::BSPTrace,
     play::{
         specials::shoot_special_line,
-        utilities::{p_random, path_traverse, Intercept, PortalZ, MAXRADIUS},
+        utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ, MAXRADIUS},
     },
     Angle, DPtr, LineDefFlags, MapObject, MapObjectType,
 };
@@ -267,7 +269,7 @@ impl MapObject {
         )
     }
 
-    pub(crate) fn look_for_players(&mut self) -> bool {
+    pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
         let mut see = 0;
         let stop = (self.lastlook - 1) & 3;
 
@@ -295,9 +297,17 @@ impl MapObject {
             let height = self.level().players()[self.lastlook as usize]
                 .mobj_unchecked()
                 .height;
+
             let mut bsp_trace = self.get_sight_bsp_trace(xy);
             if !self.check_sight(xy, z, height, &mut bsp_trace) {
                 continue;
+            }
+
+            if !all_around {
+                let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
+                if angle.abs() > PI && self.xy.distance(xy) > MELEERANGE {
+                    continue;
+                }
             }
 
             self.target = self.level().players()[self.lastlook as usize].mobj;
@@ -316,6 +326,66 @@ impl MapObject {
 
             let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
             if self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// The closer the Actor gets to the Target the more they shoot
+    pub(crate) fn check_missile_range(&mut self) -> bool {
+        if let Some(target) = self.target {
+            let target = unsafe { &*target };
+
+            let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
+            if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
+                return false;
+            }
+
+            // Was just attacked, fight back!
+            if self.flags & MapObjectFlag::JustHit as u32 != 0 {
+                self.flags &= !(MapObjectFlag::JustHit as u32);
+                return true;
+            }
+
+            if self.reactiontime != 0 {
+                return false; // do not attack yet
+            }
+
+            let mut dist = self.xy.distance(target.xy) - 64.0;
+
+            if self.info.meleestate == StateNum::S_NULL {
+                dist -= 128.0; // no melee attack, so fire more
+            }
+
+            if self.kind == MapObjectType::MT_VILE && dist > 14.0 * 64.0 {
+                return false; // too far away
+            }
+
+            if self.kind == MapObjectType::MT_UNDEAD {
+                if dist < 196.0 {
+                    return false; // Close in to punch
+                }
+                dist /= 2.0;
+            }
+
+            if matches!(
+                self.kind,
+                MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER | MapObjectType::MT_SKULL
+            ) {
+                dist /= 2.0;
+            }
+
+            if dist > 200.0 {
+                dist = 200.0;
+            }
+
+            if self.kind == MapObjectType::MT_CYBORG && dist > 160.0 {
+                dist = 160.0;
+            }
+
+            // All down to chance now
+            if p_random() >= dist as i32 {
                 return true;
             }
         }

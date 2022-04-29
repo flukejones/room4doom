@@ -36,7 +36,7 @@ impl fmt::Display for DoomArgError {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Skill {
     NoItems = -1, // the "-skill 0" hack
     Baby = 0,

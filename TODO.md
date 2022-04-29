@@ -1,5 +1,6 @@
 ## TODO
 
+[ ] reactiontime + threshold
 [ ] Sector sound targets
 [ ] EV_DoDonut
 [ ] EV_StopPlat
