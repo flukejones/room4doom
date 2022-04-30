@@ -15,7 +15,7 @@ use super::{
         LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
     },
     mobj::MapObject,
-    platforms::{ev_do_platform, PlatKind},
+    platforms::{ev_do_platform, ev_stop_platform, PlatKind},
 };
 
 use crate::{
@@ -705,17 +705,11 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
             line.special = 0;
         }
         54 => {
-            error!(
-                "line-special #{}: EV_StopPlat not implemented",
-                line.special
-            );
+            ev_stop_platform(line.clone(), level);
             line.special = 0;
         }
         89 => {
-            error!(
-                "line-special #{}: EV_StopPlat not implemented",
-                line.special
-            );
+            ev_stop_platform(line.clone(), level);
         }
         97 => {
             teleport(line, side, thing, level);

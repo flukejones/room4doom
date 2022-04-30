@@ -422,7 +422,15 @@ pub fn a_headattack(actor: &mut MapObject) {
 }
 
 pub fn a_sargattack(actor: &mut MapObject) {
-    error!("a_sargattack not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        if actor.check_melee_range() {
+            let damage = ((p_random() % 10) + 1) * 4;
+            unsafe {
+                (*target).p_take_damage(Some(actor), None, true, damage);
+            }
+        }
+    }
 }
 
 pub fn a_bruisattack(actor: &mut MapObject) {

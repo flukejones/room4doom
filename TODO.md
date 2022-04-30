@@ -1,7 +1,5 @@
 ## TODO
 
-[+] EV_DoDonut
-[ ] EV_StopPlat
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
 [ ] Average the lines in a sector for sound origins
@@ -23,6 +21,8 @@
 
 ## DONE
 
+[+] EV_DoDonut (E2M2)
+[+] EV_StopPlat - requires tracking some active platforms.
 [+] Some buttons no-longer change? (Shouldn't have been if else-if)
 [+] P_RecursiveSound - use flood through sectors. P_NoiseAlert
 [+] Sector sound targets - done with P_RecursiveSound
