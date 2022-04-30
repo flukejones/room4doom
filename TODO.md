@@ -1,5 +1,6 @@
 ## TODO
 
+[ ] Don't shoot sky
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
 [ ] Average the lines in a sector for sound origins
@@ -13,6 +14,11 @@
 [ ] Status bar drawing
 [ ] Shadow-pinkies
 
+## IMPROVEMENTS
+
+[ ] Make skulls attempt to scale inanimate objects
+[ ] Step over things if higher
+
 ## PARTIAL-COMPLETE
 
 [-] Sprites colourmap/light selection (spectors)
@@ -21,6 +27,7 @@
 
 ## DONE
 
+[+] INFLOAT, floatok, skulls
 [+] EV_DoDonut (E2M2)
 [+] EV_StopPlat - requires tracking some active platforms.
 [+] Some buttons no-longer change? (Shouldn't have been if else-if)

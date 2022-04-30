@@ -11,6 +11,7 @@ use log::{debug, error};
 
 use crate::{
     angle::Angle,
+    doom_def::FLOATSPEED,
     info::StateNum,
     level::{
         flags::LineDefFlags,
@@ -66,20 +67,24 @@ impl MapObject {
         // adjust height
         self.z += self.momz;
 
-        if self.flags & MapObjectFlag::Float as u32 != 0 && self.target.is_some() {
-            // TODO: float down towards target if too close
-            // if (!(mo->flags & SKULLFLY) && !(mo->flags & INFLOAT))
-            // {
-            //     dist = P_AproxDistance(mo->x - mo->target->x,
-            //                         mo->y - mo->target->y);
+        if self.flags & MapObjectFlag::Float as u32 != 0 {
+            if let Some(target) = self.target {
+                // float down towards target if too close
+                if self.flags & MapObjectFlag::SkullFly as u32 == 0
+                    && self.flags & MapObjectFlag::InFloat as u32 == 0
+                {
+                    let target = unsafe { &*target };
 
-            //     delta = (mo->target->z + (mo->height >> 1)) - mo->z;
+                    let dist = self.xy.distance(target.xy);
+                    let delta = target.z + self.height / 2.0 - self.z;
 
-            //     if (delta < 0 && dist < -(delta * 3))
-            //         mo->z -= FLOATSPEED;
-            //     else if (delta > 0 && dist < (delta * 3))
-            //         mo->z += FLOATSPEED;
-            // }
+                    if delta < 0.0 && dist < -(delta * 3.0) {
+                        self.z -= FLOATSPEED;
+                    } else if delta > 0.0 && dist < delta * 3.0 {
+                        self.z += FLOATSPEED;
+                    }
+                }
+            }
         }
 
         // clip movement
@@ -99,7 +104,6 @@ impl MapObject {
                     // Decrease viewheight for a moment
                     // after hitting the ground (hard),
                     // and utter appropriate sound.
-
                     unsafe {
                         let player = &mut *(self.player.unwrap());
                         player.viewheight = ((self.momz as i32) >> 3) as f32;
@@ -144,13 +148,12 @@ impl MapObject {
         }
     }
 
-    /// P_XYMovement
+    /// Doom function name `P_XYMovement`
     pub(super) fn p_xy_movement(&mut self) {
-        if self.momxy.x == f32::EPSILON && self.momxy.y == f32::EPSILON {
+        if self.momxy.x == 0.0 && self.momxy.y == 0.0 {
             if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
                 self.flags &= !(MapObjectFlag::SkullFly as u32);
-                self.momxy = Vec2::default();
-                self.z = 0.0;
+                self.momz = 0.0;
                 self.set_state(self.info.spawnstate);
             }
             return;
@@ -204,8 +207,7 @@ impl MapObject {
                 } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
                     self.p_explode_missile();
                 } else {
-                    self.momxy.x = 0.0;
-                    self.momxy.y = 0.0;
+                    self.momxy = Vec2::default();
                 }
             }
 
@@ -448,7 +450,9 @@ impl MapObject {
         true
     }
 
-    /// Thing is generally the target
+    /// Thing is generally the target.
+    ///
+    /// Function is intended to function similar to `PIT_CheckThing`
     fn pit_check_thing(&mut self, thing: &mut MapObject, endpoint: Vec2) -> bool {
         if thing.flags
             & (MapObjectFlag::Solid as u32
@@ -470,7 +474,18 @@ impl MapObject {
             return true;
         }
 
-        // TODO: missile and skulls
+        if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+            let damage = ((p_random() % 8) + 1) * self.info.damage;
+            thing.p_take_damage(Some(self), None, true, damage);
+
+            self.momxy = Vec2::default();
+            self.momz = 0.0;
+
+            self.flags &= !(MapObjectFlag::SkullFly as u32);
+            self.set_state(self.info.spawnstate);
+            return false;
+        }
+
         if self.flags & MapObjectFlag::Missile as u32 != 0 {
             if self.z > thing.z + thing.height {
                 return true; // over
@@ -986,16 +1001,17 @@ impl MapObject {
         if !self.p_try_move(tryx, tryy, &mut specs) {
             // open any specials
             // TODO: if (actor->flags & MF_FLOAT && floatok)
-            // {
-            //     // must adjust height
-            //     if (actor->z < tmfloorz)
-            //         actor->z += FLOATSPEED;
-            //     else
-            //         actor->z -= FLOATSPEED;
+            if self.flags & MapObjectFlag::Float as u32 != 0 && specs.floatok {
+                // must adjust height
+                if self.z < specs.min_floor_z {
+                    self.z += FLOATSPEED;
+                } else {
+                    self.z -= FLOATSPEED;
+                }
+                self.flags |= MapObjectFlag::InFloat as u32;
+                return true;
+            }
 
-            //     actor->flags |= MF_INFLOAT;
-            //     return true;
-            // }
             if specs.spec_hits.is_empty() {
                 return false;
             }
@@ -1009,7 +1025,7 @@ impl MapObject {
             }
             return good;
         } else {
-            self.flags ^= MapObjectFlag::InFloat as u32;
+            self.flags &= !(MapObjectFlag::InFloat as u32);
         }
 
         if self.flags & MapObjectFlag::Float as u32 == 0 {
