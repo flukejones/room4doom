@@ -217,8 +217,8 @@ impl BBox {
 #[derive(Debug)]
 pub struct LineDef {
     // Vertices, from v1 to v2.
-    pub v1: DPtr<Vec2>,
-    pub v2: DPtr<Vec2>,
+    pub v1: Vec2,
+    pub v2: Vec2,
 
     // Precalculated v2 - v1 for side checking.
     pub delta: Vec2,
@@ -277,8 +277,8 @@ impl LineDef {
 #[derive(Debug)]
 pub struct Segment {
     // Vertices, from v1 to v2.
-    pub v1: DPtr<Vec2>,
-    pub v2: DPtr<Vec2>,
+    pub v1: Vec2,
+    pub v2: Vec2,
 
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
@@ -320,7 +320,7 @@ impl Segment {
 
         let dx = v.x - self.v1.x;
         let dy = v.y - self.v1.y;
-        let this_delta = *self.v2 - *self.v1;
+        let this_delta = self.v2 - self.v1;
 
         if (dy * this_delta.x) <= (this_delta.y * dx) {
             // Front side

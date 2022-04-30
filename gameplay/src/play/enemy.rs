@@ -16,7 +16,7 @@ use crate::{
     doom_def::{MISSILERANGE, SKULLSPEED},
     info::StateNum,
     play::{mobj::DirType, utilities::p_random},
-    Angle, DPtr, LineDefFlags, MapObjectType, Sector, Skill,
+    Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill,
 };
 
 /// This was only ever called with the player as the target, so it never follows
@@ -549,5 +549,12 @@ pub fn a_firecrackle(actor: &mut MapObject) {
 }
 
 pub fn a_playerscream(actor: &mut MapObject) {
-    error!("a_playerscream not implemented");
+    let mut sound = SfxEnum::pldeth;
+
+    if actor.level().game_mode == GameMode::Commercial && actor.health < -50 {
+        // IF THE PLAYER DIES LESS THAN -50% WITHOUT GIBBING
+        sound = SfxEnum::pdiehi;
+    }
+
+    actor.start_sound(sound);
 }

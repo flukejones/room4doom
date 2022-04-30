@@ -42,30 +42,28 @@ pub use play::{
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
 pub struct DPtr<T> {
-    p: *mut T,
+    inner: *mut T,
 }
 
 impl<T> DPtr<T> {
-    fn new(t: &T) -> DPtr<T> {
-        DPtr {
-            p: t as *const _ as *mut _,
-        }
+    fn new(t: &mut T) -> DPtr<T> {
+        DPtr { inner: t as *mut _ }
     }
 
     fn as_ptr(&self) -> *mut T {
-        self.p
+        self.inner
     }
 }
 
 impl<T> PartialEq for DPtr<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.p == other.p
+        self.inner == other.inner
     }
 }
 
 impl<T> Clone for DPtr<T> {
     fn clone(&self) -> DPtr<T> {
-        DPtr { p: self.p }
+        DPtr { inner: self.inner }
     }
 }
 
@@ -73,31 +71,33 @@ impl<T> Deref for DPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.p }
+        unsafe { &*self.inner }
     }
 }
 
 impl<T> DerefMut for DPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.p }
+        unsafe { &mut *self.inner }
     }
 }
 
 impl<T> AsRef<T> for DPtr<T> {
     fn as_ref(&self) -> &T {
-        unsafe { &*self.p }
+        unsafe { &*self.inner }
     }
 }
 
 impl<T> AsMut<T> for DPtr<T> {
     fn as_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.p }
+        unsafe { &mut *self.inner }
     }
 }
 
 impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ptr->{:?}->{:#?}", self.p, unsafe { self.p.as_ref() })
+        write!(f, "ptr->{:?}->{:#?}", self.inner, unsafe {
+            self.inner.as_ref()
+        })
     }
 }
 

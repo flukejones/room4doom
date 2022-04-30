@@ -64,8 +64,8 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 
     for sector in level
         .map_data
-        .sectors()
-        .iter()
+        .sectors_mut()
+        .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
         if sector.specialdata.is_some() {

@@ -205,8 +205,8 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
     let mut ret = false;
     for sector in level
         .map_data
-        .sectors()
-        .iter()
+        .sectors_mut()
+        .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
         if sector.specialdata.is_some() {

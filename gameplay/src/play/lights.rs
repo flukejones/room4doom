@@ -303,7 +303,7 @@ impl Think for Glow {
 pub fn ev_turn_light_on(line: DPtr<LineDef>, mut bright: i32, level: &mut Level) {
     for sector in level
         .map_data
-        .sectors
+        .sectors_mut()
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -325,7 +325,7 @@ pub fn ev_turn_tag_lights_off(line: DPtr<LineDef>, level: &mut Level) {
     let mut min;
     for sector in level
         .map_data
-        .sectors
+        .sectors_mut()
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -350,7 +350,7 @@ pub fn ev_start_light_strobing(line: DPtr<LineDef>, level: &mut Level) {
     let level_ptr = unsafe { &mut *(level as *mut Level) };
     for sector in level
         .map_data
-        .sectors
+        .sectors_mut()
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {

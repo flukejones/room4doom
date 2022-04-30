@@ -59,7 +59,7 @@ pub fn start_button(
 }
 
 pub(crate) fn start_line_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) {
-    let sfx_origin = *line.v1 + *line.v1 - *line.v2;
+    let sfx_origin = line.v1 + line.v1 - line.v2;
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
