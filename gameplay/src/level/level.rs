@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ptr, rc::Rc};
 
 use log::info;
 use sound_sdl2::SndServerTx;
@@ -9,7 +9,10 @@ use crate::{
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     level::map_data::MapData,
     pic::Button,
-    play::Skill,
+    play::{
+        platforms::{PlatStatus, Platform},
+        Skill,
+    },
     thinker::ThinkerAlloc,
     DPtr, PicData, Player,
 };
@@ -63,11 +66,16 @@ pub struct Level {
     /// Provides ability for things to start a sound
     pub snd_command: SndServerTx,
 
-    /// Tracks which players are currently active, set by d_net.c loop
+    /// Tracks which players are currently active, set by d_net.c loop.
+    /// This is a raw pointer to the array in `Game`, and must not be modified
     player_in_game: *const [bool; MAXPLAYERS],
-    /// Each player in the array may be controlled
+    /// Each player in the array may be controlled.
+    /// This is a raw pointer to the array in `Game`, and must not be modified
     players: *const [Player; MAXPLAYERS],
+
+    active_platforms: Vec<*mut Platform>,
 }
+
 impl Level {
     /// Set up a complete level including difficulty, spawns, players etc.
     /// After `new()` the `load()` function should be called.
@@ -135,6 +143,46 @@ impl Level {
             snd_command,
             player_in_game,
             players,
+            active_platforms: Vec::new(),
+        }
+    }
+
+    pub fn stop_platform(&mut self, tag: i16) {
+        for plat in self.active_platforms.iter_mut() {
+            let plat = unsafe { &mut **plat };
+            if plat.tag == tag && plat.status != PlatStatus::InStasis {
+                plat.old_status = plat.status;
+                plat.status = PlatStatus::InStasis;
+            }
+        }
+    }
+
+    pub fn activate_platform_in_stasis(&mut self, tag: i16) {
+        for plat in self.active_platforms.iter_mut() {
+            let plat = unsafe { &mut **plat };
+            if plat.tag == tag && plat.status == PlatStatus::InStasis {
+                plat.status = plat.old_status;
+            }
+        }
+    }
+
+    pub fn add_active_platform(&mut self, platform: *mut Platform) {
+        self.active_platforms.push(platform);
+    }
+
+    pub fn remove_active_platform(&mut self, plat: &mut Platform) {
+        let mut index = self.active_platforms.len() + 1;
+        for (i, p) in self.active_platforms.iter().enumerate() {
+            if ptr::eq(*p, plat) {
+                index = i;
+                break;
+            }
+        }
+        if index < self.active_platforms.len() {
+            unsafe {
+                (*plat.thinker).mark_remove();
+            }
+            self.active_platforms.remove(index);
         }
     }
 

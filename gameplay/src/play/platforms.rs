@@ -30,7 +30,7 @@ use crate::{
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum PlatStatus {
     Up,
     Down,
@@ -62,19 +62,20 @@ pub struct Platform {
     pub kind: PlatKind,
 }
 
+pub fn ev_stop_platform(line: DPtr<LineDef>, level: &mut Level) {
+    level.stop_platform(line.tag);
+}
+
 pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
     let mut ret = false;
 
     if matches!(kind, PlatKind::PerpetualRaise) {
-        // TODO: P_ActivateInStasis(line->tag);
+        level.activate_platform_in_stasis(line.tag);
     }
 
-    for sector in level
-        .map_data
-        .sectors()
-        .iter()
-        .filter(|s| s.tag == line.tag)
-    {
+    let mut plats = Vec::new();
+
+    for sector in level.map_data.sectors.iter().filter(|s| s.tag == line.tag) {
         // TODO: track active platforms and reset sector special data
         if sector.specialdata.is_some() {
             continue;
@@ -174,9 +175,13 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             ptr.set_obj_thinker_ptr();
             sec.specialdata = Some(ptr);
+            plats.push(ptr.object_mut().platform() as *mut Platform);
         }
     }
 
+    for p in plats {
+        level.add_active_platform(p);
+    }
     ret
 }
 
@@ -219,14 +224,14 @@ impl Think for Platform {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
                                 (*platform.thinker).mark_remove();
                             }
-                            // TODO: P_RemoveActivePlat(plat);
+                            level.remove_active_platform(platform);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
                             unsafe {
                                 platform.sector.specialdata = None; // TODO: remove when tracking active?
                                 (*platform.thinker).mark_remove();
                             }
-                            // TODO: P_RemoveActivePlat(plat);
+                            level.remove_active_platform(platform);
                         }
                         _ => {}
                     }
