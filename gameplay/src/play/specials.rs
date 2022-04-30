@@ -4,6 +4,8 @@
 //!
 //! Doom source name `p_spec`
 
+use std::ptr;
+
 use super::{
     ceiling::{ev_do_ceiling, CeilingKind},
     doors::{ev_do_door, DoorKind},
@@ -38,7 +40,7 @@ pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr
         return None;
     }
 
-    if line.frontsector == sector {
+    if ptr::eq(line.frontsector.as_ptr(), sector.as_ptr()) {
         return line.backsector.clone();
     }
 

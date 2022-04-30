@@ -7,7 +7,7 @@ use sound_traits::SfxEnum;
 use super::{
     ceiling::{ev_do_ceiling, CeilingKind},
     doors::{ev_do_door, ev_vertical_door, DoorKind},
-    floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
+    floor::{ev_build_stairs, ev_do_donut, ev_do_floor, FloorKind, StairKind},
     lights::ev_turn_light_on,
     mobj::MapObject,
     platforms::{ev_do_platform, PlatKind},
@@ -453,7 +453,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
             change_switch_texture(line, false, &level.switch_list, &mut level.button_list, &level.snd_command);
         }
         9 => {
-            error!("line-special #{}: EV_DoDonut not implemented", line.special);
+            ev_do_donut(line.clone(), level);
             change_switch_texture(line, false, &level.switch_list, &mut level.button_list, &level.snd_command);
         }
         // BLUE KEY

@@ -1,7 +1,6 @@
 ## TODO
 
-[ ] Some buttons no-longer change?
-[ ] EV_DoDonut
+[+] EV_DoDonut
 [ ] EV_StopPlat
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
@@ -24,6 +23,7 @@
 
 ## DONE
 
+[+] Some buttons no-longer change? (Shouldn't have been if else-if)
 [+] P_RecursiveSound - use flood through sectors. P_NoiseAlert
 [+] Sector sound targets - done with P_RecursiveSound
 [+] Recheck planes (seems correct now)

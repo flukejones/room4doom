@@ -1,7 +1,7 @@
 //! Floor movement thinker: raise, lower, crusher
 //!
 //! Doom source name `p_floor`
-use std::ptr::null_mut;
+use std::ptr::{self, null_mut};
 
 use sound_traits::SfxEnum;
 
@@ -19,7 +19,8 @@ use super::{
     mobj::MapObject,
     specials::{
         find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
-        find_lowest_floor_surrounding, find_next_highest_floor, move_plane, PlaneResult,
+        find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
+        PlaneResult,
     },
     switch::start_line_sound,
 };
@@ -74,7 +75,7 @@ pub struct FloorMove {
     pub crush: bool,
     pub direction: i32,
     pub newspecial: i16,
-    pub texture: u8,
+    pub texture: usize,
     pub destheight: f32,
 }
 
@@ -171,21 +172,21 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
             FloorKind::LowerAndChange => {
                 floor.direction = -1;
                 floor.destheight = find_lowest_floor_surrounding(sec.clone());
-                floor.texture = sector.floorpic as u8;
+                floor.texture = sector.floorpic;
 
                 for line in sector.lines.iter() {
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
                         if line.front_sidedef.sector == sec {
                             sec = line.back_sidedef.as_ref().unwrap().sector.clone();
                             if sec.floorheight == floor.destheight {
-                                floor.texture = sec.floorpic as u8;
+                                floor.texture = sec.floorpic;
                                 floor.newspecial = sec.special;
                                 break;
                             }
                         } else {
                             sec = line.front_sidedef.sector.clone();
                             if sec.floorheight == floor.destheight {
-                                floor.texture = sec.floorpic as u8;
+                                floor.texture = sec.floorpic;
                                 floor.newspecial = sec.special;
                                 break;
                             }
@@ -253,7 +254,7 @@ impl Think for FloorMove {
                 || floor.direction == -1 && matches!(floor.kind, FloorKind::LowerAndChange)
             {
                 floor.sector.special = floor.newspecial;
-                floor.sector.floorpic = floor.texture as usize;
+                floor.sector.floorpic = floor.texture;
             }
 
             floor.sector.specialdata = None;
@@ -301,7 +302,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
             crush: false,
             direction: 1,
             newspecial: 0,
-            texture: sector.floorpic as u8,
+            texture: sector.floorpic,
             destheight: 0.0,
         };
 
@@ -367,7 +368,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                     crush: false,
                     direction: 1,
                     newspecial: 0,
-                    texture: sector.floorpic as u8,
+                    texture: sector.floorpic,
                     destheight: height,
                 };
 
@@ -385,6 +386,81 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
             if !ok {
                 break;
+            }
+        }
+    }
+
+    ret
+}
+
+pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
+    let mut ret = false;
+
+    for sector in level
+        .map_data
+        .sectors
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+        ret = true;
+
+        if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), DPtr::new(sector)) {
+            for line in s2.lines.iter_mut() {
+                if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                    continue;
+                }
+                if let Some(s3) = line.backsector.clone() {
+                    if ptr::eq(s3.as_ptr(), sector) {
+                        continue;
+                    }
+                    //
+
+                    // Spawn rising slime thinker
+                    let floor = FloorMove {
+                        thinker: null_mut(),
+                        sector: s2.clone(),
+                        kind: FloorKind::DonutRaise,
+                        speed: FLOORSPEED / 2.0,
+                        crush: false,
+                        direction: 1,
+                        newspecial: 0,
+                        texture: s3.floorpic,
+                        destheight: s3.floorheight,
+                    };
+
+                    let thinker =
+                        MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+
+                    if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                        ptr.set_obj_thinker_ptr();
+                        s2.specialdata = Some(ptr);
+                    }
+
+                    // spwan donut hole lowering
+                    let floor = FloorMove {
+                        thinker: null_mut(),
+                        sector: DPtr::new(sector),
+                        kind: FloorKind::LowerFloor,
+                        speed: FLOORSPEED / 2.0,
+                        crush: false,
+                        direction: -1,
+                        newspecial: 0,
+                        texture: s3.floorpic,
+                        destheight: s3.floorheight,
+                    };
+
+                    let thinker =
+                        MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+
+                    if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                        ptr.set_obj_thinker_ptr();
+                        s2.specialdata = Some(ptr);
+                    }
+                    break;
+                }
             }
         }
     }
