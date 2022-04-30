@@ -13,7 +13,7 @@ use log::error;
 use sound_traits::SfxEnum;
 
 use crate::{
-    doom_def::MISSILERANGE,
+    doom_def::{MISSILERANGE, SKULLSPEED},
     info::StateNum,
     play::{mobj::DirType, utilities::p_random},
     Angle, DPtr, LineDefFlags, MapObjectType, Sector, Skill,
@@ -142,7 +142,7 @@ pub fn a_chase(actor: &mut MapObject) {
     }
 
     if actor.flags & MapObjectFlag::JustAttacked as u32 != 0 {
-        actor.flags ^= MapObjectFlag::JustAttacked as u32;
+        actor.flags &= !(MapObjectFlag::JustAttacked as u32);
         // TODO: if (gameskill != sk_nightmare && !fastparm)
         actor.new_chase_dir();
         return;
@@ -414,7 +414,23 @@ pub fn a_bspiattack(actor: &mut MapObject) {
 }
 
 pub fn a_skullattack(actor: &mut MapObject) {
-    error!("a_skullattack not implemented");
+    if let Some(target) = actor.target {
+        let target = unsafe { &*target };
+
+        a_facetarget(actor);
+        actor.flags |= MapObjectFlag::SkullFly as u32;
+        actor.start_sound(actor.info.attacksound);
+
+        actor.angle = point_to_angle_2(target.xy, actor.xy);
+        actor.momxy = actor.angle.unit() * SKULLSPEED;
+
+        let mut dist = actor.xy.distance(target.xy) / SKULLSPEED;
+        if dist < 1.0 {
+            dist = 1.0;
+        }
+
+        actor.momz = (target.z + (target.height / 2.0) - actor.z) / dist;
+    }
 }
 
 pub fn a_headattack(actor: &mut MapObject) {

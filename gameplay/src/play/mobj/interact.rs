@@ -59,7 +59,10 @@ impl MapObject {
 
         if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
             self.momxy = Vec2::default();
-            self.z = 0.0;
+            self.momz = 0.0;
+            // extra flag setting here because sometimes float errors stuff it up
+            self.flags &= !(MapObjectFlag::SkullFly as u32);
+            self.set_state(self.info.spawnstate);
         }
 
         unsafe {
@@ -195,7 +198,7 @@ impl MapObject {
         }
 
         self.flags |= MapObjectFlag::Corpse as u32 | MapObjectFlag::DropOff as u32;
-        self.health >>= 2;
+        self.height /= 4.0;
 
         if let Some(source) = source.as_ref() {
             if let Some(player) = source.player {
