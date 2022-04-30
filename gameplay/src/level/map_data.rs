@@ -39,12 +39,11 @@ pub struct MapData {
     /// Things will be linked to/from each other in many ways, which means this array may
     /// never be resized or it will invalidate references and pointers
     things: Vec<WadThing>,
-    vertexes: Vec<Vec2>,
     pub linedefs: Vec<LineDef>,
     pub sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
-    pub subsectors: Vec<SubSector>,
-    pub segments: Vec<Segment>,
+    subsectors: Vec<SubSector>,
+    segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
     start_node: u16,
@@ -55,7 +54,6 @@ impl MapData {
         MapData {
             name,
             things: Vec::new(),
-            vertexes: Vec::new(),
             linedefs: Vec::new(),
             sectors: Vec::new(),
             sidedefs: Vec::new(),
@@ -68,20 +66,11 @@ impl MapData {
     }
 
     #[inline]
-    pub fn get_things(&self) -> &[WadThing] {
-        &self.things
-    }
-
-    #[inline]
     pub fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
         // then a min vertex of -3542 won't be set since it's negative
-        self.extents.min_vertex.x = self.vertexes[0].x;
-        self.extents.min_vertex.y = self.vertexes[0].y;
-        self.extents.max_vertex.x = self.vertexes[0].x;
-        self.extents.max_vertex.y = self.vertexes[0].y;
-        for v in &self.vertexes {
+        let mut check = |v: Vec2| {
             if self.extents.min_vertex.x > v.x {
                 self.extents.min_vertex.x = v.x;
             } else if self.extents.max_vertex.x < v.x {
@@ -93,14 +82,19 @@ impl MapData {
             } else if self.extents.max_vertex.y < v.y {
                 self.extents.max_vertex.y = v.y;
             }
+        };
+
+        for line in &self.linedefs {
+            check(line.v1);
+            check(line.v2);
         }
         self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
         self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
     }
 
     #[inline]
-    pub fn vertexes(&self) -> &[Vec2] {
-        &self.vertexes
+    pub fn things(&self) -> &[WadThing] {
+        &self.things
     }
 
     #[inline]
@@ -176,7 +170,7 @@ impl MapData {
         info!("{}: Loaded things", self.name);
 
         // Vertexes
-        self.vertexes = wad
+        let vertexes: Vec<Vec2> = wad
             .vertex_iter(&self.name)
             .map(|v| Vec2::new(v.x as f32, v.y as f32))
             .collect();
@@ -216,7 +210,7 @@ impl MapData {
         self.sidedefs = wad
             .sidedef_iter(&self.name)
             .map(|s| {
-                let sector = &self.sectors()[s.sector as usize];
+                let sector = &mut self.sectors[s.sector as usize];
 
                 SideDef {
                     textureoffset: s.x_offset as f32,
@@ -240,14 +234,14 @@ impl MapData {
         self.linedefs = wad
             .linedef_iter(&self.name)
             .map(|l| {
-                let v1 = &self.vertexes()[l.start_vertex as usize];
-                let v2 = &self.vertexes()[l.end_vertex as usize];
+                let v1 = vertexes[l.start_vertex as usize];
+                let v2 = vertexes[l.end_vertex as usize];
 
-                let front = &self.sidedefs()[l.front_sidedef as usize];
+                let front = DPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
 
                 let back_side = {
                     l.back_sidedef
-                        .map(|index| DPtr::new(&self.sidedefs()[index as usize]))
+                        .map(|index| DPtr::new(&mut self.sidedefs[index as usize]))
                 };
 
                 let back_sector = {
@@ -269,15 +263,15 @@ impl MapData {
                 };
 
                 LineDef {
-                    v1: DPtr::new(v1),
-                    v2: DPtr::new(v2),
+                    v1,
+                    v2,
                     delta: Vec2::new(dx, dy),
                     flags: l.flags as u32,
                     special: l.special,
                     tag: l.sector_tag,
-                    bbox: BBox::new(*v1, *v2),
+                    bbox: BBox::new(v1, v2),
                     slopetype: slope,
-                    front_sidedef: DPtr::new(front),
+                    front_sidedef: front.clone(),
                     back_sidedef: back_side,
                     frontsector: front.sector.clone(),
                     backsector: back_sector,
@@ -305,10 +299,10 @@ impl MapData {
         self.segments = wad
             .segment_iter(&self.name)
             .map(|s| {
-                let v1 = &self.vertexes()[s.start_vertex as usize];
-                let v2 = &self.vertexes()[s.end_vertex as usize];
+                let v1 = vertexes[s.start_vertex as usize];
+                let v2 = vertexes[s.end_vertex as usize];
 
-                let ldef = &self.linedefs()[s.linedef as usize];
+                let ldef = &mut self.linedefs[s.linedef as usize];
 
                 let frontsector;
                 let backsector;
@@ -327,8 +321,8 @@ impl MapData {
                 let angle = bam_to_radian((s.angle as u32) << 16);
 
                 Segment {
-                    v1: DPtr::new(v1),
-                    v2: DPtr::new(v2),
+                    v1,
+                    v2,
                     offset: s.offset as f32,
                     angle: Angle::new(angle),
                     sidedef: side,
@@ -690,7 +684,7 @@ mod tests {
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
-        let things = map.get_things();
+        let things = &map.things;
         assert_eq!(things[0].x as i32, 1056);
         assert_eq!(things[0].y as i32, -3616);
         assert_eq!(things[0].angle, 90);
@@ -711,26 +705,13 @@ mod tests {
     }
 
     #[test]
-    fn check_e1m1_vertexes() {
-        let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
-
-        let vertexes = map.vertexes();
-        assert_eq!(vertexes[0].x as i32, 1088);
-        assert_eq!(vertexes[0].y as i32, -3680);
-        assert_eq!(vertexes[466].x as i32, 2912);
-        assert_eq!(vertexes[466].y as i32, -4848);
-    }
-
-    #[test]
     #[allow(clippy::float_cmp)]
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
-        let linedefs = map.linedefs();
+        let linedefs = map.linedefs;
 
         // Check links
         // LINEDEF->VERTEX
@@ -743,7 +724,7 @@ mod tests {
         // // LINEDEF->SIDEDEF->SECTOR
         assert_eq!(linedefs[2].front_sidedef.sector.ceilingheight, 72.0);
 
-        let segments = map.segments();
+        let segments = map.segments;
         // SEGMENT->VERTEX
         assert_eq!(segments[0].v1.x as i32, 1552);
         assert_eq!(segments[0].v2.x as i32, 1552);

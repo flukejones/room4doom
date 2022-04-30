@@ -237,18 +237,13 @@ pub fn path_traverse(
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
     let trace = Trace::new(origin, endpoint - origin);
 
-    let segs = &mut level.map_data.segments;
-    let sub_sectors = &mut level.map_data.subsectors;
-
     level.valid_count = level.valid_count.wrapping_add(1);
     for n in bsp_trace.intercepted_subsectors() {
-        let ssect = &mut sub_sectors[*n as usize];
-
         if flags & PT_ADDLINES != 0 {
-            let start = ssect.start_seg as usize;
-            let end = start + ssect.seg_count as usize;
+            let start = level.map_data.subsectors_mut()[*n as usize].start_seg as usize;
+            let end = start + level.map_data.subsectors_mut()[*n as usize].seg_count as usize;
 
-            for seg in &mut segs[start..end] {
+            for seg in &mut level.map_data.segments_mut()[start..end] {
                 if seg.linedef.valid_count == level.valid_count {
                     continue;
                 }
@@ -261,9 +256,11 @@ pub fn path_traverse(
         }
 
         if flags & PT_ADDTHINGS != 0
-            && !ssect.sector.run_func_on_thinglist(|thing| {
-                add_thing_intercept(trace, &mut intercepts, thing, level.valid_count)
-            })
+            && !level.map_data.subsectors_mut()[*n as usize]
+                .sector
+                .run_func_on_thinglist(|thing| {
+                    add_thing_intercept(trace, &mut intercepts, thing, level.valid_count)
+                })
         {
             return false; // early out
         }
@@ -318,15 +315,15 @@ pub fn add_line_intercepts(
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(trace, *line.v1);
-    let s2 = point_on_side(trace, *line.v2);
+    let s1 = point_on_side(trace, line.v1);
+    let s2 = point_on_side(trace, line.v2);
 
     if s1 == s2 {
         // line isn't crossed
         return true;
     }
 
-    let dl = Trace::new(*line.v1, (*line.v2) - (*line.v1));
+    let dl = Trace::new(line.v1, line.v2 - line.v1);
     let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {

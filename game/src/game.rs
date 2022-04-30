@@ -519,7 +519,7 @@ impl Game {
 
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
-            let thing_list = (*level.map_data.get_things()).to_owned();
+            let thing_list = (*level.map_data.things()).to_owned();
 
             for thing in &thing_list {
                 MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);

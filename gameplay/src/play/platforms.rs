@@ -75,7 +75,12 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 
     let mut plats = Vec::new();
 
-    for sector in level.map_data.sectors.iter().filter(|s| s.tag == line.tag) {
+    for sector in level
+        .map_data
+        .sectors_mut()
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
         // TODO: track active platforms and reset sector special data
         if sector.specialdata.is_some() {
             continue;

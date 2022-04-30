@@ -796,7 +796,7 @@ pub fn spawn_specials(level: &mut Level) {
     let level_iter = unsafe { &mut *(level as *mut Level) };
     for sector in level_iter
         .map_data
-        .sectors
+        .sectors_mut()
         .iter_mut()
         .filter(|s| s.special != 0)
     {

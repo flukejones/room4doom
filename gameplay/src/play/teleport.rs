@@ -24,7 +24,7 @@ pub fn teleport(
     }
 
     let tag = line.tag;
-    for sector in level.map_data.sectors.iter() {
+    for sector in level.map_data.sectors().iter() {
         if sector.tag == tag {
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {

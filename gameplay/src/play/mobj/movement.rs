@@ -425,10 +425,8 @@ impl MapObject {
         //     &mut bsp_trace,
         // )
 
-        let segs = &level.map_data.segments;
-        let sub_sectors = &mut level.map_data.subsectors;
         for n in bsp_trace.intercepted_subsectors() {
-            let ssect = &mut sub_sectors[*n as usize];
+            let ssect = &mut level.map_data.subsectors_mut()[*n as usize];
 
             // Check things in subsectors
             if !ssect
@@ -441,8 +439,8 @@ impl MapObject {
             // Check subsector segments
             let start = ssect.start_seg as usize;
             let end = start + ssect.seg_count as usize;
-            for seg in &segs[start..end] {
-                if !self.pit_check_line(&tmbbox, ctrl, &seg.linedef) {
+            for seg in &mut level.map_data.segments_mut()[start..end] {
+                if !self.pit_check_line(&tmbbox, ctrl, &mut seg.linedef) {
                     return false;
                 }
             }
@@ -545,7 +543,7 @@ impl MapObject {
         // point1: Vec2,
         // point2: Vec2,
         ctrl: &mut SubSectorMinMax,
-        ld: &LineDef,
+        ld: &mut LineDef,
     ) -> bool {
         if tmbbox.right < ld.bbox.left
             || tmbbox.left > ld.bbox.right
@@ -601,7 +599,7 @@ impl MapObject {
         if ld.special != 0 {
             for l in ctrl.spec_hits.iter() {
                 let ptr = DPtr::new(ld);
-                if l.p as usize != ptr.p as usize {
+                if l.inner as usize != ptr.inner as usize {
                     ctrl.spec_hits.push(ptr);
                     break;
                 }

@@ -126,7 +126,7 @@ impl MapObject {
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut bsp_count);
 
-        let sub_sectors = &mut level.map_data.subsectors;
+        let sub_sectors = level.map_data.subsectors_mut();
         level.valid_count = level.valid_count.wrapping_add(1);
         for n in bsp_trace.intercepted_subsectors() {
             let ssect = &mut sub_sectors[*n as usize];

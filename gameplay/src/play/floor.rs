@@ -85,8 +85,8 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
     for sector in level
         .map_data
-        .sectors()
-        .iter()
+        .sectors_mut()
+        .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
         if sector.specialdata.is_some() {
@@ -285,8 +285,8 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
     for sector in level
         .map_data
-        .sectors()
-        .iter()
+        .sectors
+        .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
         if sector.specialdata.is_some() {
@@ -337,7 +337,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
             for line in level
                 .map_data
-                .linedefs()
+                .linedefs
                 .iter()
                 .filter(|s| s.flags & LineDefFlags::TwoSided as u32 != 0)
             {
@@ -398,7 +398,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
 
     for sector in level
         .map_data
-        .sectors
+        .sectors_mut()
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
