@@ -1,5 +1,6 @@
 ## TODO
 
+[ ] Need to reset sector sound targets if player dies
 [ ] Don't shoot sky
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop
