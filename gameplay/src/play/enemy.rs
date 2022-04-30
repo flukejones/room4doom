@@ -196,6 +196,14 @@ pub fn a_look(actor: &mut MapObject) {
     actor.threshold = 0;
     // TODO: any shot will wake up
     unsafe {
+        // if let Some(target) = actor.target {
+        //     let target = &*target;
+        //     if target.health <= 0 {
+        //         actor.set_state(actor.info.spawnstate);
+        //         return;
+        //     }
+        // }
+
         if let Some(target) = (*actor.subsector).sector.sound_target {
             let target = &*target;
             if target.flags & MapObjectFlag::Shootable as u32 != 0 {
@@ -207,6 +215,8 @@ pub fn a_look(actor: &mut MapObject) {
                 {
                     return;
                 }
+            } else if !actor.look_for_players(false) {
+                return;
             }
         } else if !actor.look_for_players(false) {
             return;
