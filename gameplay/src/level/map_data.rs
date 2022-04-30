@@ -186,28 +186,23 @@ impl MapData {
         self.sectors = wad
             .sector_iter(&self.name)
             .enumerate()
-            .map(|(i, s)| Sector {
-                num: i as u32,
-                floorheight: s.floor_height as f32,
-                ceilingheight: s.ceil_height as f32,
-                floorpic: pic_data.flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
-                    warn!("Sectors: Did not find flat for {}", s.floor_tex);
-                    usize::MAX
-                }),
-                ceilingpic: pic_data.flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
-                    warn!("Sectors: Did not find flat for {}", s.ceil_tex);
-                    usize::MAX
-                }),
-                lightlevel: s.light_level as i32,
-                special: s.kind,
-                tag: s.tag,
-                soundtraversed: 0,
-                blockbox: [0, 0, 0, 0],
-                validcount: 0,
-                specialdata: None,
-                lines: Vec::new(),
-                thinglist: None,
-                sound_target: None,
+            .map(|(i, s)| {
+                Sector::new(
+                    i as u32,
+                    s.floor_height as f32,
+                    s.ceil_height as f32,
+                    pic_data.flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
+                        warn!("Sectors: Did not find flat for {}", s.floor_tex);
+                        usize::MAX
+                    }),
+                    pic_data.flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
+                        warn!("Sectors: Did not find flat for {}", s.ceil_tex);
+                        usize::MAX
+                    }),
+                    s.light_level as i32,
+                    s.kind,
+                    s.tag,
+                )
             })
             .collect();
         info!("{}: Loaded segments", self.name);
@@ -301,6 +296,7 @@ impl MapData {
             }
         }
         info!("{}: Mapped linedefs to sectors", self.name);
+        // TODO: iterate sector lines to find max bounding box for sector
 
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in level struct
@@ -393,15 +389,6 @@ impl MapData {
             }
         }
         info!("{}: Mapped bsp node children", self.name);
-
-        // BLOCKMAP
-        //let bm = wad.read_blockmap(&self.name);
-        // self.blockmap.x_origin = bm.x_origin as f32;
-        // self.blockmap.y_origin = bm.y_origin as f32;
-        // self.blockmap.width = bm.width as i32;
-        // self.blockmap.height = bm.height as i32;
-        // self.blockmap.line_indexes = bm.line_indexes.iter().map(|n| *n as usize).collect();
-        // self.blockmap.blockmap_offset = bm.blockmap_offset;
 
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();

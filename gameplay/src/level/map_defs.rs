@@ -13,7 +13,7 @@ pub enum SlopeType {
 
 /// The SECTORS record, at runtime.
 /// Stores things/mobjs.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Sector {
     /// An incremented "ID" of sorts.
     pub num: u32,
@@ -30,14 +30,8 @@ pub struct Sector {
     /// 0 = untraversed, 1,2 = sndlines -1
     pub soundtraversed: i32,
 
-    // thing that made a sound (or null)
-    // TODO: mobj_t*	soundtarget;
-
-    // mapblock bounding box for height changes
-    pub blockbox: [i32; 4],
-
-    // origin for any sounds played by the sector
-    // TODO: degenmobj_t	soundorg;
+    /// origin for any sounds played by the sector
+    pub sound_origin: Vec2,
 
     // if == validcount, already checked
     pub validcount: usize,
@@ -49,10 +43,34 @@ pub struct Sector {
     pub specialdata: Option<*mut Thinker>,
     pub lines: Vec<DPtr<LineDef>>,
 
-    pub sound_target: Option<*mut MapObject>,
+    // thing that made a sound (or null)
+    sound_target: Option<*mut MapObject>,
 }
 
 impl Sector {
+    pub fn new(
+        num: u32,
+        floorheight: f32,
+        ceilingheight: f32,
+        floorpic: usize,
+        ceilingpic: usize,
+        lightlevel: i32,
+        special: i16,
+        tag: i16,
+    ) -> Self {
+        Self {
+            num,
+            floorheight,
+            ceilingheight,
+            floorpic,
+            ceilingpic,
+            lightlevel,
+            special,
+            tag,
+            ..Self::default()
+        }
+    }
+
     /// Returns false if `func` returns false
     pub fn run_func_on_thinglist(&mut self, mut func: impl FnMut(&mut MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist.as_mut() {
@@ -132,6 +150,18 @@ impl Sector {
         } else {
             (*thing.subsector).sector.thinglist = thing.s_next;
         }
+    }
+
+    pub unsafe fn sound_target(&self) -> Option<&MapObject> {
+        self.sound_target.map(|m| unsafe { &*m })
+    }
+
+    pub unsafe fn sound_target_raw(&mut self) -> Option<*mut MapObject> {
+        self.sound_target
+    }
+
+    pub fn set_sound_target(&mut self, target: &mut MapObject) {
+        self.sound_target = Some(target);
     }
 }
 
@@ -329,50 +359,6 @@ pub struct Node {
     /// The parent of this node. Additional property to allow reversing up a BSP tree.
     pub parent: u16,
 }
-
-/// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
-/// collision-detection between moving things and walls.
-///
-/// Each "block" is 128 square
-#[derive(Clone, Default)]
-pub struct BlockMap {
-    /// Leftmost X coord
-    pub x_origin: f32,
-    /// Bottommost Y coord
-    pub y_origin: f32,
-    /// Width
-    pub width: i32,
-    /// Height
-    pub height: i32,
-    /// Links to the MapObjects this block currently contains
-    pub block_links: Vec<DPtr<MapObject>>,
-    ///
-    pub line_indexes: Vec<usize>,
-    ///
-    pub blockmap_offset: usize,
-}
-
-// impl BlockMap {
-//     pub fn new(
-//         x_origin: f32,
-//         y_origin: f32,
-//         width: i32,
-//         height: i32,
-//         block_links: Vec<DPtr<MapObject>>,
-//         line_indexes: Vec<usize>,
-//         blockmap_offset: usize,
-//     ) -> BlockMap {
-//         BlockMap {
-//             x_origin,
-//             y_origin,
-//             width,
-//             height,
-//             block_links,
-//             line_indexes,
-//             blockmap_offset,
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

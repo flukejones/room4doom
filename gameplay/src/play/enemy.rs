@@ -42,7 +42,7 @@ fn sound_flood(
 
     sector.validcount = valid_count;
     sector.soundtraversed = sound_blocks + 1;
-    sector.sound_target = Some(target);
+    sector.set_sound_target(target);
 
     for line in sector.lines.iter() {
         if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -204,10 +204,9 @@ pub fn a_look(actor: &mut MapObject) {
         //     }
         // }
 
-        if let Some(target) = (*actor.subsector).sector.sound_target {
-            let target = &*target;
+        if let Some(target) = (*actor.subsector).sector.sound_target() {
             if target.flags & MapObjectFlag::Shootable as u32 != 0 {
-                actor.target = (*actor.subsector).sector.sound_target;
+                actor.target = (*actor.subsector).sector.sound_target_raw();
 
                 if actor.flags & MapObjectFlag::Ambush as u32 != 0
                     && !actor.check_sight_target(target)
