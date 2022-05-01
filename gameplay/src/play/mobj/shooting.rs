@@ -310,7 +310,9 @@ impl MapObject {
                 }
             }
 
-            self.target = self.level().players()[self.lastlook as usize].mobj;
+            self.target = self.level().players()[self.lastlook as usize]
+                .mobj
+                .map(|m| unsafe { (*m).thinker });
             return true;
         }
     }
@@ -322,7 +324,7 @@ impl MapObject {
 
     pub(crate) fn check_melee_range(&mut self) -> bool {
         if let Some(target) = self.target {
-            let target = unsafe { &*target };
+            let target = unsafe { (*target).object_mut().mobj() };
 
             let dist = self.xy.distance(target.xy);
             if dist >= MELEERANGE - 20.0 + target.radius {
@@ -340,7 +342,7 @@ impl MapObject {
     /// The closer the Actor gets to the Target the more they shoot
     pub(crate) fn check_missile_range(&mut self) -> bool {
         if let Some(target) = self.target {
-            let target = unsafe { &*target };
+            let target = unsafe { (*target).object_mut().mobj() };
 
             let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
             if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {

@@ -42,7 +42,7 @@ fn sound_flood(
 
     sector.validcount = valid_count;
     sector.soundtraversed = sound_blocks + 1;
-    sector.set_sound_target(target);
+    sector.set_sound_target(target.thinker);
 
     for line in sector.lines.iter() {
         if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -81,10 +81,12 @@ pub fn a_facetarget(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
-            let angle = point_to_angle_2((*target).xy, actor.xy);
+            let target = unsafe { (*target).object_mut().mobj() };
+
+            let angle = point_to_angle_2(target.xy, actor.xy);
             actor.angle = angle;
 
-            if (*target).flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
+            if target.flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
                 actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
             }
         }
@@ -101,8 +103,10 @@ pub fn a_chase(actor: &mut MapObject) {
     // modify target threshold
     if actor.threshold > 0 {
         if let Some(target) = actor.target {
+            let target = unsafe { (*target).object_mut().mobj() };
+
             unsafe {
-                if (*target).health <= 0 {
+                if target.health <= 0 {
                     actor.threshold = 0;
                 } else {
                     actor.threshold -= 1;
@@ -124,8 +128,10 @@ pub fn a_chase(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
+            let target = unsafe { (*target).object_mut().mobj() };
+
             // Inanimate object, try to find new target
-            if (*target).flags & MapObjectFlag::Shootable as u32 == 0 {
+            if target.flags & MapObjectFlag::Shootable as u32 == 0 {
                 if actor.look_for_players(true) {
                     return; // Found a new target
                 }
@@ -424,7 +430,7 @@ pub fn a_bspiattack(actor: &mut MapObject) {
 
 pub fn a_skullattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
-        let target = unsafe { &*target };
+        let target = unsafe { (*target).object_mut().mobj() };
 
         a_facetarget(actor);
         actor.flags |= MapObjectFlag::SkullFly as u32;
@@ -448,11 +454,13 @@ pub fn a_headattack(actor: &mut MapObject) {
 
 pub fn a_sargattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        let target = unsafe { (*target).object_mut().mobj() };
+
         a_facetarget(actor);
         if actor.check_melee_range() {
             let damage = ((p_random() % 10) + 1) * 4;
             unsafe {
-                (*target).p_take_damage(Some(actor), None, true, damage);
+                target.p_take_damage(Some(actor), None, true, damage);
             }
         }
     }
@@ -474,7 +482,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
 
-        let target = unsafe { &mut *target };
+        let target = unsafe { (*target).object_mut().mobj() };
 
         if actor.check_melee_range() {
             actor.start_sound(SfxEnum::claw);
