@@ -107,53 +107,51 @@ impl MapObject {
             }
         }
 
-        if let Some(player) = self.player {
-            unsafe {
-                let mut player = &mut *player;
-
-                // end of game hell hack
-                if (*self.subsector).sector.special == 11 && damage >= self.health {
-                    damage = self.health - 1;
-                }
-                // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
-                if damage < 1000
-                    && (player.cheats & PlayerCheat::Godmode as u32 != 0
-                        || player.powers[PowerType::Invulnerability as usize] != 0)
-                {
-                    return;
-                }
-
-                if player.armortype != 0 {
-                    let mut saved = if player.armortype == 1 {
-                        damage / 3
-                    } else {
-                        damage / 2
-                    };
-
-                    if player.armorpoints <= saved {
-                        // armour is used up
-                        saved = player.armorpoints;
-                        player.armortype = 0;
-                    }
-                    player.armorpoints -= saved;
-                    damage -= saved;
-                }
-
-                player.health -= damage;
-                if player.health < 0 {
-                    player.health = 0;
-                }
-
-                if let Some(source) = source.as_mut() {
-                    player.attacker = Some(*source);
-                }
-
-                player.damagecount += damage;
-                if player.damagecount > 100 {
-                    player.damagecount = 100; // teleport stomp does 10k points...
-                }
-                // Tactile feedback thing removed here
+        let special = unsafe { (*self.subsector).sector.special };
+        let mobj_health = self.health;
+        if let Some(player) = self.player_mut() {
+            // end of game hell hack
+            if special == 11 && damage >= mobj_health {
+                damage = mobj_health - 1;
             }
+            // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
+            if damage < 1000
+                && (player.cheats & PlayerCheat::Godmode as u32 != 0
+                    || player.powers[PowerType::Invulnerability as usize] != 0)
+            {
+                return;
+            }
+
+            if player.armortype != 0 {
+                let mut saved = if player.armortype == 1 {
+                    damage / 3
+                } else {
+                    damage / 2
+                };
+
+                if player.armorpoints <= saved {
+                    // armour is used up
+                    saved = player.armorpoints;
+                    player.armortype = 0;
+                }
+                player.armorpoints -= saved;
+                damage -= saved;
+            }
+
+            player.health -= damage;
+            if player.health < 0 {
+                player.health = 0;
+            }
+
+            if let Some(source) = source.as_mut() {
+                player.attacker = Some(*source);
+            }
+
+            player.damagecount += damage;
+            if player.damagecount > 100 {
+                player.damagecount = 100; // teleport stomp does 10k points...
+            }
+            // Tactile feedback thing removed here
         }
 
         debug!("Applying {damage} damage");
@@ -188,7 +186,7 @@ impl MapObject {
     }
 
     /// Doom function name `P_KillMobj`
-    fn kill(&mut self, source: Option<&mut MapObject>) {
+    fn kill(&mut self, mut source: Option<&mut MapObject>) {
         self.flags &= !(MapObjectFlag::Shootable as u32
             | MapObjectFlag::Float as u32
             | MapObjectFlag::SkullFly as u32);
@@ -200,19 +198,15 @@ impl MapObject {
         self.flags |= MapObjectFlag::Corpse as u32 | MapObjectFlag::DropOff as u32;
         self.height /= 4.0;
 
-        if let Some(source) = source.as_ref() {
-            if let Some(player) = source.player {
+        if let Some(source) = source.as_mut() {
+            if let Some(player) = source.player_mut() {
                 if self.flags & MapObjectFlag::CountKill as u32 != 0 {
-                    unsafe {
-                        (*player).killcount += 1;
-                    }
+                    player.killcount += 1;
                 }
 
                 if self.player.is_some() {
-                    unsafe {
-                        // TODO: set correct player for frags
-                        (*player).frags[0] += 1;
-                    }
+                    // TODO: set correct player for frags
+                    player.frags[0] += 1;
                 }
             }
         } else {
@@ -220,22 +214,22 @@ impl MapObject {
             //players[0].killcount++;
         }
 
-        if let Some(player) = self.player {
+        if let Some(player) = self.player_mut() {
             info!("Killing player");
-            unsafe {
-                let mut player = &mut *player;
-                // Environment kills count against you
-                if source.is_none() {
-                    // TODO: set correct player for frags
-                    (*player).frags[0] += 1;
-                }
-
-                self.flags &= !(MapObjectFlag::Solid as u32);
-                player.player_state = PlayerState::Dead;
-                // TODO: P_DropWeapon(target->player);
-                error!("P_DropWeapon not implemented");
-                // TODO: stop automap
+            // Environment kills count against you
+            if source.is_none() {
+                // TODO: set correct player for frags
+                player.frags[0] += 1;
             }
+
+            player.player_state = PlayerState::Dead;
+            // TODO: P_DropWeapon(target->player);
+            error!("P_DropWeapon not implemented");
+            // TODO: stop automap
+        }
+
+        if self.player().is_some() {
+            self.flags &= !(MapObjectFlag::Solid as u32);
         }
 
         if self.health < -self.info.spawnhealth && self.info.xdeathstate != StateNum::S_NULL {

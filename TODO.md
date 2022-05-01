@@ -1,5 +1,7 @@
 ## TODO
 
+[ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
+    data is initialised and valid.
 [ ] Thinkers: For inner data get, add a compile-time cfg opt to panic, or return Option.
 [ ] Need to reset sector sound targets if player dies
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
@@ -32,6 +34,7 @@
 
 ## DONE
 
+[+] Reduce use of `*player` and unsafe
 [+] Sector sound origin for specials
     [+] iterate sector lines to find max bounding box for sector and set sound_origin
 [+] INFLOAT, floatok, skulls

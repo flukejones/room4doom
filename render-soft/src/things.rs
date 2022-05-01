@@ -135,11 +135,11 @@ impl SoftwareRenderer {
     }
 
     fn project_sprite(&mut self, player: &Player, thing: &MapObject, light_level: i32) -> bool {
-        if thing.player.is_some() {
+        if thing.player().is_some() {
             return true;
         }
 
-        let player_mobj = unsafe { &*player.mobj.unwrap() };
+        let player_mobj = unsafe { player.mobj_unchecked() };
         let view_cos = player_mobj.angle.cos();
         let view_sin = player_mobj.angle.sin();
 
@@ -405,12 +405,14 @@ impl SoftwareRenderer {
     }
 
     fn draw_player_sprites(&mut self, player: &Player, pixels: &mut PixelBuf) {
-        let light = unsafe { (*player.mobj_unchecked().subsector).sector.lightlevel };
-        let light = (light >> 4) + player.extralight;
+        if let Some(mobj) = player.mobj() {
+            let light = unsafe { (*mobj.subsector).sector.lightlevel };
+            let light = (light >> 4) + player.extralight;
 
-        for sprite in player.psprites.iter() {
-            if sprite.state.is_some() {
-                self.draw_player_sprite(sprite, light as usize, pixels);
+            for sprite in player.psprites.iter() {
+                if sprite.state.is_some() {
+                    self.draw_player_sprite(sprite, light as usize, pixels);
+                }
             }
         }
     }

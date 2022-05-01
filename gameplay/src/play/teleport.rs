@@ -46,11 +46,8 @@ pub fn teleport(
                 let old_xy = thing.xy;
                 let old_z = thing.z;
                 let endpoint = thinker.mobj();
-                if let Some(player) = thing.player {
-                    unsafe {
-                        let player = &mut *player;
-                        player.viewz = thing.z + player.viewheight;
-                    }
+                if let Some(player) = thing.player_mut() {
+                    player.viewz = old_z + player.viewheight;
                 }
 
                 teleport_move(endpoint.xy, thing, level);
@@ -79,7 +76,7 @@ pub fn teleport(
                     (*fog).start_sound(sound_traits::SfxEnum::telept);
                 }
 
-                if thing.player.is_some() {
+                if thing.player().is_some() {
                     thing.reactiontime = 18;
                 }
                 thing.angle = endpoint.angle;
@@ -117,7 +114,7 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
 
 fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i32) {
     // monsters don't stomp things except on boss level
-    if this_thing.player.is_none() && game_map != 30 {
+    if this_thing.player().is_none() && game_map != 30 {
         return;
     }
 

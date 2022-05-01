@@ -73,7 +73,9 @@ impl Cheats {
                 player.cheats ^= PlayerCheat::Godmode as u32;
 
                 if player.cheats & PlayerCheat::Godmode as u32 != 0 {
-                    player.mobj_mut_unchecked().health = 100;
+                    if let Some(mobj) = player.mobj_mut() {
+                        mobj.health = 100;
+                    }
                     player.health = 100;
                     player.message = Some(english::STSTR_DQDON);
                 } else {
@@ -132,12 +134,7 @@ impl Cheats {
             } else if self.mypos.check(key) {
                 debug!("MYPOS",);
                 let player = &mut game.players[game.consoleplayer];
-                if let Some(mobj) = player.mobj {
-                    let mobj = unsafe {
-                        {
-                            &*mobj
-                        }
-                    };
+                if let Some(mobj) = player.mobj() {
                     println!("MYPOS: X:{} Y:{}", mobj.xy.x as i32, mobj.xy.y as i32);
                 }
             }

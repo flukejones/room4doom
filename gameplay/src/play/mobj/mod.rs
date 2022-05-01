@@ -28,7 +28,7 @@ use crate::{
     thinker::{Think, Thinker, ThinkerData},
 };
 use glam::Vec2;
-use log::{debug, error};
+use log::{debug, error, info};
 use wad::lumps::WadThing;
 
 use crate::{
@@ -102,9 +102,9 @@ pub enum MapObjectFlag {
 }
 
 pub struct MapObject {
-    /// The MapObject owns the Thinker. If the MapObject moves at all then the
-    /// Thinker must have its link to
-    pub thinker: *mut Thinker,
+    /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
+    /// out of the `Thinker` then you must update sector thing lists and self linked list
+    pub(crate) thinker: *mut Thinker,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -115,38 +115,28 @@ pub struct MapObject {
     pub sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     pub frame: u32,
-    /// Link to the next object in this sector. This is only ever used by functions
-    /// implemented on `Sector`.
-    ///
-    /// # Safety
-    /// A reference gained through `s_next` must never outlive this `self` unless links
-    /// are updated.
-    pub s_next: Option<*mut Thinker>,
-    /// Link to the previous object in this sector.  This is only ever used by functions
-    /// implemented on `Sector`
-    ///
-    /// # Safety
-    /// A reference gained through `s_prev` must never outlive this `self` unless links
-    /// are updated.
-    pub s_prev: Option<*mut Thinker>,
+    /// Link to the next `Thinker` in this sector
+    pub(crate) s_next: Option<*mut Thinker>,
+    /// Link to the previous `Thinker` in this sector
+    pub(crate) s_prev: Option<*mut Thinker>,
     /// The subsector this object is currently in
     pub subsector: *mut SubSector,
     /// The closest interval over all contacted Sectors.
-    pub floorz: f32,
-    pub ceilingz: f32,
+    pub(crate) floorz: f32,
+    pub(crate) ceilingz: f32,
     /// For movement checking.
-    pub radius: f32,
-    pub height: f32,
+    pub(crate) radius: f32,
+    pub(crate) height: f32,
     /// Momentums, used to update position.
-    pub momxy: Vec2,
-    pub momz: f32,
+    pub(crate) momxy: Vec2,
+    pub(crate) momz: f32,
     /// If == validcount, already checked.
-    pub valid_count: usize,
+    pub(crate) valid_count: usize,
     /// The type of object
-    pub kind: MapObjectType,
+    pub(crate) kind: MapObjectType,
     /// &mobjinfo[mobj.type]
-    pub info: MapObjectInfo,
-    pub tics: i32,
+    pub(crate) info: MapObjectInfo,
+    pub(crate) tics: i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
@@ -157,21 +147,21 @@ pub struct MapObject {
     /// 0-7
     pub(crate) movedir: DirType,
     /// when 0, select a new dir
-    pub movecount: i32,
+    pub(crate) movecount: i32,
     /// The best slide move for a player object
-    pub best_slide: BestSlide,
+    pub(crate) best_slide: BestSlide,
     /// Thing being chased/attacked (or NULL),
     /// also the originator for missiles.
-    pub target: Option<*mut Thinker>,
+    pub(crate) target: Option<*mut Thinker>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
-    pub reactiontime: i32,
+    pub(crate) reactiontime: i32,
     /// If >0, the target will be chased
     /// no matter what (even if shot)
-    pub threshold: i32,
+    pub(crate) threshold: i32,
     /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
     /// RUST: If this is not `None` then the pointer is guaranteed to point to a player
-    pub player: Option<*mut Player>,
+    player: Option<*mut Player>,
     /// Player number last looked for, 1-4 (does not start at 0)
     lastlook: i32,
     /// For nightmare respawn.
@@ -180,7 +170,7 @@ pub struct MapObject {
     // struct mobj_s*	tracer;
     /// Every map object needs a link to the level structure to read various level
     /// elements and possibly change some (sector links for example).
-    pub level: *mut Level,
+    pub(crate) level: *mut Level,
 }
 
 impl MapObject {
@@ -238,6 +228,14 @@ impl MapObject {
         unsafe { &mut *self.level }
     }
 
+    pub fn player(&self) -> Option<&Player> {
+        self.player.map(|p| unsafe { &*p })
+    }
+
+    pub fn player_mut(&mut self) -> Option<&mut Player> {
+        self.player.map(|p| unsafe { &mut *p })
+    }
+
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged
@@ -250,6 +248,7 @@ impl MapObject {
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
     ) {
+        debug!("Player spawn check");
         if mthing.kind == 0 {
             return;
         }
@@ -259,7 +258,9 @@ impl MapObject {
             return;
         }
 
+        // TODO: Properly sort this out
         let mut player = &mut players[0];
+        info!("Spawing player 1");
 
         if player.player_state == PlayerState::Reborn {
             player.reborn();
@@ -288,7 +289,7 @@ impl MapObject {
         mobj_ptr_mut.health = player.health;
         mobj_ptr_mut.player = Some(player);
 
-        player.mobj = Some(mobj);
+        player.set_mobj(mobj);
         player.player_state = PlayerState::Live;
         player.refire = 0;
         player.message = None;

@@ -140,9 +140,9 @@ pub fn change_switch_texture(
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) -> bool {
+pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject) -> bool {
     //  Switches that other things can activate
-    if thing.player.is_none() {
+    if thing.player().is_none() {
         // never open secret doors
         if (line.flags as u32) & LineDefFlags::Secret as u32 != 0 {
             return false;
@@ -459,40 +459,37 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &MapObject) ->
         }
         // BLUE KEY
         133 | 99 => {
-            if let Some(player) = thing.player {
-                let player = unsafe { &mut *player };
-                let cards = player.cards;
-                if cards[Card::Bluecard as usize] || cards[Card::Blueskull as usize] {
+            if let Some(player) = thing.player_mut() {
+                if player.cards[Card::Bluecard as usize] || player.cards[Card::Blueskull as usize] {
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
+                } else {
                     player.message = Some(PD_BLUEO);
-                    player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
+                    player.start_sound(SfxEnum::oof);
                 }
             }
         }
         // RED KEY
         134 | 135 => {
-            if let Some(player) = thing.player {
-                let player = unsafe { &mut *player };
-                let cards = player.cards;
-                if cards[Card::Redcard as usize] || cards[Card::Redskull as usize] {
+            if let Some(player) = thing.player_mut() {
+                if player.cards[Card::Redcard as usize] || player.cards[Card::Redskull as usize] {
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
+                } else {
                     player.message = Some(PD_REDO);
-			        player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
+			        player.start_sound(SfxEnum::oof);
                 }
             }
         }
         // YELLOW KEY
         136 | 137 => {
-            if let Some(player) = thing.player {
-                let player = unsafe { &mut *player };
-                let cards = player.cards;
-                if cards[Card::Yellowcard as usize] || cards[Card::Yellowskull as usize] {
+            if let Some(player) = thing.player_mut() {
+                if player.cards[Card::Yellowcard as usize] || player.cards[Card::Yellowskull as usize] {
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
+                } else {
                     player.message = Some(PD_YELLOWO);
-			        player.mobj_mut_unchecked().start_sound(SfxEnum::oof);
+			        player.start_sound(SfxEnum::oof);
                 }
             }
         }

@@ -112,8 +112,7 @@ impl SoftwareRenderer {
     }
 
     fn clear(&mut self, player: &Player) {
-        let mobj = unsafe { &*(player.mobj.unwrap()) };
-        let view_angle = mobj.angle;
+        let view_angle = unsafe { player.mobj_unchecked().angle };
         for vis in self.vissprites.iter_mut() {
             vis.clear();
         }
@@ -126,7 +125,7 @@ impl SoftwareRenderer {
 
     /// Doom function name `R_DrawPlanes`
     fn draw_planes(&mut self, player: &Player, pixels: &mut PixelBuf) {
-        let mobj = unsafe { &*(player.mobj.unwrap()) };
+        let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
         let basexscale = self.r_data.visplanes.basexscale;
@@ -210,7 +209,7 @@ impl SoftwareRenderer {
         front_sector: &'a Sector,
         pixels: &mut PixelBuf,
     ) {
-        let mobj = unsafe { &*(player.mobj.unwrap()) };
+        let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
         let xy = mobj.xy;
         let angle = mobj.angle;
@@ -558,7 +557,7 @@ impl SoftwareRenderer {
         count: &mut usize,
     ) {
         *count += 1;
-        let mobj = unsafe { &*(player.mobj.unwrap()) };
+        let mobj = unsafe { player.mobj_unchecked() };
 
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a leaf node and is the index to a subsector

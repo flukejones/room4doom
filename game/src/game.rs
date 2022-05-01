@@ -507,7 +507,7 @@ impl Game {
                 self.pic_data.clone(),
                 self.snd_command.clone(),
                 &self.player_in_game,
-                &self.players,
+                &mut self.players,
             )
         };
 
@@ -581,6 +581,7 @@ impl Game {
     fn do_reborn(&mut self, player_num: usize) {
         info!("Player respawned");
         self.game_action = GameAction::LoadLevel;
+        // self.players[player_num].
         // TODO: deathmatch spawns
     }
 
@@ -723,16 +724,17 @@ impl Game {
     /// Doom function name `G_Ticker`
     pub fn ticker(&mut self) {
         trace!("Entered ticker");
+        // do player reborns if needed
+        for i in 0..MAXPLAYERS {
+            if self.player_in_game[i] && self.players[i].player_state == PlayerState::Reborn {
+                self.do_reborn(i);
+            }
+        }
+
         if let Some(level) = &mut self.level {
             if let Some(action) = level.game_action.take() {
                 self.game_action = action;
                 info!("Game state changed: {:?}", self.game_action);
-            }
-        }
-        // // do player reborns if needed
-        for i in 0..MAXPLAYERS {
-            if self.player_in_game[i] && self.players[i].player_state == PlayerState::Reborn {
-                self.do_reborn(i);
             }
         }
 
@@ -857,9 +859,8 @@ impl Game {
                 }
                 // Update the listener of the sound server. Will always be consoleplayer.
                 if i == self.consoleplayer {
-                    if let Some(mobj) = player.mobj {
-                        let uid = mobj as usize;
-                        let mobj = unsafe { &*mobj };
+                    if let Some(mobj) = player.mobj() {
+                        let uid = mobj as *const MapObject as usize;
                         self.snd_command
                             .send(SoundAction::UpdateListener {
                                 uid,
