@@ -1,8 +1,7 @@
 ## TODO
 
+[ ] Thinkers: For inner data get, add a compile-time cfg opt to panic, or return Option.
 [ ] Need to reset sector sound targets if player dies
-[ ] Reset sector sound_target after some time?
-[+] iterate sector lines to find max bounding box for sector and set sound_origin
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
     - let target = unsafe { (*target).object_mut().mobj() };// make a shortcut for this
 [ ] Don't shoot sky
@@ -23,6 +22,7 @@
 
 [ ] Make skulls attempt to scale inanimate objects
 [ ] Step over things if higher
+[ ] Shade screen with red palettes for increased damage (not the "took damage" flash)
 
 ## PARTIAL-COMPLETE
 
@@ -33,6 +33,7 @@
 ## DONE
 
 [+] Sector sound origin for specials
+    [+] iterate sector lines to find max bounding box for sector and set sound_origin
 [+] INFLOAT, floatok, skulls
 [+] EV_DoDonut (E2M2)
 [+] EV_StopPlat - requires tracking some active platforms.

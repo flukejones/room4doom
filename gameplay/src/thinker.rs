@@ -5,7 +5,7 @@ use std::{
     ptr::{self, null_mut},
 };
 
-use log::debug;
+use log::{debug, error};
 
 use crate::{
     level::Level,
@@ -27,9 +27,11 @@ pub struct TestObject {
 
 impl Think for TestObject {
     fn think(thinker: &mut Thinker, _level: &mut Level) -> bool {
-        let this = thinker.test_mut();
-        this.x = 1000;
-        true
+        if let Some(test) = thinker.test_mut() {
+            test.x = 1000;
+            return true;
+        }
+        false
     }
 
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
@@ -85,7 +87,7 @@ impl ThinkerAlloc {
             buf_ptr.add(n).write(Thinker {
                 prev: null_mut(),
                 next: null_mut(),
-                object: ObjectType::Free,
+                data: ThinkerData::Free,
                 func: Thinker::placeholder,
             })
         }
@@ -179,7 +181,7 @@ impl ThinkerAlloc {
                 if self.next_free == max {
                     break;
                 }
-                if matches!((*self.next_free).object, ObjectType::Free) {
+                if matches!((*self.next_free).data, ThinkerData::Free) {
                     return Some(self.next_free);
                 }
                 self.next_free = self.next_free.add(1);
@@ -203,17 +205,17 @@ impl ThinkerAlloc {
         if self.len == self.capacity {
             return None;
         }
-        if matches!(thinker.object, ObjectType::Free) {
+        if matches!(thinker.data, ThinkerData::Free) {
             panic!("Can't push a thinker with ActionF::Free as the function wrapper");
         }
 
         let root_ptr = self.find_first_free(false)?;
         debug!("Pushing: {:?}", root_ptr);
-        match &thinker.object {
-            ObjectType::MapObject(mobj) => {
+        match &thinker.data {
+            ThinkerData::MapObject(mobj) => {
                 debug!("Adding Thinker of type {:?}", mobj.kind);
             }
-            _ => debug!("Adding Thinker of type {:?}", thinker.object),
+            _ => debug!("Adding Thinker of type {:?}", thinker.data),
         }
         unsafe { ptr::write(root_ptr, thinker) };
         let mut current = unsafe { &mut *root_ptr };
@@ -266,10 +268,52 @@ impl ThinkerAlloc {
                 Thinker {
                     prev: null_mut(),
                     next: null_mut(),
-                    object: ObjectType::Free,
+                    data: ThinkerData::Free,
                     func: TestObject::think,
                 },
             );
+        }
+    }
+}
+
+/// All map object thinkers need to be registered here. If the object has pointees then these must be dealt
+/// with before setting `ObjectType::Remove`.
+#[repr(C)]
+#[allow(clippy::large_enum_variant)]
+pub enum ThinkerData {
+    TestObject(TestObject),
+    MapObject(MapObject),
+    VerticalDoor(VerticalDoor),
+    FloorMove(FloorMove),
+    CeilingMove(CeilingMove),
+    Platform(Platform),
+    LightFlash(LightFlash),
+    StrobeFlash(StrobeFlash),
+    FireFlicker(FireFlicker),
+    Glow(Glow),
+    /// The thinker function should set to this when the linked-list node
+    /// and memory is no-longer required. On thinker run it will be set to
+    /// `Free` and unlinked.
+    Remove,
+    /// Used to mark a `ThinkerAlloc` slot as free to be re-used.
+    Free,
+}
+
+impl Debug for ThinkerData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TestObject(_) => f.debug_tuple("Test").finish(),
+            Self::MapObject(_) => f.debug_tuple("Mobj").finish(),
+            Self::VerticalDoor(_) => f.debug_tuple("VDoor").finish(),
+            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
+            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
+            Self::Platform(_) => f.debug_tuple("Platform").finish(),
+            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
+            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
+            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
+            Self::Glow(_) => f.debug_tuple("Glow").finish(),
+            Self::Remove => f.debug_tuple("Remove").finish(),
+            Self::Free => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
         }
     }
 }
@@ -296,17 +340,17 @@ impl ThinkerAlloc {
 pub struct Thinker {
     prev: *mut Thinker,
     next: *mut Thinker,
-    object: ObjectType,
+    data: ThinkerData,
     func: fn(&mut Self, &mut Level) -> bool,
 }
 
 impl Thinker {
     pub fn should_remove(&self) -> bool {
-        matches!(self.object, ObjectType::Remove)
+        matches!(self.data, ThinkerData::Remove)
     }
 
     pub fn mark_remove(&mut self) {
-        self.object = ObjectType::Remove;
+        self.data = ThinkerData::Remove;
     }
 
     pub fn set_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
@@ -315,19 +359,23 @@ impl Thinker {
 
     pub fn set_obj_thinker_ptr(&mut self) {
         let ptr = self as *mut Self;
-        match &mut self.object {
-            ObjectType::TestObject(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::MapObject(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::VerticalDoor(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::FloorMove(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::CeilingMove(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::Platform(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::LightFlash(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::StrobeFlash(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::FireFlicker(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::Glow(obj) => obj.set_thinker_ptr(ptr),
-            ObjectType::Remove => {}
-            ObjectType::Free => {}
+        match &mut self.data {
+            ThinkerData::TestObject(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::MapObject(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::VerticalDoor(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::FloorMove(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::CeilingMove(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::Platform(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::LightFlash(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::StrobeFlash(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::FireFlicker(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::Glow(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::Remove => {
+                error!("Tried to set the Thinker pointer for an Object that was 'Remove'");
+            }
+            ThinkerData::Free => {
+                error!("Tried to set the Thinker pointer for an Object that was 'Free'");
+            }
         }
     }
 
@@ -341,6 +389,110 @@ impl Thinker {
     fn placeholder(_: &mut Thinker, _: &mut Level) -> bool {
         false
     }
+
+    pub fn data(&self) -> &ThinkerData {
+        &self.data
+    }
+
+    /// Get inner `MapObject` data as ref. Panics if the inner is not actually `MapObject`
+    pub fn mobj(&self) -> &MapObject {
+        if let ThinkerData::MapObject(ref obj) = self.data {
+            obj
+        } else {
+            panic!("ObjectType is not MapObject");
+        }
+    }
+
+    /// Get inner `MapObject` data as mut. Panics if the inner is not actually `MapObject`
+    pub fn mobj_mut(&mut self) -> &mut MapObject {
+        if let ThinkerData::MapObject(ref mut obj) = self.data {
+            obj
+        } else {
+            panic!("ObjectType is not MapObject");
+        }
+    }
+
+    /// Get inner `TestObject` data as mut. Panics if the inner is not actually `TestObject`
+    pub fn test_mut(&mut self) -> Option<&mut TestObject> {
+        if let ThinkerData::TestObject(obj) = &mut self.data {
+            Some(obj)
+        } else {
+            error!("ObjectType is not TestObject");
+            None
+        }
+    }
+
+    /// Get inner `VerticalDoor` data as mut. Panics if the inner is not actually `VerticalDoor`
+    pub fn vdoor_mut(&mut self) -> &mut VerticalDoor {
+        if let ThinkerData::VerticalDoor(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not VerticalDoor");
+        }
+    }
+
+    /// Get inner `CeilingMove` data as mut. Panics if the inner is not actually `CeilingMove`
+    pub fn ceiling_mut(&mut self) -> &mut CeilingMove {
+        if let ThinkerData::CeilingMove(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not CeilingMove");
+        }
+    }
+
+    /// Get inner `FloorMove` data as mut. Panics if the inner is not actually `FloorMove`
+    pub fn floor_mut(&mut self) -> &mut FloorMove {
+        if let ThinkerData::FloorMove(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not FloorMove");
+        }
+    }
+
+    /// Get inner `Platform` data as mut. Panics if the inner is not actually `Platform`
+    pub fn platform_mut(&mut self) -> &mut Platform {
+        if let ThinkerData::Platform(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not Platform");
+        }
+    }
+
+    /// Get inner `LightFlash` data as mut. Panics if the inner is not actually `LightFlash`
+    pub fn light_flash_mut(&mut self) -> &mut LightFlash {
+        if let ThinkerData::LightFlash(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not LightFlash");
+        }
+    }
+
+    /// Get inner `StrobeFlash` data as mut. Panics if the inner is not actually `StrobeFlash`
+    pub fn strobe_flash_mut(&mut self) -> &mut StrobeFlash {
+        if let ThinkerData::StrobeFlash(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not StrobeFlash");
+        }
+    }
+
+    /// Get inner `FireFlicker` data as mut. Panics if the inner is not actually `FireFlicker`
+    pub fn fire_flick_mut(&mut self) -> &mut FireFlicker {
+        if let ThinkerData::FireFlicker(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not FireFlicker");
+        }
+    }
+
+    /// Get inner `Glow` data as mut. Panics if the inner is not actually `Glow`
+    pub fn glow_mut(&mut self) -> &mut Glow {
+        if let ThinkerData::Glow(obj) = &mut self.data {
+            obj
+        } else {
+            panic!("ObjectType is not Glow");
+        }
+    }
 }
 
 impl fmt::Debug for Thinker {
@@ -348,7 +500,7 @@ impl fmt::Debug for Thinker {
         f.debug_struct("Thinker")
             .field("prev", &(self.prev))
             .field("next", &(self.next))
-            .field("object", &(self as *const Self))
+            .field("data", &(self as *const Self))
             .finish_non_exhaustive()
     }
 }
@@ -356,11 +508,11 @@ impl fmt::Debug for Thinker {
 /// Every map object should implement this trait
 pub trait Think {
     /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
-    fn create_thinker(object: ObjectType, func: fn(&mut Thinker, &mut Level) -> bool) -> Thinker {
+    fn create_thinker(object: ThinkerData, func: fn(&mut Thinker, &mut Level) -> bool) -> Thinker {
         Thinker {
             prev: null_mut(),
             next: null_mut(),
-            object,
+            data: object,
             func,
         }
     }
@@ -387,145 +539,8 @@ pub trait Think {
     fn thinker(&self) -> &Thinker;
 }
 
-/// All map object thinkers need to be registered here. If the object has pointees then these must be dealt
-/// with before setting `ObjectType::Remove`.
-#[repr(C)]
-#[allow(clippy::large_enum_variant)]
-pub enum ObjectType {
-    TestObject(TestObject),
-    MapObject(MapObject),
-    VerticalDoor(VerticalDoor),
-    FloorMove(FloorMove),
-    CeilingMove(CeilingMove),
-    Platform(Platform),
-    LightFlash(LightFlash),
-    StrobeFlash(StrobeFlash),
-    FireFlicker(FireFlicker),
-    Glow(Glow),
-    /// The thinker function should set to this when the linked-list node
-    /// and memory is no-longer required. On thinker run it will be set to
-    /// `Free` and unlinked.
-    Remove,
-    /// Used to mark a `ThinkerAlloc` slot as free to be re-used.
-    Free,
-}
-
-/// The inner Object accessors
-impl Thinker {
-    pub fn obj(&self) -> &ObjectType {
-        &self.object
-    }
-
-    pub fn mobj(&self) -> &MapObject {
-        if let ObjectType::MapObject(ref obj) = self.object {
-            obj
-        } else {
-            panic!("ObjectType is not Mobj");
-        }
-    }
-
-    pub fn mobj_mut(&mut self) -> &mut MapObject {
-        if let ObjectType::MapObject(ref mut obj) = self.object {
-            obj
-        } else {
-            panic!("ObjectType is not Mobj");
-        }
-    }
-
-    pub fn test_mut(&mut self) -> &mut TestObject {
-        if let ObjectType::TestObject(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not TestObject");
-        }
-    }
-
-    pub fn vdoor_mut(&mut self) -> &mut VerticalDoor {
-        if let ObjectType::VerticalDoor(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not VDoor");
-        }
-    }
-
-    pub fn ceiling_mut(&mut self) -> &mut CeilingMove {
-        if let ObjectType::CeilingMove(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not CeilingMove");
-        }
-    }
-
-    pub fn floor_mut(&mut self) -> &mut FloorMove {
-        if let ObjectType::FloorMove(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not FloorMove");
-        }
-    }
-
-    pub fn platform_mut(&mut self) -> &mut Platform {
-        if let ObjectType::Platform(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not Platform");
-        }
-    }
-
-    pub fn light_flash_mut(&mut self) -> &mut LightFlash {
-        if let ObjectType::LightFlash(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not LightFlash");
-        }
-    }
-
-    pub fn strobe_flash_mut(&mut self) -> &mut StrobeFlash {
-        if let ObjectType::StrobeFlash(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not StrobeFlash");
-        }
-    }
-
-    pub fn fire_flick_mut(&mut self) -> &mut FireFlicker {
-        if let ObjectType::FireFlicker(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not FireFlicker");
-        }
-    }
-
-    pub fn glow_mut(&mut self) -> &mut Glow {
-        if let ObjectType::Glow(obj) = &mut self.object {
-            obj
-        } else {
-            panic!("ObjectType is not Glow");
-        }
-    }
-}
-
-impl Debug for ObjectType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TestObject(_) => f.debug_tuple("Test").finish(),
-            Self::MapObject(_) => f.debug_tuple("Mobj").finish(),
-            Self::VerticalDoor(_) => f.debug_tuple("VDoor").finish(),
-            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
-            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
-            Self::Platform(_) => f.debug_tuple("Platform").finish(),
-            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
-            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
-            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
-            Self::Glow(_) => f.debug_tuple("Glow").finish(),
-            Self::Remove => f.debug_tuple("Remove").finish(),
-            Self::Free => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
-        }
-    }
-}
-
 #[cfg(test)]
-impl ObjectType {
+impl ThinkerData {
     fn bad_ref<T>(&self) -> &T {
         let mut ptr = self as *const Self as usize;
         ptr += size_of::<u64>();
@@ -551,17 +566,17 @@ mod tests {
         PicData, Player, MAXPLAYERS,
     };
 
-    use super::{ObjectType, TestObject, ThinkerAlloc};
+    use super::{TestObject, ThinkerAlloc, ThinkerData};
     use std::{cell::RefCell, ptr::null_mut, rc::Rc, sync::mpsc::channel};
 
     #[test]
     fn bad_stuff() {
-        let mut x = ObjectType::TestObject(TestObject {
+        let mut x = ThinkerData::TestObject(TestObject {
             x: 42,
             thinker: null_mut(),
         });
 
-        if let ObjectType::TestObject(f) = &x {
+        if let ThinkerData::TestObject(f) = &x {
             assert_eq!(f.x, 42);
 
             let f = x.bad_ref::<TestObject>();
@@ -603,7 +618,7 @@ mod tests {
         let mut x = Thinker {
             prev: null_mut(),
             next: null_mut(),
-            object: ObjectType::TestObject(TestObject {
+            data: ThinkerData::TestObject(TestObject {
                 x: 42,
                 thinker: null_mut(),
             }),
@@ -613,8 +628,8 @@ mod tests {
         assert!(x.think(&mut l));
 
         let ptr = &mut x as *mut Thinker;
-        x.object.bad_mut::<TestObject>().set_thinker_ptr(ptr);
-        assert!(x.object.bad_mut::<TestObject>().thinker_mut().think(&mut l));
+        x.data.bad_mut::<TestObject>().set_thinker_ptr(ptr);
+        assert!(x.data.bad_mut::<TestObject>().thinker_mut().think(&mut l));
     }
 
     #[test]
@@ -632,7 +647,7 @@ mod tests {
 
         let think = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Remove,
+                ThinkerData::Remove,
                 TestObject::think,
             ))
             .unwrap() as *mut Thinker;
@@ -648,9 +663,9 @@ mod tests {
             dbg!(&*links.buf_ptr.add(2));
             dbg!(&*links.buf_ptr.add(62));
 
-            assert!(matches!((*links.buf_ptr.add(0)).object, ObjectType::Remove));
-            assert!(matches!((*links.buf_ptr.add(1)).object, ObjectType::Free));
-            assert!(matches!((*links.buf_ptr.add(2)).object, ObjectType::Free));
+            assert!(matches!((*links.buf_ptr.add(0)).data, ThinkerData::Remove));
+            assert!(matches!((*links.buf_ptr.add(1)).data, ThinkerData::Free));
+            assert!(matches!((*links.buf_ptr.add(2)).data, ThinkerData::Free));
 
             links.remove(&mut *think);
             assert_eq!(links.len(), 0);
@@ -663,7 +678,7 @@ mod tests {
 
         links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::Remove,
+                ThinkerData::Remove,
                 TestObject::think,
             ))
             .unwrap();
@@ -671,7 +686,7 @@ mod tests {
 
         let one = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::TestObject(TestObject {
+                ThinkerData::TestObject(TestObject {
                     x: 666,
                     thinker: null_mut(),
                 }),
@@ -681,7 +696,7 @@ mod tests {
 
         links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::TestObject(TestObject {
+                ThinkerData::TestObject(TestObject {
                     x: 123,
                     thinker: null_mut(),
                 }),
@@ -690,7 +705,7 @@ mod tests {
             .unwrap();
         let three = links
             .push::<TestObject>(TestObject::create_thinker(
-                ObjectType::TestObject(TestObject {
+                ThinkerData::TestObject(TestObject {
                     x: 333,
                     thinker: null_mut(),
                 }),
@@ -701,20 +716,17 @@ mod tests {
         unsafe {
             // forward
             assert!((*links.buf_ptr).should_remove());
-            assert_eq!(
-                (*(*links.buf_ptr).next).object.bad_ref::<TestObject>().x,
-                666
-            );
+            assert_eq!((*(*links.buf_ptr).next).data.bad_ref::<TestObject>().x, 666);
             assert_eq!(
                 (*(*(*links.buf_ptr).next).next)
-                    .object
+                    .data
                     .bad_ref::<TestObject>()
                     .x,
                 123
             );
             assert_eq!(
                 (*(*(*(*links.buf_ptr).next).next).next)
-                    .object
+                    .data
                     .bad_ref::<TestObject>()
                     .x,
                 333
@@ -722,17 +734,14 @@ mod tests {
             assert!((*(*(*(*(*links.buf_ptr).next).next).next).next).should_remove());
             // back
             assert!((*links.head).should_remove());
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 333);
+            assert_eq!((*(*links.head).prev).data.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.head).prev).prev)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
+                (*(*(*links.head).prev).prev).data.bad_ref::<TestObject>().x,
                 123
             );
             assert_eq!(
                 (*(*(*(*links.head).prev).prev).prev)
-                    .object
+                    .data
                     .bad_ref::<TestObject>()
                     .x,
                 666
@@ -741,12 +750,9 @@ mod tests {
         unsafe {
             links.remove(&mut *one);
             assert!((*links.head).should_remove());
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 333);
+            assert_eq!((*(*links.head).prev).data.bad_ref::<TestObject>().x, 333);
             assert_eq!(
-                (*(*(*links.head).prev).prev)
-                    .object
-                    .bad_ref::<TestObject>()
-                    .x,
+                (*(*(*links.head).prev).prev).data.bad_ref::<TestObject>().x,
                 123
             );
         }
@@ -754,7 +760,7 @@ mod tests {
         unsafe {
             links.remove(&mut *three);
             assert!((*links.head).should_remove());
-            assert_eq!((*(*links.head).prev).object.bad_ref::<TestObject>().x, 123);
+            assert_eq!((*(*links.head).prev).data.bad_ref::<TestObject>().x, 123);
             assert!((*(*(*links.head).prev).prev).should_remove());
         }
     }

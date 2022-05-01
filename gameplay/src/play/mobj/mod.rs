@@ -25,7 +25,7 @@ use super::{
 use crate::{
     doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
     level::Level,
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
 };
 use glam::Vec2;
 use log::{debug, error};
@@ -565,7 +565,7 @@ impl MapObject {
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
-        let thinker = MapObject::create_thinker(ObjectType::MapObject(mobj), MapObject::think);
+        let thinker = MapObject::create_thinker(ThinkerData::MapObject(mobj), MapObject::think);
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {

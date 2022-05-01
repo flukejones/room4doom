@@ -21,7 +21,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
@@ -175,7 +175,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
             }
         }
 
-        let thinker = MapObject::create_thinker(ObjectType::Platform(platform), Platform::think);
+        let thinker = MapObject::create_thinker(ThinkerData::Platform(platform), Platform::think);
 
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             ptr.set_obj_thinker_ptr();
