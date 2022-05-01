@@ -569,7 +569,7 @@ impl MapObject {
 
         // P_AddThinker(&mobj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
-            let thing = ptr.object_mut().mobj();
+            let thing = ptr.mobj_mut();
             unsafe {
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
@@ -774,8 +774,8 @@ impl MapObject {
 }
 
 impl Think for MapObject {
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let this = object.mobj();
+    fn think(object: &mut Thinker, level: &mut Level) -> bool {
+        let this = object.mobj_mut();
 
         if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjectFlag::SkullFly as u32 != 0 {
             this.p_xy_movement();

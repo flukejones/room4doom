@@ -1,5 +1,3 @@
-use std::ptr::NonNull;
-
 use crate::{angle::Angle, play::mobj::MapObject, thinker::Thinker, DPtr};
 use glam::Vec2;
 
@@ -75,7 +73,7 @@ impl Sector {
     pub fn run_func_on_thinglist(&mut self, mut func: impl FnMut(&mut MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
             unsafe {
-                let mut thing = (*thing).object_mut().mobj();
+                let mut thing = (*thing).mobj_mut();
 
                 loop {
                     // Thing might remove itself so grab a copy of s_next here
@@ -85,7 +83,7 @@ impl Sector {
                     }
 
                     if let Some(mut next) = next {
-                        thing = (*next).object_mut().mobj()
+                        thing = (*next).mobj_mut()
                     } else {
                         break;
                     }
@@ -98,7 +96,7 @@ impl Sector {
     pub fn run_rfunc_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
             unsafe {
-                let mut thing = (*thing).object_mut().mobj();
+                let mut thing = (*thing).mobj();
 
                 loop {
                     // Thing might remove itself so grab a copy of s_next here
@@ -108,7 +106,7 @@ impl Sector {
                     }
 
                     if let Some(next) = next {
-                        thing = (*next).object_mut().mobj()
+                        thing = (*next).mobj()
                     } else {
                         break;
                     }
@@ -120,11 +118,11 @@ impl Sector {
 
     /// Add this thing tot he sectors thing list
     pub unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
-        (*thing).object_mut().mobj().s_prev = None;
-        (*thing).object_mut().mobj().s_next = self.thinglist; // could be null
+        (*thing).mobj_mut().s_prev = None;
+        (*thing).mobj_mut().s_next = self.thinglist; // could be null
 
         if let Some(other) = self.thinglist {
-            (*other).object_mut().mobj().s_prev = Some(thing);
+            (*other).mobj_mut().s_prev = Some(thing);
         }
 
         self.thinglist = Some(thing);
@@ -135,27 +133,24 @@ impl Sector {
     /// # Safety
     /// Must be called if a thing is ever removed
     pub unsafe fn remove_from_thinglist(&mut self, thing: &mut Thinker) {
-        if thing.object_mut().mobj().s_next.is_none() && thing.object_mut().mobj().s_prev.is_none()
-        {
+        if thing.mobj().s_next.is_none() && thing.mobj().s_prev.is_none() {
             self.thinglist = None;
         }
 
-        if let Some(next) = thing.object_mut().mobj().s_next {
-            (*next).object_mut().mobj().s_prev = (*thing).object_mut().mobj().s_prev;
+        if let Some(next) = thing.mobj().s_next {
+            (*next).mobj_mut().s_prev = (*thing).mobj_mut().s_prev;
             // could also be null
         }
 
-        if let Some(prev) = thing.object_mut().mobj().s_prev {
-            (*prev).object_mut().mobj().s_next = thing.object_mut().mobj().s_next;
+        if let Some(prev) = thing.mobj().s_prev {
+            (*prev).mobj_mut().s_next = thing.mobj_mut().s_next;
         } else {
-            (*thing.object_mut().mobj().subsector).sector.thinglist =
-                thing.object_mut().mobj().s_next;
+            (*thing.mobj().subsector).sector.thinglist = thing.mobj().s_next;
         }
     }
 
     pub unsafe fn sound_target(&self) -> Option<&mut MapObject> {
-        self.sound_target
-            .map(|m| unsafe { (*m).object_mut().mobj() })
+        self.sound_target.map(|m| unsafe { (*m).mobj_mut() })
     }
 
     pub unsafe fn sound_target_raw(&mut self) -> Option<*mut Thinker> {

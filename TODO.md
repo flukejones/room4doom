@@ -2,7 +2,7 @@
 
 [ ] Need to reset sector sound targets if player dies
 [ ] Reset sector sound_target after some time?
-[ ] iterate sector lines to find max bounding box for sector and set sound_origin
+[+] iterate sector lines to find max bounding box for sector and set sound_origin
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
     - let target = unsafe { (*target).object_mut().mobj() };// make a shortcut for this
 [ ] Don't shoot sky

@@ -231,8 +231,8 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 }
 
 impl Think for FloorMove {
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let floor = object.floor_move();
+    fn think(object: &mut Thinker, level: &mut Level) -> bool {
+        let floor = object.floor_mut();
         let line = &floor.sector.lines[0];
 
         let res = move_plane(

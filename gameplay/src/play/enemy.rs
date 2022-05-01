@@ -81,7 +81,7 @@ pub fn a_facetarget(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
-            let target = unsafe { (*target).object_mut().mobj() };
+            let target = unsafe { (*target).mobj() };
 
             let angle = point_to_angle_2(target.xy, actor.xy);
             actor.angle = angle;
@@ -103,7 +103,7 @@ pub fn a_chase(actor: &mut MapObject) {
     // modify target threshold
     if actor.threshold > 0 {
         if let Some(target) = actor.target {
-            let target = unsafe { (*target).object_mut().mobj() };
+            let target = unsafe { (*target).mobj() };
 
             unsafe {
                 if target.health <= 0 {
@@ -128,7 +128,7 @@ pub fn a_chase(actor: &mut MapObject) {
 
     if let Some(target) = actor.target {
         unsafe {
-            let target = unsafe { (*target).object_mut().mobj() };
+            let target = unsafe { (*target).mobj() };
 
             // Inanimate object, try to find new target
             if target.flags & MapObjectFlag::Shootable as u32 == 0 {
@@ -430,7 +430,7 @@ pub fn a_bspiattack(actor: &mut MapObject) {
 
 pub fn a_skullattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
-        let target = unsafe { (*target).object_mut().mobj() };
+        let target = unsafe { (*target).mobj() };
 
         a_facetarget(actor);
         actor.flags |= MapObjectFlag::SkullFly as u32;
@@ -454,7 +454,7 @@ pub fn a_headattack(actor: &mut MapObject) {
 
 pub fn a_sargattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
-        let target = unsafe { (*target).object_mut().mobj() };
+        let target = unsafe { (*target).mobj_mut() };
 
         a_facetarget(actor);
         if actor.check_melee_range() {
@@ -482,7 +482,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
 
-        let target = unsafe { (*target).object_mut().mobj() };
+        let target = unsafe { (*target).mobj_mut() };
 
         if actor.check_melee_range() {
             actor.start_sound(SfxEnum::claw);

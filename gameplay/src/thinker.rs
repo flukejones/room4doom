@@ -26,8 +26,8 @@ pub struct TestObject {
 }
 
 impl Think for TestObject {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let this = object.test();
+    fn think(thinker: &mut Thinker, _level: &mut Level) -> bool {
+        let this = thinker.test_mut();
         this.x = 1000;
         true
     }
@@ -209,7 +209,7 @@ impl ThinkerAlloc {
 
         let root_ptr = self.find_first_free(false)?;
         debug!("Pushing: {:?}", root_ptr);
-        match thinker.object() {
+        match &thinker.object {
             ObjectType::MapObject(mobj) => {
                 debug!("Adding Thinker of type {:?}", mobj.kind);
             }
@@ -297,18 +297,10 @@ pub struct Thinker {
     prev: *mut Thinker,
     next: *mut Thinker,
     object: ObjectType,
-    func: fn(&mut ObjectType, &mut Level) -> bool,
+    func: fn(&mut Self, &mut Level) -> bool,
 }
 
 impl Thinker {
-    pub fn object(&self) -> &ObjectType {
-        &self.object
-    }
-
-    pub fn object_mut(&mut self) -> &mut ObjectType {
-        &mut self.object
-    }
-
     pub fn should_remove(&self) -> bool {
         matches!(self.object, ObjectType::Remove)
     }
@@ -317,7 +309,7 @@ impl Thinker {
         self.object = ObjectType::Remove;
     }
 
-    pub fn set_action(&mut self, func: fn(&mut ObjectType, &mut Level) -> bool) {
+    pub fn set_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
         self.func = func
     }
 
@@ -342,11 +334,11 @@ impl Thinker {
     /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then it should be
     /// marked for removal
     pub fn think(&mut self, level: &mut Level) -> bool {
-        (self.func)(&mut self.object, level)
+        (self.func)(self, level)
     }
 
     /// Empty function purely for ThinkerAlloc init
-    fn placeholder(_: &mut ObjectType, _: &mut Level) -> bool {
+    fn placeholder(_: &mut Thinker, _: &mut Level) -> bool {
         false
     }
 }
@@ -364,10 +356,7 @@ impl fmt::Debug for Thinker {
 /// Every map object should implement this trait
 pub trait Think {
     /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
-    fn create_thinker(
-        object: ObjectType,
-        func: fn(&mut ObjectType, &mut Level) -> bool,
-    ) -> Thinker {
+    fn create_thinker(object: ObjectType, func: fn(&mut Thinker, &mut Level) -> bool) -> Thinker {
         Thinker {
             prev: null_mut(),
             next: null_mut(),
@@ -376,7 +365,7 @@ pub trait Think {
         }
     }
 
-    fn set_thinker_action(&mut self, func: fn(&mut ObjectType, &mut Level) -> bool) {
+    fn set_thinker_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
         self.thinker_mut().func = func
     }
 
@@ -388,7 +377,7 @@ pub trait Think {
     /// **NOTE:**
     ///
     /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool;
+    fn think(thinker: &mut Thinker, level: &mut Level) -> bool;
 
     /// Implementer must store the pointer to the conatining Thinker
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
@@ -421,84 +410,97 @@ pub enum ObjectType {
     Free,
 }
 
-impl ObjectType {
-    pub fn mobj(&mut self) -> &mut MapObject {
-        if let ObjectType::MapObject(obj) = self {
+/// The inner Object accessors
+impl Thinker {
+    pub fn obj(&self) -> &ObjectType {
+        &self.object
+    }
+
+    pub fn mobj(&self) -> &MapObject {
+        if let ObjectType::MapObject(ref obj) = self.object {
             obj
         } else {
             panic!("ObjectType is not Mobj");
         }
     }
 
-    pub fn vertical_door(&mut self) -> &mut VerticalDoor {
-        if let ObjectType::VerticalDoor(obj) = self {
+    pub fn mobj_mut(&mut self) -> &mut MapObject {
+        if let ObjectType::MapObject(ref mut obj) = self.object {
+            obj
+        } else {
+            panic!("ObjectType is not Mobj");
+        }
+    }
+
+    pub fn test_mut(&mut self) -> &mut TestObject {
+        if let ObjectType::TestObject(obj) = &mut self.object {
+            obj
+        } else {
+            panic!("ObjectType is not TestObject");
+        }
+    }
+
+    pub fn vdoor_mut(&mut self) -> &mut VerticalDoor {
+        if let ObjectType::VerticalDoor(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not VDoor");
         }
     }
 
-    pub fn ceiling_move(&mut self) -> &mut CeilingMove {
-        if let ObjectType::CeilingMove(obj) = self {
+    pub fn ceiling_mut(&mut self) -> &mut CeilingMove {
+        if let ObjectType::CeilingMove(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not CeilingMove");
         }
     }
 
-    pub fn floor_move(&mut self) -> &mut FloorMove {
-        if let ObjectType::FloorMove(obj) = self {
+    pub fn floor_mut(&mut self) -> &mut FloorMove {
+        if let ObjectType::FloorMove(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not FloorMove");
         }
     }
 
-    pub fn platform(&mut self) -> &mut Platform {
-        if let ObjectType::Platform(obj) = self {
+    pub fn platform_mut(&mut self) -> &mut Platform {
+        if let ObjectType::Platform(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not Platform");
         }
     }
 
-    pub fn light_flash(&mut self) -> &mut LightFlash {
-        if let ObjectType::LightFlash(obj) = self {
+    pub fn light_flash_mut(&mut self) -> &mut LightFlash {
+        if let ObjectType::LightFlash(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not LightFlash");
         }
     }
 
-    pub fn strobe_flash(&mut self) -> &mut StrobeFlash {
-        if let ObjectType::StrobeFlash(obj) = self {
+    pub fn strobe_flash_mut(&mut self) -> &mut StrobeFlash {
+        if let ObjectType::StrobeFlash(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not StrobeFlash");
         }
     }
 
-    pub fn fire_flicker(&mut self) -> &mut FireFlicker {
-        if let ObjectType::FireFlicker(obj) = self {
+    pub fn fire_flick_mut(&mut self) -> &mut FireFlicker {
+        if let ObjectType::FireFlicker(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not FireFlicker");
         }
     }
 
-    pub fn glow(&mut self) -> &mut Glow {
-        if let ObjectType::Glow(obj) = self {
+    pub fn glow_mut(&mut self) -> &mut Glow {
+        if let ObjectType::Glow(obj) = &mut self.object {
             obj
         } else {
             panic!("ObjectType is not Glow");
-        }
-    }
-
-    pub fn test(&mut self) -> &mut TestObject {
-        if let ObjectType::TestObject(obj) = self {
-            obj
-        } else {
-            panic!("ObjectType is not TestObject");
         }
     }
 }

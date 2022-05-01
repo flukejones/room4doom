@@ -68,8 +68,8 @@ impl fmt::Debug for VerticalDoor {
 }
 
 impl Think for VerticalDoor {
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let door = object.vertical_door();
+    fn think(object: &mut Thinker, level: &mut Level) -> bool {
+        let door = object.vdoor_mut();
         let line = &door.sector.lines[0];
 
         match door.direction {
@@ -326,7 +326,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         // TODO:
-        let mut door = unsafe { (*data).object_mut().vertical_door() };
+        let mut door = unsafe { (*data).vdoor_mut() };
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -336,9 +336,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker().object(), ObjectType::VerticalDoor(_)) {
+                    if matches!(door.thinker().obj(), ObjectType::VerticalDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker().object(), ObjectType::VerticalDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker().obj(), ObjectType::VerticalDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;

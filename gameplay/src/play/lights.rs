@@ -65,8 +65,8 @@ impl FireFlicker {
 }
 
 impl Think for FireFlicker {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.fire_flicker();
+    fn think(object: &mut Thinker, _level: &mut Level) -> bool {
+        let mut light = object.fire_flick_mut();
 
         light.count -= 1;
         if light.count != 0 {
@@ -130,8 +130,8 @@ impl LightFlash {
 }
 
 impl Think for LightFlash {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.light_flash();
+    fn think(object: &mut Thinker, _level: &mut Level) -> bool {
+        let mut light = object.light_flash_mut();
 
         light.count -= 1;
         if light.count != 0 {
@@ -199,8 +199,8 @@ impl StrobeFlash {
 }
 
 impl Think for StrobeFlash {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.strobe_flash();
+    fn think(object: &mut Thinker, _level: &mut Level) -> bool {
+        let mut light = object.strobe_flash_mut();
 
         light.count -= 1;
         if light.count != 0 {
@@ -262,8 +262,8 @@ impl Glow {
 const GLOWSPEED: i32 = 8;
 
 impl Think for Glow {
-    fn think(object: &mut ObjectType, _level: &mut Level) -> bool {
-        let mut light = object.glow();
+    fn think(object: &mut Thinker, _level: &mut Level) -> bool {
+        let mut light = object.glow_mut();
 
         match light.direction {
             -1 => {
