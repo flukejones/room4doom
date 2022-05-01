@@ -174,7 +174,7 @@ impl MapObject {
             if let Some(source) = source {
                 // TODO: gameversion <= exe_doom_1_2
                 if !ptr::eq(self, source) && source.kind != MapObjectType::MT_VILE {
-                    self.target = Some(source);
+                    self.target = Some(source.thinker);
                     self.threshold = BASETHRESHOLD;
 
                     if std::ptr::eq(self.state, &STATES[self.info.spawnstate as usize])

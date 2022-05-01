@@ -4,6 +4,7 @@
 [ ] Reset sector sound_target after some time?
 [ ] iterate sector lines to find max bounding box for sector and set sound_origin
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
+    - let target = unsafe { (*target).object_mut().mobj() };// make a shortcut for this
 [ ] Don't shoot sky
 [ ] E1M5 Candelebra not on ground?
 [ ] Lift sounds for E5M3 don't stop

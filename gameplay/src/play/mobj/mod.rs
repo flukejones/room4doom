@@ -10,7 +10,7 @@ pub use movement::*;
 use sound_traits::SfxEnum;
 mod shooting;
 
-use std::ptr::{null_mut, NonNull};
+use std::ptr::null_mut;
 
 use self::movement::SubSectorMinMax;
 
@@ -121,14 +121,14 @@ pub struct MapObject {
     /// # Safety
     /// A reference gained through `s_next` must never outlive this `self` unless links
     /// are updated.
-    pub s_next: Option<NonNull<MapObject>>,
+    pub s_next: Option<*mut Thinker>,
     /// Link to the previous object in this sector.  This is only ever used by functions
     /// implemented on `Sector`
     ///
     /// # Safety
     /// A reference gained through `s_prev` must never outlive this `self` unless links
     /// are updated.
-    pub s_prev: Option<NonNull<MapObject>>,
+    pub s_prev: Option<*mut Thinker>,
     /// The subsector this object is currently in
     pub subsector: *mut SubSector,
     /// The closest interval over all contacted Sectors.
@@ -162,7 +162,7 @@ pub struct MapObject {
     pub best_slide: BestSlide,
     /// Thing being chased/attacked (or NULL),
     /// also the originator for missiles.
-    pub target: Option<*mut MapObject>,
+    pub target: Option<*mut Thinker>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     pub reactiontime: i32,
@@ -479,7 +479,7 @@ impl MapObject {
             mobj.start_sound(mobj.info.seesound);
         }
 
-        mobj.target = Some(source);
+        mobj.target = Some(source.thinker);
         mobj.momxy = mobj.angle.unit() * mobj.info.speed;
         mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
         mobj.check_missile_spawn();
@@ -511,7 +511,7 @@ impl MapObject {
             mobj.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
 
-        mobj.target = Some(source);
+        mobj.target = Some(source.thinker);
         mobj.momxy = mobj.angle.unit() * mobj.info.speed;
         //mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
         let mut dist = mobj.xy.distance(target.xy) / mobj.info.speed;
@@ -641,7 +641,9 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub unsafe fn unset_thing_position(&mut self) {
         if self.flags & MapObjectFlag::NoSector as u32 == 0 {
-            (*self.subsector).sector.remove_from_thinglist(self);
+            (*self.subsector)
+                .sector
+                .remove_from_thinglist(self.thinker_mut());
         }
     }
 
@@ -655,7 +657,7 @@ impl MapObject {
         self.subsector = subsector;
 
         if self.flags & MapObjectFlag::NoSector as u32 == 0 {
-            (*self.subsector).sector.add_to_thinglist(self)
+            (*self.subsector).sector.add_to_thinglist(self.thinker)
         }
     }
 
