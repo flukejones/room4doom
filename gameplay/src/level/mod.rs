@@ -76,7 +76,7 @@ pub struct Level {
     player_in_game: *const [bool; MAXPLAYERS],
     /// Each player in the array may be controlled.
     /// This is a raw pointer to the array in `Game`, and must not be modified
-    players: *const [Player; MAXPLAYERS],
+    players: *mut [Player; MAXPLAYERS],
 
     active_platforms: Vec<*mut Platform>,
 }
@@ -102,7 +102,7 @@ impl Level {
         pic_data: Rc<RefCell<PicData>>,
         snd_command: SndServerTx,
         player_in_game: &[bool; MAXPLAYERS],
-        players: &[Player; MAXPLAYERS],
+        players: &mut [Player; MAXPLAYERS],
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -197,6 +197,10 @@ impl Level {
 
     pub fn players(&self) -> &[Player; MAXPLAYERS] {
         unsafe { &*self.players }
+    }
+
+    pub fn players_mut(&mut self) -> &mut [Player; MAXPLAYERS] {
+        unsafe { &mut *self.players }
     }
 
     pub fn load(&mut self, pic_data: &PicData, wad_data: &WadData) {

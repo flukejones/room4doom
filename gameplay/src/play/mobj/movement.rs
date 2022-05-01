@@ -247,8 +247,8 @@ impl MapObject {
         {
             if self.player.is_none() {
                 self.momxy = Vec2::default();
-            } else if let Some(player) = self.player {
-                if unsafe { (*player).cmd.forwardmove == 0 && (*player).cmd.sidemove == 0 } {
+            } else if let Some(player) = self.player_mut() {
+                if player.cmd.forwardmove == 0 && player.cmd.sidemove == 0 {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
                     // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {

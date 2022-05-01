@@ -58,7 +58,7 @@ pub struct ThinkerAlloc {
     len: usize,
     /// The next free slot to insert in
     next_free: *mut Thinker,
-    pub head: *mut Thinker,
+    head: *mut Thinker,
 }
 
 impl Drop for ThinkerAlloc {
@@ -75,6 +75,10 @@ impl Drop for ThinkerAlloc {
 }
 
 impl ThinkerAlloc {
+    /// Allocate a new block of `Thinker`. On creation the entire memory block is initialised with
+    /// the inner data as `ThinkerData::Free`. This means raw pointers to a `Thinker` are always valid
+    /// as long as `ThinkerAlloc` never moves. Accessor methods are available to get the inner data.
+    ///
     /// # Safety
     /// Once allocated the owner of this `ThinkerAlloc` must not move.
     pub unsafe fn new(capacity: usize) -> Self {
@@ -196,17 +200,13 @@ impl ThinkerAlloc {
         panic!("No more thinker slots");
     }
 
-    /// Push an item to the `ThinkerAlloc`. Returns the pointer to the Thinker.
-    ///
-    /// # Safety:
-    ///
-    /// `<T>` must match the inner type of `Thinker`
+    /// Push a Thinker to the `ThinkerAlloc`. Returns a mutable ref to the Thinker.
     pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
         if self.len == self.capacity {
             return None;
         }
         if matches!(thinker.data, ThinkerData::Free) {
-            panic!("Can't push a thinker with ActionF::Free as the function wrapper");
+            panic!("Can't push a thinker with `Thinker::Free` as the inner data. Please use `Thinker::Remove` to initiate removal, or use `remove()`");
         }
 
         let root_ptr = self.find_first_free(false)?;
@@ -531,7 +531,8 @@ pub trait Think {
     /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
     fn think(thinker: &mut Thinker, level: &mut Level) -> bool;
 
-    /// Implementer must store the pointer to the conatining Thinker
+    /// Implementer must store the pointer to the conatining Thinker. This method exists mostly
+    /// to force remembering to actually ref the Thinker or not.
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
 
     fn thinker_mut(&mut self) -> &mut Thinker;
@@ -607,7 +608,7 @@ mod tests {
                 Rc::new(RefCell::new(textures)),
                 tx,
                 &[false; MAXPLAYERS],
-                &[
+                &mut [
                     Player::default(),
                     Player::default(),
                     Player::default(),

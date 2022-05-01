@@ -288,31 +288,28 @@ impl MapObject {
                 continue;
             }
 
-            let xy = self.level().players()[self.lastlook as usize]
-                .mobj_unchecked()
-                .xy;
-            let z = self.level().players()[self.lastlook as usize]
-                .mobj_unchecked()
-                .z;
-            let height = self.level().players()[self.lastlook as usize]
-                .mobj_unchecked()
-                .height;
+            if let Some(mobj) = self.level().players()[self.lastlook as usize].mobj() {
+                let xy = mobj.xy;
+                let z = mobj.z;
+                let height = mobj.height;
 
-            let mut bsp_trace = self.get_sight_bsp_trace(xy);
-            if !self.check_sight(xy, z, height, &mut bsp_trace) {
-                continue;
-            }
-
-            if !all_around {
-                let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
-                if angle.abs() > FRAC_2_PI && self.xy.distance(xy) > MELEERANGE {
+                let mut bsp_trace = self.get_sight_bsp_trace(xy);
+                if !self.check_sight(xy, z, height, &mut bsp_trace) {
                     continue;
+                }
+
+                if !all_around {
+                    let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
+                    if angle.abs() > FRAC_2_PI && self.xy.distance(xy) > MELEERANGE {
+                        continue;
+                    }
                 }
             }
 
-            self.target = self.level().players()[self.lastlook as usize]
-                .mobj
-                .map(|m| unsafe { (*m).thinker });
+            let last_look = self.lastlook as usize;
+            self.target = self.level_mut().players_mut()[last_look]
+                .mobj_mut()
+                .map(|m| m.thinker);
             return true;
         }
     }

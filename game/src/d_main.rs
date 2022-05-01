@@ -4,7 +4,7 @@
 
 use std::error::Error;
 
-use gameplay::log::{self, info};
+use gameplay::log::{self, error, info};
 use golem::Context;
 use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
@@ -196,11 +196,16 @@ fn d_display(rend: &mut impl PlayRenderer, game: &Game, pixels: &mut PixelBuf) {
                 if !game.player_in_game[0] {
                     return;
                 }
-                let player = &game.players[game.consoleplayer];
-                rend.render_player_view(player, level, pixels);
+                if game.players[0].mobj().is_none() {
+                    error!("Active console player has no MapObject, can't render player view");
+                } else {
+                    let player = &game.players[game.consoleplayer];
+                    rend.render_player_view(player, level, pixels);
+                }
             }
         }
         // TODO: HU_Drawer();
+        // Fake crosshair
         pixels.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
     }
 

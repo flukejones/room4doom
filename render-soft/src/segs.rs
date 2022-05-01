@@ -152,7 +152,7 @@ impl SegRender {
         // if offsetangle > FRAC_PI_2 {
         //     offsetangle = FRAC_PI_2;
         // }
-        let mobj = unsafe { &*(player.mobj.unwrap()) };
+        let mobj = unsafe { player.mobj_unchecked() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct

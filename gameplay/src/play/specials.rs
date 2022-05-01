@@ -346,7 +346,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
     let mut ok = false;
 
     //  Triggers that other things can activate
-    if thing.player.is_none() {
+    if thing.player().is_none() {
         // Things that should NOT trigger specials...
         match thing.kind {
             MapObjectType::MT_ROCKET
@@ -695,7 +695,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
         }
         125 => {
             // TELEPORT MonsterONLY
-            if thing.player.is_none() {
+            if thing.player().is_none() {
                 teleport(line.clone(), side, thing, level);
                 line.special = 0;
             }
@@ -716,7 +716,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
         }
         126 => {
             // TELEPORT MonsterONLY
-            if thing.player.is_none() {
+            if thing.player().is_none() {
                 teleport(line.clone(), side, thing, level);
             }
         }
@@ -740,7 +740,7 @@ pub fn shoot_special_line(line: DPtr<LineDef>, thing: &mut MapObject) {
     }
     let level = unsafe { &mut *thing.level };
 
-    if thing.player.is_none() {
+    if thing.player().is_none() {
         if line.special == 46 {
             ok = true;
         }

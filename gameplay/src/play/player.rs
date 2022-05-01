@@ -2,6 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use log::{debug, error, info};
+use sound_traits::SfxEnum;
 
 use super::{
     enemy::noise_alert,
@@ -100,7 +101,7 @@ pub struct WBStartStruct {
 
 /// player_t
 pub struct Player {
-    pub mobj: Option<*mut MapObject>,
+    mobj: Option<*mut MapObject>,
     pub player_state: PlayerState,
     pub cmd: TicCmd,
 
@@ -174,7 +175,7 @@ pub struct Player {
 
     /// Player skin colorshift,
     ///  0-3 for which color to draw player.
-    colormap: i32,
+    _colormap: i32,
 
     /// Overlay view sprites (gun, etc).
     pub psprites: [PspDef; PsprNum::NumPSprites as usize],
@@ -224,7 +225,7 @@ impl Player {
             damagecount: 0,
             bonuscount: 0,
 
-            colormap: 0,
+            _colormap: 0,
             didsecret: false,
             extralight: 0,
             fixedcolormap: 0,
@@ -256,12 +257,49 @@ impl Player {
         }
     }
 
-    pub fn mobj_unchecked(&self) -> &MapObject {
-        unsafe { &*self.mobj.unwrap_unchecked() }
+    pub fn mobj(&self) -> Option<&MapObject> {
+        self.mobj.map(|m| unsafe { &*m })
     }
 
-    pub fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
-        unsafe { &mut *self.mobj.unwrap_unchecked() }
+    pub fn mobj_mut(&mut self) -> Option<&mut MapObject> {
+        self.mobj.map(|m| unsafe { &mut *m })
+    }
+
+    pub fn mobj_raw(&mut self) -> Option<*mut MapObject> {
+        self.mobj
+    }
+
+    pub fn set_mobj(&mut self, mobj: *mut MapObject) {
+        self.mobj = Some(mobj);
+    }
+
+    /// Unchecked access to the raw `MapObject` pointer cast to ref
+    ///
+    /// # Safety
+    /// The players `MapObject` *must* be valid and initialised.
+    pub unsafe fn mobj_unchecked(&self) -> &MapObject {
+        &*self.mobj.unwrap_unchecked()
+    }
+
+    /// Unchecked access to the raw `MapObject` pointer cast to ref mut
+    ///
+    /// # Safety
+    /// The players `MapObject` *must* be valid and initialised.
+    pub unsafe fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
+        &mut *self.mobj.unwrap_unchecked()
+    }
+
+    pub fn start_sound(&self, sfx: SfxEnum) {
+        if let Some(mobj) = self.mobj() {
+            unsafe {
+                (*mobj.level).start_sound(
+                    sfx,
+                    mobj.xy.x,
+                    mobj.xy.y,
+                    self as *const Self as usize, // pointer cast as a UID
+                )
+            }
+        }
     }
 
     /// Doom function `G_PlayerFinishLevel`, mostly.
@@ -277,7 +315,9 @@ impl Player {
         self.fixedcolormap = 0;
         self.damagecount = 0;
         self.bonuscount = 0;
-        self.mobj_mut_unchecked().flags &= !(MapObjectFlag::Shadow as u32);
+        if let Some(mobj) = self.mobj_mut() {
+            mobj.flags &= !(MapObjectFlag::Shadow as u32);
+        }
 
         info!("Reset level items and powers for player");
     }
@@ -313,7 +353,9 @@ impl Player {
         let x = mv as f32 * angle.cos();
         let y = mv as f32 * angle.sin();
         let mxy = Vec2::new(x, y);
-        self.mobj_mut_unchecked().momxy += mxy;
+        if let Some(mobj) = self.mobj_mut() {
+            mobj.momxy += mxy;
+        }
     }
 
     /// P_CalcHeight
@@ -711,7 +753,9 @@ impl Player {
 
         let new_state = WEAPON_INFO[self.readyweapon as usize].atkstate;
         self.set_psprite(PsprNum::Weapon as usize, new_state);
-        noise_alert(self.mobj_mut_unchecked());
+        if let Some(mobj) = self.mobj_mut() {
+            noise_alert(mobj);
+        }
     }
 
     pub(crate) fn check_ammo(&mut self) -> bool {
@@ -798,7 +842,9 @@ impl Player {
 
     /// Check for mobj and set state of it
     pub(crate) fn set_mobj_state(&mut self, state: StateNum) {
-        self.mobj_mut_unchecked().set_state(state);
+        if let Some(mobj) = self.mobj_mut() {
+            mobj.set_state(state);
+        }
     }
 
     pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
@@ -848,10 +894,12 @@ impl Player {
         }
 
         // TODO: not feature complete with P_PlayerThink
-        if self.mobj_mut_unchecked().reactiontime > 0 {
-            self.mobj_mut_unchecked().reactiontime -= 1;
-        } else {
-            self.move_player();
+        if let Some(mobj) = self.mobj_mut() {
+            if mobj.reactiontime > 0 {
+                mobj.reactiontime -= 1;
+            } else {
+                self.move_player();
+            }
         }
 
         self.calculate_height(level.level_time);
@@ -893,7 +941,9 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
             if !self.usedown {
                 self.usedown = true;
-                self.mobj_mut_unchecked().use_lines();
+                if let Some(mobj) = self.mobj_mut() {
+                    mobj.use_lines();
+                }
             }
         } else {
             self.usedown = false;
@@ -922,7 +972,9 @@ impl Player {
         if self.powers[PowerType::Invisibility as usize] != 0 {
             self.powers[PowerType::Invisibility as usize] -= 1;
             if self.powers[PowerType::Invisibility as usize] == 0 {
-                self.mobj_mut_unchecked().flags &= !(MapObjectFlag::Shadow as u32);
+                if let Some(mobj) = self.mobj_mut() {
+                    mobj.flags &= !(MapObjectFlag::Shadow as u32);
+                }
             }
         }
 

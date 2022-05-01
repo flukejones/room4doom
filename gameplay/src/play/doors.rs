@@ -18,7 +18,7 @@ use crate::{
     },
     play::specials::{move_plane, PlaneResult},
     thinker::{Think, Thinker, ThinkerData},
-    DPtr,
+    DPtr, LineDefFlags,
 };
 
 use super::{
@@ -281,9 +281,8 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
     ret
 }
 
-pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut Level) {
-    if let Some(player) = thing.player {
-        let player = unsafe { &mut *player };
+pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &mut Level) {
+    if let Some(player) = thing.player_mut() {
         match line.special {
             26 | 32 => {
                 if !player.cards[Card::Bluecard as usize] && !player.cards[Card::Blueskull as usize]
@@ -317,7 +316,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
 
     // TODO: if the sector has an active thinker, use it
     // sec = sides[line->sidenum[side ^ 1]].sector;
-    if line.backsector.is_none() {
+    if line.flags & LineDefFlags::TwoSided as u32 == 0 {
         error!("ev_vertical_door: tried to operate on a line that is not two-sided");
         return;
     }
@@ -334,7 +333,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                 if door.direction == -1 {
                     door.direction = 1; // go back up
                 } else {
-                    if thing.player.is_none() {
+                    if thing.player().is_none() {
                         return; // bad guys never close doors
                     }
 
