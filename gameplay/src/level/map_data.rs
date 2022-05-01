@@ -292,6 +292,10 @@ impl MapData {
         info!("{}: Mapped linedefs to sectors", self.name);
         // TODO: iterate sector lines to find max bounding box for sector
 
+        for sector in &mut self.sectors {
+            set_sector_sound_origin(sector);
+        }
+
         // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
         // storing in level struct
         //
@@ -423,26 +427,30 @@ impl MapData {
 }
 
 pub fn set_sector_sound_origin(sector: &mut Sector) {
-    // let mut check = |v: Vec2| {
-    //     if self.extents.min_vertex.x > v.x {
-    //         self.extents.min_vertex.x = v.x;
-    //     } else if self.extents.max_vertex.x < v.x {
-    //         self.extents.max_vertex.x = v.x;
-    //     }
+    let mut minx = sector.lines[0].v1.x;
+    let mut miny = sector.lines[0].v1.y;
+    let mut maxx = sector.lines[0].v2.x;
+    let mut maxy = sector.lines[0].v2.y;
 
-    //     if self.extents.min_vertex.y > v.y {
-    //         self.extents.min_vertex.y = v.y;
-    //     } else if self.extents.max_vertex.y < v.y {
-    //         self.extents.max_vertex.y = v.y;
-    //     }
-    // };
+    let mut check = |v: Vec2| {
+        if minx > v.x {
+            minx = v.x;
+        } else if maxx < v.x {
+            maxx = v.x;
+        }
 
-    // for line in &self.linedefs {
-    //     check(line.v1);
-    //     check(line.v2);
-    // }
-    // self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
-    // self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
+        if miny > v.y {
+            miny = v.y;
+        } else if maxy < v.y {
+            maxy = v.y;
+        }
+    };
+
+    for line in &sector.lines {
+        check(line.v1);
+        check(line.v2);
+    }
+    sector.sound_origin = Vec2::new(minx + ((maxx - minx) / 2.0), miny + ((maxy - miny) / 2.0));
 }
 
 #[derive(Debug, PartialEq, Eq)]

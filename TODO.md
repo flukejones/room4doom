@@ -32,6 +32,7 @@
 
 ## DONE
 
+[+] Sector sound origin for specials
 [+] INFLOAT, floatok, skulls
 [+] EV_DoDonut (E2M2)
 [+] EV_StopPlat - requires tracking some active platforms.

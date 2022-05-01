@@ -17,7 +17,7 @@ use crate::{
 use super::{
     mobj::MapObject,
     specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
-    switch::start_line_sound,
+    switch::start_sector_sound,
 };
 
 const CEILSPEED: f32 = 1.0;
@@ -141,7 +141,7 @@ impl Think for CeilingMove {
         let line = &ceiling.sector.lines[0];
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
-            start_line_sound(line, SfxEnum::stnmov, &level.snd_command);
+            start_sector_sound(line, SfxEnum::stnmov, &level.snd_command);
         }
 
         match ceiling.direction {
@@ -166,7 +166,7 @@ impl Think for CeilingMove {
                             ceiling.direction = -1;
                         }
                         CeilingKind::SilentCrushAndRaise => {
-                            start_line_sound(line, SfxEnum::pstop, &level.snd_command);
+                            start_sector_sound(line, SfxEnum::pstop, &level.snd_command);
                             ceiling.direction = -1;
                         }
                         _ => {}
@@ -201,7 +201,7 @@ impl Think for CeilingMove {
                         CeilingKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
-                            start_line_sound(line, SfxEnum::pstop, &level.snd_command);
+                            start_sector_sound(line, SfxEnum::pstop, &level.snd_command);
                         }
                         _ => {}
                     }

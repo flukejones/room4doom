@@ -22,7 +22,7 @@ use super::{
         find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
         PlaneResult,
     },
-    switch::start_line_sound,
+    switch::start_sector_sound,
 };
 
 const FLOORSPEED: f32 = 1.0;
@@ -246,7 +246,7 @@ impl Think for FloorMove {
 
         if level.level_time & 7 == 0 {
             // TODO: if (!(leveltime & 7))
-            start_line_sound(line, SfxEnum::stnmov, &level.snd_command);
+            start_sector_sound(line, SfxEnum::stnmov, &level.snd_command);
         }
 
         if matches!(res, PlaneResult::PastDest) {
