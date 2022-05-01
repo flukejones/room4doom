@@ -136,8 +136,8 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 }
 
 impl Think for CeilingMove {
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let ceiling = object.ceiling_move();
+    fn think(object: &mut Thinker, level: &mut Level) -> bool {
+        let ceiling = object.ceiling_mut();
         let line = &ceiling.sector.lines[0];
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {

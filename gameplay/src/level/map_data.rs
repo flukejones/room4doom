@@ -422,6 +422,29 @@ impl MapData {
     }
 }
 
+pub fn set_sector_sound_origin(sector: &mut Sector) {
+    // let mut check = |v: Vec2| {
+    //     if self.extents.min_vertex.x > v.x {
+    //         self.extents.min_vertex.x = v.x;
+    //     } else if self.extents.max_vertex.x < v.x {
+    //         self.extents.max_vertex.x = v.x;
+    //     }
+
+    //     if self.extents.min_vertex.y > v.y {
+    //         self.extents.min_vertex.y = v.y;
+    //     } else if self.extents.max_vertex.y < v.y {
+    //         self.extents.max_vertex.y = v.y;
+    //     }
+    // };
+
+    // for line in &self.linedefs {
+    //     check(line.v1);
+    //     check(line.v2);
+    // }
+    // self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
+    // self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum BSPTraceType {
     Line,

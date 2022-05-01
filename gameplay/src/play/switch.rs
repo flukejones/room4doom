@@ -1,6 +1,6 @@
 //! Doom source name `p_switch`
 
-use log::{debug, error, warn};
+use log::{debug, warn};
 use sound_sdl2::SndServerTx;
 use sound_traits::SfxEnum;
 

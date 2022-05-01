@@ -180,7 +180,7 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             ptr.set_obj_thinker_ptr();
             sec.specialdata = Some(ptr);
-            plats.push(ptr.object_mut().platform() as *mut Platform);
+            plats.push(ptr.platform_mut() as *mut Platform);
         }
     }
 
@@ -191,8 +191,8 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 }
 
 impl Think for Platform {
-    fn think(object: &mut ObjectType, level: &mut Level) -> bool {
-        let platform = object.platform();
+    fn think(object: &mut Thinker, level: &mut Level) -> bool {
+        let platform = object.platform_mut();
         let line = &platform.sector.lines[0];
 
         match platform.status {

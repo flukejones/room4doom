@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_2_PI, PI};
+use std::f32::consts::FRAC_2_PI;
 
 use glam::Vec2;
 use sound_traits::SfxEnum;
@@ -324,7 +324,7 @@ impl MapObject {
 
     pub(crate) fn check_melee_range(&mut self) -> bool {
         if let Some(target) = self.target {
-            let target = unsafe { (*target).object_mut().mobj() };
+            let target = unsafe { (*target).mobj() };
 
             let dist = self.xy.distance(target.xy);
             if dist >= MELEERANGE - 20.0 + target.radius {
@@ -342,7 +342,7 @@ impl MapObject {
     /// The closer the Actor gets to the Target the more they shoot
     pub(crate) fn check_missile_range(&mut self) -> bool {
         if let Some(target) = self.target {
-            let target = unsafe { (*target).object_mut().mobj() };
+            let target = unsafe { (*target).mobj() };
 
             let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
             if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {

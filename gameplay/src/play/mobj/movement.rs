@@ -69,14 +69,12 @@ impl MapObject {
 
         if self.flags & MapObjectFlag::Float as u32 != 0 {
             if let Some(target) = self.target {
-                let target = unsafe { (*target).object_mut().mobj() };
+                let target = unsafe { (*target).mobj() };
 
                 // float down towards target if too close
                 if self.flags & MapObjectFlag::SkullFly as u32 == 0
                     && self.flags & MapObjectFlag::InFloat as u32 == 0
                 {
-                    let target = unsafe { &*target };
-
                     let dist = self.xy.distance(target.xy);
                     let delta = target.z + self.height / 2.0 - self.z;
 
@@ -495,7 +493,7 @@ impl MapObject {
             }
 
             if let Some(target) = self.target {
-                let target = unsafe { (*target).object_mut().mobj() };
+                let target = unsafe { (*target).mobj_mut() };
 
                 if target.kind == thing.kind
                     || (target.kind == MapObjectType::MT_KNIGHT
@@ -883,7 +881,7 @@ impl MapObject {
         let mut dirs = [DirType::NoDir, DirType::NoDir, DirType::NoDir];
         let turnaround = DIR_OPPOSITE[old_dir as usize];
 
-        let target = unsafe { (**self.target.as_mut().unwrap()).object_mut().mobj() };
+        let target = unsafe { (**self.target.as_mut().unwrap()).mobj() };
 
         let dx = target.xy.x - self.xy.x;
         let dy = target.xy.y - self.xy.y;
