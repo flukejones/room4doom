@@ -1,5 +1,11 @@
-use crate::{angle::Angle, play::mobj::MapObject, thinker::Thinker, DPtr};
+use crate::{
+    angle::Angle,
+    play::mobj::MapObject,
+    thinker::{Thinker, ThinkerData},
+    DPtr,
+};
 use glam::Vec2;
+use log::error;
 
 #[derive(Debug)]
 pub enum SlopeType {
@@ -116,8 +122,15 @@ impl Sector {
         true
     }
 
-    /// Add this thing tot he sectors thing list
+    /// Add this thing to the sectors thing list
+    ///
+    /// # Safety
+    /// The `Thinker` pointer *must* be valid, and the `Thinker` must not be `Free` or `Remove`
     pub unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
+        if matches!((*thing).data(), ThinkerData::Free | ThinkerData::Remove) {
+            error!("add_to_thinglist() tried to add a Thinker that was Free or Remove");
+            return;
+        }
         (*thing).mobj_mut().s_prev = None;
         (*thing).mobj_mut().s_next = self.thinglist; // could be null
 
@@ -149,11 +162,11 @@ impl Sector {
         }
     }
 
-    pub unsafe fn sound_target(&self) -> Option<&mut MapObject> {
+    pub fn sound_target(&self) -> Option<&mut MapObject> {
         self.sound_target.map(|m| unsafe { (*m).mobj_mut() })
     }
 
-    pub unsafe fn sound_target_raw(&mut self) -> Option<*mut Thinker> {
+    pub fn sound_target_raw(&mut self) -> Option<*mut Thinker> {
         self.sound_target
     }
 

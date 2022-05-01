@@ -80,15 +80,13 @@ pub fn a_facetarget(actor: &mut MapObject) {
     actor.flags &= !(MapObjectFlag::Ambush as u32);
 
     if let Some(target) = actor.target {
-        unsafe {
-            let target = unsafe { (*target).mobj() };
+        let target = unsafe { (*target).mobj() };
 
-            let angle = point_to_angle_2(target.xy, actor.xy);
-            actor.angle = angle;
+        let angle = point_to_angle_2(target.xy, actor.xy);
+        actor.angle = angle;
 
-            if target.flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
-                actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
-            }
+        if target.flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
+            actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
     }
 }
@@ -105,12 +103,10 @@ pub fn a_chase(actor: &mut MapObject) {
         if let Some(target) = actor.target {
             let target = unsafe { (*target).mobj() };
 
-            unsafe {
-                if target.health <= 0 {
-                    actor.threshold = 0;
-                } else {
-                    actor.threshold -= 1;
-                }
+            if target.health <= 0 {
+                actor.threshold = 0;
+            } else {
+                actor.threshold -= 1;
             }
         } else {
             actor.threshold = 0;
@@ -127,17 +123,15 @@ pub fn a_chase(actor: &mut MapObject) {
     }
 
     if let Some(target) = actor.target {
-        unsafe {
-            let target = unsafe { (*target).mobj() };
+        let target = unsafe { (*target).mobj() };
 
-            // Inanimate object, try to find new target
-            if target.flags & MapObjectFlag::Shootable as u32 == 0 {
-                if actor.look_for_players(true) {
-                    return; // Found a new target
-                }
-                actor.set_state(actor.info.spawnstate);
-                return;
+        // Inanimate object, try to find new target
+        if target.flags & MapObjectFlag::Shootable as u32 == 0 {
+            if actor.look_for_players(true) {
+                return; // Found a new target
             }
+            actor.set_state(actor.info.spawnstate);
+            return;
         }
     } else {
         if actor.look_for_players(true) {
@@ -459,9 +453,7 @@ pub fn a_sargattack(actor: &mut MapObject) {
         a_facetarget(actor);
         if actor.check_melee_range() {
             let damage = ((p_random() % 10) + 1) * 4;
-            unsafe {
-                target.p_take_damage(Some(actor), None, true, damage);
-            }
+            target.p_take_damage(Some(actor), None, true, damage);
         }
     }
 }
