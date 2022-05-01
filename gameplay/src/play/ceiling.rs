@@ -10,7 +10,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
@@ -124,7 +124,7 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
         ret = true;
 
         let thinker =
-            MapObject::create_thinker(ObjectType::CeilingMove(ceiling), CeilingMove::think);
+            MapObject::create_thinker(ThinkerData::CeilingMove(ceiling), CeilingMove::think);
 
         if let Some(ptr) = level.thinkers.push::<CeilingMove>(thinker) {
             ptr.set_obj_thinker_ptr();

@@ -17,7 +17,7 @@ use crate::{
         Level,
     },
     play::specials::{move_plane, PlaneResult},
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
@@ -270,7 +270,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
         }
 
         let thinker =
-            MapObject::create_thinker(ObjectType::VerticalDoor(door), VerticalDoor::think);
+            MapObject::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
 
         if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -338,9 +338,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
                         return; // bad guys never close doors
                     }
 
-                    if matches!(door.thinker().obj(), ObjectType::VerticalDoor(_)) {
+                    if matches!(door.thinker().data(), ThinkerData::VerticalDoor(_)) {
                         door.direction = -1;
-                    } else if matches!(door.thinker().obj(), ObjectType::VerticalDoor(_)) { // TODO: PLATFORM
+                    } else if matches!(door.thinker().data(), ThinkerData::VerticalDoor(_)) { // TODO: PLATFORM
                     } else {
                         error!("ev_vertical_door: tried to close something that is not a door or platform");
                         door.direction = -1;
@@ -394,7 +394,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &MapObject, level: &mut 
     door.topheight -= 4.0;
 
     debug!("Activated door: {door:?}");
-    let thinker = MapObject::create_thinker(ObjectType::VerticalDoor(door), VerticalDoor::think);
+    let thinker = MapObject::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
 
     if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
         ptr.set_obj_thinker_ptr();

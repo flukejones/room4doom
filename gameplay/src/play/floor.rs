@@ -11,7 +11,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
@@ -219,7 +219,7 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 
         ret = true;
 
-        let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+        let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -323,7 +323,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         // Because we need to break lifetimes...
         let mut sec = DPtr::new(sector);
 
-        let thinker = MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+        let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -373,7 +373,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
                 };
 
                 let thinker =
-                    MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+                    MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
                 if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                     ptr.set_obj_thinker_ptr();
@@ -432,7 +432,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
                     };
 
                     let thinker =
-                        MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+                        MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();
@@ -453,7 +453,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
                     };
 
                     let thinker =
-                        MapObject::create_thinker(ObjectType::FloorMove(floor), FloorMove::think);
+                        MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();

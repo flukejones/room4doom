@@ -7,7 +7,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    thinker::{ObjectType, Think, Thinker},
+    thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
@@ -56,7 +56,8 @@ impl FireFlicker {
             min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel) + 16,
         };
 
-        let thinker = MapObject::create_thinker(ObjectType::FireFlicker(light), FireFlicker::think);
+        let thinker =
+            MapObject::create_thinker(ThinkerData::FireFlicker(light), FireFlicker::think);
 
         if let Some(ptr) = level.thinkers.push::<FireFlicker>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -121,7 +122,7 @@ impl LightFlash {
             min_time: 7,
         };
 
-        let thinker = MapObject::create_thinker(ObjectType::LightFlash(light), LightFlash::think);
+        let thinker = MapObject::create_thinker(ThinkerData::LightFlash(light), LightFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<LightFlash>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -190,7 +191,8 @@ impl StrobeFlash {
             light.min_light = 0;
         }
 
-        let thinker = MapObject::create_thinker(ObjectType::StrobeFlash(light), StrobeFlash::think);
+        let thinker =
+            MapObject::create_thinker(ThinkerData::StrobeFlash(light), StrobeFlash::think);
 
         if let Some(ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
             ptr.set_obj_thinker_ptr();
@@ -251,7 +253,7 @@ impl Glow {
             direction: -1,
         };
 
-        let thinker = MapObject::create_thinker(ObjectType::Glow(light), Glow::think);
+        let thinker = MapObject::create_thinker(ThinkerData::Glow(light), Glow::think);
 
         if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
             ptr.set_obj_thinker_ptr();

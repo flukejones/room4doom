@@ -1,7 +1,7 @@
 use glam::Vec2;
 
 use crate::{
-    info::MapObjectType, level::map_defs::LineDef, thinker::ObjectType, DPtr, Level, MapObject,
+    info::MapObjectType, level::map_defs::LineDef, thinker::ThinkerData, DPtr, Level, MapObject,
     Sector,
 };
 
@@ -29,7 +29,7 @@ pub fn teleport(
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
-                if let ObjectType::MapObject(ref mobj) = thinker.obj() {
+                if let ThinkerData::MapObject(ref mobj) = thinker.data() {
                     unsafe {
                         if mobj.kind == MapObjectType::MT_TELEPORTMAN
                             && (*mobj.subsector).sector.as_ptr()
