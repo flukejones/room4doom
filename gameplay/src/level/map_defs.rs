@@ -82,7 +82,7 @@ impl Sector {
                         return false;
                     }
 
-                    if let Some(mut next) = next {
+                    if let Some(next) = next {
                         thing = (*next).mobj_mut()
                     } else {
                         break;

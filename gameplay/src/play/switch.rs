@@ -58,8 +58,9 @@ pub fn start_button(
     });
 }
 
-pub(crate) fn start_line_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) {
-    let sfx_origin = line.v1 + line.v1 - line.v2;
+/// Start a sound using the lines front sector sound origin
+pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) {
+    let sfx_origin = line.front_sidedef.sector.sound_origin;
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
@@ -87,7 +88,7 @@ pub fn change_switch_texture(
         let sw = switch_list[i];
         if let Some(tex_top) = line.front_sidedef.toptexture {
             if sw == tex_top {
-                start_line_sound(&line, sfx, snd);
+                start_sector_sound(&line, sfx, snd);
                 line.front_sidedef.toptexture = Some(switch_list[i ^ 1]);
                 if use_again {
                     start_button(
@@ -103,7 +104,7 @@ pub fn change_switch_texture(
         }
         if let Some(tex_mid) = line.front_sidedef.midtexture {
             if sw == tex_mid {
-                start_line_sound(&line, sfx, snd);
+                start_sector_sound(&line, sfx, snd);
                 line.front_sidedef.midtexture = Some(switch_list[i ^ 1]);
                 if use_again {
                     start_button(
@@ -119,7 +120,7 @@ pub fn change_switch_texture(
         }
         if let Some(tex_low) = line.front_sidedef.bottomtexture {
             if sw == tex_low {
-                start_line_sound(&line, sfx, snd);
+                start_sector_sound(&line, sfx, snd);
                 line.front_sidedef.bottomtexture = Some(switch_list[i ^ 1]);
                 if use_again {
                     start_button(

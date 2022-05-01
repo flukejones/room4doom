@@ -27,7 +27,7 @@ use crate::{
     },
     pic::{ButtonWhere, PicAnimation},
     play::{
-        switch::{change_switch_texture, start_line_sound},
+        switch::{change_switch_texture, start_sector_sound},
         teleport::teleport,
     },
     DPtr, PicData,
@@ -894,7 +894,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
                         }
                     }
                 }
-                start_line_sound(&b.line, SfxEnum::swtchn, &level.snd_command);
+                start_sector_sound(&b.line, SfxEnum::swtchn, &level.snd_command);
             }
         }
     }
