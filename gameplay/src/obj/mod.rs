@@ -25,14 +25,13 @@ use glam::Vec2;
 use log::{debug, error, info};
 use wad::lumps::WadThing;
 
-use crate::doom_def::{ONCEILINGZ, ONFLOORZ, VIEWHEIGHT};
-use crate::player::{Player, PlayerState};
-use crate::utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide};
 use crate::{
     angle::Angle,
-    doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
+    doom_def::{MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT},
     info::{ActionF, MapObjectInfo, MapObjectType, SpriteNum, State, StateNum, MOBJINFO, STATES},
     level::map_defs::SubSector,
+    player::{Player, PlayerState},
+    utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide},
 };
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;

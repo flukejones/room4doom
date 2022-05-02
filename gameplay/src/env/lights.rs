@@ -2,20 +2,20 @@
 
 use std::ptr::null_mut;
 
-use crate::obj::MapObject;
 use crate::{
     level::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    obj::MapObject,
     thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
 
-use crate::env::specials::{
-    find_max_light_surrounding, find_min_light_surrounding, get_next_sector,
+use crate::{
+    env::specials::{find_max_light_surrounding, find_min_light_surrounding, get_next_sector},
+    utilities::p_random,
 };
-use crate::utilities::p_random;
 
 const STROBEBRIGHT: i32 = 5;
 pub const FASTDARK: i32 = 15;

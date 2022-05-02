@@ -10,20 +10,18 @@ use std::{
 use glam::Vec2;
 use log::{debug, error};
 
-use crate::doom_def::{USERANGE, VIEWHEIGHT};
-use crate::env::specials::cross_special_line;
-use crate::env::switch::p_use_special_line;
-use crate::utilities::{
-    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
-};
 use crate::{
     angle::Angle,
-    doom_def::FLOATSPEED,
+    doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT},
+    env::{specials::cross_special_line, switch::p_use_special_line},
     info::StateNum,
     level::{
         flags::LineDefFlags,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
+    },
+    utilities::{
+        box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
     },
     DPtr, MapObject, MapObjectType,
 };

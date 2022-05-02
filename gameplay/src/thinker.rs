@@ -7,13 +7,17 @@ use std::{
 
 use log::{debug, error};
 
-use crate::env::ceiling::CeilingMove;
-use crate::env::doors::VerticalDoor;
-use crate::env::floor::FloorMove;
-use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
-use crate::env::platforms::Platform;
-use crate::level::Level;
-use crate::obj::MapObject;
+use crate::{
+    env::{
+        ceiling::CeilingMove,
+        doors::VerticalDoor,
+        floor::FloorMove,
+        lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
+        platforms::Platform,
+    },
+    level::Level,
+    obj::MapObject,
+};
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -392,7 +396,7 @@ impl Thinker {
         if let ThinkerData::MapObject(ref mut obj) = self.data {
             obj
         } else {
-            panic!("ObjectType is not MapObject");
+            panic!("ObjectType is not MapObject, was: {:?}", self);
         }
     }
 
@@ -484,7 +488,7 @@ impl fmt::Debug for Thinker {
         f.debug_struct("Thinker")
             .field("prev", &(self.prev))
             .field("next", &(self.next))
-            .field("data", &(self as *const Self))
+            .field("data", &(self.data))
             .finish_non_exhaustive()
     }
 }

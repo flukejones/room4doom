@@ -4,10 +4,6 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxEnum;
 
-use crate::obj::enemy::noise_alert;
-use crate::obj::{MapObject, MapObjectFlag, BONUSADD};
-use crate::player_sprite::{PspDef, WEAPONBOTTOM};
-use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
 use crate::{
     angle::Angle,
     doom_def::{
@@ -16,8 +12,11 @@ use crate::{
     },
     info::{ActionF, SpriteNum, StateNum, STATES},
     level::Level,
+    obj::{enemy::noise_alert, MapObject, MapObjectFlag, BONUSADD},
     pic::INVERSECOLORMAP,
+    player_sprite::{PspDef, WEAPONBOTTOM},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
+    utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2},
     GameMode, Skill,
 };
 

@@ -6,15 +6,14 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxEnum;
 
-use crate::obj::MapObjectFlag;
-use crate::player::{PlayerCheat, PlayerState};
-use crate::utilities::{p_random, point_to_angle_2};
-use crate::Skill;
 use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType},
     info::{MapObjectType, SpriteNum, StateNum, STATES},
     lang::english::*,
-    MapObject,
+    obj::MapObjectFlag,
+    player::{PlayerCheat, PlayerState},
+    utilities::{p_random, point_to_angle_2},
+    MapObject, Skill,
 };
 
 pub const BONUSADD: i32 = 6;
