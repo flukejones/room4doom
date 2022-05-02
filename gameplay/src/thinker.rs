@@ -551,7 +551,7 @@ mod tests {
         doom_def::GameMode,
         level::{map_data::MapData, Level},
         thinker::{Think, Thinker},
-        PicData, Player, MAXPLAYERS, Skill,
+        PicData, Player, Skill, MAXPLAYERS,
     };
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};

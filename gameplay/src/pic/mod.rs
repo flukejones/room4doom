@@ -38,7 +38,7 @@ pub const INVERSECOLORMAP: i32 = 32;
 const STARTREDPALS: usize = 1;
 const NUMREDPALS: usize = 8;
 const STARTBONUSPALS: usize = 9;
-const NUMBONUSPALS: usize = 8;
+const NUMBONUSPALS: usize = 4;
 const RADIATIONPAL: usize = 13;
 
 #[derive(Debug)]
@@ -353,7 +353,10 @@ impl PicData {
         &self.palettes[self.use_pallette].0
     }
 
-    pub fn set_palette(&mut self, num: usize) {
+    pub fn set_palette(&mut self, mut num: usize) {
+        if num >= self.palettes.len() {
+            num = self.palettes.len() - 1;
+        }
         self.use_pallette = num;
     }
 
@@ -389,6 +392,10 @@ impl PicData {
             self.use_pallette = RADIATIONPAL;
         } else {
             self.use_pallette = 0;
+        }
+
+        if self.use_pallette >= self.palettes.len() {
+            self.use_pallette = self.palettes.len() - 1;
         }
     }
 

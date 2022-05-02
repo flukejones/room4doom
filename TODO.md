@@ -1,6 +1,7 @@
 ## TODO
 
 [ ] Shots from demons don't push the player
+[ ] Demons shouldn't open locked doors
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
 [ ] The Thinker data access methods really should return `Option<T>`
