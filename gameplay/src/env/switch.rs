@@ -4,15 +4,13 @@ use log::{debug, warn};
 use sound_sdl2::SndServerTx;
 use sound_traits::SfxEnum;
 
-use super::{
-    ceiling::{ev_do_ceiling, CeilingKind},
-    doors::{ev_do_door, ev_vertical_door, DoorKind},
-    floor::{ev_build_stairs, ev_do_donut, ev_do_floor, FloorKind, StairKind},
-    lights::ev_turn_light_on,
-    mobj::MapObject,
-    platforms::{ev_do_platform, PlatKind},
-};
+use crate::obj::MapObject;
 
+use crate::env::ceiling::{ev_do_ceiling, CeilingKind};
+use crate::env::doors::{ev_do_door, ev_vertical_door, DoorKind};
+use crate::env::floor::{ev_build_stairs, ev_do_donut, ev_do_floor, FloorKind, StairKind};
+use crate::env::lights::ev_turn_light_on;
+use crate::env::platforms::{ev_do_platform, PlatKind};
 use crate::{
     doom_def::Card,
     lang::english::{PD_BLUEO, PD_REDO, PD_YELLOWO},

@@ -1,36 +1,33 @@
-//! The bulk of map objects. Things like monsters, giblets, rockets and plasma
-//! shots etc. Items. Anything that needs to move.
+//! The bulk of map entities, typically shown as sprites. Things like monsters,
+//! giblets, rockets and plasma shots etc, items.
 //!
-//! Doom source name `p_mobj`
+//! `MapObject` is also used for moving doors, platforms, floors, and ceilings.
 
 mod interact;
 pub use interact::*;
 mod movement;
 pub use movement::*;
 use sound_traits::SfxEnum;
+pub(crate) mod enemy;
 mod shooting;
 
 use std::{fmt::Debug, ptr::null_mut};
 
 use self::movement::SubSectorMinMax;
 
-use super::{
-    player::{Player, PlayerState},
-    utilities::{
-        p_random, p_subrandom, point_to_angle_2, BestSlide, ONCEILINGZ, ONFLOORZ, VIEWHEIGHT,
-    },
-    Skill,
-};
-
 use crate::{
     doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
     level::Level,
     thinker::{Think, Thinker, ThinkerData},
+    Skill,
 };
 use glam::Vec2;
 use log::{debug, error, info};
 use wad::lumps::WadThing;
 
+use crate::doom_def::{ONCEILINGZ, ONFLOORZ, VIEWHEIGHT};
+use crate::player::{Player, PlayerState};
+use crate::utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide};
 use crate::{
     angle::Angle,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, TICRATE},
@@ -40,7 +37,7 @@ use crate::{
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]
-pub enum MapObjectFlag {
+pub(crate) enum MapObjectFlag {
     /// Call P_SpecialThing when touched.
     Special = 1,
     /// Blocks.
@@ -134,7 +131,7 @@ pub struct MapObject {
     pub(crate) valid_count: usize,
     /// The type of object
     pub(crate) kind: MapObjectType,
-    /// &mobjinfo[mobj.type]
+    /// &mobjinfo[obj.type]
     pub(crate) info: MapObjectInfo,
     pub(crate) tics: i32,
     /// state tic counter
@@ -248,7 +245,7 @@ impl MapObject {
         }
     }
 
-    pub fn level(&self) -> &Level {
+    pub(crate) fn level(&self) -> &Level {
         #[cfg(null_check)]
         if self.level.is_null() {
             std::panic!("MapObject level pointer was null");
@@ -256,7 +253,7 @@ impl MapObject {
         unsafe { &*self.level }
     }
 
-    pub fn level_mut(&mut self) -> &mut Level {
+    pub(crate) fn level_mut(&mut self) -> &mut Level {
         #[cfg(null_check)]
         if self.level.is_null() {
             std::panic!("MapObject level pointer was null");
@@ -274,7 +271,7 @@ impl MapObject {
         })
     }
 
-    pub fn player_mut(&mut self) -> Option<&mut Player> {
+    pub(crate) fn player_mut(&mut self) -> Option<&mut Player> {
         self.player.map(|p| unsafe {
             #[cfg(null_check)]
             if p.is_null() {
@@ -284,7 +281,7 @@ impl MapObject {
         })
     }
 
-    pub fn target(&self) -> Option<&Player> {
+    pub(crate) fn target(&self) -> Option<&Player> {
         self.player.map(|p| unsafe {
             #[cfg(null_check)]
             if p.is_null() {
@@ -294,7 +291,7 @@ impl MapObject {
         })
     }
 
-    pub fn target_mut(&mut self) -> Option<&mut Thinker> {
+    pub(crate) fn target_mut(&mut self) -> Option<&mut Thinker> {
         self.target.map(|t| unsafe {
             #[cfg(null_check)]
             if t.is_null() {
@@ -304,7 +301,7 @@ impl MapObject {
         })
     }
 
-    pub fn set_target(&mut self, target: Option<*mut Thinker>) {
+    pub(crate) fn set_target(&mut self, target: Option<*mut Thinker>) {
         self.target = target
     }
 
@@ -314,7 +311,7 @@ impl MapObject {
     ///  between levels.
     ///
     /// Called in game.c
-    pub fn p_spawn_player(
+    fn p_spawn_player(
         mthing: &WadThing,
         level: &mut Level,
         players: &mut [Player],
@@ -487,7 +484,7 @@ impl MapObject {
     }
 
     /// A thinker for metal spark/puff, typically used for gun-strikes against walls or non-fleshy things.
-    pub fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
+    pub(crate) fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_PUFF, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 1.0;
@@ -503,7 +500,7 @@ impl MapObject {
     }
 
     /// Blood! In a game!
-    pub fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
+    pub(crate) fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
         z += (p_random() - p_random()) / 64;
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_BLOOD, level);
         let mobj = unsafe { &mut *mobj };
@@ -524,7 +521,11 @@ impl MapObject {
     /// A thinker for shooty blowy things.
     ///
     /// Doom function name is `P_SpawnPlayerMissile`
-    pub fn spawn_player_missile(source: &mut MapObject, kind: MapObjectType, level: &mut Level) {
+    pub(crate) fn spawn_player_missile(
+        source: &mut MapObject,
+        kind: MapObjectType,
+        level: &mut Level,
+    ) {
         let x = source.xy.x;
         let y = source.xy.y;
         let z = source.z + 32.0;
@@ -561,7 +562,7 @@ impl MapObject {
     /// A thinker for shooty blowy things.
     ///
     /// Doom function name is `P_SpawnMissile`
-    pub fn spawn_missile(
+    pub(crate) fn spawn_missile(
         source: &mut MapObject,
         target: &mut MapObject,
         kind: MapObjectType,
@@ -586,7 +587,7 @@ impl MapObject {
 
         mobj.target = Some(source.thinker);
         mobj.momxy = mobj.angle.unit() * mobj.info.speed;
-        //mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
+        //obj.momz = slope.map(|s| s.aimslope * obj.info.speed).unwrap_or(0.0);
         let mut dist = mobj.xy.distance(target.xy) / mobj.info.speed;
         if dist < 1.0 {
             dist = 1.0;
@@ -596,7 +597,7 @@ impl MapObject {
         mobj.check_missile_spawn();
     }
 
-    pub fn check_missile_spawn(&mut self) {
+    fn check_missile_spawn(&mut self) {
         self.tics -= p_random() & 3;
 
         if self.tics < 1 {
@@ -615,10 +616,7 @@ impl MapObject {
     ///
     /// The callee is expected to handle adding the thinker with P_AddThinker, and
     /// inserting in to the level thinker container (differently to doom).
-    ///
-    // TODO: pass in a ref to the container so the obj can be added
-    //  Doom calls an zmalloc function for this. Then pass a reference back for it
-    pub fn spawn_map_object(
+    pub(crate) fn spawn_map_object(
         x: f32,
         y: f32,
         z: i32,
@@ -640,7 +638,7 @@ impl MapObject {
 
         let thinker = MapObject::create_thinker(ThinkerData::MapObject(mobj), MapObject::think);
 
-        // P_AddThinker(&mobj->thinker);
+        // P_AddThinker(&obj->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
             let thing = ptr.mobj_mut();
             unsafe {
@@ -668,7 +666,7 @@ impl MapObject {
     }
 
     /// P_SetMobjState
-    pub fn set_state(&mut self, state: StateNum) -> bool {
+    pub(crate) fn set_state(&mut self, state: StateNum) -> bool {
         // Using the Heretic/Hexen style, no loop
 
         // let mut cycle_counter = 0;
@@ -712,7 +710,7 @@ impl MapObject {
     ///
     /// # Safety
     /// Thing must have had a SubSector set on creation.
-    pub unsafe fn unset_thing_position(&mut self) {
+    pub(crate) unsafe fn unset_thing_position(&mut self) {
         if self.flags & MapObjectFlag::NoSector as u32 == 0 {
             (*self.subsector)
                 .sector
@@ -724,7 +722,7 @@ impl MapObject {
     ///
     /// # Safety
     /// Thing must have had a SubSector set on creation.
-    pub unsafe fn set_thing_position(&mut self) {
+    pub(crate) unsafe fn set_thing_position(&mut self) {
         let level = &mut *self.level;
         let subsector = level.map_data.point_in_subsector_raw(self.xy);
         self.subsector = subsector;
@@ -735,12 +733,12 @@ impl MapObject {
     }
 
     /// P_RemoveMobj
-    pub fn remove(&mut self) {
+    pub(crate) fn remove(&mut self) {
         // TODO: nightmare respawns
         /*
-        if ((mobj->flags & SPECIAL) && !(mobj->flags & DROPPED) &&
-            (mobj->type != MT_INV) && (mobj->type != MT_INS)) {
-            itemrespawnque[iquehead] = mobj->spawnpoint;
+        if ((obj->flags & SPECIAL) && !(obj->flags & DROPPED) &&
+            (obj->type != MT_INV) && (obj->type != MT_INS)) {
+            itemrespawnque[iquehead] = obj->spawnpoint;
             itemrespawntime[iquehead] = leveltime;
             iquehead = (iquehead + 1) & (ITEMQUESIZE - 1);
 
@@ -752,7 +750,7 @@ impl MapObject {
         unsafe {
             self.unset_thing_position();
         }
-        // TODO: S_StopSound(mobj);
+        // TODO: S_StopSound(obj);
         self.thinker_mut().mark_remove();
     }
 
@@ -784,7 +782,7 @@ impl MapObject {
     /// PIT_ChangeSector
     ///
     /// Returns true to indicate checking should continue
-    pub fn pit_change_sector(&mut self, no_fit: &mut bool, crush_change: bool) -> bool {
+    pub(crate) fn pit_change_sector(&mut self, no_fit: &mut bool, crush_change: bool) -> bool {
         if self.height_clip() {
             return true;
         }
@@ -834,7 +832,7 @@ impl MapObject {
         true
     }
 
-    pub fn start_sound(&self, sfx: SfxEnum) {
+    pub(crate) fn start_sound(&self, sfx: SfxEnum) {
         unsafe {
             (*self.level).start_sound(
                 sfx,
@@ -858,7 +856,7 @@ impl Think for MapObject {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {
-                return true; // mobj was removed
+                return true; // obj was removed
             }
         }
 
@@ -894,7 +892,7 @@ impl Think for MapObject {
             if p_random() > 4 {
                 return false;
             }
-            // TODO: P_NightmareRespawn(mobj);
+            // TODO: P_NightmareRespawn(obj);
         }
         false
     }

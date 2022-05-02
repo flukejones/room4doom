@@ -1,6 +1,6 @@
+use crate::obj::MapObject;
 use crate::{
     angle::Angle,
-    play::mobj::MapObject,
     thinker::{Thinker, ThinkerData},
     DPtr,
 };

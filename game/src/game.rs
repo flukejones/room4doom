@@ -526,7 +526,6 @@ impl Game {
             }
             spawn_specials(level);
 
-            debug!("Level: thinkers = {}", &level.thinkers.len());
             debug!("Level: skill = {:?}", &level.game_skill);
             debug!("Level: episode = {}", &level.episode);
             debug!("Level: map = {}", &level.game_map);

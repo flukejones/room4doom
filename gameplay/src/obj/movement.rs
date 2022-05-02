@@ -1,5 +1,6 @@
+//! Movement, collision handling.
+//!
 //! Almost all of the methods here are on `MapObject`.
-//! Movement, collision handling. Shooting and aiming.
 
 use std::{
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
@@ -9,6 +10,12 @@ use std::{
 use glam::Vec2;
 use log::{debug, error};
 
+use crate::doom_def::{USERANGE, VIEWHEIGHT};
+use crate::env::specials::cross_special_line;
+use crate::env::switch::p_use_special_line;
+use crate::utilities::{
+    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
+};
 use crate::{
     angle::Angle,
     doom_def::FLOATSPEED,
@@ -17,14 +24,6 @@ use crate::{
         flags::LineDefFlags,
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
-    },
-    play::{
-        specials::cross_special_line,
-        switch::p_use_special_line,
-        utilities::{
-            box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ,
-            FRACUNIT_DIV4, USERANGE, VIEWHEIGHT,
-        },
     },
     DPtr, MapObject, MapObjectType,
 };
@@ -55,7 +54,7 @@ pub struct SubSectorMinMax {
 
 impl MapObject {
     /// P_ZMovement
-    pub(super) fn p_z_movement(&mut self) {
+    pub(crate) fn p_z_movement(&mut self) {
         if self.player.is_some() && self.z < self.floorz {
             unsafe {
                 let player = &mut *(self.player.unwrap());
@@ -149,7 +148,7 @@ impl MapObject {
     }
 
     /// Doom function name `P_XYMovement`
-    pub(super) fn p_xy_movement(&mut self) {
+    pub(crate) fn p_xy_movement(&mut self) {
         if self.momxy.x == 0.0 && self.momxy.y == 0.0 {
             if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
                 self.flags &= !(MapObjectFlag::SkullFly as u32);
@@ -263,7 +262,7 @@ impl MapObject {
     }
 
     /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
-    pub(super) fn p_try_move(
+    pub(crate) fn p_try_move(
         &mut self,
         ptryx: f32,
         ptryy: f32,
@@ -286,7 +285,7 @@ impl MapObject {
             if self.flags & MapObjectFlag::Teleport as u32 == 0
                 && ctrl.max_ceil_z - self.z < self.height
             {
-                return false; // mobj must lower itself to fit
+                return false; // obj must lower itself to fit
             }
 
             if self.flags & MapObjectFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0
@@ -358,7 +357,7 @@ impl MapObject {
     /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
     /// and this function checks if the line is solid, if not then it also sets
     /// the portal ceil/floor coords and dropoffs
-    pub(super) fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
+    pub(crate) fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
         let left = endpoint.x - self.radius;
         let right = endpoint.x + self.radius;
         let top = endpoint.y + self.radius;
@@ -408,8 +407,8 @@ impl MapObject {
         //     true,
         //     level,
         //     |t| {
-        //         if let Some(mobj) = t.thing.as_mut() {
-        //             if !self.pit_check_thing(mobj) {
+        //         if let Some(obj) = t.thing.as_mut() {
+        //             if !self.pit_check_thing(obj) {
         //                 return false;
         //             }
         //         }
@@ -747,7 +746,7 @@ impl MapObject {
             // set openrange, opentop, openbottom
             let portal = PortalZ::new(line);
             if portal.range < self.height // doesn't fit
-                || portal.top_z - self.z < self.height // mobj is too high
+                || portal.top_z - self.z < self.height // obj is too high
                 || portal.bottom_z - self.z > 24.0
             // too big a step up
             {

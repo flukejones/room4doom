@@ -4,11 +4,13 @@
 
 use std::fmt;
 
-use crate::play::{mobj::MapObject, player::Player, player_sprite::PspDef};
 /// All game information, such as demon types, weapons and how much damage they do, items etc
 mod map_object_info;
 mod states;
 
+use crate::obj::MapObject;
+use crate::player::Player;
+use crate::player_sprite::PspDef;
 pub use map_object_info::*;
 use sound_traits::SfxEnum;
 pub use states::*;

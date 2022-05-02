@@ -1,16 +1,17 @@
+//! Shooting and aiming.
+
 use std::f32::consts::FRAC_2_PI;
 
 use glam::Vec2;
 use sound_traits::SfxEnum;
 
+use crate::doom_def::MAXRADIUS;
+use crate::env::specials::shoot_special_line;
+use crate::utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ};
 use crate::{
     doom_def::MELEERANGE,
     info::{StateNum, MOBJINFO},
     level::map_data::BSPTrace,
-    play::{
-        specials::shoot_special_line,
-        utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ, MAXRADIUS},
-    },
     Angle, DPtr, LineDefFlags, MapObject, MapObjectType,
 };
 
@@ -18,7 +19,7 @@ use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
 
 impl MapObject {
     /// P_ExplodeMissile
-    pub(super) fn p_explode_missile(&mut self) {
+    pub(crate) fn p_explode_missile(&mut self) {
         self.momxy = Vec2::default();
         self.momz = 0.0;
         self.set_state(MOBJINFO[self.kind as usize].deathstate);

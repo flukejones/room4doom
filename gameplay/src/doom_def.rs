@@ -9,6 +9,15 @@ pub const MISSILERANGE: f32 = 32.0 * 64.0;
 pub const SKULLSPEED: f32 = 20.0;
 pub const FLOATSPEED: f32 = 4.0;
 
+/// P_MOBJ
+pub static ONFLOORZ: i32 = i32::MIN;
+/// P_MOBJ
+pub static ONCEILINGZ: i32 = i32::MAX;
+pub static MAXHEALTH: i32 = 100;
+pub static VIEWHEIGHT: f32 = 41.0;
+pub static MAXRADIUS: f32 = 32.0;
+pub const USERANGE: f32 = 64.0;
+
 /// DOOM version
 pub static DOOM_VERSION: u8 = 109;
 

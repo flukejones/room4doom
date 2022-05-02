@@ -6,18 +6,18 @@
 
 use std::ptr;
 
-use super::{
-    ceiling::{ev_do_ceiling, CeilingKind},
-    doors::{ev_do_door, DoorKind},
-    floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
-    lights::{
-        ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
-        LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
-    },
-    mobj::MapObject,
-    platforms::{ev_do_platform, ev_stop_platform, PlatKind},
-};
+use crate::obj::MapObject;
 
+use crate::env::ceiling::{ev_do_ceiling, CeilingKind};
+use crate::env::doors::{ev_do_door, DoorKind};
+use crate::env::floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
+use crate::env::lights::{
+    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
+    LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
+};
+use crate::env::platforms::{ev_do_platform, ev_stop_platform, PlatKind};
+use crate::env::switch::{change_switch_texture, start_sector_sound};
+use crate::env::teleport::teleport;
 use crate::{
     info::MapObjectType,
     level::{
@@ -26,10 +26,6 @@ use crate::{
         Level,
     },
     pic::{ButtonWhere, PicAnimation},
-    play::{
-        switch::{change_switch_texture, start_sector_sound},
-        teleport::teleport,
-    },
     DPtr, PicData,
 };
 use log::{debug, error, trace};

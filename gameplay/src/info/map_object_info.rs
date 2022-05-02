@@ -1,7 +1,5 @@
-use crate::{
-    info::{MapObjectInfo, MapObjectType, StateNum},
-    play::mobj::MapObjectFlag,
-};
+use crate::info::{MapObjectInfo, MapObjectType, StateNum};
+use crate::obj::MapObjectFlag;
 
 use super::SfxEnum;
 

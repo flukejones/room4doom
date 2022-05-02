@@ -6,15 +6,12 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxEnum;
 
-use super::{
-    mobj::MapObject,
-    specials::{
-        find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
-    },
-    switch::start_sector_sound,
-    utilities::p_random,
+use crate::env::specials::{
+    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
 };
-
+use crate::env::switch::start_sector_sound;
+use crate::obj::MapObject;
+use crate::utilities::p_random;
 use crate::{
     doom_def::TICRATE,
     level::{

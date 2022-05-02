@@ -1,21 +1,21 @@
-//! Doom source name `p_enemy`
-//!
 //! ENEMY THINKING
-//! Enemies are allways spawned
-//! with targetplayer = -1, threshold = 0
-//! Most monsters are spawned unaware of all players,
-//! but some can be made preaware
+//! Enemies are always spawned with targetplayer = -1, threshold = 0.
 //!
+//! Most monsters are spawned unaware of all players, but some can be made aware
+//! on spawn.
+//!
+//! Doom source name `p_enemy`
 
 use std::{f32::consts::FRAC_PI_4, ptr};
 
 use log::error;
 use sound_traits::SfxEnum;
 
+use crate::obj::{DirType, MapObject, MapObjectFlag};
+use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
     doom_def::{MISSILERANGE, SKULLSPEED},
     info::StateNum,
-    play::{mobj::DirType, utilities::p_random},
     Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill,
 };
 
@@ -69,11 +69,6 @@ fn sound_flood(
         }
     }
 }
-
-use super::{
-    mobj::{MapObject, MapObjectFlag},
-    utilities::{point_to_angle_2, PortalZ},
-};
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {

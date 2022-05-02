@@ -1,3 +1,8 @@
+//! The data that makes up an entire level, along with functions to record state,
+//! or get ref/mutable-ref to parts of it.
+//!
+//! Some of the state is mirrored from the overall game state, or ref by pointer.
+
 pub mod flags;
 pub mod map_data;
 pub mod map_defs;
@@ -10,16 +15,13 @@ use sound_sdl2::SndServerTx;
 use sound_traits::{SfxEnum, SoundAction};
 use wad::{lumps::WadThing, WadData};
 
+use crate::env::platforms::{PlatStatus, Platform};
 use crate::{
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
     level::map_data::MapData,
     pic::Button,
-    play::{
-        platforms::{PlatStatus, Platform},
-        Skill,
-    },
     thinker::ThinkerAlloc,
-    DPtr, PicData, Player,
+    DPtr, PicData, Player, Skill,
 };
 
 use self::map_defs::LineDef;
@@ -34,19 +36,19 @@ pub struct Level {
     pub game_skill: Skill,
     pub respawn_monsters: bool,
     pub level_time: u32,
-    /// Required for the mobj controller (Boss check)
+    /// Required for the obj controller (Boss check)
     pub episode: i32,
-    /// Required for the mobj controller (Boss check)
+    /// Required for the obj controller (Boss check)
     pub game_map: i32,
     /// This needs to be synced with `Game`
     pub game_tic: u32,
     /// The `Things` for player start locations
     pub player_starts: [Option<WadThing>; MAXPLAYERS],
     /// The `Things` for deathmatch start locations
-    pub deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
-    pub deathmatch_p: Vec<WadThing>,
+    pub(super) deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
+    pub(super) deathmatch_p: Vec<WadThing>,
     /// Was the level set for deathmatch game
-    pub deathmatch: bool,
+    pub(super) deathmatch: bool,
     /// for intermission
     pub totalkills: i32,
     /// for intermission
@@ -58,18 +60,18 @@ pub struct Level {
     /// Record how the level was exited
     pub secret_exit: bool,
     /// Marker count for lines checked
-    pub valid_count: usize,
+    pub(super) valid_count: usize,
     /// List of switch textures in ordered pairs
-    pub switch_list: Vec<usize>,
+    pub(super) switch_list: Vec<usize>,
     /// List of used buttons. Typically these buttons or switches are timed.
-    pub button_list: Vec<Button>,
-    pub line_special_list: Vec<DPtr<LineDef>>,
+    pub(super) button_list: Vec<Button>,
+    pub(super) line_special_list: Vec<DPtr<LineDef>>,
     /// Need access to texture data for a few things
-    pub pic_data: Rc<RefCell<PicData>>,
+    pub(super) pic_data: Rc<RefCell<PicData>>,
     /// Some stuff needs to know the game mode (e.g, switching weapons)
-    pub game_mode: GameMode,
+    pub(super) game_mode: GameMode,
     /// Provides ability for things to start a sound
-    pub snd_command: SndServerTx,
+    pub(super) snd_command: SndServerTx,
 
     /// Tracks which players are currently active, set by d_net.c loop.
     /// This is a raw pointer to the array in `Game`, and must not be modified
@@ -152,7 +154,7 @@ impl Level {
         }
     }
 
-    pub fn stop_platform(&mut self, tag: i16) {
+    pub(super) fn stop_platform(&mut self, tag: i16) {
         for plat in self.active_platforms.iter_mut() {
             let plat = unsafe { &mut **plat };
             if plat.tag == tag && plat.status != PlatStatus::InStasis {
@@ -162,7 +164,7 @@ impl Level {
         }
     }
 
-    pub fn activate_platform_in_stasis(&mut self, tag: i16) {
+    pub(super) fn activate_platform_in_stasis(&mut self, tag: i16) {
         for plat in self.active_platforms.iter_mut() {
             let plat = unsafe { &mut **plat };
             if plat.tag == tag && plat.status == PlatStatus::InStasis {
@@ -171,14 +173,14 @@ impl Level {
         }
     }
 
-    pub fn add_active_platform(&mut self, platform: *mut Platform) {
+    pub(super) fn add_active_platform(&mut self, platform: *mut Platform) {
         self.active_platforms.push(platform);
     }
 
     /// # Safety
     /// The platform *must* be live. For example do not call `.mark_remove()` before
     /// `remove_active_platform()`.
-    pub unsafe fn remove_active_platform(&mut self, plat: &mut Platform) {
+    pub(super) unsafe fn remove_active_platform(&mut self, plat: &mut Platform) {
         let mut index = self.active_platforms.len() + 1;
         for (i, p) in self.active_platforms.iter().enumerate() {
             if ptr::eq(*p, plat) {
@@ -192,15 +194,15 @@ impl Level {
         }
     }
 
-    pub fn player_in_game(&self) -> &[bool; MAXPLAYERS] {
+    pub(super) fn player_in_game(&self) -> &[bool; MAXPLAYERS] {
         unsafe { &*self.player_in_game }
     }
 
-    pub fn players(&self) -> &[Player; MAXPLAYERS] {
+    pub(super) fn players(&self) -> &[Player; MAXPLAYERS] {
         unsafe { &*self.players }
     }
 
-    pub fn players_mut(&mut self) -> &mut [Player; MAXPLAYERS] {
+    pub(super) fn players_mut(&mut self) -> &mut [Player; MAXPLAYERS] {
         unsafe { &mut *self.players }
     }
 
@@ -211,19 +213,19 @@ impl Level {
         }
     }
 
-    pub fn do_exit_level(&mut self) {
+    pub(super) fn do_exit_level(&mut self) {
         info!("Exited level");
         self.secret_exit = false;
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub fn do_secret_exit_level(&mut self) {
+    pub(super) fn do_secret_exit_level(&mut self) {
         info!("Secret exited level");
         self.secret_exit = true;
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, uid: usize) {
+    pub(super) fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, uid: usize) {
         self.snd_command
             .send(SoundAction::StartSfx { uid, sfx, x, y })
             .unwrap();
