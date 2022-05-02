@@ -550,9 +550,8 @@ mod tests {
     use crate::{
         doom_def::GameMode,
         level::{map_data::MapData, Level},
-        play::Skill,
         thinker::{Think, Thinker},
-        PicData, Player, MAXPLAYERS,
+        PicData, Player, MAXPLAYERS, Skill,
     };
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
