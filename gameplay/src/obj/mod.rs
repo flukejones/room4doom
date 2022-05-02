@@ -28,7 +28,7 @@ use wad::lumps::WadThing;
 use crate::{
     angle::Angle,
     doom_def::{MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT},
-    info::{ActionF, MapObjectInfo, MapObjectType, SpriteNum, State, StateNum, MOBJINFO, STATES},
+    info::{ActionF, MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES},
     level::map_defs::SubSector,
     player::{Player, PlayerState},
     utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide},
@@ -36,7 +36,7 @@ use crate::{
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]
-pub(crate) enum MapObjectFlag {
+pub(crate) enum MapObjFlag {
     /// Call P_SpecialThing when touched.
     Special = 1,
     /// Blocks.
@@ -123,15 +123,15 @@ pub struct MapObject {
     /// For movement checking.
     pub(crate) radius: f32,
     pub(crate) height: f32,
-    /// Momentums, used to update position.
+    /// Momentum, used to update position.
     pub(crate) momxy: Vec2,
     pub(crate) momz: f32,
     /// If == validcount, already checked.
     pub(crate) valid_count: usize,
     /// The type of object
-    pub(crate) kind: MapObjectType,
+    pub(crate) kind: MapObjKind,
     /// &mobjinfo[obj.type]
-    pub(crate) info: MapObjectInfo,
+    pub(crate) info: MapObjInfo,
     pub(crate) tics: i32,
     /// state tic counter
     // TODO: probably only needs to be an index to the array
@@ -203,8 +203,8 @@ impl MapObject {
         y: f32,
         z: i32,
         reactiontime: i32,
-        kind: MapObjectType,
-        info: MapObjectInfo,
+        kind: MapObjKind,
+        info: MapObjInfo,
         state: &'static State,
         level: *mut Level,
     ) -> Self {
@@ -340,7 +340,7 @@ impl MapObject {
             mthing.x as f32,
             mthing.y as f32,
             ONFLOORZ,
-            MapObjectType::MT_PLAYER,
+            MapObjKind::MT_PLAYER,
             level,
         );
 
@@ -349,7 +349,7 @@ impl MapObject {
         let mobj_ptr_mut = unsafe { &mut *mobj };
         if mthing.kind > 1 {
             mobj_ptr_mut.flags = mobj_ptr_mut.flags as u32
-                | (mthing.kind as u32 - 1) << MapObjectFlag::Transshift as u8;
+                | (mthing.kind as u32 - 1) << MapObjFlag::Transshift as u8;
         }
 
         // TODO: check this angle stuff
@@ -429,14 +429,14 @@ impl MapObject {
 
         // find which type to spawn
         let mut i = 0;
-        for n in 0..MapObjectType::NUMMOBJTYPES as u16 {
+        for n in 0..MapObjKind::NUMMOBJTYPES as u16 {
             if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
                 i = n;
                 break;
             }
         }
 
-        if i == MapObjectType::NUMMOBJTYPES as u16 {
+        if i == MapObjKind::NUMMOBJTYPES as u16 {
             error!(
                 "P_SpawnMapThing: Unknown type {} at ({}, {})",
                 mthing.kind, mthing.x, mthing.y
@@ -444,8 +444,7 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjectFlag::NotDeathmatch as u32 != 0
-        {
+        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjFlag::NotDeathmatch as u32 != 0 {
             return;
         }
 
@@ -457,34 +456,34 @@ impl MapObject {
 
         let x = mthing.x as f32;
         let y = mthing.y as f32;
-        let z = if MOBJINFO[i as usize].flags & MapObjectFlag::SpawnCeiling as u32 != 0 {
+        let z = if MOBJINFO[i as usize].flags & MapObjFlag::SpawnCeiling as u32 != 0 {
             ONCEILINGZ
         } else {
             ONFLOORZ
         };
 
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::from(i), level);
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::from(i), level);
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
-        if mobj.flags & MapObjectFlag::CountKill as u32 != 0 {
+        if mobj.flags & MapObjFlag::CountKill as u32 != 0 {
             level.totalkills += 1;
         }
-        if mobj.flags & MapObjectFlag::CountItem as u32 != 0 {
+        if mobj.flags & MapObjFlag::CountItem as u32 != 0 {
             level.totalitems += 1;
         }
 
         // TODO: check the angle is correct
         mobj.angle = Angle::new((mthing.angle as f32).to_radians());
         if mthing.flags & MTF_AMBUSH != 0 {
-            mobj.flags |= MapObjectFlag::Ambush as u32;
+            mobj.flags |= MapObjFlag::Ambush as u32;
         }
     }
 
     /// A thinker for metal spark/puff, typically used for gun-strikes against walls or non-fleshy things.
     pub(crate) fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_PUFF, level);
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 1.0;
         mobj.tics -= p_random() & 3;
@@ -501,7 +500,7 @@ impl MapObject {
     /// Blood! In a game!
     pub(crate) fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
         z += (p_random() - p_random()) / 64;
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjectType::MT_BLOOD, level);
+        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_BLOOD, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 2.0;
         mobj.tics -= p_random() & 3;
@@ -522,7 +521,7 @@ impl MapObject {
     /// Doom function name is `P_SpawnPlayerMissile`
     pub(crate) fn spawn_player_missile(
         source: &mut MapObject,
-        kind: MapObjectType,
+        kind: MapObjKind,
         level: &mut Level,
     ) {
         let x = source.xy.x;
@@ -564,7 +563,7 @@ impl MapObject {
     pub(crate) fn spawn_missile(
         source: &mut MapObject,
         target: &mut MapObject,
-        kind: MapObjectType,
+        kind: MapObjKind,
         level: &mut Level,
     ) {
         let x = source.xy.x;
@@ -580,7 +579,7 @@ impl MapObject {
 
         mobj.angle = point_to_angle_2(target.xy, source.xy);
         // fuzzy player
-        if target.flags & MapObjectFlag::Shadow as u32 != 0 {
+        if target.flags & MapObjFlag::Shadow as u32 != 0 {
             mobj.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
 
@@ -619,7 +618,7 @@ impl MapObject {
         x: f32,
         y: f32,
         z: i32,
-        kind: MapObjectType,
+        kind: MapObjKind,
         level: &mut Level,
     ) -> *mut MapObject {
         let info = MOBJINFO[kind as usize];
@@ -710,7 +709,7 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn unset_thing_position(&mut self) {
-        if self.flags & MapObjectFlag::NoSector as u32 == 0 {
+        if self.flags & MapObjFlag::NoSector as u32 == 0 {
             (*self.subsector)
                 .sector
                 .remove_from_thinglist(self.thinker_mut());
@@ -726,7 +725,7 @@ impl MapObject {
         let subsector = level.map_data.point_in_subsector_raw(self.xy);
         self.subsector = subsector;
 
-        if self.flags & MapObjectFlag::NoSector as u32 == 0 {
+        if self.flags & MapObjFlag::NoSector as u32 == 0 {
             (*self.subsector).sector.add_to_thinglist(self.thinker)
         }
     }
@@ -798,12 +797,12 @@ impl MapObject {
         }
 
         // crunch dropped items
-        if self.flags & MapObjectFlag::Dropped as u32 != 0 {
+        if self.flags & MapObjFlag::Dropped as u32 != 0 {
             self.remove();
             return true;
         }
 
-        if self.flags & MapObjectFlag::Shootable as u32 == 0 {
+        if self.flags & MapObjFlag::Shootable as u32 == 0 {
             // assume it is bloody gibs or something
             return true;
         }
@@ -819,7 +818,7 @@ impl MapObject {
                 self.xy.x,
                 self.xy.y,
                 (self.z + self.height) as i32 / 2,
-                MapObjectType::MT_BLOOD,
+                MapObjKind::MT_BLOOD,
                 unsafe { &mut *self.level },
             );
             unsafe {
@@ -851,7 +850,7 @@ impl Think for MapObject {
             std::panic!("MapObject thinker was null");
         }
 
-        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjectFlag::SkullFly as u32 != 0 {
+        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjFlag::SkullFly as u32 != 0 {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {
@@ -874,7 +873,7 @@ impl Think for MapObject {
             } // freed itself
         } else {
             // check for nightmare respawn
-            if this.flags & MapObjectFlag::CountKill as u32 == 0 {
+            if this.flags & MapObjFlag::CountKill as u32 == 0 {
                 return false;
             }
             if !level.respawn_monsters {

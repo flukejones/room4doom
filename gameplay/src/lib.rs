@@ -29,7 +29,7 @@ pub use angle::Angle;
 pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
 pub use env::specials::{spawn_specials, update_specials};
 pub use glam;
-pub use info::MapObjectType;
+pub use info::MapObjKind;
 pub use lang::english;
 pub use level::{
     flags::LineDefFlags,

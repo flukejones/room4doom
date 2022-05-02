@@ -12,7 +12,7 @@ use crate::{
     },
     info::{ActionF, SpriteNum, StateNum, STATES},
     level::Level,
-    obj::{enemy::noise_alert, MapObject, MapObjectFlag, BONUSADD},
+    obj::{enemy::noise_alert, MapObjFlag, MapObject, BONUSADD},
     pic::INVERSECOLORMAP,
     player_sprite::{PspDef, WEAPONBOTTOM},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
@@ -311,7 +311,7 @@ impl Player {
         self.damagecount = 0;
         self.bonuscount = 0;
         if let Some(mobj) = self.mobj_mut() {
-            mobj.flags &= !(MapObjectFlag::Shadow as u32);
+            mobj.flags &= !(MapObjFlag::Shadow as u32);
         }
 
         info!("Reset level items and powers for player");
@@ -869,17 +869,17 @@ impl Player {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
             if self.cheats & PlayerCheat::Noclip as u32 != 0 {
-                mobj.flags |= MapObjectFlag::NoClip as u32;
+                mobj.flags |= MapObjFlag::NoClip as u32;
             } else {
-                mobj.flags &= !(MapObjectFlag::NoClip as u32);
+                mobj.flags &= !(MapObjFlag::NoClip as u32);
             }
 
             let cmd = &mut self.cmd;
-            if mobj.flags & MapObjectFlag::JustAttacked as u32 != 0 {
+            if mobj.flags & MapObjFlag::JustAttacked as u32 != 0 {
                 cmd.angleturn = 0;
                 cmd.forwardmove = (0xc800 / 512) as i8;
                 cmd.sidemove = 0;
-                mobj.flags &= !(MapObjectFlag::JustAttacked as u32);
+                mobj.flags &= !(MapObjFlag::JustAttacked as u32);
             }
         }
 
@@ -968,7 +968,7 @@ impl Player {
             self.powers[PowerType::Invisibility as usize] -= 1;
             if self.powers[PowerType::Invisibility as usize] == 0 {
                 if let Some(mobj) = self.mobj_mut() {
-                    mobj.flags &= !(MapObjectFlag::Shadow as u32);
+                    mobj.flags &= !(MapObjFlag::Shadow as u32);
                 }
             }
         }

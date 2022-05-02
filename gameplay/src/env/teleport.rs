@@ -3,11 +3,11 @@ use std::ptr;
 use glam::Vec2;
 
 use crate::{
-    info::MapObjectType, level::map_defs::LineDef, thinker::ThinkerData, DPtr, Level, MapObject,
+    info::MapObjKind, level::map_defs::LineDef, thinker::ThinkerData, DPtr, Level, MapObject,
     Sector,
 };
 
-use crate::obj::MapObjectFlag;
+use crate::obj::MapObjFlag;
 
 /// Doom function name `EV_Teleport`
 pub fn teleport(
@@ -17,7 +17,7 @@ pub fn teleport(
     level: &mut Level,
 ) -> bool {
     // Don't teleport missiles... this could be interesting to muck with.
-    if thing.flags & MapObjectFlag::Missile as u32 != 0 {
+    if thing.flags & MapObjFlag::Missile as u32 != 0 {
         return false;
     }
 
@@ -33,7 +33,7 @@ pub fn teleport(
                 // Find the right thinker
                 if let ThinkerData::MapObject(ref mobj) = thinker.data() {
                     unsafe {
-                        if mobj.kind == MapObjectType::MT_TELEPORTMAN
+                        if mobj.kind == MapObjKind::MT_TELEPORTMAN
                             && ptr::eq((*mobj.subsector).sector.as_ref(), sector)
                         {
                             return true;
@@ -58,7 +58,7 @@ pub fn teleport(
                     old_xy.x,
                     old_xy.y,
                     old_z as i32,
-                    MapObjectType::MT_TFOG,
+                    MapObjKind::MT_TFOG,
                     level,
                 );
                 unsafe {
@@ -70,7 +70,7 @@ pub fn teleport(
                     endpoint.xy.x + 20.0 * an.cos(),
                     endpoint.xy.y + 20.0 * an.sin(),
                     endpoint.z as i32,
-                    MapObjectType::MT_TFOG,
+                    MapObjKind::MT_TFOG,
                     level,
                 );
                 unsafe {
@@ -126,7 +126,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i3
             return true;
         }
 
-        if thing.flags & MapObjectFlag::Shootable as u32 != 0 {
+        if thing.flags & MapObjFlag::Shootable as u32 != 0 {
             thing.p_take_damage(Some(this_thing), None, false, 10000);
         }
         true

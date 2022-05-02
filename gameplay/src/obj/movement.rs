@@ -23,10 +23,10 @@ use crate::{
     utilities::{
         box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
     },
-    DPtr, MapObject, MapObjectType,
+    DPtr, MapObjKind, MapObject,
 };
 
-use super::MapObjectFlag;
+use super::MapObjFlag;
 
 pub const MAXMOVE: f32 = 30.0;
 pub const STOPSPEED: f32 = 0.0625; // 0x1000
@@ -64,13 +64,13 @@ impl MapObject {
         // adjust height
         self.z += self.momz;
 
-        if self.flags & MapObjectFlag::Float as u32 != 0 {
+        if self.flags & MapObjFlag::Float as u32 != 0 {
             if let Some(target) = self.target {
                 let target = unsafe { (*target).mobj() };
 
                 // float down towards target if too close
-                if self.flags & MapObjectFlag::SkullFly as u32 == 0
-                    && self.flags & MapObjectFlag::InFloat as u32 == 0
+                if self.flags & MapObjFlag::SkullFly as u32 == 0
+                    && self.flags & MapObjFlag::InFloat as u32 == 0
                 {
                     let dist = self.xy.distance(target.xy);
                     let delta = target.z + self.height / 2.0 - self.z;
@@ -89,7 +89,7 @@ impl MapObject {
         if self.z <= self.floorz {
             // hit the floor
             // TODO: The lost soul correction for old demos
-            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
@@ -111,13 +111,13 @@ impl MapObject {
 
             self.z = self.floorz;
 
-            if self.flags & MapObjectFlag::Missile as u32 != 0
-                && self.flags & MapObjectFlag::NoClip as u32 == 0
+            if self.flags & MapObjFlag::Missile as u32 != 0
+                && self.flags & MapObjFlag::NoClip as u32 == 0
             {
                 self.p_explode_missile();
                 return;
             }
-        } else if self.flags & MapObjectFlag::NoGravity as u32 == 0 {
+        } else if self.flags & MapObjFlag::NoGravity as u32 == 0 {
             if self.momz == 0.0 {
                 self.momz = -1.0 * 2.0;
             } else {
@@ -132,13 +132,13 @@ impl MapObject {
                 self.z = self.ceilingz - self.height;
             }
 
-            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
 
-            if self.flags & MapObjectFlag::Missile as u32 != 0
-                && self.flags & MapObjectFlag::NoClip as u32 == 0
+            if self.flags & MapObjFlag::Missile as u32 != 0
+                && self.flags & MapObjFlag::NoClip as u32 == 0
             {
                 self.p_explode_missile();
             }
@@ -148,8 +148,8 @@ impl MapObject {
     /// Doom function name `P_XYMovement`
     pub(crate) fn p_xy_movement(&mut self) {
         if self.momxy.x == 0.0 && self.momxy.y == 0.0 {
-            if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
-                self.flags &= !(MapObjectFlag::SkullFly as u32);
+            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
+                self.flags &= !(MapObjFlag::SkullFly as u32);
                 self.momz = 0.0;
                 self.set_state(self.info.spawnstate);
             }
@@ -201,7 +201,7 @@ impl MapObject {
             if !self.p_try_move(ptryx, ptryy, &mut SubSectorMinMax::default()) {
                 if self.player.is_some() {
                     self.p_slide_move();
-                } else if self.flags & MapObjectFlag::Missile as u32 != 0 {
+                } else if self.flags & MapObjFlag::Missile as u32 != 0 {
                     self.p_explode_missile();
                 } else {
                     self.momxy = Vec2::default();
@@ -214,7 +214,7 @@ impl MapObject {
         }
 
         // slow down
-        if self.flags & (MapObjectFlag::Missile as u32 | MapObjectFlag::SkullFly as u32) != 0 {
+        if self.flags & (MapObjFlag::Missile as u32 | MapObjFlag::SkullFly as u32) != 0 {
             return; // no friction for missiles ever
         }
 
@@ -224,7 +224,7 @@ impl MapObject {
 
         let floorheight = unsafe { (*self.subsector).sector.floorheight };
 
-        if self.flags & MapObjectFlag::Corpse as u32 != 0 {
+        if self.flags & MapObjFlag::Corpse as u32 != 0 {
             // do not stop sliding
             //  if halfway off a step with some momentum
             if (self.momxy.x > FRACUNIT_DIV4
@@ -274,24 +274,23 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjectFlag::NoClip as u32 == 0 {
+        if self.flags & MapObjFlag::NoClip as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
 
-            if self.flags & MapObjectFlag::Teleport as u32 == 0
+            if self.flags & MapObjFlag::Teleport as u32 == 0
                 && ctrl.max_ceil_z - self.z < self.height
             {
                 return false; // obj must lower itself to fit
             }
 
-            if self.flags & MapObjectFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0
-            {
+            if self.flags & MapObjFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0 {
                 return false; // too big a step up
             }
 
-            if self.flags & (MapObjectFlag::DropOff as u32 | MapObjectFlag::Float as u32) == 0
+            if self.flags & (MapObjFlag::DropOff as u32 | MapObjFlag::Float as u32) == 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -314,7 +313,7 @@ impl MapObject {
             self.set_thing_position();
         }
 
-        if self.flags & (MapObjectFlag::Teleport as u32 | MapObjectFlag::NoClip as u32) == 0 {
+        if self.flags & (MapObjFlag::Teleport as u32 | MapObjFlag::NoClip as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(self.xy);
@@ -378,7 +377,7 @@ impl MapObject {
             ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
         }
 
-        if self.flags & MapObjectFlag::NoClip as u32 != 0 {
+        if self.flags & MapObjFlag::NoClip as u32 != 0 {
             return true;
         }
 
@@ -450,9 +449,7 @@ impl MapObject {
     /// Function is intended to function similar to `PIT_CheckThing`
     fn pit_check_thing(&mut self, thing: &mut MapObject, endpoint: Vec2) -> bool {
         if thing.flags
-            & (MapObjectFlag::Solid as u32
-                | MapObjectFlag::Special as u32
-                | MapObjectFlag::Shootable as u32)
+            & (MapObjFlag::Solid as u32 | MapObjFlag::Special as u32 | MapObjFlag::Shootable as u32)
             == 0
         {
             return true;
@@ -469,19 +466,19 @@ impl MapObject {
             return true;
         }
 
-        if self.flags & MapObjectFlag::SkullFly as u32 != 0 {
+        if self.flags & MapObjFlag::SkullFly as u32 != 0 {
             let damage = ((p_random() % 8) + 1) * self.info.damage;
             thing.p_take_damage(Some(self), None, true, damage);
 
             self.momxy = Vec2::default();
             self.momz = 0.0;
 
-            self.flags &= !(MapObjectFlag::SkullFly as u32);
+            self.flags &= !(MapObjFlag::SkullFly as u32);
             self.set_state(self.info.spawnstate);
             return false;
         }
 
-        if self.flags & MapObjectFlag::Missile as u32 != 0 {
+        if self.flags & MapObjFlag::Missile as u32 != 0 {
             if self.z > thing.z + thing.height {
                 return true; // over
             }
@@ -493,26 +490,24 @@ impl MapObject {
                 let target = unsafe { (*target).mobj_mut() };
 
                 if target.kind == thing.kind
-                    || (target.kind == MapObjectType::MT_KNIGHT
-                        && thing.kind == MapObjectType::MT_KNIGHT)
-                    || (target.kind == MapObjectType::MT_BRUISER
-                        && thing.kind == MapObjectType::MT_BRUISER)
+                    || (target.kind == MapObjKind::MT_KNIGHT && thing.kind == MapObjKind::MT_KNIGHT)
+                    || (target.kind == MapObjKind::MT_BRUISER
+                        && thing.kind == MapObjKind::MT_BRUISER)
                 {
                     // Don't hit same species as originator.
                     if std::ptr::eq(thing, target) {
                         return true;
                     }
 
-                    if thing.kind != MapObjectType::MT_PLAYER {
+                    if thing.kind != MapObjKind::MT_PLAYER {
                         // Explode, but do no damage.
                         // Let players missile other players.
                         return false;
                     }
                 }
 
-                if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
-                    return thing.flags & MapObjectFlag::Solid as u32
-                        != MapObjectFlag::Solid as u32;
+                if thing.flags & MapObjFlag::Shootable as u32 == 0 {
+                    return thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32;
                 }
 
                 let damage = ((p_random() % 8) + 1) * self.info.damage;
@@ -521,16 +516,16 @@ impl MapObject {
         }
 
         // Check special items
-        if thing.flags & MapObjectFlag::Special as u32 != 0 {
-            let solid = thing.flags & MapObjectFlag::Solid as u32 != MapObjectFlag::Solid as u32;
-            if self.flags & MapObjectFlag::Pickup as u32 != 0 {
+        if thing.flags & MapObjFlag::Special as u32 != 0 {
+            let solid = thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32;
+            if self.flags & MapObjFlag::Pickup as u32 != 0 {
                 // TODO: Fix getting skill level
                 self.touch_special(thing);
             }
             return solid;
         }
 
-        thing.flags & MapObjectFlag::Solid as u32 != MapObjectFlag::Solid as u32
+        thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32
     }
 
     /// PIT_CheckLine
@@ -569,7 +564,7 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjectFlag::Missile as u32 == 0 {
+        if self.flags & MapObjFlag::Missile as u32 == 0 {
             if ld.flags & LineDefFlags::Blocking as u32 != 0 {
                 return false; // explicitly blocking everything
             }
@@ -998,14 +993,14 @@ impl MapObject {
         if !self.p_try_move(tryx, tryy, &mut specs) {
             // open any specials
             // TODO: if (actor->flags & MF_FLOAT && floatok)
-            if self.flags & MapObjectFlag::Float as u32 != 0 && specs.floatok {
+            if self.flags & MapObjFlag::Float as u32 != 0 && specs.floatok {
                 // must adjust height
                 if self.z < specs.min_floor_z {
                     self.z += FLOATSPEED;
                 } else {
                     self.z -= FLOATSPEED;
                 }
-                self.flags |= MapObjectFlag::InFloat as u32;
+                self.flags |= MapObjFlag::InFloat as u32;
                 return true;
             }
 
@@ -1022,10 +1017,10 @@ impl MapObject {
             }
             return good;
         } else {
-            self.flags &= !(MapObjectFlag::InFloat as u32);
+            self.flags &= !(MapObjFlag::InFloat as u32);
         }
 
-        if self.flags & MapObjectFlag::Float as u32 == 0 {
+        if self.flags & MapObjFlag::Float as u32 == 0 {
             self.z = self.floorz;
         }
 

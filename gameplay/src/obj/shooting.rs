@@ -11,10 +11,10 @@ use crate::{
     info::{StateNum, MOBJINFO},
     level::map_data::BSPTrace,
     utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ},
-    Angle, DPtr, LineDefFlags, MapObject, MapObjectType,
+    Angle, DPtr, LineDefFlags, MapObjKind, MapObject,
 };
 
-use super::{MapObjectFlag, PT_ADDLINES, PT_ADDTHINGS};
+use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
 impl MapObject {
     /// P_ExplodeMissile
@@ -29,7 +29,7 @@ impl MapObject {
             self.tics = 1;
         }
 
-        self.flags &= !(MapObjectFlag::Missile as u32);
+        self.flags &= !(MapObjFlag::Missile as u32);
 
         if self.info.deathsound != SfxEnum::None {
             self.start_sound(self.info.deathsound);
@@ -147,14 +147,11 @@ impl MapObject {
         }
         other.valid_count = valid;
 
-        if other.flags & MapObjectFlag::Shootable as u32 == 0 {
+        if other.flags & MapObjFlag::Shootable as u32 == 0 {
             return true;
         }
 
-        if matches!(
-            other.kind,
-            MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER
-        ) {
+        if matches!(other.kind, MapObjKind::MT_CYBORG | MapObjKind::MT_SPIDER) {
             return true;
         }
 
@@ -347,8 +344,8 @@ impl MapObject {
             }
 
             // Was just attacked, fight back!
-            if self.flags & MapObjectFlag::JustHit as u32 != 0 {
-                self.flags &= !(MapObjectFlag::JustHit as u32);
+            if self.flags & MapObjFlag::JustHit as u32 != 0 {
+                self.flags &= !(MapObjFlag::JustHit as u32);
                 return true;
             }
 
@@ -362,11 +359,11 @@ impl MapObject {
                 dist -= 128.0; // no melee attack, so fire more
             }
 
-            if self.kind == MapObjectType::MT_VILE && dist > 14.0 * 64.0 {
+            if self.kind == MapObjKind::MT_VILE && dist > 14.0 * 64.0 {
                 return false; // too far away
             }
 
-            if self.kind == MapObjectType::MT_UNDEAD {
+            if self.kind == MapObjKind::MT_UNDEAD {
                 if dist < 196.0 {
                     return false; // Close in to punch
                 }
@@ -375,7 +372,7 @@ impl MapObject {
 
             if matches!(
                 self.kind,
-                MapObjectType::MT_CYBORG | MapObjectType::MT_SPIDER | MapObjectType::MT_SKULL
+                MapObjKind::MT_CYBORG | MapObjKind::MT_SPIDER | MapObjKind::MT_SKULL
             ) {
                 dist /= 2.0;
             }
@@ -384,7 +381,7 @@ impl MapObject {
                 dist = 200.0;
             }
 
-            if self.kind == MapObjectType::MT_CYBORG && dist > 160.0 {
+            if self.kind == MapObjKind::MT_CYBORG && dist > 160.0 {
                 dist = 160.0;
             }
 
@@ -521,7 +518,7 @@ impl AimTraverse {
                 return true;
             }
             // Corpse?
-            if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
+            if thing.flags & MapObjFlag::Shootable as u32 == 0 {
                 return true;
             }
 
@@ -637,7 +634,7 @@ impl ShootTraverse {
                 return true;
             }
             // Corpse?
-            if thing.flags & MapObjectFlag::Shootable as u32 == 0 {
+            if thing.flags & MapObjFlag::Shootable as u32 == 0 {
                 return true;
             }
 
@@ -657,7 +654,7 @@ impl ShootTraverse {
             let y = self.trace_xy.y + self.trace_dxy.y * frac;
             let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
-            if thing.flags & MapObjectFlag::NoBlood as u32 != 0 {
+            if thing.flags & MapObjFlag::NoBlood as u32 != 0 {
                 MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
                     &mut *thing.level
                 })
