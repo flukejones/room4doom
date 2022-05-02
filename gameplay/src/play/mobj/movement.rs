@@ -272,7 +272,7 @@ impl MapObject {
         // P_CrossSpecialLine
         let try_move = Vec2::new(ptryx, ptryy);
 
-        ctrl.floatok = true;
+        ctrl.floatok = false;
         if !self.p_check_position(try_move, ctrl) {
             return false;
         }
