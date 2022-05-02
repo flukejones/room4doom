@@ -175,7 +175,10 @@ impl Level {
         self.active_platforms.push(platform);
     }
 
-    pub fn remove_active_platform(&mut self, plat: &mut Platform) {
+    /// # Safety
+    /// The platform *must* be live. For example do not call `.mark_remove()` before
+    /// `remove_active_platform()`.
+    pub unsafe fn remove_active_platform(&mut self, plat: &mut Platform) {
         let mut index = self.active_platforms.len() + 1;
         for (i, p) in self.active_platforms.iter().enumerate() {
             if ptr::eq(*p, plat) {
@@ -184,9 +187,7 @@ impl Level {
             }
         }
         if index < self.active_platforms.len() {
-            unsafe {
-                (*plat.thinker).mark_remove();
-            }
+            (*plat.thinker).mark_remove();
             self.active_platforms.remove(index);
         }
     }

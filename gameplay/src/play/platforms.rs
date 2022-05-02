@@ -193,7 +193,11 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
 impl Think for Platform {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let platform = object.platform_mut();
-        let line = &platform.sector.lines[0];
+        #[cfg(null_check)]
+        if self.platform.is_null() {
+            std::panic!("platform thinker was null");
+        }
+        let line = platform.sector.lines[0].as_ref();
 
         match platform.status {
             PlatStatus::Up => {
@@ -225,18 +229,16 @@ impl Think for Platform {
 
                     match platform.kind {
                         PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
+                            platform.sector.specialdata = None; // TODO: remove when tracking active?
                             unsafe {
-                                platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                (*platform.thinker).mark_remove();
+                                level.remove_active_platform(platform);
                             }
-                            level.remove_active_platform(platform);
                         }
                         PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
+                            platform.sector.specialdata = None; // TODO: remove when tracking active?
                             unsafe {
-                                platform.sector.specialdata = None; // TODO: remove when tracking active?
-                                (*platform.thinker).mark_remove();
+                                level.remove_active_platform(platform);
                             }
-                            level.remove_active_platform(platform);
                         }
                         _ => {}
                     }
@@ -280,10 +282,18 @@ impl Think for Platform {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("platform thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("platform thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }

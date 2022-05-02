@@ -138,7 +138,11 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
 impl Think for CeilingMove {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let ceiling = object.ceiling_mut();
-        let line = &ceiling.sector.lines[0];
+        #[cfg(null_check)]
+        if self.ceiling.is_null() {
+            std::panic!("ceiling thinker was null");
+        }
+        let line = ceiling.sector.lines[0].as_ref();
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
             start_sector_sound(line, SfxEnum::stnmov, &level.snd_command);
@@ -227,10 +231,18 @@ impl Think for CeilingMove {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("ceiling thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("ceiling thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }

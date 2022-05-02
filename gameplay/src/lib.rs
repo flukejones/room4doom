@@ -3,9 +3,12 @@
 
 use std::{
     f32::consts::PI,
-    fmt,
+    fmt::{self, Debug},
     ops::{Deref, DerefMut},
 };
+
+#[cfg(null_check)]
+use std::panic;
 
 mod angle;
 mod doom_def;
@@ -41,55 +44,84 @@ pub use play::{
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us
-pub struct DPtr<T> {
+pub struct DPtr<T: Debug> {
     inner: *mut T,
 }
 
-impl<T> DPtr<T> {
+impl<T: Debug> DPtr<T> {
     fn new(t: &mut T) -> DPtr<T> {
         DPtr { inner: t as *mut _ }
     }
-
-    fn as_ptr(&self) -> *mut T {
-        self.inner
-    }
 }
 
-impl<T> PartialEq for DPtr<T> {
+impl<T: Debug> PartialEq for DPtr<T> {
     fn eq(&self, other: &Self) -> bool {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         self.inner == other.inner
     }
 }
 
-impl<T> Clone for DPtr<T> {
+impl<T: Debug> Clone for DPtr<T> {
     fn clone(&self) -> DPtr<T> {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         DPtr { inner: self.inner }
     }
 }
 
-impl<T> Deref for DPtr<T> {
+impl<T: Debug> Deref for DPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         unsafe { &*self.inner }
     }
 }
 
-impl<T> DerefMut for DPtr<T> {
+impl<T: Debug> DerefMut for DPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         unsafe { &mut *self.inner }
     }
 }
 
-impl<T> AsRef<T> for DPtr<T> {
+impl<T: Debug> AsRef<T> for DPtr<T> {
     fn as_ref(&self) -> &T {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         unsafe { &*self.inner }
     }
 }
 
-impl<T> AsMut<T> for DPtr<T> {
+impl<T: Debug> AsMut<T> for DPtr<T> {
     fn as_mut(&mut self) -> &mut T {
+        #[cfg(null_check)]
+        if self.inner.is_null() {
+            panic!("NULL");
+        }
         unsafe { &mut *self.inner }
+    }
+}
+
+#[cfg(null_check)]
+impl<T: Debug> Drop for DPtr<T> {
+    fn drop(&mut self) {
+        if self.inner.is_null() {
+            panic!("Can not drop DPtr with an inner null");
+        }
     }
 }
 

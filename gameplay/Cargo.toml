@@ -5,6 +5,10 @@ authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 build = "../build.rs"
 
+[features]
+default = []
+null_check = []
+
 [dependencies]
 sound-traits = { path = "../sound-traits" }
 sound-sdl2 = { path = "../sound-sdl2" }

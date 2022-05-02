@@ -54,7 +54,7 @@ fn sound_flood(
             continue; // A door, and it's closed
         }
 
-        let other = if ptr::eq(line.front_sidedef.sector.as_ptr(), sector.as_ptr()) {
+        let other = if ptr::eq(line.front_sidedef.sector.as_ref(), sector.as_ref()) {
             line.back_sidedef.as_ref().unwrap().sector.clone()
         } else {
             line.front_sidedef.sector.clone()

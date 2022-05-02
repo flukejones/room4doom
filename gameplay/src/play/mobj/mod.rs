@@ -10,7 +10,7 @@ pub use movement::*;
 use sound_traits::SfxEnum;
 mod shooting;
 
-use std::ptr::null_mut;
+use std::{fmt::Debug, ptr::null_mut};
 
 use self::movement::SubSectorMinMax;
 
@@ -173,6 +173,34 @@ pub struct MapObject {
     pub(crate) level: *mut Level,
 }
 
+impl Debug for MapObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MapObject")
+            .field("xy", &self.xy)
+            .field("z", &self.z)
+            .field("angle", &self.angle)
+            .field("sprite", &self.sprite)
+            .field("frame", &self.frame)
+            .field("floorz", &self.floorz)
+            .field("ceilingz", &self.ceilingz)
+            .field("radius", &self.radius)
+            .field("height", &self.height)
+            .field("momxy", &self.momxy)
+            .field("momz", &self.momz)
+            .field("valid_count", &self.valid_count)
+            .field("kind", &self.kind)
+            .field("info", &self.info)
+            .field("tics", &self.tics)
+            .field("state", &self.state)
+            .field("flags", &self.flags)
+            .field("health", &self.health)
+            .field("movecount", &self.movecount)
+            .field("reactiontime", &self.reactiontime)
+            .field("threshold", &self.threshold)
+            .finish_non_exhaustive()
+    }
+}
+
 impl MapObject {
     fn new(
         x: f32,
@@ -221,19 +249,39 @@ impl MapObject {
     }
 
     pub fn level(&self) -> &Level {
+        #[cfg(null_check)]
+        if self.level.is_null() {
+            std::panic!("MapObject level pointer was null");
+        }
         unsafe { &*self.level }
     }
 
     pub fn level_mut(&mut self) -> &mut Level {
+        #[cfg(null_check)]
+        if self.level.is_null() {
+            std::panic!("MapObject level pointer was null");
+        }
         unsafe { &mut *self.level }
     }
 
     pub fn player(&self) -> Option<&Player> {
-        self.player.map(|p| unsafe { &*p })
+        self.player.map(|p| unsafe {
+            #[cfg(null_check)]
+            if p.is_null() {
+                std::panic!("MapObject player pointer was null");
+            }
+            &*p
+        })
     }
 
     pub fn player_mut(&mut self) -> Option<&mut Player> {
-        self.player.map(|p| unsafe { &mut *p })
+        self.player.map(|p| unsafe {
+            #[cfg(null_check)]
+            if p.is_null() {
+                std::panic!("MapObject player pointer was null");
+            }
+            &mut *p
+        })
     }
 
     /// P_SpawnPlayer
@@ -777,6 +825,10 @@ impl MapObject {
 impl Think for MapObject {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let this = object.mobj_mut();
+        #[cfg(null_check)]
+        if this.thinker.is_null() {
+            std::panic!("MapObject thinker was null");
+        }
 
         if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjectFlag::SkullFly as u32 != 0 {
             this.p_xy_movement();
@@ -828,10 +880,18 @@ impl Think for MapObject {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("MapObject thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("MapObject thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }

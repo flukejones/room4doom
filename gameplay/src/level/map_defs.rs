@@ -78,6 +78,10 @@ impl Sector {
     /// Returns false if `func` returns false
     pub fn run_func_on_thinglist(&mut self, mut func: impl FnMut(&mut MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
+            #[cfg(null_check)]
+            if thing.is_null() {
+                std::panic!("thinglist is null when it shouldn't be");
+            }
             unsafe {
                 let mut thing = (*thing).mobj_mut();
 
@@ -89,6 +93,10 @@ impl Sector {
                     }
 
                     if let Some(next) = next {
+                        #[cfg(null_check)]
+                        if next.is_null() {
+                            std::panic!("thinglist thing.s_next is null when it shouldn't be");
+                        }
                         thing = (*next).mobj_mut()
                     } else {
                         break;
@@ -101,6 +109,10 @@ impl Sector {
 
     pub fn run_rfunc_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
+            #[cfg(null_check)]
+            if thing.is_null() {
+                std::panic!("thinglist is null when it shouldn't be");
+            }
             unsafe {
                 let mut thing = (*thing).mobj();
 
@@ -112,6 +124,10 @@ impl Sector {
                     }
 
                     if let Some(next) = next {
+                        #[cfg(null_check)]
+                        if next.is_null() {
+                            std::panic!("thinglist thing.s_next is null when it shouldn't be");
+                        }
                         thing = (*next).mobj()
                     } else {
                         break;
@@ -224,7 +240,6 @@ impl BBox {
     }
 }
 
-#[derive(Debug)]
 pub struct LineDef {
     // Vertices, from v1 to v2.
     pub v1: Vec2,
@@ -261,6 +276,20 @@ pub struct LineDef {
     pub valid_count: usize,
     // thinker_t for reversable actions
     // TODO: void*	specialdata: Option<DPtr<Thinker>>,
+}
+
+impl std::fmt::Debug for LineDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Visplane")
+            .field("v1", &self.v1)
+            .field("v2", &self.v2)
+            .field("flags", &self.flags)
+            .field("tag", &self.tag)
+            .field("bbox", &self.bbox)
+            .field("slopetype", &self.slopetype)
+            .field("valid_count", &self.valid_count)
+            .finish_non_exhaustive()
+    }
 }
 
 impl LineDef {

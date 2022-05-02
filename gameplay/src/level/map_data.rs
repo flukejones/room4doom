@@ -446,7 +446,7 @@ pub fn set_sector_sound_origin(sector: &mut Sector) {
         }
     };
 
-    for line in &sector.lines {
+    for line in sector.lines.iter() {
         check(line.v1);
         check(line.v2);
     }

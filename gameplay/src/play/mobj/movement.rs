@@ -440,7 +440,7 @@ impl MapObject {
             let start = ssect.start_seg as usize;
             let end = start + ssect.seg_count as usize;
             for seg in &mut level.map_data.segments_mut()[start..end] {
-                if !self.pit_check_line(&tmbbox, ctrl, &mut seg.linedef) {
+                if !self.pit_check_line(&tmbbox, ctrl, seg.linedef.as_mut()) {
                     return false;
                 }
             }
