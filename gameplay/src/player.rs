@@ -567,7 +567,7 @@ impl Player {
                         mobj.p_take_damage(None, None, false, 20);
                     }
                     if self.health <= 10 {
-                        level.do_exit_level();
+                        level.do_completed();
                     }
                 }
                 _ => {}

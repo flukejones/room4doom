@@ -6,17 +6,23 @@
 //!
 //! Doom source name `p_enemy`
 
-use std::{f32::consts::FRAC_PI_4, ptr};
+use std::{f32::consts::FRAC_PI_4, ptr, ptr::null_mut};
 
 use log::error;
 use sound_traits::SfxEnum;
 
 use crate::{
     doom_def::{MISSILERANGE, SKULLSPEED},
+    env::{
+        doors::{ev_do_door, DoorKind},
+        floor::{ev_do_floor, FloorKind},
+    },
     info::StateNum,
+    level::map_defs::{LineDef, SlopeType},
     obj::{DirType, MapObject, MapObjectFlag},
+    thinker::{Thinker, ThinkerData},
     utilities::{p_random, point_to_angle_2, PortalZ},
-    Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill,
+    Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill, MAXPLAYERS,
 };
 
 /// This was only ever called with the player as the target, so it never follows
@@ -600,8 +606,118 @@ pub fn a_spidrefire(actor: &mut MapObject) {
 }
 
 pub fn a_bossdeath(actor: &mut MapObject) {
-    error!("a_bossdeath not implemented");
-    // actor.level_mut().do_exit_level();
+    let level = unsafe { &mut *actor.level };
+    let map = level.game_map;
+    let episode = level.episode;
+    let mode = level.game_mode;
+    let mt = actor.kind;
+
+    if mode == GameMode::Commercial {
+        if map != 7 {
+            return;
+        }
+        if mt != MapObjectType::MT_FATSO && mt != MapObjectType::MT_BABY {
+            return;
+        }
+    } else {
+        match episode {
+            1 => {
+                if map != 8 && mt != MapObjectType::MT_BRUISER {
+                    return;
+                }
+            }
+            2 => {
+                if map != 8 && mt != MapObjectType::MT_CYBORG {
+                    return;
+                }
+            }
+            3 => {
+                if map != 8 && mt != MapObjectType::MT_SPIDER {
+                    return;
+                }
+            }
+            4 => {
+                if map != 6 && mt != MapObjectType::MT_CYBORG {
+                    return;
+                }
+                if map != 8 && mt != MapObjectType::MT_SPIDER {
+                    return;
+                }
+            }
+            _ => {
+                if map != 8 {
+                    return;
+                }
+            }
+        }
+        // There needs to be at least one player alive
+        for (i, p) in level.players().iter().enumerate() {
+            if p.health > 0 {
+                break;
+            }
+            if i == MAXPLAYERS - 1 {
+                return;
+            }
+        }
+    }
+
+    // Check bosses are all dead
+    let mut dead = true;
+    level.thinkers.run_fn_on_things(|thinker| {
+        if let ThinkerData::MapObject(ref mobj) = thinker.data() {
+            if !ptr::eq(mobj, actor) && mobj.kind == actor.kind && mobj.health > 0 {
+                dead = false;
+            }
+        }
+        true
+    });
+    if !dead {
+        return;
+    };
+
+    let mut junk = LineDef {
+        v1: Default::default(),
+        v2: Default::default(),
+        delta: Default::default(),
+        flags: 0,
+        special: 0,
+        tag: 0,
+        bbox: Default::default(),
+        slopetype: SlopeType::Horizontal,
+        front_sidedef: DPtr { inner: null_mut() },
+        back_sidedef: None,
+        frontsector: DPtr { inner: null_mut() },
+        backsector: None,
+        valid_count: 0,
+    };
+    if mode == GameMode::Commercial && map == 7 {
+        if actor.kind == MapObjectType::MT_FATSO {
+            junk.tag = 666;
+            ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+            return;
+        }
+        if actor.kind == MapObjectType::MT_BABY {
+            junk.tag = 667;
+            ev_do_floor(DPtr::new(&mut junk), FloorKind::RaiseToTexture, level);
+            return;
+        }
+    } else if episode == 1 {
+        junk.tag = 666;
+        ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+        return;
+    } else if episode == 4 {
+        if map == 6 {
+            junk.tag = 666;
+            ev_do_door(DPtr::new(&mut junk), DoorKind::BlazeOpen, level);
+            return;
+        } else if map == 8 {
+            junk.tag = 666;
+            ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+            return;
+        }
+    }
+
+    level.do_completed();
 }
 
 pub fn a_skelwhoosh(actor: &mut MapObject) {

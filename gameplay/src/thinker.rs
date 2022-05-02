@@ -125,6 +125,31 @@ impl ThinkerAlloc {
         }
     }
 
+    /// Returns false if `func` returns false
+    pub fn run_fn_on_things(&mut self, mut func: impl FnMut(&mut Thinker) -> bool) -> bool {
+        unsafe {
+            let mut current = &mut *self.head;
+            let mut next;
+
+            loop {
+                if current.should_remove() {
+                    next = &mut *current.next;
+                } else {
+                    next = &mut *current.next;
+                    if !func(&mut *current) {
+                        return false;
+                    }
+                }
+                current = next;
+
+                if ptr::eq(current, self.head) {
+                    break;
+                }
+            }
+        }
+        true
+    }
+
     /// Iterates through the list of thinkers until either the closure returns true
     /// or the end is reached.
     pub(crate) fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
