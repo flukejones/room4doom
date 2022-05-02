@@ -284,6 +284,30 @@ impl MapObject {
         })
     }
 
+    pub fn target(&self) -> Option<&Player> {
+        self.player.map(|p| unsafe {
+            #[cfg(null_check)]
+            if p.is_null() {
+                std::panic!("MapObject target pointer was null");
+            }
+            &*p
+        })
+    }
+
+    pub fn target_mut(&mut self) -> Option<&mut Thinker> {
+        self.target.map(|t| unsafe {
+            #[cfg(null_check)]
+            if t.is_null() {
+                std::panic!("MapObject target pointer was null");
+            }
+            &mut *t
+        })
+    }
+
+    pub fn set_target(&mut self, target: Option<*mut Thinker>) {
+        self.target = target
+    }
+
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged

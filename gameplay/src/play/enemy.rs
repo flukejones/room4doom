@@ -312,15 +312,18 @@ pub fn a_keendie(_actor: &mut MapObject) {
 }
 
 pub fn a_hoof(actor: &mut MapObject) {
-    error!("a_hoof not implemented");
+    actor.start_sound(SfxEnum::hoof);
+    a_chase(actor);
 }
 
 pub fn a_metal(actor: &mut MapObject) {
-    error!("a_metal not implemented");
+    actor.start_sound(SfxEnum::metal);
+    a_chase(actor);
 }
 
 pub fn a_babymetal(actor: &mut MapObject) {
-    error!("a_babymetal not implemented");
+    actor.start_sound(SfxEnum::bspwlk);
+    a_chase(actor);
 }
 
 pub fn a_brainawake(actor: &mut MapObject) {
@@ -328,7 +331,7 @@ pub fn a_brainawake(actor: &mut MapObject) {
 }
 
 pub fn a_braindie(actor: &mut MapObject) {
-    error!("a_braindie not implemented");
+    actor.level_mut().do_exit_level();
 }
 
 pub fn a_brainspit(actor: &mut MapObject) {
@@ -398,7 +401,7 @@ pub fn a_sposattack(actor: &mut MapObject) {
     let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
     let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
 
-    actor.start_sound(SfxEnum::pistol);
+    actor.start_sound(SfxEnum::shotgn);
 
     let mut angle;
     for _ in 0..3 {
@@ -415,11 +418,30 @@ pub fn a_sposattack(actor: &mut MapObject) {
 }
 
 pub fn a_cposattack(actor: &mut MapObject) {
-    error!("a_cposattack not implemented");
+    if actor.target.is_none() {
+        return;
+    }
+
+    a_facetarget(actor);
+    let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
+    let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+
+    actor.start_sound(SfxEnum::shotgn);
+
+    let mut angle = actor.angle;
+    angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
+    let damage = ((p_random() % 5) + 1) * 3;
+    actor.line_attack(damage as f32, MISSILERANGE, angle, slope, &mut bsp_trace);
 }
 
 pub fn a_bspiattack(actor: &mut MapObject) {
-    error!("a_bspiattack not implemented");
+    if let Some(target) = actor.target {
+        let target = unsafe { (*target).mobj_mut() };
+        a_facetarget(actor);
+
+        let level = unsafe { &mut *actor.level };
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_ARACHPLAZ, level);
+    }
 }
 
 pub fn a_skullattack(actor: &mut MapObject) {
@@ -443,7 +465,20 @@ pub fn a_skullattack(actor: &mut MapObject) {
 }
 
 pub fn a_headattack(actor: &mut MapObject) {
-    error!("a_headattack not implemented");
+    if let Some(target) = actor.target {
+        let target = unsafe { (*target).mobj_mut() };
+        a_facetarget(actor);
+
+        if actor.check_melee_range() {
+            actor.start_sound(SfxEnum::claw);
+            let damage = ((p_random() % 8) + 1) * 10;
+            target.p_take_damage(Some(actor), None, true, damage);
+            return;
+        }
+
+        let level = unsafe { &mut *actor.level };
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_BRUISERSHOT, level);
+    }
 }
 
 pub fn a_sargattack(actor: &mut MapObject) {
@@ -459,15 +494,44 @@ pub fn a_sargattack(actor: &mut MapObject) {
 }
 
 pub fn a_bruisattack(actor: &mut MapObject) {
-    error!("a_bruisattack not implemented");
+    if let Some(target) = actor.target {
+        let target = unsafe { (*target).mobj_mut() };
+        a_facetarget(actor);
+
+        if actor.check_melee_range() {
+            let damage = ((p_random() % 6) + 1) * 10;
+            target.p_take_damage(Some(actor), None, true, damage);
+            return;
+        }
+
+        let level = unsafe { &mut *actor.level };
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_HEADSHOT, level);
+    }
 }
 
 pub fn a_cposrefire(actor: &mut MapObject) {
-    error!("a_cposrefire not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        if p_random() < 40 {
+            return;
+        }
+
+        let target = unsafe { (*target).mobj_mut() };
+        if target.health <= 0 || !actor.check_sight_target(target) {
+            actor.set_state(actor.info.seestate);
+        }
+    }
+    actor.set_state(actor.info.seestate);
 }
 
 pub fn a_cyberattack(actor: &mut MapObject) {
-    error!("a_cyberattack not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        let target = unsafe { (*target).mobj_mut() };
+
+        let level = unsafe { &mut *actor.level };
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_ROCKET, level);
+    }
 }
 
 pub fn a_troopattack(actor: &mut MapObject) {
@@ -495,11 +559,19 @@ pub fn a_pain(actor: &mut MapObject) {
 }
 
 pub fn a_painattack(actor: &mut MapObject) {
-    error!("a_painattack not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        let _target = unsafe { (*target).mobj_mut() };
+        error!("A_PainShootSkull not implemented");
+    }
 }
 
 pub fn a_paindie(actor: &mut MapObject) {
     error!("a_paindie not implemented");
+    // A_Fall(actor);
+    // A_PainShootSkull(actor, actor->angle + ANG90);
+    // A_PainShootSkull(actor, actor->angle + ANG180);
+    // A_PainShootSkull(actor, actor->angle + ANG270);
 }
 
 pub fn a_fatattack1(actor: &mut MapObject) {
@@ -513,27 +585,64 @@ pub fn a_fatattack3(actor: &mut MapObject) {
 }
 
 pub fn a_fatraise(actor: &mut MapObject) {
-    error!("a_fatraise not implemented");
+    a_facetarget(actor);
+    actor.start_sound(SfxEnum::manatk);
 }
 
 pub fn a_spidrefire(actor: &mut MapObject) {
-    error!("a_spidrefire not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        if p_random() < 10 {
+            return;
+        }
+
+        let target = unsafe { (*target).mobj_mut() };
+        if target.health <= 0 || !actor.check_sight_target(target) {
+            actor.set_state(actor.info.seestate);
+        }
+    }
+    actor.set_state(actor.info.seestate);
 }
 
 pub fn a_bossdeath(actor: &mut MapObject) {
     error!("a_bossdeath not implemented");
+    // actor.level_mut().do_exit_level();
 }
 
 pub fn a_skelwhoosh(actor: &mut MapObject) {
-    error!("a_skelwhoosh not implemented");
+    if actor.target.is_some() {
+        a_facetarget(actor);
+        actor.start_sound(SfxEnum::skeswg);
+    }
 }
 
 pub fn a_skelfist(actor: &mut MapObject) {
-    error!("a_skelfist not implemented");
+    if let Some(target) = actor.target {
+        a_facetarget(actor);
+        let target = unsafe { (*target).mobj_mut() };
+
+        if actor.check_melee_range() {
+            actor.start_sound(SfxEnum::skepch);
+            let damage = ((p_random() % 10) + 1) * 6;
+            target.p_take_damage(Some(actor), None, true, damage);
+        }
+    }
 }
 
 pub fn a_skelmissile(actor: &mut MapObject) {
-    error!("a_skelmissile not implemented");
+    if let Some(target) = actor.target {
+        let target = unsafe { (*target).mobj_mut() };
+        a_facetarget(actor);
+
+        let level = unsafe { &mut *actor.level };
+        actor.z += 16.0;
+        MapObject::spawn_missile(actor, target, MapObjectType::MT_TRACER, level);
+        actor.z -= 16.0;
+
+        // TODO: mo->x += mo->momx;
+        //  mo->y += mo->momy;
+        //  mo->tracer = actor->target;
+    }
 }
 
 pub fn a_tracer(actor: &mut MapObject) {
