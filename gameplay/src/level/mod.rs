@@ -225,6 +225,12 @@ impl Level {
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
+    pub(super) fn do_completed(&mut self) {
+        info!("Completed boss level");
+        self.secret_exit = false;
+        self.game_action = Some(GameAction::Victory);
+    }
+
     pub(super) fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, uid: usize) {
         self.snd_command
             .send(SoundAction::StartSfx { uid, sfx, x, y })

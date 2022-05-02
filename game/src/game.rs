@@ -712,6 +712,7 @@ impl Game {
             }
         }
 
+        self.level = None; // Drop level data
         self.game_state = GameState::Intermission;
     }
 
@@ -746,7 +747,15 @@ impl Game {
             GameAction::LoadGame => todo!("G_DoLoadGame()"),
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
             GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
-            GameAction::Victory => todo!("F_StartFinale()"),
+            GameAction::Victory => {
+                // TODO: temporary to allow Doom 2 to continue
+                if self.game_mode == GameMode::Commercial && self.game_map == 7 {
+                    error!("DOOM II finale for Map07 not done. Using GameAction::CompletedLevel");
+                    self.game_action = GameAction::CompletedLevel
+                } else {
+                    todo!("F_StartFinale()")
+                }
+            }
             GameAction::WorldDone => self.do_world_done(),
             GameAction::Screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
         }
