@@ -19,10 +19,10 @@ use crate::{
     },
     info::StateNum,
     level::map_defs::{LineDef, SlopeType},
-    obj::{DirType, MapObject, MapObjectFlag},
+    obj::{DirType, MapObjFlag, MapObject},
     thinker::{Thinker, ThinkerData},
     utilities::{p_random, point_to_angle_2, PortalZ},
-    Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill, MAXPLAYERS,
+    Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS,
 };
 
 /// This was only ever called with the player as the target, so it never follows
@@ -78,7 +78,7 @@ fn sound_flood(
 
 /// A_FaceTarget
 pub fn a_facetarget(actor: &mut MapObject) {
-    actor.flags &= !(MapObjectFlag::Ambush as u32);
+    actor.flags &= !(MapObjFlag::Ambush as u32);
 
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj() };
@@ -86,7 +86,7 @@ pub fn a_facetarget(actor: &mut MapObject) {
         let angle = point_to_angle_2(target.xy, actor.xy);
         actor.angle = angle;
 
-        if target.flags & MapObjectFlag::Shadow as u32 == MapObjectFlag::Shadow as u32 {
+        if target.flags & MapObjFlag::Shadow as u32 == MapObjFlag::Shadow as u32 {
             actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
     }
@@ -127,7 +127,7 @@ pub fn a_chase(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj() };
 
         // Inanimate object, try to find new target
-        if target.flags & MapObjectFlag::Shootable as u32 == 0 {
+        if target.flags & MapObjFlag::Shootable as u32 == 0 {
             if actor.look_for_players(true) {
                 return; // Found a new target
             }
@@ -142,8 +142,8 @@ pub fn a_chase(actor: &mut MapObject) {
         return;
     }
 
-    if actor.flags & MapObjectFlag::JustAttacked as u32 != 0 {
-        actor.flags &= !(MapObjectFlag::JustAttacked as u32);
+    if actor.flags & MapObjFlag::JustAttacked as u32 != 0 {
+        actor.flags &= !(MapObjFlag::JustAttacked as u32);
         // TODO: if (gameskill != sk_nightmare && !fastparm)
         actor.new_chase_dir();
         return;
@@ -165,7 +165,7 @@ pub fn a_chase(actor: &mut MapObject) {
             // goto nomissile;
             // }
             if actor.check_missile_range() {
-                actor.flags |= MapObjectFlag::JustAttacked as u32;
+                actor.flags |= MapObjFlag::JustAttacked as u32;
                 actor.set_state(actor.info.missilestate);
                 return;
             }
@@ -206,10 +206,10 @@ pub fn a_look(actor: &mut MapObject) {
         // }
 
         if let Some(target) = (*actor.subsector).sector.sound_target() {
-            if target.flags & MapObjectFlag::Shootable as u32 != 0 {
+            if target.flags & MapObjFlag::Shootable as u32 != 0 {
                 actor.target = (*actor.subsector).sector.sound_target_raw();
 
-                if actor.flags & MapObjectFlag::Ambush as u32 != 0
+                if actor.flags & MapObjFlag::Ambush as u32 != 0
                     && !actor.check_sight_target(target)
                     && !actor.look_for_players(false)
                 {
@@ -234,7 +234,7 @@ pub fn a_look(actor: &mut MapObject) {
             _ => actor.info.seesound,
         };
 
-        if actor.kind == MapObjectType::MT_SPIDER || actor.kind == MapObjectType::MT_CYBORG {
+        if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG {
             // TODO: FULL VOLUME!
             actor.start_sound(sound);
         } else {
@@ -283,10 +283,7 @@ pub fn a_scream(actor: &mut MapObject) {
     };
 
     // Check for bosses.
-    if matches!(
-        actor.kind,
-        MapObjectType::MT_SPIDER | MapObjectType::MT_CYBORG
-    ) {
+    if matches!(actor.kind, MapObjKind::MT_SPIDER | MapObjKind::MT_CYBORG) {
         // full volume
         // TODO: start_sound("a_scream", None, sound);
     } else {
@@ -296,7 +293,7 @@ pub fn a_scream(actor: &mut MapObject) {
 
 pub fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
-    actor.flags &= !(MapObjectFlag::Solid as u32);
+    actor.flags &= !(MapObjFlag::Solid as u32);
     // So change this if corpse objects are meant to be obstacles.
 }
 
@@ -441,7 +438,7 @@ pub fn a_bspiattack(actor: &mut MapObject) {
         a_facetarget(actor);
 
         let level = unsafe { &mut *actor.level };
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_ARACHPLAZ, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_ARACHPLAZ, level);
     }
 }
 
@@ -450,7 +447,7 @@ pub fn a_skullattack(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj() };
 
         a_facetarget(actor);
-        actor.flags |= MapObjectFlag::SkullFly as u32;
+        actor.flags |= MapObjFlag::SkullFly as u32;
         actor.start_sound(actor.info.attacksound);
 
         actor.angle = point_to_angle_2(target.xy, actor.xy);
@@ -478,7 +475,7 @@ pub fn a_headattack(actor: &mut MapObject) {
         }
 
         let level = unsafe { &mut *actor.level };
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_BRUISERSHOT, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_BRUISERSHOT, level);
     }
 }
 
@@ -506,7 +503,7 @@ pub fn a_bruisattack(actor: &mut MapObject) {
         }
 
         let level = unsafe { &mut *actor.level };
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_HEADSHOT, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_HEADSHOT, level);
     }
 }
 
@@ -531,7 +528,7 @@ pub fn a_cyberattack(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj_mut() };
 
         let level = unsafe { &mut *actor.level };
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_ROCKET, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_ROCKET, level);
     }
 }
 
@@ -549,7 +546,7 @@ pub fn a_troopattack(actor: &mut MapObject) {
         }
 
         let level = unsafe { &mut *actor.level };
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_TROOPSHOT, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_TROOPSHOT, level);
     }
 }
 
@@ -616,31 +613,31 @@ pub fn a_bossdeath(actor: &mut MapObject) {
         if map != 7 {
             return;
         }
-        if mt != MapObjectType::MT_FATSO && mt != MapObjectType::MT_BABY {
+        if mt != MapObjKind::MT_FATSO && mt != MapObjKind::MT_BABY {
             return;
         }
     } else {
         match episode {
             1 => {
-                if map != 8 && mt != MapObjectType::MT_BRUISER {
+                if map != 8 && mt != MapObjKind::MT_BRUISER {
                     return;
                 }
             }
             2 => {
-                if map != 8 && mt != MapObjectType::MT_CYBORG {
+                if map != 8 && mt != MapObjKind::MT_CYBORG {
                     return;
                 }
             }
             3 => {
-                if map != 8 && mt != MapObjectType::MT_SPIDER {
+                if map != 8 && mt != MapObjKind::MT_SPIDER {
                     return;
                 }
             }
             4 => {
-                if map != 6 && mt != MapObjectType::MT_CYBORG {
+                if map != 6 && mt != MapObjKind::MT_CYBORG {
                     return;
                 }
-                if map != 8 && mt != MapObjectType::MT_SPIDER {
+                if map != 8 && mt != MapObjKind::MT_SPIDER {
                     return;
                 }
             }
@@ -691,12 +688,12 @@ pub fn a_bossdeath(actor: &mut MapObject) {
         valid_count: 0,
     };
     if mode == GameMode::Commercial && map == 7 {
-        if actor.kind == MapObjectType::MT_FATSO {
+        if actor.kind == MapObjKind::MT_FATSO {
             junk.tag = 666;
             ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
             return;
         }
-        if actor.kind == MapObjectType::MT_BABY {
+        if actor.kind == MapObjKind::MT_BABY {
             junk.tag = 667;
             ev_do_floor(DPtr::new(&mut junk), FloorKind::RaiseToTexture, level);
             return;
@@ -747,7 +744,7 @@ pub fn a_skelmissile(actor: &mut MapObject) {
 
         let level = unsafe { &mut *actor.level };
         actor.z += 16.0;
-        MapObject::spawn_missile(actor, target, MapObjectType::MT_TRACER, level);
+        MapObject::spawn_missile(actor, target, MapObjKind::MT_TRACER, level);
         actor.z -= 16.0;
 
         // TODO: mo->x += mo->momx;

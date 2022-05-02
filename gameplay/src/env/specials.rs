@@ -10,7 +10,7 @@ use crate::obj::MapObject;
 
 use crate::{
     env::{
-        ceiling::{ev_do_ceiling, CeilingKind},
+        ceiling::{ev_do_ceiling, CeilKind},
         doors::{ev_do_door, DoorKind},
         floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
         lights::{
@@ -21,7 +21,7 @@ use crate::{
         switch::{change_switch_texture, start_sector_sound},
         teleport::teleport,
     },
-    info::MapObjectType,
+    info::MapObjKind,
     level::{
         flags::LineDefFlags,
         map_defs::{LineDef, Sector},
@@ -347,12 +347,12 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
     if thing.player().is_none() {
         // Things that should NOT trigger specials...
         match thing.kind {
-            MapObjectType::MT_ROCKET
-            | MapObjectType::MT_PLASMA
-            | MapObjectType::MT_BFG
-            | MapObjectType::MT_TROOPSHOT
-            | MapObjectType::MT_HEADSHOT
-            | MapObjectType::MT_BRUISERSHOT => return,
+            MapObjKind::MT_ROCKET
+            | MapObjKind::MT_PLASMA
+            | MapObjKind::MT_BFG
+            | MapObjKind::MT_TROOPSHOT
+            | MapObjKind::MT_HEADSHOT
+            | MapObjKind::MT_BRUISERSHOT => return,
             _ => {}
         }
 
@@ -587,12 +587,12 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
         }
         6 => {
             debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilKind::FastCrushAndRaise, level);
             line.special = 0;
         }
         25 => {
             debug!("line-special #{}: crushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilKind::CrushAndRaise, level);
             line.special = 0;
         }
         40 => {
@@ -600,13 +600,13 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
                 "line-special #{}: raiseToHighest ceiling, floor!",
                 line.special
             );
-            ev_do_ceiling(line.clone(), CeilingKind::RaiseToHighest, level);
+            ev_do_ceiling(line.clone(), CeilKind::RaiseToHighest, level);
             ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
             line.special = 0;
         }
         44 => {
             debug!("line-special #{}: lowerAndCrush ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
+            ev_do_ceiling(line.clone(), CeilKind::LowerAndCrush, level);
             line.special = 0;
         }
         141 => {
@@ -614,20 +614,20 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
                 "line-special #{}: silentCrushAndRaise ceiling!",
                 line.special
             );
-            ev_do_ceiling(line.clone(), CeilingKind::SilentCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilKind::SilentCrushAndRaise, level);
             line.special = 0;
         }
         72 => {
             debug!("line-special #{}: LowerAndCrush ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::LowerAndCrush, level);
+            ev_do_ceiling(line.clone(), CeilKind::LowerAndCrush, level);
         }
         73 => {
             debug!("line-special #{}: crushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilKind::CrushAndRaise, level);
         }
         77 => {
             debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilingKind::FastCrushAndRaise, level);
+            ev_do_ceiling(line.clone(), CeilKind::FastCrushAndRaise, level);
         }
         52 => {
             level.do_exit_level();

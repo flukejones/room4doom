@@ -9,7 +9,7 @@ use crate::obj::MapObject;
 use crate::{
     doom_def::Card,
     env::{
-        ceiling::{ev_do_ceiling, CeilingKind},
+        ceiling::{ev_do_ceiling, CeilKind},
         doors::{ev_do_door, ev_vertical_door, DoorKind},
         floor::{ev_build_stairs, ev_do_donut, ev_do_floor, FloorKind, StairKind},
         lights::ev_turn_light_on,
@@ -411,19 +411,19 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
         }
         41 => {
             debug!("line-switch: lowerToFloor ceiling!");
-            if ev_do_ceiling(line.clone(), CeilingKind::LowerToFloor, level){
+            if ev_do_ceiling(line.clone(), CeilKind::LowerToFloor, level){
                 change_switch_texture(line, false, &level.switch_list, &mut level.button_list, &level.snd_command);
             }
         }
         49 => {
             debug!("line-switch: crushAndRaise ceiling!");
-            if ev_do_ceiling(line.clone(), CeilingKind::CrushAndRaise, level){
+            if ev_do_ceiling(line.clone(), CeilKind::CrushAndRaise, level){
                 change_switch_texture(line, false, &level.switch_list, &mut level.button_list, &level.snd_command);
             }
         }
         43 => {
             debug!("line-switch: lowerToFloor ceiling!");
-            if ev_do_ceiling(line.clone(), CeilingKind::LowerToFloor, level){
+            if ev_do_ceiling(line.clone(), CeilKind::LowerToFloor, level){
                 change_switch_texture(line, true, &level.switch_list, &mut level.button_list, &level.snd_command);
             }
         }

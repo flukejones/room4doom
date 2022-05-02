@@ -23,7 +23,7 @@ use crate::env::{
 const CEILSPEED: f32 = 1.0;
 
 #[derive(Debug, Clone, Copy)]
-pub enum CeilingKind {
+pub enum CeilKind {
     LowerToFloor,
     RaiseToHighest,
     LowerAndCrush,
@@ -35,7 +35,7 @@ pub enum CeilingKind {
 pub struct CeilingMove {
     pub thinker: *mut Thinker,
     pub sector: DPtr<Sector>,
-    pub kind: CeilingKind,
+    pub kind: CeilKind,
     pub bottomheight: f32,
     pub topheight: f32,
     pub speed: f32,
@@ -50,14 +50,12 @@ pub struct CeilingMove {
 // TODO: track activeceilings
 
 /// EV_DoFloor
-pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) -> bool {
+pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilKind, level: &mut Level) -> bool {
     let mut ret = false;
 
     if matches!(
         kind,
-        CeilingKind::FastCrushAndRaise
-            | CeilingKind::SilentCrushAndRaise
-            | CeilingKind::CrushAndRaise
+        CeilKind::FastCrushAndRaise | CeilKind::SilentCrushAndRaise | CeilKind::CrushAndRaise
     ) {
         // TODO: P_ActivateInStasisCeiling(line);
     }
@@ -89,30 +87,30 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilingKind, level: &mut Level) 
         };
 
         match kind {
-            CeilingKind::LowerToFloor => {
+            CeilKind::LowerToFloor => {
                 ceiling.crush = true;
                 ceiling.topheight = sec.ceilingheight;
                 ceiling.bottomheight = sec.floorheight;
                 ceiling.direction = -1;
             }
-            CeilingKind::RaiseToHighest => {
+            CeilKind::RaiseToHighest => {
                 ceiling.topheight = find_highest_ceiling_surrounding(sec.clone());
                 ceiling.bottomheight = sec.floorheight;
                 ceiling.direction = 1;
             }
-            CeilingKind::LowerAndCrush => {
+            CeilKind::LowerAndCrush => {
                 ceiling.crush = true;
                 ceiling.topheight = sec.ceilingheight;
                 ceiling.bottomheight = sec.floorheight + 8.0;
                 ceiling.direction = -1;
             }
-            CeilingKind::CrushAndRaise | CeilingKind::SilentCrushAndRaise => {
+            CeilKind::CrushAndRaise | CeilKind::SilentCrushAndRaise => {
                 ceiling.crush = true;
                 ceiling.topheight = sec.ceilingheight;
                 ceiling.bottomheight = sec.floorheight + 8.0;
                 ceiling.direction = -1;
             }
-            CeilingKind::FastCrushAndRaise => {
+            CeilKind::FastCrushAndRaise => {
                 ceiling.crush = true;
                 ceiling.topheight = sec.ceilingheight;
                 ceiling.bottomheight = sec.floorheight + 8.0;
@@ -144,7 +142,7 @@ impl Think for CeilingMove {
         }
         let line = ceiling.sector.lines[0].as_ref();
 
-        if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilingKind::SilentCrushAndRaise) {
+        if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilKind::SilentCrushAndRaise) {
             start_sector_sound(line, SfxEnum::stnmov, &level.snd_command);
         }
 
@@ -162,14 +160,14 @@ impl Think for CeilingMove {
 
                 if matches!(res, PlaneResult::PastDest) {
                     match ceiling.kind {
-                        CeilingKind::RaiseToHighest => unsafe {
+                        CeilKind::RaiseToHighest => unsafe {
                             ceiling.sector.specialdata = None;
                             (*ceiling.thinker).mark_remove();
                         },
-                        CeilingKind::CrushAndRaise | CeilingKind::FastCrushAndRaise => {
+                        CeilKind::CrushAndRaise | CeilKind::FastCrushAndRaise => {
                             ceiling.direction = -1;
                         }
-                        CeilingKind::SilentCrushAndRaise => {
+                        CeilKind::SilentCrushAndRaise => {
                             start_sector_sound(line, SfxEnum::pstop, &level.snd_command);
                             ceiling.direction = -1;
                         }
@@ -190,19 +188,19 @@ impl Think for CeilingMove {
 
                 if matches!(res, PlaneResult::PastDest) {
                     match ceiling.kind {
-                        CeilingKind::LowerToFloor | CeilingKind::LowerAndCrush => unsafe {
+                        CeilKind::LowerToFloor | CeilKind::LowerAndCrush => unsafe {
                             ceiling.sector.specialdata = None;
                             (*ceiling.thinker).mark_remove();
                         },
-                        CeilingKind::CrushAndRaise => {
+                        CeilKind::CrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
                         }
-                        CeilingKind::FastCrushAndRaise => {
+                        CeilKind::FastCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
                         }
-                        CeilingKind::SilentCrushAndRaise => {
+                        CeilKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
                             start_sector_sound(line, SfxEnum::pstop, &level.snd_command);
@@ -211,9 +209,9 @@ impl Think for CeilingMove {
                     }
                 } else if matches!(res, PlaneResult::Crushed) {
                     match ceiling.kind {
-                        CeilingKind::SilentCrushAndRaise
-                        | CeilingKind::CrushAndRaise
-                        | CeilingKind::LowerAndCrush => {
+                        CeilKind::SilentCrushAndRaise
+                        | CeilKind::CrushAndRaise
+                        | CeilKind::LowerAndCrush => {
                             ceiling.speed = 0.2;
                         }
                         _ => ceiling.speed = CEILSPEED,

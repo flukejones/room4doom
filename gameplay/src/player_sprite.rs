@@ -243,7 +243,7 @@ pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
             (*mobj).start_sound(SfxEnum::plasma);
             MapObject::spawn_player_missile(
                 &mut *mobj,
-                crate::MapObjectType::MT_PLASMA,
+                crate::MapObjKind::MT_PLASMA,
                 &mut (*(*mobj).level),
             );
         }
@@ -261,7 +261,7 @@ pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
             (*mobj).start_sound(SfxEnum::rlaunc);
             MapObject::spawn_player_missile(
                 &mut *mobj,
-                crate::MapObjectType::MT_ROCKET,
+                crate::MapObjKind::MT_ROCKET,
                 &mut (*(*mobj).level),
             );
         }
@@ -278,7 +278,7 @@ pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
         unsafe {
             MapObject::spawn_player_missile(
                 &mut *mobj,
-                crate::MapObjectType::MT_BFG,
+                crate::MapObjKind::MT_BFG,
                 &mut (*(*mobj).level),
             );
         }
