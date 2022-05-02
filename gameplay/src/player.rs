@@ -4,23 +4,19 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxEnum;
 
-use super::{
-    enemy::noise_alert,
-    mobj::{MapObject, BONUSADD},
-    player_sprite::{PspDef, WEAPONBOTTOM},
-    utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, MAXHEALTH, VIEWHEIGHT},
-};
-
+use crate::obj::enemy::noise_alert;
+use crate::obj::{MapObject, MapObjectFlag, BONUSADD};
+use crate::player_sprite::{PspDef, WEAPONBOTTOM};
+use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
 use crate::{
     angle::Angle,
     doom_def::{
-        AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXPLAYERS,
-        MAX_AMMO, WEAPON_INFO,
+        AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH,
+        MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
     },
     info::{ActionF, SpriteNum, StateNum, STATES},
     level::Level,
     pic::INVERSECOLORMAP,
-    play::mobj::MapObjectFlag,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     GameMode, Skill,
 };
@@ -840,7 +836,7 @@ impl Player {
         self.set_psprite(PsprNum::Weapon as usize, new_state);
     }
 
-    /// Check for mobj and set state of it
+    /// Check for obj and set state of it
     pub(crate) fn set_mobj_state(&mut self, state: StateNum) {
         if let Some(mobj) = self.mobj_mut() {
             mobj.set_state(state);
@@ -854,15 +850,15 @@ impl Player {
     }
 
     // pub(crate) fn get_mobj_angle(&mut self) -> Angle {
-    //     unsafe { (*(self.mobj.unwrap())).angle }
+    //     unsafe { (*(self.obj.unwrap())).angle }
     // }
 
     // pub(crate) fn get_mobj_xy(&mut self) -> Vec2 {
-    //     unsafe { (*(self.mobj.unwrap())).xy }
+    //     unsafe { (*(self.obj.unwrap())).xy }
     // }
 
     // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut BSPTrace) -> Option<AimResult>{
-    //     unsafe { (*(self.mobj.unwrap())).aim_line_attack(distance, bsp_trace) }
+    //     unsafe { (*(self.obj.unwrap())).aim_line_attack(distance, bsp_trace) }
     // }
 }
 

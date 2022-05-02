@@ -12,16 +12,22 @@ use std::panic;
 
 mod angle;
 mod doom_def;
+pub(crate) mod env;
 mod info;
 mod lang;
 mod level;
+pub mod obj;
 mod pic;
-pub(crate) mod play;
 mod thinker;
 pub mod tic_cmd;
+// info, level data, game, bsp
+pub mod player;
+pub mod player_sprite;
+pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
+pub use env::specials::{spawn_specials, update_specials};
 pub use glam;
 pub use info::MapObjectType;
 pub use lang::english;
@@ -32,15 +38,58 @@ pub use level::{
     Level,
 };
 pub use log;
+pub use obj::MapObject;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
-pub use play::{
-    mobj::MapObject,
-    player::{Player, PlayerCheat, PlayerState, WBStartStruct},
-    player_sprite::PspDef,
-    specials::{spawn_specials, update_specials},
-    utilities::{m_clear_random, p_random},
-    Skill,
-};
+pub use player::{Player, PlayerCheat, PlayerState, WBStartStruct};
+pub use player_sprite::PspDef;
+use std::{error::Error, str::FromStr};
+pub use utilities::{m_clear_random, p_random};
+
+#[derive(Debug)]
+pub enum DoomArgError {
+    InvalidSkill(String),
+}
+
+impl Error for DoomArgError {}
+
+impl fmt::Display for DoomArgError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DoomArgError::InvalidSkill(m) => write!(f, "{}", m),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub enum Skill {
+    NoItems = -1, // the "-skill 0" hack
+    Baby = 0,
+    Easy = 1,
+    Medium = 2,
+    Hard = 3,
+    Nightmare = 4,
+}
+
+impl Default for Skill {
+    fn default() -> Self {
+        Skill::Medium
+    }
+}
+
+impl FromStr for Skill {
+    type Err = DoomArgError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(Skill::Baby),
+            "1" => Ok(Skill::Easy),
+            "2" => Ok(Skill::Medium),
+            "3" => Ok(Skill::Hard),
+            "4" => Ok(Skill::Nightmare),
+            _ => Err(DoomArgError::InvalidSkill("Invalid arg".to_owned())),
+        }
+    }
+}
 
 /// Functions purely as a safe fn wrapper around a `NonNull` because we know that
 /// the Map structure is not going to change under us

@@ -6,16 +6,14 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxEnum;
 
-use super::Skill;
+use crate::obj::MapObjectFlag;
+use crate::player::{PlayerCheat, PlayerState};
+use crate::utilities::{p_random, point_to_angle_2};
+use crate::Skill;
 use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType},
     info::{MapObjectType, SpriteNum, StateNum, STATES},
     lang::english::*,
-    play::{
-        mobj::MapObjectFlag,
-        player::{PlayerCheat, PlayerState},
-        utilities::{p_random, point_to_angle_2},
-    },
     MapObject,
 };
 
@@ -265,7 +263,7 @@ impl MapObject {
     /// Interact with special pickups
     ///
     /// Doom function name `P_TouchSpecialThing`
-    pub(super) fn touch_special(&mut self, special: &mut MapObject) {
+    pub(crate) fn touch_special(&mut self, special: &mut MapObject) {
         let delta = special.z - self.z;
 
         if delta > self.height || delta < -8.0 {
@@ -569,7 +567,7 @@ impl MapObject {
                 _ => error!("Unknown gettable: {:?}", special.sprite),
             }
 
-            // Ensure mobj health is synced
+            // Ensure obj health is synced
             self.health = player.health;
 
             if special.flags & MapObjectFlag::CountItem as u32 != 0 {

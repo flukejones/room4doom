@@ -5,6 +5,7 @@ use std::ptr::{self, null_mut};
 
 use sound_traits::SfxEnum;
 
+use crate::obj::MapObject;
 use crate::{
     level::{
         flags::LineDefFlags,
@@ -15,15 +16,11 @@ use crate::{
     DPtr,
 };
 
-use super::{
-    mobj::MapObject,
-    specials::{
-        find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
-        find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
-        PlaneResult,
-    },
-    switch::start_sector_sound,
+use crate::env::specials::{
+    find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding,
+    find_next_highest_floor, get_next_sector, move_plane, PlaneResult,
 };
+use crate::env::switch::start_sector_sound;
 
 const FLOORSPEED: f32 = 1.0;
 

@@ -5,6 +5,7 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxEnum;
 
+use crate::obj::MapObject;
 use crate::{
     level::{
         map_defs::{LineDef, Sector},
@@ -14,11 +15,8 @@ use crate::{
     DPtr,
 };
 
-use super::{
-    mobj::MapObject,
-    specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
-    switch::start_sector_sound,
-};
+use crate::env::specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult};
+use crate::env::switch::start_sector_sound;
 
 const CEILSPEED: f32 = 1.0;
 

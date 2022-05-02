@@ -1,6 +1,6 @@
 //! Many helper functions related to traversing the map, crossing or finding lines.
 
-use super::mobj::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
+use crate::obj::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
 use crate::{
     angle::Angle,
@@ -12,18 +12,6 @@ use crate::{
     DPtr,
 };
 use glam::Vec2;
-
-/// P_MOBJ
-pub static ONFLOORZ: i32 = i32::MIN;
-/// P_MOBJ
-pub static ONCEILINGZ: i32 = i32::MAX;
-
-pub static MAXHEALTH: i32 = 100;
-pub static VIEWHEIGHT: f32 = 41.0;
-
-pub static MAXRADIUS: f32 = 32.0;
-
-pub const USERANGE: f32 = 64.0;
 
 // const FRACBITS: i32 = 16;
 // const FRACUNIT: f32 = (1 << FRACBITS) as f32;

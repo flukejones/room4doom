@@ -1,5 +1,6 @@
 ## TODO
 
+[ ] Shots from demons don't push the player
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
 [ ] Thinkers: For inner data get, add a compile-time cfg opt to panic, or return Option.

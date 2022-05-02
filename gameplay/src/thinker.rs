@@ -7,17 +7,13 @@ use std::{
 
 use log::{debug, error};
 
-use crate::{
-    level::Level,
-    play::{
-        ceiling::CeilingMove,
-        doors::VerticalDoor,
-        floor::FloorMove,
-        lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
-        mobj::MapObject,
-        platforms::Platform,
-    },
-};
+use crate::env::ceiling::CeilingMove;
+use crate::env::doors::VerticalDoor;
+use crate::env::floor::FloorMove;
+use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
+use crate::env::platforms::Platform;
+use crate::level::Level;
+use crate::obj::MapObject;
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -81,7 +77,7 @@ impl ThinkerAlloc {
     ///
     /// # Safety
     /// Once allocated the owner of this `ThinkerAlloc` must not move.
-    pub unsafe fn new(capacity: usize) -> Self {
+    pub(crate) unsafe fn new(capacity: usize) -> Self {
         let size = capacity * size_of::<Thinker>();
         let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
         let buf_ptr = alloc(layout) as *mut Thinker;
@@ -127,7 +123,7 @@ impl ThinkerAlloc {
 
     /// Iterates through the list of thinkers until either the closure returns true
     /// or the end is reached.
-    pub fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
+    pub(crate) fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
     where
         F: Fn(&Thinker) -> bool,
     {
@@ -155,18 +151,6 @@ impl ThinkerAlloc {
         if std::mem::needs_drop::<Thinker>() {
             ptr::drop_in_place(ptr);
         }
-    }
-
-    pub const fn len(&self) -> usize {
-        self.len
-    }
-
-    pub const fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    pub const fn capacity(&self) -> usize {
-        self.capacity
     }
 
     fn ptr_for_idx(&self, idx: usize) -> *mut Thinker {
@@ -201,7 +185,7 @@ impl ThinkerAlloc {
     }
 
     /// Push a Thinker to the `ThinkerAlloc`. Returns a mutable ref to the Thinker.
-    pub fn push<T: Think>(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
+    pub(crate) fn push<T: Think>(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
         if self.len == self.capacity {
             return None;
         }
@@ -250,7 +234,7 @@ impl ThinkerAlloc {
 
     /// Removes the entry at index. Sets both func + object to None values to indicate
     /// the slot is "empty".
-    pub fn remove(&mut self, thinker: &mut Thinker) {
+    pub(crate) fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker: {:?}", thinker);
         unsafe {
             if ptr::eq(thinker, self.head) {
@@ -506,7 +490,7 @@ impl fmt::Debug for Thinker {
 }
 
 /// Every map object should implement this trait
-pub trait Think {
+pub(crate) trait Think {
     /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
     fn create_thinker(object: ThinkerData, func: fn(&mut Thinker, &mut Level) -> bool) -> Thinker {
         Thinker {
@@ -636,15 +620,15 @@ mod tests {
     #[test]
     fn allocate() {
         let links = unsafe { ThinkerAlloc::new(64) };
-        assert_eq!(links.len(), 0);
-        assert_eq!(links.capacity(), 64);
+        assert_eq!(links.len, 0);
+        assert_eq!(links.capacity, 64);
     }
 
     #[test]
     fn push_1() {
         let mut links = unsafe { ThinkerAlloc::new(64) };
-        assert_eq!(links.len(), 0);
-        assert_eq!(links.capacity(), 64);
+        assert_eq!(links.len, 0);
+        assert_eq!(links.capacity, 64);
 
         let think = links
             .push::<TestObject>(TestObject::create_thinker(
@@ -653,7 +637,7 @@ mod tests {
             ))
             .unwrap() as *mut Thinker;
         assert!(!links.head.is_null());
-        assert_eq!(links.len(), 1);
+        assert_eq!(links.len, 1);
         unsafe {
             assert!((*links.head).should_remove());
         }
@@ -669,7 +653,7 @@ mod tests {
             assert!(matches!((*links.buf_ptr.add(2)).data, ThinkerData::Free));
 
             links.remove(&mut *think);
-            assert_eq!(links.len(), 0);
+            assert_eq!(links.len, 0);
         }
     }
 
