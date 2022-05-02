@@ -72,13 +72,17 @@ impl fmt::Debug for VerticalDoor {
 impl Think for VerticalDoor {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let door = object.vdoor_mut();
-        let line = &door.sector.lines[0];
+        #[cfg(null_check)]
+        if door.thinker.is_null() {
+            std::panic!("NULL");
+        }
+        let line = door.sector.lines[0].as_ref();
 
         match door.direction {
             0 => {
                 door.topcountdown -= 1;
                 if door.topcountdown == 0 {
-                    debug!("Door for sector {:?} should go down", door.sector.as_ptr());
+                    debug!("Door for sector {:?} should go down", door.sector.as_ref());
                     match door.kind {
                         DoorKind::BlazeRaise => {
                             door.direction = -1;
@@ -102,7 +106,7 @@ impl Think for VerticalDoor {
                 // INITIAL WAIT
                 door.topcountdown -= 1;
                 if door.topcountdown == 0 {
-                    debug!("Door for sector {:?} should go up", door.sector.as_ptr());
+                    debug!("Door for sector {:?} should go up", door.sector.as_ref());
                     match door.kind {
                         DoorKind::RaiseIn5Mins => {
                             door.direction = 1;
@@ -116,7 +120,7 @@ impl Think for VerticalDoor {
                 }
             }
             -1 => {
-                debug!("Lower door for sector {:?}", door.sector.as_ptr());
+                debug!("Lower door for sector {:?}", door.sector.as_ref());
                 let res = move_plane(
                     door.sector.clone(),
                     door.speed,
@@ -158,7 +162,7 @@ impl Think for VerticalDoor {
                 }
             }
             1 => {
-                debug!("Raise door for sector {:?}", door.sector.as_ptr());
+                debug!("Raise door for sector {:?}", door.sector.as_ref());
                 let res = move_plane(
                     door.sector.clone(),
                     door.speed,
@@ -193,10 +197,18 @@ impl Think for VerticalDoor {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }

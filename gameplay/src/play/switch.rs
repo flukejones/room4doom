@@ -40,7 +40,7 @@ pub fn start_button(
     for b in button_list.iter_mut() {
         // Re-use an existing one
         if b.timer == 0 {
-            debug!("Re-using existing button struct for {:?}", line.as_ptr());
+            debug!("Re-using existing button struct for {:?}", line.as_ref());
             b.line = line;
             b.bwhere = bwhere;
             b.texture = texture;
@@ -49,7 +49,7 @@ pub fn start_button(
             return;
         }
     }
-    debug!("Using new button struct for {:?}", line.as_ptr());
+    debug!("Using new button struct for {:?}", line.as_ref());
     button_list.push(Button {
         line,
         bwhere,

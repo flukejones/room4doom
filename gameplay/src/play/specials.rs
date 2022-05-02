@@ -40,7 +40,7 @@ pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr
         return None;
     }
 
-    if ptr::eq(line.frontsector.as_ptr(), sector.as_ptr()) {
+    if ptr::eq(line.frontsector.as_ref(), sector.as_ref()) {
         return line.backsector.clone();
     }
 
@@ -876,7 +876,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
         if b.timer != 0 {
             b.timer -= 1;
             if b.timer == 0 {
-                debug!("Button {:?} is switching after countdown", b.line.as_ptr());
+                debug!("Button {:?} is switching after countdown", b.line.as_ref());
                 match b.bwhere {
                     ButtonWhere::Top => {
                         if let Some(t) = b.line.front_sidedef.toptexture.as_mut() {

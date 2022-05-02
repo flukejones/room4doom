@@ -68,6 +68,10 @@ impl FireFlicker {
 impl Think for FireFlicker {
     fn think(object: &mut Thinker, _level: &mut Level) -> bool {
         let mut light = object.fire_flick_mut();
+        #[cfg(null_check)]
+        if light.thinker.is_null() {
+            std::panic!("fire flicker thinker was null");
+        }
 
         light.count -= 1;
         if light.count != 0 {
@@ -90,10 +94,18 @@ impl Think for FireFlicker {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("fire flicker thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("fire flicker thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }
@@ -133,6 +145,10 @@ impl LightFlash {
 impl Think for LightFlash {
     fn think(object: &mut Thinker, _level: &mut Level) -> bool {
         let mut light = object.light_flash_mut();
+        #[cfg(null_check)]
+        if light.thinker.is_null() {
+            std::panic!("light flash thinker was null");
+        }
 
         light.count -= 1;
         if light.count != 0 {
@@ -155,10 +171,18 @@ impl Think for LightFlash {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("light flash thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("light flash thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }
@@ -203,6 +227,10 @@ impl StrobeFlash {
 impl Think for StrobeFlash {
     fn think(object: &mut Thinker, _level: &mut Level) -> bool {
         let mut light = object.strobe_flash_mut();
+        #[cfg(null_check)]
+        if light.thinker.is_null() {
+            std::panic!("strobe flash thinker was null");
+        }
 
         light.count -= 1;
         if light.count != 0 {
@@ -225,10 +253,18 @@ impl Think for StrobeFlash {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("strobe flash thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("strobe flash thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }
@@ -266,6 +302,10 @@ const GLOWSPEED: i32 = 8;
 impl Think for Glow {
     fn think(object: &mut Thinker, _level: &mut Level) -> bool {
         let mut light = object.glow_mut();
+        #[cfg(null_check)]
+        if light.thinker.is_null() {
+            std::panic!("glow thinker was null");
+        }
 
         match light.direction {
             -1 => {
@@ -293,10 +333,18 @@ impl Think for Glow {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("glow thinker was null");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("glow thinker was null");
+        }
         unsafe { &*self.thinker }
     }
 }

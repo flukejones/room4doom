@@ -1,3 +1,5 @@
+use std::ptr;
+
 use glam::Vec2;
 
 use crate::{
@@ -32,8 +34,7 @@ pub fn teleport(
                 if let ThinkerData::MapObject(ref mobj) = thinker.data() {
                     unsafe {
                         if mobj.kind == MapObjectType::MT_TELEPORTMAN
-                            && (*mobj.subsector).sector.as_ptr()
-                                == sector as *const Sector as *mut Sector
+                            && ptr::eq((*mobj.subsector).sector.as_ref(), sector)
                         {
                             return true;
                         }

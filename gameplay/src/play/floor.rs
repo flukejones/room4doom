@@ -233,7 +233,11 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
 impl Think for FloorMove {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let floor = object.floor_mut();
-        let line = &floor.sector.lines[0];
+        #[cfg(null_check)]
+        if floor.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
+        let line = floor.sector.lines[0].as_ref();
 
         let res = move_plane(
             floor.sector.clone(),
@@ -269,10 +273,18 @@ impl Think for FloorMove {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("NULL");
+        }
         unsafe { &mut *self.thinker }
     }
 
     fn thinker(&self) -> &Thinker {
+        #[cfg(null_check)]
+        if self.thinker.is_null() {
+            std::panic!("NULL");
+        }
         unsafe { &*self.thinker }
     }
 }
@@ -413,7 +425,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
                     continue;
                 }
                 if let Some(s3) = line.backsector.clone() {
-                    if ptr::eq(s3.as_ptr(), sector) {
+                    if ptr::eq(s3.as_ref(), sector) {
                         continue;
                     }
                     //
