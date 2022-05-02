@@ -11,11 +11,11 @@ use std::{f32::consts::FRAC_PI_4, ptr};
 use log::error;
 use sound_traits::SfxEnum;
 
-use crate::obj::{DirType, MapObject, MapObjectFlag};
-use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
     doom_def::{MISSILERANGE, SKULLSPEED},
     info::StateNum,
+    obj::{DirType, MapObject, MapObjectFlag},
+    utilities::{p_random, point_to_angle_2, PortalZ},
     Angle, DPtr, GameMode, LineDefFlags, MapObjectType, Sector, Skill,
 };
 

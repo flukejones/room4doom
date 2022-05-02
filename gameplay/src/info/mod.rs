@@ -8,9 +8,7 @@ use std::fmt;
 mod map_object_info;
 mod states;
 
-use crate::obj::MapObject;
-use crate::player::Player;
-use crate::player_sprite::PspDef;
+use crate::{obj::MapObject, player::Player, player_sprite::PspDef};
 pub use map_object_info::*;
 use sound_traits::SfxEnum;
 pub use states::*;

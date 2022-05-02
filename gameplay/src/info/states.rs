@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::obj::enemy::*;
-use crate::player_sprite::*;
+use crate::{obj::enemy::*, player_sprite::*};
 
 use super::{ActionF, SpriteNum, StateNum};
 

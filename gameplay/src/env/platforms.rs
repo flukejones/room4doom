@@ -6,19 +6,21 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxEnum;
 
-use crate::env::specials::{
-    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
-};
-use crate::env::switch::start_sector_sound;
-use crate::obj::MapObject;
-use crate::utilities::p_random;
 use crate::{
     doom_def::TICRATE,
+    env::{
+        specials::{
+            find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
+        },
+        switch::start_sector_sound,
+    },
     level::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    obj::MapObject,
     thinker::{Think, Thinker, ThinkerData},
+    utilities::p_random,
     DPtr,
 };
 
@@ -191,7 +193,7 @@ impl Think for Platform {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let platform = object.platform_mut();
         #[cfg(null_check)]
-        if self.platform.is_null() {
+        if platform.is_null() {
             std::panic!("platform thinker was null");
         }
         let line = platform.sector.lines[0].as_ref();

@@ -15,9 +15,9 @@ use sound_sdl2::SndServerTx;
 use sound_traits::{SfxEnum, SoundAction};
 use wad::{lumps::WadThing, WadData};
 
-use crate::env::platforms::{PlatStatus, Platform};
 use crate::{
     doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
+    env::platforms::{PlatStatus, Platform},
     level::map_data::MapData,
     pic::Button,
     thinker::ThinkerAlloc,

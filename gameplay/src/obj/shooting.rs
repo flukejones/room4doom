@@ -5,13 +5,12 @@ use std::f32::consts::FRAC_2_PI;
 use glam::Vec2;
 use sound_traits::SfxEnum;
 
-use crate::doom_def::MAXRADIUS;
-use crate::env::specials::shoot_special_line;
-use crate::utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ};
 use crate::{
-    doom_def::MELEERANGE,
+    doom_def::{MAXRADIUS, MELEERANGE},
+    env::specials::shoot_special_line,
     info::{StateNum, MOBJINFO},
     level::map_data::BSPTrace,
+    utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ},
     Angle, DPtr, LineDefFlags, MapObject, MapObjectType,
 };
 

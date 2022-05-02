@@ -5,13 +5,13 @@ use std::f32::consts::FRAC_PI_2;
 use log::error;
 use sound_traits::SfxEnum;
 
-use crate::obj::MapObject;
-use crate::player::{Player, PsprNum};
-use crate::utilities::{p_random, point_to_angle_2};
 use crate::{
     doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO},
     info::{State, StateNum, STATES},
+    obj::MapObject,
+    player::{Player, PsprNum},
     tic_cmd::TIC_CMD_BUTTONS,
+    utilities::{p_random, point_to_angle_2},
     PlayerState, WeaponType,
 };
 

@@ -1,10 +1,10 @@
 use std::f32::consts::FRAC_PI_2;
 
-use crate::utilities::{bam_to_radian, circle_line_collide};
 use crate::{
     angle::Angle,
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
     log::info,
+    utilities::{bam_to_radian, circle_line_collide},
     DPtr, PicData,
 };
 use glam::Vec2;

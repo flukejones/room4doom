@@ -9,7 +9,6 @@ use std::{
     ptr::null_mut,
 };
 
-use crate::obj::MapObject;
 use crate::{
     doom_def::{Card, TICRATE},
     lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK},
@@ -17,12 +16,15 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
+    obj::MapObject,
     thinker::{Think, Thinker, ThinkerData},
     DPtr, LineDefFlags,
 };
 
-use crate::env::specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
-use crate::env::switch::start_sector_sound;
+use crate::env::{
+    specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult},
+    switch::start_sector_sound,
+};
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;

@@ -3,6 +3,7 @@
 [ ] Shots from demons don't push the player
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
+[ ] The Thinker data access methods really should return `Option<T>`
 [ ] Thinkers: For inner data get, add a compile-time cfg opt to panic, or return Option.
 [ ] Need to reset sector sound targets if player dies
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop

@@ -1,6 +1,6 @@
-use crate::obj::MapObject;
 use crate::{
     angle::Angle,
+    obj::MapObject,
     thinker::{Thinker, ThinkerData},
     DPtr,
 };
@@ -41,7 +41,7 @@ pub struct Sector {
     pub validcount: usize,
 
     // list of mobjs in sector
-    pub thinglist: Option<*mut Thinker>,
+    thinglist: Option<*mut Thinker>,
 
     // thinker_t for reversable actions
     pub specialdata: Option<*mut Thinker>,
@@ -83,6 +83,9 @@ impl Sector {
                 std::panic!("thinglist is null when it shouldn't be");
             }
             unsafe {
+                if (*thing).should_remove() {
+                    return true;
+                }
                 let mut thing = (*thing).mobj_mut();
 
                 loop {
@@ -96,6 +99,10 @@ impl Sector {
                         #[cfg(null_check)]
                         if next.is_null() {
                             std::panic!("thinglist thing.s_next is null when it shouldn't be");
+                        }
+                        // Skip items that may have been marked for removal
+                        if (*next).should_remove() {
+                            continue;
                         }
                         thing = (*next).mobj_mut()
                     } else {
@@ -114,6 +121,9 @@ impl Sector {
                 std::panic!("thinglist is null when it shouldn't be");
             }
             unsafe {
+                if (*thing).should_remove() {
+                    return true;
+                }
                 let mut thing = (*thing).mobj();
 
                 loop {
@@ -127,6 +137,10 @@ impl Sector {
                         #[cfg(null_check)]
                         if next.is_null() {
                             std::panic!("thinglist thing.s_next is null when it shouldn't be");
+                        }
+                        // Skip items that may have been marked for removal
+                        if (*next).should_remove() {
+                            continue;
                         }
                         thing = (*next).mobj()
                     } else {
