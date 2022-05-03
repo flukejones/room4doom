@@ -23,7 +23,7 @@ use std::{
 //     pub tics: i32,
 //     // void (*action) (): i32,
 //     /// An action callback to run on this state
-//     pub action: ActionF,
+//     pub action: ActFn,
 //     /// The state that should come after this. Can be looped.
 //     pub next_state: StateNum,
 //     /// Don't know, Doom seems to set all to zero
@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // An `S_` is unique and should accumulate in order
     // `S_` line order: statename  sprite  frame tics action nextstate [optional1] [optional2]
     //
-    // SfxEnum are pre-determined?
+    // SfxNum are pre-determined?
 
     let data = parse_data(&data);
     write_info_file(data, options.out);
@@ -96,7 +96,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
         .open(path.clone())
         .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
 
-    file.write_all("#[rustfmt::skip]\n".as_bytes()).unwrap();
+    file.write_all(FILE_HEADER_STR.as_bytes()).unwrap();
     // SPRITE NAMES
     file.write_all(SPRITE_NAME_ARRAY_STR.as_bytes()).unwrap();
     for names in data.sprite_names.chunks(8) {
@@ -112,7 +112,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
 
     // SPRITE ENUM
     file.write_all(SPRITE_ENUM_HEADER.as_bytes()).unwrap();
-    for names in data.sprite_enum.chunks(8) {
+    for names in data.sprite_names.chunks(8) {
         let s: String = names
             .iter()
             .map(|s| format!("{s}, "))
@@ -128,7 +128,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
     for names in data.state_order.chunks(8) {
         let s: String = names
             .iter()
-            .map(|s| format!("{s}, "))
+            .map(|s| format!("{}, ", s.trim_start_matches("S_").replace("NULL", "None")))
             .collect::<Vec<String>>()
             .concat();
         file.write_all(s.as_bytes()).unwrap();
@@ -171,8 +171,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
 }
 
 pub struct Data {
-    sprite_names: Vec<String>, // plain for sprnames
-    sprite_enum: Vec<String>,
+    sprite_names: Vec<String>, // plain for sprnames, used for Enum also
     state_order: Vec<String>,
     states: InfoGroupType, // also convert to enum using key
     mobj_order: Vec<String>,
@@ -185,7 +184,6 @@ pub fn parse_data(input: &str) -> Data {
     let mut states: InfoGroupType = HashMap::new(); // Also used to build StateEnum
 
     let mut sprite_names = Vec::new();
-    let mut sprite_enum = Vec::new();
     let mut state_order = Vec::new();
     let mut mobj_order = Vec::new();
     let mut info_misc_count = 0;
@@ -201,13 +199,9 @@ pub fn parse_data(input: &str) -> Data {
                 if !sprite_names.contains(&split[1]) {
                     sprite_names.push(split[1].to_uppercase().to_string());
                 }
-                let en = format!("SPR_{}", split[1].to_uppercase());
-                if !sprite_enum.contains(&en) {
-                    sprite_enum.push(en.clone());
-                }
                 // State data
                 if let Some(map) = states.get_mut(&split[0]) {
-                    map.insert("sprite".to_string(), en);
+                    map.insert("sprite".to_string(), split[1].to_string());
 
                     let mut f = (split[2].to_uppercase().as_bytes()[0] - b'A') as u16;
                     if split[2].contains('*') {
@@ -223,7 +217,7 @@ pub fn parse_data(input: &str) -> Data {
                     map.insert(
                         "action".to_string(),
                         if split[4].to_lowercase().contains("null") {
-                            "ActionF::None".to_string()
+                            "ActFn::N".to_string()
                         } else {
                             validate_field(&split[4])
                         },
@@ -291,7 +285,6 @@ pub fn parse_data(input: &str) -> Data {
 
     Data {
         sprite_names,
-        sprite_enum,
         state_order,
         states,
         mobj_order,
@@ -308,11 +301,15 @@ pub fn validate_field(input: &str) -> String {
     } else if input.starts_with("S_") {
         // Stat number
         let mut tmp = "StateNum::".to_string();
-        tmp.push_str(&input.to_uppercase());
+        let tmp2 = input
+            .to_uppercase()
+            .trim_start_matches("S_")
+            .replace("NULL", "None");
+        tmp.push_str(tmp2.as_str());
         tmp
     } else if input.starts_with("sfx_") {
         // Sound
-        let mut tmp = "SfxEnum::".to_string();
+        let mut tmp = "SfxNum::".to_string();
         tmp.push_str(capitalize(input.trim_start_matches("sfx_")).as_str());
         tmp
     } else if input.starts_with("MF_") {
@@ -333,9 +330,9 @@ pub fn validate_field(input: &str) -> String {
         // Action function
         let lower = input.to_lowercase();
         return if PLAYER_FUNCS.contains(&lower.as_str()) {
-            format!("ActionF::Player({lower})")
+            format!("ActFn::P({lower})")
         } else {
-            format!("ActionF::Actor({lower})")
+            format!("ActFn::A({lower})")
         };
     } else {
         input.to_string()

@@ -16,7 +16,7 @@ use crate::{
         platforms::Platform,
     },
     level::Level,
-    obj::MapObject,
+    thing::MapObject,
 };
 
 #[derive(PartialEq, PartialOrd)]

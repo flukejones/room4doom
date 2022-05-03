@@ -1,4 +1,5 @@
-use crate::info::StateNum;
+use crate::{info::StateNum, MapObject, Player, PspDef};
+use std::fmt;
 
 /// Do not know where this is set
 pub const TICRATE: i32 = 35;
@@ -186,82 +187,102 @@ pub(crate) const WEAPON_INFO: [WeaponInfo; 9] = [
     // fist
     WeaponInfo {
         ammo: AmmoType::NoAmmo,
-        upstate: StateNum::S_PUNCHUP,
-        downstate: StateNum::S_PUNCHDOWN,
-        readystate: StateNum::S_PUNCH,
-        atkstate: StateNum::S_PUNCH1,
-        flashstate: StateNum::S_NULL,
+        upstate: StateNum::PUNCHUP,
+        downstate: StateNum::PUNCHDOWN,
+        readystate: StateNum::PUNCH,
+        atkstate: StateNum::PUNCH1,
+        flashstate: StateNum::None,
     },
     // pistol
     WeaponInfo {
         ammo: AmmoType::Clip,
-        upstate: StateNum::S_PISTOLUP,
-        downstate: StateNum::S_PISTOLDOWN,
-        readystate: StateNum::S_PISTOL,
-        atkstate: StateNum::S_PISTOL1,
-        flashstate: StateNum::S_PISTOLFLASH,
+        upstate: StateNum::PISTOLUP,
+        downstate: StateNum::PISTOLDOWN,
+        readystate: StateNum::PISTOL,
+        atkstate: StateNum::PISTOL1,
+        flashstate: StateNum::PISTOLFLASH,
     },
     // shotgun
     WeaponInfo {
         ammo: AmmoType::Shell,
-        upstate: StateNum::S_SGUNUP,
-        downstate: StateNum::S_SGUNDOWN,
-        readystate: StateNum::S_SGUN,
-        atkstate: StateNum::S_SGUN1,
-        flashstate: StateNum::S_SGUNFLASH1,
+        upstate: StateNum::SGUNUP,
+        downstate: StateNum::SGUNDOWN,
+        readystate: StateNum::SGUN,
+        atkstate: StateNum::SGUN1,
+        flashstate: StateNum::SGUNFLASH1,
     },
     // chaingun
     WeaponInfo {
         ammo: AmmoType::Clip,
-        upstate: StateNum::S_CHAINUP,
-        downstate: StateNum::S_CHAINDOWN,
-        readystate: StateNum::S_CHAIN,
-        atkstate: StateNum::S_CHAIN1,
-        flashstate: StateNum::S_CHAINFLASH1,
+        upstate: StateNum::CHAINUP,
+        downstate: StateNum::CHAINDOWN,
+        readystate: StateNum::CHAIN,
+        atkstate: StateNum::CHAIN1,
+        flashstate: StateNum::CHAINFLASH1,
     },
     // missile
     WeaponInfo {
         ammo: AmmoType::Missile,
-        upstate: StateNum::S_MISSILEUP,
-        downstate: StateNum::S_MISSILEDOWN,
-        readystate: StateNum::S_MISSILE,
-        atkstate: StateNum::S_MISSILE1,
-        flashstate: StateNum::S_MISSILEFLASH1,
+        upstate: StateNum::MISSILEUP,
+        downstate: StateNum::MISSILEDOWN,
+        readystate: StateNum::MISSILE,
+        atkstate: StateNum::MISSILE1,
+        flashstate: StateNum::MISSILEFLASH1,
     },
     // plasma
     WeaponInfo {
         ammo: AmmoType::Cell,
-        upstate: StateNum::S_PLASMAUP,
-        downstate: StateNum::S_PLASMADOWN,
-        readystate: StateNum::S_PLASMA,
-        atkstate: StateNum::S_PLASMA1,
-        flashstate: StateNum::S_PLASMAFLASH1,
+        upstate: StateNum::PLASMAUP,
+        downstate: StateNum::PLASMADOWN,
+        readystate: StateNum::PLASMA,
+        atkstate: StateNum::PLASMA1,
+        flashstate: StateNum::PLASMAFLASH1,
     },
     // Big Fucking Gun
     WeaponInfo {
         ammo: AmmoType::Cell,
-        upstate: StateNum::S_BFGUP,
-        downstate: StateNum::S_BFGDOWN,
-        readystate: StateNum::S_BFG,
-        atkstate: StateNum::S_BFG1,
-        flashstate: StateNum::S_BFGFLASH1,
+        upstate: StateNum::BFGUP,
+        downstate: StateNum::BFGDOWN,
+        readystate: StateNum::BFG,
+        atkstate: StateNum::BFG1,
+        flashstate: StateNum::BFGFLASH1,
     },
     // chainsaw
     WeaponInfo {
         ammo: AmmoType::NoAmmo,
-        upstate: StateNum::S_SAWUP,
-        downstate: StateNum::S_SAWDOWN,
-        readystate: StateNum::S_SAW,
-        atkstate: StateNum::S_SAW1,
-        flashstate: StateNum::S_NULL,
+        upstate: StateNum::SAWUP,
+        downstate: StateNum::SAWDOWN,
+        readystate: StateNum::SAW,
+        atkstate: StateNum::SAW1,
+        flashstate: StateNum::None,
     },
     // shotgun
     WeaponInfo {
         ammo: AmmoType::Shell,
-        upstate: StateNum::S_DSGUNUP,
-        downstate: StateNum::S_DSGUNDOWN,
-        readystate: StateNum::S_DSGUN,
-        atkstate: StateNum::S_DSGUN1,
-        flashstate: StateNum::S_DSGUNFLASH1,
+        upstate: StateNum::DSGUNUP,
+        downstate: StateNum::DSGUNDOWN,
+        readystate: StateNum::DSGUN,
+        atkstate: StateNum::DSGUN1,
+        flashstate: StateNum::DSGUNFLASH1,
     },
 ];
+
+#[derive(Clone)]
+pub enum ActFn {
+    /// Pointer to a function that operates on `MapObject`'s. Much of the gamplay uses this (items, monsters etc)
+    A(fn(&mut MapObject)),
+    /// Pointer to a function that operates on the `Player`, usually also requiring a sprite definition
+    P(fn(&mut Player, &mut PspDef)),
+    /// For a state with no action
+    N,
+}
+
+impl fmt::Debug for ActFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ActFn::N => f.debug_struct("None").finish(),
+            ActFn::A(_) => f.debug_struct("Actor").finish(),
+            ActFn::P(_) => f.debug_struct("Player").finish(),
+        }
+    }
+}

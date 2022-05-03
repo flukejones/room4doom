@@ -1,9 +1,11 @@
-pub const MOBJ_INFO_HEADER_STR: &str = r#"
-use crate::{
-    obj::MapObjFlag,
-};
+pub const FILE_HEADER_STR: &str = r#"//! THIS FILE IS GENERATED WITH MULTIGEN
+//!
+//! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
+"#;
 
-use super::SfxEnum;
+pub const MOBJ_INFO_HEADER_STR: &str = r#"
+use crate::thing::MapObjFlag;
+use sound_traits::SfxNum;
 "#;
 
 pub const MOBJ_INFO_TYPE_STR: &str = r#"
@@ -13,35 +15,35 @@ pub struct MapObjInfo {
     pub spawnstate: StateNum,
     pub spawnhealth: i32,
     pub seestate: StateNum,
-    pub seesound: SfxEnum,
+    pub seesound: SfxNum,
     pub reactiontime: i32,
-    pub attacksound: SfxEnum,
+    pub attacksound: SfxNum,
     pub painstate: StateNum,
     pub painchance: i32,
-    pub painsound: SfxEnum,
+    pub painsound: SfxNum,
     pub meleestate: StateNum,
     pub missilestate: StateNum,
     pub deathstate: StateNum,
     pub xdeathstate: StateNum,
-    pub deathsound: SfxEnum,
+    pub deathsound: SfxNum,
     pub speed: f32,
     pub radius: f32,
     pub height: f32,
     pub mass: i32,
     pub damage: i32,
-    pub activesound: SfxEnum,
+    pub activesound: SfxNum,
     pub flags: u32,
     pub raisestate: StateNum,
 }
 "#;
 
 pub const MOBJ_INFO_ARRAY_STR: &str = r#"
-const NUM_CATEGORIES: usize = MapObjKind::NUMMOBJTYPES as usize;
+const NUM_CATEGORIES: usize = MapObjKind::Count as usize;
 pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = ["#;
 
 pub const SPRITE_NAME_ARRAY_STR: &str = r#"
-const NUMSPRITES: usize = SpriteNum::NUMSPRITES as usize;
-pub const SPRNAMES: [&str; NUMSPRITES] = [
+const NUM_SPRNAMES: usize = SpriteNum::Count as usize;
+pub const SPRNAMES: [&str; NUM_SPRNAMES] = [
 "#;
 
 pub const ARRAY_END_STR: &str = r#"
@@ -55,11 +57,11 @@ pub const SPRITE_ENUM_HEADER: &str = r#"
 pub enum SpriteNum {
 "#;
 
-pub const SPRITE_ENUM_END: &str = r#"NUMSPRITES,
+pub const SPRITE_ENUM_END: &str = r#"Count,
 }
 impl Default for SpriteNum {
     fn default() -> Self {
-        SpriteNum::SPR_TROO
+        SpriteNum::TROO
     }
 }"#;
 
@@ -70,11 +72,11 @@ pub const STATE_ENUM_HEADER: &str = r#"
 pub enum StateNum {
 "#;
 
-pub const STATE_ENUM_END: &str = r#"NUMSTATES,
+pub const STATE_ENUM_END: &str = r#"Count,
 }
 impl From<u16> for StateNum {
     fn from(w: u16) -> Self {
-        if w >= StateNum::NUMSTATES as u16 {
+        if w >= StateNum::Count as u16 {
             panic!("{} is not a variant of StateNum", w);
         }
         unsafe { std::mem::transmute(w) }
@@ -83,9 +85,10 @@ impl From<u16> for StateNum {
 
 pub const STATE_ARRAY_STR: &str = r#"
 use std::fmt;
-use crate::{obj::enemy::*, player_sprite::*};
-use super::{ActionF};
+use crate::{thing::enemy::*, player_sprite::*};
+use crate::doom_def::ActFn;
 
+#[derive(Debug)]
 pub struct State {
     /// Sprite to use
     pub sprite: SpriteNum,
@@ -95,7 +98,7 @@ pub struct State {
     pub tics: i32,
     // void (*action) (): i32,
     /// An action callback to run on this state
-    pub action: ActionF,
+    pub action: ActFn,
     /// The state that should come after this. Can be looped.
     pub next_state: StateNum,
     /// Don't know, Doom seems to set all to zero
@@ -104,52 +107,9 @@ pub struct State {
     pub misc2: i32,
 }
 
-impl State {
-    pub const fn new(
-        sprite: SpriteNum,
-        frame: u32,
-        tics: i32,
-        action: ActionF,
-        next_state: StateNum,
-        misc1: i32,
-        misc2: i32,
-    ) -> Self {
-        Self {
-            sprite,
-            frame,
-            tics,
-            action,
-            next_state,
-            misc1,
-            misc2,
-        }
-    }
-}
-
-impl Clone for State {
-    fn clone(&self) -> Self {
-        State::new(
-            self.sprite,
-            self.frame,
-            self.tics,
-            self.action.clone(),
-            self.next_state,
-            self.misc1,
-            self.misc2,
-        )
-    }
-}
-
-impl fmt::Debug for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("State")
-            .field("sprite", &self.sprite)
-            .finish()
-    }
-}
-
-const NUMSTATES: usize = StateNum::NUMSTATES as usize;
-pub const STATES: [State; NUMSTATES] = ["#;
+const NUM_STATES: usize = StateNum::Count as usize;
+pub const STATES: [State; NUM_STATES] = [
+    // State::new(sprite, frame, tics, action, next_state, misc1, misc2)"#;
 
 pub const MKIND_ENUM_HEADER: &str = r#"
 #[repr(u16)]
@@ -158,13 +118,12 @@ pub const MKIND_ENUM_HEADER: &str = r#"
 pub enum MapObjKind {
 "#;
 
-pub const MKIND_ENUM_END: &str = r#"NUMMOBJTYPES,
+pub const MKIND_ENUM_END: &str = r#"Count,
 }
-
 impl From<u16> for MapObjKind {
     fn from(i: u16) -> Self {
-        if i >= MapObjKind::NUMMOBJTYPES as u16 {
-            panic!("{} is not a variant of SfxEnum", i);
+        if i >= MapObjKind::Count as u16 {
+            panic!("{} is not a variant of MapObjKind", i);
         }
         unsafe { std::mem::transmute(i) }
     }

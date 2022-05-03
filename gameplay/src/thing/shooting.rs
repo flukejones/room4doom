@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_2_PI;
 
 use glam::Vec2;
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 use crate::{
     doom_def::{MAXRADIUS, MELEERANGE},
@@ -31,7 +31,7 @@ impl MapObject {
 
         self.flags &= !(MapObjFlag::Missile as u32);
 
-        if self.info.deathsound != SfxEnum::None {
+        if self.info.deathsound != SfxNum::None {
             self.start_sound(self.info.deathsound);
         }
     }
@@ -355,7 +355,7 @@ impl MapObject {
 
             let mut dist = self.xy.distance(target.xy) - 64.0;
 
-            if self.info.meleestate == StateNum::S_NULL {
+            if self.info.meleestate == StateNum::None {
                 dist -= 128.0; // no melee attack, so fire more
             }
 
