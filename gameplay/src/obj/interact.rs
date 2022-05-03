@@ -54,11 +54,11 @@ impl MapObject {
             return;
         }
 
-        if self.flags & MapObjFlag::SkullFly as u32 != 0 {
+        if self.flags & MapObjFlag::Skullfly as u32 != 0 {
             self.momxy = Vec2::default();
             self.momz = 0.0;
             // extra flag setting here because sometimes float errors stuff it up
-            self.flags &= !(MapObjFlag::SkullFly as u32);
+            self.flags &= !(MapObjFlag::Skullfly as u32);
             self.set_state(self.info.spawnstate);
         }
 
@@ -87,7 +87,7 @@ impl MapObject {
                 source.as_mut().unwrap()
             };
 
-            if self.flags & MapObjFlag::NoClip as u32 == 0 && do_push {
+            if self.flags & MapObjFlag::Noclip as u32 == 0 && do_push {
                 let mut angle = point_to_angle_2(inflict.xy, self.xy);
                 let mut thrust = damage as f32 * 0.001 * 100.0 / self.info.mass as f32;
                 // make fall forwards sometimes
@@ -158,8 +158,8 @@ impl MapObject {
             return;
         }
 
-        if p_random() < self.info.painchance && self.flags & MapObjFlag::SkullFly as u32 == 0 {
-            self.flags |= MapObjFlag::JustHit as u32; // FIGHT!!!
+        if p_random() < self.info.painchance && self.flags & MapObjFlag::Skullfly as u32 == 0 {
+            self.flags |= MapObjFlag::Justhit as u32; // FIGHT!!!
             self.set_state(self.info.painstate);
         }
 
@@ -186,18 +186,18 @@ impl MapObject {
     fn kill(&mut self, mut source: Option<&mut MapObject>) {
         self.flags &= !(MapObjFlag::Shootable as u32
             | MapObjFlag::Float as u32
-            | MapObjFlag::SkullFly as u32);
+            | MapObjFlag::Skullfly as u32);
 
         if self.kind != MapObjKind::MT_SKULL {
-            self.flags &= !(MapObjFlag::NoGravity as u32);
+            self.flags &= !(MapObjFlag::Nogravity as u32);
         }
 
-        self.flags |= MapObjFlag::Corpse as u32 | MapObjFlag::DropOff as u32;
+        self.flags |= MapObjFlag::Corpse as u32 | MapObjFlag::Dropoff as u32;
         self.height /= 4.0;
 
         if let Some(source) = source.as_mut() {
             if let Some(player) = source.player_mut() {
-                if self.flags & MapObjFlag::CountKill as u32 != 0 {
+                if self.flags & MapObjFlag::Countkill as u32 != 0 {
                     player.killcount += 1;
                 }
 
@@ -270,7 +270,7 @@ impl MapObject {
             return;
         }
 
-        let mut sound = SfxEnum::itemup;
+        let mut sound = SfxEnum::Itemup;
 
         if let Some(player) = self.player {
             let player = unsafe { &mut *player };
@@ -317,14 +317,14 @@ impl MapObject {
                         player.health = 200;
                     }
                     player.message = Some(GOTSUPER);
-                    sound = SfxEnum::getpow;
+                    sound = SfxEnum::Getpow;
                 }
                 SpriteNum::SPR_MEGA => {
                     // TODO: if (gamemode != commercial) return;
                     player.health = 200;
                     player.give_armour(2);
                     player.message = Some(GOTMSPHERE);
-                    sound = SfxEnum::getpow;
+                    sound = SfxEnum::Getpow;
                 }
 
                 // Keycards
@@ -506,7 +506,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTBFG9000);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_MGUN => {
                     if !player.give_weapon(
@@ -517,28 +517,28 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTCHAINGUN);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_CSAW => {
                     if !player.give_weapon(WeaponType::Chainsaw, false, skill) {
                         return;
                     }
                     player.message = Some(GOTCHAINSAW);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_LAUN => {
                     if !player.give_weapon(WeaponType::Missile, false, skill) {
                         return;
                     }
                     player.message = Some(GOTLAUNCHER);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_PLAS => {
                     if !player.give_weapon(WeaponType::Plasma, false, skill) {
                         return;
                     }
                     player.message = Some(GOTPLASMA);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_SHOT => {
                     if !player.give_weapon(
@@ -549,7 +549,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
                 SpriteNum::SPR_SGN2 => {
                     if !player.give_weapon(
@@ -560,7 +560,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN2);
-                    sound = SfxEnum::wpnup;
+                    sound = SfxEnum::Wpnup;
                 }
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),
@@ -569,7 +569,7 @@ impl MapObject {
             // Ensure obj health is synced
             self.health = player.health;
 
-            if special.flags & MapObjFlag::CountItem as u32 != 0 {
+            if special.flags & MapObjFlag::Countitem as u32 != 0 {
                 player.itemcount += 1;
             }
             special.remove();

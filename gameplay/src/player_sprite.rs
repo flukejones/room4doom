@@ -64,7 +64,7 @@ pub fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
                 && state.frame == check.frame
                 && state.next_state == check.next_state
             {
-                mobj.start_sound(SfxEnum::sawidl);
+                mobj.start_sound(SfxEnum::Sawidl);
             }
         }
     }
@@ -138,7 +138,7 @@ pub fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
 
     let refire = player.refire;
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::pistol);
+        mobj.start_sound(SfxEnum::Pistol);
         mobj.set_state(StateNum::S_PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
@@ -157,7 +157,7 @@ pub fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::shotgn);
+        mobj.start_sound(SfxEnum::Shotgn);
         mobj.set_state(StateNum::S_PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
@@ -179,7 +179,7 @@ pub fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::dshtgn);
+        mobj.start_sound(SfxEnum::Dshtgn);
         mobj.set_state(StateNum::S_PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
@@ -213,7 +213,7 @@ pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
 
     let refire = player.refire;
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::pistol);
+        mobj.start_sound(SfxEnum::Pistol);
         mobj.set_state(StateNum::S_PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
@@ -240,7 +240,7 @@ pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Flash as usize, state);
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            (*mobj).start_sound(SfxEnum::plasma);
+            (*mobj).start_sound(SfxEnum::Plasma);
             MapObject::spawn_player_missile(
                 &mut *mobj,
                 crate::MapObjKind::MT_PLASMA,
@@ -258,7 +258,7 @@ pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     // );
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            (*mobj).start_sound(SfxEnum::rlaunc);
+            (*mobj).start_sound(SfxEnum::Rlaunc);
             MapObject::spawn_player_missile(
                 &mut *mobj,
                 crate::MapObjKind::MT_ROCKET,
@@ -286,7 +286,7 @@ pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::bfg);
+    player.start_sound(SfxEnum::Bfg);
 }
 
 pub fn a_bfgspray(player: &mut MapObject) {
@@ -317,7 +317,7 @@ pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
 
         if let Some(res) = slope {
             let target = res.line_target;
-            mobj.start_sound(SfxEnum::punch);
+            mobj.start_sound(SfxEnum::Punch);
             mobj.angle = point_to_angle_2(target.xy, mobj.xy);
         }
     }
@@ -328,15 +328,15 @@ pub fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::dbopn);
+    player.start_sound(SfxEnum::Dbopn);
 }
 
 pub fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::dbload);
+    player.start_sound(SfxEnum::Dbload);
 }
 
 pub fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::dbcls);
+    player.start_sound(SfxEnum::Dbcls);
     a_refire(player, pspr);
 }
 
@@ -358,15 +358,15 @@ pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         );
 
         if slope.is_none() {
-            mobj.start_sound(SfxEnum::sawful);
+            mobj.start_sound(SfxEnum::Sawful);
             return;
         }
 
         // Have a target
-        mobj.start_sound(SfxEnum::sawhit);
+        mobj.start_sound(SfxEnum::Sawhit);
         if let Some(res) = slope {
             let target = res.line_target;
-            mobj.start_sound(SfxEnum::punch);
+            mobj.start_sound(SfxEnum::Punch);
             let angle = point_to_angle_2(target.xy, mobj.xy);
 
             let delta = angle.rad() - mobj.angle.rad();
