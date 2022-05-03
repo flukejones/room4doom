@@ -88,15 +88,14 @@ impl MapObject {
             };
 
             if self.flags & MapObjFlag::Noclip as u32 == 0 && do_push {
-                let mut angle = point_to_angle_2(inflict.xy, self.xy);
-                let mut thrust = damage as f32 * 0.001 * 100.0 / self.info.mass as f32;
+                let angle = point_to_angle_2(self.xy, inflict.xy);
+                let mut thrust = damage as f32 * 10.0 / self.info.mass as f32;
                 // make fall forwards sometimes
                 if damage < 40
                     && damage > self.health
                     && self.z - inflict.z > 64.0
                     && p_random() & 1 != 0
                 {
-                    angle += 180.0; // TODO: verify the results of this (fixed vs float)
                     thrust *= 4.0;
                 }
 
