@@ -1,13 +1,12 @@
-mod info_strings;
+pub mod parse_info;
+pub mod strings;
 
-use crate::info_strings::{
-    MOBJ_INFO_ARRAY_END_STR, MOBJ_INFO_ARRAY_STR, MOBJ_INFO_HEADER_STR, MOBJ_INFO_TYPE_STR,
-};
+use crate::parse_info::write_info_file;
 use gumdrop::Options;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 
 // pub struct State {
@@ -45,8 +44,8 @@ struct CLIOptions {
     help: bool,
 }
 
-type InfoType = HashMap<String, String>;
-type InfoGroupType = HashMap<String, InfoType>;
+pub type InfoType = HashMap<String, String>;
+pub type InfoGroupType = HashMap<String, InfoType>;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let options = CLIOptions::parse_args_default_or_exit();
@@ -62,12 +61,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     //
     // SfxEnum are pre-determined?
 
-    let (order, info) = parse_info(&data);
-    write_info_file(&order, info, options.out);
+    let data = parse_data(&data);
+    write_info_file(&data.mobj_order, data.mobj_info, options.out);
     Ok(())
 }
 
-fn read_file(path: PathBuf) -> String {
+pub fn read_file(path: PathBuf) -> String {
     let mut file = OpenOptions::new()
         .read(true)
         .open(path.clone())
@@ -84,34 +83,47 @@ fn read_file(path: PathBuf) -> String {
     buf
 }
 
-fn write_info_file(ordering: &[String], info: InfoGroupType, path: PathBuf) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path.clone())
-        .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
-
-    file.write_all(MOBJ_INFO_HEADER_STR.as_bytes()).unwrap();
-    file.write_all(MOBJ_INFO_TYPE_STR.as_bytes()).unwrap();
-    file.write_all(MOBJ_INFO_ARRAY_STR.as_bytes()).unwrap();
-    for key in ordering.iter() {
-        let value = info.get(key).unwrap();
-        let info = info_to_string(key, value);
-        file.write_all(info.as_bytes()).unwrap();
-    }
-    file.write_all(MOBJ_INFO_ARRAY_END_STR.as_bytes()).unwrap();
+pub struct Data {
+    sprite_names: Vec<String>, // plain for sprnames
+    sprite_enum: Vec<String>,
+    states: InfoGroupType, // also convert to enum using key
+    mobj_order: Vec<String>,
+    mobj_info: InfoGroupType,
 }
 
-fn parse_info(input: &str) -> (Vec<String>, InfoGroupType) {
+pub fn parse_data(input: &str) -> Data {
     // K/V = key/mobj name, <K= field, (data, comment)>
-    let mut info: InfoGroupType = HashMap::new();
+    let mut mobj_info: InfoGroupType = HashMap::new();
+    let mut states: InfoGroupType = HashMap::new(); // Also used to build StateEnum
 
-    let mut ordering = Vec::new();
-    let mut misc_count = 0;
+    let mut sprite_names = Vec::new();
+    let mut sprite_enum = Vec::new();
+    let mut mobj_order = Vec::new();
+    let mut info_misc_count = 0;
     let mut line_state = LineState::None;
+
     for line in input.lines() {
         if line.starts_with("S_") {
+            let split: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
+            if split.len() > 1 {
+                states.insert(validate_field(&split[0]), HashMap::new());
+                // Sprite enum
+                if !sprite_names.contains(&split[1]) {
+                    sprite_names.push(split[1].to_uppercase().to_string());
+                }
+                let en = format!("SpriteNum::SPR_{},", split[1].to_uppercase());
+                if !sprite_enum.contains(&en) {
+                    sprite_enum.push(en.clone());
+                }
+                // State data
+                if let Some(map) = states.get_mut(&split[0]) {
+                    map.insert("sprite".to_string(), en);
+                    map.insert("frame".to_string(), split[2].to_string());
+                    map.insert("tics".to_string(), split[3].to_string());
+                    map.insert("action".to_string(), validate_field(&split[4]));
+                    map.insert("next_state".to_string(), validate_field(&split[5]));
+                }
+            }
             line_state = LineState::StateType;
         }
         if line.starts_with('$') {
@@ -123,45 +135,62 @@ fn parse_info(input: &str) -> (Vec<String>, InfoGroupType) {
             if split.len() == 2 {
                 // A full def
                 line_state = LineState::InfoType(split[1].clone());
-                info.insert(split[1].clone(), HashMap::new());
-                ordering.push(split[1].clone());
+                mobj_info.insert(split[1].clone(), HashMap::new());
+                mobj_order.push(split[1].clone());
             } else {
                 // Or one of:
-                if split[1] == "+" {
-                    // A misc object:
-                    // $ + doomednum 2023 spawnstate S_PSTR 	flags 	MF_SPECIAL|MF_COUNTITEM
-                    info.insert(format!("MT_MISC{misc_count}"), HashMap::new());
-                    ordering.push(format!("MT_MISC{misc_count}"));
-                    misc_count += 1;
-                } else {
-                    // Must be a single line misc:
-                    // $ MT_INV doomednum 2022 spawnstate S_PINV 	flags 	MF_SPECIAL|MF_COUNTITEM
-                    info.insert(split[1].clone(), HashMap::new());
-                    ordering.push(split[1].clone());
+                // if split[1] == "+" {
+                // A misc object:
+                // $ + doomednum 2023 spawnstate S_PSTR 	flags 	MF_SPECIAL|MF_COUNTITEM
+                let mut map = HashMap::new();
+                for chunk in split.chunks(2).skip(1) {
+                    if chunk[0].starts_with(';') {
+                        break;
+                    }
+                    map.insert(chunk[0].to_string(), validate_field(&chunk[1]));
                 }
+                let name = if split[1] == "+" {
+                    let tmp = format!("MT_MISC{info_misc_count}");
+                    info_misc_count += 1;
+                    tmp
+                } else {
+                    split[1].to_string()
+                };
+                mobj_info.insert(name.clone(), map);
+                mobj_order.push(name.clone());
+                line_state = LineState::InfoType(name);
             }
-            continue;
         }
 
+        // Multiline info
         if let LineState::InfoType(name) = &mut line_state {
-            if line.is_empty() || line.starts_with(' ') {
+            if line.is_empty() {
                 // reset
                 line_state = LineState::None;
                 continue;
             }
             let split: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
-            if split.len() < 2 {
-                continue;
-            } else if let Some(entry) = info.get_mut(name) {
-                entry.insert(split[0].clone(), validate_field(&split[1]));
+            for chunk in split.chunks(2) {
+                if chunk[0].starts_with(';') {
+                    break;
+                }
+                if let Some(entry) = mobj_info.get_mut(name) {
+                    entry.insert(chunk[0].clone(), validate_field(&chunk[1]));
+                }
             }
         }
     }
 
-    (ordering, info)
+    Data {
+        sprite_names,
+        sprite_enum,
+        states,
+        mobj_order,
+        mobj_info,
+    }
 }
 
-fn validate_field(input: &str) -> String {
+pub fn validate_field(input: &str) -> String {
     if input.contains("*FRACUNIT") {
         // Convert to something we can parse with f32
         let mut tmp = input.trim_end_matches("*FRACUNIT").to_string();
@@ -191,6 +220,14 @@ fn validate_field(input: &str) -> String {
             tmp = tmp.trim_end_matches('|').to_string();
         }
         tmp
+    } else if input.starts_with("A_") {
+        // Action function
+        let lower = input.to_lowercase();
+        return if PLAYER_FUNCS.contains(&lower.as_str()) {
+            format!("ActionF::Player({lower}),")
+        } else {
+            format!("ActionF::Actor({lower}),")
+        };
     } else {
         input.to_string()
     }
@@ -204,127 +241,27 @@ fn capitalize(s: &str) -> String {
     }
 }
 
-fn info_to_string(name: &str, info: &InfoType) -> String {
-    format!(
-        r#"
-// {name}
-MapObjInfo {{
-doomednum: {doomednum},
-spawnstate: {spawnstate},
-spawnhealth: {spawnhealth},
-seestate: {seestate},
-seesound: {seesound},
-reactiontime: {reactiontime},
-attacksound: {attacksound},
-painstate: {painstate},
-painchance: {painchance},
-painsound: {painsound},
-meleestate: {meleestate},
-missilestate: {missilestate},
-deathstate: {deathstate},
-xdeathstate: {xdeathstate},
-deathsound: {deathsound},
-speed: {speed},
-radius: {radius},
-height: {height},
-mass: {mass},
-damage: {damage},
-activesound: {activesound},
-flags: {flags},
-raisestate: {raisestate},
-}},"#,
-        doomednum = info.get("doomednum").unwrap_or(&"-1".to_string()),
-        spawnstate = info
-            .get("spawnstate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        spawnhealth = info.get("spawnhealth").unwrap_or(&"0".to_string()),
-        seestate = info
-            .get("seestate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        seesound = info
-            .get("seesound")
-            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
-            .unwrap_or("SfxEnum::None"),
-        reactiontime = info.get("reactiontime").unwrap_or(&"0".to_string()),
-        attacksound = info
-            .get("attacksound")
-            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
-            .unwrap_or("SfxEnum::None"),
-        painstate = info
-            .get("painstate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        painchance = info.get("painchance").unwrap_or(&"0".to_string()),
-        painsound = info
-            .get("painsound")
-            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
-            .unwrap_or("SfxEnum::None"),
-        meleestate = info
-            .get("meleestate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        missilestate = info
-            .get("missilestate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        deathstate = info
-            .get("deathstate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        xdeathstate = info
-            .get("xdeathstate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-        deathsound = info
-            .get("deathsound")
-            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
-            .unwrap_or("SfxEnum::None"),
-        speed = info
-            .get("speed")
-            .map(|n| if !n.contains(".0") {
-                format!("{n}.0")
-            } else {
-                n.to_string()
-            })
-            .map(|n| if n == "0" {
-                "0.0".to_string()
-            } else {
-                n.to_string()
-            })
-            .unwrap_or_else(|| "0.0".to_string()),
-        radius = info.get("radius").unwrap_or(&"0.0".to_string()),
-        height = info.get("height").unwrap_or(&"0.0".to_string()),
-        mass = info.get("mass").unwrap_or(&"0".to_string()),
-        damage = info.get("damage").unwrap_or(&"0".to_string()),
-        activesound = info
-            .get("activesound")
-            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
-            .unwrap_or("SfxEnum::None"),
-        flags = info.get("flags").unwrap_or(&"0".to_string()),
-        raisestate = info
-            .get("raisestate")
-            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
-            .unwrap_or("StateNum::S_NULL"),
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{info_to_string, parse_info, read_file};
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_info() {
-        let data = read_file(PathBuf::from("multigen.txt.orig"));
-        let (order, info) = parse_info(&data);
-
-        let plasma = info.get("MT_PLASMA").unwrap();
-        assert_eq!(plasma.get("spawnstate").unwrap(), "StateNum::S_PLASBALL");
-        assert_eq!(plasma.get("deathstate").unwrap(), "StateNum::S_PLASEXP");
-
-        let lines = info_to_string("MT_PLASMA", &plasma);
-        dbg!(&lines);
-    }
-}
+const PLAYER_FUNCS: [&str; 22] = [
+    "a_bfgsound",
+    "a_checkreload",
+    "a_closeshotgun2",
+    "a_firebfg",
+    "a_firecgun",
+    "a_firemissile",
+    "a_firepistol",
+    "a_fireplasma",
+    "a_fireshotgun",
+    "a_fireshotgun2",
+    "a_gunflash",
+    "a_light0",
+    "a_light1",
+    "a_light2",
+    "a_loadshotgun2",
+    "a_lower",
+    "a_openshotgun2",
+    "a_punch",
+    "a_raise",
+    "a_refire",
+    "a_saw",
+    "a_weaponready",
+];

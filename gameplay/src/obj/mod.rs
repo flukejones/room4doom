@@ -44,26 +44,26 @@ pub(crate) enum MapObjFlag {
     /// Can be hit.
     Shootable = 4,
     /// Don't use the sector links (invisible but touchable).
-    NoSector = 8,
+    Nosector = 8,
     /// Don't use the block links (inert but displayable)
-    NoBlockMap = 16,
+    Noblockmap = 16,
     /// Not to be activated by sound, deaf monster.
     Ambush = 32,
     /// Will try to attack right back.
-    JustHit = 64,
+    Justhit = 64,
     /// Will take at least one step before attacking.
-    JustAttacked = 128,
+    Justattacked = 128,
     /// On level spawning (initial position), hang from ceiling instead of stand on floor.
-    SpawnCeiling = 256,
+    Spawnceiling = 256,
     /// Don't apply gravity (every tic), that is, object will float, keeping current height
     ///  or changing it actively.
-    NoGravity = 512,
+    Nogravity = 512,
     /// This allows jumps from high places.
-    DropOff = 0x400,
+    Dropoff = 0x400,
     /// For players, will pick up items.
     Pickup = 0x800,
     /// Player cheat. ???
-    NoClip = 0x1000,
+    Noclip = 0x1000,
     /// Player: keep info about sliding along walls.
     Slide = 0x2000,
     /// Allow moves to any height, no gravity. For active floaters, e.g. cacodemons, pain elementals.
@@ -77,19 +77,19 @@ pub(crate) enum MapObjFlag {
     /// Use fuzzy draw (shadow demons or spectres),  temporary player invisibility powerup.
     Shadow = 0x40000,
     /// Flag: don't bleed when shot (use puff),  barrels and shootable furniture shall not bleed.
-    NoBlood = 0x80000,
+    Noblood = 0x80000,
     /// Don't stop moving halfway off a step, that is, have dead bodies slide down all the way.
     Corpse = 0x100000,
     /// Floating to a height for a move, ??? don't auto float to target's height.
-    InFloat = 0x200000,
+    Infloat = 0x200000,
     /// On kill, count this enemy object towards intermission kill total. Happy gathering.
-    CountKill = 0x400000,
+    Countkill = 0x400000,
     /// On picking up, count this item object towards intermission item total.
-    CountItem = 0x800000,
+    Countitem = 0x800000,
     /// Special handling: skull in flight. Neither a cacodemon nor a missile.
-    SkullFly = 0x1000000,
+    Skullfly = 0x1000000,
     /// Don't spawn this object in death match mode (e.g. key cards).
-    NotDeathmatch = 0x2000000,
+    Notdmatch = 0x2000000,
     /// Player sprites in multiplayer modes are modified using an internal color lookup table
     /// for re-indexing. If 0x4 0x8 or 0xc, use a translation table for player colormaps
     Translation = 0xc000000,
@@ -444,7 +444,7 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjFlag::NotDeathmatch as u32 != 0 {
+        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjFlag::Notdmatch as u32 != 0 {
             return;
         }
 
@@ -456,7 +456,7 @@ impl MapObject {
 
         let x = mthing.x as f32;
         let y = mthing.y as f32;
-        let z = if MOBJINFO[i as usize].flags & MapObjFlag::SpawnCeiling as u32 != 0 {
+        let z = if MOBJINFO[i as usize].flags & MapObjFlag::Spawnceiling as u32 != 0 {
             ONCEILINGZ
         } else {
             ONFLOORZ
@@ -467,10 +467,10 @@ impl MapObject {
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
-        if mobj.flags & MapObjFlag::CountKill as u32 != 0 {
+        if mobj.flags & MapObjFlag::Countkill as u32 != 0 {
             level.totalkills += 1;
         }
-        if mobj.flags & MapObjFlag::CountItem as u32 != 0 {
+        if mobj.flags & MapObjFlag::Countitem as u32 != 0 {
             level.totalitems += 1;
         }
 
@@ -709,7 +709,7 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn unset_thing_position(&mut self) {
-        if self.flags & MapObjFlag::NoSector as u32 == 0 {
+        if self.flags & MapObjFlag::Nosector as u32 == 0 {
             (*self.subsector)
                 .sector
                 .remove_from_thinglist(self.thinker_mut());
@@ -725,7 +725,7 @@ impl MapObject {
         let subsector = level.map_data.point_in_subsector_raw(self.xy);
         self.subsector = subsector;
 
-        if self.flags & MapObjFlag::NoSector as u32 == 0 {
+        if self.flags & MapObjFlag::Nosector as u32 == 0 {
             (*self.subsector).sector.add_to_thinglist(self.thinker)
         }
     }
@@ -850,7 +850,7 @@ impl Think for MapObject {
             std::panic!("MapObject thinker was null");
         }
 
-        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjFlag::SkullFly as u32 != 0 {
+        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjFlag::Skullfly as u32 != 0 {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {
@@ -873,7 +873,7 @@ impl Think for MapObject {
             } // freed itself
         } else {
             // check for nightmare respawn
-            if this.flags & MapObjFlag::CountKill as u32 == 0 {
+            if this.flags & MapObjFlag::Countkill as u32 == 0 {
                 return false;
             }
             if !level.respawn_monsters {

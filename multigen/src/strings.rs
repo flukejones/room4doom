@@ -32,11 +32,49 @@ pub struct MapObjInfo {
     pub activesound: SfxEnum,
     pub flags: u32,
     pub raisestate: StateNum,
-}"#;
+}
+"#;
 
 pub const MOBJ_INFO_ARRAY_STR: &str = r#"
 const NUM_CATEGORIES: usize = MapObjKind::NUMMOBJTYPES as usize;
 pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = ["#;
 
-pub const MOBJ_INFO_ARRAY_END_STR: &str = r#"
+pub const SPRITE_NAME_ARRAY_STR: &str = r#"
+const NUMSPRITES: usize = SpriteNum::NUMSPRITES as usize;
+pub const SPRNAMES: [&str; NUMSPRITES] = ["#;
+
+pub const ARRAY_END_STR: &str = r#"
 ];"#;
+
+pub const SPRITE_ENUM_HEADER: &str = r#"
+#[repr(u16)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types, dead_code)]
+pub enum SpriteNum {"#;
+
+pub const SPRITE_ENUM_END: &str = r#"
+    NUMSPRITES,
+}
+impl Default for SpriteNum {
+    fn default() -> Self {
+        SpriteNum::SPR_TROO
+    }
+}"#;
+
+pub const STATE_ENUM_HEADER: &str = r#"
+#[repr(u16)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types, dead_code)]
+pub enum StateNum {"#;
+
+pub const STATE_ENUM_END: &str = r#"
+    NUMSTATES,
+}
+impl From<u16> for StateNum {
+    fn from(w: u16) -> Self {
+        if w >= StateNum::NUMSTATES as u16 {
+            panic!("{} is not a variant of StateNum", w);
+        }
+        unsafe { std::mem::transmute(w) }
+    }
+}"#;

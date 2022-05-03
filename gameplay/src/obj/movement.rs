@@ -69,8 +69,8 @@ impl MapObject {
                 let target = unsafe { (*target).mobj() };
 
                 // float down towards target if too close
-                if self.flags & MapObjFlag::SkullFly as u32 == 0
-                    && self.flags & MapObjFlag::InFloat as u32 == 0
+                if self.flags & MapObjFlag::Skullfly as u32 == 0
+                    && self.flags & MapObjFlag::Infloat as u32 == 0
                 {
                     let dist = self.xy.distance(target.xy);
                     let delta = target.z + self.height / 2.0 - self.z;
@@ -89,7 +89,7 @@ impl MapObject {
         if self.z <= self.floorz {
             // hit the floor
             // TODO: The lost soul correction for old demos
-            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
+            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
@@ -112,12 +112,12 @@ impl MapObject {
             self.z = self.floorz;
 
             if self.flags & MapObjFlag::Missile as u32 != 0
-                && self.flags & MapObjFlag::NoClip as u32 == 0
+                && self.flags & MapObjFlag::Noclip as u32 == 0
             {
                 self.p_explode_missile();
                 return;
             }
-        } else if self.flags & MapObjFlag::NoGravity as u32 == 0 {
+        } else if self.flags & MapObjFlag::Nogravity as u32 == 0 {
             if self.momz == 0.0 {
                 self.momz = -1.0 * 2.0;
             } else {
@@ -132,13 +132,13 @@ impl MapObject {
                 self.z = self.ceilingz - self.height;
             }
 
-            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
+            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
 
             if self.flags & MapObjFlag::Missile as u32 != 0
-                && self.flags & MapObjFlag::NoClip as u32 == 0
+                && self.flags & MapObjFlag::Noclip as u32 == 0
             {
                 self.p_explode_missile();
             }
@@ -148,8 +148,8 @@ impl MapObject {
     /// Doom function name `P_XYMovement`
     pub(crate) fn p_xy_movement(&mut self) {
         if self.momxy.x == 0.0 && self.momxy.y == 0.0 {
-            if self.flags & MapObjFlag::SkullFly as u32 != 0 {
-                self.flags &= !(MapObjFlag::SkullFly as u32);
+            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
+                self.flags &= !(MapObjFlag::Skullfly as u32);
                 self.momz = 0.0;
                 self.set_state(self.info.spawnstate);
             }
@@ -214,7 +214,7 @@ impl MapObject {
         }
 
         // slow down
-        if self.flags & (MapObjFlag::Missile as u32 | MapObjFlag::SkullFly as u32) != 0 {
+        if self.flags & (MapObjFlag::Missile as u32 | MapObjFlag::Skullfly as u32) != 0 {
             return; // no friction for missiles ever
         }
 
@@ -274,7 +274,7 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjFlag::NoClip as u32 == 0 {
+        if self.flags & MapObjFlag::Noclip as u32 == 0 {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
             }
@@ -290,7 +290,7 @@ impl MapObject {
                 return false; // too big a step up
             }
 
-            if self.flags & (MapObjFlag::DropOff as u32 | MapObjFlag::Float as u32) == 0
+            if self.flags & (MapObjFlag::Dropoff as u32 | MapObjFlag::Float as u32) == 0
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -313,7 +313,7 @@ impl MapObject {
             self.set_thing_position();
         }
 
-        if self.flags & (MapObjFlag::Teleport as u32 | MapObjFlag::NoClip as u32) == 0 {
+        if self.flags & (MapObjFlag::Teleport as u32 | MapObjFlag::Noclip as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(self.xy);
@@ -377,7 +377,7 @@ impl MapObject {
             ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
         }
 
-        if self.flags & MapObjFlag::NoClip as u32 != 0 {
+        if self.flags & MapObjFlag::Noclip as u32 != 0 {
             return true;
         }
 
@@ -466,14 +466,14 @@ impl MapObject {
             return true;
         }
 
-        if self.flags & MapObjFlag::SkullFly as u32 != 0 {
+        if self.flags & MapObjFlag::Skullfly as u32 != 0 {
             let damage = ((p_random() % 8) + 1) * self.info.damage;
             thing.p_take_damage(Some(self), None, true, damage);
 
             self.momxy = Vec2::default();
             self.momz = 0.0;
 
-            self.flags &= !(MapObjFlag::SkullFly as u32);
+            self.flags &= !(MapObjFlag::Skullfly as u32);
             self.set_state(self.info.spawnstate);
             return false;
         }
@@ -847,7 +847,7 @@ impl MapObject {
                 // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
-                    self.start_sound(sound_traits::SfxEnum::noway);
+                    self.start_sound(sound_traits::SfxEnum::Noway);
                     // can't use through a wall
                     debug!("*UNNGFF!* Can't reach from this side");
                     return false;
@@ -1000,7 +1000,7 @@ impl MapObject {
                 } else {
                     self.z -= FLOATSPEED;
                 }
-                self.flags |= MapObjFlag::InFloat as u32;
+                self.flags |= MapObjFlag::Infloat as u32;
                 return true;
             }
 
@@ -1017,7 +1017,7 @@ impl MapObject {
             }
             return good;
         } else {
-            self.flags &= !(MapObjFlag::InFloat as u32);
+            self.flags &= !(MapObjFlag::Infloat as u32);
         }
 
         if self.flags & MapObjFlag::Float as u32 == 0 {

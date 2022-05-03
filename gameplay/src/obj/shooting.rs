@@ -344,8 +344,8 @@ impl MapObject {
             }
 
             // Was just attacked, fight back!
-            if self.flags & MapObjFlag::JustHit as u32 != 0 {
-                self.flags &= !(MapObjFlag::JustHit as u32);
+            if self.flags & MapObjFlag::Justhit as u32 != 0 {
+                self.flags &= !(MapObjFlag::Justhit as u32);
                 return true;
             }
 
@@ -654,7 +654,7 @@ impl ShootTraverse {
             let y = self.trace_xy.y + self.trace_dxy.y * frac;
             let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
-            if thing.flags & MapObjFlag::NoBlood as u32 != 0 {
+            if thing.flags & MapObjFlag::Noblood as u32 != 0 {
                 MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
                     &mut *thing.level
                 })

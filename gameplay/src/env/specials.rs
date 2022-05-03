@@ -892,7 +892,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
                         }
                     }
                 }
-                start_sector_sound(&b.line, SfxEnum::swtchn, &level.snd_command);
+                start_sector_sound(&b.line, SfxEnum::Swtchn, &level.snd_command);
             }
         }
     }

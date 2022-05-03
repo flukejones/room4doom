@@ -250,7 +250,7 @@ impl Think for FloorMove {
 
         if level.level_time & 7 == 0 {
             // TODO: if (!(leveltime & 7))
-            start_sector_sound(line, SfxEnum::stnmov, &level.snd_command);
+            start_sector_sound(line, SfxEnum::Stnmov, &level.snd_command);
         }
 
         if matches!(res, PlaneResult::PastDest) {

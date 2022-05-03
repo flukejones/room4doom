@@ -78,10 +78,10 @@ pub fn change_switch_texture(
     button_list: &mut Vec<Button>,
     snd: &SndServerTx,
 ) {
-    let mut sfx = SfxEnum::swtchx;
+    let mut sfx = SfxEnum::Swtchx;
     if !use_again {
         line.special = 0;
-        sfx = SfxEnum::swtchn;
+        sfx = SfxEnum::Swtchn;
     }
 
     for i in 0..switch_list.len() {
@@ -465,7 +465,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_BLUEO);
-                    player.start_sound(SfxEnum::oof);
+                    player.start_sound(SfxEnum::Oof);
                 }
             }
         }
@@ -477,7 +477,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_REDO);
-			        player.start_sound(SfxEnum::oof);
+			        player.start_sound(SfxEnum::Oof);
                 }
             }
         }
@@ -489,7 +489,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_YELLOWO);
-			        player.start_sound(SfxEnum::oof);
+			        player.start_sound(SfxEnum::Oof);
                 }
             }
         }

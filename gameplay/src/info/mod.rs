@@ -33,8 +33,8 @@ impl fmt::Debug for ActionF {
     }
 }
 
-#[allow(non_camel_case_types, dead_code)]
-pub const SPRNAMES: [&str; 138] = [
+const NUMSPRITES: usize = SpriteNum::NUMSPRITES as usize;
+pub const SPRNAMES: [&str; NUMSPRITES] = [
     "TROO", "SHTG", "PUNG", "PISG", "PISF", "SHTF", "SHT2", "CHGG", "CHGF", "MISG", "MISF", "SAWG",
     "PLSG", "PLSF", "BFGG", "BFGF", "BLUD", "PUFF", "BAL1", "BAL2", "PLSS", "PLSE", "MISL", "BFS1",
     "BFE1", "BFE2", "TFOG", "IFOG", "PLAY", "POSS", "SPOS", "VILE", "FIRE", "FATB", "FBXP", "SKEL",
@@ -194,7 +194,6 @@ pub enum SpriteNum {
     SPR_TLP2,
     NUMSPRITES,
 }
-
 impl Default for SpriteNum {
     fn default() -> Self {
         SpriteNum::SPR_TROO
@@ -1173,7 +1172,6 @@ pub enum StateNum {
     S_TECH2LAMP4,
     NUMSTATES,
 }
-
 impl From<u16> for StateNum {
     fn from(w: u16) -> Self {
         if w >= StateNum::NUMSTATES as u16 {
@@ -1333,88 +1331,5 @@ impl From<u16> for MapObjKind {
             panic!("{} is not a variant of SfxEnum", i);
         }
         unsafe { std::mem::transmute(i) }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct MapObjInfo {
-    pub doomednum: i32,
-    pub spawnstate: StateNum,
-    pub spawnhealth: i32,
-    pub seestate: StateNum,
-    pub seesound: SfxEnum,
-    pub reactiontime: i32,
-    pub attacksound: SfxEnum,
-    pub painstate: StateNum,
-    pub painchance: i32,
-    pub painsound: SfxEnum,
-    pub meleestate: StateNum,
-    pub missilestate: StateNum,
-    pub deathstate: StateNum,
-    pub xdeathstate: StateNum,
-    pub deathsound: SfxEnum,
-    pub speed: f32,
-    pub radius: f32,
-    pub height: f32,
-    pub mass: i32,
-    pub damage: i32,
-    pub activesound: SfxEnum,
-    pub flags: u32,
-    pub raisestate: StateNum,
-}
-
-/// Used in info generation
-#[allow(clippy::too_many_arguments)]
-impl MapObjInfo {
-    pub const fn new(
-        doomednum: i32,
-        spawnstate: StateNum,
-        spawnhealth: i32,
-        seestate: StateNum,
-        seesound: SfxEnum,
-        reactiontime: i32,
-        attacksound: SfxEnum,
-        painstate: StateNum,
-        painchance: i32,
-        painsound: SfxEnum,
-        meleestate: StateNum,
-        missilestate: StateNum,
-        deathstate: StateNum,
-        xdeathstate: StateNum,
-        deathsound: SfxEnum,
-        speed: f32,
-        radius: f32,
-        height: f32,
-        mass: i32,
-        damage: i32,
-        activesound: SfxEnum,
-        flags: u32,
-        raisestate: StateNum,
-    ) -> Self {
-        Self {
-            doomednum,
-            spawnstate,
-            spawnhealth,
-            seestate,
-            seesound,
-            reactiontime,
-            attacksound,
-            painstate,
-            painchance,
-            painsound,
-            meleestate,
-            missilestate,
-            deathstate,
-            xdeathstate,
-            deathsound,
-            speed,
-            radius,
-            height,
-            mass,
-            damage,
-            activesound,
-            flags,
-            raisestate,
-        }
     }
 }
