@@ -236,50 +236,77 @@ raisestate: {raisestate},
         doomednum = info.get("doomednum").unwrap_or(&"-1".to_string()),
         spawnstate = info
             .get("spawnstate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         spawnhealth = info.get("spawnhealth").unwrap_or(&"0".to_string()),
         seestate = info
             .get("seestate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
-        seesound = info.get("seesound").unwrap_or(&"SfxEnum::None".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
+        seesound = info
+            .get("seesound")
+            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
+            .unwrap_or("SfxEnum::None"),
         reactiontime = info.get("reactiontime").unwrap_or(&"0".to_string()),
         attacksound = info
             .get("attacksound")
-            .unwrap_or(&"SfxEnum::None".to_string()),
+            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
+            .unwrap_or("SfxEnum::None"),
         painstate = info
             .get("painstate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         painchance = info.get("painchance").unwrap_or(&"0".to_string()),
         painsound = info
             .get("painsound")
-            .unwrap_or(&"SfxEnum::None".to_string()),
+            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
+            .unwrap_or("SfxEnum::None"),
         meleestate = info
             .get("meleestate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         missilestate = info
             .get("missilestate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         deathstate = info
             .get("deathstate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         xdeathstate = info
             .get("xdeathstate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
         deathsound = info
             .get("deathsound")
-            .unwrap_or(&"SfxEnum::None".to_string()),
-        speed = info.get("speed").unwrap_or(&"0.0".to_string()),
+            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
+            .unwrap_or("SfxEnum::None"),
+        speed = info
+            .get("speed")
+            .map(|n| if !n.contains(".0") {
+                format!("{n}.0")
+            } else {
+                n.to_string()
+            })
+            .map(|n| if n == "0" {
+                "0.0".to_string()
+            } else {
+                n.to_string()
+            })
+            .unwrap_or_else(|| "0.0".to_string()),
         radius = info.get("radius").unwrap_or(&"0.0".to_string()),
         height = info.get("height").unwrap_or(&"0.0".to_string()),
         mass = info.get("mass").unwrap_or(&"0".to_string()),
         damage = info.get("damage").unwrap_or(&"0".to_string()),
         activesound = info
             .get("activesound")
-            .unwrap_or(&"SfxEnum::None".to_string()),
+            .map(|n| if n == "0" { "SfxEnum::None" } else { n })
+            .unwrap_or("SfxEnum::None"),
         flags = info.get("flags").unwrap_or(&"0".to_string()),
         raisestate = info
             .get("raisestate")
-            .unwrap_or(&"StateNum::S_NULL".to_string()),
+            .map(|n| if n == "0" { "StateNum::S_NULL" } else { n })
+            .unwrap_or("StateNum::S_NULL"),
     )
 }
 
