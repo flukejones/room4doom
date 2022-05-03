@@ -1,26 +1,20 @@
-use crate::strings::*;
-use crate::{InfoGroupType, InfoType};
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::PathBuf;
+use crate::InfoType;
 
-pub fn write_info_file(ordering: &[String], info: InfoGroupType, path: PathBuf) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path.clone())
-        .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
-
-    file.write_all(MOBJ_INFO_HEADER_STR.as_bytes()).unwrap();
-    file.write_all(MOBJ_INFO_TYPE_STR.as_bytes()).unwrap();
-    file.write_all(MOBJ_INFO_ARRAY_STR.as_bytes()).unwrap();
-    for key in ordering.iter() {
-        let value = info.get(key).unwrap();
-        let info = info_to_string(key, value);
-        file.write_all(info.as_bytes()).unwrap();
-    }
-    file.write_all(ARRAY_END_STR.as_bytes()).unwrap();
+pub fn state_to_string(name: &str, info: &InfoType) -> String {
+    format!(
+        r#"
+    State::new(
+        SpriteNum::{sprite}, {frame}, {tics}, {action}, {next_state}, {misc1}, {misc2}), // {name}"#,
+        sprite = info.get("sprite").expect("State requires sprite name"),
+        frame = info.get("frame").expect("State requires frame"),
+        tics = info.get("tics").expect("State requires tics"),
+        action = info.get("action").expect("State requires action"),
+        next_state = info
+            .get("next_state")
+            .expect("State requires next_state name"),
+        misc1 = info.get("misc1").unwrap_or(&"-1".to_string()),
+        misc2 = info.get("misc2").unwrap_or(&"-1".to_string()),
+    )
 }
 
 pub fn info_to_string(name: &str, info: &InfoType) -> String {
@@ -131,41 +125,85 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse_info::info_to_string;
-    use crate::{parse_data, read_file};
+    use crate::{parse_data, parse_info::info_to_string, read_file};
     use std::path::PathBuf;
 
     #[test]
     fn test_info() {
         let data = read_file(PathBuf::from("multigen.txt.orig"));
-        let (order, info) = parse_data(&data);
+        let data = parse_data(&data);
 
-        let plasma = info.get("MT_PLASMA").unwrap();
+        let plasma = data.mobj_info.get("MT_PLASMA").unwrap();
         assert_eq!(plasma.get("spawnstate").unwrap(), "StateNum::S_PLASBALL");
         assert_eq!(plasma.get("deathstate").unwrap(), "StateNum::S_PLASEXP");
 
-        let lines = info_to_string("MT_PLASMA", &plasma);
-
-        let mobj = info.get("MT_MISC0").unwrap();
+        let mobj = data.mobj_info.get("MT_MISC0").unwrap();
         assert_eq!(mobj.get("doomednum").unwrap(), "2018");
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_ARM1");
 
-        let mobj = info.get("MT_MISC12").unwrap();
+        let mobj = data.mobj_info.get("MT_MISC12").unwrap();
         assert_eq!(mobj.get("doomednum").unwrap(), "2013");
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_SOUL");
 
-        let mobj = info.get("MT_INV").unwrap();
+        let mobj = data.mobj_info.get("MT_INV").unwrap();
         assert_eq!(mobj.get("doomednum").unwrap(), "2022");
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_PINV");
 
-        let mobj = info.get("MT_MISC17").unwrap();
+        let mobj = data.mobj_info.get("MT_MISC17").unwrap();
         assert_eq!(mobj.get("doomednum").unwrap(), "2048");
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_AMMO");
 
-        let mobj = info.get("MT_MISC26").unwrap();
+        let mobj = data.mobj_info.get("MT_MISC26").unwrap();
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_CSAW");
 
-        let mobj = info.get("MT_MISC54").unwrap();
+        let mobj = data.mobj_info.get("MT_MISC54").unwrap();
         assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_MEAT4");
+
+        let mobj = data.mobj_info.get("MT_BABY").unwrap();
+        assert_eq!(mobj.get("spawnstate").unwrap(), "StateNum::S_BSPI_STND");
+        assert_eq!(mobj.get("seestate").unwrap(), "StateNum::S_BSPI_SIGHT");
+        assert_eq!(mobj.get("painstate").unwrap(), "StateNum::S_BSPI_PAIN");
+        assert_eq!(mobj.get("painchance").unwrap(), "128");
+        assert_eq!(mobj.get("radius").unwrap(), "64.0");
+        assert_eq!(mobj.get("height").unwrap(), "64.0");
+        assert_eq!(mobj.get("mass").unwrap(), "600");
+        assert_eq!(mobj.get("raisestate").unwrap(), "StateNum::S_BSPI_RAISE1");
+    }
+
+    #[test]
+    fn test_states() {
+        let data = read_file(PathBuf::from("multigen.txt.orig"));
+        let data = parse_data(&data);
+
+        let state = data.states.get("S_BOSS_PAIN").unwrap();
+        assert_eq!(state.get("frame").unwrap(), "7");
+        assert_eq!(state.get("sprite").unwrap(), "SPR_BOSS");
+        assert_eq!(state.get("next_state").unwrap(), "StateNum::S_BOSS_PAIN2");
+
+        let state = data.states.get("S_BOSS_STND").unwrap();
+        assert_eq!(state.get("sprite").unwrap(), "SPR_BOSS");
+        assert_eq!(state.get("frame").unwrap(), "0");
+        assert_eq!(state.get("next_state").unwrap(), "StateNum::S_BOSS_STND2");
+
+        let state = data.states.get("S_BOSS_STND2").unwrap();
+        assert_eq!(state.get("sprite").unwrap(), "SPR_BOSS");
+        assert_eq!(state.get("frame").unwrap(), "1");
+        assert_eq!(state.get("next_state").unwrap(), "StateNum::S_BOSS_STND");
+
+        let state = data.states.get("S_TROO_RUN4").unwrap();
+        assert_eq!(state.get("sprite").unwrap(), "SPR_TROO");
+        assert_eq!(state.get("frame").unwrap(), "1");
+        assert_eq!(state.get("tics").unwrap(), "3");
+        assert_eq!(state.get("action").unwrap(), "ActionF::Actor(a_chase)");
+        assert_eq!(state.get("next_state").unwrap(), "StateNum::S_TROO_RUN5");
+
+        let state = data.states.get("S_BRBALL1").unwrap();
+        assert_eq!(state.get("sprite").unwrap(), "SPR_BAL7");
+        assert_eq!(state.get("frame").unwrap(), "32768");
+        assert_eq!(state.get("next_state").unwrap(), "StateNum::S_BRBALL2");
+
+        let state = data.states.get("S_BRBALL2").unwrap();
+        assert_eq!(state.get("sprite").unwrap(), "SPR_BAL7");
+        assert_eq!(state.get("frame").unwrap(), "32769");
     }
 }
