@@ -1,13 +1,18 @@
 pub mod parse_info;
 pub mod strings;
 
-use crate::parse_info::write_info_file;
+use crate::{
+    parse_info::{info_to_string, state_to_string},
+    strings::*,
+};
 use gumdrop::Options;
-use std::collections::HashMap;
-use std::error::Error;
-use std::fs::OpenOptions;
-use std::io::Read;
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    error::Error,
+    fs::OpenOptions,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 // pub struct State {
 //     /// Sprite to use
@@ -62,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // SfxEnum are pre-determined?
 
     let data = parse_data(&data);
-    write_info_file(&data.mobj_order, data.mobj_info, options.out);
+    write_info_file(data, options.out);
     Ok(())
 }
 
@@ -83,9 +88,92 @@ pub fn read_file(path: PathBuf) -> String {
     buf
 }
 
+pub fn write_info_file(data: Data, path: PathBuf) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path.clone())
+        .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
+
+    file.write_all("#[rustfmt::skip]\n".as_bytes()).unwrap();
+    // SPRITE NAMES
+    file.write_all(SPRITE_NAME_ARRAY_STR.as_bytes()).unwrap();
+    for names in data.sprite_names.chunks(8) {
+        let s: String = names
+            .iter()
+            .map(|s| format!("\"{s}\", "))
+            .collect::<Vec<String>>()
+            .concat();
+        file.write_all(s.as_bytes()).unwrap();
+        file.write_all(&[b'\n']).unwrap();
+    }
+    file.write_all(ARRAY_END_STR.as_bytes()).unwrap();
+
+    // SPRITE ENUM
+    file.write_all(SPRITE_ENUM_HEADER.as_bytes()).unwrap();
+    for names in data.sprite_enum.chunks(8) {
+        let s: String = names
+            .iter()
+            .map(|s| format!("{s}, "))
+            .collect::<Vec<String>>()
+            .concat();
+        file.write_all(s.as_bytes()).unwrap();
+        file.write_all(&[b'\n']).unwrap();
+    }
+    file.write_all(SPRITE_ENUM_END.as_bytes()).unwrap();
+
+    // STATE ENUM
+    file.write_all(STATE_ENUM_HEADER.as_bytes()).unwrap();
+    for names in data.state_order.chunks(8) {
+        let s: String = names
+            .iter()
+            .map(|s| format!("{s}, "))
+            .collect::<Vec<String>>()
+            .concat();
+        file.write_all(s.as_bytes()).unwrap();
+        file.write_all(&[b'\n']).unwrap();
+    }
+    file.write_all(STATE_ENUM_END.as_bytes()).unwrap();
+
+    // MOBJ KIND ENUM
+    file.write_all(MKIND_ENUM_HEADER.as_bytes()).unwrap();
+    for names in data.mobj_order.chunks(8) {
+        let s: String = names
+            .iter()
+            .map(|s| format!("{s}, "))
+            .collect::<Vec<String>>()
+            .concat();
+        file.write_all(s.as_bytes()).unwrap();
+        file.write_all(&[b'\n']).unwrap();
+    }
+    file.write_all(MKIND_ENUM_END.as_bytes()).unwrap();
+
+    // STATES
+    file.write_all(STATE_ARRAY_STR.as_bytes()).unwrap();
+    for key in data.state_order.iter() {
+        let value = data.states.get(key).unwrap();
+        let info = state_to_string(key, value);
+        file.write_all(info.as_bytes()).unwrap();
+    }
+    file.write_all(ARRAY_END_STR.as_bytes()).unwrap();
+
+    // MOBJ INFO
+    file.write_all(MOBJ_INFO_HEADER_STR.as_bytes()).unwrap();
+    file.write_all(MOBJ_INFO_TYPE_STR.as_bytes()).unwrap();
+    file.write_all(MOBJ_INFO_ARRAY_STR.as_bytes()).unwrap();
+    for key in data.mobj_order.iter() {
+        let value = data.mobj_info.get(key).unwrap();
+        let info = info_to_string(key, value);
+        file.write_all(info.as_bytes()).unwrap();
+    }
+    file.write_all(ARRAY_END_STR.as_bytes()).unwrap();
+}
+
 pub struct Data {
     sprite_names: Vec<String>, // plain for sprnames
     sprite_enum: Vec<String>,
+    state_order: Vec<String>,
     states: InfoGroupType, // also convert to enum using key
     mobj_order: Vec<String>,
     mobj_info: InfoGroupType,
@@ -98,6 +186,7 @@ pub fn parse_data(input: &str) -> Data {
 
     let mut sprite_names = Vec::new();
     let mut sprite_enum = Vec::new();
+    let mut state_order = Vec::new();
     let mut mobj_order = Vec::new();
     let mut info_misc_count = 0;
     let mut line_state = LineState::None;
@@ -106,21 +195,40 @@ pub fn parse_data(input: &str) -> Data {
         if line.starts_with("S_") {
             let split: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
             if split.len() > 1 {
-                states.insert(validate_field(&split[0]), HashMap::new());
+                states.insert(split[0].to_string(), HashMap::new());
+                state_order.push(split[0].to_string());
                 // Sprite enum
                 if !sprite_names.contains(&split[1]) {
                     sprite_names.push(split[1].to_uppercase().to_string());
                 }
-                let en = format!("SpriteNum::SPR_{},", split[1].to_uppercase());
+                let en = format!("SPR_{}", split[1].to_uppercase());
                 if !sprite_enum.contains(&en) {
                     sprite_enum.push(en.clone());
                 }
                 // State data
                 if let Some(map) = states.get_mut(&split[0]) {
                     map.insert("sprite".to_string(), en);
-                    map.insert("frame".to_string(), split[2].to_string());
-                    map.insert("tics".to_string(), split[3].to_string());
-                    map.insert("action".to_string(), validate_field(&split[4]));
+
+                    let mut f = (split[2].to_uppercase().as_bytes()[0] - b'A') as u16;
+                    if split[2].contains('*') {
+                        f |= 0x8000;
+                    }
+                    map.insert("frame".to_string(), format!("{f}"));
+
+                    map.insert(
+                        "tics".to_string(),
+                        split[3].trim_end_matches('*').to_string(),
+                    );
+
+                    map.insert(
+                        "action".to_string(),
+                        if split[4].to_lowercase().contains("null") {
+                            "ActionF::None".to_string()
+                        } else {
+                            validate_field(&split[4])
+                        },
+                    );
+
                     map.insert("next_state".to_string(), validate_field(&split[5]));
                 }
             }
@@ -184,6 +292,7 @@ pub fn parse_data(input: &str) -> Data {
     Data {
         sprite_names,
         sprite_enum,
+        state_order,
         states,
         mobj_order,
         mobj_info,
@@ -199,7 +308,7 @@ pub fn validate_field(input: &str) -> String {
     } else if input.starts_with("S_") {
         // Stat number
         let mut tmp = "StateNum::".to_string();
-        tmp.push_str(input);
+        tmp.push_str(&input.to_uppercase());
         tmp
     } else if input.starts_with("sfx_") {
         // Sound
@@ -224,9 +333,9 @@ pub fn validate_field(input: &str) -> String {
         // Action function
         let lower = input.to_lowercase();
         return if PLAYER_FUNCS.contains(&lower.as_str()) {
-            format!("ActionF::Player({lower}),")
+            format!("ActionF::Player({lower})")
         } else {
-            format!("ActionF::Actor({lower}),")
+            format!("ActionF::Actor({lower})")
         };
     } else {
         input.to_string()
