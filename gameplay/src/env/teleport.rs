@@ -7,7 +7,7 @@ use crate::{
     Sector,
 };
 
-use crate::obj::MapObjFlag;
+use crate::thing::MapObjFlag;
 
 /// Doom function name `EV_Teleport`
 pub fn teleport(
@@ -62,7 +62,7 @@ pub fn teleport(
                     level,
                 );
                 unsafe {
-                    (*fog).start_sound(sound_traits::SfxEnum::Telept);
+                    (*fog).start_sound(sound_traits::SfxNum::Telept);
                 }
 
                 let an = endpoint.angle;
@@ -74,7 +74,7 @@ pub fn teleport(
                     level,
                 );
                 unsafe {
-                    (*fog).start_sound(sound_traits::SfxEnum::Telept);
+                    (*fog).start_sound(sound_traits::SfxNum::Telept);
                 }
 
                 if thing.player().is_some() {

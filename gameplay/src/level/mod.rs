@@ -12,7 +12,7 @@ use std::{cell::RefCell, ptr, rc::Rc};
 
 use log::info;
 use sound_sdl2::SndServerTx;
-use sound_traits::{SfxEnum, SoundAction};
+use sound_traits::{SfxNum, SoundAction};
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
@@ -36,9 +36,9 @@ pub struct Level {
     pub game_skill: Skill,
     pub respawn_monsters: bool,
     pub level_time: u32,
-    /// Required for the obj controller (Boss check)
+    /// Required for the thing controller (Boss check)
     pub episode: i32,
-    /// Required for the obj controller (Boss check)
+    /// Required for the thing controller (Boss check)
     pub game_map: i32,
     /// This needs to be synced with `Game`
     pub game_tic: u32,
@@ -231,7 +231,7 @@ impl Level {
         self.game_action = Some(GameAction::Victory);
     }
 
-    pub(super) fn start_sound(&self, sfx: SfxEnum, x: f32, y: f32, uid: usize) {
+    pub(super) fn start_sound(&self, sfx: SfxNum, x: f32, y: f32, uid: usize) {
         self.snd_command
             .send(SoundAction::StartSfx { uid, sfx, x, y })
             .unwrap();

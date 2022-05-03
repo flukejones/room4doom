@@ -2,9 +2,9 @@
 
 use log::{debug, warn};
 use sound_sdl2::SndServerTx;
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
-use crate::obj::MapObject;
+use crate::thing::MapObject;
 
 use crate::{
     doom_def::Card,
@@ -59,7 +59,7 @@ pub fn start_button(
 }
 
 /// Start a sound using the lines front sector sound origin
-pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxEnum, snd: &SndServerTx) {
+pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxNum, snd: &SndServerTx) {
     let sfx_origin = line.front_sidedef.sector.sound_origin;
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
@@ -78,10 +78,10 @@ pub fn change_switch_texture(
     button_list: &mut Vec<Button>,
     snd: &SndServerTx,
 ) {
-    let mut sfx = SfxEnum::Swtchx;
+    let mut sfx = SfxNum::Swtchx;
     if !use_again {
         line.special = 0;
-        sfx = SfxEnum::Swtchn;
+        sfx = SfxNum::Swtchn;
     }
 
     for i in 0..switch_list.len() {
@@ -465,7 +465,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_BLUEO);
-                    player.start_sound(SfxEnum::Oof);
+                    player.start_sound(SfxNum::Oof);
                 }
             }
         }
@@ -477,7 +477,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_REDO);
-			        player.start_sound(SfxEnum::Oof);
+			        player.start_sound(SfxNum::Oof);
                 }
             }
         }
@@ -489,7 +489,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_YELLOWO);
-			        player.start_sound(SfxEnum::Oof);
+			        player.start_sound(SfxNum::Oof);
                 }
             }
         }

@@ -3,14 +3,14 @@
 //! Doom source name `p_ceiling`
 use std::ptr::null_mut;
 
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 use crate::{
     level::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    obj::MapObject,
+    thing::MapObject,
     thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
@@ -143,7 +143,7 @@ impl Think for CeilingMove {
         let line = ceiling.sector.lines[0].as_ref();
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilKind::SilentCrushAndRaise) {
-            start_sector_sound(line, SfxEnum::Stnmov, &level.snd_command);
+            start_sector_sound(line, SfxNum::Stnmov, &level.snd_command);
         }
 
         match ceiling.direction {
@@ -168,7 +168,7 @@ impl Think for CeilingMove {
                             ceiling.direction = -1;
                         }
                         CeilKind::SilentCrushAndRaise => {
-                            start_sector_sound(line, SfxEnum::Pstop, &level.snd_command);
+                            start_sector_sound(line, SfxNum::Pstop, &level.snd_command);
                             ceiling.direction = -1;
                         }
                         _ => {}
@@ -203,7 +203,7 @@ impl Think for CeilingMove {
                         CeilKind::SilentCrushAndRaise => {
                             ceiling.speed = CEILSPEED;
                             ceiling.direction = 1;
-                            start_sector_sound(line, SfxEnum::Pstop, &level.snd_command);
+                            start_sector_sound(line, SfxNum::Pstop, &level.snd_command);
                         }
                         _ => {}
                     }

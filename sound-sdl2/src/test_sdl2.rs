@@ -1,4 +1,4 @@
-use sound_traits::{SfxEnum, SoundAction, SoundServer, SoundServerTic};
+use sound_traits::{SfxNum, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 use crate::Snd;
@@ -19,7 +19,7 @@ fn play_weapons_snd() {
 
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Pistol,
+        sfx: SfxNum::Pistol,
         x: 0.3,
         y: 0.3,
     })
@@ -27,7 +27,7 @@ fn play_weapons_snd() {
     std::thread::sleep(std::time::Duration::from_millis(1000));
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Shotgn,
+        sfx: SfxNum::Shotgn,
         x: 0.3,
         y: 0.3,
     })
@@ -35,7 +35,7 @@ fn play_weapons_snd() {
     std::thread::sleep(std::time::Duration::from_millis(1000));
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Chgun,
+        sfx: SfxNum::Chgun,
         x: 0.3,
         y: 0.3,
     })
@@ -43,7 +43,7 @@ fn play_weapons_snd() {
     std::thread::sleep(std::time::Duration::from_millis(1000));
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Rlaunc,
+        sfx: SfxNum::Rlaunc,
         x: 0.3,
         y: 0.3,
     })
@@ -70,7 +70,7 @@ fn play_demons_snd() {
 
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Bgsit1,
+        sfx: SfxNum::Bgsit1,
         x: 0.3,
         y: 0.3,
     })
@@ -78,7 +78,7 @@ fn play_demons_snd() {
     std::thread::sleep(std::time::Duration::from_millis(500));
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Bgdth1,
+        sfx: SfxNum::Bgdth1,
         x: 0.3,
         y: 0.3,
     })
@@ -86,7 +86,7 @@ fn play_demons_snd() {
     std::thread::sleep(std::time::Duration::from_millis(300));
     tx.send(SoundAction::StartSfx {
         uid: 123,
-        sfx: SfxEnum::Posit2,
+        sfx: SfxNum::Posit2,
         x: 0.3,
         y: 0.3,
     })

@@ -13,11 +13,12 @@ use std::panic;
 mod angle;
 mod doom_def;
 pub(crate) mod env;
+#[rustfmt::skip]
 mod info;
 mod lang;
 mod level;
-pub mod obj;
 mod pic;
+pub mod thing;
 mod thinker;
 pub mod tic_cmd;
 // info, level data, game, bsp
@@ -38,11 +39,11 @@ pub use level::{
     Level,
 };
 pub use log;
-pub use obj::MapObject;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, WBStartStruct};
 pub use player_sprite::PspDef;
 use std::{error::Error, str::FromStr};
+pub use thing::MapObject;
 pub use utilities::{m_clear_random, p_random};
 
 #[derive(Debug)]

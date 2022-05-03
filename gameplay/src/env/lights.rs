@@ -7,7 +7,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    obj::MapObject,
+    thing::MapObject,
     thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };

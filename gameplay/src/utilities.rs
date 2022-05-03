@@ -1,6 +1,6 @@
 //! Many helper functions related to traversing the map, crossing or finding lines.
 
-use crate::obj::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
+use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
 use crate::{
     angle::Angle,

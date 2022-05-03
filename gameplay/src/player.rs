@@ -2,19 +2,19 @@ use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use log::{debug, error, info};
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 use crate::{
     angle::Angle,
     doom_def::{
-        AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH,
-        MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
+        ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO,
+        MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
     },
-    info::{ActionF, SpriteNum, StateNum, STATES},
+    info::{SpriteNum, StateNum, STATES},
     level::Level,
-    obj::{enemy::noise_alert, MapObjFlag, MapObject, BONUSADD},
     pic::INVERSECOLORMAP,
     player_sprite::{PspDef, WEAPONBOTTOM},
+    thing::{enemy::noise_alert, MapObjFlag, MapObject, BONUSADD},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2},
     GameMode, Skill,
@@ -237,13 +237,13 @@ impl Player {
 
             psprites: [
                 PspDef {
-                    state: Some(&STATES[StateNum::S_PISTOLUP as usize]),
+                    state: Some(&STATES[StateNum::PISTOLUP as usize]),
                     tics: 1,
                     sx: 0.0,
                     sy: WEAPONBOTTOM,
                 },
                 PspDef {
-                    state: Some(&STATES[StateNum::S_PISTOLFLASH as usize]),
+                    state: Some(&STATES[StateNum::PISTOLFLASH as usize]),
                     tics: 1,
                     sx: 0.0,
                     sy: WEAPONBOTTOM,
@@ -284,7 +284,7 @@ impl Player {
         &mut *self.mobj.unwrap_unchecked()
     }
 
-    pub fn start_sound(&self, sfx: SfxEnum) {
+    pub fn start_sound(&self, sfx: SfxNum) {
         if let Some(mobj) = self.mobj() {
             unsafe {
                 (*mobj.level).start_sound(
@@ -451,9 +451,9 @@ impl Player {
             }
 
             if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
-                && mobj.state.sprite as i32 == SpriteNum::SPR_PLAY as i32
+                && mobj.state.sprite as i32 == SpriteNum::PLAY as i32
             {
-                mobj.set_state(StateNum::S_PLAY_RUN1);
+                mobj.set_state(StateNum::PLAY_RUN1);
             }
         }
     }
@@ -480,7 +480,7 @@ impl Player {
 
     pub(crate) fn set_psprite(&mut self, position: usize, mut state_num: StateNum) {
         loop {
-            if state_num == StateNum::S_NULL {
+            if state_num == StateNum::None {
                 // object removed itself
                 self.psprites[position].state = None;
                 break;
@@ -495,7 +495,7 @@ impl Player {
                 self.psprites[position].sy = fixed_to_float(state.misc2);
             }
 
-            if let ActionF::Player(func) = state.action {
+            if let ActFn::P(func) = state.action {
                 let psps = unsafe { &mut *(&mut self.psprites[position] as *mut PspDef) };
                 func(self, psps);
                 if self.psprites[position].state.is_none() {
@@ -506,7 +506,7 @@ impl Player {
             state_num = if let Some(state) = self.psprites[position].state {
                 state.next_state
             } else {
-                StateNum::S_NULL
+                StateNum::None
             };
 
             if self.psprites[position].tics != 0 {
@@ -739,7 +739,7 @@ impl Player {
     pub(crate) fn fire_weapon(&mut self) {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            mobj.set_state(StateNum::S_PLAY_ATK1);
+            mobj.set_state(StateNum::PLAY_ATK1);
         }
 
         if !self.check_ammo() {
@@ -825,7 +825,7 @@ impl Player {
         }
         if self.pendingweapon == WeaponType::Chainsaw {
             self.pendingweapon = self.readyweapon;
-            // TODO: S_StartSound(player->mo, sfx_sawup);
+            // TODO: StartSound(player->mo, sfx_sawup);
         }
 
         let new_state = WEAPON_INFO[self.pendingweapon as usize].upstate;
@@ -835,7 +835,7 @@ impl Player {
         self.set_psprite(PsprNum::Weapon as usize, new_state);
     }
 
-    /// Check for obj and set state of it
+    /// Check for thing and set state of it
     pub(crate) fn set_mobj_state(&mut self, state: StateNum) {
         if let Some(mobj) = self.mobj_mut() {
             mobj.set_state(state);
@@ -849,15 +849,15 @@ impl Player {
     }
 
     // pub(crate) fn get_mobj_angle(&mut self) -> Angle {
-    //     unsafe { (*(self.obj.unwrap())).angle }
+    //     unsafe { (*(self.thing.unwrap())).angle }
     // }
 
     // pub(crate) fn get_mobj_xy(&mut self) -> Vec2 {
-    //     unsafe { (*(self.obj.unwrap())).xy }
+    //     unsafe { (*(self.thing.unwrap())).xy }
     // }
 
     // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut BSPTrace) -> Option<AimResult>{
-    //     unsafe { (*(self.obj.unwrap())).aim_line_attack(distance, bsp_trace) }
+    //     unsafe { (*(self.thing.unwrap())).aim_line_attack(distance, bsp_trace) }
     // }
 }
 

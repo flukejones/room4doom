@@ -248,8 +248,8 @@ impl MapObject {
                 if player.cmd.forwardmove == 0 && player.cmd.sidemove == 0 {
                     // if in a walking frame, stop moving
                     // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
-                    // if ((player.mo.state - states) - S_PLAY_RUN1) < 4 {
-                    self.set_state(StateNum::S_PLAY);
+                    // if ((player.mo.state - states) - PLAY_RUN1) < 4 {
+                    self.set_state(StateNum::PLAY);
                     // }
                     self.momxy = Vec2::default();
                 }
@@ -283,7 +283,7 @@ impl MapObject {
             if self.flags & MapObjFlag::Teleport as u32 == 0
                 && ctrl.max_ceil_z - self.z < self.height
             {
-                return false; // obj must lower itself to fit
+                return false; // thing must lower itself to fit
             }
 
             if self.flags & MapObjFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0 {
@@ -404,8 +404,8 @@ impl MapObject {
         //     true,
         //     level,
         //     |t| {
-        //         if let Some(obj) = t.thing.as_mut() {
-        //             if !self.pit_check_thing(obj) {
+        //         if let Some(thing) = t.thing.as_mut() {
+        //             if !self.pit_check_thing(thing) {
         //                 return false;
         //             }
         //         }
@@ -739,7 +739,7 @@ impl MapObject {
             // set openrange, opentop, openbottom
             let portal = PortalZ::new(line);
             if portal.range < self.height // doesn't fit
-                || portal.top_z - self.z < self.height // obj is too high
+                || portal.top_z - self.z < self.height // thing is too high
                 || portal.bottom_z - self.z > 24.0
             // too big a step up
             {
@@ -847,7 +847,7 @@ impl MapObject {
                 // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
-                    self.start_sound(sound_traits::SfxEnum::Noway);
+                    self.start_sound(sound_traits::SfxNum::Noway);
                     // can't use through a wall
                     debug!("*UNNGFF!* Can't reach from this side");
                     return false;

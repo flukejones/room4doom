@@ -7,7 +7,7 @@ mod interact;
 pub use interact::*;
 mod movement;
 pub use movement::*;
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 pub(crate) mod enemy;
 mod shooting;
 
@@ -27,8 +27,8 @@ use wad::lumps::WadThing;
 
 use crate::{
     angle::Angle,
-    doom_def::{MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT},
-    info::{ActionF, MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES},
+    doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT},
+    info::{MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES},
     level::map_defs::SubSector,
     player::{Player, PlayerState},
     utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide},
@@ -130,7 +130,7 @@ pub struct MapObject {
     pub(crate) valid_count: usize,
     /// The type of object
     pub(crate) kind: MapObjKind,
-    /// &mobjinfo[obj.type]
+    /// &mobjinfo[thing.type]
     pub(crate) info: MapObjInfo,
     pub(crate) tics: i32,
     /// state tic counter
@@ -429,14 +429,14 @@ impl MapObject {
 
         // find which type to spawn
         let mut i = 0;
-        for n in 0..MapObjKind::NUMMOBJTYPES as u16 {
+        for n in 0..MapObjKind::Count as u16 {
             if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
                 i = n;
                 break;
             }
         }
 
-        if i == MapObjKind::NUMMOBJTYPES as u16 {
+        if i == MapObjKind::Count as u16 {
             error!(
                 "P_SpawnMapThing: Unknown type {} at ({}, {})",
                 mthing.kind, mthing.x, mthing.y
@@ -493,7 +493,7 @@ impl MapObject {
         }
 
         if attack_range == MELEERANGE {
-            mobj.set_state(StateNum::S_PUFF3);
+            mobj.set_state(StateNum::PUFF3);
         }
     }
 
@@ -510,9 +510,9 @@ impl MapObject {
         }
 
         if (9.0..=12.0).contains(&damage) {
-            mobj.set_state(StateNum::S_BLOOD2);
+            mobj.set_state(StateNum::BLOOD2);
         } else if damage < 9.0 {
-            mobj.set_state(StateNum::S_BLOOD3);
+            mobj.set_state(StateNum::BLOOD3);
         }
     }
 
@@ -547,7 +547,7 @@ impl MapObject {
             }
         }
 
-        if !matches!(mobj.info.seesound, SfxEnum::None | SfxEnum::NumSfx) {
+        if !matches!(mobj.info.seesound, SfxNum::None | SfxNum::NumSfx) {
             mobj.start_sound(mobj.info.seesound);
         }
 
@@ -573,7 +573,7 @@ impl MapObject {
         let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
         let mobj = unsafe { &mut *mobj };
 
-        if !matches!(mobj.info.seesound, SfxEnum::None | SfxEnum::NumSfx) {
+        if !matches!(mobj.info.seesound, SfxNum::None | SfxNum::NumSfx) {
             mobj.start_sound(mobj.info.seesound);
         }
 
@@ -585,7 +585,7 @@ impl MapObject {
 
         mobj.target = Some(source.thinker);
         mobj.momxy = mobj.angle.unit() * mobj.info.speed;
-        //obj.momz = slope.map(|s| s.aimslope * obj.info.speed).unwrap_or(0.0);
+        //thing.momz = slope.map(|s| s.aimslope * thing.info.speed).unwrap_or(0.0);
         let mut dist = mobj.xy.distance(target.xy) / mobj.info.speed;
         if dist < 1.0 {
             dist = 1.0;
@@ -636,7 +636,7 @@ impl MapObject {
 
         let thinker = MapObject::create_thinker(ThinkerData::MapObject(mobj), MapObject::think);
 
-        // P_AddThinker(&obj->thinker);
+        // P_AddThinker(&thing->thinker);
         if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
             let thing = ptr.mobj_mut();
             unsafe {
@@ -669,8 +669,8 @@ impl MapObject {
 
         // let mut cycle_counter = 0;
         // loop {
-        if matches!(state, StateNum::S_NULL) {
-            self.state = &STATES[StateNum::S_NULL as usize]; //(state_t *)S_NULL;
+        if matches!(state, StateNum::None) {
+            self.state = &STATES[StateNum::None as usize]; //(state_t *)NULL;
             self.remove();
             return false;
         }
@@ -683,7 +683,7 @@ impl MapObject {
 
         // Modified handling.
         // Call action functions when the state is set
-        if let ActionF::Actor(f) = st.action {
+        if let ActFn::A(f) = st.action {
             f(self);
         }
 
@@ -734,9 +734,9 @@ impl MapObject {
     pub(crate) fn remove(&mut self) {
         // TODO: nightmare respawns
         /*
-        if ((obj->flags & SPECIAL) && !(obj->flags & DROPPED) &&
-            (obj->type != MT_INV) && (obj->type != MT_INS)) {
-            itemrespawnque[iquehead] = obj->spawnpoint;
+        if ((thing->flags & SPECIAL) && !(thing->flags & DROPPED) &&
+            (thing->type != MT_INV) && (thing->type != MT_INS)) {
+            itemrespawnque[iquehead] = thing->spawnpoint;
             itemrespawntime[iquehead] = leveltime;
             iquehead = (iquehead + 1) & (ITEMQUESIZE - 1);
 
@@ -748,7 +748,7 @@ impl MapObject {
         unsafe {
             self.unset_thing_position();
         }
-        // TODO: S_StopSound(obj);
+        // TODO: StopSound(thing);
         self.thinker_mut().mark_remove();
     }
 
@@ -786,7 +786,7 @@ impl MapObject {
         }
 
         if self.health <= 0 {
-            self.set_state(StateNum::S_GIBS);
+            self.set_state(StateNum::GIBS);
 
             // TODO: if (gameversion > exe_doom_1_2)
             //  thing->flags &= ~SOLID;
@@ -830,7 +830,7 @@ impl MapObject {
         true
     }
 
-    pub(crate) fn start_sound(&self, sfx: SfxEnum) {
+    pub(crate) fn start_sound(&self, sfx: SfxNum) {
         unsafe {
             (*self.level).start_sound(
                 sfx,
@@ -854,7 +854,7 @@ impl Think for MapObject {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {
-                return true; // obj was removed
+                return true; // thing was removed
             }
         }
 
@@ -890,7 +890,7 @@ impl Think for MapObject {
             if p_random() > 4 {
                 return false;
             }
-            // TODO: P_NightmareRespawn(obj);
+            // TODO: P_NightmareRespawn(thing);
         }
         false
     }

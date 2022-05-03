@@ -3,7 +3,7 @@
 //! Doom source name `p_floor`
 use std::ptr::{self, null_mut};
 
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 use crate::{
     level::{
@@ -11,7 +11,7 @@ use crate::{
         map_defs::{LineDef, Sector},
         Level,
     },
-    obj::MapObject,
+    thing::MapObject,
     thinker::{Think, Thinker, ThinkerData},
     DPtr,
 };
@@ -250,7 +250,7 @@ impl Think for FloorMove {
 
         if level.level_time & 7 == 0 {
             // TODO: if (!(leveltime & 7))
-            start_sector_sound(line, SfxEnum::Stnmov, &level.snd_command);
+            start_sector_sound(line, SfxNum::Stnmov, &level.snd_command);
         }
 
         if matches!(res, PlaneResult::PastDest) {

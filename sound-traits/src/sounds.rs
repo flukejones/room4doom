@@ -1,6 +1,6 @@
 /// Identifiers for all sfx in game.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum SfxEnum {
+pub enum SfxNum {
     None,
     Pistol,
     Shotgn,
@@ -113,16 +113,16 @@ pub enum SfxEnum {
     NumSfx,
 }
 
-impl Default for SfxEnum {
+impl Default for SfxNum {
     fn default() -> Self {
         Self::None
     }
 }
 
-impl From<u8> for SfxEnum {
+impl From<u8> for SfxNum {
     fn from(i: u8) -> Self {
-        if i >= SfxEnum::NumSfx as u8 {
-            panic!("{} is not a variant of SfxEnum", i);
+        if i >= SfxNum::NumSfx as u8 {
+            panic!("{} is not a variant of SfxNum", i);
         }
         unsafe { std::mem::transmute(i) }
     }

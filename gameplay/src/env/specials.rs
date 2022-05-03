@@ -6,7 +6,7 @@
 
 use std::ptr;
 
-use crate::obj::MapObject;
+use crate::thing::MapObject;
 
 use crate::{
     env::{
@@ -31,7 +31,7 @@ use crate::{
     DPtr, PicData,
 };
 use log::{debug, error, trace};
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -892,7 +892,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
                         }
                     }
                 }
-                start_sector_sound(&b.line, SfxEnum::Swtchn, &level.snd_command);
+                start_sector_sound(&b.line, SfxNum::Swtchn, &level.snd_command);
             }
         }
     }

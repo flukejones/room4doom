@@ -3,13 +3,13 @@
 use std::f32::consts::FRAC_PI_2;
 
 use log::error;
-use sound_traits::SfxEnum;
+use sound_traits::SfxNum;
 
 use crate::{
     doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO},
     info::{State, StateNum, STATES},
-    obj::MapObject,
     player::{Player, PsprNum},
+    thing::MapObject,
     tic_cmd::TIC_CMD_BUTTONS,
     utilities::{p_random, point_to_angle_2},
     PlayerState, WeaponType,
@@ -49,22 +49,22 @@ pub fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     let mut level_time = 0;
     let readyweapon = player.readyweapon;
     if let Some(mobj) = player.mobj_mut() {
-        if std::ptr::eq(mobj.state, &STATES[StateNum::S_PLAY_ATK1 as usize])
-            || std::ptr::eq(mobj.state, &STATES[StateNum::S_PLAY_ATK2 as usize])
+        if std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK1 as usize])
+            || std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK2 as usize])
         {
-            mobj.set_state(StateNum::S_PLAY);
+            mobj.set_state(StateNum::PLAY);
         }
 
         level_time = unsafe { (*mobj.level).level_time };
 
         if let Some(state) = pspr.state {
-            let check = &STATES[StateNum::S_SAW as usize];
+            let check = &STATES[StateNum::SAW as usize];
             if readyweapon == WeaponType::Chainsaw
                 && state.sprite == check.sprite
                 && state.frame == check.frame
                 && state.next_state == check.next_state
             {
-                mobj.start_sound(SfxEnum::Sawidl);
+                mobj.start_sound(SfxNum::Sawidl);
             }
         }
     }
@@ -114,7 +114,7 @@ pub fn a_lower(player: &mut Player, pspr: &mut PspDef) {
 
     if player.health <= 0 {
         // Player died so take weapon off screen
-        player.set_psprite(PsprNum::Weapon as usize, StateNum::S_NULL);
+        player.set_psprite(PsprNum::Weapon as usize, StateNum::None);
         return;
     }
 
@@ -138,8 +138,8 @@ pub fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
 
     let refire = player.refire;
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::Pistol);
-        mobj.set_state(StateNum::S_PLAY_ATK2);
+        mobj.start_sound(SfxNum::Pistol);
+        mobj.set_state(StateNum::PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
@@ -157,8 +157,8 @@ pub fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::Shotgn);
-        mobj.set_state(StateNum::S_PLAY_ATK2);
+        mobj.start_sound(SfxNum::Shotgn);
+        mobj.set_state(StateNum::PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
@@ -179,8 +179,8 @@ pub fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::Dshtgn);
-        mobj.set_state(StateNum::S_PLAY_ATK2);
+        mobj.start_sound(SfxNum::Dshtgn);
+        mobj.set_state(StateNum::PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
@@ -213,8 +213,8 @@ pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
 
     let refire = player.refire;
     if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxEnum::Pistol);
-        mobj.set_state(StateNum::S_PLAY_ATK2);
+        mobj.start_sound(SfxNum::Pistol);
+        mobj.set_state(StateNum::PLAY_ATK2);
 
         let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
         let bullet_slope = mobj.bullet_slope(MISSILERANGE, &mut bsp_trace);
@@ -224,7 +224,7 @@ pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     let state = StateNum::from(
         WEAPON_INFO[player.readyweapon as usize].flashstate as u16
             + pspr.state.unwrap().next_state as u16
-            - StateNum::S_CHAIN1 as u16
+            - StateNum::CHAIN1 as u16
             - 1,
     );
 
@@ -240,7 +240,7 @@ pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Flash as usize, state);
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            (*mobj).start_sound(SfxEnum::Plasma);
+            (*mobj).start_sound(SfxNum::Plasma);
             MapObject::spawn_player_missile(
                 &mut *mobj,
                 crate::MapObjKind::MT_PLASMA,
@@ -258,7 +258,7 @@ pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     // );
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            (*mobj).start_sound(SfxEnum::Rlaunc);
+            (*mobj).start_sound(SfxNum::Rlaunc);
             MapObject::spawn_player_missile(
                 &mut *mobj,
                 crate::MapObjKind::MT_ROCKET,
@@ -286,7 +286,7 @@ pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::Bfg);
+    player.start_sound(SfxNum::Bfg);
 }
 
 pub fn a_bfgspray(player: &mut MapObject) {
@@ -294,7 +294,7 @@ pub fn a_bfgspray(player: &mut MapObject) {
 }
 
 pub fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
-    player.set_mobj_state(StateNum::S_PLAY_ATK2);
+    player.set_mobj_state(StateNum::PLAY_ATK2);
     player.set_psprite(
         PsprNum::Flash as usize,
         WEAPON_INFO[player.readyweapon as usize].flashstate,
@@ -317,7 +317,7 @@ pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
 
         if let Some(res) = slope {
             let target = res.line_target;
-            mobj.start_sound(SfxEnum::Punch);
+            mobj.start_sound(SfxNum::Punch);
             mobj.angle = point_to_angle_2(target.xy, mobj.xy);
         }
     }
@@ -328,15 +328,15 @@ pub fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::Dbopn);
+    player.start_sound(SfxNum::Dbopn);
 }
 
 pub fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::Dbload);
+    player.start_sound(SfxNum::Dbload);
 }
 
 pub fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
-    player.start_sound(SfxEnum::Dbcls);
+    player.start_sound(SfxNum::Dbcls);
     a_refire(player, pspr);
 }
 
@@ -358,15 +358,15 @@ pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         );
 
         if slope.is_none() {
-            mobj.start_sound(SfxEnum::Sawful);
+            mobj.start_sound(SfxNum::Sawful);
             return;
         }
 
         // Have a target
-        mobj.start_sound(SfxEnum::Sawhit);
+        mobj.start_sound(SfxNum::Sawhit);
         if let Some(res) = slope {
             let target = res.line_target;
-            mobj.start_sound(SfxEnum::Punch);
+            mobj.start_sound(SfxNum::Punch);
             let angle = point_to_angle_2(target.xy, mobj.xy);
 
             let delta = angle.rad() - mobj.angle.rad();
