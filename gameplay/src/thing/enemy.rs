@@ -115,11 +115,14 @@ pub fn a_chase(actor: &mut MapObject) {
     }
 
     if actor.movedir < DirType::NoDir {
-        let delta = actor.angle.rad() - Angle::from(actor.movedir).rad();
+        let delta = actor
+            .angle
+            .unit()
+            .angle_between(Angle::from(actor.movedir).unit());
         if delta > FRAC_PI_4 {
-            actor.angle -= FRAC_PI_4;
-        } else if delta < -FRAC_PI_4 {
             actor.angle += FRAC_PI_4;
+        } else if delta < -FRAC_PI_4 {
+            actor.angle -= FRAC_PI_4;
         }
     }
 
