@@ -1,6 +1,6 @@
 //! Shooting and aiming.
 
-use std::f32::consts::FRAC_2_PI;
+use std::f32::consts::PI;
 
 use glam::Vec2;
 use sound_traits::SfxNum;
@@ -297,7 +297,7 @@ impl MapObject {
 
                 if !all_around {
                     let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
-                    if angle.abs() > FRAC_2_PI && self.xy.distance(xy) > MELEERANGE {
+                    if angle.abs() > PI && self.xy.distance(xy) > MELEERANGE {
                         continue;
                     }
                 }
