@@ -626,6 +626,7 @@ mod tests {
                     Player::default(),
                     Player::default(),
                 ],
+                0,
             )
         };
         let mut x = Thinker {
