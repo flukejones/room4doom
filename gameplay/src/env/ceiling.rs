@@ -137,7 +137,7 @@ impl Think for CeilingMove {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let ceiling = object.ceiling_mut();
         #[cfg(null_check)]
-        if self.ceiling.is_null() {
+        if object.ceiling.is_null() {
             std::panic!("ceiling thinker was null");
         }
         let line = ceiling.sector.lines[0].as_ref();

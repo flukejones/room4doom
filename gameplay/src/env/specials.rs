@@ -87,7 +87,7 @@ pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
 
 /// P_FindHighestCeilingSurrounding
 pub fn find_highest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
-    let mut height = f32::MAX;
+    let mut height = 0.0;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
             if other.ceilingheight > height {
@@ -313,7 +313,7 @@ pub fn move_plane(
                         dest,
                         speed
                     );
-                    if sector.ceilingheight + speed > dest {
+                    if sector.ceilingheight + speed >= dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
 

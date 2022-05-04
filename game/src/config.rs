@@ -33,7 +33,7 @@ pub struct UserConfig {
     pub width: u32,
     pub height: u32,
     pub fullscreen: bool,
-    pub shader: Option<Shaders>,
+    pub shader: Shaders,
     pub sfx_vol: i32,
     pub mus_vol: i32,
     pub gus_mem_size: GusMemSize,
@@ -114,10 +114,12 @@ impl UserConfig {
             cli.height = self.height;
         }
 
-        if cli.shader.is_some() && cli.shader != self.shader {
-            self.shader = cli.shader;
+        if let Some(shader) = cli.shader {
+            if shader != self.shader {
+                self.shader = shader;
+            }
         } else {
-            cli.shader = self.shader;
+            cli.shader = Some(self.shader);
         }
 
         if let Some(f) = cli.fullscreen {

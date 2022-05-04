@@ -53,7 +53,7 @@ pub fn d_doom_loop(
 
     let mut shader: Box<dyn Drawer> = if let Some(shader) = options.shader {
         match shader {
-            Shaders::Basic => Box::new(Basic::new(&ctx)),
+            Shaders::None => Box::new(Basic::new(&ctx)),
             Shaders::Lottes => Box::new(LottesCRT::new(&ctx)),
             Shaders::Cgwg => Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
         }
