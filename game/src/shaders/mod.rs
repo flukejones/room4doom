@@ -8,9 +8,15 @@ pub mod lottes_crt;
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Shaders {
-    Basic,
     Lottes,
     Cgwg,
+    None,
+}
+
+impl Default for Shaders {
+    fn default() -> Self {
+        Self::Lottes
+    }
 }
 
 impl FromStr for Shaders {
@@ -18,9 +24,9 @@ impl FromStr for Shaders {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "basic" => Ok(Shaders::Basic),
             "lottes" => Ok(Shaders::Lottes),
             "cgwg" => Ok(Shaders::Cgwg),
+            "off" | "none" => Ok(Shaders::None),
             _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Doh!")),
         }
     }

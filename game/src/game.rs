@@ -472,8 +472,6 @@ impl Game {
     /// Doom function name `G_DoLoadLevel`
     fn do_load_level(&mut self) {
         debug!("Entered do_load_level");
-        // TODO: check and set sky texture, function R_TextureNumForName
-
         if self.wipe_game_state == GameState::Level {
             self.wipe_game_state = GameState::ForceWipe;
         }
@@ -508,6 +506,7 @@ impl Game {
                 self.snd_command.clone(),
                 &self.player_in_game,
                 &mut self.players,
+                self.pic_data.borrow().sky_num(),
             )
         };
 

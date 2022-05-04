@@ -9,7 +9,7 @@ use crate::{
     doom_def::{MAXRADIUS, MELEERANGE},
     env::specials::shoot_special_line,
     info::{StateNum, MOBJINFO},
-    level::map_data::BSPTrace,
+    level::{map_data::BSPTrace, map_defs::LineDef},
     utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ},
     Angle, DPtr, LineDefFlags, MapObjKind, MapObject,
 };
@@ -95,6 +95,7 @@ impl MapObject {
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
             bsp_trace.origin,
             angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
+            self.level().sky_num(),
         );
 
         let xy2 = Vec2::new(
@@ -115,7 +116,7 @@ impl MapObject {
 
     /// Source is the creature that caused the explosion at spot(self).
     ///
-    /// Doom functrion name `P_RadiusAttack`
+    /// Doom function name `P_RadiusAttack`
     pub fn radius_attack(&mut self, damage: f32) {
         // source is self.target
         // bsp_count is just for debugging BSP descent depth/width
@@ -172,8 +173,9 @@ impl MapObject {
             return true; // out of range of blowy
         }
 
-        // TODO: P_CheckSight, use the existing BSPTrace.
-        other.p_take_damage(None, None, false, (damage - dist) as i32);
+        if self.check_sight_target(other) {
+            other.p_take_damage(None, None, false, (damage - dist) as i32);
+        }
         true
     }
 
@@ -563,6 +565,7 @@ struct ShootTraverse {
     shootz: f32,
     trace_xy: Vec2,
     trace_dxy: Vec2,
+    sky_num: usize,
 }
 
 impl ShootTraverse {
@@ -573,6 +576,7 @@ impl ShootTraverse {
         shootz: f32,
         trace_xy: Vec2,
         trace_dxy: Vec2,
+        sky_num: usize,
     ) -> Self {
         Self {
             aim_slope,
@@ -581,14 +585,25 @@ impl ShootTraverse {
             shootz,
             trace_xy,
             trace_dxy,
+            sky_num,
         }
     }
 
-    fn hit_line(&self, shooter: &mut MapObject, frac: f32) {
+    fn hit_line(&self, shooter: &mut MapObject, frac: f32, line: &LineDef) {
         let frac = frac - (4.0 / self.attack_range);
         let x = self.trace_xy.x + self.trace_dxy.x * frac;
         let y = self.trace_xy.y + self.trace_dxy.y * frac;
         let z = self.shootz + self.aim_slope * frac * self.attack_range;
+
+        if line.frontsector.ceilingpic == self.sky_num {
+            if z > line.frontsector.ceilingheight {
+                return;
+            } else if let Some(back) = line.backsector.as_ref() {
+                if z > back.ceilingheight {
+                    return;
+                }
+            }
+        }
 
         MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
             &mut *shooter.level
@@ -604,7 +619,7 @@ impl ShootTraverse {
 
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
-                self.hit_line(shooter, intercept.frac);
+                self.hit_line(shooter, intercept.frac, line);
                 return false;
             }
 
@@ -615,7 +630,7 @@ impl ShootTraverse {
                 if line.frontsector.floorheight != backsector.floorheight {
                     let slope = (portal.bottom_z - self.shootz) / dist;
                     if slope > self.aim_slope {
-                        self.hit_line(shooter, intercept.frac);
+                        self.hit_line(shooter, intercept.frac, line);
                         return false;
                     }
                 }
@@ -623,7 +638,7 @@ impl ShootTraverse {
                 if line.frontsector.ceilingheight != backsector.ceilingheight {
                     let slope = (portal.top_z - self.shootz) / dist;
                     if slope < self.aim_slope {
-                        self.hit_line(shooter, intercept.frac);
+                        self.hit_line(shooter, intercept.frac, line);
                         return false;
                     }
                 }

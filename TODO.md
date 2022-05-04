@@ -1,6 +1,6 @@
 ## TODO
 
-[+] Shots from demons don't push the player
+[ ] Save/load game
 [-] Demons shouldn't open locked doors (Actual Doom isue)
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
@@ -9,11 +9,6 @@
 [ ] Need to reset sector sound targets if player dies
 [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
     - let target = unsafe { (*target).object_mut().mobj() };// make a shortcut for this
-[ ] Don't shoot sky
-[ ] E1M5 Candelebra not on ground?
-[ ] Lift sounds for E5M3 don't stop
-[ ] Average the lines in a sector for sound origins
-[ ] Really need swept-volume collisions
 [ ] HUD using rx/tx channels
 [ ] angle_to_screen has an impact on sizing and scale
 [ ] Fix the types in texture module
@@ -31,12 +26,19 @@
 
 ## PARTIAL-COMPLETE
 
+[-] Really need swept-volume collisions (done half-arsed)
 [-] Sprites colourmap/light selection (spectors)
 [-] P_KillMobj (target/source stuff)
 [-] P_UpdateSpecials (todo: level timer)
 
 ## DONE
 
+[+] Average the lines in a sector for sound origins (determined by center of sector AABB)
+[+] Don't shoot sky
+[+] Explosions shouldn't hit above or below (sight check)
+[+] E1M5 Candelebra not on ground?
+[+] Lift sounds for E5M3 don't stop
+[+] Shots from demons don't push the player
 [+] Sight angle incorrect for any mobj not 90-270 degrees:
 ```rust
 if !all_around {

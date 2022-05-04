@@ -81,6 +81,8 @@ pub struct Level {
     players: *mut [Player; MAXPLAYERS],
 
     active_platforms: Vec<*mut Platform>,
+    /// The sky texture number used to signify a floor or ceiling is a sky
+    sky_num: usize,
 }
 
 impl Level {
@@ -105,6 +107,7 @@ impl Level {
         snd_command: SndServerTx,
         player_in_game: &[bool; MAXPLAYERS],
         players: &mut [Player; MAXPLAYERS],
+        sky_num: usize,
     ) -> Self {
         let respawn_monsters = !matches!(skill, Skill::Nightmare);
 
@@ -151,6 +154,7 @@ impl Level {
             player_in_game,
             players,
             active_platforms: Vec::new(),
+            sky_num,
         }
     }
 
@@ -204,6 +208,10 @@ impl Level {
 
     pub(super) fn players_mut(&mut self) -> &mut [Player; MAXPLAYERS] {
         unsafe { &mut *self.players }
+    }
+
+    pub(crate) fn sky_num(&self) -> usize {
+        self.sky_num
     }
 
     pub fn load(&mut self, pic_data: &PicData, wad_data: &WadData) {

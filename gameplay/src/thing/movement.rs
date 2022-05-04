@@ -20,6 +20,7 @@ use crate::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
+    thinker::Think,
     utilities::{
         box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
     },
@@ -47,6 +48,7 @@ pub struct SubSectorMinMax {
     pub min_floor_z: f32,
     pub max_ceil_z: f32,
     max_dropoff: f32,
+    sky_line: Option<DPtr<LineDef>>,
     spec_hits: Vec<DPtr<LineDef>>,
 }
 
@@ -198,11 +200,24 @@ impl MapObject {
                 ymove = 0.0;
             }
 
-            if !self.p_try_move(ptryx, ptryy, &mut SubSectorMinMax::default()) {
+            let mut ctrl = SubSectorMinMax::default();
+            if !self.p_try_move(ptryx, ptryy, &mut ctrl) {
                 if self.player.is_some() {
                     self.p_slide_move();
                 } else if self.flags & MapObjFlag::Missile as u32 != 0 {
-                    self.p_explode_missile();
+                    if let Some(line) = ctrl.sky_line {
+                        // if line.frontsector.ceilingpic == self.level().sky_num() {
+                        //     self.remove();
+                        //     return;
+                        // }
+                        if let Some(back) = line.backsector.as_ref() {
+                            if back.ceilingpic == self.level().sky_num() {
+                                self.remove();
+                                return;
+                            }
+                        }
+                    }
+                    self.p_explode_missile(); //
                 } else {
                     self.momxy = Vec2::default();
                 }
@@ -578,7 +593,7 @@ impl MapObject {
         let portal = PortalZ::new(ld);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
-            // TODO: ceilingline = ld;
+            ctrl.sky_line = Some(DPtr::new(ld));
         }
         // Find the highest floor point (for steps etc)
         if portal.bottom_z > ctrl.min_floor_z {

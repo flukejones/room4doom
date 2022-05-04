@@ -11,7 +11,7 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["sdl2-bundled"]
+default = [] #["sdl2-bundled"]
 sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
 
 [dependencies]
