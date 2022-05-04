@@ -1,6 +1,6 @@
 //! Shooting and aiming.
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use glam::Vec2;
 use sound_traits::SfxNum;
@@ -237,7 +237,7 @@ impl MapObject {
         // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
         // demons might overlap from a subsector that isn't caught otherwise (for example demon
         // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
-        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
+        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, self.radius);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
@@ -296,8 +296,10 @@ impl MapObject {
                 }
 
                 if !all_around {
-                    let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
-                    if angle.abs() > PI && self.xy.distance(xy) > MELEERANGE {
+                    let xy = point_to_angle_2(xy, self.xy).unit(); // Using a unit vector to remove world
+                    let v1 = self.angle.unit(); // Get a unit from mobj angle
+                    let angle = v1.angle_between(xy).abs(); // then use glam to get angle between (it's +/- for .abs())
+                    if angle > FRAC_PI_2 && self.xy.distance(xy) > MELEERANGE {
                         continue;
                     }
                 }

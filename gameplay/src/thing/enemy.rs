@@ -209,9 +209,7 @@ pub fn a_look(actor: &mut MapObject) {
             if target.flags & MapObjFlag::Shootable as u32 != 0 {
                 actor.target = (*actor.subsector).sector.sound_target_raw();
 
-                if actor.flags & MapObjFlag::Ambush as u32 != 0
-                    && !actor.check_sight_target(target)
-                    && !actor.look_for_players(false)
+                if actor.flags & MapObjFlag::Ambush as u32 != 0 && !actor.check_sight_target(target)
                 {
                     return;
                 }

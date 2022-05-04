@@ -1,7 +1,7 @@
 ## TODO
 
-[ ] Shots from demons don't push the player
-[ ] Demons shouldn't open locked doors
+[+] Shots from demons don't push the player
+[-] Demons shouldn't open locked doors (Actual Doom isue)
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
 [ ] The Thinker data access methods really should return `Option<T>`
@@ -37,6 +37,26 @@
 
 ## DONE
 
+[+] Sight angle incorrect for any mobj not 90-270 degrees:
+```rust
+if !all_around {
+    let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();
+    if angle.abs() > PI && self.xy.distance(xy) > MELEERANGE {
+        continue;
+    }
+}
+```
+changed to:
+```rust
+if !all_around {
+    let xy = point_to_angle_2(xy, self.xy).unit(); // Using a unit vector to remove world
+    let v1 = self.angle.unit();                    // Get a unit from mobj angle
+    let angle = v1.angle_between(xy).abs();        // then use glam to get angle between (it's +/- for .abs())
+    if angle > FRAC_PI_2 && self.xy.distance(xy) > MELEERANGE {
+    continue;
+    }
+}
+```
 [+] Reduce use of `*player` and unsafe
 [+] Sector sound origin for specials
     [+] iterate sector lines to find max bounding box for sector and set sound_origin
