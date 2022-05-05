@@ -25,7 +25,7 @@ pub struct MapExtents {
 }
 
 /// A `Map` contains everything required for building the actual level the
-/// player will see in-game, such as the data to build a level, the textures used,
+/// player will see in-game-exe, such as the data to build a level, the textures used,
 /// `Things`, `Sounds` and others.
 ///
 /// `nodes`, `subsectors`, and `segments` are what get used most to render the

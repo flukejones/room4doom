@@ -3,6 +3,7 @@
 ## FUNCTIONALITY
 
 - [ ] Menu screens
+- [ ] Intermissions and finale]
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
 - [ ] Status bar drawing

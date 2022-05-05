@@ -1,7 +1,7 @@
 //! The data that makes up an entire level, along with functions to record state,
 //! or get ref/mutable-ref to parts of it.
 //!
-//! Some of the state is mirrored from the overall game state, or ref by pointer.
+//! Some of the state is mirrored from the overall game-exe state, or ref by pointer.
 
 pub mod flags;
 pub mod map_data;
@@ -47,7 +47,7 @@ pub struct Level {
     /// The `Things` for deathmatch start locations
     pub(super) deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
     pub(super) deathmatch_p: Vec<WadThing>,
-    /// Was the level set for deathmatch game
+    /// Was the level set for deathmatch game-exe
     pub(super) deathmatch: bool,
     /// for intermission
     pub totalkills: i32,
@@ -55,7 +55,7 @@ pub struct Level {
     pub totalitems: i32,
     /// for intermission
     pub totalsecret: i32,
-    /// To change the game state via switches in the level
+    /// To change the game-exe state via switches in the level
     pub game_action: Option<GameAction>,
     /// Record how the level was exited
     pub secret_exit: bool,
@@ -68,7 +68,7 @@ pub struct Level {
     pub(super) line_special_list: Vec<DPtr<LineDef>>,
     /// Need access to texture data for a few things
     pub(super) pic_data: Rc<RefCell<PicData>>,
-    /// Some stuff needs to know the game mode (e.g, switching weapons)
+    /// Some stuff needs to know the game-exe mode (e.g, switching weapons)
     pub(super) game_mode: GameMode,
     /// Provides ability for things to start a sound
     pub(super) snd_command: SndServerTx,

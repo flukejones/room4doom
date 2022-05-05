@@ -45,7 +45,7 @@ struct CLIOptions {
     info: PathBuf,
     #[options(no_short, meta = "", help = "path to write generated files to")]
     out: PathBuf,
-    #[options(help = "game options help")]
+    #[options(help = "game-exe options help")]
     help: bool,
 }
 

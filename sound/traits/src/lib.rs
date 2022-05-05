@@ -60,7 +60,7 @@ where
 {
     /// Start up all sound stuff and grab the `Sender` channel for cloning, and an
     /// `AtomicBool` to stop sound and deinitialise devices etc in preparation for
-    /// game exit.
+    /// game-exe exit.
     fn init(&mut self) -> InitResult<S, M, E>;
 
     /// Playback a sound

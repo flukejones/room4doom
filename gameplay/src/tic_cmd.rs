@@ -12,7 +12,7 @@ pub struct ButtonCode {
     // Use button, to open doors, activate switches.
     pub bt_use: u8,
 
-    // Flag: game events, not really buttons.
+    // Flag: game-exe events, not really buttons.
     pub bt_special: u8,
     pub bt_specialmask: u8,
 
@@ -23,9 +23,9 @@ pub struct ButtonCode {
     pub bt_weaponmask: u8,
     pub bt_weaponshift: u8,
 
-    // Pause the game.
+    // Pause the game-exe.
     pub bts_pause: u8,
-    // Save the game at each console.
+    // Save the game-exe at each console.
     pub bts_savegame: u8,
 
     // Savegame slot numbers
@@ -40,7 +40,7 @@ pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
     // Use button, to open doors, activate switches.
     bt_use: 2,
 
-    // Flag: game events, not really buttons.
+    // Flag: game-exe events, not really buttons.
     bt_special: 128,
     bt_specialmask: 3,
 
@@ -51,9 +51,9 @@ pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
     bt_weaponmask: (8 + 16 + 32),
     bt_weaponshift: 3,
 
-    // Pause the game.
+    // Pause the game-exe.
     bts_pause: 1,
-    // Save the game at each console.
+    // Save the game-exe at each console.
     bts_savegame: 2,
 
     // Savegame slot numbers
@@ -64,7 +64,7 @@ pub const TIC_CMD_BUTTONS: ButtonCode = ButtonCode {
 
 /// The data sampled per tick (single player)
 /// and transmitted to other peers (multiplayer).
-/// Mainly movements/button commands per game tick,
+/// Mainly movements/button commands per game-exe tick,
 /// plus a checksum for internal state consistency.
 // G_BuildTiccmd
 #[derive(Default, Copy, Clone)]
@@ -75,7 +75,7 @@ pub struct TicCmd {
     pub sidemove: i8,
     /// <<16 for angle delta
     pub angleturn: i16,
-    /// checks for net game
+    /// checks for net game-exe
     pub consistancy: i16,
     pub chatchar: u8,
     pub buttons: u8,

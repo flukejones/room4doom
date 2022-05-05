@@ -68,7 +68,7 @@ impl ToString for MapLump {
 /// | 0x08-0x0b  | unsigned int | Offset in bytes to the directory in the WAD file     |
 ///
 pub struct WadHeader {
-    /// Will be either `IWAD` for game, or `PWAD` for patch
+    /// Will be either `IWAD` for game-exe, or `PWAD` for patch
     wad_type: [u8; 4],
     /// The count of "lumps" of data
     dir_count: u32,

@@ -345,7 +345,7 @@ impl Debug for ThinkerData {
 /// 'dead' thinkers and it would also impact the order of thinkers, which then means
 /// recorded demo playback may be quite different to OG Doom.
 ///
-/// Inserting the `Thinker` in to the game is done in p_tick.c with `P_RunThinkers`.
+/// Inserting the `Thinker` in to the game-exe is done in p_tick.c with `P_RunThinkers`.
 ///
 /// The LinkedList style serves to give the Objects a way to find the next/prev of
 /// its neighbours and more, without having to pass in a ref to the Thinker container,

@@ -171,7 +171,7 @@ impl MapObject {
         }
 
         // This whole loop is a bit crusty. It consists of looping over progressively smaller
-        // moves until we either hit 0, or get a move. Because the whole game is 2D we can
+        // moves until we either hit 0, or get a move. Because the whole game-exe is 2D we can
         // use modern 2D collision detection where if there is a seg/wall penetration then we
         // move the player back by the penetration amount. This would also make the "slide" stuff
         // a lot easier (but perhaps not as accurate to Doom classic?)

@@ -309,7 +309,7 @@ impl MapObject {
     /// Most of the player structure stays unchanged
     ///  between levels.
     ///
-    /// Called in game.c
+    /// Called in game-exe.c
     fn p_spawn_player(
         mthing: &WadThing,
         level: &mut Level,
@@ -497,7 +497,7 @@ impl MapObject {
         }
     }
 
-    /// Blood! In a game!
+    /// Blood! In a game-exe!
     pub(crate) fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
         z += (p_random() - p_random()) / 64;
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_BLOOD, level);

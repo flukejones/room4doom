@@ -85,7 +85,7 @@ impl FromStr for ShaderType {
     }
 }
 
-/// CLI options for the game
+/// CLI options for the game-exe
 #[derive(Debug, Clone, Options)]
 pub struct CLIOptions {
     #[options(
@@ -93,7 +93,7 @@ pub struct CLIOptions {
         default = "info"
     )]
     pub verbose: log::LevelFilter,
-    #[options(no_short, meta = "", help = "path to game WAD")]
+    #[options(no_short, meta = "", help = "path to game-exe WAD")]
     pub iwad: String,
     #[options(free, help = "path to patch WAD")]
     pub pwad: Vec<String>,
@@ -117,17 +117,17 @@ pub struct CLIOptions {
     // pub dev_parm: bool,
     // #[options(
     //     meta = "",
-    //     help = "Start a deathmatch game: 1 = classic, 2 = Start a deathmatch 2.0 game.  Weapons do not stay in place and all items respawn after 30 seconds"
+    //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.  Weapons do not stay in place and all items respawn after 30 seconds"
     // )]
     // pub deathmatch: u8,
     // pub autostart: bool,
-    #[options(meta = "", help = "Set the game skill, 0-4 (0: easiest, 4: hardest)")]
+    #[options(meta = "", help = "Set the game-exe skill, 0-4 (0: easiest, 4: hardest)")]
     pub skill: Skill,
     #[options(meta = "", help = "Select episode", default = "1")]
     pub episode: i32,
     #[options(meta = "", help = "Select level in episode", default = "1")]
     pub map: i32,
-    #[options(help = "game options help")]
+    #[options(help = "game-exe options help")]
     pub help: bool,
 
     #[options(help = "palette test, cycles through palette display")]
@@ -167,7 +167,7 @@ impl From<CLIOptions> for DoomOptions {
     }
 }
 
-/// The main `game` crate should take care of initialising a few things
+/// The main `game-exe` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
     let mut options = CLIOptions::parse_args_default_or_exit();
 

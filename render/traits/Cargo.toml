@@ -3,7 +3,7 @@ name = "render-traits"
 version = "1.0.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
-build = "../build.rs"
+build = "../../build.rs"
 
 [dependencies]
-gameplay = { path = "../gameplay" }
+gameplay = { path = "../../gameplay" }

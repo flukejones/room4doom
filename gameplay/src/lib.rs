@@ -21,7 +21,7 @@ mod pic;
 pub mod thing;
 mod thinker;
 pub mod tic_cmd;
-// info, level data, game, bsp
+// info, level data, game-exe, bsp
 pub mod player;
 pub mod player_sprite;
 pub(crate) mod utilities;
