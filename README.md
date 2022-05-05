@@ -8,7 +8,28 @@ I originally started by following along with [https://github.com/amroibrahim/DIY
 
 The code can dramatically change as I learn new or better ways to do things.
 
-**Implemented so far:**
+## Goals
+
+Not sure. I started this as a personal project to pretty much try and rewrite Doom in Rust only.
+But, as time went on and I learned more of the engine I saw more areas I could improve, or things
+that would maybe work well as split-out crates (gameplay for example). I think the final goal boils
+down to the following points:
+
+- Try to be as close as possible to original Doom source
+- But try to improve things where possible while somehow keeping classic behaviour
+- Compartmentalise the engine in to crates where possible, such that:
+  - Sound is independant
+  - Rendering (each renderer/drawer; player view, status, hud etc) and be swapped out
+  - Expose the minimal possible API to gameplay crate such that it could be used
+    on its own to drive Doom, with all non-gamplay (read, level loaded and playing)
+    related stuff is delegated out
+- Boom improvements compatibility
+- Add an example isometric renderer
+
+And maybe write a book on all I've learned about writing a Doom engine.
+
+### Implemented (so far):
+
 - Software rendering walls
 - Lighting (diminished, animated)
 - Movers (environment things, like doors, platforms)
@@ -23,18 +44,21 @@ The code can dramatically change as I learn new or better ways to do things.
 - Music
 - Shooting
 - Item pickup and use
+- 98% of gameplay (Need to do Doom II demons then it's done)
 
-**Some of the improvements I've made:**
+**Some of the improvements I've made (so far):**
 
 - BSP used for collisions (Doom used the blockmap)
 - BSP used for aiming, shooting, and LoS (Doom used the blockmap)
 - Floats instead of fixed-point (this may cause slight behaviour changes)
 
-**TODO:**
+## TODO:
 
-I keep a half-baked list of things to do in [TODO](./TODO.md)
+I keep a list of things to do in [TODO](./TODO.md). It's worth looking at I guess because
+it serves sort of as a list of major points of interest, a kinda-sorta changelog, and a
+snapshot of where the engine state is right now.
 
-**Building**
+## Building
 
 I use and develop on Linux exclusively so although I once did a Windows build I don't maintain it.
 
@@ -44,6 +68,29 @@ I use and develop on Linux exclusively so although I once did a Windows build I 
 The distro requires SDL2 + SDL2-mixer to be installed along with the related dev packages.
 Music support requires fluidsynth or timidity to be installed along with files in the `data/sound/`
 being installed to `~/.local/share/room4doom/sound/`.
+
+## User Config
+
+On start a user config file is created at `~/.config/room4doom/user.toml`. This can be edited by hand.
+
+Options set via CLI are saved to the user-config file.
+
+Starting `room4doom` without CLI options *after* previously setting options then exiting will load
+those options (as saved to `~/.config/room4doom/user.toml`).
+
+Use `room4doom --help` to see all available CLI options.
+
+## Documentation
+
+I've not been as good as I should be at this because I've been on a mad rush to implement
+as much as I can. Plus the nature of doing large blocks hasn't helped. [misc/code-review/](./misc/code-review/)
+has a semi-broken out series of files where I try to note things of interest, or even write
+a full code review. Each of these files and additions will be updated and fleshed out over time.
+
+The magnificance of rust/cargo being able to produce a static website full of code documentation
+means that I try to maintain docs somewhat at [https://flukejones.gitlab.io/room4doom/room4doom/index.html](https://flukejones.gitlab.io/room4doom/room4doom/index.html).
+Browsing [wad](https://flukejones.gitlab.io/room4doom/wad/index.html) is a good example of what I would like
+to achieve here.
 
 ## Screenshots
 
