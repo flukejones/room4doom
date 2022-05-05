@@ -1,5 +1,5 @@
 //! The main loop driver. The primary function is the main loop which attempts to
-//! run all tics then dislpay the result. Handling of actual game state is done
+//! run all tics then dislpay the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
 use std::error::Error;
@@ -94,11 +94,11 @@ pub fn d_doom_loop(
         if !game.running() {
             break;
         }
-        // The game is split in to two parts:
-        // - tickers, these update all states (game, menu, hud, automap etc)
+        // The game-exe is split in to two parts:
+        // - tickers, these update all states (game-exe, menu, hud, automap etc)
         // - drawers, these take a state from above and display it to the user
 
-        // Update the game state
+        // Update the game-exe state
         try_run_tics(&mut game, &mut input, &mut timestep);
 
         // Update the positional sounds

@@ -61,7 +61,7 @@ pub enum PlayerCheat {
 /// Structure passed e.g. to WI_Start(wb)
 #[derive(Default)]
 pub struct WBPlayerStruct {
-    /// whether the player is in game
+    /// whether the player is in game-exe
     pub inn: bool,
     // Player stats, kills, collected items etc.
     pub skills: i32,
@@ -89,7 +89,7 @@ pub struct WBStartStruct {
     pub maxfrags: i32,
     /// the par time
     pub partime: i32,
-    /// index of this player in game
+    /// index of this player in game-exe
     pub pnum: i32,
     pub plyr: [WBPlayerStruct; MAXPLAYERS as usize],
 }

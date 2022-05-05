@@ -58,6 +58,15 @@ I keep a list of things to do in [TODO](./TODO.md). It's worth looking at I gues
 it serves sort of as a list of major points of interest, a kinda-sorta changelog, and a
 snapshot of where the engine state is right now.
 
+**Functionality TODO:**
+
+- Menu screens
+- Intermissions and finale
+- HUD messages
+- Automap
+- Status bar drawing
+- Save/load game
+
 ## Building
 
 I use and develop on Linux exclusively so although I once did a Windows build I don't maintain it.

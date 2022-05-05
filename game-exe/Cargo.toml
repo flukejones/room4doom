@@ -18,10 +18,10 @@ sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
 gumdrop = "~0.8"
 gameplay = { path = "../gameplay" }
-sound-traits = { path = "../sound-traits" }
-sound-sdl2 = { path = "../sound-sdl2" }
-render-traits = { path = "../render-traits" }
-render-soft = { path = "../render-soft" }
+sound-traits = { path = "../sound/traits" }
+sound-sdl2 = { path = "../sound/sdl2" }
+render-traits = { path = "../render/traits" }
+render-soft = { path = "../render/software" }
 wad = { path = "../wad" }
 golem = { git = "https://github.com/flukejones/golem/" }
 # utility deps

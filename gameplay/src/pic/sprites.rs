@@ -51,7 +51,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                     "1. Matched {name}, {}, frame {}, rotate {}",
                     patch.name, frame, rotation
                 );
-                // TODO: check for modified game and fetch new lump from name
+                // TODO: check for modified game-exe and fetch new lump from name
 
                 install_sprite(
                     pindex,

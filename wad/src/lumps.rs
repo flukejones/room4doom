@@ -184,7 +184,7 @@ impl WadThing {
 }
 
 /// A `Vertex` is the basic struct used for any type of coordinate
-/// in the game
+/// in the game-exe
 ///
 /// The data in the WAD lump is structured as follows:
 ///
@@ -580,7 +580,7 @@ impl WadNode {
     }
 }
 
-/// The `BLOCKMAP` is a pre-calculated structure that the game engine uses to simplify
+/// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses to simplify
 /// collision-detection between moving things and walls.
 ///
 /// Each "block" is 128 square.

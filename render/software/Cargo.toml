@@ -3,12 +3,12 @@ name = "render-soft"
 version = "0.9.1"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
-build = "../build.rs"
+build = "../../build.rs"
 
 [dependencies]
 glam = "*"
-gameplay = { path = "../gameplay" }
-render-traits = { path = "../render-traits" }
+gameplay = { path = "../../gameplay" }
+render-traits = { path = "../traits" }
 
 [dev-dependencies]
-wad = { path = "../wad" }
+wad = { path = "../../wad" }

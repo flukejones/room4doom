@@ -1,4 +1,4 @@
-//! A generic pixel buffer plus trits for rendering parts of the game
+//! A generic pixel buffer plus trits for rendering parts of the game-exe
 
 use gameplay::{Level, Player};
 
@@ -85,7 +85,7 @@ pub trait AutomapRenderer {
 }
 
 pub trait MenuRenderer {
-    /// Draw game menus on top of the `PixelBuf`.
+    /// Draw game-exe menus on top of the `PixelBuf`.
     fn render_menu(&mut self, player: &Player, buffer: &mut PixelBuf);
 }
 

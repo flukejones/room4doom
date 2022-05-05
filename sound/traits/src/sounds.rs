@@ -1,4 +1,4 @@
-/// Identifiers for all sfx in game.
+/// Identifiers for all sfx in game-exe.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SfxNum {
     None,

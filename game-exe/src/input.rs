@@ -201,8 +201,8 @@ impl Input {
         }
     }
 
-    /// The way this is set up to work is that for each `game tick`, a fresh set of event is
-    /// gathered and stored. Then for that single game tick, every part of the game can ask
+    /// The way this is set up to work is that for each `game-exe tick`, a fresh set of event is
+    /// gathered and stored. Then for that single game-exe tick, every part of the game-exe can ask
     /// `Input` for results without the results being removed.
     ///
     /// The results of the `update` are valid until the next `update` whereupon they are refreshed.

@@ -106,7 +106,7 @@ impl MapObject {
         let special = unsafe { (*self.subsector).sector.special };
         let mobj_health = self.health;
         if let Some(player) = self.player_mut() {
-            // end of game hell hack
+            // end of game-exe hell hack
             if special == 11 && damage >= mobj_health {
                 damage = mobj_health - 1;
             }

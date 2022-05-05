@@ -1,4 +1,4 @@
-//! Game structure. Holds game state, menu state, runs various display routines
+//! Game structure. Holds game-exe state, menu state, runs various display routines
 //! and other stuff. Functions as a state machine.
 //!
 //! Various states can be:
@@ -33,8 +33,8 @@ use wad::WadData;
 use crate::{config::UserConfig, DoomOptions, SOUND_DIR, TIMIDITY_CFG};
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 
-/// The current state of the game: whether we are playing, gazing at the intermission screen,
-/// the game final animation, or a demo.
+/// The current state of the game-exe: whether we are playing, gazing at the intermission screen,
+/// the game-exe final animation, or a demo.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameState {
     ForceWipe = -1,
@@ -137,7 +137,7 @@ pub struct Game {
     pub wipe_game_state: GameState,
     usergame: bool,
 
-    /// The options the game exe was started with
+    /// The options the game-exe exe was started with
     pub options: DoomOptions,
 
     /// Sound tx
@@ -161,7 +161,7 @@ impl Game {
         snd_ctx: AudioSubsystem,
         user_config: UserConfig,
     ) -> Game {
-        // TODO: a bunch of version checks here to determine what game mode
+        // TODO: a bunch of version checks here to determine what game-exe mode
         let respawn_monsters = matches!(options.skill, Skill::Nightmare);
 
         let (game_mode, game_mission, game_description) = identify_version(&wad);
@@ -350,9 +350,9 @@ impl Game {
     /// consoleplayer, displayplayer, playeringame[] should be set.
     ///
     /// This appears to be defered because the function call can happen at any time
-    /// in the game. So rather than just abruptly stop everything we should set
+    /// in the game-exe. So rather than just abruptly stop everything we should set
     /// the action so that the right sequences are run. Unsure of impact of
-    /// changing game vars beyong action here, probably nothing.
+    /// changing game-exe vars beyong action here, probably nothing.
     pub fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32) {
         self.game_skill = skill;
         self.game_episode = episode;
@@ -465,7 +465,7 @@ impl Game {
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
-        info!("New game!");
+        info!("New game-exe!");
         self.do_load_level();
     }
 
@@ -539,7 +539,7 @@ impl Game {
         self.wminfo.maxfrags = 0;
         self.wminfo.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
-        // TODO: remove after new-game stuff done
+        // TODO: remove after new-game-exe stuff done
         self.pic_data
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
@@ -715,9 +715,9 @@ impl Game {
         self.game_state = GameState::Intermission;
     }
 
-    /// The ticker which controls the state the game is in. For example the game could be
+    /// The ticker which controls the state the game-exe is in. For example the game-exe could be
     /// in menu mode, demo play, intermission (`GameState`). A state may also be
-    /// running other functions that can change the game state or cause an action
+    /// running other functions that can change the game-exe state or cause an action
     /// through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
@@ -737,7 +737,7 @@ impl Game {
             }
         }
 
-        // do things to change the game state
+        // do things to change the game-exe state
         match self.game_action {
             GameAction::LoadLevel => self.do_load_level(),
             GameAction::NewGame => self.do_new_game(),
@@ -843,7 +843,7 @@ impl Game {
         }
     }
 
-    /// Gameplay ticker. Updates the game level state along with all thinkers inside
+    /// Gameplay ticker. Updates the game-exe level state along with all thinkers inside
     /// that level. Also watches for `TicCmd` that initiate another action or state such
     /// as pausing in menus, demo recording, save/load.
     ///
@@ -856,7 +856,7 @@ impl Game {
         // if ( !netgame
         //     && menuactive
         //     && !demoplayback
-        // if game.players[game.consoleplayer].viewz as i32 != 1 {
+        // if game-exe.players[game-exe.consoleplayer].viewz as i32 != 1 {
         //     return;
         // }
 
