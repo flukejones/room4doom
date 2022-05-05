@@ -3,7 +3,9 @@ use std::{
     f32::consts::{FRAC_PI_2, PI},
 };
 
-use gameplay::{Angle, LineDefFlags, MapObject, PicData, Player, PspDef, Sector};
+use gameplay::{
+    p_random, Angle, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector,
+};
 use glam::Vec2;
 use render_traits::PixelBuf;
 
@@ -260,7 +262,11 @@ impl SoftwareRenderer {
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
         let spryscale = vis.scale;
-        let colourmap = texture_data.sprite_light_colourmap(vis.light_level, vis.scale);
+        let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
+            texture_data.colourmap(33)
+        } else {
+            texture_data.sprite_light_colourmap(vis.light_level, vis.scale)
+        };
 
         for x in vis.x1..=vis.x2 {
             let tex_column = (frac).floor() as usize;
@@ -286,6 +292,7 @@ impl SoftwareRenderer {
                 draw_masked_column(
                     texture_column,
                     colourmap,
+                    vis.mobj_flags & MapObjFlag::Shadow as u32 != 0,
                     dc_iscale,
                     x,
                     dc_texmid,
@@ -579,6 +586,7 @@ impl SoftwareRenderer {
                         draw_masked_column(
                             texture_column,
                             textures.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
+                            false,
                             1.0 / spryscale,
                             x,
                             dc_texturemid,
@@ -602,6 +610,7 @@ impl SoftwareRenderer {
 fn draw_masked_column(
     texture_column: &[usize],
     colourmap: &[usize],
+    fuzz: bool,
     fracstep: f32,
     dc_x: i32,
     dc_texturemid: f32,
@@ -620,7 +629,7 @@ fn draw_masked_column(
         }
 
         // Transparency
-        if texture_column[select] as usize == usize::MAX {
+        if texture_column[select] as usize == usize::MAX || (fuzz && p_random() % 4 != 0) {
             frac += fracstep;
             continue;
         }

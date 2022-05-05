@@ -121,10 +121,7 @@ pub struct CLIOptions {
     // )]
     // pub deathmatch: u8,
     // pub autostart: bool,
-    #[options(
-        meta = "",
-        help = "Set the game skill, 1-5 (1: easiest, 5: hardest). A skill of 0 disables all monsters"
-    )]
+    #[options(meta = "", help = "Set the game skill, 0-4 (0: easiest, 4: hardest)")]
     pub skill: Skill,
     #[options(meta = "", help = "Select episode", default = "1")]
     pub episode: i32,

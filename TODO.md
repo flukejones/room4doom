@@ -1,7 +1,5 @@
 ## TODO
 
-[ ] Save/load game
-[-] Demons shouldn't open locked doors (Actual Doom isue)
 [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
     data is initialised and valid.
 [ ] The Thinker data access methods really should return `Option<T>`
@@ -16,7 +14,8 @@
 [ ] Menu screens
 [ ] Automap
 [ ] Status bar drawing
-[ ] Shadow-pinkies
+[ ] Save/load game
+[-] Demons shouldn't open locked doors (Actual Doom isue)
 
 ## IMPROVEMENTS
 
@@ -27,12 +26,13 @@
 ## PARTIAL-COMPLETE
 
 [-] Really need swept-volume collisions (done half-arsed)
-[-] Sprites colourmap/light selection (spectors)
 [-] P_KillMobj (target/source stuff)
 [-] P_UpdateSpecials (todo: level timer)
 
 ## DONE
 
+[+] Shadow-pinkies (use p_random instead of rewriting framebuffer)
+[+] Sprites colourmap/light selection (spectors)
 [+] Average the lines in a sector for sound origins (determined by center of sector AABB)
 [+] Don't shoot sky
 [+] Explosions shouldn't hit above or below (sight check)
