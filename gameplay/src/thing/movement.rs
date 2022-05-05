@@ -373,12 +373,12 @@ impl MapObject {
 
         // BSP walk to find all subsectors between two points
         // Pretty much replaces the block iterators
-
+        //
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         // A single BSP trace varies from 5 to 15 recursions.
-        // Regular Doom maps have 4 to 100 or so lines in a sector
-        // SIGIL wad has 4000+ lines per map (approx),
-        // 3 recursions = average 25 depth total
+        // Regular Doom maps have 4 to 100 or so lines in a sector, with average recursion of 10-15 deep
+        // SIGIL wad has 4000+ lines per map (approx), with average recursion of 15-40 deep
+        //
         // subsectors crossed = average 2
         // lines per subsector = average 4
         // Lines to check = 4~

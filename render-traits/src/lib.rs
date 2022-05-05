@@ -68,35 +68,25 @@ impl PixelBuf {
 }
 
 pub trait PlayRenderer {
-    /// This function is responsible for drawing the full player view to the SDL2
-    /// `Surface`.
+    /// Drawing the full player view to the `PixelBuf`.
     ///
     /// Doom function name `R_RenderPlayerView`
     fn render_player_view(&mut self, player: &Player, level: &Level, buf: &mut PixelBuf);
 }
 
 pub trait HUDRenderer {
-    /// This function is responsible for drawing the full player view to the SDL2
-    /// `Surface`.
-    ///
-    /// Doom function name `R_RenderPlayerView`
-    fn render_player_hud(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
+    /// Draw the Player HUD (messages) to the `PixelBuf`.
+    fn render_player_hud(&mut self, player: &Player, buffer: &mut PixelBuf);
 }
 
 pub trait AutomapRenderer {
-    /// This function is responsible for drawing the full player view to the SDL2
-    /// `Surface`.
-    ///
-    /// Doom function name `R_RenderPlayerView`
+    /// Draw the Player HUD (messages) to the `PixelBuf`.
     fn render_automap(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
 }
 
 pub trait MenuRenderer {
-    /// This function is responsible for drawing the full player view to the SDL2
-    /// `Surface`.
-    ///
-    /// Doom function name `R_RenderPlayerView`
-    fn render_menu(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
+    /// Draw game menus on top of the `PixelBuf`.
+    fn render_menu(&mut self, player: &Player, buffer: &mut PixelBuf);
 }
 
 #[cfg(test)]

@@ -1,25 +1,30 @@
-## TODO
+# TODO
 
+## FUNCTIONALITY
+
+- [ ] Menu screens
+- [ ] HUD (gameplay crate inserts messages in to player struct)
+- [ ] Automap
+- [ ] Status bar drawing
+- [ ] Save/load game
+
+## BUGS
+
+- [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
+- [ ] angle_to_screen has an impact on sizing and scale
+- [ ] Fix the types in texture module
+- [ ] Colours seem off for darker areas?
+
+## IMPROVEMENTS
+
 - [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
-    data is initialised and valid.
+  data is initialised and valid.
 - [ ] The Thinker data access methods really should return `Option<T>`
 - [ ] Thinkers: For inner data get, add a compile-time cfg opt to panic, or return Option.
 - [ ] Need to reset sector sound targets if player dies
 - [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
     - let target = unsafe { (*target).object_mut().mobj() };// make a shortcut for this
-- [ ] HUD using rx/tx channels
-- [ ] angle_to_screen has an impact on sizing and scale
-- [ ] Fix the types in texture module
-- [ ] Colours seem off for darker areas?
-- [ ] Menu screens
-- [ ] Automap
-- [ ] Status bar drawing
-- [ ] Save/load game
-- [-] Demons shouldn't open locked doors (Actual Doom isue)
-
-## IMPROVEMENTS
-
 - [ ] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
     . It's (currently) not possible to "step" on top of another object
 - [ ] Step over things if higher

@@ -4,11 +4,15 @@
 
 use std::error::Error;
 
-use gameplay::log::{self, error, info};
+use gameplay::{
+    log::{self, error, info},
+    MapObject,
+};
 use golem::Context;
 use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
 use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
+use sound_traits::SoundAction;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
@@ -90,10 +94,27 @@ pub fn d_doom_loop(
         if !game.running() {
             break;
         }
-        // // Update the game state
+        // The game is split in to two parts:
+        // - tickers, these update all states (game, menu, hud, automap etc)
+        // - drawers, these take a state from above and display it to the user
+
+        // Update the game state
         try_run_tics(&mut game, &mut input, &mut timestep);
 
-        // TODO: S_UpdateSounds(players[consoleplayer].mo); // move positional sounds
+        // Update the positional sounds
+        // Update the listener of the sound server. Will always be consoleplayer.
+        if let Some(mobj) = game.players[game.consoleplayer].mobj() {
+            let uid = mobj as *const MapObject as usize;
+            game.snd_command
+                .send(SoundAction::UpdateListener {
+                    uid,
+                    x: mobj.xy.x,
+                    y: mobj.xy.y,
+                    angle: mobj.angle.rad(),
+                })
+                .unwrap();
+        }
+
         // Draw everything to the buffer
         d_display(&mut renderer, &game, &mut render_buffer);
 
