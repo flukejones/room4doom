@@ -629,7 +629,7 @@ fn draw_masked_column(
         }
 
         // Transparency
-        if texture_column[select] as usize == usize::MAX || (fuzz && p_random() % 4 != 0) {
+        if texture_column[select] as usize == usize::MAX || (fuzz && p_random() % 3 != 0) {
             frac += fracstep;
             continue;
         }
