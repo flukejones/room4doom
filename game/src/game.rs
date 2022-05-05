@@ -141,7 +141,7 @@ pub struct Game {
     pub options: DoomOptions,
 
     /// Sound tx
-    snd_command: SndServerTx,
+    pub(super) snd_command: SndServerTx,
     _snd_thread: JoinHandle<()>,
 }
 
@@ -816,10 +816,13 @@ impl Game {
 
         match self.game_state {
             GameState::Level => {
-                // P_Ticker(); player movements, run thinkers etc
+                // player movements, run thinkers etc
                 self.p_ticker();
+                // update statusbar information
                 // ST_Ticker();
+                // update the automap display info
                 // AM_Ticker();
+                // update the HUD statuses (things like timeout displayed messages)
                 // HU_Ticker();
                 self.hu_ticker();
             }
@@ -863,20 +866,6 @@ impl Game {
             for (i, player) in self.players.iter_mut().enumerate() {
                 if self.player_in_game[i] && !player.think(level) {
                     // TODO: what to do with dead player?
-                }
-                // Update the listener of the sound server. Will always be consoleplayer.
-                if i == self.consoleplayer {
-                    if let Some(mobj) = player.mobj() {
-                        let uid = mobj as *const MapObject as usize;
-                        self.snd_command
-                            .send(SoundAction::UpdateListener {
-                                uid,
-                                x: mobj.xy.x,
-                                y: mobj.xy.y,
-                                angle: mobj.angle.rad(),
-                            })
-                            .unwrap();
-                    }
                 }
             }
 
