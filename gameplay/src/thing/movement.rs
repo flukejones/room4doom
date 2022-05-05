@@ -341,34 +341,9 @@ impl MapObject {
         true
     }
 
-    // P_CheckPosition
-    // This is purely informative, nothing is modified
-    // (except things picked up).
-    //
-    // in:
-    //  a mobj_t (can be valid or invalid)
-    //  a position to be checked
-    //   (doesn't need to be related to the mobj_t->x,y)
-    //
-    // during:
-    //  special things are touched if PICKUP
-    //  early out on solid lines?
-    //
-    // out:
-    //  newsubsec
-    //  floorz
-    //  ceilingz
-    //  tmdropoffz
-    //   the lowest point contacted
-    //   (monsters won't move to a dropoff)
-    //  speciallines[]
-    //  numspeciallines
-    //
     /// Check for things and lines contacts.
     ///
-    /// `PIT_CheckLine` is called by an iterator over the blockmap parts contacted
-    /// and this function checks if the line is solid, if not then it also sets
-    /// the portal ceil/floor coords and dropoffs
+    /// Doom function name `P_CheckPosition`
     pub(crate) fn p_check_position(&mut self, endpoint: Vec2, ctrl: &mut SubSectorMinMax) -> bool {
         let left = endpoint.x - self.radius;
         let right = endpoint.x + self.radius;
@@ -411,30 +386,6 @@ impl MapObject {
             BSPTrace::new_line(Vec2::new(left, bottom), Vec2::new(right, top), self.radius);
         let mut count = 0;
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
-
-        // path_traverse(
-        //     self.xy,
-        //     endpoint + self.momxy.normalize() * (self.radius + 1.0),
-        //     PT_ADDLINES | PT_ADDTHINGS,
-        //     true,
-        //     level,
-        //     |t| {
-        //         if let Some(thing) = t.thing.as_mut() {
-        //             if !self.pit_check_thing(thing) {
-        //                 return false;
-        //             }
-        //         }
-
-        //         if let Some(line) = t.line.as_mut() {
-        //             if !self.pit_check_line(&tmbbox, ctrl, &line) {
-        //                 return false;
-        //             }
-        //         }
-
-        //         true
-        //     },
-        //     &mut bsp_trace,
-        // )
 
         for n in bsp_trace.intercepted_subsectors() {
             let ssect = &mut level.map_data.subsectors_mut()[*n as usize];

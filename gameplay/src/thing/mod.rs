@@ -752,10 +752,11 @@ impl MapObject {
         self.thinker_mut().mark_remove();
     }
 
-    /// P_ThingHeightClip
-    // Takes a valid thing and adjusts the thing->floorz, thing->ceilingz, and possibly thing->z.
-    // This is called for all nearby monsters whenever a sector changes height.
-    // If the thing doesn't fit, the z will be set to the lowest value and false will be returned.
+    /// Takes a valid thing and adjusts the thing->floorz, thing->ceilingz, and possibly thing->z.
+    /// This is called for all nearby monsters whenever a sector changes height.
+    /// If the thing doesn't fit, the z will be set to the lowest value and false will be returned.
+    ///
+    /// Doom function name `P_ThingHeightClip`
     fn height_clip(&mut self) -> bool {
         let on_floor = self.z == self.floorz;
 
@@ -787,10 +788,6 @@ impl MapObject {
 
         if self.health <= 0 {
             self.set_state(StateNum::GIBS);
-
-            // TODO: if (gameversion > exe_doom_1_2)
-            //  thing->flags &= ~SOLID;
-
             self.height = 0.0;
             self.radius = 0.0;
             return true;
