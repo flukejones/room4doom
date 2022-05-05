@@ -43,7 +43,7 @@ pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, WBStartStruct};
 pub use player_sprite::PspDef;
 use std::{error::Error, str::FromStr};
-pub use thing::MapObject;
+pub use thing::{MapObjFlag, MapObject};
 pub use utilities::{m_clear_random, p_random};
 
 #[derive(Debug)]

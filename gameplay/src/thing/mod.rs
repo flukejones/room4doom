@@ -36,7 +36,7 @@ use crate::{
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]
-pub(crate) enum MapObjFlag {
+pub enum MapObjFlag {
     /// Call P_SpecialThing when touched.
     Special = 1,
     /// Blocks.
