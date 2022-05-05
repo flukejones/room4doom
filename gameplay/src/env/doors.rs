@@ -138,7 +138,6 @@ impl Think for VerticalDoor {
                             unsafe {
                                 door.sector.specialdata = None;
                                 (*door.thinker).mark_remove();
-                                // TODO: sound
                             }
                         }
                         DoorKind::Normal | DoorKind::Close => unsafe {

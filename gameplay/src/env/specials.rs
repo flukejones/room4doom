@@ -158,32 +158,31 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 /// P_ChangeSector
 fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
     let mut no_fit = false;
+    let valid = sector.validcount + 1;
+    // The call to pit_change_sector relies on the mobj doing height_clip() which
+    // initiates the position check on itself
     sector.run_func_on_thinglist(|thing| {
         trace!("Thing type {:?} is in affected sector", thing.kind);
         thing.pit_change_sector(&mut no_fit, crunch)
     });
+    sector.validcount = valid;
+
+    // Causes floating bloodsplat?
+    for line in sector.lines.iter() {
+        if let Some(mut next) = get_next_sector(line.clone(), sector.clone()) {
+            if next.validcount == valid {
+                continue;
+            }
+            next.run_func_on_thinglist(|thing| {
+                trace!("Thing type {:?} is in affected sector", thing.kind);
+                thing.pit_change_sector(&mut no_fit, crunch)
+            });
+            next.validcount = valid;
+        }
+    }
 
     no_fit
 }
-
-// pub fn player_exist_in_sector(sector: DPtr<Sector>) -> bool {
-//     if !sector.thinglist.is_null() {
-//         let mut thing = sector.thinglist;
-//         unsafe {
-//             loop {
-//                 if (*thing).player.is_some() {
-//                     return true;
-//                 }
-
-//                 if thing == (*thing).s_next || (*thing).s_next.is_null() {
-//                     break;
-//                 }
-//                 thing = (*thing).s_next;
-//             }
-//         }
-//     }
-//     false
-// }
 
 /// The result of raising a plane. `PastDest` = stop, `Crushed` = should crush all in sector
 #[derive(Debug, Clone, Copy)]
