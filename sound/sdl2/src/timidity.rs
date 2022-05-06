@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn read_gus_data() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let gus = wad.get_lump("DMXGUS").unwrap();
 
         // line endings are `\r\n`
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn read_gus_1024k() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
 
         let base = env!("CARGO_MANIFEST_DIR");
         let mut path = PathBuf::new();
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn read_gus_perfect() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
 
         let base = env!("CARGO_MANIFEST_DIR");
         let mut path = PathBuf::new();

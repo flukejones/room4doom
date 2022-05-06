@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn check_nodes_of_e1m1() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
