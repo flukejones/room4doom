@@ -1,11 +1,10 @@
 //! Functions used for various graphical and other tests
 
+use game_state::Game;
 use gameplay::WallPic;
 
 use render_traits::PixelBuf;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
-
-use crate::game::Game;
 
 pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut PixelBuf) {
     let height = pixels.height();

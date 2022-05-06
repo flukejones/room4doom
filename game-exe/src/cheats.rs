@@ -1,10 +1,9 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
+use game_state::Game;
 use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use sdl2::keyboard::{Keycode, Scancode};
 use sound_traits::MusEnum;
-
-use crate::game::Game;
 
 pub struct Cheats {
     /// `iddqd`: Invulnerable to all (except massive end-of-level damage)

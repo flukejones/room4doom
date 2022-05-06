@@ -25,14 +25,14 @@ const WEAPONTOP: f32 = 32.0;
 pub struct PspDef {
     /// a NULL state means not active
     pub state: Option<&'static State>,
-    pub tics: i32,
+    pub(crate) tics: i32,
     pub sx: f32,
     pub sy: f32,
 }
 
 /// The player can re-fire the weapon
 /// without lowering it entirely.
-pub fn a_refire(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_refire(player: &mut Player, _pspr: &mut PspDef) {
     if player.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0
         && player.pendingweapon == WeaponType::NoChange
         && player.health != 0
@@ -45,7 +45,7 @@ pub fn a_refire(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
+pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     let mut level_time = 0;
     let readyweapon = player.readyweapon;
     if let Some(mobj) = player.mobj_mut() {
@@ -100,7 +100,7 @@ pub fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     pspr.sy = WEAPONTOP + 5.0 + player.bob * (angle as f32).sin() * 0.1;
 }
 
-pub fn a_lower(player: &mut Player, pspr: &mut PspDef) {
+pub(crate) fn a_lower(player: &mut Player, pspr: &mut PspDef) {
     pspr.sy += LOWERSPEED;
     if pspr.sy < WEAPONBOTTOM {
         return;
@@ -122,7 +122,7 @@ pub fn a_lower(player: &mut Player, pspr: &mut PspDef) {
     player.bring_up_weapon();
 }
 
-pub fn a_raise(player: &mut Player, pspr: &mut PspDef) {
+pub(crate) fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     pspr.sy -= RAISESPEED;
     if pspr.sy > WEAPONTOP {
         return;
@@ -133,7 +133,7 @@ pub fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Weapon as usize, new_state);
 }
 
-pub fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     let refire = player.refire;
@@ -153,7 +153,7 @@ pub fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
     );
 }
 
-pub fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
@@ -175,7 +175,7 @@ pub fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     );
 }
 
-pub fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     let distance = MISSILERANGE;
 
     if let Some(mobj) = player.mobj_mut() {
@@ -206,7 +206,7 @@ pub fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     );
 }
 
-pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
+pub(crate) fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     if !player.check_ammo() {
         return;
     }
@@ -232,7 +232,7 @@ pub fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Flash as usize, state);
 }
 
-pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     let state = StateNum::from(
         (WEAPON_INFO[player.readyweapon as usize].flashstate as u16 + p_random() as u16) & 1,
@@ -250,7 +250,7 @@ pub fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     // player.set_psprite(
     //     PsprNum::Flash as usize,
@@ -268,7 +268,7 @@ pub fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     // player.set_psprite(
     //     PsprNum::Flash as usize,
@@ -285,15 +285,15 @@ pub fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
     player.start_sound(SfxNum::Bfg);
 }
 
-pub fn a_bfgspray(player: &mut MapObject) {
+pub(crate) fn a_bfgspray(player: &mut MapObject) {
     error!("TODO: a_bfgspray not implemented");
 }
 
-pub fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
     player.set_mobj_state(StateNum::PLAY_ATK2);
     player.set_psprite(
         PsprNum::Flash as usize,
@@ -301,7 +301,7 @@ pub fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
     );
 }
 
-pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
     let mut damage = (p_random() % 10 + 1) as f32;
     if player.powers[PowerType::Strength as usize] != 0 {
         damage *= 10.0;
@@ -323,24 +323,24 @@ pub fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_checkreload(player: &mut Player, _pspr: &mut PspDef) {
     player.check_ammo();
 }
 
-pub fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_openshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     player.start_sound(SfxNum::Dbopn);
 }
 
-pub fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_loadshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     player.start_sound(SfxNum::Dbload);
 }
 
-pub fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
+pub(crate) fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
     player.start_sound(SfxNum::Dbcls);
     a_refire(player, pspr);
 }
 
-pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
     let damage = 2.0 * (p_random() % 10 + 1) as f32;
 
     if let Some(mobj) = player.mobj_mut() {
@@ -379,14 +379,14 @@ pub fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
     }
 }
 
-pub fn a_light0(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_light0(player: &mut Player, _pspr: &mut PspDef) {
     player.extralight = 0;
 }
 
-pub fn a_light1(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_light1(player: &mut Player, _pspr: &mut PspDef) {
     player.extralight = 1;
 }
 
-pub fn a_light2(player: &mut Player, _pspr: &mut PspDef) {
+pub(crate) fn a_light2(player: &mut Player, _pspr: &mut PspDef) {
     player.extralight = 2;
 }

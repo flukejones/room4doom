@@ -1,0 +1,14 @@
+[package]
+name = "menu-traits"
+version = "0.1.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+
+[features]
+default = [] #["sdl2-bundled"]
+sdl2-bundled = ["sdl2/bundled"]
+
+[dependencies]
+sdl2 = { version = "~0.35.2", features = ["mixer"] }
+gameplay = { path = "../../gameplay" }
+render-traits = { path = "../../render/traits" }

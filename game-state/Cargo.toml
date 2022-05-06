@@ -1,0 +1,22 @@
+[package]
+name = "game-state"
+version = "0.10.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[features]
+default = [] #["sdl2-bundled"]
+sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
+
+[dependencies]
+sdl2 = { version = "~0.35.2", features = ["mixer"] }
+gameplay = { path = "../gameplay" }
+sound-traits = { path = "../sound/traits" }
+sound-sdl2 = { path = "../sound/sdl2" }
+menu-traits = { path = "../menu/traits" }
+menu-doom = { path = "../menu/doom" }
+wad = { path = "../wad" }
+# utility deps
+toml = "0.5"
+serde = { version = "1.0", features = ["serde_derive"] }
