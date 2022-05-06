@@ -4,11 +4,15 @@
 
 use std::error::Error;
 
+use game_state::{Game, GameState};
 use gameplay::{
     log::{self, error, info},
     MapObject,
 };
 use golem::Context;
+use input::Input;
+use menu_doom::MenuDoom;
+use menu_traits::{MenuDraw, MenuResponder, MenuTicker};
 use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
 use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
@@ -16,8 +20,7 @@ use sound_traits::SoundAction;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
-    game::{Game, GameState},
-    input::Input,
+    cheats::Cheats,
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     test_funcs::*,
     timestep::TimeStep,
@@ -90,6 +93,8 @@ pub fn d_doom_loop(
         None
     };
 
+    let mut cheats = Cheats::new();
+    let mut menu = MenuDoom::new();
     loop {
         if !game.running() {
             break;
@@ -99,7 +104,7 @@ pub fn d_doom_loop(
         // - drawers, these take a state from above and display it to the user
 
         // Update the game-exe state
-        try_run_tics(&mut game, &mut input, &mut timestep);
+        try_run_tics(&mut game, &mut input, &mut menu, &mut cheats, &mut timestep);
 
         // Update the positional sounds
         // Update the listener of the sound server. Will always be consoleplayer.
@@ -116,7 +121,7 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        d_display(&mut renderer, &game, &mut render_buffer);
+        d_display(&mut renderer, &mut menu, &game, &mut render_buffer);
 
         if options.palette_test {
             palette_test(pal_num, &mut game, &mut render_buffer);
@@ -197,7 +202,12 @@ pub fn d_doom_loop(
 
 /// D_Display
 /// Does a bunch of stuff in Doom...
-fn d_display(rend: &mut impl PlayRenderer, game: &Game, pixels: &mut PixelBuf) {
+fn d_display(
+    rend: &mut impl PlayRenderer,
+    menu: &mut impl MenuDraw,
+    game: &Game,
+    pixels: &mut PixelBuf,
+) {
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
@@ -231,53 +241,70 @@ fn d_display(rend: &mut impl PlayRenderer, game: &Game, pixels: &mut PixelBuf) {
     }
 
     match game.game_state {
-        crate::game::GameState::Level => {
+        GameState::Level => {
             // TODO: Automap draw
             // TODO: Statusbar draw
         }
-        crate::game::GameState::Intermission => {
+        GameState::Intermission => {
             // TODO: WI_Drawer();
         }
-        crate::game::GameState::Finale => {
+        GameState::Finale => {
             // TODO: F_Drawer();
         }
-        crate::game::GameState::Demo => {
+        GameState::Demo => {
             // TODO: D_PageDrawer();
         }
         _ => {}
     }
 
     // // menus go directly to the screen
-    // TODO: M_Drawer();	 // menu is drawn even on top of everything
-    // net update does i/o and buildcmds...
-    // TODO: NetUpdate(); // send out any new accumulation
+    menu.render_menu(pixels); // menu is drawn even on top of everything
+                              // net update does i/o and buildcmds...
+                              // TODO: NetUpdate(); // send out any new accumulation
 }
 
-fn try_run_tics(game: &mut Game, input: &mut Input, timestep: &mut TimeStep) {
+fn try_run_tics<M>(
+    game: &mut Game,
+    input: &mut Input,
+    menu: &mut M,
+    cheats: &mut Cheats,
+    timestep: &mut TimeStep,
+) where
+    M: MenuResponder + MenuTicker,
+{
     // TODO: net.c starts here
-    input.update(game); // D_ProcessEvents
-
-    let console_player = game.consoleplayer;
-    // net update does i/o and buildcmds...
-    // TODO: NetUpdate(); // send out any new accumulation
-
-    // temporary block
-    game.set_running(!input.get_quit());
-
-    // TODO: Network code would update each player slot with incoming TicCmds...
-    let cmd = input.tic_events.build_tic_cmd(&input.config);
-    game.netcmds[console_player][0] = cmd;
-
-    // Special key check
-    if input.tic_events.is_kb_pressed(Scancode::Escape) {
-        game.set_running(false);
-    }
+    process_events(game, input, menu, cheats); // D_ProcessEvents
 
     // Build tics here?
-    // TODO: Doom-like timesteps
     timestep.run_this(|_| {
         // G_Ticker
         game.ticker();
+        menu.ticker();
         game.game_tic += 1;
     });
+}
+
+fn process_events(
+    game: &mut Game,
+    input: &mut Input,
+    menu: &mut impl MenuResponder,
+    cheats: &mut Cheats,
+) {
+    // required for cheats and menu so they don't receive multiple key-press fo same key
+    let callback = |sc: Scancode| {
+        if game.level.is_some() {
+            cheats.check_input(sc, game);
+        }
+
+        menu.responder(sc, game)
+    };
+    if !input.update(callback) {
+        let console_player = game.consoleplayer;
+        // net update does i/o and buildcmds...
+        // TODO: NetUpdate(); // send out any new accumulation
+
+        // TODO: Network code would update each player slot with incoming TicCmds...
+        let cmd = input.events.build_tic_cmd(&input.config);
+        game.netcmds[console_player][0] = cmd;
+    }
 }

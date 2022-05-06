@@ -1,12 +1,13 @@
 //! All input handling. The output is generally a `TicCmd` used to run
 //! inputs in the `Game` in a generalised way.
 
+pub mod config;
+
 use std::collections::hash_set::HashSet;
 
+use crate::config::InputConfig;
 use gameplay::{tic_cmd::*, WeaponType};
 use sdl2::{event::Event, keyboard::Scancode as Sc, mouse::MouseButton as Mb, EventPump};
-
-use crate::{cheats::Cheats, game::Game};
 
 #[derive(Default, Clone)]
 pub struct InputEvents {
@@ -25,6 +26,10 @@ impl InputEvents {
 
     pub fn is_kb_pressed(&self, s: Sc) -> bool {
         self.key_state.contains(&s)
+    }
+
+    pub fn keys_pressed(&self) -> &HashSet<Sc> {
+        &self.key_state
     }
 
     pub fn is_mb_pressed(&self, m: Mb) -> bool {
@@ -183,10 +188,9 @@ impl InputEvents {
 /// Fetch all input
 pub struct Input {
     pump: EventPump,
-    pub tic_events: InputEvents,
+    pub events: InputEvents,
     pub config: InputConfig,
     quit: bool,
-    cheats: Cheats,
 }
 
 impl Input {
@@ -194,15 +198,14 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            tic_events: InputEvents::new((10, 0)),
+            events: InputEvents::new((10, 0)),
             config: InputConfig::default(),
             quit: false,
-            cheats: Cheats::new(),
         }
     }
 
-    /// The way this is set up to work is that for each `game-exe tick`, a fresh set of event is
-    /// gathered and stored. Then for that single game-exe tick, every part of the game-exe can ask
+    /// The way this is set up to work is that for each `game tick`, a fresh set of event is
+    /// gathered and stored. Then for that single game tick, every part of the game can ask
     /// `Input` for results without the results being removed.
     ///
     /// The results of the `update` are valid until the next `update` whereupon they are refreshed.
@@ -211,25 +214,26 @@ impl Input {
     /// all the required actions in the same block that it is called in. It has the potential
     /// to cause delays in proccessing
     ///
-    pub fn update(&mut self, game: &mut Game) {
+    pub fn update(&mut self, mut key_once_callback: impl FnMut(Sc) -> bool) -> bool {
+        let mut cb_res = false;
         while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
-                    self.cheats.check_input(sc, game);
-                    self.tic_events.set_kb(sc);
+                    cb_res = key_once_callback(sc);
+                    self.events.set_kb(sc);
                 }
                 Event::KeyUp {
                     scancode: Some(sc), ..
                 } => {
-                    self.tic_events.unset_kb(sc);
+                    self.events.unset_kb(sc);
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {
-                    self.tic_events.set_mb(mouse_btn);
+                    self.events.set_mb(mouse_btn);
                 }
                 Event::MouseButtonUp { mouse_btn, .. } => {
-                    self.tic_events.unset_mb(mouse_btn);
+                    self.events.unset_mb(mouse_btn);
                 }
 
                 Event::MouseMotion {
@@ -239,115 +243,16 @@ impl Input {
                     yrel,
                     ..
                 } => {
-                    self.tic_events.set_mouse_pos((xrel, yrel));
+                    self.events.set_mouse_pos((xrel, yrel));
                 }
 
                 Event::Quit { .. } => self.quit = true, // Early out if Quit
                 _ => {}
             }
         }
+        cb_res
     }
     pub fn get_quit(&self) -> bool {
         self.quit
-    }
-}
-
-use serde::{de, Deserialize, Serialize, Serializer};
-
-fn serialize_scancode<S>(sc: &Sc, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.serialize_i32(*sc as i32)
-}
-
-fn deserialize_scancode<'de, D>(deserializer: D) -> Result<Sc, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    let sc: i32 = de::Deserialize::deserialize(deserializer)?;
-    let sc = Sc::from_i32(sc).unwrap_or_else(|| panic!("Could not deserialise key config"));
-    Ok(sc)
-}
-
-fn serialize_mb<S>(sc: &Mb, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.serialize_u8(*sc as u8)
-}
-
-fn deserialize_mb<'de, D>(deserializer: D) -> Result<Mb, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    let sc: u8 = de::Deserialize::deserialize(deserializer)?;
-    let sc = Mb::from_ll(sc);
-    Ok(sc)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InputConfig {
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_right: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_left: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_up: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_down: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_strafeleft: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_straferight: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_fire: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_use: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_strafe: Sc,
-    #[serde(serialize_with = "serialize_scancode")]
-    #[serde(deserialize_with = "deserialize_scancode")]
-    key_speed: Sc,
-
-    #[serde(serialize_with = "serialize_mb")]
-    #[serde(deserialize_with = "deserialize_mb")]
-    mousebfire: Mb,
-    #[serde(serialize_with = "serialize_mb")]
-    #[serde(deserialize_with = "deserialize_mb")]
-    mousebstrafe: Mb,
-    #[serde(serialize_with = "serialize_mb")]
-    #[serde(deserialize_with = "deserialize_mb")]
-    mousebforward: Mb,
-}
-
-impl Default for InputConfig {
-    fn default() -> Self {
-        InputConfig {
-            key_right: Sc::Right,
-            key_left: Sc::Left,
-
-            key_up: Sc::W,
-            key_down: Sc::S,
-            key_strafeleft: Sc::A,
-            key_straferight: Sc::D,
-            key_fire: Sc::RCtrl,
-            key_use: Sc::Space,
-            key_strafe: Sc::RAlt,
-            key_speed: Sc::LShift,
-
-            mousebfire: Mb::Left,
-            mousebstrafe: Mb::Middle,
-            mousebforward: Mb::Right,
-        }
     }
 }

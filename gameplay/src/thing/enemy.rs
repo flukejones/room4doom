@@ -77,7 +77,7 @@ fn sound_flood(
 }
 
 /// A_FaceTarget
-pub fn a_facetarget(actor: &mut MapObject) {
+pub(crate) fn a_facetarget(actor: &mut MapObject) {
     actor.flags &= !(MapObjFlag::Ambush as u32);
 
     if let Some(target) = actor.target {
@@ -94,7 +94,7 @@ pub fn a_facetarget(actor: &mut MapObject) {
 
 /// Actor has a melee attack,
 /// so it tries to close as fast as possible
-pub fn a_chase(actor: &mut MapObject) {
+pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.reactiontime > 0 {
         actor.reactiontime -= 1;
     }
@@ -196,7 +196,7 @@ pub fn a_chase(actor: &mut MapObject) {
 }
 
 /// Stay in this state until a player is sighted.
-pub fn a_look(actor: &mut MapObject) {
+pub(crate) fn a_look(actor: &mut MapObject) {
     actor.threshold = 0;
     // TODO: any shot will wake up
     unsafe {
@@ -246,7 +246,7 @@ pub fn a_look(actor: &mut MapObject) {
     actor.set_state(actor.info.seestate);
 }
 
-pub fn a_fire(_actor: &mut MapObject) {
+pub(crate) fn a_fire(_actor: &mut MapObject) {
     error!("a_fire not implemented");
     // mobj_t *dest;
     // mobj_t *target;
@@ -271,7 +271,7 @@ pub fn a_fire(_actor: &mut MapObject) {
     // P_SetThingPosition(actor);
 }
 
-pub fn a_scream(actor: &mut MapObject) {
+pub(crate) fn a_scream(actor: &mut MapObject) {
     let sound = match actor.info.deathsound {
         SfxNum::None => return,
         SfxNum::Podth1 | SfxNum::Podth2 | SfxNum::Podth3 => {
@@ -292,89 +292,89 @@ pub fn a_scream(actor: &mut MapObject) {
     }
 }
 
-pub fn a_fall(actor: &mut MapObject) {
+pub(crate) fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
     actor.flags &= !(MapObjFlag::Solid as u32);
     // So change this if corpse objects are meant to be obstacles.
 }
 
-pub fn a_explode(actor: &mut MapObject) {
+pub(crate) fn a_explode(actor: &mut MapObject) {
     actor.radius_attack(128.0);
 }
 
-pub fn a_xscream(actor: &mut MapObject) {
+pub(crate) fn a_xscream(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Slop);
 }
 
-pub fn a_keendie(_actor: &mut MapObject) {
+pub(crate) fn a_keendie(_actor: &mut MapObject) {
     error!("a_keendie not implemented");
 }
 
-pub fn a_hoof(actor: &mut MapObject) {
+pub(crate) fn a_hoof(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Hoof);
     a_chase(actor);
 }
 
-pub fn a_metal(actor: &mut MapObject) {
+pub(crate) fn a_metal(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Metal);
     a_chase(actor);
 }
 
-pub fn a_babymetal(actor: &mut MapObject) {
+pub(crate) fn a_babymetal(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Bspwlk);
     a_chase(actor);
 }
 
-pub fn a_brainawake(actor: &mut MapObject) {
+pub(crate) fn a_brainawake(actor: &mut MapObject) {
     error!("a_brainawake not implemented");
 }
 
-pub fn a_braindie(actor: &mut MapObject) {
+pub(crate) fn a_braindie(actor: &mut MapObject) {
     actor.level_mut().do_exit_level();
 }
 
-pub fn a_brainspit(actor: &mut MapObject) {
+pub(crate) fn a_brainspit(actor: &mut MapObject) {
     error!("a_brainspit not implemented");
 }
 
-pub fn a_brainpain(actor: &mut MapObject) {
+pub(crate) fn a_brainpain(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Bospn);
 }
 
-pub fn a_brainscream(actor: &mut MapObject) {
+pub(crate) fn a_brainscream(actor: &mut MapObject) {
     error!("a_brainscream not implemented");
 }
 
-pub fn a_brainexplode(actor: &mut MapObject) {
+pub(crate) fn a_brainexplode(actor: &mut MapObject) {
     error!("a_brainexplode not implemented");
 }
 
-pub fn a_spawnfly(actor: &mut MapObject) {
+pub(crate) fn a_spawnfly(actor: &mut MapObject) {
     error!("a_spawnfly not implemented");
 }
 
-pub fn a_spawnsound(actor: &mut MapObject) {
+pub(crate) fn a_spawnsound(actor: &mut MapObject) {
     actor.start_sound(SfxNum::Boscub);
     a_spawnfly(actor);
 }
 
-pub fn a_vilestart(actor: &mut MapObject) {
+pub(crate) fn a_vilestart(actor: &mut MapObject) {
     error!("a_vilestart not implemented");
 }
 
-pub fn a_vilechase(actor: &mut MapObject) {
+pub(crate) fn a_vilechase(actor: &mut MapObject) {
     error!("a_vilechase not implemented");
 }
 
-pub fn a_viletarget(actor: &mut MapObject) {
+pub(crate) fn a_viletarget(actor: &mut MapObject) {
     error!("a_viletarget not implemented");
 }
 
-pub fn a_vileattack(actor: &mut MapObject) {
+pub(crate) fn a_vileattack(actor: &mut MapObject) {
     error!("a_vileattack not implemented");
 }
 
-pub fn a_posattack(actor: &mut MapObject) {
+pub(crate) fn a_posattack(actor: &mut MapObject) {
     if actor.target.is_none() {
         return;
     }
@@ -391,7 +391,7 @@ pub fn a_posattack(actor: &mut MapObject) {
     actor.line_attack(damage as f32, MISSILERANGE, angle, slope, &mut bsp_trace);
 }
 
-pub fn a_sposattack(actor: &mut MapObject) {
+pub(crate) fn a_sposattack(actor: &mut MapObject) {
     if actor.target.is_none() {
         return;
     }
@@ -416,7 +416,7 @@ pub fn a_sposattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_cposattack(actor: &mut MapObject) {
+pub(crate) fn a_cposattack(actor: &mut MapObject) {
     if actor.target.is_none() {
         return;
     }
@@ -433,7 +433,7 @@ pub fn a_cposattack(actor: &mut MapObject) {
     actor.line_attack(damage as f32, MISSILERANGE, angle, slope, &mut bsp_trace);
 }
 
-pub fn a_bspiattack(actor: &mut MapObject) {
+pub(crate) fn a_bspiattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
@@ -443,7 +443,7 @@ pub fn a_bspiattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_skullattack(actor: &mut MapObject) {
+pub(crate) fn a_skullattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj() };
 
@@ -463,7 +463,7 @@ pub fn a_skullattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_headattack(actor: &mut MapObject) {
+pub(crate) fn a_headattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
@@ -480,7 +480,7 @@ pub fn a_headattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_sargattack(actor: &mut MapObject) {
+pub(crate) fn a_sargattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj_mut() };
 
@@ -492,7 +492,7 @@ pub fn a_sargattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_bruisattack(actor: &mut MapObject) {
+pub(crate) fn a_bruisattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
@@ -508,7 +508,7 @@ pub fn a_bruisattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_cposrefire(actor: &mut MapObject) {
+pub(crate) fn a_cposrefire(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
         if p_random() < 40 {
@@ -523,7 +523,7 @@ pub fn a_cposrefire(actor: &mut MapObject) {
     actor.set_state(actor.info.seestate);
 }
 
-pub fn a_cyberattack(actor: &mut MapObject) {
+pub(crate) fn a_cyberattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
         let target = unsafe { (*target).mobj_mut() };
@@ -533,7 +533,7 @@ pub fn a_cyberattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_troopattack(actor: &mut MapObject) {
+pub(crate) fn a_troopattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
 
@@ -551,13 +551,13 @@ pub fn a_troopattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_pain(actor: &mut MapObject) {
+pub(crate) fn a_pain(actor: &mut MapObject) {
     if actor.info.painsound != SfxNum::None {
         actor.start_sound(actor.info.painsound);
     }
 }
 
-pub fn a_painattack(actor: &mut MapObject) {
+pub(crate) fn a_painattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
         let _target = unsafe { (*target).mobj_mut() };
@@ -565,7 +565,7 @@ pub fn a_painattack(actor: &mut MapObject) {
     }
 }
 
-pub fn a_paindie(actor: &mut MapObject) {
+pub(crate) fn a_paindie(actor: &mut MapObject) {
     error!("a_paindie not implemented");
     // A_Fall(actor);
     // A_PainShootSkull(actor, actor->angle + ANG90);
@@ -573,22 +573,22 @@ pub fn a_paindie(actor: &mut MapObject) {
     // A_PainShootSkull(actor, actor->angle + ANG270);
 }
 
-pub fn a_fatattack1(actor: &mut MapObject) {
+pub(crate) fn a_fatattack1(actor: &mut MapObject) {
     error!("a_fatattack1 not implemented");
 }
-pub fn a_fatattack2(actor: &mut MapObject) {
+pub(crate) fn a_fatattack2(actor: &mut MapObject) {
     error!("a_fatattack2 not implemented");
 }
-pub fn a_fatattack3(actor: &mut MapObject) {
+pub(crate) fn a_fatattack3(actor: &mut MapObject) {
     error!("a_fatattack3 not implemented");
 }
 
-pub fn a_fatraise(actor: &mut MapObject) {
+pub(crate) fn a_fatraise(actor: &mut MapObject) {
     a_facetarget(actor);
     actor.start_sound(SfxNum::Manatk);
 }
 
-pub fn a_spidrefire(actor: &mut MapObject) {
+pub(crate) fn a_spidrefire(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
         if p_random() < 10 {
@@ -603,7 +603,7 @@ pub fn a_spidrefire(actor: &mut MapObject) {
     actor.set_state(actor.info.seestate);
 }
 
-pub fn a_bossdeath(actor: &mut MapObject) {
+pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     let level = unsafe { &mut *actor.level };
     let map = level.game_map;
     let episode = level.episode;
@@ -718,14 +718,14 @@ pub fn a_bossdeath(actor: &mut MapObject) {
     level.do_completed();
 }
 
-pub fn a_skelwhoosh(actor: &mut MapObject) {
+pub(crate) fn a_skelwhoosh(actor: &mut MapObject) {
     if actor.target.is_some() {
         a_facetarget(actor);
         actor.start_sound(SfxNum::Skeswg);
     }
 }
 
-pub fn a_skelfist(actor: &mut MapObject) {
+pub(crate) fn a_skelfist(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
         let target = unsafe { (*target).mobj_mut() };
@@ -738,7 +738,7 @@ pub fn a_skelfist(actor: &mut MapObject) {
     }
 }
 
-pub fn a_skelmissile(actor: &mut MapObject) {
+pub(crate) fn a_skelmissile(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
@@ -754,19 +754,19 @@ pub fn a_skelmissile(actor: &mut MapObject) {
     }
 }
 
-pub fn a_tracer(actor: &mut MapObject) {
+pub(crate) fn a_tracer(actor: &mut MapObject) {
     error!("a_tracer not implemented");
 }
 
-pub fn a_startfire(actor: &mut MapObject) {
+pub(crate) fn a_startfire(actor: &mut MapObject) {
     error!("a_startfire not implemented");
 }
 
-pub fn a_firecrackle(actor: &mut MapObject) {
+pub(crate) fn a_firecrackle(actor: &mut MapObject) {
     error!("a_firecrackle not implemented");
 }
 
-pub fn a_playerscream(actor: &mut MapObject) {
+pub(crate) fn a_playerscream(actor: &mut MapObject) {
     let mut sound = SfxNum::Pldeth;
 
     if actor.level().game_mode == GameMode::Commercial && actor.health < -50 {

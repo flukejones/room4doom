@@ -1,10 +1,7 @@
-use crate::{
-    input::InputConfig,
-    log::{error, warn},
-    CLIOptions, Shaders, BASE_DIR,
-};
+use crate::{shaders::Shaders, CLIOptions, BASE_DIR};
 use dirs::config_dir;
-use gameplay::log::info;
+use gameplay::log::{error, info, warn};
+use input::config::InputConfig;
 use serde::{Deserialize, Serialize};
 use sound_sdl2::timidity::GusMemSize;
 use std::{

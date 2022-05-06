@@ -1,17 +1,16 @@
 mod cheats;
 mod config;
 mod d_main;
-mod game;
-mod input;
 mod shaders;
 mod test_funcs;
 mod timestep;
 
-use std::{error::Error, io::Write, str::FromStr};
+use dirs::{cache_dir, data_dir};
+use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
-use game::Game;
+use game_state::{DoomOptions, Game};
 use golem::*;
 use gumdrop::Options;
 
@@ -19,48 +18,14 @@ use crate::config::UserConfig;
 use gameplay::{log, Skill};
 use input::Input;
 use shaders::Shaders;
+use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 
+use crate::log::{info, warn};
 use wad::WadData;
 
 const SOUND_DIR: &str = "room4doom/sound/";
 const TIMIDITY_CFG: &str = "timidity.cfg";
 const BASE_DIR: &str = "room4doom/";
-
-/// Options specific to Doom. This will get phased out for `GameOptions`
-#[derive(Debug)]
-pub struct DoomOptions {
-    pub iwad: String,
-    pub pwad: Vec<String>,
-    pub no_monsters: bool,
-    pub respawn_parm: bool,
-    pub fast_parm: bool,
-    pub dev_parm: bool,
-    pub deathmatch: u8,
-    pub skill: Skill,
-    pub episode: i32,
-    pub map: i32,
-    pub autostart: bool,
-    pub verbose: log::LevelFilter,
-}
-
-impl Default for DoomOptions {
-    fn default() -> Self {
-        Self {
-            iwad: "doom.wad".to_string(),
-            pwad: Default::default(),
-            no_monsters: Default::default(),
-            respawn_parm: Default::default(),
-            fast_parm: Default::default(),
-            dev_parm: Default::default(),
-            deathmatch: Default::default(),
-            skill: Default::default(),
-            episode: Default::default(),
-            map: Default::default(),
-            autostart: Default::default(),
-            verbose: log::LevelFilter::Info,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderType {
@@ -121,7 +86,10 @@ pub struct CLIOptions {
     // )]
     // pub deathmatch: u8,
     // pub autostart: bool,
-    #[options(meta = "", help = "Set the game-exe skill, 0-4 (0: easiest, 4: hardest)")]
+    #[options(
+        meta = "",
+        help = "Set the game-exe skill, 0-4 (0: easiest, 4: hardest)"
+    )]
     pub skill: Skill,
     #[options(meta = "", help = "Select episode", default = "1")]
     pub episode: i32,
@@ -163,6 +131,28 @@ impl From<CLIOptions> for DoomOptions {
             map: g.map,
             verbose: g.verbose,
             ..DoomOptions::default()
+        }
+    }
+}
+
+fn setup_timidity(wad: &WadData) {
+    if let Some(mut path) = data_dir() {
+        path.push(SOUND_DIR);
+        if path.exists() {
+            let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+            cache_dir.push(TIMIDITY_CFG);
+            if let Some(cfg) = make_timidity_cfg(wad, path, GusMemSize::Perfect) {
+                let mut file = File::create(cache_dir.as_path()).unwrap();
+                file.write_all(&cfg).unwrap();
+                set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+                set_var("TIMIDITY_CFG", cache_dir.as_path());
+                info!("Using timidity for sound");
+            } else {
+                warn!("Sound fonts were missing, using fluidsynth instead");
+            }
+        } else {
+            info!("No sound fonts installed to {:?}", path);
+            info!("Using fluidsynth for sound");
         }
     }
 }
@@ -229,8 +219,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let wad = WadData::new(options.iwad.clone().into());
-
-    let game = Game::new(options.clone().into(), wad, snd_ctx, user_config);
+    setup_timidity(&wad);
+    let game = Game::new(
+        options.clone().into(),
+        wad,
+        snd_ctx,
+        user_config.sfx_vol,
+        user_config.mus_vol,
+    );
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {

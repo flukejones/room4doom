@@ -74,21 +74,6 @@ pub trait PlayRenderer {
     fn render_player_view(&mut self, player: &Player, level: &Level, buf: &mut PixelBuf);
 }
 
-pub trait HUDRenderer {
-    /// Draw the Player HUD (messages) to the `PixelBuf`.
-    fn render_player_hud(&mut self, player: &Player, buffer: &mut PixelBuf);
-}
-
-pub trait AutomapRenderer {
-    /// Draw the Player HUD (messages) to the `PixelBuf`.
-    fn render_automap(&mut self, player: &Player, level: &Level, buffer: &mut PixelBuf);
-}
-
-pub trait MenuRenderer {
-    /// Draw game-exe menus on top of the `PixelBuf`.
-    fn render_menu(&mut self, player: &Player, buffer: &mut PixelBuf);
-}
-
 #[cfg(test)]
 mod tests {
     use crate::PixelBuf;

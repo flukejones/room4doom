@@ -1,0 +1,11 @@
+[package]
+name = "menu-doom"
+version = "0.1.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+
+[dependencies]
+menu-traits = { path = "../traits" }
+wad = { path = "../../wad" }
+# versions are set by game-exe crate
+log = "*"

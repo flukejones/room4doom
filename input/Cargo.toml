@@ -1,0 +1,15 @@
+[package]
+name = "input"
+version = "0.10.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[features]
+default = [] #["sdl2-bundled"]
+sdl2-bundled = ["sdl2/bundled"]
+
+[dependencies]
+sdl2 = { version = "~0.35.2", features = ["mixer"] }
+gameplay = { path = "../gameplay" }
+serde = { version = "1.0", features = ["serde_derive"] }
