@@ -23,7 +23,7 @@ pub trait MenuDraw {
 
 /// To be implemented by the Menu
 pub trait MenuTicker {
-    fn ticker(&mut self);
+    fn ticker(&mut self, game: &mut impl MenuFunctions);
 }
 
 /// To be implemented by the Menu

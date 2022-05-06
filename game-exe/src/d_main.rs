@@ -94,7 +94,7 @@ pub fn d_doom_loop(
     };
 
     let mut cheats = Cheats::new();
-    let mut menu = MenuDoom::new();
+    let mut menu = MenuDoom::new(&game.wad_data);
     loop {
         if !game.running() {
             break;
@@ -279,7 +279,7 @@ fn try_run_tics<M>(
     timestep.run_this(|_| {
         // G_Ticker
         game.ticker();
-        menu.ticker();
+        menu.ticker(game);
         game.game_tic += 1;
     });
 }
