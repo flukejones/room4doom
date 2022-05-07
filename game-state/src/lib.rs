@@ -164,7 +164,7 @@ pub struct Game {
     /// d_net.c
     _localcmds: [TicCmd; BACKUPTICS],
 
-    game_mode: GameMode,
+    pub game_mode: GameMode,
     game_mission: GameMission,
     pub wipe_game_state: GameState,
     usergame: bool,
@@ -307,14 +307,14 @@ impl Game {
                 Player::default(),
                 Player::default(),
             ],
-            player_in_game: [true, false, false, false], // TODO: should be set in d_net.c
+            player_in_game: [false, false, false, false], // TODO: should be set in d_net.c
 
             paused: false,
             deathmatch: false,
             netgame: false,
-            old_game_state: GameState::Level,
-            game_action: GameAction::NewGame, // TODO: default to ga_nothing when more state is done
-            game_state: GameState::Level,
+            old_game_state: GameState::Demo,
+            game_action: GameAction::Nothing, // TODO: default to ga_nothing when more state is done
+            game_state: GameState::Demo,
             game_skill: options.skill,
             game_tic: 0,
             respawn_monsters,
@@ -331,7 +331,7 @@ impl Game {
 
             game_mode,
             game_mission,
-            wipe_game_state: GameState::Level,
+            wipe_game_state: GameState::Demo,
             usergame: false,
             options,
             snd_command: tx,
@@ -390,6 +390,7 @@ impl Game {
         }
         self.respawn_monsters = false;
         self.consoleplayer = 0;
+        self.player_in_game[0] = true;
 
         // TODO: not pass these, they are stored already
         self.init_new(self.game_skill, self.game_episode, self.game_map);

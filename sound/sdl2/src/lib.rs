@@ -218,7 +218,11 @@ impl<'a> SoundServer<SfxNum, usize, sdl2::Error> for Snd<'a> {
         Ok(self.tx.clone())
     }
 
-    fn start_sound(&mut self, uid: usize, sfx: SfxNum, x: f32, y: f32) {
+    fn start_sound(&mut self, uid: usize, sfx: SfxNum, mut x: f32, mut y: f32) {
+        if uid == 0 {
+            x = self.listener.x;
+            y = self.listener.y;
+        }
         let mut dist = self.dist_from_listener(x, y);
         if dist >= MAX_DIST {
             // Not audible
@@ -227,7 +231,7 @@ impl<'a> SoundServer<SfxNum, usize, sdl2::Error> for Snd<'a> {
         // Scale for SDL2
         dist = Self::dist_scale_sdl2(dist);
         let mut angle = 0.0;
-        if uid != self.listener.uid {
+        if uid != self.listener.uid && uid != 0 {
             angle = self.listener_to_source_angle(x, y);
         }
 

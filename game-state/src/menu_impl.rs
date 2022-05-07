@@ -1,7 +1,8 @@
 use crate::Game;
-use gameplay::{GameAction, Skill};
+use gameplay::{GameAction, GameMode, Skill};
 use menu_traits::MenuFunctions;
 use sdl2::libc::pause;
+use sound_traits::{MusEnum, SfxNum, SoundAction};
 
 impl MenuFunctions for Game {
     /// G_InitNew
@@ -19,6 +20,10 @@ impl MenuFunctions for Game {
         self.game_action = GameAction::NewGame;
     }
 
+    fn get_mode(&mut self) -> GameMode {
+        self.game_mode
+    }
+
     fn load_game(&mut self, name: String) {
         todo!()
     }
@@ -27,11 +32,21 @@ impl MenuFunctions for Game {
         todo!()
     }
 
-    fn pause_game(&mut self, pause: bool) {
-        self.paused = pause;
+    fn toggle_pause_game(&mut self) {
+        self.paused = !self.paused;
     }
 
     fn quit_game(&mut self) {
         self.set_running(false);
+    }
+
+    fn start_sound(&mut self, sfx: SfxNum) {
+        let sfx = SoundAction::StartSfx {
+            uid: 0,
+            sfx,
+            x: 0.0,
+            y: 0.0,
+        };
+        self.snd_command.send(sfx).unwrap();
     }
 }

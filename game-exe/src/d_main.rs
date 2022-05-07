@@ -94,7 +94,7 @@ pub fn d_doom_loop(
     };
 
     let mut cheats = Cheats::new();
-    let mut menu = MenuDoom::new(&game.wad_data);
+    let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
     loop {
         if !game.running() {
             break;
@@ -252,6 +252,13 @@ fn d_display(
             // TODO: F_Drawer();
         }
         GameState::Demo => {
+            // TODO: we're clearing here to make the menu visible (for now)
+            let (x, y) = pixels.size();
+            for x in 0..x {
+                for y in 0..y {
+                    pixels.set_pixel(x as usize, y as usize, 20, 14, 14, 255);
+                }
+            }
             // TODO: D_PageDrawer();
         }
         _ => {}
@@ -277,9 +284,10 @@ fn try_run_tics<M>(
 
     // Build tics here?
     timestep.run_this(|_| {
-        // G_Ticker
-        game.ticker();
-        menu.ticker(game);
+        if !menu.ticker(game) {
+            // G_Ticker
+            game.ticker();
+        }
         game.game_tic += 1;
     });
 }
@@ -296,8 +304,12 @@ fn process_events(
             cheats.check_input(sc, game);
         }
 
-        menu.responder(sc, game)
+        if menu.responder(sc, game) {
+            return true; // Menu took event
+        }
+        false
     };
+
     if !input.update(callback) {
         let console_player = game.consoleplayer;
         // net update does i/o and buildcmds...
