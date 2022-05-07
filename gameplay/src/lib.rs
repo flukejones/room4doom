@@ -61,6 +61,7 @@ impl fmt::Display for DoomArgError {
     }
 }
 
+#[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Skill {
     NoItems = -1, // the "-skill 0" hack
@@ -74,6 +75,15 @@ pub enum Skill {
 impl Default for Skill {
     fn default() -> Self {
         Skill::Medium
+    }
+}
+
+impl From<i32> for Skill {
+    fn from(w: i32) -> Self {
+        if w > Skill::Nightmare as i32 {
+            panic!("{} is not a variant of Skill", w);
+        }
+        unsafe { std::mem::transmute(w) }
     }
 }
 

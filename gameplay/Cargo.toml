@@ -1,6 +1,6 @@
 [package]
 name = "gameplay"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 build = "../build.rs"

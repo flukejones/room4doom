@@ -1,18 +1,23 @@
-use gameplay::Skill;
+pub use gameplay::{GameMode, Skill};
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
+use sound_traits::{MusEnum, SfxNum, SoundAction};
 
 /// To be implemented by the Game
 pub trait MenuFunctions {
     fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32);
 
+    fn get_mode(&mut self) -> GameMode;
+
     fn load_game(&mut self, name: String);
 
     fn save_game(&mut self, name: String, slot: usize);
 
-    fn pause_game(&mut self, pause: bool);
+    fn toggle_pause_game(&mut self);
 
     fn quit_game(&mut self);
+
+    fn start_sound(&mut self, sfx: SfxNum);
 }
 
 /// To be implemented by the Menu
@@ -23,7 +28,7 @@ pub trait MenuDraw {
 
 /// To be implemented by the Menu
 pub trait MenuTicker {
-    fn ticker(&mut self, game: &mut impl MenuFunctions);
+    fn ticker(&mut self, game: &mut impl MenuFunctions) -> bool;
 }
 
 /// To be implemented by the Menu
