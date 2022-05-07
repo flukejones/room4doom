@@ -18,18 +18,16 @@ mod info;
 mod lang;
 mod level;
 mod pic;
-pub mod thing;
+mod player;
+mod player_sprite;
+mod thing;
 mod thinker;
 pub mod tic_cmd;
-// info, level data, game-exe, bsp
-pub mod player;
-pub mod player_sprite;
 pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{GameAction, GameMission, GameMode, WeaponType, DOOM_VERSION, MAXPLAYERS};
 pub use env::specials::{spawn_specials, update_specials};
-pub use glam;
 pub use info::MapObjKind;
 pub use lang::english;
 pub use level::{
@@ -38,13 +36,16 @@ pub use level::{
     map_defs::{Node, Sector, Segment, SubSector},
     Level,
 };
-pub use log;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, WBStartStruct};
 pub use player_sprite::PspDef;
 use std::{error::Error, str::FromStr};
 pub use thing::{MapObjFlag, MapObject};
 pub use utilities::{m_clear_random, p_random};
+
+// re-export
+pub use glam;
+pub use log;
 
 #[derive(Debug)]
 pub enum DoomArgError {
