@@ -11,6 +11,7 @@ use wad::{
 const SAVESTRINGSIZE: i32 = 24;
 const SKULLXOFF: i32 = -32;
 const LINEHEIGHT: i32 = 16;
+const SKULLS: [&str; 2] = ["M_SKULL1", "M_SKULL2"];
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 enum Status {
@@ -127,6 +128,8 @@ pub struct MenuDoom {
     pallette: WadPalette,
 
     episode: i32,
+    which_skull: usize,
+    skull_anim_counter: i32,
 }
 
 impl MenuDoom {
@@ -244,9 +247,7 @@ impl MenuDoom {
             }
         }
 
-        let mut patch_names = vec!["M_SKULL1", "M_SKULL2"];
-
-        for patch in patch_names {
+        for patch in SKULLS {
             if let Some(lump) = wad.get_lump(patch) {
                 patches.insert(patch, WadPatch::from_lump(lump));
             }
@@ -267,6 +268,8 @@ impl MenuDoom {
             patches,
             pallette,
             episode: 0,
+            which_skull: 0,
+            skull_anim_counter: 10,
         }
     }
 
@@ -442,6 +445,11 @@ impl MenuResponder for MenuDoom {
 
 impl MenuTicker for MenuDoom {
     fn ticker(&mut self, game: &mut impl MenuFunctions) -> bool {
+        self.skull_anim_counter -= 1;
+        if self.skull_anim_counter <= 0 {
+            self.which_skull ^= 1;
+            self.skull_anim_counter = 8;
+        }
         self.active
     }
 }
@@ -464,7 +472,7 @@ impl MenuDraw for MenuDoom {
 
             // SKULL
             let y = active.y - 5 + active.last_on as i32 * LINEHEIGHT;
-            self.draw_patch("M_SKULL1", x + -32, y, buffer);
+            self.draw_patch(SKULLS[self.which_skull], x + -32, y, buffer);
         }
     }
 }
