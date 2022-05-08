@@ -19,9 +19,10 @@ sdl2 = { version = "~0.35.2", features = ["mixer"] }
 gumdrop = "~0.8"
 input = { path = "../input" }
 menu-doom = { path = "../menu/doom" }
-menu-traits = { path = "../menu/traits" }
 gameplay = { path = "../gameplay" }
 game-state = { path = "../game-state" }
+game-traits = { path = "../game-traits" }
+intermission-doom = { path = "../intermission/doom" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }
 render-traits = { path = "../render/traits" }

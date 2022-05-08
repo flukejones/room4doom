@@ -59,7 +59,7 @@ pub enum PlayerCheat {
 
 /// INTERMISSION
 /// Structure passed e.g. to WI_Start(wb)
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct WBPlayerStruct {
     /// whether the player is in game-exe
     pub inn: bool,

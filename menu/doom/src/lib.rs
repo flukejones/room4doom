@@ -1,6 +1,4 @@
-use menu_traits::{
-    GameMode, MenuDraw, MenuFunctions, MenuResponder, MenuTicker, PixelBuf, Scancode, Skill,
-};
+use game_traits::{GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, Skill};
 use sound_traits::SfxNum;
 use std::collections::HashMap;
 use wad::{
@@ -25,7 +23,7 @@ struct MenuItem {
     status: Status,
     /// The name of the patch in the wad to draw for this item
     patch: &'static str,
-    logic: fn(&mut MenuDoom, i32, &mut dyn MenuFunctions),
+    logic: fn(&mut MenuDoom, i32, &mut dyn GameTraits),
     hotkey: char,
 }
 
@@ -33,7 +31,7 @@ impl MenuItem {
     fn new(
         status: Status,
         patch: &'static str,
-        logic: fn(&mut MenuDoom, i32, &mut (dyn MenuFunctions)),
+        logic: fn(&mut MenuDoom, i32, &mut (dyn GameTraits)),
         hotkey: char,
     ) -> Self {
         Self {
@@ -104,7 +102,7 @@ enum MenuIndex {
     ReadThis2,
 }
 
-fn place_holder(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {}
+fn place_holder(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {}
 
 type Patches = HashMap<&'static str, WadPatch>;
 
@@ -125,7 +123,7 @@ pub struct MenuDoom {
     current_menu: MenuIndex,
 
     patches: Patches,
-    pallette: WadPalette,
+    palette: WadPalette,
 
     episode: i32,
     which_skull: usize,
@@ -253,7 +251,7 @@ impl MenuDoom {
             }
         }
 
-        let pallette = wad.playpal_iter().next().unwrap();
+        let palette = wad.playpal_iter().next().unwrap();
 
         Self {
             active: false,
@@ -266,42 +264,19 @@ impl MenuDoom {
             menus,
             current_menu: MenuIndex::TopLevel,
             patches,
-            pallette,
+            palette,
             episode: 0,
             which_skull: 0,
             skull_anim_counter: 10,
         }
     }
 
-    fn draw_patch(&self, name: &str, x: i32, y: i32, pixels: &mut PixelBuf) {
-        let image = self.patches.get(name).expect(&format!("No {name}"));
-
-        let mut xtmp = 0;
-        for c in image.columns.iter() {
-            for (ytmp, p) in c.pixels.iter().enumerate() {
-                let colour = self.pallette.0[*p];
-
-                pixels.set_pixel(
-                    (x + xtmp as i32) as usize, // - (image.left_offset as i32),
-                    (y + ytmp as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
-                    colour.r,
-                    colour.g,
-                    colour.b,
-                    255,
-                );
-            }
-            if c.y_offset == 255 {
-                xtmp += 1;
-            }
-        }
-    }
-
-    fn enter_menu(&mut self, game: &mut dyn MenuFunctions) {
+    fn enter_menu(&mut self, game: &mut dyn GameTraits) {
         self.active = true;
         game.start_sound(SfxNum::Swtchn);
     }
 
-    fn exit_menu(&mut self, game: &mut dyn MenuFunctions) {
+    fn exit_menu(&mut self, game: &mut dyn GameTraits) {
         self.active = false;
         self.current_menu = MenuIndex::TopLevel;
         game.start_sound(SfxNum::Swtchx);
@@ -318,7 +293,7 @@ impl MenuDoom {
     }
 }
 
-fn sel_new_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_new_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     if game.get_mode() == GameMode::Commercial {
         menu.current_menu = MenuIndex::Skill;
         return;
@@ -326,35 +301,35 @@ fn sel_new_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) 
     menu.current_menu = MenuIndex::Episodes;
 }
 
-fn sel_readthis(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_readthis(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis1;
 }
 
-fn sel_readthis1(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_readthis1(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis2;
 }
 
-fn sel_readthis2(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_readthis2(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::TopLevel;
 }
 
-fn sel_quit_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_quit_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 
-fn sel_episode(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_episode(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.episode = choice;
     menu.current_menu = MenuIndex::Skill;
 }
 
-fn sel_skill(menu: &mut MenuDoom, choice: i32, game: &mut dyn MenuFunctions) {
+fn sel_skill(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.exit_menu(game);
     let skill = Skill::from(choice);
     game.defered_init_new(skill, menu.episode + 1, 1);
 }
 
-impl MenuResponder for MenuDoom {
-    fn responder(&mut self, sc: Scancode, game: &mut impl MenuFunctions) -> bool {
+impl MachinationTrait for MenuDoom {
+    fn responder(&mut self, sc: Scancode, game: &mut impl GameTraits) -> bool {
         if !self.active {
             // F-keys
             match sc {
@@ -373,7 +348,7 @@ impl MenuResponder for MenuDoom {
                 Scancode::F9 => {
                     // QUICKLOAD
                 }
-                Scancode::Pause | Scancode::P => {
+                Scancode::Pause => {
                     game.toggle_pause_game();
                     return true;
                 }
@@ -441,10 +416,8 @@ impl MenuResponder for MenuDoom {
 
         false
     }
-}
 
-impl MenuTicker for MenuDoom {
-    fn ticker(&mut self, game: &mut impl MenuFunctions) -> bool {
+    fn ticker(&mut self, _: &mut impl GameTraits) -> bool {
         self.skull_anim_counter -= 1;
         if self.skull_anim_counter <= 0 {
             self.which_skull ^= 1;
@@ -452,10 +425,18 @@ impl MenuTicker for MenuDoom {
         }
         self.active
     }
-}
 
-impl MenuDraw for MenuDoom {
-    fn render_menu(&mut self, buffer: &mut PixelBuf) {
+    fn get_patch(&self, name: &str) -> &WadPatch {
+        self.patches
+            .get(name)
+            .expect(&format!("{name} not in cache"))
+    }
+
+    fn get_palette(&self) -> &WadPalette {
+        &self.palette
+    }
+
+    fn draw(&mut self, buffer: &mut PixelBuf) {
         if self.active {
             let active = &self.menus[self.current_menu as usize];
             // Titles

@@ -12,9 +12,9 @@ sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
 [dependencies]
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
 gameplay = { path = "../gameplay" }
+game-traits = { path = "../game-traits" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }
-menu-traits = { path = "../menu/traits" }
 menu-doom = { path = "../menu/doom" }
 wad = { path = "../wad" }
 # utility deps
