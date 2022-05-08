@@ -1,8 +1,9 @@
 [package]
-name = "menu-traits"
+name = "game-traits"
 version = "0.2.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
+
 
 [features]
 default = [] #["sdl2-bundled"]
@@ -10,6 +11,7 @@ sdl2-bundled = ["sdl2/bundled"]
 
 [dependencies]
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
-gameplay = { path = "../../gameplay" }
-render-traits = { path = "../../render/traits" }
-sound-traits = { path = "../../sound/traits" }
+gameplay = { path = "../gameplay" }
+render-traits = { path = "../render/traits" }
+sound-traits = { path = "../sound/traits" }
+wad = { path = "../wad" }

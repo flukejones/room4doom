@@ -12,10 +12,13 @@
 //!
 //! A state can be affected by `GameAction` such as load/save/new.
 
-pub mod menu_impl;
+pub mod game_impl;
+pub mod machination;
 
 use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
 
+use crate::machination::Machinations;
+use game_traits::{GameState, GameTraits, MachinationTrait};
 use gameplay::{
     log,
     log::{debug, error, info, trace, warn},
@@ -26,7 +29,7 @@ use gameplay::{
 };
 use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
-use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic, EPISODE4_MUS};
+use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 /// Options specific to Doom. This will get phased out for `GameOptions`
@@ -63,17 +66,6 @@ impl Default for DoomOptions {
             verbose: log::LevelFilter::Info,
         }
     }
-}
-
-/// The current state of the game-exe: whether we are playing, gazing at the intermission screen,
-/// the game-exe final animation, or a demo.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum GameState {
-    ForceWipe = -1,
-    Level,
-    Intermission,
-    Finale,
-    Demo,
 }
 
 pub const BACKUPTICS: usize = 12;
@@ -339,27 +331,6 @@ impl Game {
         }
     }
 
-    pub fn change_music(&self, mus: MusEnum) {
-        let music = if mus == MusEnum::None {
-            if self.game_mode == GameMode::Commercial {
-                MusEnum::Runnin as usize + self.game_map as usize - 1
-            } else if self.game_episode < 4 {
-                MusEnum::E1M1 as usize
-                    + (self.game_episode as usize - 1) * 9
-                    + self.game_map as usize
-                    - 1
-            } else {
-                EPISODE4_MUS[self.game_map as usize - 1] as usize
-            }
-        } else {
-            mus as usize
-        };
-
-        self.snd_command
-            .send(SoundAction::ChangeMusic(music, true))
-            .unwrap();
-    }
-
     pub fn running(&self) -> bool {
         self.running
     }
@@ -584,30 +555,6 @@ impl Game {
         // TODO: viewactive = true;
     }
 
-    /// Doom function name `G_WorldDone`
-    fn world_done(&mut self) {
-        self.game_action = GameAction::WorldDone;
-        if let Some(level) = &self.level {
-            if level.secret_exit {
-                for p in self.players.iter_mut() {
-                    p.didsecret = true;
-                }
-            }
-            if matches!(self.game_mode, GameMode::Commercial) {
-                match self.game_map {
-                    6 | 11 | 15 | 20 | 30 | 31 => {
-                        // if !level.secret_exit && (self.game_map == 15 || self.game_map == 31) {
-                        //     // ignore
-                        // } else {
-                        //     // TODO: F_StartFinale();
-                        // }
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
     /// Cleanup, re-init, and set up for next level or episode. Also sets up info
     /// that can be displayed on the intermission screene.
     fn do_completed(&mut self) {
@@ -684,25 +631,6 @@ impl Game {
                 .copy_from_slice(&self.players[i].frags);
         }
 
-        // TODO: temporary
-        for (i, in_game) in self.player_in_game.iter().enumerate() {
-            if *in_game {
-                info!(
-                    "Player {i}: Total Items: {}/{}",
-                    self.wminfo.plyr[i].sitems, self.wminfo.maxitems
-                );
-                info!(
-                    "Player {i}: Total Kills: {}/{}",
-                    self.wminfo.plyr[i].skills, self.wminfo.maxkills
-                );
-                info!(
-                    "Player {i}: Total Secrets: {}/{}",
-                    self.wminfo.plyr[i].ssecret, self.wminfo.maxsecret
-                );
-                info!("Player {i}: Level Time: {}", self.wminfo.plyr[i].stime);
-            }
-        }
-
         self.level = None; // Drop level data
         self.game_state = GameState::Intermission;
     }
@@ -713,7 +641,10 @@ impl Game {
     /// through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
-    pub fn ticker(&mut self) {
+    pub fn ticker<I>(&mut self, machinations: &mut Machinations<I>)
+    where
+        I: MachinationTrait,
+    {
         trace!("Entered ticker");
         // do player reborns if needed
         for i in 0..MAXPLAYERS {
@@ -819,9 +750,8 @@ impl Game {
                 self.hu_ticker();
             }
             GameState::Intermission => {
-                error!("TODO: show end-of-level stats with WI_Ticker()");
                 // WI_Ticker calls world_done()
-                self.world_done();
+                machinations.wipe.ticker(self);
             }
             GameState::Finale => {
                 // F_Ticker();

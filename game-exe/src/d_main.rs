@@ -3,16 +3,18 @@
 //! withing the `Game` object.
 
 use std::error::Error;
+use std::mem;
 
-use game_state::{Game, GameState};
+use game_state::{machination::Machinations, Game};
+use game_traits::{GameState, MachinationTrait};
 use gameplay::{
     log::{self, error, info},
     MapObject,
 };
 use golem::Context;
 use input::Input;
+use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
-use menu_traits::{MenuDraw, MenuResponder, MenuTicker};
 use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
 use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
@@ -43,6 +45,7 @@ pub fn d_doom_loop(
 
     let mut timestep = TimeStep::new();
     let mut render_buffer = PixelBuf::new(320, 200);
+    let mut render_buffer2 = PixelBuf::new(320, 200);
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
@@ -95,6 +98,11 @@ pub fn d_doom_loop(
 
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
+
+    let mut machines = Machinations {
+        wipe: Intermission::new(game.game_mode, &game.wad_data),
+    };
+
     loop {
         if !game.running() {
             break;
@@ -104,7 +112,14 @@ pub fn d_doom_loop(
         // - drawers, these take a state from above and display it to the user
 
         // Update the game-exe state
-        try_run_tics(&mut game, &mut input, &mut menu, &mut cheats, &mut timestep);
+        try_run_tics(
+            &mut game,
+            &mut input,
+            &mut menu,
+            &mut machines,
+            &mut cheats,
+            &mut timestep,
+        );
 
         // Update the positional sounds
         // Update the listener of the sound server. Will always be consoleplayer.
@@ -121,7 +136,14 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        d_display(&mut renderer, &mut menu, &game, &mut render_buffer);
+        d_display(
+            &mut renderer,
+            &mut menu,
+            &mut machines,
+            &mut game,
+            &mut render_buffer,
+            &mut render_buffer2,
+        );
 
         if options.palette_test {
             palette_test(pal_num, &mut game, &mut render_buffer);
@@ -200,17 +222,26 @@ pub fn d_doom_loop(
     Ok(())
 }
 
-/// D_Display
 /// Does a bunch of stuff in Doom...
-fn d_display(
+/// `pixels` is the buffer that is always drawn, so drawing in to `pixels2` then flipping
+/// ensures the buffer is drawn. But if we draw in to `pixels2` and don't flip, we can
+/// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
+///
+/// D_Display
+fn d_display<I>(
     rend: &mut impl PlayRenderer,
-    menu: &mut impl MenuDraw,
-    game: &Game,
+    menu: &mut impl MachinationTrait,
+    machines: &mut Machinations<I>,
+    game: &mut Game,
     pixels: &mut PixelBuf,
-) {
+    pixels2: &mut PixelBuf,
+) where
+    I: MachinationTrait,
+{
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
+    dbg!(game.game_state, game.wipe_game_state);
     let wipe = if game.game_state != game.wipe_game_state {
         // TODO: wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
         true
@@ -231,7 +262,7 @@ fn d_display(
                     error!("Active console player has no MapObject, can't render player view");
                 } else {
                     let player = &game.players[game.consoleplayer];
-                    rend.render_player_view(player, level, pixels);
+                    rend.render_player_view(player, level, pixels2);
                 }
             }
         }
@@ -245,9 +276,7 @@ fn d_display(
             // TODO: Automap draw
             // TODO: Statusbar draw
         }
-        GameState::Intermission => {
-            // TODO: WI_Drawer();
-        }
+        GameState::Intermission => machines.wipe.draw(pixels),
         GameState::Finale => {
             // TODO: F_Drawer();
         }
@@ -265,39 +294,51 @@ fn d_display(
     }
 
     // // menus go directly to the screen
-    menu.render_menu(pixels); // menu is drawn even on top of everything
-                              // net update does i/o and buildcmds...
-                              // TODO: NetUpdate(); // send out any new accumulation
+    menu.draw(pixels2); // menu is drawn even on top of everything
+                        // net update does i/o and buildcmds...
+                        // TODO: NetUpdate(); // send out any new accumulation
+
+    if !wipe {
+        mem::swap(pixels, pixels2);
+        return;
+    }
+
+    dbg!("TODO: wipe, progressively 'melt' columns from buf2 down buf1");
+    game.wipe_game_state = game.game_state;
 }
 
-fn try_run_tics<M>(
+fn try_run_tics<I>(
     game: &mut Game,
     input: &mut Input,
-    menu: &mut M,
+    menu: &mut impl MachinationTrait,
+    machinations: &mut Machinations<I>,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
 ) where
-    M: MenuResponder + MenuTicker,
+    I: MachinationTrait,
 {
     // TODO: net.c starts here
-    process_events(game, input, menu, cheats); // D_ProcessEvents
+    process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
 
     // Build tics here?
     timestep.run_this(|_| {
+        // Did menu take control?
         if !menu.ticker(game) {
-            // G_Ticker
-            game.ticker();
+            game.ticker(machinations); // G_Ticker
         }
         game.game_tic += 1;
     });
 }
 
-fn process_events(
+fn process_events<I>(
     game: &mut Game,
     input: &mut Input,
-    menu: &mut impl MenuResponder,
+    menu: &mut impl MachinationTrait,
+    machinations: &mut Machinations<I>,
     cheats: &mut Cheats,
-) {
+) where
+    I: MachinationTrait,
+{
     // required for cheats and menu so they don't receive multiple key-press fo same key
     let callback = |sc: Scancode| {
         if game.level.is_some() {
@@ -307,6 +348,11 @@ fn process_events(
         if menu.responder(sc, game) {
             return true; // Menu took event
         }
+
+        if machinations.wipe.responder(sc, game) {
+            return true; // Menu took event
+        }
+
         false
     };
 
