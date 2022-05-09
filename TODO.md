@@ -2,9 +2,8 @@
 
 ## FUNCTIONALITY
 
-- [ ] Re-implement warp
-- [ ] Menu screens
-- [ ] Intermissions and finale]
+- [-] Menu screens (partial)
+- [-] Intermissions and finale (intermission partial, no text)
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
 - [ ] Status bar drawing
@@ -49,6 +48,7 @@
 
 ## DONE
 
+- [X] Re-implement warp
 - [X] Player can get stuck in doors if the close on the edge of bounds
 the thinker list fucnction for the door sector runs it doesn't see it
 - [X] Shadow-pinkies (use p_random instead of rewriting framebuffer)

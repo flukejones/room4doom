@@ -50,10 +50,16 @@ impl Intermission {
             next_level: false,
         }
     }
+
+    fn get_patch(&self, name: &str) -> &WadPatch {
+        self.patches
+            .get(name)
+            .expect(&format!("{name} not in cache"))
+    }
 }
 
 impl MachinationTrait for Intermission {
-    fn responder(&mut self, sc: Scancode, game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, sc: Scancode, _game: &mut impl GameTraits) -> bool {
         if sc == Scancode::Return {
             self.next_level = true;
         }
@@ -92,17 +98,11 @@ impl MachinationTrait for Intermission {
         false
     }
 
-    fn get_patch(&self, name: &str) -> &WadPatch {
-        self.patches
-            .get(name)
-            .expect(&format!("{name} not in cache"))
-    }
-
     fn get_palette(&self) -> &WadPalette {
         &self.palette
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
-        self.draw_patch(self.bg, 0, 0, buffer);
+        self.draw_patch(self.get_patch(self.bg), 0, 0, buffer);
     }
 }

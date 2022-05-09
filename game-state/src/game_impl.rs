@@ -1,5 +1,5 @@
 use crate::Game;
-use game_traits::{GameState, GameTraits};
+use game_traits::{GameState, GameTraits, PlayerInfo};
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
 use sound_traits::{MusEnum, SfxNum, SoundAction, EPISODE4_MUS};
 
@@ -107,4 +107,19 @@ impl GameTraits for Game {
     }
 
     fn get_game_state(&mut self) {}
+
+    fn player_info(&self) -> PlayerInfo {
+        let p = &self.players[self.consoleplayer];
+        PlayerInfo {
+            attackdown: p.attackdown,
+            readyweapon: p.readyweapon,
+            health: p.health,
+            armour: p.armorpoints,
+            armour_type: p.armortype,
+            cards: p.cards.clone(),
+            weaponowned: p.weaponowned.clone(),
+            ammo: p.ammo.clone(),
+            maxammo: p.maxammo.clone(),
+        }
+    }
 }

@@ -43,6 +43,7 @@ pub struct DoomOptions {
     pub dev_parm: bool,
     pub deathmatch: u8,
     pub skill: Skill,
+    pub warp: bool,
     pub episode: i32,
     pub map: i32,
     pub autostart: bool,
@@ -62,6 +63,7 @@ impl Default for DoomOptions {
             skill: Default::default(),
             episode: Default::default(),
             map: Default::default(),
+            warp: false,
             autostart: Default::default(),
             verbose: log::LevelFilter::Info,
         }
@@ -191,6 +193,14 @@ impl Game {
 
         let (game_mode, game_mission, game_description) = identify_version(&wad);
 
+        // make sure map + episode aren't 0 from CLI option block
+        if options.map == 0 {
+            options.map = 1;
+        }
+        if options.episode == 0 {
+            options.episode = 1;
+        }
+
         debug!("Game: new mode = {:?}", game_mode);
         if game_mode == GameMode::Retail {
             if options.episode > 4 && options.pwad.is_empty() {
@@ -285,6 +295,13 @@ impl Game {
         // TODO: HU_Init ();
         // TODO: ST_Init ();
 
+        let mut game_action = GameAction::Nothing;
+        let mut game_state = GameState::Demo;
+        if options.warp {
+            game_action = GameAction::NewGame;
+            game_state = GameState::ForceWipe;
+        }
+
         Game {
             wad_data: wad,
             level: None,
@@ -304,9 +321,9 @@ impl Game {
             paused: false,
             deathmatch: false,
             netgame: false,
-            old_game_state: GameState::Demo,
-            game_action: GameAction::Nothing, // TODO: default to ga_nothing when more state is done
-            game_state: GameState::Demo,
+            old_game_state: game_state,
+            game_action, // TODO: default to ga_nothing when more state is done
+            game_state,
             game_skill: options.skill,
             game_tic: 0,
             respawn_monsters,
@@ -641,9 +658,10 @@ impl Game {
     /// through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
-    pub fn ticker<I>(&mut self, machinations: &mut Machinations<I>)
+    pub fn ticker<I, S>(&mut self, machinations: &mut Machinations<I, S>)
     where
         I: MachinationTrait,
+        S: MachinationTrait,
     {
         trace!("Entered ticker");
         // do player reborns if needed
@@ -742,7 +760,7 @@ impl Game {
                 // player movements, run thinkers etc
                 self.p_ticker();
                 // update statusbar information
-                // ST_Ticker();
+                machinations.statusbar.ticker(self);
                 // update the automap display info
                 // AM_Ticker();
                 // update the HUD statuses (things like timeout displayed messages)
@@ -751,7 +769,7 @@ impl Game {
             }
             GameState::Intermission => {
                 // WI_Ticker calls world_done()
-                machinations.wipe.ticker(self);
+                machinations.intermission.ticker(self);
             }
             GameState::Finale => {
                 // F_Ticker();

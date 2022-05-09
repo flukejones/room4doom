@@ -1,4 +1,4 @@
-use gameplay::WBStartStruct;
+use gameplay::{AmmoType, Card, WBStartStruct, WeaponType};
 pub use gameplay::{GameMode, Skill, WBPlayerStruct};
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
@@ -14,6 +14,19 @@ pub enum GameState {
     Intermission,
     Finale,
     Demo,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct PlayerInfo {
+    pub attackdown: bool,
+    pub readyweapon: WeaponType,
+    pub health: i32,
+    pub armour: i32,
+    pub armour_type: i32,
+    pub cards: [bool; Card::NumCards as usize],
+    pub weaponowned: [bool; WeaponType::NumWeapons as usize],
+    pub ammo: [u32; AmmoType::NumAmmo as usize],
+    pub maxammo: [u32; AmmoType::NumAmmo as usize],
 }
 
 /// Universal game traits. To be implemented by the Game
@@ -43,6 +56,10 @@ pub trait GameTraits {
     fn level_end_info(&self) -> &WBStartStruct;
 
     fn player_end_info(&self) -> &WBPlayerStruct;
+
+    fn player_info(&self) -> PlayerInfo;
+
+    // TODO: get and set settings Struct
 }
 
 /// To be implemented by machination type things (HUD, Map, Statusbar)
@@ -53,19 +70,15 @@ pub trait MachinationTrait {
     /// Responds to changes in the game or affects game.
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool;
 
-    /// Draw game-exe menus on top of the `PixelBuf`.
-    fn draw(&mut self, buffer: &mut PixelBuf);
-
-    fn get_patch(&self, name: &str) -> &WadPatch;
-
     fn get_palette(&self) -> &WadPalette;
 
-    /// Free method, requires `get_patch()` and `get_palette()`
-    fn draw_patch(&self, name: &str, x: i32, y: i32, pixels: &mut PixelBuf) {
-        let image = self.get_patch(name);
+    /// Draw this Machination to the `PixelBuf`.
+    fn draw(&mut self, buffer: &mut PixelBuf);
 
+    /// Free method, requires `get_palette()` to be implemented
+    fn draw_patch(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut PixelBuf) {
         let mut xtmp = 0;
-        for c in image.columns.iter() {
+        for c in patch.columns.iter() {
             for (ytmp, p) in c.pixels.iter().enumerate() {
                 let colour = self.get_palette().0[*p];
 
