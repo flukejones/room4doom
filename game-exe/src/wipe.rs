@@ -42,6 +42,7 @@ impl Wipe {
                 if self.y[x] + dy >= self.height {
                     dy = self.height - self.y[x];
                 }
+
                 let mut y = self.y[x] as usize;
                 for _ in (0..dy).rev() {
                     let px = draw_buf.read_pixel(x, y);
@@ -49,6 +50,12 @@ impl Wipe {
                     y += 1;
                 }
                 self.y[x] += dy;
+
+                for c in dy..self.height - self.y[x] - dy {
+                    let y = self.height - c - dy;
+                    let px = disp_buf.read_pixel(x, y as usize);
+                    disp_buf.set_pixel(x, (self.height - c) as usize, px.0, px.1, px.2, px.3);
+                }
                 done = false;
             }
         }

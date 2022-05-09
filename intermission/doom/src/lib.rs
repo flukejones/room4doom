@@ -6,6 +6,8 @@ use wad::{
     WadData,
 };
 
+mod defs;
+
 const EP1_BG: &str = "WIMAP0";
 const EP2_BG: &str = "WIMAP1";
 const EP3_BG: &str = "WIMAP2";
