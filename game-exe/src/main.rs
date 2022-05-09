@@ -4,6 +4,7 @@ mod d_main;
 mod shaders;
 mod test_funcs;
 mod timestep;
+mod wipe;
 
 use dirs::{cache_dir, data_dir};
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};

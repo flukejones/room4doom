@@ -43,7 +43,7 @@ pub use player::{Player, PlayerCheat, PlayerState, WBPlayerStruct, WBStartStruct
 pub use player_sprite::PspDef;
 use std::{error::Error, str::FromStr};
 pub use thing::{MapObjFlag, MapObject};
-pub use utilities::{m_clear_random, p_random};
+pub use utilities::{m_clear_random, m_random, p_random};
 
 // re-export
 pub use glam;

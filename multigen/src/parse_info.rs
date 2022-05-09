@@ -109,11 +109,7 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
             } else {
                 n.to_string()
             })
-            .map(|n| if n == "0" {
-                "0.0".to_string()
-            } else {
-                n.to_string()
-            })
+            .map(|n| if n == "0" { "0.0".to_string() } else { n })
             .unwrap_or_else(|| "0.0".to_string()),
         radius = info.get("radius").unwrap_or(&"20.0".to_string()),
         height = info.get("height").unwrap_or(&"16.0".to_string()),
@@ -133,7 +129,7 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_data, parse_info::info_to_string, read_file};
+    use crate::{parse_data, read_file};
     use std::path::PathBuf;
 
     #[test]

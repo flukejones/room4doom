@@ -4,9 +4,10 @@
 
 - [-] Menu screens (partial)
 - [-] Intermissions and finale (intermission partial, no text)
+- [+] Screen wipe
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
-- [ ] Status bar drawing
+- [-] Status bar drawing (framework in place)
 - [ ] Save/load game
 
 ## BUGS

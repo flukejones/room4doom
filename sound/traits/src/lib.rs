@@ -167,9 +167,7 @@ mod tests {
     }
 
     #[derive(Debug)]
-    enum Music {
-        E1M1,
-    }
+    enum Music {}
 
     struct Snd {
         rx: Receiver<SoundAction<SndFx, Music>>,
@@ -214,13 +212,13 @@ mod tests {
 
         fn stop_music(&mut self) {}
 
-        fn set_sfx_volume(&mut self, volume: i32) {}
+        fn set_sfx_volume(&mut self, _volume: i32) {}
 
         fn get_sfx_volume(&mut self) -> i32 {
             6
         }
 
-        fn set_mus_volume(&mut self, volume: i32) {}
+        fn set_mus_volume(&mut self, _volume: i32) {}
 
         fn get_mus_volume(&mut self) -> i32 {
             7
