@@ -103,6 +103,12 @@ pub enum WeaponType {
     NoChange,
 }
 
+impl Default for WeaponType {
+    fn default() -> Self {
+        Self::Pistol
+    }
+}
+
 impl From<u8> for WeaponType {
     fn from(w: u8) -> Self {
         if w >= WeaponType::NumWeapons as u8 {

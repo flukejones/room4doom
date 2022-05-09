@@ -140,12 +140,12 @@ impl MenuDoom {
                 97,                                // Sub-items starting X
                 64, // First item start Y (is incremented by LINEHEIGHT
                 vec![
-                    MenuItem::new(Status::Ok, "M_NGAME", sel_new_game, 'n'),
-                    MenuItem::new(Status::Ok, "M_OPTION", place_holder, 'o'),
-                    MenuItem::new(Status::Ok, "M_LOADG", place_holder, 'l'),
-                    MenuItem::new(Status::Ok, "M_SAVEG", place_holder, 's'),
-                    MenuItem::new(Status::Ok, "M_RDTHIS", sel_readthis, 'r'),
-                    MenuItem::new(Status::Ok, "M_QUITG", sel_quit_game, 'q'),
+                    MenuItem::new(Status::Ok, "M_NGAME", sel_new_game, 'N'),
+                    MenuItem::new(Status::Ok, "M_OPTION", place_holder, 'O'),
+                    MenuItem::new(Status::Ok, "M_LOADG", place_holder, 'L'),
+                    MenuItem::new(Status::Ok, "M_SAVEG", place_holder, 'S'),
+                    MenuItem::new(Status::Ok, "M_RDTHIS", sel_readthis, 'R'),
+                    MenuItem::new(Status::Ok, "M_QUITG", sel_quit_game, 'Q'),
                 ],
             ),
             MenuSet::new(
@@ -156,16 +156,16 @@ impl MenuDoom {
                 63,
                 if mode == GameMode::Retail {
                     vec![
-                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'k'),
-                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 't'),
-                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'i'),
-                        MenuItem::new(Status::Ok, "M_EPI4", sel_episode, 's'),
+                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'K'),
+                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 'T'),
+                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'I'),
+                        MenuItem::new(Status::Ok, "M_EPI4", sel_episode, 'S'),
                     ]
                 } else {
                     vec![
-                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'k'),
-                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 't'),
-                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'i'),
+                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'K'),
+                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 'T'),
+                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'I'),
                     ]
                 },
             ),
@@ -176,11 +176,11 @@ impl MenuDoom {
                 48,
                 63,
                 vec![
-                    MenuItem::new(Status::Ok, "M_JKILL", sel_skill, 'i'),
-                    MenuItem::new(Status::Ok, "M_ROUGH", sel_skill, 'r'),
-                    MenuItem::new(Status::Ok, "M_HURT", sel_skill, 'h'),
-                    MenuItem::new(Status::Ok, "M_ULTRA", sel_skill, 'u'),
-                    MenuItem::new(Status::Ok, "M_NMARE", sel_skill, 'n'),
+                    MenuItem::new(Status::Ok, "M_JKILL", sel_skill, 'I'),
+                    MenuItem::new(Status::Ok, "M_ROUGH", sel_skill, 'R'),
+                    MenuItem::new(Status::Ok, "M_HURT", sel_skill, 'H'),
+                    MenuItem::new(Status::Ok, "M_ULTRA", sel_skill, 'U'),
+                    MenuItem::new(Status::Ok, "M_NMARE", sel_skill, 'N'),
                 ],
             ),
             MenuSet::new(
@@ -272,12 +272,19 @@ impl MenuDoom {
     }
 
     fn enter_menu(&mut self, game: &mut dyn GameTraits) {
-        self.active = true;
-        game.start_sound(SfxNum::Swtchn);
+        if self.in_help {
+            self.in_help = false;
+            self.current_menu = MenuIndex::TopLevel;
+            game.start_sound(SfxNum::Swtchx);
+        } else {
+            self.active = true;
+            game.start_sound(SfxNum::Swtchn);
+        }
     }
 
     fn exit_menu(&mut self, game: &mut dyn GameTraits) {
         self.active = false;
+        self.in_help = false;
         self.current_menu = MenuIndex::TopLevel;
         game.start_sound(SfxNum::Swtchx);
     }
@@ -290,6 +297,12 @@ impl MenuDoom {
             }
         }
         &mut self.menus[idx]
+    }
+
+    fn get_patch(&self, name: &str) -> &WadPatch {
+        self.patches
+            .get(name)
+            .expect(&format!("{name} not in cache"))
     }
 }
 
@@ -329,12 +342,21 @@ fn sel_skill(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
 }
 
 impl MachinationTrait for MenuDoom {
-    fn responder(&mut self, sc: Scancode, game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, mut sc: Scancode, game: &mut impl GameTraits) -> bool {
         if !self.active {
             // F-keys
             match sc {
                 Scancode::F1 => {
                     // HELP
+                    self.in_help = !self.in_help;
+                    if self.in_help {
+                        self.current_menu = MenuIndex::ReadThis1;
+                        game.start_sound(SfxNum::Swtchn);
+                    } else {
+                        self.current_menu = MenuIndex::TopLevel;
+                        game.start_sound(SfxNum::Swtchx);
+                    }
+                    return true;
                 }
                 Scancode::F2 => {
                     // SAVE
@@ -359,6 +381,17 @@ impl MachinationTrait for MenuDoom {
                 _ => {}
             }
         } else {
+            let hot_key = sc.to_string();
+            if hot_key.len() == 1 {
+                let hk = hot_key.chars().next().unwrap();
+                for (i, item) in self.get_current_menu().items.iter().enumerate() {
+                    if item.hotkey == hk {
+                        self.get_current_menu().last_on = i;
+                        sc = Scancode::Return;
+                        break;
+                    }
+                }
+            }
             match sc {
                 Scancode::Escape => {
                     self.exit_menu(game);
@@ -426,34 +459,28 @@ impl MachinationTrait for MenuDoom {
         self.active
     }
 
-    fn get_patch(&self, name: &str) -> &WadPatch {
-        self.patches
-            .get(name)
-            .expect(&format!("{name} not in cache"))
-    }
-
     fn get_palette(&self) -> &WadPalette {
         &self.palette
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
-        if self.active {
+        if self.active || self.in_help {
             let active = &self.menus[self.current_menu as usize];
             // Titles
             for item in active.titles.iter() {
-                self.draw_patch(item.patch, item.x, item.y, buffer);
+                self.draw_patch(self.get_patch(item.patch), item.x, item.y, buffer);
             }
             // sub-items
             let x = active.x;
             let mut y = active.y;
             for item in active.items.iter() {
-                self.draw_patch(item.patch, x, y, buffer);
+                self.draw_patch(self.get_patch(item.patch), x, y, buffer);
                 y += LINEHEIGHT;
             }
 
             // SKULL
             let y = active.y - 5 + active.last_on as i32 * LINEHEIGHT;
-            self.draw_patch(SKULLS[self.which_skull], x + -32, y, buffer);
+            self.draw_patch(self.get_patch(SKULLS[self.which_skull]), x + -32, y, buffer);
         }
     }
 }

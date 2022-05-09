@@ -23,6 +23,7 @@ gameplay = { path = "../gameplay" }
 game-state = { path = "../game-state" }
 game-traits = { path = "../game-traits" }
 intermission-doom = { path = "../intermission/doom" }
+statusbar-doom = { path = "../statusbar/doom" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }
 render-traits = { path = "../render/traits" }

@@ -1,9 +1,8 @@
 //! The main loop driver. The primary function is the main loop which attempts to
-//! run all tics then dislpay the result. Handling of actual game-exe state is done
+//! run all tics then display the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
-use std::error::Error;
-use std::mem;
+use std::{error::Error, mem};
 
 use game_state::{machination::Machinations, Game};
 use game_traits::{GameState, MachinationTrait};
@@ -19,6 +18,7 @@ use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
 use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
 use sound_traits::SoundAction;
+use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
@@ -100,7 +100,8 @@ pub fn d_doom_loop(
     let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
 
     let mut machines = Machinations {
-        wipe: Intermission::new(game.game_mode, &game.wad_data),
+        statusbar: Statusbar::new(game.game_mode, &game.wad_data),
+        intermission: Intermission::new(game.game_mode, &game.wad_data),
     };
 
     loop {
@@ -228,20 +229,20 @@ pub fn d_doom_loop(
 /// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
 ///
 /// D_Display
-fn d_display<I>(
+fn d_display<I, S>(
     rend: &mut impl PlayRenderer,
     menu: &mut impl MachinationTrait,
-    machines: &mut Machinations<I>,
+    machines: &mut Machinations<I, S>,
     game: &mut Game,
-    pixels: &mut PixelBuf,
-    pixels2: &mut PixelBuf,
+    disp_buf: &mut PixelBuf, // Display from this buffer
+    draw_buf: &mut PixelBuf, // Draw to this buffer
 ) where
     I: MachinationTrait,
+    S: MachinationTrait,
 {
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
-    dbg!(game.game_state, game.wipe_game_state);
     let wipe = if game.game_state != game.wipe_game_state {
         // TODO: wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
         true
@@ -262,30 +263,30 @@ fn d_display<I>(
                     error!("Active console player has no MapObject, can't render player view");
                 } else {
                     let player = &game.players[game.consoleplayer];
-                    rend.render_player_view(player, level, pixels2);
+                    rend.render_player_view(player, level, draw_buf);
                 }
             }
         }
         // TODO: HU_Drawer();
         // Fake crosshair
-        pixels.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
+        draw_buf.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
     }
 
     match game.game_state {
         GameState::Level => {
             // TODO: Automap draw
-            // TODO: Statusbar draw
+            machines.statusbar.draw(draw_buf);
         }
-        GameState::Intermission => machines.wipe.draw(pixels),
+        GameState::Intermission => machines.intermission.draw(draw_buf),
         GameState::Finale => {
             // TODO: F_Drawer();
         }
         GameState::Demo => {
             // TODO: we're clearing here to make the menu visible (for now)
-            let (x, y) = pixels.size();
+            let (x, y) = draw_buf.size();
             for x in 0..x {
                 for y in 0..y {
-                    pixels.set_pixel(x as usize, y as usize, 20, 14, 14, 255);
+                    draw_buf.set_pixel(x as usize, y as usize, 20, 14, 14, 255);
                 }
             }
             // TODO: D_PageDrawer();
@@ -294,12 +295,12 @@ fn d_display<I>(
     }
 
     // // menus go directly to the screen
-    menu.draw(pixels2); // menu is drawn even on top of everything
-                        // net update does i/o and buildcmds...
-                        // TODO: NetUpdate(); // send out any new accumulation
+    menu.draw(draw_buf); // menu is drawn even on top of everything
+                         // net update does i/o and buildcmds...
+                         // TODO: NetUpdate(); // send out any new accumulation
 
     if !wipe {
-        mem::swap(pixels, pixels2);
+        mem::swap(disp_buf, draw_buf);
         return;
     }
 
@@ -307,15 +308,16 @@ fn d_display<I>(
     game.wipe_game_state = game.game_state;
 }
 
-fn try_run_tics<I>(
+fn try_run_tics<I, S>(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I>,
+    machinations: &mut Machinations<I, S>,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
 ) where
     I: MachinationTrait,
+    S: MachinationTrait,
 {
     // TODO: net.c starts here
     process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
@@ -330,14 +332,15 @@ fn try_run_tics<I>(
     });
 }
 
-fn process_events<I>(
+fn process_events<I, S>(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I>,
+    machinations: &mut Machinations<I, S>,
     cheats: &mut Cheats,
 ) where
     I: MachinationTrait,
+    S: MachinationTrait,
 {
     // required for cheats and menu so they don't receive multiple key-press fo same key
     let callback = |sc: Scancode| {
@@ -349,7 +352,7 @@ fn process_events<I>(
             return true; // Menu took event
         }
 
-        if machinations.wipe.responder(sc, game) {
+        if machinations.intermission.responder(sc, game) {
             return true; // Menu took event
         }
 

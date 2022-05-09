@@ -91,9 +91,9 @@ pub struct CLIOptions {
         help = "Set the game-exe skill, 0-4 (0: easiest, 4: hardest)"
     )]
     pub skill: Skill,
-    #[options(meta = "", help = "Select episode", default = "1")]
+    #[options(meta = "", help = "Select episode", default = "0")]
     pub episode: i32,
-    #[options(meta = "", help = "Select level in episode", default = "1")]
+    #[options(meta = "", help = "Select level in episode", default = "0")]
     pub map: i32,
     #[options(help = "game-exe options help")]
     pub help: bool,
@@ -129,6 +129,7 @@ impl From<CLIOptions> for DoomOptions {
             skill: g.skill,
             episode: g.episode,
             map: g.map,
+            warp: g.map != 0 || g.episode != 0,
             verbose: g.verbose,
             ..DoomOptions::default()
         }
