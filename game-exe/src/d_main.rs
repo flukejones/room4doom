@@ -26,6 +26,7 @@ use crate::{
     shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     test_funcs::*,
     timestep::TimeStep,
+    wipe::Wipe,
     CLIOptions,
 };
 
@@ -33,7 +34,7 @@ use crate::{
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    gl: Window,
+    mut gl: Window,
     ctx: Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
@@ -144,6 +145,9 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
+            &mut gl,
+            shader.as_mut(),
+            &mut timestep,
         );
 
         if options.palette_test {
@@ -173,7 +177,6 @@ pub fn d_doom_loop(
         shader.clear();
         shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
         shader.draw().unwrap();
-
         gl.gl_swap_window();
 
         // FPS rate updates every second
@@ -236,6 +239,9 @@ fn d_display<I, S>(
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
+    gl: &mut Window,
+    shader: &mut dyn Drawer,
+    timestep: &mut TimeStep,
 ) where
     I: MachinationTrait,
     S: MachinationTrait,
@@ -304,8 +310,26 @@ fn d_display<I, S>(
         return;
     }
 
-    dbg!("TODO: wipe, progressively 'melt' columns from buf2 down buf1");
+    // Doom uses a loop here. The thing about it is that while the loop is running
+    // there can be no input, so the menu can't be activated. I think with Doom the
+    // input event queue was still filled via interrupt.
+    let mut wipe = Wipe::new(disp_buf.width() as i32, disp_buf.height() as i32);
+    loop {
+        let mut done = false;
+        timestep.run_this(|_| {
+            done = wipe.do_melt(disp_buf, draw_buf);
+            shader.set_image_data(disp_buf.read_pixels(), disp_buf.size());
+            shader.draw().unwrap();
+            gl.gl_swap_window();
+        });
+
+        if done {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_micros(500));
+    }
     game.wipe_game_state = game.game_state;
+    //menu.draw(disp_buf); // menu is drawn on top of wipes too
 }
 
 fn try_run_tics<I, S>(
