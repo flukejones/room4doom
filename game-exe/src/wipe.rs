@@ -38,7 +38,7 @@ impl Wipe {
                 self.y[x] += 1;
                 done = false;
             } else if self.y[x] < self.height {
-                let mut dy = if self.y[x] < 16 { self.y[x] + 1 } else { 8 };
+                let mut dy = if self.y[x] < 20 { self.y[x] + 1 } else { 12 };
                 if self.y[x] + dy >= self.height {
                     dy = self.height - self.y[x];
                 }
@@ -51,7 +51,7 @@ impl Wipe {
                 }
                 self.y[x] += dy;
 
-                for c in dy..self.height - self.y[x] - dy {
+                for c in 0..=self.height - self.y[x] - dy {
                     let y = self.height - c - dy;
                     let px = disp_buf.read_pixel(x, y as usize);
                     disp_buf.set_pixel(x, (self.height - c) as usize, px.0, px.1, px.2, px.3);
