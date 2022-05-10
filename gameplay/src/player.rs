@@ -74,10 +74,11 @@ pub struct WBPlayerStruct {
 }
 
 /// parms for world level / intermission
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct WBStartStruct {
     /// episode # (0-2)
     pub epsd: i32,
+    pub map: i32,
     /// if true, splash the secret level
     pub didsecret: bool,
     /// previous and next levels, origin 0

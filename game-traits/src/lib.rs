@@ -1,5 +1,4 @@
-use gameplay::{AmmoType, Card, WBStartStruct, WeaponType};
-pub use gameplay::{GameMode, Skill, WBPlayerStruct};
+pub use gameplay::{AmmoType, Card, GameMode, Skill, WBPlayerStruct, WBStartStruct, WeaponType};
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
 use sound_traits::{MusEnum, SfxNum};

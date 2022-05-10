@@ -376,8 +376,10 @@ fn process_events<I, S>(
             return true; // Menu took event
         }
 
-        if machinations.intermission.responder(sc, game) {
-            return true; // Menu took event
+        if game.level.is_none() {
+            if machinations.intermission.responder(sc, game) {
+                return true; // Menu took event
+            }
         }
 
         false
