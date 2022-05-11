@@ -20,6 +20,11 @@ impl PixelBuf {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.data = vec![0; (self.width * self.height * 4) as usize]
+    }
+
+    #[inline]
     pub fn width(&self) -> u32 {
         self.width
     }

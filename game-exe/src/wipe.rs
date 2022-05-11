@@ -38,7 +38,7 @@ impl Wipe {
                 self.y[x] += 1;
                 done = false;
             } else if self.y[x] < self.height {
-                let mut dy = if self.y[x] < 20 { self.y[x] + 1 } else { 12 };
+                let mut dy = if self.y[x] < 16 { self.y[x] + 1 } else { 8 };
                 if self.y[x] + dy >= self.height {
                     dy = self.height - self.y[x];
                 }
