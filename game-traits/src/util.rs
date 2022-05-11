@@ -29,7 +29,7 @@ pub fn draw_num(
     p: u32,
     mut x: i32,
     y: i32,
-    pad: u32,
+    pad: usize,
     nums: &[WadPatch],
     drawer: &impl MachinationTrait,
     buffer: &mut PixelBuf,
@@ -46,8 +46,8 @@ pub fn draw_num(
         let num = &nums[*n as usize];
         drawer.draw_patch(num, x, y, buffer);
     }
-    if digits.len() == 1 && pad != 0 {
-        for _ in 0..pad {
+    if digits.len() <= pad {
+        for _ in 0..=pad - digits.len() {
             x -= width;
             drawer.draw_patch(&nums[0], x, y, buffer);
         }
