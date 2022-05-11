@@ -40,6 +40,8 @@ impl Statusbar {
 }
 
 impl MachinationTrait for Statusbar {
+    fn init(&mut self, _game: &impl GameTraits) {}
+
     fn responder(&mut self, _sc: Scancode, _game: &mut impl GameTraits) -> bool {
         false
     }

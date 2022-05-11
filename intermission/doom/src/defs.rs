@@ -1,7 +1,107 @@
-use wad::lumps::WadPatch;
+use gameplay::MAXPLAYERS;
+use std::mem::MaybeUninit;
+use wad::{lumps::WadPatch, WadData};
 
 pub(crate) const TICRATE: i32 = 35;
 pub(crate) const SHOW_NEXT_LOC_DELAY: i32 = 4;
+
+pub(crate) struct Patches {
+    pub nums: [WadPatch; 10],
+    pub minus: WadPatch,
+    pub percent: WadPatch,
+    pub kills: WadPatch,
+    pub secret: WadPatch,
+    pub sp_secret: WadPatch,
+    pub items: WadPatch,
+    pub frags: WadPatch,
+    pub colon: WadPatch,
+    pub time: WadPatch,
+    pub sucks: WadPatch,
+    pub par: WadPatch,
+    pub killers: WadPatch,
+    pub victims: WadPatch,
+    pub total: WadPatch,
+    pub star: WadPatch,
+    pub bstar: WadPatch,
+    pub enter: WadPatch,
+    pub finish: WadPatch,
+    pub players: [WadPatch; MAXPLAYERS],
+    pub bplayers: [WadPatch; MAXPLAYERS],
+}
+
+impl Patches {
+    pub(super) fn new(wad: &WadData) -> Self {
+        let mut nums: [MaybeUninit<WadPatch>; 10] = [
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+        ];
+        for n in 0..=9 {
+            let lump = wad.get_lump(&format!("WINUM{n}")).unwrap();
+            nums[n] = MaybeUninit::new(WadPatch::from_lump(lump));
+        }
+
+        let mut players: [MaybeUninit<WadPatch>; MAXPLAYERS] = [
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+        ];
+        for n in 0..MAXPLAYERS {
+            let lump = wad.get_lump(&format!("STPB{n}")).unwrap();
+            players[n] = MaybeUninit::new(WadPatch::from_lump(lump));
+        }
+
+        let mut bplayers: [MaybeUninit<WadPatch>; MAXPLAYERS] = [
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+        ];
+        for n in 1..MAXPLAYERS + 1 {
+            let lump = wad.get_lump(&format!("WIBP{n}")).unwrap();
+            bplayers[n - 1] = MaybeUninit::new(WadPatch::from_lump(lump));
+        }
+
+        Self {
+            nums: unsafe { nums.map(|n| n.assume_init()) },
+            minus: WadPatch::from_lump(wad.get_lump("WIMINUS").unwrap()),
+            percent: WadPatch::from_lump(wad.get_lump("WIPCNT").unwrap()),
+            kills: WadPatch::from_lump(wad.get_lump("WIOSTK").unwrap()),
+            secret: WadPatch::from_lump(wad.get_lump("WIOSTS").unwrap()),
+            sp_secret: WadPatch::from_lump(wad.get_lump("WISCRT2").unwrap()),
+            items: WadPatch::from_lump(wad.get_lump("WIOSTI").unwrap()),
+            frags: WadPatch::from_lump(wad.get_lump("WIFRGS").unwrap()),
+            colon: WadPatch::from_lump(wad.get_lump("WICOLON").unwrap()),
+            time: WadPatch::from_lump(wad.get_lump("WITIME").unwrap()),
+            sucks: WadPatch::from_lump(wad.get_lump("WISUCKS").unwrap()),
+            par: WadPatch::from_lump(wad.get_lump("WIPAR").unwrap()),
+            killers: WadPatch::from_lump(wad.get_lump("WIKILRS").unwrap()),
+            victims: WadPatch::from_lump(wad.get_lump("WIVCTMS").unwrap()),
+            total: WadPatch::from_lump(wad.get_lump("WIMSTT").unwrap()),
+            star: WadPatch::from_lump(wad.get_lump("STFST01").unwrap()),
+            bstar: WadPatch::from_lump(wad.get_lump("STFDEAD0").unwrap()),
+            enter: WadPatch::from_lump(wad.get_lump("WIENTER").unwrap()),
+            finish: WadPatch::from_lump(wad.get_lump("WIF").unwrap()),
+            players: unsafe { players.map(|n| n.assume_init()) },
+            bplayers: unsafe { bplayers.map(|n| n.assume_init()) },
+        }
+    }
+}
+
+#[derive(Debug, PartialOrd, PartialEq)]
+pub(crate) enum State {
+    StatCount,
+    NextLoc,
+    None,
+}
 
 pub(crate) enum AnimType {
     Always,
@@ -46,32 +146,32 @@ pub(crate) const MAP_POINTS: [[(i32, i32); 9]; 3] = [
 ];
 
 pub(crate) struct Animation {
-    kind: AnimType,
+    pub kind: AnimType,
     // period in tics between animations
-    period: i32,
+    pub period: i32,
     // number of animation frames
-    num_of: i32,
+    pub num_of: i32,
     // location of animation
-    location: (i32, i32),
+    pub location: (i32, i32),
     // ALWAYS: n/a,
     // RANDOM: period deviation (<256),
     // LEVEL: level
-    data1: i32,
+    pub data1: i32,
     // ALWAYS: n/a,
     // RANDOM: random base period,
     // LEVEL: n/a
-    data2: i32,
+    pub data2: i32,
     // actual graphics for frames of animations
-    patches: Vec<WadPatch>,
+    pub patches: Vec<WadPatch>,
     // following must be initialized to zero before use!
     // next value of bcnt (used in conjunction with period)
-    next_tic: i32,
+    pub next_tic: i32,
     // last drawn animation frame
-    last_drawn: i32,
+    pub last_drawn: i32,
     // next frame number to animate
-    counter: i32,
+    pub counter: i32,
     // used by RANDOM and LEVEL when animating
-    state: i32,
+    pub state: i32,
 }
 
 impl Animation {
@@ -98,36 +198,39 @@ impl Animation {
     }
 }
 
-pub(crate) static EPISODE0_ANIMS: [Animation; 10] = [
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (224, 104), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (184, 160), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (112, 136), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (72, 112), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (88, 96), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (64, 48), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (192, 40), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (136, 16), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (80, 16), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (64, 24), 0),
-];
-
-pub(crate) static EPISODE1_ANIMS: [Animation; 9] = [
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 1),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 2),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 3),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 4),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 5),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 6),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 7),
-    Animation::new(AnimType::Level, TICRATE / 3, 3, (192, 144), 8),
-    Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 8),
-];
-
-pub(crate) static EPISODE2_ANIMS: [Animation; 6] = [
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (104, 168), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (40, 136), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (160, 96), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (104, 80), 0),
-    Animation::new(AnimType::Always, TICRATE / 3, 3, (120, 32), 0),
-    Animation::new(AnimType::Always, TICRATE / 4, 3, (40, 0), 0),
-];
+pub(super) fn animations() -> Vec<Vec<Animation>> {
+    vec![
+        vec![
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (224, 104), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (184, 160), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (112, 136), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (72, 112), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (88, 96), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (64, 48), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (192, 40), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (136, 16), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (80, 16), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (64, 24), 0),
+        ],
+        vec![
+            // These don't seem right
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 1),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 2),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 3),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 4),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 5),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 6),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 7),
+            Animation::new(AnimType::Level, TICRATE / 3, 3, (192, 144), 8),
+            Animation::new(AnimType::Level, TICRATE / 3, 1, (128, 136), 8),
+        ],
+        vec![
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (104, 168), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (40, 136), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (160, 96), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (104, 80), 0),
+            Animation::new(AnimType::Always, TICRATE / 3, 3, (120, 32), 0),
+            Animation::new(AnimType::Always, TICRATE / 4, 3, (40, 0), 0),
+        ],
+    ]
+}

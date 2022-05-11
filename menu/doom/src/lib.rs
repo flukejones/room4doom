@@ -342,6 +342,14 @@ fn sel_skill(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
 }
 
 impl MachinationTrait for MenuDoom {
+    fn init(&mut self, _game: &impl GameTraits) {
+        for menu in self.menus.iter_mut() {
+            if menu.this == MenuIndex::Skill {
+                menu.last_on = 2;
+            }
+        }
+    }
+
     fn responder(&mut self, mut sc: Scancode, game: &mut impl GameTraits) -> bool {
         if !self.active {
             // F-keys

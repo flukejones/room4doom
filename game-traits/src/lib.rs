@@ -1,7 +1,7 @@
 pub use gameplay::{AmmoType, Card, GameMode, Skill, WBPlayerStruct, WBStartStruct, WeaponType};
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
-use sound_traits::{MusEnum, SfxNum};
+pub use sound_traits::{MusEnum, SfxNum};
 use wad::lumps::{WadPalette, WadPatch};
 
 /// The current state of the game-exe: whether we are playing, gazing at the intermission screen,
@@ -63,6 +63,9 @@ pub trait GameTraits {
 
 /// To be implemented by machination type things (HUD, Map, Statusbar)
 pub trait MachinationTrait {
+    /// Possibly initialise the machination
+    fn init(&mut self, game: &impl GameTraits);
+
     /// Return true if the responder took the event
     fn responder(&mut self, sc: Scancode, game: &mut impl GameTraits) -> bool;
 

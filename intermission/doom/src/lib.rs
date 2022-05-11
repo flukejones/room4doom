@@ -1,14 +1,21 @@
-use crate::defs::{MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE};
-use game_traits::{
-    GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, WBPlayerStruct, WBStartStruct,
+use crate::defs::{
+    animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE,
 };
-use log::info;
+use game_traits::{
+    GameMode, GameTraits, MachinationTrait, MusEnum, PixelBuf, Scancode, WBPlayerStruct,
+    WBStartStruct,
+};
+use gameplay::m_random;
+use log::warn;
 use wad::{
     lumps::{WadPalette, WadPatch},
     WadData,
 };
 
 mod defs;
+mod loc_state;
+mod no_state;
+mod stat_state;
 
 const EP4_BG: &str = "INTERPIC";
 const COMMERCIAL_BG: &str = "INTERPIC";
@@ -21,8 +28,10 @@ pub struct Intermission {
     /// 0 or 1 (left/right). Splat is 2
     yah_idx: usize,
     level_names: Vec<Vec<WadPatch>>,
+    animations: Vec<Vec<Animation>>,
     current_bg: usize,
-    next_level: bool,
+    /// General counter for animated BG
+    bg_count: i32,
     mode: GameMode,
     // info updated by ticker
     player_info: WBPlayerStruct,
@@ -30,7 +39,9 @@ pub struct Intermission {
 
     pointer_on: bool,
     count: i32,
-    enter: WadPatch,
+    state: State,
+    /// General patches not specific to retail/commercial/registered
+    patches: Patches,
 }
 
 impl Intermission {
@@ -43,6 +54,14 @@ impl Intermission {
         if mode == GameMode::Commercial {
             let lump = wad.get_lump(COMMERCIAL_BG).unwrap();
             bg_patches.push(WadPatch::from_lump(lump));
+
+            let mut names_patches = Vec::new();
+            for m in 0..32 {
+                let name = format!("CWILV{m:0>2}");
+                let lump = wad.get_lump(&name).unwrap();
+                names_patches.push(WadPatch::from_lump(lump));
+            }
+            level_names.push(names_patches);
         } else {
             for e in 0..3 {
                 let lump = wad.get_lump(&format!("WIMAP{e}")).unwrap();
@@ -78,122 +97,173 @@ impl Intermission {
             level_names.push(names_patches);
         }
 
-        let lump = wad.get_lump("WIENTER").unwrap();
-        let enter = WadPatch::from_lump(lump);
+        // load all the BG animations
+        let mut anims = animations();
+        for anims in anims.iter_mut() {
+            for (j, anim) in anims.iter_mut().enumerate() {
+                for i in 0..anim.num_of {
+                    if let Some(lump) = wad.get_lump(&format!("WIA0{j:0>2}{i:0>2}")) {
+                        anim.patches.push(WadPatch::from_lump(lump));
+                    } else if mode != GameMode::Commercial {
+                        warn!("Missing WIA0{j:0>2}{i:0>2}");
+                    }
+                }
+            }
+        }
 
         Self {
             palette,
             bg_patches,
             level_names,
+            animations: anims,
             yah_patches,
             yah_idx: 0,
             current_bg: 0,
-            next_level: false,
+            bg_count: 0,
             mode,
             player_info: WBPlayerStruct::default(),
             level_info: WBStartStruct::default(),
             pointer_on: true,
             count: SHOW_NEXT_LOC_DELAY * TICRATE,
-            enter,
+            state: State::None,
+            patches: Patches::new(wad),
         }
     }
 
-    fn init_no_state(&mut self) {
-        self.count = 10;
-    }
+    fn init_animated_bg(&mut self) {
+        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+            return;
+        }
 
-    fn update_show_next_loc(&mut self) {
-        self.count -= 1;
-        if self.count <= 0 {
-            self.init_no_state();
-        } else {
-            self.pointer_on = (self.count & 31) < 20;
+        for anim in self.animations[self.level_info.epsd as usize].iter_mut() {
+            anim.counter = -1;
+            // Next time to draw?
+            match anim.kind {
+                AnimType::Always => {
+                    anim.next_tic = self.bg_count + 1 + (m_random() % anim.period);
+                }
+                AnimType::Random => {
+                    anim.next_tic = self.bg_count + 1 + anim.data2 + (m_random() % anim.data1);
+                }
+                AnimType::Level => {
+                    anim.next_tic = self.bg_count + 1;
+                }
+            }
         }
     }
 
-    fn draw_on_lnode(&self, lv: usize, patch: &WadPatch, buffer: &mut PixelBuf) {
-        let ep = self.level_info.epsd as usize;
-        let point = MAP_POINTS[ep][lv];
-
-        let x = point.0 - patch.left_offset as i32;
-        let y = point.1 - patch.top_offset as i32;
-
-        self.draw_patch(patch, x, y, buffer);
-    }
-
-    fn draw_enter_level(&self, buffer: &mut PixelBuf) {
-        let mut y = TITLE_Y;
-        self.draw_patch(&self.enter, 160 - self.enter.width as i32 / 2, y, buffer);
-        y += (5 * self.enter.height as i32) / 4;
-        let ep = self.level_info.epsd as usize;
-        let patch = &self.level_names[ep][self.level_info.next as usize];
-        self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
-    }
-
-    fn draw_next_loc(&self, buffer: &mut PixelBuf) {
-        // Background
-        self.draw_patch(&self.bg_patches[self.current_bg], 0, 0, buffer);
-
-        if self.mode != GameMode::Commercial {
-            if self.level_info.epsd > 2 {
-                return;
-            }
-            let last = if self.level_info.last == 8 {
-                self.level_info.next - 1
-            } else {
-                self.level_info.next
-            };
-
-            for i in 0..last {
-                self.draw_on_lnode(i as usize, &self.yah_patches[2], buffer);
-            }
-
-            if self.level_info.didsecret {
-                self.draw_on_lnode(8, &self.yah_patches[2], buffer);
-            }
-
-            if self.pointer_on {
-                let next_level = self.level_info.next as usize;
-                self.draw_on_lnode(next_level, &self.yah_patches[self.yah_idx], buffer);
-            }
+    fn update_animated_bg(&mut self) {
+        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+            return;
         }
 
-        if self.mode != GameMode::Commercial || self.level_info.next != 30 {
-            self.draw_enter_level(buffer);
+        for (i, anim) in self.animations[self.level_info.epsd as usize]
+            .iter_mut()
+            .enumerate()
+        {
+            if self.bg_count == anim.next_tic {
+                match anim.kind {
+                    AnimType::Always => {
+                        anim.counter += 1;
+                        if anim.counter >= anim.num_of {
+                            anim.counter = 0;
+                        }
+                        anim.next_tic = self.bg_count + anim.period;
+                    }
+                    AnimType::Random => {
+                        anim.counter += 1;
+                        if anim.counter >= anim.num_of {
+                            anim.counter = -1;
+                            anim.next_tic = self.bg_count + anim.data2 + (m_random() % anim.data1);
+                        } else {
+                            anim.next_tic = self.bg_count + anim.period;
+                        }
+                    }
+                    AnimType::Level => {
+                        if !(self.state == State::StatCount && i == 7)
+                            && self.level_info.next == anim.data1
+                        {
+                            anim.counter += 1;
+                            if anim.counter == anim.num_of {
+                                anim.counter -= 1;
+                            }
+                            anim.next_tic = self.bg_count + anim.period;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn draw_animated_bg(&self, buffer: &mut PixelBuf) {
+        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+            return;
+        }
+
+        for anim in self.animations[self.level_info.epsd as usize].iter() {
+            if anim.counter >= 0 {
+                self.draw_patch(
+                    &anim.patches[anim.counter as usize],
+                    anim.location.0,
+                    anim.location.1,
+                    buffer,
+                );
+            }
         }
     }
 }
 
 impl MachinationTrait for Intermission {
+    fn init(&mut self, game: &impl GameTraits) {
+        self.bg_count = 0;
+        self.yah_idx = 0;
+        self.current_bg = 0;
+        self.pointer_on = true;
+        self.state = State::None;
+
+        self.player_info = game.player_end_info().clone();
+        self.level_info = game.level_end_info().clone();
+        self.current_bg = self.level_info.epsd as usize;
+
+        // TODO: deathmatch stuff
+        self.init_stats();
+    }
+
     fn responder(&mut self, sc: Scancode, _game: &mut impl GameTraits) -> bool {
         if sc == Scancode::Return || sc == Scancode::Space {
-            self.next_level = true;
+            self.count = 0;
             return true;
         }
         false
     }
 
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
-        let player = game.player_end_info();
-        let level = game.level_end_info();
-        if self.next_level {
-            info!("Player: Total Items: {}/{}", player.sitems, level.maxitems);
-            info!("Player: Total Kills: {}/{}", player.skills, level.maxkills);
-            info!(
-                "Player: Total Secrets: {}/{}",
-                player.ssecret, level.maxsecret
-            );
-            info!("Player: Level Time: {}", player.stime);
+        self.bg_count += 1;
 
-            game.world_done();
-            self.next_level = false;
-            return true;
+        if self.bg_count == 1 {
+            if self.mode == GameMode::Commercial {
+                game.change_music(MusEnum::Dm2int);
+            } else {
+                game.change_music(MusEnum::Inter);
+            }
+
+            self.player_info.skills = (self.player_info.skills * 100) / self.level_info.maxkills;
+            self.player_info.sitems = (self.player_info.sitems * 100) / self.level_info.maxitems;
+            self.player_info.ssecret = (self.player_info.ssecret * 100) / self.level_info.maxsecret;
         }
 
-        self.current_bg = level.epsd as usize;
-        self.player_info = player.clone();
-        self.level_info = level.clone();
-        self.update_show_next_loc();
+        match self.state {
+            State::StatCount => {
+                self.update_stats();
+            }
+            State::NextLoc => {
+                self.update_show_next_loc();
+            }
+            State::None => {
+                self.update_no_state(game);
+            }
+        }
+
         false
     }
 
@@ -203,6 +273,16 @@ impl MachinationTrait for Intermission {
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
         // TODO: stats and next are two different screens.
-        self.draw_next_loc(buffer);
+        match self.state {
+            State::StatCount => {
+                self.draw_stats(buffer);
+            }
+            State::NextLoc => {
+                self.draw_next_loc(buffer);
+            }
+            State::None => {
+                self.draw_no_state(buffer);
+            }
+        }
     }
 }

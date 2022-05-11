@@ -99,6 +99,7 @@ pub fn d_doom_loop(
 
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
+    menu.init(&game);
 
     let mut machines = Machinations {
         statusbar: Statusbar::new(game.game_mode, &game.wad_data),
@@ -138,6 +139,7 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
+        //render_buffer.clear();
         d_display(
             &mut renderer,
             &mut menu,
@@ -326,7 +328,7 @@ fn d_display<I, S>(
         if done {
             break;
         }
-        std::thread::sleep(std::time::Duration::from_micros(500));
+        std::thread::sleep(std::time::Duration::from_micros(1));
     }
     game.wipe_game_state = game.game_state;
     //menu.draw(disp_buf); // menu is drawn on top of wipes too
@@ -372,10 +374,11 @@ fn process_events<I, S>(
             cheats.check_input(sc, game);
         }
 
+        // Menu also has hotkeys like F1, so check at all times
         if menu.responder(sc, game) {
             return true; // Menu took event
         }
-
+        // We want intermission to check checks only if the level isn't loaded
         if game.level.is_none() {
             if machinations.intermission.responder(sc, game) {
                 return true; // Menu took event

@@ -682,7 +682,10 @@ impl Game {
         match self.game_action {
             GameAction::LoadLevel => self.do_load_level(),
             GameAction::NewGame => self.do_new_game(),
-            GameAction::CompletedLevel => self.do_completed(),
+            GameAction::CompletedLevel => {
+                self.do_completed();
+                machinations.intermission.init(self);
+            }
             GameAction::Nothing => {}
             GameAction::LoadGame => todo!("G_DoLoadGame()"),
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
