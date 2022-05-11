@@ -45,23 +45,50 @@ impl Intermission {
         self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
     }
 
-    fn draw_num(&self, p: u32, mut x: i32, y: i32, buffer: &mut PixelBuf) {
+    fn draw_num(&self, p: u32, mut x: i32, y: i32, buffer: &mut PixelBuf) -> i32 {
         let width = self.patches.nums[0].width as i32;
         let digits: Vec<u32> = p
             .to_string()
             .chars()
             .map(|d| d.to_digit(10).unwrap())
             .collect();
+
         for n in digits.iter().rev() {
             x -= width;
             let num = &self.patches.nums[*n as usize];
             self.draw_patch(num, x, y, buffer);
         }
+        if digits.len() == 1 {
+            // pad
+            x -= width;
+            self.draw_patch(&self.patches.nums[0], x, y, buffer);
+        }
+
+        x
     }
 
     fn draw_percent(&self, p: u32, x: i32, y: i32, buffer: &mut PixelBuf) {
         self.draw_patch(&self.patches.percent, x, y, buffer);
         self.draw_num(p, x, y, buffer);
+    }
+
+    fn draw_time(&self, t: u32, mut x: i32, y: i32, buffer: &mut PixelBuf) {
+        let mut div = 1;
+        if t <= 61 * 59 {
+            loop {
+                let n = (t / div) % 60;
+                x = self.draw_num(n, x, y, buffer) - self.patches.colon.width as i32;
+                div *= 60;
+
+                if div == 60 || t / div != 0 {
+                    self.draw_patch(&self.patches.colon, x, y, buffer);
+                }
+
+                if t / div == 0 {
+                    break;
+                }
+            }
+        }
     }
 
     pub(super) fn draw_stats(&mut self, buffer: &mut PixelBuf) {
@@ -98,11 +125,23 @@ impl Intermission {
         );
 
         self.draw_patch(&self.patches.time, SP_TIMEX, SP_TIMEY, buffer);
+        self.draw_time(
+            self.player_info.stime / TICRATE as u32,
+            SCREEN_WIDTH / 2 - SP_TIMEX,
+            SP_TIMEY,
+            buffer,
+        );
 
         if self.level_info.epsd < 3 {
             self.draw_patch(
                 &self.patches.par,
                 SCREEN_WIDTH / 2 + SP_TIMEX,
+                SP_TIMEY,
+                buffer,
+            );
+            self.draw_time(
+                self.level_info.partime as u32,
+                SCREEN_WIDTH - SP_TIMEX,
                 SP_TIMEY,
                 buffer,
             );
