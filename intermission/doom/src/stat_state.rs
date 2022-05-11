@@ -21,7 +21,7 @@ impl Intermission {
     pub(super) fn update_stats(&mut self) {
         self.update_animated_bg();
 
-        self.count -= 1;
+        // self.count -= 1;
         if self.count <= 0 {
             if self.mode == GameMode::Commercial {
                 self.init_no_state();

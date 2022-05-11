@@ -88,7 +88,6 @@ pub trait MachinationTrait {
         for c in patch.columns.iter() {
             for (ytmp, p) in c.pixels.iter().enumerate() {
                 let colour = self.get_palette().0[*p];
-
                 pixels.set_pixel(
                     (x + xtmp as i32) as usize, // - (image.left_offset as i32),
                     (y + ytmp as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
