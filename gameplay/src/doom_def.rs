@@ -103,6 +103,23 @@ pub enum WeaponType {
     NoChange,
 }
 
+impl From<WeaponType> for usize {
+    fn from(w: WeaponType) -> Self {
+        match w {
+            WeaponType::Fist => 0,
+            WeaponType::Pistol => 1,
+            WeaponType::Shotgun => 2,
+            WeaponType::Chaingun => 3,
+            WeaponType::Missile => 4,
+            WeaponType::Plasma => 5,
+            WeaponType::BFG => 6,
+            WeaponType::Chainsaw => 7,
+            WeaponType::SuperShotgun => 8,
+            _ => 0,
+        }
+    }
+}
+
 impl Default for WeaponType {
     fn default() -> Self {
         Self::Pistol
@@ -174,7 +191,7 @@ pub enum PowerDuration {
 }
 
 /// Definition for player sprites (HUD weapon) actions
-pub(crate) struct WeaponInfo {
+pub struct WeaponInfo {
     /// Ammto type required
     pub ammo: AmmoType,
     /// The starting state for bringing the weapon up
@@ -189,7 +206,7 @@ pub(crate) struct WeaponInfo {
     pub flashstate: StateNum,
 }
 
-pub(crate) const WEAPON_INFO: [WeaponInfo; 9] = [
+pub const WEAPON_INFO: [WeaponInfo; 9] = [
     // fist
     WeaponInfo {
         ammo: AmmoType::NoAmmo,

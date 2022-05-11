@@ -17,6 +17,7 @@
 - [ ] angle_to_screen has an impact on sizing and scale
 - [ ] Fix the types in texture module
 - [ ] Colours seem off for darker areas?
+- [ ] The fix for players stuck in doors caused floaty blood
 
 ## IMPROVEMENTS
 

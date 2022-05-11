@@ -1,7 +1,12 @@
-pub use gameplay::{AmmoType, Card, GameMode, Skill, WBPlayerStruct, WBStartStruct, WeaponType};
+pub mod util;
+
+pub use gameplay::{
+    AmmoType, Card, GameMode, Skill, WBPlayerStruct, WBStartStruct, WeaponType, WEAPON_INFO,
+};
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
 pub use sound_traits::{MusEnum, SfxNum};
+
 use wad::lumps::{WadPalette, WadPatch};
 
 /// The current state of the game-exe: whether we are playing, gazing at the intermission screen,

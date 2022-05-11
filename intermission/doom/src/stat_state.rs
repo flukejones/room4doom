@@ -1,5 +1,5 @@
 use crate::{Intermission, State, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
-use game_traits::{GameMode, MachinationTrait, PixelBuf};
+use game_traits::{util::draw_num, GameMode, MachinationTrait, PixelBuf};
 
 const SCREEN_WIDTH: i32 = 320;
 const SCREEN_HEIGHT: i32 = 200;
@@ -45,31 +45,9 @@ impl Intermission {
         self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
     }
 
-    fn draw_num(&self, p: u32, mut x: i32, y: i32, buffer: &mut PixelBuf) -> i32 {
-        let width = self.patches.nums[0].width as i32;
-        let digits: Vec<u32> = p
-            .to_string()
-            .chars()
-            .map(|d| d.to_digit(10).unwrap())
-            .collect();
-
-        for n in digits.iter().rev() {
-            x -= width;
-            let num = &self.patches.nums[*n as usize];
-            self.draw_patch(num, x, y, buffer);
-        }
-        if digits.len() == 1 {
-            // pad
-            x -= width;
-            self.draw_patch(&self.patches.nums[0], x, y, buffer);
-        }
-
-        x
-    }
-
     fn draw_percent(&self, p: u32, x: i32, y: i32, buffer: &mut PixelBuf) {
         self.draw_patch(&self.patches.percent, x, y, buffer);
-        self.draw_num(p, x, y, buffer);
+        draw_num(p, x, y, 0, &self.patches.nums, self, buffer);
     }
 
     fn draw_time(&self, t: u32, mut x: i32, y: i32, buffer: &mut PixelBuf) {
@@ -77,7 +55,8 @@ impl Intermission {
         if t <= 61 * 59 {
             loop {
                 let n = (t / div) % 60;
-                x = self.draw_num(n, x, y, buffer) - self.patches.colon.width as i32;
+                x = draw_num(n, x, y, 1, &self.patches.nums, self, buffer)
+                    - self.patches.colon.width as i32;
                 div *= 60;
 
                 if div == 60 || t / div != 0 {

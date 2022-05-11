@@ -1,3 +1,4 @@
+use game_traits::util::get_num_sprites;
 use gameplay::MAXPLAYERS;
 use std::mem::MaybeUninit;
 use wad::{lumps::WadPatch, WadData};
@@ -31,23 +32,6 @@ pub(crate) struct Patches {
 
 impl Patches {
     pub(super) fn new(wad: &WadData) -> Self {
-        let mut nums: [MaybeUninit<WadPatch>; 10] = [
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-            MaybeUninit::uninit(),
-        ];
-        for n in 0..=9 {
-            let lump = wad.get_lump(&format!("WINUM{n}")).unwrap();
-            nums[n] = MaybeUninit::new(WadPatch::from_lump(lump));
-        }
-
         let mut players: [MaybeUninit<WadPatch>; MAXPLAYERS] = [
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
@@ -71,7 +55,7 @@ impl Patches {
         }
 
         Self {
-            nums: unsafe { nums.map(|n| n.assume_init()) },
+            nums: get_num_sprites("WINUM", 0, wad),
             minus: WadPatch::from_lump(wad.get_lump("WIMINUS").unwrap()),
             percent: WadPatch::from_lump(wad.get_lump("WIPCNT").unwrap()),
             kills: WadPatch::from_lump(wad.get_lump("WIOSTK").unwrap()),
