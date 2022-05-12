@@ -467,7 +467,7 @@ impl PicData {
             light_level += 1;
         }
 
-        let mut colourmap = (wall_scale * 15.8).round() as u32;
+        let mut colourmap = (wall_scale * 15.8).floor() as u32;
         if colourmap >= MAXLIGHTSCALE as u32 - 1 {
             colourmap = MAXLIGHTSCALE as u32 - 1;
         }
