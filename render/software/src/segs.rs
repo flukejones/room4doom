@@ -1,3 +1,4 @@
+use crate::defs::SCREENWIDTH;
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
 use render_traits::PixelBuf;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
@@ -133,7 +134,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if !(0..320).contains(&start) || start > stop {
+        if !(0..SCREENWIDTH as i32).contains(&start) || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -190,8 +191,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = (frontsector.ceilingheight - viewz) as i32;
-        self.worldbottom = (frontsector.floorheight - viewz) as i32;
+        self.worldtop = (frontsector.ceilingheight - viewz).ceil() as i32;
+        self.worldbottom = (frontsector.floorheight - viewz).ceil() as i32;
 
         self.midtexture = false;
         self.toptexture = false;
@@ -209,7 +210,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = textures.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight.ceil() + texture_column.len() as f32 - 1.0;
                     self.rw_midtexturemid = vtop - viewz;
                 } else {
                     // top of texture at top
@@ -237,7 +238,7 @@ impl SegRender {
 
             if frontsector.floorheight > backsector.floorheight {
                 ds_p.silhouette = SIL_BOTTOM;
-                ds_p.bsilheight = frontsector.floorheight;
+                ds_p.bsilheight = frontsector.floorheight.ceil();
             } else if backsector.floorheight > viewz {
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
@@ -245,7 +246,7 @@ impl SegRender {
 
             if frontsector.ceilingheight < backsector.ceilingheight {
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = frontsector.ceilingheight;
+                ds_p.tsilheight = frontsector.ceilingheight.ceil();
             } else if backsector.ceilingheight < viewz {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = f32::MIN;
@@ -266,8 +267,8 @@ impl SegRender {
             //     ds_p.tsilheight = f32::MIN;
             // }
 
-            self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
-            self.worldlow = (backsector.floorheight - viewz).floor() as i32;
+            self.worldhigh = (backsector.ceilingheight - viewz).ceil() as i32;
+            self.worldlow = (backsector.floorheight - viewz).ceil() as i32;
 
             // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.sky_num()
@@ -537,8 +538,8 @@ impl SegRender {
                         dc_iscale,
                         self.rw_x,
                         self.rw_midtexturemid,
-                        yl as i32,
-                        yh as i32,
+                        yl,
+                        yh,
                     );
                     dc.draw_column(textures, pixels);
                 };
@@ -548,7 +549,7 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture {
-                    mid = self.pixhigh as i32; // - HEIGHTUNIT;
+                    mid = self.pixhigh.floor() as i32; // - HEIGHTUNIT;
                     self.pixhigh += self.pixhighstep;
 
                     if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
@@ -569,8 +570,8 @@ impl SegRender {
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_toptexturemid,
-                                yl as i32,
-                                mid as i32,
+                                yl,
+                                mid,
                             );
                             dc.draw_column(textures, pixels);
                         }
@@ -585,7 +586,7 @@ impl SegRender {
 
                 if self.bottomtexture {
                     // TODO: this affects some placement
-                    mid = self.pixlow as i32 + 1;
+                    mid = self.pixlow.ceil() as i32;
                     self.pixlow += self.pixlowstep;
 
                     if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
@@ -606,8 +607,8 @@ impl SegRender {
                                 dc_iscale,
                                 self.rw_x,
                                 self.rw_bottomtexturemid,
-                                mid as i32,
-                                yh as i32,
+                                mid,
+                                yh,
                             );
                             dc.draw_column(textures, pixels);
                         }
@@ -676,7 +677,7 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac.round() as i32 & 127;
+            let mut select = frac.floor() as i32 & 127;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }

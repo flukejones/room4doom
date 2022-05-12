@@ -212,8 +212,8 @@ impl SoftwareRenderer {
         vis.scale = x_scale;
         vis.gx = thing.xy.x;
         vis.gy = thing.xy.y;
-        vis.gz = thing.z;
-        vis.gzt = thing.z + patch.top_offset as f32;
+        vis.gz = thing.z.ceil();
+        vis.gzt = thing.z.ceil() + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;
         vis.x1 = if x1 < 0 { 0 } else { x1 };
         vis.x2 = if x2 >= SCREENWIDTH as i32 {
