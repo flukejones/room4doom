@@ -188,16 +188,16 @@ impl Statusbar {
         let start_y = SCREEN_HEIGHT - y - 2;
 
         for (i, owned) in self.info.weaponowned.iter().enumerate() {
-            if !(self.mode == GameMode::Commercial) && i == 8 {
+            if !(self.mode == GameMode::Commercial) && i == 8 || !*owned {
                 continue;
             }
-            let nums = if *owned {
+            let nums = if self.info.readyweapon as usize == i {
                 &self.yell_nums
             } else {
                 &self.grey_nums
             };
             draw_num(
-                i as u32,
+                i as u32 + 1,
                 start_x + x * i as i32 + i as i32,
                 start_y,
                 0,

@@ -136,7 +136,11 @@ impl InputEvents {
             if let Some(key) = Sc::from_i32(30 + i as i32) {
                 if self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
-                    cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
+                    if i == 8 {
+                        cmd.buttons |= 2 << TIC_CMD_BUTTONS.bt_weaponshift;
+                    } else {
+                        cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
+                    }
                 }
             }
         }
