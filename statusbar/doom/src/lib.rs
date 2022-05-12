@@ -1,5 +1,5 @@
 use game_traits::{
-    util::{draw_num, get_num_sprites},
+    util::{draw_num, get_num_sprites, get_st_key_sprites},
     AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, PlayerInfo, Scancode, WeaponType,
     WEAPON_INFO,
 };
@@ -21,6 +21,8 @@ pub struct Statusbar {
     lil_nums: [WadPatch; 10],
     grey_nums: [WadPatch; 10],
     yell_nums: [WadPatch; 10],
+    /// Keys: blue yellow red. Skulls: blue yellow red
+    keys: [WadPatch; 6],
     info: PlayerInfo,
 }
 
@@ -45,6 +47,7 @@ impl Statusbar {
             lil_nums: get_num_sprites("STCFN0", 48, wad),
             grey_nums: get_num_sprites("STGNUM", 0, wad),
             yell_nums: get_num_sprites("STYSNUM", 0, wad),
+            keys: get_st_key_sprites(wad),
             info: PlayerInfo::default(),
         }
     }
@@ -126,17 +129,48 @@ impl Statusbar {
         }
 
         let height = self.big_nums[0].height as i32;
-        let width = self.big_nums[0].width as i32;
+        let start_x = self.big_nums[0].width as i32 + self.keys[0].width as i32 + 2;
         let ammo = self.info.ammo[ammo as usize];
         draw_num(
             ammo,
-            SCREEN_WIDTH - width,
+            SCREEN_WIDTH - start_x,
             SCREEN_HEIGHT - 2 - height - self.grey_nums[0].height as i32,
             0,
             &self.big_nums,
             self,
             buffer,
         );
+    }
+
+    fn draw_keys(&self, buffer: &mut PixelBuf) {
+        let height = self.keys[3].height as i32;
+        let width = self.keys[0].width as i32;
+
+        let skull_x = SCREEN_WIDTH - width as i32 - 4;
+        let mut x = skull_x - width - 2;
+        let start_y = SCREEN_HEIGHT - height - 2;
+
+        for (mut i, owned) in self.info.cards.iter().enumerate() {
+            if !*owned {
+                continue;
+            }
+
+            let height = self.keys[3].height as i32;
+            let patch = &self.keys[i];
+            let mut pad = 0;
+            if i > 2 {
+                i = i - 3;
+                x = skull_x;
+            } else {
+                pad = -3;
+            }
+            self.draw_patch(
+                patch,
+                x,
+                start_y - pad - height * i as i32 - i as i32,
+                buffer,
+            );
+        }
     }
 
     fn draw_weapons(&self, buffer: &mut PixelBuf) {
@@ -149,7 +183,8 @@ impl Statusbar {
         };
         let start_x = SCREEN_WIDTH
             - self.grey_nums[0].width as i32 * mult // align with big ammo
-            - self.big_nums[0].width as i32;
+            - self.big_nums[0].width as i32
+            - self.keys[0].width as i32 - 2;
         let start_y = SCREEN_HEIGHT - y - 2;
 
         for (i, owned) in self.info.weaponowned.iter().enumerate() {
@@ -251,5 +286,6 @@ impl MachinationTrait for Statusbar {
         self.draw_armour(face, buffer);
         self.draw_ammo_big(buffer);
         self.draw_weapons(buffer);
+        self.draw_keys(buffer);
     }
 }

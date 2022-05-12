@@ -12,6 +12,8 @@
 
 ## BUGS
 
+- [ ] Don't pickup armour shards if have max armour
+- [ ] Total kills seems incorrect
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
 - [ ] angle_to_screen has an impact on sizing and scale
