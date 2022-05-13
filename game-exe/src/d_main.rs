@@ -228,6 +228,26 @@ pub fn d_doom_loop(
     Ok(())
 }
 
+fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
+    let mut xtmp = 0;
+    for c in game.title.columns.iter() {
+        for (ytmp, p) in c.pixels.iter().enumerate() {
+            let colour = game.pic_data.borrow().palette()[*p];
+            draw_buf.set_pixel(
+                (xtmp as i32) as usize,                     // - (image.left_offset as i32),
+                (ytmp as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
+                colour.r,
+                colour.g,
+                colour.b,
+                255,
+            );
+        }
+        if c.y_offset == 255 {
+            xtmp += 1;
+        }
+    }
+}
+
 /// Does a bunch of stuff in Doom...
 /// `pixels` is the buffer that is always drawn, so drawing in to `pixels2` then flipping
 /// ensures the buffer is drawn. But if we draw in to `pixels2` and don't flip, we can
@@ -291,12 +311,7 @@ fn d_display<I, S>(
         }
         GameState::Demo => {
             // TODO: we're clearing here to make the menu visible (for now)
-            let (x, y) = draw_buf.size();
-            for x in 0..x {
-                for y in 0..y {
-                    draw_buf.set_pixel(x as usize, y as usize, 20, 14, 14, 255);
-                }
-            }
+            draw_title(game, draw_buf);
             // TODO: D_PageDrawer();
         }
         _ => {}
