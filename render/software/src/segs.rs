@@ -549,7 +549,8 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture {
-                    mid = self.pixhigh.floor() as i32; // - HEIGHTUNIT;
+                    // The 0.2 here is a cope for the ceiling plane being sometimes not high/low enough
+                    mid = (self.pixhigh + 0.2).floor() as i32;
                     self.pixhigh += self.pixhighstep;
 
                     if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
