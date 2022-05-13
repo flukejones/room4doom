@@ -99,13 +99,14 @@ impl Intermission {
 
         // load all the BG animations
         let mut anims = animations();
-        for anims in anims.iter_mut() {
-            for (j, anim) in anims.iter_mut().enumerate() {
+        for (e, anims) in anims.iter_mut().enumerate() {
+            for (l, anim) in anims.iter_mut().enumerate() {
                 for i in 0..anim.num_of {
-                    if let Some(lump) = wad.get_lump(&format!("WIA0{j:0>2}{i:0>2}")) {
+                    // episode, level, anim_num
+                    if let Some(lump) = wad.get_lump(&format!("WIA{e}{l:0>2}{i:0>2}")) {
                         anim.patches.push(WadPatch::from_lump(lump));
                     } else if mode != GameMode::Commercial {
-                        warn!("Missing WIA0{j:0>2}{i:0>2}");
+                        warn!("Missing WIA{e}{l:0>2}{i:0>2}");
                     }
                 }
             }
