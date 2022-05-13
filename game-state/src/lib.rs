@@ -30,7 +30,7 @@ use gameplay::{
 use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
 use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic};
-use wad::WadData;
+use wad::{lumps::WadPatch, WadData};
 
 /// Options specific to Doom. This will get phased out for `GameOptions`
 #[derive(Debug)]
@@ -107,6 +107,7 @@ pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
+    pub title: WadPatch,
     /// Contains the full wad file
     pub wad_data: WadData,
     pub level: Option<Level>,
@@ -296,13 +297,16 @@ impl Game {
         // TODO: ST_Init ();
 
         let mut game_action = GameAction::Nothing;
-        let mut game_state = GameState::Demo;
+        let game_state = GameState::Demo;
         if options.warp {
             game_action = GameAction::NewGame;
-            game_state = GameState::ForceWipe;
         }
 
+        let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
+        let title = WadPatch::from_lump(lump);
+
         Game {
+            title,
             wad_data: wad,
             level: None,
             running: true,
