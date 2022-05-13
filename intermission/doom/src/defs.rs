@@ -8,7 +8,7 @@ pub(crate) const SHOW_NEXT_LOC_DELAY: i32 = 4;
 
 pub(crate) struct Patches {
     pub nums: [WadPatch; 10],
-    pub minus: WadPatch,
+    // pub minus: WadPatch,
     pub percent: WadPatch,
     pub kills: WadPatch,
     pub secret: WadPatch,
@@ -56,7 +56,6 @@ impl Patches {
 
         Self {
             nums: get_num_sprites("WINUM", 0, wad),
-            minus: WadPatch::from_lump(wad.get_lump("WIMINUS").unwrap()),
             percent: WadPatch::from_lump(wad.get_lump("WIPCNT").unwrap()),
             kills: WadPatch::from_lump(wad.get_lump("WIOSTK").unwrap()),
             secret: WadPatch::from_lump(wad.get_lump("WIOSTS").unwrap()),

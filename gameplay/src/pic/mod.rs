@@ -208,7 +208,7 @@ impl PicData {
                 (0..MAXLIGHTZ)
                     .map(|j| {
                         let scale = 160.0 / (j + 1) as f32;
-                        let mut level = (startmap as f32 - scale / 2.0) as i32;
+                        let mut level = startmap - (scale / 2.0) as i32;
                         if level < 0 {
                             level = 0;
                         }
@@ -503,7 +503,7 @@ impl PicData {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let mut dist = (wall_scale as i32 >> 4) as u32;
+        let mut dist = wall_scale as u32 >> 4;
 
         if dist >= MAXLIGHTZ as u32 - 1 {
             dist = MAXLIGHTZ as u32 - 1;
