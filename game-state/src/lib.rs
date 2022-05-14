@@ -24,8 +24,8 @@ use gameplay::{
     log::{debug, error, info, trace, warn},
     m_clear_random, spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
-    Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
+    update_specials, GameAction, GameMission, GameMode, Level, MapObjFlag, MapObject, PicAnimation,
+    PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
 use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
@@ -534,7 +534,13 @@ impl Game {
             let thing_list = (*level.map_data.things()).to_owned();
 
             for thing in &thing_list {
-                MapObject::p_spawn_map_thing(thing, level, &mut self.players, &self.player_in_game);
+                MapObject::p_spawn_map_thing(
+                    thing,
+                    self.options.no_monsters,
+                    level,
+                    &mut self.players,
+                    &self.player_in_game,
+                );
             }
             spawn_specials(level);
 

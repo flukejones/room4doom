@@ -70,8 +70,8 @@ pub struct CLIOptions {
     #[options(meta = "", help = "fullscreen?")]
     pub fullscreen: Option<bool>,
 
-    // #[options(help = "Disable monsters")]
-    // pub no_monsters: bool,
+    #[options(help = "Disable monsters")]
+    pub no_monsters: bool,
     // #[options(help = "Monsters respawn after being killed")]
     // pub respawn_parm: bool,
     // #[options(help = "Monsters move faster")]
@@ -121,7 +121,7 @@ impl From<CLIOptions> for DoomOptions {
         DoomOptions {
             iwad: g.iwad,
             pwad: g.pwad,
-            // no_monsters: g.no_monsters,
+            no_monsters: g.no_monsters,
             // respawn_parm: g.respawn_parm,
             // fast_parm: g.fast_parm,
             // dev_parm: g.dev_parm,

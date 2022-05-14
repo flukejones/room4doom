@@ -388,6 +388,7 @@ impl MapObject {
     /// P_SpawnMapThing
     pub fn p_spawn_map_thing(
         mthing: &WadThing,
+        no_monsters: bool,
         level: &mut Level,
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
@@ -449,10 +450,13 @@ impl MapObject {
         }
 
         // TODO: don't spawn any monsters if -nomonsters
-        // if (nomonsters && (i == MT_SKULL || (mobjinfo[i].flags & COUNTKILL)))
-        // {
-        //     return;
-        // }
+        let kind = MapObjKind::from(i);
+        if no_monsters
+            && (kind == MapObjKind::MT_SKULL
+                || MOBJINFO[i as usize].flags & MapObjFlag::Countkill as u32 != 0)
+        {
+            return;
+        }
 
         let x = mthing.x as f32;
         let y = mthing.y as f32;
