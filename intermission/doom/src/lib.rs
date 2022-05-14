@@ -248,7 +248,11 @@ impl MachinationTrait for Intermission {
                 game.change_music(MusEnum::Inter);
             }
 
-            self.player_info.skills = (self.player_info.skills * 100) / self.level_info.maxkills;
+            self.player_info.skills = if self.level_info.maxkills > 0 {
+                (self.player_info.skills * 100) / self.level_info.maxkills
+            } else {
+                0
+            };
             self.player_info.sitems = (self.player_info.sitems * 100) / self.level_info.maxitems;
             self.player_info.ssecret = (self.player_info.ssecret * 100) / self.level_info.maxsecret;
         }
