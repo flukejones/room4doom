@@ -3,23 +3,23 @@
 ## FUNCTIONALITY
 
 - [-] Menu screens (partial)
-- [-] Intermissions and finale (intermission partial, no text)
+- [-] Intermissions and finale (intermission has no animated text. No finale screens yet)
 - [+] Screen wipe
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
-- [-] Status bar drawing (framework in place)
+- [+] Status bar drawing (framework in place)
 - [ ] Save/load game
 
 ## BUGS
 
-- [ ] Monsters don't activate when player is real close (related to angle fix?)
+- [+] Monsters don't activate when player is real close (related to angle fix?)
 - [ ] Don't pickup armour shards if have max armour
 - [ ] Total kills seems incorrect
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
 - [ ] angle_to_screen has an impact on sizing and scale
 - [ ] Fix the types in texture module
-- [-] Colours seem off for darker areas?
+- [+] Colours seem off for darker areas? (was incorrect float conversion on zlight table creation)
 - [ ] The fix for players stuck in doors caused floaty blood
 
 ## IMPROVEMENTS

@@ -298,9 +298,9 @@ impl MapObject {
                 }
 
                 if !all_around {
-                    let xy = point_to_angle_2(xy, self.xy).unit(); // Using a unit vector to remove world
+                    let xy_u = point_to_angle_2(xy, self.xy).unit(); // Using a unit vector to remove world
                     let v1 = self.angle.unit(); // Get a unit from mobj angle
-                    let angle = v1.angle_between(xy).abs(); // then use glam to get angle between (it's +/- for .abs())
+                    let angle = v1.angle_between(xy_u).abs(); // then use glam to get angle between (it's +/- for .abs())
                     if angle > FRAC_PI_2 && self.xy.distance(xy) > MELEERANGE {
                         continue;
                     }
