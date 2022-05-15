@@ -622,7 +622,7 @@ fn draw_masked_column(
     let pal = &textures.palette();
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let select = frac.round() as usize;
+        let select = (frac - 1.0).round() as usize;
 
         if select >= texture_column.len() {
             break;
