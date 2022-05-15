@@ -10,7 +10,7 @@ use super::{
     RenderData,
 };
 
-const HEIGHTUNIT: f32 = 0.062485;
+//const HEIGHTUNIT: f32 = 0.062485;
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
 // // angle to line origin
@@ -191,8 +191,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = (frontsector.ceilingheight - viewz).ceil() as i32;
-        self.worldbottom = (frontsector.floorheight - viewz).ceil() as i32;
+        self.worldtop = (frontsector.ceilingheight - viewz).floor() as i32;
+        self.worldbottom = (frontsector.floorheight - viewz).floor() as i32 + 1;
 
         self.midtexture = false;
         self.toptexture = false;
@@ -210,7 +210,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = textures.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight.ceil() + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight.ceil() + texture_column.len() as f32;
                     self.rw_midtexturemid = vtop - viewz;
                 } else {
                     // top of texture at top
@@ -312,7 +312,7 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop as f32;
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
                     let texture_column = textures.wall_pic_column(top_tex, 0);
-                    let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - viewz;
                 }
             }
@@ -379,12 +379,12 @@ impl SegRender {
 
         if seg.backsector.is_some() {
             if self.worldhigh < self.worldtop {
-                self.pixhigh = 100.0 + HEIGHTUNIT - (self.worldhigh as f32 * self.rw_scale);
+                self.pixhigh = 100.0 - (self.worldhigh as f32 * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh as f32 * self.rw_scalestep);
             }
 
             if self.worldlow > self.worldbottom {
-                self.pixlow = 100.0 + HEIGHTUNIT - (self.worldlow as f32 * self.rw_scale);
+                self.pixlow = 100.0 - (self.worldlow as f32 * self.rw_scale);
                 self.pixlowstep = -(self.worldlow as f32 * self.rw_scalestep);
             }
         }
@@ -475,7 +475,7 @@ impl SegRender {
         while self.rw_x < self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;
+            yl = (self.topfrac) as i32 + 1;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
@@ -549,11 +549,10 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture {
-                    // The 0.2 here is a cope for the ceiling plane being sometimes not high/low enough
-                    mid = (self.pixhigh + 0.2).floor() as i32;
+                    mid = self.pixhigh .floor() as i32;
                     self.pixhigh += self.pixhighstep;
 
-                    if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                     }
 
@@ -590,7 +589,7 @@ impl SegRender {
                     mid = self.pixlow.ceil() as i32;
                     self.pixlow += self.pixlowstep;
 
-                    if mid < rdata.portal_clip.ceilingclip[self.rw_x as usize] {
+                    if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                     }
 
@@ -678,7 +677,7 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac.floor() as i32 & 127;
+            let mut select = frac.round() as i32 & 127;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }

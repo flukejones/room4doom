@@ -332,10 +332,10 @@ impl<'a> DrawSpan<'a> {
         let pal = textures.palette();
         for s in self.ds_x1..=self.ds_x2 {
             let mut x = (self.ds_xfrac.floor() as i32 & 127) + 64;
-            let mut y = (self.ds_yfrac.ceil() as i32 & 127) + 64;
+            let mut y = (self.ds_yfrac.floor() as i32 & 127) + 64;
 
-            if y >= self.texture.data[0].len() as i32 {
-                y %= self.texture.data[0].len() as i32;
+            while y >= self.texture.data[0].len() as i32 {
+                y -= self.texture.data[0].len() as i32;
             }
 
             if x >= self.texture.data.len() as i32 {
