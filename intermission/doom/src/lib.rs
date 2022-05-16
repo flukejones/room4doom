@@ -1,8 +1,10 @@
+//! Display the end-of-level statistics for the player and the next level's name
+
 use crate::defs::{
     animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE,
 };
-use game_traits::{
-    GameMode, GameTraits, MachinationTrait, MusEnum, PixelBuf, Scancode, WBPlayerStruct,
+use gamestate_traits::{
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode, WBPlayerStruct,
     WBStartStruct,
 };
 use gameplay::m_random;
@@ -249,9 +251,9 @@ impl MachinationTrait for Intermission {
 
         if self.bg_count == 1 {
             if self.mode == GameMode::Commercial {
-                game.change_music(MusEnum::Dm2int);
+                game.change_music(MusTrack::Dm2int);
             } else {
-                game.change_music(MusEnum::Inter);
+                game.change_music(MusTrack::Inter);
             }
 
             self.player_info.skills = if self.level_info.maxkills > 0 {

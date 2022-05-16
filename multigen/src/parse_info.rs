@@ -66,13 +66,13 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
             .unwrap_or("StateNum::None"),
         seesound = info
             .get("seesound")
-            .map(|n| if n == "0" { "SfxNum::None" } else { n })
-            .unwrap_or("SfxNum::None"),
+            .map(|n| if n == "0" { "SfxName::None" } else { n })
+            .unwrap_or("SfxName::None"),
         reactiontime = info.get("reactiontime").unwrap_or(&"8".to_string()),
         attacksound = info
             .get("attacksound")
-            .map(|n| if n == "0" { "SfxNum::None" } else { n })
-            .unwrap_or("SfxNum::None"),
+            .map(|n| if n == "0" { "SfxName::None" } else { n })
+            .unwrap_or("SfxName::None"),
         painstate = info
             .get("painstate")
             .map(|n| if n == "0" { "StateNum::None" } else { n })
@@ -80,8 +80,8 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
         painchance = info.get("painchance").unwrap_or(&"0".to_string()),
         painsound = info
             .get("painsound")
-            .map(|n| if n == "0" { "SfxNum::None" } else { n })
-            .unwrap_or("SfxNum::None"),
+            .map(|n| if n == "0" { "SfxName::None" } else { n })
+            .unwrap_or("SfxName::None"),
         meleestate = info
             .get("meleestate")
             .map(|n| if n == "0" { "StateNum::None" } else { n })
@@ -100,8 +100,8 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
             .unwrap_or("StateNum::None"),
         deathsound = info
             .get("deathsound")
-            .map(|n| if n == "0" { "SfxNum::None" } else { n })
-            .unwrap_or("SfxNum::None"),
+            .map(|n| if n == "0" { "SfxName::None" } else { n })
+            .unwrap_or("SfxName::None"),
         speed = info
             .get("speed")
             .map(|n| if !n.contains(".0") {
@@ -117,8 +117,8 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
         damage = info.get("damage").unwrap_or(&"0".to_string()),
         activesound = info
             .get("activesound")
-            .map(|n| if n == "0" { "SfxNum::None" } else { n })
-            .unwrap_or("SfxNum::None"),
+            .map(|n| if n == "0" { "SfxName::None" } else { n })
+            .unwrap_or("SfxName::None"),
         flags = info.get("flags").unwrap_or(&"0".to_string()),
         raisestate = info
             .get("raisestate")

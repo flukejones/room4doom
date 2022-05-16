@@ -31,7 +31,7 @@ use crate::{
     DPtr, PicData,
 };
 use log::{debug, error, trace};
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -891,7 +891,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
                         }
                     }
                 }
-                start_sector_sound(&b.line, SfxNum::Swtchn, &level.snd_command);
+                start_sector_sound(&b.line, SfxName::Swtchn, &level.snd_command);
             }
         }
     }

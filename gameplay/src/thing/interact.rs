@@ -4,7 +4,7 @@ use std::ptr;
 
 use glam::Vec2;
 use log::{debug, error, info};
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 use crate::{
     doom_def::{AmmoType, Card, PowerType, WeaponType},
@@ -118,25 +118,25 @@ impl MapObject {
                 return;
             }
 
-            if player.armortype != 0 {
-                let mut saved = if player.armortype == 1 {
+            if player.status.armortype != 0 {
+                let mut saved = if player.status.armortype == 1 {
                     damage / 3
                 } else {
                     damage / 2
                 };
 
-                if player.armorpoints <= saved {
+                if player.status.armorpoints <= saved {
                     // armour is used up
-                    saved = player.armorpoints;
-                    player.armortype = 0;
+                    saved = player.status.armorpoints;
+                    player.status.armortype = 0;
                 }
-                player.armorpoints -= saved;
+                player.status.armorpoints -= saved;
                 damage -= saved;
             }
 
-            player.health -= damage;
-            if player.health < 0 {
-                player.health = 0;
+            player.status.health -= damage;
+            if player.status.health < 0 {
+                player.status.health = 0;
             }
 
             if let Some(source) = source.as_mut() {
@@ -269,7 +269,7 @@ impl MapObject {
             return;
         }
 
-        let mut sound = SfxNum::Itemup;
+        let mut sound = SfxName::Itemup;
 
         if let Some(player) = self.player {
             let player = unsafe { &mut *player };
@@ -294,76 +294,76 @@ impl MapObject {
                     player.message = Some(GOTMEGA);
                 }
                 SpriteNum::BON1 => {
-                    player.health += 1; // Go over 100%
-                    if player.health > 200 {
-                        player.health = 200;
+                    player.status.health += 1; // Go over 100%
+                    if player.status.health > 200 {
+                        player.status.health = 200;
                     }
                     player.message = Some(GOTHTHBONUS);
                 }
                 SpriteNum::BON2 => {
-                    player.armorpoints += 1; // Go over 100%
-                    if player.armorpoints > 200 {
-                        player.armorpoints = 200;
+                    player.status.armorpoints += 1; // Go over 100%
+                    if player.status.armorpoints > 200 {
+                        player.status.armorpoints = 200;
                     }
-                    if player.armortype == 0 {
-                        player.armortype = 1;
+                    if player.status.armortype == 0 {
+                        player.status.armortype = 1;
                     }
                     player.message = Some(GOTARMBONUS);
                 }
                 SpriteNum::SOUL => {
-                    player.health += 100;
-                    if player.health > 200 {
-                        player.health = 200;
+                    player.status.health += 100;
+                    if player.status.health > 200 {
+                        player.status.health = 200;
                     }
                     player.message = Some(GOTSUPER);
-                    sound = SfxNum::Getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::MEGA => {
                     // TODO: if (gamemode != commercial) return;
-                    player.health = 200;
+                    player.status.health = 200;
                     player.give_armour(2);
                     player.message = Some(GOTMSPHERE);
-                    sound = SfxNum::Getpow;
+                    sound = SfxName::Getpow;
                 }
 
                 // Keycards
                 SpriteNum::BKEY => {
-                    if !player.cards[Card::Bluecard as usize] {
+                    if !player.status.cards[Card::Bluecard as usize] {
                         player.message = Some(GOTBLUECARD);
                     }
                     player.give_key(Card::Bluecard);
                     // TODO: if (netgame) return;
                 }
                 SpriteNum::YKEY => {
-                    if !player.cards[Card::Yellowcard as usize] {
+                    if !player.status.cards[Card::Yellowcard as usize] {
                         player.message = Some(GOTYELWCARD);
                     }
                     player.give_key(Card::Yellowcard);
                     // TODO: if (netgame) return;
                 }
                 SpriteNum::RKEY => {
-                    if !player.cards[Card::Redcard as usize] {
+                    if !player.status.cards[Card::Redcard as usize] {
                         player.message = Some(GOTREDCARD);
                     }
                     player.give_key(Card::Redcard);
                     // TODO: if (netgame) return;
                 }
                 SpriteNum::BSKU => {
-                    if !player.cards[Card::Blueskull as usize] {
+                    if !player.status.cards[Card::Blueskull as usize] {
                         player.message = Some(GOTBLUESKUL);
                     }
                     player.give_key(Card::Blueskull);
                     // TODO: if (netgame) return;
                 }
                 SpriteNum::YSKU => {
-                    if !player.cards[Card::Yellowskull as usize] {
+                    if !player.status.cards[Card::Yellowskull as usize] {
                         player.message = Some(GOTYELWSKUL);
                     }
                     player.give_key(Card::Yellowskull);
                     // TODO: if (netgame) return;
                 }
                 SpriteNum::RSKU => {
-                    if !player.cards[Card::Redskull as usize] {
+                    if !player.status.cards[Card::Redskull as usize] {
                         player.message = Some(GOTREDSKULL);
                     }
                     player.give_key(Card::Redskull);
@@ -379,7 +379,7 @@ impl MapObject {
                     if !player.give_body(25) {
                         return;
                     }
-                    if player.health < 25 {
+                    if player.status.health < 25 {
                         player.message = Some(GOTMEDINEED);
                     } else {
                         player.message = Some(GOTMEDIKIT);
@@ -487,11 +487,11 @@ impl MapObject {
                     player.message = Some(GOTSHELLBOX);
                 }
                 SpriteNum::BPAK => {
-                    if !player.backpack {
+                    if !player.status.backpack {
                         for i in 0..AmmoType::NumAmmo as usize {
-                            player.maxammo[i] *= 2;
+                            player.status.maxammo[i] *= 2;
                         }
-                        player.backpack = true;
+                        player.status.backpack = true;
                     }
                     for i in 0..AmmoType::NumAmmo as usize {
                         player.give_ammo(AmmoType::from(i), 1, skill);
@@ -505,7 +505,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTBFG9000);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::MGUN => {
                     if !player.give_weapon(
@@ -516,28 +516,28 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTCHAINGUN);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::CSAW => {
                     if !player.give_weapon(WeaponType::Chainsaw, false, skill) {
                         return;
                     }
                     player.message = Some(GOTCHAINSAW);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::LAUN => {
                     if !player.give_weapon(WeaponType::Missile, false, skill) {
                         return;
                     }
                     player.message = Some(GOTLAUNCHER);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::PLAS => {
                     if !player.give_weapon(WeaponType::Plasma, false, skill) {
                         return;
                     }
                     player.message = Some(GOTPLASMA);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::SHOT => {
                     if !player.give_weapon(
@@ -548,7 +548,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
                 SpriteNum::SGN2 => {
                     if !player.give_weapon(
@@ -559,14 +559,14 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTSHOTGUN2);
-                    sound = SfxNum::Wpnup;
+                    sound = SfxName::Wpnup;
                 }
 
                 _ => error!("Unknown gettable: {:?}", special.sprite),
             }
 
             // Ensure thing health is synced
-            self.health = player.health;
+            self.health = player.status.health;
 
             if special.flags & MapObjFlag::Countitem as u32 != 0 {
                 player.itemcount += 1;

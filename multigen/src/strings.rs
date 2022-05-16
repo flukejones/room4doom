@@ -5,7 +5,7 @@ pub const FILE_HEADER_STR: &str = r#"//! THIS FILE IS GENERATED WITH MULTIGEN
 
 pub const MOBJ_INFO_HEADER_STR: &str = r#"
 use crate::thing::MapObjFlag;
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 "#;
 
 pub const MOBJ_INFO_TYPE_STR: &str = r#"
@@ -15,23 +15,23 @@ pub struct MapObjInfo {
     pub spawnstate: StateNum,
     pub spawnhealth: i32,
     pub seestate: StateNum,
-    pub seesound: SfxNum,
+    pub seesound: SfxName,
     pub reactiontime: i32,
-    pub attacksound: SfxNum,
+    pub attacksound: SfxName,
     pub painstate: StateNum,
     pub painchance: i32,
-    pub painsound: SfxNum,
+    pub painsound: SfxName,
     pub meleestate: StateNum,
     pub missilestate: StateNum,
     pub deathstate: StateNum,
     pub xdeathstate: StateNum,
-    pub deathsound: SfxNum,
+    pub deathsound: SfxName,
     pub speed: f32,
     pub radius: f32,
     pub height: f32,
     pub mass: i32,
     pub damage: i32,
-    pub activesound: SfxNum,
+    pub activesound: SfxName,
     pub flags: u32,
     pub raisestate: StateNum,
 }

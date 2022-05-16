@@ -7,7 +7,7 @@ mod interact;
 pub use interact::*;
 mod movement;
 pub use movement::*;
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 pub(crate) mod enemy;
 mod shooting;
 
@@ -354,7 +354,7 @@ impl MapObject {
 
         // TODO: check this angle stuff
         mobj_ptr_mut.angle = Angle::new((mthing.angle as f32).to_radians());
-        mobj_ptr_mut.health = player.health;
+        mobj_ptr_mut.health = player.status.health;
         mobj_ptr_mut.player = Some(player);
 
         player.set_mobj(mobj);
@@ -551,7 +551,7 @@ impl MapObject {
             }
         }
 
-        if !matches!(mobj.info.seesound, SfxNum::None | SfxNum::NumSfx) {
+        if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
             mobj.start_sound(mobj.info.seesound);
         }
 
@@ -577,7 +577,7 @@ impl MapObject {
         let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
         let mobj = unsafe { &mut *mobj };
 
-        if !matches!(mobj.info.seesound, SfxNum::None | SfxNum::NumSfx) {
+        if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
             mobj.start_sound(mobj.info.seesound);
         }
 
@@ -831,7 +831,7 @@ impl MapObject {
         true
     }
 
-    pub(crate) fn start_sound(&self, sfx: SfxNum) {
+    pub(crate) fn start_sound(&self, sfx: SfxName) {
         unsafe {
             (*self.level).start_sound(
                 sfx,

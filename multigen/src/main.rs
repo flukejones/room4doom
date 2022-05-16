@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // An `S_` is unique and should accumulate in order
     // `S_` line order: statename  sprite  frame tics action nextstate [optional1] [optional2]
     //
-    // SfxNum are pre-determined?
+    // SfxName are pre-determined?
 
     let data = parse_data(&data);
     write_info_file(data, options.out);
@@ -309,7 +309,7 @@ pub fn validate_field(input: &str) -> String {
         tmp
     } else if input.starts_with("sfx_") {
         // Sound
-        let mut tmp = "SfxNum::".to_string();
+        let mut tmp = "SfxName::".to_string();
         tmp.push_str(capitalize(input.trim_start_matches("sfx_")).as_str());
         tmp
     } else if input.starts_with("MF_") {

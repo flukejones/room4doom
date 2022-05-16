@@ -1,4 +1,4 @@
-use game_traits::PixelBuf;
+use gamestate_traits::PixelBuf;
 use gameplay::m_random;
 
 #[derive(Debug)]

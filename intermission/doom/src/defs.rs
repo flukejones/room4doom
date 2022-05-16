@@ -1,4 +1,4 @@
-use game_traits::util::get_num_sprites;
+use gamestate_traits::util::get_num_sprites;
 use gameplay::MAXPLAYERS;
 use std::mem::MaybeUninit;
 use wad::{lumps::WadPatch, WadData};

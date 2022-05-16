@@ -1,5 +1,5 @@
 use crate::{Intermission, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
-use game_traits::{GameMode, MachinationTrait, PixelBuf};
+use gamestate_traits::{GameMode, MachinationTrait, PixelBuf};
 use wad::lumps::WadPatch;
 
 impl Intermission {

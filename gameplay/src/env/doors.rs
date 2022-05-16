@@ -3,7 +3,7 @@
 //! Doom source name `p_doors`
 
 use log::{debug, error, warn};
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 use std::{
     fmt::{self, Formatter},
     ptr::null_mut,
@@ -87,15 +87,15 @@ impl Think for VerticalDoor {
                     match door.kind {
                         DoorKind::BlazeRaise => {
                             door.direction = -1;
-                            start_sector_sound(line, SfxNum::Bdcls, &level.snd_command);
+                            start_sector_sound(line, SfxName::Bdcls, &level.snd_command);
                         }
                         DoorKind::Normal => {
                             door.direction = -1;
-                            start_sector_sound(line, SfxNum::Dorcls, &level.snd_command);
+                            start_sector_sound(line, SfxName::Dorcls, &level.snd_command);
                         }
                         DoorKind::Close30ThenOpen => {
                             door.direction = 1;
-                            start_sector_sound(line, SfxNum::Doropn, &level.snd_command);
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -112,7 +112,7 @@ impl Think for VerticalDoor {
                         DoorKind::RaiseIn5Mins => {
                             door.direction = 1;
                             door.kind = DoorKind::Normal;
-                            start_sector_sound(line, SfxNum::Doropn, &level.snd_command);
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
                         }
                         _ => {
                             warn!("Invalid door kind: {:?}", door.kind);
@@ -134,7 +134,7 @@ impl Think for VerticalDoor {
                 if matches!(res, PlaneResult::PastDest) {
                     match door.kind {
                         DoorKind::BlazeRaise | DoorKind::BlazeClose => {
-                            start_sector_sound(line, SfxNum::Bdcls, &level.snd_command);
+                            start_sector_sound(line, SfxName::Bdcls, &level.snd_command);
                             unsafe {
                                 door.sector.specialdata = None;
                                 (*door.thinker).mark_remove();
@@ -156,7 +156,7 @@ impl Think for VerticalDoor {
                         _ => {
                             door.direction = 1;
                             door.kind = DoorKind::Normal;
-                            start_sector_sound(line, SfxNum::Doropn, &level.snd_command);
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
                         }
                     }
                 }
@@ -248,7 +248,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.topheight -= 4.0;
                 door.direction = 1;
                 if door.topheight != sec.ceilingheight {
-                    start_sector_sound(&line, SfxNum::Doropn, &level.snd_command);
+                    start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
                 }
             }
             DoorKind::BlazeRaise | DoorKind::BlazeOpen => {
@@ -257,7 +257,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.direction = 1;
                 door.speed *= 4.0;
                 if door.topheight != sec.ceilingheight {
-                    start_sector_sound(&line, SfxNum::Bdopn, &level.snd_command);
+                    start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
                 }
             }
             DoorKind::BlazeClose => {
@@ -265,18 +265,18 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
                 door.topheight -= 4.0;
                 door.direction = -1;
                 door.speed *= 4.0;
-                start_sector_sound(&line, SfxNum::Bdcls, &level.snd_command);
+                start_sector_sound(&line, SfxName::Bdcls, &level.snd_command);
             }
             DoorKind::Close30ThenOpen => {
                 door.topheight = sec.ceilingheight;
                 door.direction = -1;
-                start_sector_sound(&line, SfxNum::Dorcls, &level.snd_command);
+                start_sector_sound(&line, SfxName::Dorcls, &level.snd_command);
             }
             DoorKind::Close => {
                 door.topheight = top;
                 door.topheight -= 4.0;
                 door.direction = -1;
-                start_sector_sound(&line, SfxNum::Dorcls, &level.snd_command);
+                start_sector_sound(&line, SfxName::Dorcls, &level.snd_command);
             }
             _ => {}
         }
@@ -297,26 +297,26 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
     if let Some(player) = thing.player_mut() {
         match line.special {
             26 | 32 => {
-                if !player.cards[Card::Bluecard as usize] && !player.cards[Card::Blueskull as usize]
+                if !player.status.cards[Card::Bluecard as usize] && !player.status.cards[Card::Blueskull as usize]
                 {
                     player.message = Some(PD_BLUEK);
-                    start_sector_sound(&line, SfxNum::Oof, &level.snd_command);
+                    start_sector_sound(&line, SfxName::Oof, &level.snd_command);
                     return;
                 }
             }
             27 | 34 => {
-                if !player.cards[Card::Yellowcard as usize]
-                    && !player.cards[Card::Yellowskull as usize]
+                if !player.status.cards[Card::Yellowcard as usize]
+                    && !player.status.cards[Card::Yellowskull as usize]
                 {
                     player.message = Some(PD_YELLOWK);
-                    start_sector_sound(&line, SfxNum::Oof, &level.snd_command);
+                    start_sector_sound(&line, SfxName::Oof, &level.snd_command);
                     return;
                 }
             }
             28 | 33 => {
-                if !player.cards[Card::Redcard as usize] && !player.cards[Card::Redskull as usize] {
+                if !player.status.cards[Card::Redcard as usize] && !player.status.cards[Card::Redskull as usize] {
                     player.message = Some(PD_REDK);
-                    start_sector_sound(&line, SfxNum::Oof, &level.snd_command);
+                    start_sector_sound(&line, SfxName::Oof, &level.snd_command);
                     return;
                 }
             }
@@ -378,26 +378,26 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
     match line.special {
         1 | 26 | 27 | 28 => {
             door.kind = DoorKind::Normal;
-            start_sector_sound(&line, SfxNum::Doropn, &level.snd_command);
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
         }
         31 | 32 | 33 | 34 => {
             door.kind = DoorKind::Open;
             line.special = 0;
-            start_sector_sound(&line, SfxNum::Doropn, &level.snd_command);
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
         }
         117 => {
             door.kind = DoorKind::BlazeRaise;
             door.speed = VDOOR * 2.0;
-            start_sector_sound(&line, SfxNum::Bdopn, &level.snd_command);
+            start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
         }
         118 => {
             door.kind = DoorKind::BlazeOpen;
             line.special = 0;
             door.speed = VDOOR * 2.0;
-            start_sector_sound(&line, SfxNum::Bdopn, &level.snd_command);
+            start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
         }
         _ => {
-            start_sector_sound(&line, SfxNum::Doropn, &level.snd_command);
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
         }
     }
 

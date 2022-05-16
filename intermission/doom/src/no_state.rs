@@ -1,5 +1,5 @@
 use crate::{Intermission, State};
-use game_traits::{GameTraits, PixelBuf};
+use gamestate_traits::{GameTraits, PixelBuf};
 use log::info;
 
 impl Intermission {
@@ -28,7 +28,7 @@ impl Intermission {
                 player.ssecret, level.maxsecret
             );
             info!("Player: Level Time: {}", player.stime);
-            game.world_done();
+            game.level_done();
         }
     }
 }

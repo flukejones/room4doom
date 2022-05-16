@@ -1,18 +1,17 @@
-use game_traits::{
-    util::{draw_num, get_num_sprites, get_st_key_sprites},
-    AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, PlayerInfo, Scancode, WeaponType,
-    WEAPON_INFO,
-};
+//! A custom statusbar to show the players status during gameplay.
+//!
+//! Displays things like ammo count, weapons owned, key/skulls owned, health and so on.
+
+use gamestate_traits::{util::{draw_num, get_num_sprites, get_st_key_sprites}, AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, WeaponType, WEAPON_INFO, PlayerStatus};
 use std::collections::HashMap;
 use wad::{
     lumps::{WadPalette, WadPatch},
     WadData,
 };
 
-const SCREEN_WIDTH: i32 = 320;
-const SCREEN_HEIGHT: i32 = 200;
-
 pub struct Statusbar {
+    screen_width: i32,
+    screen_height: i32,
     mode: GameMode,
     palette: WadPalette,
     patches: HashMap<&'static str, WadPatch>,
@@ -23,7 +22,7 @@ pub struct Statusbar {
     yell_nums: [WadPatch; 10],
     /// Keys: blue yellow red. Skulls: blue yellow red
     keys: [WadPatch; 6],
-    info: PlayerInfo,
+    status: PlayerStatus,
 }
 
 impl Statusbar {
@@ -40,6 +39,8 @@ impl Statusbar {
         patches.insert("STFB1", WadPatch::from_lump(lump));
 
         Self {
+            screen_width: 0,
+            screen_height: 0,
             mode,
             palette,
             patches,
@@ -48,7 +49,7 @@ impl Statusbar {
             grey_nums: get_num_sprites("STGNUM", 0, wad),
             yell_nums: get_num_sprites("STYSNUM", 0, wad),
             keys: get_st_key_sprites(wad),
-            info: PlayerInfo::default(),
+            status: PlayerStatus::default(),
         }
     }
 
@@ -74,10 +75,10 @@ impl Statusbar {
             x += self.get_patch("STFST41").width as i32 + 1;
         }
 
-        let h = if self.info.health < 0 {
+        let h = if self.status.health < 0 {
             0
         } else {
-            self.info.health as u32
+            self.status.health as u32
         };
 
         if h < 100 {
@@ -86,11 +87,11 @@ impl Statusbar {
         if h < 10 {
             x -= nums[0].width as i32;
         }
-        draw_num(h, x, SCREEN_HEIGHT - 2 - y, 0, nums, self, buffer);
+        draw_num(h, x, self.screen_height - 2 - y, 0, nums, self, buffer);
     }
 
     fn draw_armour(&self, face: bool, buffer: &mut PixelBuf) {
-        if self.info.armour <= 0 {
+        if self.status.armorpoints <= 0 {
             return;
         }
 
@@ -104,37 +105,37 @@ impl Statusbar {
             x += self.get_patch("STFST41").width as i32 + 1;
         }
 
-        let h = self.info.armour as u32;
+        let h = self.status.armorpoints as u32;
         if h < 100 {
             x -= nums[0].width as i32;
         }
         if h < 10 {
             x -= nums[0].width as i32;
         }
-        draw_num(h, x, SCREEN_HEIGHT - 2 - y, 0, nums, self, buffer);
+        draw_num(h, x, self.screen_height - 2 - y, 0, nums, self, buffer);
     }
 
     fn draw_ammo_big(&self, buffer: &mut PixelBuf) {
-        if matches!(self.info.readyweapon, WeaponType::NoChange) {
+        if matches!(self.status.readyweapon, WeaponType::NoChange) {
             return;
         }
-        if !(self.mode == GameMode::Commercial) && self.info.readyweapon == WeaponType::SuperShotgun
+        if !(self.mode == GameMode::Commercial) && self.status.readyweapon == WeaponType::SuperShotgun
         {
             return;
         }
 
-        let ammo = WEAPON_INFO[self.info.readyweapon as usize].ammo;
+        let ammo = WEAPON_INFO[self.status.readyweapon as usize].ammo;
         if ammo == AmmoType::NoAmmo {
             return;
         }
 
         let height = self.big_nums[0].height as i32;
         let start_x = self.big_nums[0].width as i32 + self.keys[0].width as i32 + 2;
-        let ammo = self.info.ammo[ammo as usize];
+        let ammo = self.status.ammo[ammo as usize];
         draw_num(
             ammo,
-            SCREEN_WIDTH - start_x,
-            SCREEN_HEIGHT - 2 - height - self.grey_nums[0].height as i32,
+            self.screen_width - start_x,
+            self.screen_height - 2 - height - self.grey_nums[0].height as i32,
             0,
             &self.big_nums,
             self,
@@ -146,11 +147,11 @@ impl Statusbar {
         let height = self.keys[3].height as i32;
         let width = self.keys[0].width as i32;
 
-        let skull_x = SCREEN_WIDTH - width as i32 - 4;
+        let skull_x = self.screen_width - width as i32 - 4;
         let mut x = skull_x - width - 2;
-        let start_y = SCREEN_HEIGHT - height - 2;
+        let start_y = self.screen_height - height - 2;
 
-        for (mut i, owned) in self.info.cards.iter().enumerate() {
+        for (mut i, owned) in self.status.cards.iter().enumerate() {
             if !*owned {
                 continue;
             }
@@ -181,17 +182,17 @@ impl Statusbar {
         } else {
             9
         };
-        let start_x = SCREEN_WIDTH
+        let start_x = self.screen_width
             - self.grey_nums[0].width as i32 * mult // align with big ammo
             - self.big_nums[0].width as i32
             - self.keys[0].width as i32 - 2;
-        let start_y = SCREEN_HEIGHT - y - 2;
+        let start_y = self.screen_height - y - 2;
 
-        for (i, owned) in self.info.weaponowned.iter().enumerate() {
+        for (i, owned) in self.status.weaponowned.iter().enumerate() {
             if !(self.mode == GameMode::Commercial) && i == 8 || !*owned {
                 continue;
             }
-            let nums = if self.info.readyweapon as usize == i {
+            let nums = if self.status.readyweapon as usize == i {
                 &self.yell_nums
             } else {
                 &self.grey_nums
@@ -226,19 +227,19 @@ impl Statusbar {
             y = if upper {
                 0
             } else {
-                SCREEN_HEIGHT - patch.height as i32
+                self.screen_height - patch.height as i32
             };
-            x = SCREEN_WIDTH / 2 - patch.width as i32 / 2;
+            x = self.screen_width / 2 - patch.width as i32 / 2;
             self.draw_patch(patch, x, y, buffer);
         };
 
-        let patch = if self.info.health < 20 {
+        let patch = if self.status.health < 20 {
             self.get_patch("STFST41")
-        } else if self.info.health < 40 {
+        } else if self.status.health < 40 {
             self.get_patch("STFST31")
-        } else if self.info.health < 60 {
+        } else if self.status.health < 60 {
             self.get_patch("STFST21")
-        } else if self.info.health < 80 {
+        } else if self.status.health < 80 {
             self.get_patch("STFST11")
         } else {
             self.get_patch("STFST01")
@@ -247,15 +248,15 @@ impl Statusbar {
         let offset_x = patch.width as i32 / 2;
         let offset_y = patch.height as i32;
         if upper || big {
-            x = SCREEN_WIDTH / 2 - patch.width as i32 / 2;
+            x = self.screen_width / 2 - patch.width as i32 / 2;
             y = if upper {
                 1
             } else {
-                SCREEN_HEIGHT - patch.height as i32
+                self.screen_height - patch.height as i32
             };
         } else {
             x = offset_x;
-            y = SCREEN_HEIGHT - offset_y
+            y = self.screen_height - offset_y
         };
         self.draw_patch(patch, x, y, buffer);
     }
@@ -269,7 +270,7 @@ impl MachinationTrait for Statusbar {
     }
 
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
-        self.info = game.player_info();
+        self.status = game.player_status();
         false
     }
 
@@ -278,6 +279,9 @@ impl MachinationTrait for Statusbar {
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
+        self.screen_width = buffer.width() as i32;
+        self.screen_height = buffer.height() as i32;
+
         let face = true;
         if face {
             self.draw_face(false, false, buffer);

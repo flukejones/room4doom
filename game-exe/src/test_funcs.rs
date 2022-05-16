@@ -1,6 +1,6 @@
 //! Functions used for various graphical and other tests
 
-use game_state::Game;
+use gamestate::Game;
 use gameplay::WallPic;
 
 use render_traits::PixelBuf;

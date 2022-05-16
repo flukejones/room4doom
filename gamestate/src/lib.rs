@@ -18,7 +18,7 @@ pub mod machination;
 use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
 
 use crate::machination::Machinations;
-use game_traits::{GameState, GameTraits, MachinationTrait};
+use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use gameplay::{
     log,
     log::{debug, error, info, trace, warn},
@@ -29,7 +29,7 @@ use gameplay::{
 };
 use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
-use sound_traits::{MusEnum, SoundAction, SoundServer, SoundServerTic};
+use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::{lumps::WadPatch, WadData};
 
 /// Options specific to Doom. This will get phased out for `GameOptions`
@@ -134,7 +134,7 @@ pub struct Game {
     //
     old_game_state: GameState,
     game_action: GameAction,
-    pub game_state: GameState,
+    pub gamestate: GameState,
     game_skill: Skill,
     respawn_monsters: bool,
     game_episode: i32,
@@ -297,7 +297,7 @@ impl Game {
         // TODO: ST_Init ();
 
         let mut game_action = GameAction::Nothing;
-        let game_state = GameState::Demo;
+        let gamestate = GameState::Demo;
         if options.warp {
             game_action = GameAction::NewGame;
         }
@@ -325,9 +325,9 @@ impl Game {
             paused: false,
             deathmatch: false,
             netgame: false,
-            old_game_state: game_state,
+            old_game_state: gamestate,
             game_action, // TODO: default to ga_nothing when more state is done
-            game_state,
+            gamestate,
             game_skill: options.skill,
             game_tic: 0,
             respawn_monsters,
@@ -488,7 +488,7 @@ impl Game {
         if self.wipe_game_state == GameState::Level {
             self.wipe_game_state = GameState::ForceWipe;
         }
-        self.game_state = GameState::Level;
+        self.gamestate = GameState::Level;
 
         for player in self.players.iter_mut() {
             if player.player_state == PlayerState::Dead {
@@ -563,7 +563,7 @@ impl Game {
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
-        self.change_music(MusEnum::None);
+        self.change_music(MusTrack::None);
     }
 
     fn do_reborn(&mut self, player_num: usize) {
@@ -575,7 +575,7 @@ impl Game {
 
     /// Doom function name `G_DoWorldDone`
     fn do_world_done(&mut self) {
-        self.game_state = GameState::Level;
+        self.gamestate = GameState::Level;
         self.game_map = self.wminfo.next + 1;
         self.do_load_level();
         self.game_action = GameAction::Nothing;
@@ -659,7 +659,7 @@ impl Game {
         }
 
         self.level = None; // Drop level data
-        self.game_state = GameState::Intermission;
+        self.gamestate = GameState::Intermission;
     }
 
     /// The ticker which controls the state the game-exe is in. For example the game-exe could be
@@ -760,15 +760,15 @@ impl Game {
         }
 
         if self.old_game_state == GameState::Intermission
-            && self.game_state != GameState::Intermission
+            && self.gamestate != GameState::Intermission
         {
             //WI_End();
             error!("TODO: screen wipe with WI_End(). Done between level end and stat show");
         }
 
-        self.old_game_state = self.game_state;
+        self.old_game_state = self.gamestate;
 
-        match self.game_state {
+        match self.gamestate {
             GameState::Level => {
                 // player movements, run thinkers etc
                 self.p_ticker();

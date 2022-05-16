@@ -1,7 +1,7 @@
 use crate::Game;
-use game_traits::{GameState, GameTraits, PlayerInfo};
+use gamestate_traits::{GameState, GameTraits, PlayerStatus};
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
-use sound_traits::{MusEnum, SfxNum, SoundAction, EPISODE4_MUS};
+use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 
 impl GameTraits for Game {
     /// G_InitNew
@@ -39,7 +39,7 @@ impl GameTraits for Game {
         self.set_running(false);
     }
 
-    fn start_sound(&mut self, sfx: SfxNum) {
+    fn start_sound(&mut self, sfx: SfxName) {
         let sfx = SoundAction::StartSfx {
             uid: 0,
             sfx,
@@ -49,12 +49,12 @@ impl GameTraits for Game {
         self.snd_command.send(sfx).unwrap();
     }
 
-    fn change_music(&mut self, mus: MusEnum) {
-        let music = if mus == MusEnum::None {
+    fn change_music(&mut self, mus: MusTrack) {
+        let music = if mus == MusTrack::None {
             if self.game_mode == GameMode::Commercial {
-                MusEnum::Runnin as usize + self.game_map as usize - 1
+                MusTrack::Runnin as usize + self.game_map as usize - 1
             } else if self.game_episode < 4 {
-                MusEnum::E1M1 as usize
+                MusTrack::E1M1 as usize
                     + (self.game_episode as usize - 1) * 9
                     + self.game_map as usize
                     - 1
@@ -71,7 +71,7 @@ impl GameTraits for Game {
     }
 
     /// Doom function name `G_WorldDone`
-    fn world_done(&mut self) {
+    fn level_done(&mut self) {
         self.game_action = GameAction::WorldDone;
         if let Some(level) = &self.level {
             if level.secret_exit {
@@ -102,24 +102,7 @@ impl GameTraits for Game {
         &self.wminfo.plyr[self.consoleplayer]
     }
 
-    fn set_game_state(&mut self, state: GameState) {
-        self.game_state = state;
-    }
-
-    fn get_game_state(&mut self) {}
-
-    fn player_info(&self) -> PlayerInfo {
-        let p = &self.players[self.consoleplayer];
-        PlayerInfo {
-            attackdown: p.attackdown,
-            readyweapon: p.readyweapon,
-            health: p.health,
-            armour: p.armorpoints,
-            armour_type: p.armortype,
-            cards: p.cards.clone(),
-            weaponowned: p.weaponowned.clone(),
-            ammo: p.ammo.clone(),
-            maxammo: p.maxammo.clone(),
-        }
+    fn player_status(&self) -> PlayerStatus {
+        self.players[self.consoleplayer].status.clone()
     }
 }

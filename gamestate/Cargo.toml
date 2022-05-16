@@ -1,5 +1,5 @@
 [package]
-name = "game-state"
+name = "gamestate"
 version = "0.11.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
@@ -12,7 +12,7 @@ sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
 [dependencies]
 sdl2 = { version = "~0.35.2", features = ["mixer"] }
 gameplay = { path = "../gameplay" }
-game-traits = { path = "../game-traits" }
+gamestate-traits = { path = "../gamestate-traits" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }
 menu-doom = { path = "../menu/doom" }

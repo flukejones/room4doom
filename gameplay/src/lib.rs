@@ -40,7 +40,7 @@ pub use level::{
     Level,
 };
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
-pub use player::{Player, PlayerCheat, PlayerState, WBPlayerStruct, WBStartStruct};
+pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WBPlayerStruct, WBStartStruct};
 pub use player_sprite::PspDef;
 use std::{error::Error, str::FromStr};
 pub use thing::{MapObjFlag, MapObject};

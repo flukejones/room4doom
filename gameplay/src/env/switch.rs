@@ -2,7 +2,7 @@
 
 use log::{debug, warn};
 use sound_sdl2::SndServerTx;
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 use crate::thing::MapObject;
 
@@ -59,7 +59,7 @@ pub fn start_button(
 }
 
 /// Start a sound using the lines front sector sound origin
-pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxNum, snd: &SndServerTx) {
+pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx) {
     let sfx_origin = line.front_sidedef.sector.sound_origin;
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
@@ -78,10 +78,10 @@ pub fn change_switch_texture(
     button_list: &mut Vec<Button>,
     snd: &SndServerTx,
 ) {
-    let mut sfx = SfxNum::Swtchx;
+    let mut sfx = SfxName::Swtchx;
     if !use_again {
         line.special = 0;
-        sfx = SfxNum::Swtchn;
+        sfx = SfxName::Swtchn;
     }
 
     for i in 0..switch_list.len() {
@@ -460,36 +460,36 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
         // BLUE KEY
         133 | 99 => {
             if let Some(player) = thing.player_mut() {
-                if player.cards[Card::Bluecard as usize] || player.cards[Card::Blueskull as usize] {
+                if player.status.cards[Card::Bluecard as usize] || player.status.cards[Card::Blueskull as usize] {
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_BLUEO);
-                    player.start_sound(SfxNum::Oof);
+                    player.start_sound(SfxName::Oof);
                 }
             }
         }
         // RED KEY
         134 | 135 => {
             if let Some(player) = thing.player_mut() {
-                if player.cards[Card::Redcard as usize] || player.cards[Card::Redskull as usize] {
+                if player.status.cards[Card::Redcard as usize] || player.status.cards[Card::Redskull as usize] {
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_REDO);
-			        player.start_sound(SfxNum::Oof);
+			        player.start_sound(SfxName::Oof);
                 }
             }
         }
         // YELLOW KEY
         136 | 137 => {
             if let Some(player) = thing.player_mut() {
-                if player.cards[Card::Yellowcard as usize] || player.cards[Card::Yellowskull as usize] {
+                if player.status.cards[Card::Yellowcard as usize] || player.status.cards[Card::Yellowskull as usize] {
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list, &level.snd_command);
                     ev_vertical_door(line, thing, level);
                 } else {
                     player.message = Some(PD_YELLOWO);
-			        player.start_sound(SfxNum::Oof);
+			        player.start_sound(SfxName::Oof);
                 }
             }
         }

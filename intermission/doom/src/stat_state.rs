@@ -1,5 +1,5 @@
 use crate::{Intermission, State, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
-use game_traits::{util::draw_num, GameMode, MachinationTrait, PixelBuf};
+use gamestate_traits::{util::draw_num, GameMode, MachinationTrait, PixelBuf};
 
 const SCREEN_WIDTH: i32 = 320;
 const SCREEN_HEIGHT: i32 = 200;

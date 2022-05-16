@@ -1,11 +1,14 @@
+//! Exposes an API of sorts that allows crates for things like statusbar and intermission
+//! screens to get certain information they require or cause a gamestate change.
+
 pub mod util;
 
 pub use gameplay::{
-    AmmoType, Card, GameMode, Skill, WBPlayerStruct, WBStartStruct, WeaponType, WEAPON_INFO,
+    AmmoType, Card, GameMode, Skill, PlayerStatus, WBPlayerStruct, WBStartStruct, WeaponType, WEAPON_INFO,
 };
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
-pub use sound_traits::{MusEnum, SfxNum};
+pub use sound_traits::{MusTrack, SfxName};
 
 use wad::lumps::{WadPalette, WadPatch};
 
@@ -20,48 +23,46 @@ pub enum GameState {
     Demo,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct PlayerInfo {
-    pub attackdown: bool,
-    pub readyweapon: WeaponType,
-    pub health: i32,
-    pub armour: i32,
-    pub armour_type: i32,
-    pub cards: [bool; Card::NumCards as usize],
-    pub weaponowned: [bool; WeaponType::NumWeapons as usize],
-    pub ammo: [u32; AmmoType::NumAmmo as usize],
-    pub maxammo: [u32; AmmoType::NumAmmo as usize],
-}
-
 /// Universal game traits. To be implemented by the Game
 pub trait GameTraits {
+    /// Helper to start a new game, e.g, from menus
     fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32);
 
+    /// A lot of things in Doom are dependant on knowing which of the game releases
+    /// is currently being played. Commercial (Doom II) contains demons that Doom
+    /// doesn't have, and Doom contains intermission screens that Doom II doesn't
+    /// have (for example).
     fn get_mode(&mut self) -> GameMode;
 
+    /// Ask the game to load this save
     fn load_game(&mut self, name: String);
 
+    /// Ask the game to save to this slot with this name
     fn save_game(&mut self, name: String, slot: usize);
 
+    /// Pauses the game-loop (generally stops gameplay input and thinkers running)
     fn toggle_pause_game(&mut self);
 
+    /// Exit the game (there will be no confirmation)
     fn quit_game(&mut self);
 
-    fn start_sound(&mut self, sfx: SfxNum);
+    /// A basic sound starter
+    fn start_sound(&mut self, sfx: SfxName);
 
-    fn change_music(&mut self, music: MusEnum);
+    /// Change to or play this music track
+    fn change_music(&mut self, music: MusTrack);
 
-    fn set_game_state(&mut self, state: GameState);
+    /// Tell the game that the level is completed and the next level or state should begin
+    fn level_done(&mut self);
 
-    fn get_game_state(&mut self);
-
-    fn world_done(&mut self);
-
+    /// Fetch the end-of-level information
     fn level_end_info(&self) -> &WBStartStruct;
 
+    /// Fetch the end-of-level player statistics (player 1)
     fn player_end_info(&self) -> &WBPlayerStruct;
 
-    fn player_info(&self) -> PlayerInfo;
+    /// Fetch the basic player statistics (player 1)
+    fn player_status(&self) -> PlayerStatus;
 
     // TODO: get and set settings Struct
 }

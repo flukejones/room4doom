@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 wad = { path = "../../wad" }
-game-traits = { path = "../../game-traits" }
+gamestate-traits = { path = "../../gamestate-traits" }
 gameplay = { path = "../../gameplay" }
 # versions are set by game-exe crate
 log = "*"
