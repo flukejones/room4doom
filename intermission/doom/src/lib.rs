@@ -64,6 +64,9 @@ impl Intermission {
             level_names.push(names_patches);
         } else {
             for e in 0..3 {
+                if mode == GameMode::Shareware && e > 0 {
+                    break;
+                }
                 let lump = wad.get_lump(&format!("WIMAP{e}")).unwrap();
                 bg_patches.push(WadPatch::from_lump(lump));
 
@@ -100,6 +103,9 @@ impl Intermission {
         // load all the BG animations
         let mut anims = animations();
         for (e, anims) in anims.iter_mut().enumerate() {
+            if mode == GameMode::Shareware && e > 0 {
+                break;
+            }
             for (l, anim) in anims.iter_mut().enumerate() {
                 for i in 0..anim.num_of {
                     // episode, level, anim_num
