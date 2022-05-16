@@ -12,7 +12,7 @@ use std::{cell::RefCell, ptr, rc::Rc};
 
 use log::info;
 use sound_sdl2::SndServerTx;
-use sound_traits::{SfxNum, SoundAction};
+use sound_traits::{SfxName, SoundAction};
 use wad::{lumps::WadThing, WadData};
 
 use crate::{
@@ -239,7 +239,7 @@ impl Level {
         self.game_action = Some(GameAction::Victory);
     }
 
-    pub(super) fn start_sound(&self, sfx: SfxNum, x: f32, y: f32, uid: usize) {
+    pub(super) fn start_sound(&self, sfx: SfxName, x: f32, y: f32, uid: usize) {
         self.snd_command
             .send(SoundAction::StartSfx { uid, sfx, x, y })
             .unwrap();

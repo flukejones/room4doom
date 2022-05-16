@@ -3,7 +3,7 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use glam::Vec2;
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 use crate::{
     doom_def::{MAXRADIUS, MELEERANGE},
@@ -31,7 +31,7 @@ impl MapObject {
 
         self.flags &= !(MapObjFlag::Missile as u32);
 
-        if self.info.deathsound != SfxNum::None {
+        if self.info.deathsound != SfxName::None {
             self.start_sound(self.info.deathsound);
         }
     }
@@ -283,7 +283,7 @@ impl MapObject {
                 return false;
             }
 
-            if self.level().players()[self.lastlook as usize].health <= 0 {
+            if self.level().players()[self.lastlook as usize].status.health <= 0 {
                 continue;
             }
 

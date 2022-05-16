@@ -98,21 +98,21 @@ pub static mut MUS_DATA: [MusData; 68] = [
     MusData::new("dm2int"),
 ];
 
-pub const EPISODE4_MUS: [MusEnum; 9] = [
-    MusEnum::E3M4, // American   e4m1
-    MusEnum::E3M2, // Romero     e4m2
-    MusEnum::E3M3, // Shawn      e4m3
-    MusEnum::E1M5, // American   e4m4
-    MusEnum::E2M7, // Tim        e4m5
-    MusEnum::E2M4, // Romero	 e4m6
-    MusEnum::E2M6, // J.Anderson e4m7 CHIRON.WAD
-    MusEnum::E2M5, // Shawn      e4m8
-    MusEnum::E1M9, // Tim        e4m9
+pub const EPISODE4_MUS: [MusTrack; 9] = [
+    MusTrack::E3M4, // American   e4m1
+    MusTrack::E3M2, // Romero     e4m2
+    MusTrack::E3M3, // Shawn      e4m3
+    MusTrack::E1M5, // American   e4m4
+    MusTrack::E2M7, // Tim        e4m5
+    MusTrack::E2M4, // Romero	 e4m6
+    MusTrack::E2M6, // J.Anderson e4m7 CHIRON.WAD
+    MusTrack::E2M5, // Shawn      e4m8
+    MusTrack::E1M9, // Tim        e4m9
 ];
 
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
 #[allow(non_camel_case_types)]
-pub enum MusEnum {
+pub enum MusTrack {
     None,
     E1M1,
     E1M2,
@@ -184,15 +184,15 @@ pub enum MusEnum {
     NumMus,
 }
 
-impl Default for MusEnum {
+impl Default for MusTrack {
     fn default() -> Self {
         Self::None
     }
 }
 
-impl From<u8> for MusEnum {
+impl From<u8> for MusTrack {
     fn from(i: u8) -> Self {
-        if i >= MusEnum::NumMus as u8 {
+        if i >= MusTrack::NumMus as u8 {
             panic!("{} is not a variant of MusEnum", i);
         }
         unsafe { std::mem::transmute(i) }

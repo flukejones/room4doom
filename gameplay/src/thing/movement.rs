@@ -813,7 +813,7 @@ impl MapObject {
                 // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0.0 {
-                    self.start_sound(sound_traits::SfxNum::Noway);
+                    self.start_sound(sound_traits::SfxName::Noway);
                     // can't use through a wall
                     debug!("*UNNGFF!* Can't reach from this side");
                     return false;

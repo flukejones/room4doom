@@ -10,7 +10,7 @@ impl SfxInfoBase {
     }
 }
 
-/// The ordering here should match the `SfxNum` ordering
+/// The ordering here should match the `SfxName` ordering
 pub(crate) const SFX_INFO_BASE: [SfxInfoBase; 109] = [
     SfxInfoBase::new("none", 0),
     SfxInfoBase::new("pistol", 64),

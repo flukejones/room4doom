@@ -4,8 +4,8 @@
 
 use std::{error::Error, mem};
 
-use game_state::{machination::Machinations, Game};
-use game_traits::{GameState, MachinationTrait};
+use gamestate::{machination::Machinations, Game};
+use gamestate_traits::{GameState, MachinationTrait};
 use gameplay::{
     log::{self, error, info},
     MapObject,
@@ -271,7 +271,7 @@ fn d_display<I, S>(
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
-    let wipe = if game.game_state != game.wipe_game_state {
+    let wipe = if game.gamestate != game.wipe_game_state {
         // TODO: wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
         true
     } else {
@@ -281,7 +281,7 @@ fn d_display<I, S>(
     // Drawing order is different for RUST4DOOM as the screensize-statusbar is
     // never taken in to account. A full Doom-style statusbar will never be added
     // instead an "overlay" style bar will be done.
-    if game.game_state == GameState::Level && game.game_tic != 0 {
+    if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
             if let Some(ref level) = game.level {
                 if !game.player_in_game[0] {
@@ -300,7 +300,7 @@ fn d_display<I, S>(
         draw_buf.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
     }
 
-    match game.game_state {
+    match game.gamestate {
         GameState::Level => {
             // TODO: Automap draw
             machines.statusbar.draw(draw_buf);
@@ -345,7 +345,7 @@ fn d_display<I, S>(
         }
         std::thread::sleep(std::time::Duration::from_micros(1));
     }
-    game.wipe_game_state = game.game_state;
+    game.wipe_game_state = game.gamestate;
     //menu.draw(disp_buf); // menu is drawn on top of wipes too
 }
 

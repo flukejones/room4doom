@@ -12,7 +12,7 @@ use sdl2::{
     mixer::{Chunk, InitFlag, Music, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS},
     AudioSubsystem,
 };
-use sound_traits::{InitResult, SfxNum, SoundAction, SoundServer, SoundServerTic, MUS_DATA};
+use sound_traits::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic, MUS_DATA};
 use wad::WadData;
 
 use crate::{info::SFX_INFO_BASE, mus2midi::read_mus_to_midi};
@@ -29,8 +29,8 @@ const MIXER_CHANNELS: i32 = 32;
 const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1a];
 const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
 
-pub type SndServerRx = Receiver<SoundAction<SfxNum, usize>>;
-pub type SndServerTx = Sender<SoundAction<SfxNum, usize>>;
+pub type SndServerRx = Receiver<SoundAction<SfxName, usize>>;
+pub type SndServerTx = Sender<SoundAction<SfxName, usize>>;
 
 pub fn point_to_angle_2(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     let x = x1 - x2;
@@ -118,8 +118,8 @@ pub struct Snd<'a> {
     tx: SndServerTx,
     chunks: Vec<SfxInfo>,
     music: Option<Music<'a>>,
-    listener: SoundObject<SfxNum>,
-    sources: [SoundObject<SfxNum>; MIXER_CHANNELS as usize],
+    listener: SoundObject<SfxName>,
+    sources: [SoundObject<SfxName>; MIXER_CHANNELS as usize],
     sfx_vol: i32,
     mus_vol: i32,
 }
@@ -213,12 +213,12 @@ impl<'a> Snd<'a> {
     }
 }
 
-impl<'a> SoundServer<SfxNum, usize, sdl2::Error> for Snd<'a> {
-    fn init(&mut self) -> InitResult<SfxNum, usize, sdl2::Error> {
+impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
+    fn init(&mut self) -> InitResult<SfxName, usize, sdl2::Error> {
         Ok(self.tx.clone())
     }
 
-    fn start_sound(&mut self, uid: usize, sfx: SfxNum, mut x: f32, mut y: f32) {
+    fn start_sound(&mut self, uid: usize, sfx: SfxName, mut x: f32, mut y: f32) {
         if uid == 0 {
             x = self.listener.x;
             y = self.listener.y;
@@ -387,7 +387,7 @@ impl<'a> SoundServer<SfxNum, usize, sdl2::Error> for Snd<'a> {
     }
 }
 
-impl<'a> SoundServerTic<SfxNum, usize, sdl2::Error> for Snd<'a> {}
+impl<'a> SoundServerTic<SfxName, usize, sdl2::Error> for Snd<'a> {}
 
 #[cfg(test)]
 mod tests {

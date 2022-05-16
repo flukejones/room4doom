@@ -62,7 +62,7 @@ pub fn teleport(
                     level,
                 );
                 unsafe {
-                    (*fog).start_sound(sound_traits::SfxNum::Telept);
+                    (*fog).start_sound(sound_traits::SfxName::Telept);
                 }
 
                 let an = endpoint.angle;
@@ -74,7 +74,7 @@ pub fn teleport(
                     level,
                 );
                 unsafe {
-                    (*fog).start_sound(sound_traits::SfxNum::Telept);
+                    (*fog).start_sound(sound_traits::SfxName::Telept);
                 }
 
                 if thing.player().is_some() {

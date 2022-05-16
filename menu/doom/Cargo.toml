@@ -5,7 +5,7 @@ authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 
 [dependencies]
-game-traits = { path = "../../game-traits" }
+gamestate-traits = { path = "../../gamestate-traits" }
 sound-traits = { path = "../../sound/traits" }
 wad = { path = "../../wad" }
 # versions are set by game-exe crate

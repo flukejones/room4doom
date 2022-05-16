@@ -1,5 +1,5 @@
 [package]
-name = "game-traits"
+name = "gamestate-traits"
 version = "0.2.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"

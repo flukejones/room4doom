@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use log::{debug, error, info};
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 use crate::{
     angle::Angle,
@@ -95,6 +95,51 @@ pub struct WBStartStruct {
     pub plyr: [WBPlayerStruct; MAXPLAYERS as usize],
 }
 
+/// Contains the players current status such as attacking, loadout, health. This
+/// is also used by the statusbar to show the player what their current status is.
+#[derive(Debug, Clone)]
+pub struct PlayerStatus {
+    /// True if button down last tic.
+    pub attackdown: bool,
+    pub usedown: bool,
+    pub readyweapon: WeaponType,
+    /// This is only used between levels,
+    /// mo->health is used during levels.
+    pub health: i32,
+    pub armorpoints: i32,
+    /// Armor type is 0-2.
+    // TODO: make enum
+    pub armortype: i32,
+    pub cards: [bool; Card::NumCards as usize],
+    pub weaponowned: [bool; WeaponType::NumWeapons as usize],
+    pub ammo: [u32; AmmoType::NumAmmo as usize],
+    pub maxammo: [u32; AmmoType::NumAmmo as usize],
+    pub(crate) backpack: bool,
+}
+
+impl Default for PlayerStatus {
+    fn default() -> Self {
+        let mut tmp = Self {
+            attackdown: false,
+            usedown: false,
+            readyweapon: WeaponType::Pistol,
+            health: MAXHEALTH,
+            armorpoints: 0,
+            armortype: 0,
+            cards: Default::default(),
+            weaponowned: Default::default(),
+            ammo: Default::default(),
+            maxammo: Default::default(),
+            backpack: false
+        };
+        tmp.ammo[AmmoType::Clip as usize] = 50;
+        tmp.maxammo.copy_from_slice(&MAX_AMMO);
+        tmp.weaponowned[WeaponType::Fist as usize] = true;
+        tmp.weaponowned[WeaponType::Pistol as usize] = true;
+        tmp
+    }
+}
+
 /// player_t
 pub struct Player {
     mobj: Option<*mut MapObject>,
@@ -113,18 +158,10 @@ pub struct Player {
     pub(crate) bob: f32,
     pub(crate) onground: bool,
 
-    /// This is only used between levels,
-    /// mo->health is used during levels.
-    pub health: i32,
-    pub armorpoints: i32,
-    /// Armor type is 0-2.
-    // TODO: make enum
-    pub armortype: i32,
+    pub status: PlayerStatus,
 
     /// Power ups. invinc and invis are tic counters.
     pub(crate) powers: [i32; PowerType::NumPowers as usize],
-    pub cards: [bool; Card::NumCards as usize],
-    pub(crate) backpack: bool,
 
     /// Frags, kills of other players.
     pub frags: [i32; MAXPLAYERS as usize],
@@ -132,14 +169,6 @@ pub struct Player {
 
     /// Is wp_nochange if not changing.
     pub pendingweapon: WeaponType,
-
-    pub weaponowned: [bool; WeaponType::NumWeapons as usize],
-    pub ammo: [u32; AmmoType::NumAmmo as usize],
-    pub maxammo: [u32; AmmoType::NumAmmo as usize],
-
-    /// True if button down last tic.
-    pub attackdown: bool,
-    pub usedown: bool,
 
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
@@ -200,16 +229,8 @@ impl Player {
             deltaviewheight: 1.0,
             bob: 1.0,
             onground: true,
-            health: 100,
-            armorpoints: 0,
-            armortype: 0,
-            ammo: [0; AmmoType::NumAmmo as usize],
-            maxammo: [0; AmmoType::NumAmmo as usize],
+            status: PlayerStatus::default(),
             powers: [0; PowerType::NumPowers as usize],
-            cards: [false; Card::NumCards as usize],
-            backpack: false,
-            attackdown: false,
-            usedown: false,
             cheats: 0,
             refire: 0,
 
@@ -229,7 +250,6 @@ impl Player {
             frags: [0; 4],
             readyweapon: WeaponType::NoChange,
             pendingweapon: WeaponType::Pistol,
-            weaponowned: [false; WeaponType::NumWeapons as usize],
 
             player_state: PlayerState::Reborn,
             cmd: TicCmd::new(),
@@ -285,7 +305,7 @@ impl Player {
         &mut *self.mobj.unwrap_unchecked()
     }
 
-    pub fn start_sound(&self, sfx: SfxNum) {
+    pub fn start_sound(&self, sfx: SfxName) {
         if let Some(mobj) = self.mobj() {
             unsafe {
                 (*mobj.level).start_sound(
@@ -300,7 +320,7 @@ impl Player {
 
     /// Doom function `G_PlayerFinishLevel`, mostly.
     pub fn finish_level(&mut self) {
-        for card in self.cards.iter_mut() {
+        for card in self.status.cards.iter_mut() {
             *card = false;
         }
         for power in self.powers.iter_mut() {
@@ -329,16 +349,11 @@ impl Player {
         self.itemcount = item_count;
         self.secretcount = secret_count;
 
-        self.usedown = false;
-        self.attackdown = true;
+        self.status = PlayerStatus::default();
+        self.status.attackdown = true;
         self.player_state = PlayerState::Live;
-        self.health = MAXHEALTH;
         self.readyweapon = WeaponType::Pistol;
         self.pendingweapon = WeaponType::NoChange;
-        self.weaponowned[WeaponType::Fist as usize] = true;
-        self.weaponowned[WeaponType::Pistol as usize] = true;
-        self.ammo[AmmoType::Clip as usize] = 50;
-        self.maxammo.copy_from_slice(&MAX_AMMO);
     }
 
     /// P_Thrust
@@ -567,7 +582,7 @@ impl Player {
                         debug!("End of episode damage!");
                         mobj.p_take_damage(None, None, false, 20);
                     }
-                    if self.health <= 10 {
+                    if self.status.health <= 10 {
                         level.do_completed();
                     }
                 }
@@ -585,7 +600,7 @@ impl Player {
             return false;
         }
 
-        if self.ammo[ammo as usize] == self.maxammo[ammo as usize] {
+        if self.status.ammo[ammo as usize] == self.status.maxammo[ammo as usize] {
             return false;
         }
 
@@ -600,10 +615,10 @@ impl Player {
             num <<= 1;
         }
 
-        let old_ammo = self.ammo[ammo as usize];
-        self.ammo[ammo as usize] += num;
-        if self.ammo[ammo as usize] > self.maxammo[ammo as usize] {
-            self.ammo[ammo as usize] = self.maxammo[ammo as usize];
+        let old_ammo = self.status.ammo[ammo as usize];
+        self.status.ammo[ammo as usize] += num;
+        if self.status.ammo[ammo as usize] > self.status.maxammo[ammo as usize] {
+            self.status.ammo[ammo as usize] = self.status.maxammo[ammo as usize];
         }
 
         // If non zero ammo, don't change up weapons, player was lower on purpose.
@@ -614,7 +629,7 @@ impl Player {
         match ammo {
             AmmoType::Clip => {
                 if self.readyweapon == WeaponType::Fist {
-                    if self.weaponowned[WeaponType::Chaingun as usize] {
+                    if self.status.weaponowned[WeaponType::Chaingun as usize] {
                         self.pendingweapon = WeaponType::Chaingun;
                     } else {
                         self.pendingweapon = WeaponType::Pistol;
@@ -624,7 +639,7 @@ impl Player {
             AmmoType::Shell => {
                 if (self.readyweapon == WeaponType::Fist
                     || self.pendingweapon == WeaponType::Pistol)
-                    && self.weaponowned[WeaponType::Shotgun as usize]
+                    && self.status.weaponowned[WeaponType::Shotgun as usize]
                 {
                     self.pendingweapon = WeaponType::Shotgun;
                 }
@@ -632,14 +647,14 @@ impl Player {
             AmmoType::Cell => {
                 if (self.readyweapon == WeaponType::Fist
                     || self.pendingweapon == WeaponType::Pistol)
-                    && self.weaponowned[WeaponType::Plasma as usize]
+                    && self.status.weaponowned[WeaponType::Plasma as usize]
                 {
                     self.pendingweapon = WeaponType::Plasma;
                 }
             }
             AmmoType::Missile => {
                 if self.readyweapon == WeaponType::Fist
-                    && self.weaponowned[WeaponType::Missile as usize]
+                    && self.status.weaponowned[WeaponType::Missile as usize]
                 {
                     self.pendingweapon = WeaponType::Missile;
                 }
@@ -662,9 +677,9 @@ impl Player {
             }
         }
 
-        if !self.weaponowned[weapon as usize] {
+        if !self.status.weaponowned[weapon as usize] {
             gave_weapon = true;
-            self.weaponowned[weapon as usize] = true;
+            self.status.weaponowned[weapon as usize] = true;
             self.pendingweapon = weapon;
         }
 
@@ -673,31 +688,31 @@ impl Player {
 
     pub(crate) fn give_armour(&mut self, armour: i32) -> bool {
         let hits = armour * 100;
-        if self.armorpoints >= hits {
+        if self.status.armorpoints >= hits {
             return false;
         }
 
-        self.armortype = armour;
-        self.armorpoints = hits;
+        self.status.armortype = armour;
+        self.status.armorpoints = hits;
         true
     }
 
     pub(crate) fn give_key(&mut self, card: Card) {
-        if self.cards[card as usize] {
+        if self.status.cards[card as usize] {
             return;
         }
         self.bonuscount += BONUSADD;
-        self.cards[card as usize] = true;
+        self.status.cards[card as usize] = true;
     }
 
     pub(crate) fn give_body(&mut self, num: i32) -> bool {
-        if self.health >= MAXHEALTH {
+        if self.status.health >= MAXHEALTH {
             return false;
         }
 
-        self.health += num;
-        if self.health > MAXHEALTH {
-            self.health = MAXHEALTH;
+        self.status.health += num;
+        if self.status.health > MAXHEALTH {
+            self.status.health = MAXHEALTH;
         }
 
         true
@@ -766,40 +781,40 @@ impl Player {
         };
 
         // Punch and chainsaw don't need ammo.
-        if *ammo == AmmoType::NoAmmo || self.ammo[*ammo as usize] >= count {
+        if *ammo == AmmoType::NoAmmo || self.status.ammo[*ammo as usize] >= count {
             return true;
         }
 
         // Out of ammo so pick a new weapon
         loop {
-            if self.weaponowned[WeaponType::Plasma as usize]
-                && self.ammo[AmmoType::Cell as usize] != 0
+            if self.status.weaponowned[WeaponType::Plasma as usize]
+                && self.status.ammo[AmmoType::Cell as usize] != 0
             // TODO: && (gamemode != shareware)
             {
                 self.pendingweapon = WeaponType::Plasma
-            } else if self.weaponowned[WeaponType::SuperShotgun as usize]
-                && self.ammo[AmmoType::Shell as usize] > 2
+            } else if self.status.weaponowned[WeaponType::SuperShotgun as usize]
+                && self.status.ammo[AmmoType::Shell as usize] > 2
             // TODO: && (gamemode == commercial)
             {
                 self.pendingweapon = WeaponType::SuperShotgun
-            } else if self.weaponowned[WeaponType::Chaingun as usize]
-                && self.ammo[AmmoType::Clip as usize] != 0
+            } else if self.status.weaponowned[WeaponType::Chaingun as usize]
+                && self.status.ammo[AmmoType::Clip as usize] != 0
             {
                 self.pendingweapon = WeaponType::Chaingun
-            } else if self.weaponowned[WeaponType::Shotgun as usize]
-                && self.ammo[AmmoType::Shell as usize] != 0
+            } else if self.status.weaponowned[WeaponType::Shotgun as usize]
+                && self.status.ammo[AmmoType::Shell as usize] != 0
             {
                 self.pendingweapon = WeaponType::Shotgun
-            } else if self.ammo[AmmoType::Clip as usize] != 0 {
+            } else if self.status.ammo[AmmoType::Clip as usize] != 0 {
                 self.pendingweapon = WeaponType::Pistol
-            } else if self.weaponowned[WeaponType::Chainsaw as usize] {
+            } else if self.status.weaponowned[WeaponType::Chainsaw as usize] {
                 self.pendingweapon = WeaponType::Chainsaw
-            } else if self.weaponowned[WeaponType::Missile as usize]
-                && self.ammo[AmmoType::Missile as usize] != 0
+            } else if self.status.weaponowned[WeaponType::Missile as usize]
+                && self.status.ammo[AmmoType::Missile as usize] != 0
             {
                 self.pendingweapon = WeaponType::Missile
-            } else if self.weaponowned[WeaponType::BFG as usize]
-                && self.ammo[AmmoType::Cell as usize] >= 40
+            } else if self.status.weaponowned[WeaponType::BFG as usize]
+                && self.status.ammo[AmmoType::Cell as usize] >= 40
             // TODO: && (gamemode != shareware)
             {
                 self.pendingweapon = WeaponType::BFG
@@ -844,8 +859,8 @@ impl Player {
     }
 
     pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
-        if self.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] != 0 {
-            self.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] -= num;
+        if self.status.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] != 0 {
+            self.status.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] -= num;
         }
     }
 
@@ -908,7 +923,7 @@ impl Player {
             let mut new_weapon = WeaponType::from(new_weapon);
 
             if new_weapon == WeaponType::Fist
-                && self.weaponowned[WeaponType::Chainsaw as usize]
+                && self.status.weaponowned[WeaponType::Chainsaw as usize]
                 && !(self.readyweapon == WeaponType::Chainsaw
                     && self.powers[PowerType::Strength as usize] == 0)
             {
@@ -917,13 +932,13 @@ impl Player {
 
             if level.game_mode == GameMode::Commercial
                 && new_weapon == WeaponType::Shotgun
-                && self.weaponowned[WeaponType::SuperShotgun as usize]
+                && self.status.weaponowned[WeaponType::SuperShotgun as usize]
                 && self.readyweapon != WeaponType::SuperShotgun
             {
                 new_weapon = WeaponType::SuperShotgun;
             }
 
-            if self.weaponowned[new_weapon as usize] && new_weapon != self.readyweapon {
+            if self.status.weaponowned[new_weapon as usize] && new_weapon != self.readyweapon {
                 // Do not go to plasma or BFG in shareware,
                 //  even if cheated.
                 if (new_weapon != WeaponType::Plasma && new_weapon != WeaponType::BFG)
@@ -935,14 +950,14 @@ impl Player {
         }
 
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_use != 0 {
-            if !self.usedown {
-                self.usedown = true;
+            if !self.status.usedown {
+                self.status.usedown = true;
                 if let Some(mobj) = self.mobj_mut() {
                     mobj.use_lines();
                 }
             }
         } else {
-            self.usedown = false;
+            self.status.usedown = false;
         }
 
         self.move_player_sprites();

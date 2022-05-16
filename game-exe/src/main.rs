@@ -11,7 +11,7 @@ use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::F
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
-use game_state::{DoomOptions, Game};
+use gamestate::{DoomOptions, Game};
 use golem::*;
 use gumdrop::Options;
 

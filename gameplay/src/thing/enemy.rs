@@ -9,7 +9,7 @@
 use std::{f32::consts::FRAC_PI_4, ptr, ptr::null_mut};
 
 use log::error;
-use sound_traits::SfxNum;
+use sound_traits::SfxName;
 
 use crate::{
     doom_def::{MISSILERANGE, SKULLSPEED},
@@ -154,7 +154,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 
     // Melee attack?
     if actor.info.meleestate != StateNum::None && actor.check_melee_range() {
-        if actor.info.attacksound != SfxNum::None {
+        if actor.info.attacksound != SfxName::None {
             actor.start_sound(actor.info.attacksound);
         }
         actor.set_state(actor.info.meleestate);
@@ -190,7 +190,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     }
 
     // make active sound
-    if actor.info.activesound != SfxNum::None && p_random() < 3 {
+    if actor.info.activesound != SfxName::None && p_random() < 3 {
         actor.start_sound(actor.info.activesound);
     }
 }
@@ -224,13 +224,13 @@ pub(crate) fn a_look(actor: &mut MapObject) {
         }
     }
 
-    if actor.info.seesound != SfxNum::None {
+    if actor.info.seesound != SfxName::None {
         let sound = match actor.info.seesound {
-            SfxNum::Posit1 | SfxNum::Posit2 | SfxNum::Posit3 => {
-                SfxNum::from((SfxNum::Posit1 as i32 + p_random() % 3) as u8)
+            SfxName::Posit1 | SfxName::Posit2 | SfxName::Posit3 => {
+                SfxName::from((SfxName::Posit1 as i32 + p_random() % 3) as u8)
             }
-            SfxNum::Bgsit1 | SfxNum::Bgsit2 => {
-                SfxNum::from((SfxNum::Bgsit1 as i32 + p_random() % 3) as u8)
+            SfxName::Bgsit1 | SfxName::Bgsit2 => {
+                SfxName::from((SfxName::Bgsit1 as i32 + p_random() % 3) as u8)
             }
             _ => actor.info.seesound,
         };
@@ -273,14 +273,14 @@ pub(crate) fn a_fire(_actor: &mut MapObject) {
 
 pub(crate) fn a_scream(actor: &mut MapObject) {
     let sound = match actor.info.deathsound {
-        SfxNum::None => return,
-        SfxNum::Podth1 | SfxNum::Podth2 | SfxNum::Podth3 => {
-            SfxNum::from(SfxNum::Podth1 as u8 + (p_random() % 3) as u8)
+        SfxName::None => return,
+        SfxName::Podth1 | SfxName::Podth2 | SfxName::Podth3 => {
+            SfxName::from(SfxName::Podth1 as u8 + (p_random() % 3) as u8)
         }
-        SfxNum::Bgdth1 | SfxNum::Bgdth2 => {
-            SfxNum::from(SfxNum::Bgdth1 as u8 + (p_random() % 2) as u8)
+        SfxName::Bgdth1 | SfxName::Bgdth2 => {
+            SfxName::from(SfxName::Bgdth1 as u8 + (p_random() % 2) as u8)
         }
-        _ => SfxNum::from(actor.info.deathsound as u8),
+        _ => SfxName::from(actor.info.deathsound as u8),
     };
 
     // Check for bosses.
@@ -303,7 +303,7 @@ pub(crate) fn a_explode(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_xscream(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Slop);
+    actor.start_sound(SfxName::Slop);
 }
 
 pub(crate) fn a_keendie(_actor: &mut MapObject) {
@@ -311,17 +311,17 @@ pub(crate) fn a_keendie(_actor: &mut MapObject) {
 }
 
 pub(crate) fn a_hoof(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Hoof);
+    actor.start_sound(SfxName::Hoof);
     a_chase(actor);
 }
 
 pub(crate) fn a_metal(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Metal);
+    actor.start_sound(SfxName::Metal);
     a_chase(actor);
 }
 
 pub(crate) fn a_babymetal(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Bspwlk);
+    actor.start_sound(SfxName::Bspwlk);
     a_chase(actor);
 }
 
@@ -338,7 +338,7 @@ pub(crate) fn a_brainspit(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainpain(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Bospn);
+    actor.start_sound(SfxName::Bospn);
 }
 
 pub(crate) fn a_brainscream(actor: &mut MapObject) {
@@ -354,7 +354,7 @@ pub(crate) fn a_spawnfly(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_spawnsound(actor: &mut MapObject) {
-    actor.start_sound(SfxNum::Boscub);
+    actor.start_sound(SfxName::Boscub);
     a_spawnfly(actor);
 }
 
@@ -383,7 +383,7 @@ pub(crate) fn a_posattack(actor: &mut MapObject) {
     let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
     let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
 
-    actor.start_sound(SfxNum::Pistol);
+    actor.start_sound(SfxName::Pistol);
 
     let mut angle = actor.angle;
     angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
@@ -400,7 +400,7 @@ pub(crate) fn a_sposattack(actor: &mut MapObject) {
     let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
     let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
 
-    actor.start_sound(SfxNum::Shotgn);
+    actor.start_sound(SfxName::Shotgn);
 
     let mut angle;
     for _ in 0..3 {
@@ -425,7 +425,7 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
     let mut bsp_trace = actor.get_shoot_bsp_trace(MISSILERANGE);
     let slope = actor.aim_line_attack(MISSILERANGE, &mut bsp_trace);
 
-    actor.start_sound(SfxNum::Shotgn);
+    actor.start_sound(SfxName::Shotgn);
 
     let mut angle = actor.angle;
     angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
@@ -469,7 +469,7 @@ pub(crate) fn a_headattack(actor: &mut MapObject) {
         a_facetarget(actor);
 
         if actor.check_melee_range() {
-            actor.start_sound(SfxNum::Claw);
+            actor.start_sound(SfxName::Claw);
             let damage = ((p_random() % 8) + 1) * 10;
             target.p_take_damage(Some(actor), None, true, damage);
             return;
@@ -539,7 +539,7 @@ pub(crate) fn a_troopattack(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj_mut() };
 
         if actor.check_melee_range() {
-            actor.start_sound(SfxNum::Claw);
+            actor.start_sound(SfxName::Claw);
             let damage = ((p_random() % 8) + 1) * 3;
             target.p_take_damage(Some(actor), None, true, damage);
             return;
@@ -551,7 +551,7 @@ pub(crate) fn a_troopattack(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_pain(actor: &mut MapObject) {
-    if actor.info.painsound != SfxNum::None {
+    if actor.info.painsound != SfxName::None {
         actor.start_sound(actor.info.painsound);
     }
 }
@@ -584,7 +584,7 @@ pub(crate) fn a_fatattack3(actor: &mut MapObject) {
 
 pub(crate) fn a_fatraise(actor: &mut MapObject) {
     a_facetarget(actor);
-    actor.start_sound(SfxNum::Manatk);
+    actor.start_sound(SfxName::Manatk);
 }
 
 pub(crate) fn a_spidrefire(actor: &mut MapObject) {
@@ -649,7 +649,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         }
         // There needs to be at least one player alive
         for (i, p) in level.players().iter().enumerate() {
-            if p.health > 0 {
+            if p.status.health > 0 {
                 break;
             }
             if i == MAXPLAYERS - 1 {
@@ -720,7 +720,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
 pub(crate) fn a_skelwhoosh(actor: &mut MapObject) {
     if actor.target.is_some() {
         a_facetarget(actor);
-        actor.start_sound(SfxNum::Skeswg);
+        actor.start_sound(SfxName::Skeswg);
     }
 }
 
@@ -730,7 +730,7 @@ pub(crate) fn a_skelfist(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj_mut() };
 
         if actor.check_melee_range() {
-            actor.start_sound(SfxNum::Skepch);
+            actor.start_sound(SfxName::Skepch);
             let damage = ((p_random() % 10) + 1) * 6;
             target.p_take_damage(Some(actor), None, true, damage);
         }
@@ -766,11 +766,11 @@ pub(crate) fn a_firecrackle(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_playerscream(actor: &mut MapObject) {
-    let mut sound = SfxNum::Pldeth;
+    let mut sound = SfxName::Pldeth;
 
     if actor.level().game_mode == GameMode::Commercial && actor.health < -50 {
         // IF THE PLAYER DIES LESS THAN -50% WITHOUT GIBBING
-        sound = SfxNum::Pdiehi;
+        sound = SfxName::Pdiehi;
     }
 
     actor.start_sound(sound);

@@ -1,5 +1,5 @@
-use game_traits::{GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, Skill};
-use sound_traits::SfxNum;
+use gamestate_traits::{GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, Skill};
+use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::{
     lumps::{WadPalette, WadPatch},
@@ -275,10 +275,10 @@ impl MenuDoom {
         if self.in_help {
             self.in_help = false;
             self.current_menu = MenuIndex::TopLevel;
-            game.start_sound(SfxNum::Swtchx);
+            game.start_sound(SfxName::Swtchx);
         } else {
             self.active = true;
-            game.start_sound(SfxNum::Swtchn);
+            game.start_sound(SfxName::Swtchn);
         }
     }
 
@@ -286,7 +286,7 @@ impl MenuDoom {
         self.active = false;
         self.in_help = false;
         self.current_menu = MenuIndex::TopLevel;
-        game.start_sound(SfxNum::Swtchx);
+        game.start_sound(SfxName::Swtchx);
     }
 
     fn get_current_menu(&mut self) -> &mut MenuSet {
@@ -359,10 +359,10 @@ impl MachinationTrait for MenuDoom {
                     self.in_help = !self.in_help;
                     if self.in_help {
                         self.current_menu = MenuIndex::ReadThis1;
-                        game.start_sound(SfxNum::Swtchn);
+                        game.start_sound(SfxName::Swtchn);
                     } else {
                         self.current_menu = MenuIndex::TopLevel;
-                        game.start_sound(SfxNum::Swtchx);
+                        game.start_sound(SfxName::Swtchx);
                     }
                     return true;
                 }
@@ -411,7 +411,7 @@ impl MachinationTrait for MenuDoom {
                     if active.last_on > active.items.len() - 1 {
                         active.last_on = 0;
                     }
-                    game.start_sound(SfxNum::Pstop);
+                    game.start_sound(SfxName::Pstop);
                     return true;
                 }
                 Scancode::Up => {
@@ -421,7 +421,7 @@ impl MachinationTrait for MenuDoom {
                     } else {
                         active.last_on -= 1;
                     }
-                    game.start_sound(SfxNum::Pstop);
+                    game.start_sound(SfxName::Pstop);
                     return true;
                 }
 
@@ -439,7 +439,7 @@ impl MachinationTrait for MenuDoom {
 
                     if status != Status::NoCursor {
                         (logic)(self, last_on as i32, game);
-                        game.start_sound(SfxNum::Pistol);
+                        game.start_sound(SfxName::Pistol);
                     }
                     return true;
                 }
@@ -447,7 +447,7 @@ impl MachinationTrait for MenuDoom {
                 Scancode::Backspace => {
                     let active = self.get_current_menu();
                     self.current_menu = active.prev;
-                    game.start_sound(SfxNum::Swtchn);
+                    game.start_sound(SfxName::Swtchn);
                     return true;
                 }
 

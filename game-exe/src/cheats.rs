@@ -1,10 +1,10 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
-use game_state::Game;
-use game_traits::GameTraits;
+use gamestate::Game;
+use gamestate_traits::GameTraits;
 use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use sdl2::keyboard::{Keycode, Scancode};
-use sound_traits::MusEnum;
+use sound_traits::MusTrack;
 
 pub struct Cheats {
     /// `iddqd`: Invulnerable to all (except massive end-of-level damage)
@@ -76,35 +76,35 @@ impl Cheats {
                     if let Some(mobj) = player.mobj_mut() {
                         mobj.health = 100;
                     }
-                    player.health = 100;
+                    player.status.health = 100;
                     player.message = Some(english::STSTR_DQDON);
                 } else {
                     player.message = Some(english::STSTR_DQDOFF);
                 }
             } else if self.ammonokey.check(key) {
                 let player = &mut game.players[game.consoleplayer];
-                player.armorpoints = 200;
-                player.armortype = 2;
+                player.status.armorpoints = 200;
+                player.status.armortype = 2;
 
-                for w in player.weaponowned.iter_mut() {
+                for w in player.status.weaponowned.iter_mut() {
                     *w = true;
                 }
-                for (i, a) in player.ammo.iter_mut().enumerate() {
-                    *a = player.maxammo[i];
+                for (i, a) in player.status.ammo.iter_mut().enumerate() {
+                    *a = player.status.maxammo[i];
                 }
                 player.message = Some(english::STSTR_FAADDED);
             } else if self.ammo.check(key) {
                 let player = &mut game.players[game.consoleplayer];
-                player.armorpoints = 200;
-                player.armortype = 2;
+                player.status.armorpoints = 200;
+                player.status.armortype = 2;
 
-                for w in player.weaponowned.iter_mut() {
+                for w in player.status.weaponowned.iter_mut() {
                     *w = true;
                 }
-                for (i, a) in player.ammo.iter_mut().enumerate() {
-                    *a = player.maxammo[i];
+                for (i, a) in player.status.ammo.iter_mut().enumerate() {
+                    *a = player.status.maxammo[i];
                 }
-                for k in player.cards.iter_mut() {
+                for k in player.status.cards.iter_mut() {
                     *k = true;
                 }
                 player.message = Some(english::STSTR_KFAADDED);
@@ -125,7 +125,7 @@ impl Cheats {
                 );
                 let s = format!("{}{}", self.mus.parameter_buf[0], self.mus.parameter_buf[1]);
                 if let Ok(s) = s.as_str().parse::<u8>() {
-                    let s = MusEnum::from(s);
+                    let s = MusTrack::from(s);
                     game.change_music(s);
                     game.players[game.consoleplayer].message = Some(english::STSTR_MUS);
                 } else {
