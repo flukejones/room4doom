@@ -2,25 +2,24 @@
 
 ## FUNCTIONALITY
 
-- [-] Menu screens (partial)
+- [-] Menu screens (partial. Other functionality required before completion)
 - [-] Intermissions and finale (intermission has no animated text. No finale screens yet)
-- [+] Screen wipe
+- [X] Screen wipe
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
-- [+] Status bar drawing (framework in place)
+- [-] Status bar drawing (Mostly complete. Needs face animation)
 - [ ] Save/load game
 
 ## BUGS
 
-- [+] Monsters don't activate when player is real close (related to angle fix?)
 - [ ] Don't pickup armour shards if have max armour
-- [ ] Total kills seems incorrect
+- [ ] Total kills seems incorrect (counting players?)
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
+- [ ] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
 - [ ] angle_to_screen has an impact on sizing and scale
 - [ ] Fix the types in texture module
-- [+] Colours seem off for darker areas? (was incorrect float conversion on zlight table creation)
-- [ ] The fix for players stuck in doors caused floaty blood
+- [ ] The fix for players stuck in doors is causing floaty blood
 
 ## IMPROVEMENTS
 
@@ -53,6 +52,9 @@
 
 ## DONE
 
+- [X] Chaingun guy doesn't do burst-fire (shoots, but not sustained) (remove invalid state set)
+- [X] Monsters don't activate when player is real close (related to angle fix?)
+- [X] Colours seem off for darker areas? (was incorrect float conversion on zlight table creation)
 - [X] Re-implement warp
 - [X] Player can get stuck in doors if the close on the edge of bounds
 the thinker list fucnction for the door sector runs it doesn't see it
