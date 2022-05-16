@@ -520,7 +520,6 @@ pub(crate) fn a_cposrefire(actor: &mut MapObject) {
             actor.set_state(actor.info.seestate);
         }
     }
-    actor.set_state(actor.info.seestate);
 }
 
 pub(crate) fn a_cyberattack(actor: &mut MapObject) {
