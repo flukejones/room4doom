@@ -7,13 +7,13 @@
 - [X] Screen wipe
 - [ ] HUD (gameplay crate inserts messages in to player struct)
 - [ ] Automap
-- [-] Status bar drawing (Mostly complete. Needs face animation)
+- [-] Status bar drawing (Mostly complete. Needs attacked-from-angle)
 - [ ] Save/load game
 
 ## BUGS
 
 - [ ] Don't pickup armour shards if have max armour
-- [ ] Total kills seems incorrect (counting players?)
+- [ ] Total kills: doesn't count for player if they shoot a barrell and that barrell kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
