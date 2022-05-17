@@ -133,9 +133,8 @@ pub(crate) fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Weapon as usize, new_state);
 }
 
-pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
+fn shoot_bullet(player: &mut Player) {
     let distance = MISSILERANGE;
-
     let refire = player.refire;
     if let Some(mobj) = player.mobj_mut() {
         mobj.start_sound(SfxName::Pistol);
@@ -145,7 +144,10 @@ pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
         mobj.gun_shot(refire == 0, distance, bullet_slope, &mut bsp_trace);
     }
+}
 
+pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
+    shoot_bullet(player);
     player.status.ammo[WEAPON_INFO[player.readyweapon as usize].ammo as usize] -= 1;
     player.set_psprite(
         PsprNum::Flash as usize,
@@ -210,17 +212,7 @@ pub(crate) fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     if !player.check_ammo() {
         return;
     }
-
-    let refire = player.refire;
-    if let Some(mobj) = player.mobj_mut() {
-        mobj.start_sound(SfxName::Pistol);
-        mobj.set_state(StateNum::PLAY_ATK2);
-
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(MISSILERANGE);
-        let bullet_slope = mobj.bullet_slope(MISSILERANGE, &mut bsp_trace);
-        mobj.gun_shot(refire == 0, MISSILERANGE, bullet_slope, &mut bsp_trace);
-    }
-
+    shoot_bullet(player);
     let state = StateNum::from(
         WEAPON_INFO[player.readyweapon as usize].flashstate as u16
             + pspr.state.unwrap().next_state as u16

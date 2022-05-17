@@ -56,7 +56,7 @@ impl MapObject {
         let xy2 = self.xy + self.angle.unit() * distance;
 
         // set up traverser
-        let mut aim_traverse = AimTraverse::new(
+        let mut aim_traverse = SubSectTraverse::new(
             // can't shoot outside view angles
             100.0 / 160.0,
             -100.0 / 160.0,
@@ -71,7 +71,7 @@ impl MapObject {
             xy2,
             PT_ADDLINES | PT_ADDTHINGS,
             level,
-            |t| aim_traverse.check(self, t),
+            |t| aim_traverse.check_aim(self, t),
             bsp_trace,
         );
 
@@ -255,7 +255,7 @@ impl MapObject {
     ) -> bool {
         let z_start = self.z + (self.height as i32 >> 1) as f32 + 8.0;
         let mut sight_traverse =
-            SubSectTraverse::new(to_z + to_height - z_start, to_z - z_start, z_start);
+            SubSectTraverse::new(to_z + to_height - z_start, to_z - z_start, 0.0, z_start);
 
         let level = unsafe { &mut *self.level };
         path_traverse(
@@ -263,7 +263,7 @@ impl MapObject {
             to_xy,
             PT_ADDLINES,
             level,
-            |t| sight_traverse.check(t),
+            |t| sight_traverse.check_traverse(t),
             bsp_trace,
         )
     }
@@ -398,23 +398,51 @@ impl MapObject {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct AimResult {
+    pub aimslope: f32,
+    pub line_target: DPtr<MapObject>,
+}
+
 struct SubSectTraverse {
     top_slope: f32,
     bot_slope: f32,
+    attack_range: f32,
     shootz: f32,
+    result: Option<AimResult>,
 }
 
 impl SubSectTraverse {
-    fn new(top_slope: f32, bot_slope: f32, shootz: f32) -> Self {
+    fn new(top_slope: f32, bot_slope: f32, attack_range: f32, shootz: f32) -> Self {
         Self {
             top_slope,
             bot_slope,
+            attack_range,
             shootz,
+            result: None,
         }
     }
 
-    /// Returns false if the intercept blocks the target
-    fn check(&mut self, intercept: &mut Intercept) -> bool {
+    fn set_slope(&mut self, line: &LineDef, portal: &PortalZ, dist: f32) {
+        if let Some(backsector) = line.backsector.as_ref() {
+            if line.frontsector.floorheight != backsector.floorheight {
+                let slope = (portal.bottom_z - self.shootz) / dist;
+                if slope > self.bot_slope {
+                    self.bot_slope = slope;
+                }
+            }
+
+            if line.frontsector.ceilingheight != backsector.ceilingheight {
+                let slope = (portal.top_z - self.shootz) / dist;
+                if slope < self.top_slope {
+                    self.top_slope = slope;
+                }
+            }
+        }
+    }
+
+    /// Returns false if the intercept blocks the target. Does not require `self.attack_range` to be set.
+    fn check_traverse(&mut self, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -427,22 +455,7 @@ impl SubSectTraverse {
             }
 
             let dist = intercept.frac;
-
-            if let Some(backsector) = line.backsector.as_ref() {
-                if line.frontsector.floorheight != backsector.floorheight {
-                    let slope = (portal.bottom_z - self.shootz) / dist;
-                    if slope > self.bot_slope {
-                        self.bot_slope = slope;
-                    }
-                }
-
-                if line.frontsector.ceilingheight != backsector.ceilingheight {
-                    let slope = (portal.top_z - self.shootz) / dist;
-                    if slope < self.top_slope {
-                        self.top_slope = slope;
-                    }
-                }
-            }
+            self.set_slope(line, &portal, dist);
 
             if self.top_slope <= self.bot_slope {
                 return false;
@@ -453,35 +466,9 @@ impl SubSectTraverse {
 
         false
     }
-}
-
-#[derive(Clone)]
-pub(crate) struct AimResult {
-    pub aimslope: f32,
-    pub line_target: DPtr<MapObject>,
-}
-
-struct AimTraverse {
-    top_slope: f32,
-    bot_slope: f32,
-    attack_range: f32,
-    shootz: f32,
-    result: Option<AimResult>,
-}
-
-impl AimTraverse {
-    fn new(top_slope: f32, bot_slope: f32, attack_range: f32, shootz: f32) -> Self {
-        Self {
-            top_slope,
-            bot_slope,
-            attack_range,
-            shootz,
-            result: None,
-        }
-    }
 
     /// After `check()` is called, a result should be checked for
-    fn check(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+    fn check_aim(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // Check if solid line and stop
             if line.flags & LineDefFlags::TwoSided as u32 == 0 {
@@ -494,22 +481,7 @@ impl AimTraverse {
             }
 
             let dist = self.attack_range * intercept.frac;
-
-            if let Some(backsector) = line.backsector.as_ref() {
-                if line.frontsector.floorheight != backsector.floorheight {
-                    let slope = (portal.bottom_z - self.shootz) / dist;
-                    if slope > self.bot_slope {
-                        self.bot_slope = slope;
-                    }
-                }
-
-                if line.frontsector.ceilingheight != backsector.ceilingheight {
-                    let slope = (portal.top_z - self.shootz) / dist;
-                    if slope < self.top_slope {
-                        self.top_slope = slope;
-                    }
-                }
-            }
+            self.set_slope(line, &portal, dist);
 
             if self.top_slope <= self.bot_slope {
                 return false;

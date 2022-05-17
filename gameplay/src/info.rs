@@ -222,7 +222,6 @@ impl From<u16> for MapObjKind {
     }
 }
 
-use std::fmt;
 use crate::{thing::enemy::*, player_sprite::*};
 use crate::doom_def::ActFn;
 
