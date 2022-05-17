@@ -586,7 +586,7 @@ impl SegRender {
 
                 if self.bottomtexture {
                     // TODO: this affects some placement
-                    mid = self.pixlow.ceil() as i32 + 1;
+                    mid = self.pixlow.ceil() as i32;
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
