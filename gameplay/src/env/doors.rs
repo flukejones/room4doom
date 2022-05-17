@@ -58,7 +58,7 @@ pub struct VerticalDoor {
 }
 
 impl fmt::Debug for VerticalDoor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("VerticalDoor")
             .field("kind", &self.kind)
             .field("topheight", &self.topheight)

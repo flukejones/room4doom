@@ -8,7 +8,7 @@ use crate::{
     DPtr, PicData,
 };
 use glam::Vec2;
-use log::warn;
+use log::{error, warn};
 use wad::{lumps::*, WadData};
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;

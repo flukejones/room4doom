@@ -30,8 +30,8 @@ use gameplay::{
     log::{debug, error, info, trace, warn},
     m_clear_random, spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    update_specials, GameAction, GameMission, GameMode, Level, MapObjFlag, MapObject, PicAnimation,
-    PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
+    update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
+    Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use sdl2::AudioSubsystem;
@@ -87,7 +87,7 @@ impl Default for DoomOptions {
     }
 }
 
-fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, &'static str) {
+fn identify_version(wad: &WadData) -> (GameMode, GameMission, &'static str) {
     let game_mode;
     let game_mission;
     let game_description;
@@ -583,7 +583,7 @@ impl Game {
         self.change_music(MusTrack::None);
     }
 
-    fn do_reborn(&mut self, player_num: usize) {
+    fn do_reborn(&mut self, _player_num: usize) {
         info!("Player respawned");
         self.game_action = GameAction::LoadLevel;
         // self.players[player_num].
@@ -742,13 +742,11 @@ impl Game {
                 // sets the players cmd for this tic
                 self.players[i].cmd = self.netcmds[i][0];
                 // memcpy(cmd, &netcmds[i][buf], sizeof(ticcmd_t));
-                let cmd = &self.players[i].cmd;
-
+                // let cmd = &self.players[i].cmd;
                 // if (demoplayback)
                 //     G_ReadDemoTiccmd(cmd);
                 // if (demorecording)
                 //     G_WriteDemoTiccmd(cmd);
-
                 // TODO: Netgame stuff here
             }
         }
@@ -851,7 +849,7 @@ impl Game {
 
     /// TODO: temporary to get player messages in CLI out
     fn hu_ticker(&mut self) {
-        if let Some(ref mut level) = self.level {
+        if self.level.is_some() {
             for (i, player) in self.players.iter_mut().enumerate() {
                 if self.player_in_game[i] {
                     if let Some(msg) = player.message.take() {

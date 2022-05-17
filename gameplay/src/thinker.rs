@@ -508,7 +508,7 @@ impl Thinker {
     }
 }
 
-impl fmt::Debug for Thinker {
+impl Debug for Thinker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Thinker")
             .field("prev", &(self.prev))

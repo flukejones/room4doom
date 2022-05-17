@@ -189,7 +189,7 @@ impl<T: Debug> Drop for DPtr<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for DPtr<T> {
+impl<T: Debug> Debug for DPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ptr->{:?}->{:#?}", self.inner, unsafe {
             self.inner.as_ref()

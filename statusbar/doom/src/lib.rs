@@ -220,11 +220,6 @@ impl Statusbar {
         }
         let nums = if big { &self.big_nums } else { &self.lil_nums };
         let mut x = nums[0].width as i32;
-        if !big {
-            x *= 5;
-        } else {
-            x *= 4;
-        }
 
         let mut y;
         if big && !upper {

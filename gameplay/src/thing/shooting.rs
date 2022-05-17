@@ -1,6 +1,6 @@
 //! Shooting and aiming.
 
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use sound_traits::SfxName;

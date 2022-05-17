@@ -171,7 +171,7 @@ impl MapObject {
                     self.target = Some(source.thinker);
                     self.threshold = BASETHRESHOLD;
 
-                    if std::ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
+                    if ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
                         && self.info.seestate != StateNum::None
                     {
                         self.set_state(self.info.seestate);

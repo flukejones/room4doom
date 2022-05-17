@@ -280,23 +280,23 @@ impl MapObject {
         })
     }
 
-    pub(crate) fn target(&self) -> Option<&Player> {
-        self.player.map(|p| unsafe {
-            #[cfg(null_check)]
-            if p.is_null() {
-                std::panic!("MapObject target pointer was null");
-            }
-            &*p
-        })
-    }
-
-    pub(crate) fn target_mut(&mut self) -> Option<&mut Thinker> {
+    pub(crate) fn target(&self) -> Option<&MapObject> {
         self.target.map(|t| unsafe {
             #[cfg(null_check)]
             if t.is_null() {
                 std::panic!("MapObject target pointer was null");
             }
-            &mut *t
+            (*t).mobj()
+        })
+    }
+
+    pub(crate) fn target_mut(&mut self) -> Option<&mut MapObject> {
+        self.target.map(|t| unsafe {
+            #[cfg(null_check)]
+            if t.is_null() {
+                std::panic!("MapObject target pointer was null");
+            }
+            (*t).mobj_mut()
         })
     }
 
