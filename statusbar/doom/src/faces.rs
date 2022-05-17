@@ -1,12 +1,9 @@
 use crate::PlayerStatus;
-use gamestate_traits::{m_random, PixelBuf, WeaponType};
+use gamestate_traits::{m_random, PixelBuf, WeaponType, TICRATE};
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
     WadData,
 };
-
-// TODO: export this from game not here
-pub(crate) const TICRATE: usize = 35;
 
 const PAIN_FACES: usize = 5;
 const STRAIGHT_FACES: usize = 3;
@@ -17,18 +14,17 @@ const EXTRA_FACES: usize = 3;
 const FACE_STRIDE: usize = STRAIGHT_FACES + TURN_FACES + SPECIAL_FACES;
 const FACE_COUNT: usize = FACE_STRIDE * PAIN_FACES + EXTRA_FACES;
 
-const TURNOFFSET: usize = STRAIGHT_FACES;
-const OUCHOFFSET: usize = TURNOFFSET + TURN_FACES;
-const EVILGRINOFFSET: usize = OUCHOFFSET + 1;
-const RAMPAGEOFFSET: usize = EVILGRINOFFSET + 1;
-const GODFACE: usize = PAIN_FACES * FACE_STRIDE;
-const DEADFACE: usize = GODFACE + 1;
+const TURN_OFFSET: usize = STRAIGHT_FACES;
+const OUCH_OFFSET: usize = TURN_OFFSET + TURN_FACES;
+const EVIL_OFFSET: usize = OUCH_OFFSET + 1;
+const RAMPAGE_OFFSET: usize = EVIL_OFFSET + 1;
+const IMMORTAL_FACE: usize = PAIN_FACES * FACE_STRIDE;
+const DEAD_FACE: usize = IMMORTAL_FACE + 1;
 
-const EVILGRINCOUNT: usize = 2 * TICRATE;
-const STRAIGHTFACECOUNT: usize = TICRATE / 2;
-const TURNCOUNT: usize = 1 * TICRATE;
-const OUCHCOUNT: usize = 1 * TICRATE;
-const RAMPAGEDELAY: i32 = 2 * TICRATE as i32;
+const EVIL_TICS: usize = 2 * TICRATE as usize;
+const STRAIGHT_TICS: usize = TICRATE as usize / 2;
+const TURN_TICS: usize = 1 * TICRATE as usize;
+const RAMPAGE_DELAY: i32 = 2 * TICRATE;
 
 const MUCH_PAIN: i32 = 20;
 
@@ -104,6 +100,7 @@ impl DoomguyFace {
         self.rand = m_random();
         self.update_face(status);
         self.old_health = status.health;
+        self.old_weapons_owned = status.weaponowned;
     }
 
     fn calc_pain_offset(&mut self, status: &PlayerStatus) -> usize {
@@ -130,7 +127,7 @@ impl DoomguyFace {
             // dead
             if status.health <= 0 {
                 self.priority = 9;
-                self.index = DEADFACE;
+                self.index = DEAD_FACE;
                 self.count = 1;
             }
         }
@@ -149,8 +146,8 @@ impl DoomguyFace {
                 if doevilgrin {
                     // evil grin if just picked up weapon
                     self.priority = 8;
-                    self.count = EVILGRINCOUNT;
-                    self.index = self.calc_pain_offset(status) + EVILGRINOFFSET;
+                    self.count = EVIL_TICS;
+                    self.index = self.calc_pain_offset(status) + EVIL_OFFSET;
                 }
             }
         }
@@ -176,12 +173,12 @@ impl DoomguyFace {
             if status.damagecount != 0 {
                 if self.old_health - status.health >= MUCH_PAIN {
                     self.priority = 7;
-                    self.count = TURNCOUNT;
-                    self.index = self.calc_pain_offset(status) + OUCHOFFSET;
+                    self.count = TURN_TICS;
+                    self.index = self.calc_pain_offset(status) + OUCH_OFFSET;
                 } else {
                     self.priority = 6;
-                    self.count = TURNCOUNT;
-                    self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
+                    self.count = TURN_TICS;
+                    self.index = self.calc_pain_offset(status) + RAMPAGE_OFFSET;
                 }
             }
         }
@@ -190,12 +187,12 @@ impl DoomguyFace {
             // rapid firing
             if status.attackdown {
                 if self.last_attack_down == -1 {
-                    self.last_attack_down = RAMPAGEDELAY;
+                    self.last_attack_down = RAMPAGE_DELAY;
                 } else {
                     self.last_attack_down -= 1;
                     if self.last_attack_down == 0 {
                         self.priority = 5;
-                        self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
+                        self.index = self.calc_pain_offset(status) + RAMPAGE_OFFSET;
                         self.count = 1;
                         self.last_attack_down = 1;
                     }
@@ -218,7 +215,7 @@ impl DoomguyFace {
         // look left or look right if the facecount has timed out
         if self.count == 0 {
             self.index = self.calc_pain_offset(status) + (self.rand % 3) as usize;
-            self.count = STRAIGHTFACECOUNT;
+            self.count = STRAIGHT_TICS;
             self.priority = 0;
         }
 

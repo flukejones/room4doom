@@ -1,9 +1,8 @@
-use gameplay::MAXPLAYERS;
+use gameplay::{MAXPLAYERS, TICRATE};
 use gamestate_traits::util::get_num_sprites;
 use std::mem::MaybeUninit;
 use wad::{lumps::WadPatch, WadData};
 
-pub(crate) const TICRATE: i32 = 35;
 pub(crate) const SHOW_NEXT_LOC_DELAY: i32 = 4;
 
 pub(crate) struct Patches {

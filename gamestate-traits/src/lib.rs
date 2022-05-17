@@ -5,7 +5,7 @@ pub mod util;
 
 pub use gameplay::{
     m_random, AmmoType, Card, GameMode, PlayerStatus, Skill, WBPlayerStruct, WBStartStruct,
-    WeaponType, WEAPON_INFO,
+    WeaponType, TICRATE, WEAPON_INFO,
 };
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
