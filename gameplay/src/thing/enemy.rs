@@ -20,7 +20,7 @@ use crate::{
     info::StateNum,
     level::map_defs::{LineDef, SlopeType},
     thing::{DirType, MapObjFlag, MapObject},
-    thinker::{Thinker, ThinkerData},
+    thinker::ThinkerData,
     utilities::{p_random, point_to_angle_2, PortalZ},
     Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS,
 };

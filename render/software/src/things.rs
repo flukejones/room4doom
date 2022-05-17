@@ -4,14 +4,15 @@ use std::{
 };
 
 use gameplay::{
-    p_random, Angle, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector,
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
+    Sector,
 };
 use glam::Vec2;
 use render_traits::PixelBuf;
 
 use super::{
     bsp::SoftwareRenderer,
-    defs::{DrawSeg, SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH, SIL_BOTTOM, SIL_TOP},
+    defs::{DrawSeg, SCREENHEIGHT, SCREENHEIGHT_HALF, SCREENWIDTH},
 };
 
 const FF_FULLBRIGHT: u32 = 0x8000;
@@ -20,12 +21,6 @@ const FF_FRAMEMASK: u32 = 0x7fff;
 const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
 /// Divisor for selecting which frame rotation to use
 const FRAME_ROT_SELECT: f32 = 8.0 / (PI * 2.0);
-
-pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
-    let x = point1.x - point2.x;
-    let y = point1.y - point2.y;
-    Angle::new(y.atan2(x))
-}
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct VisSprite {
@@ -348,52 +343,19 @@ impl SoftwareRenderer {
                 }
             }
 
-            let mut sil = seg.silhouette;
-            if vis.gz > seg.bsilheight {
-                sil &= !SIL_BOTTOM;
-            }
-            if vis.gzt < seg.tsilheight {
-                sil &= !SIL_TOP;
-            }
-
-            if sil == 1 {
-                // bottom sil
-                for r in r1..=r2 {
-                    if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
-                        clip_bottom[r as usize] = self.r_data.visplanes.openings
-                            [(seg.sprbottomclip.unwrap() + r) as usize];
-                        if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = 0;
-                        }
+            for r in r1..=r2 {
+                if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
+                    clip_bottom[r as usize] =
+                        self.r_data.visplanes.openings[(seg.sprbottomclip.unwrap() + r) as usize];
+                    if clip_bottom[r as usize] <= 0 {
+                        clip_bottom[r as usize] = 0;
                     }
                 }
-            } else if sil == 2 {
-                // top sil
-                for r in r1..=r2 {
-                    if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
-                        clip_top[r as usize] =
-                            self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
-                        if clip_top[r as usize] >= SCREENHEIGHT as i32 {
-                            clip_top[r as usize] = SCREENHEIGHT as i32;
-                        }
-                    }
-                }
-            } else {
-                // both
-                for r in r1..=r2 {
-                    if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
-                        clip_bottom[r as usize] = self.r_data.visplanes.openings
-                            [(seg.sprbottomclip.unwrap() + r) as usize];
-                        if clip_bottom[r as usize] <= 0 {
-                            clip_bottom[r as usize] = 0;
-                        }
-                    }
-                    if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
-                        clip_top[r as usize] =
-                            self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
-                        if clip_top[r as usize] >= SCREENHEIGHT as i32 {
-                            clip_top[r as usize] = SCREENHEIGHT as i32;
-                        }
+                if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
+                    clip_top[r as usize] =
+                        self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
+                    if clip_top[r as usize] >= SCREENHEIGHT as i32 {
+                        clip_top[r as usize] = SCREENHEIGHT as i32;
                     }
                 }
             }

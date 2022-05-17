@@ -218,9 +218,8 @@ impl Statusbar {
         if upper {
             big = true;
         }
-        let nums = if big { &self.big_nums } else { &self.lil_nums };
-        let mut x = nums[0].width as i32;
 
+        let mut x;
         let mut y;
         if big && !upper {
             let patch = self.get_patch("STFB1");
