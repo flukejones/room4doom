@@ -8,10 +8,10 @@ I originally started by following along with [https://github.com/amroibrahim/DIY
 
 Be warned that because the initial code is transliterated as much as possible from the Doom C except
 where that causes issues, many things may not be optimal or idiomatic rust. There will be things like
-dodgy casts, unrequired `as` casts, unused fields or args, etc. The main thing I tried to do was bring
-up the game to a fully playable state *fast*, and *then* begin to optimise, refactor, or redesign
-components - it is much easier to do when you have a working playable state to begin with that can be
-used for play-testing and such.
+dodgy casts, unrequired `as` casts, unused fields or args, lots of `unsafe` blocks etc. The main thing
+I tried to do was bring up the game to a fully playable state *fast*, and *then* begin to optimise,
+refactor, or redesign components - it is much easier to do when you have a working playable state to
+begin with that can be used for play-testing and such.
 
 The code can dramatically change as I learn new or better ways to do things.
 

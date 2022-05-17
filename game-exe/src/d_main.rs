@@ -4,12 +4,12 @@
 
 use std::{error::Error, mem};
 
-use gamestate::{machination::Machinations, Game};
-use gamestate_traits::{GameState, MachinationTrait};
 use gameplay::{
     log::{self, error, info},
     MapObject,
 };
+use gamestate::{machination::Machinations, Game};
+use gamestate_traits::{GameState, MachinationTrait};
 use golem::Context;
 use input::Input;
 use intermission_doom::Intermission;

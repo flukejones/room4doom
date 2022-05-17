@@ -1,6 +1,6 @@
 use crate::Game;
-use gamestate_traits::{GameState, GameTraits, PlayerStatus};
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
+use gamestate_traits::{GameState, GameTraits, PlayerStatus};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 
 impl GameTraits for Game {

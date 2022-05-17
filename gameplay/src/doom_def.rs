@@ -56,15 +56,21 @@ pub enum GameMission {
 
 #[derive(Debug, Copy, Clone)]
 pub enum GameAction {
-    Nothing,
+    /// No action required
+    None,
+    /// Load a game level (requires a level number and episode to be set beforehand)
     LoadLevel,
+    /// Resets the entire game state and starts a new level/episode
     NewGame,
     LoadGame,
     SaveGame,
     PlayDemo,
+    /// The player finished the level
     CompletedLevel,
-    Victory,
+    /// Level finished and intermission screen completed
     WorldDone,
+    /// The player finished the game or episode
+    Victory,
     Screenshot,
 }
 
@@ -98,8 +104,9 @@ pub enum WeaponType {
     BFG,
     Chainsaw,
     SuperShotgun,
+    /// Used as a marker to count total available weapons
     NumWeapons,
-    // No pending weapon change.
+    /// No pending weapon change.
     NoChange,
 }
 
@@ -149,6 +156,7 @@ pub enum AmmoType {
     Cell,
     /// Missile launcher.
     Missile,
+    /// Used as a marker to count total available ammo types
     NumAmmo,
     /// Unlimited for chainsaw / fist.
     NoAmmo,
@@ -177,6 +185,7 @@ pub enum PowerType {
     IronFeet,
     Allmap,
     Infrared,
+    /// Used as a marker to count total available power types
     NumPowers,
 }
 
@@ -192,7 +201,7 @@ pub enum PowerDuration {
 
 /// Definition for player sprites (HUD weapon) actions
 pub struct WeaponInfo {
-    /// Ammto type required
+    /// Amto type required
     pub ammo: AmmoType,
     /// The starting state for bringing the weapon up
     pub upstate: StateNum,
@@ -290,6 +299,8 @@ pub const WEAPON_INFO: [WeaponInfo; 9] = [
     },
 ];
 
+/// Function-pointer container used by `MapObject` states and `Player` states in the
+/// auto-generated `info.rs`.
 #[derive(Clone)]
 pub enum ActFn {
     /// Pointer to a function that operates on `MapObject`'s. Much of the gamplay uses this (items, monsters etc)

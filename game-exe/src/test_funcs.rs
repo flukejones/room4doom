@@ -1,7 +1,7 @@
 //! Functions used for various graphical and other tests
 
-use gamestate::Game;
 use gameplay::WallPic;
+use gamestate::Game;
 
 use render_traits::PixelBuf;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};

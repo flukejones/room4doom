@@ -1,5 +1,5 @@
-use gamestate_traits::PixelBuf;
 use gameplay::m_random;
+use gamestate_traits::PixelBuf;
 
 #[derive(Debug)]
 pub(crate) struct Wipe {

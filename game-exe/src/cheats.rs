@@ -1,8 +1,8 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
+use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use gamestate::Game;
 use gamestate_traits::GameTraits;
-use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use sdl2::keyboard::{Keycode, Scancode};
 use sound_traits::MusTrack;
 

@@ -4,7 +4,8 @@
 pub mod util;
 
 pub use gameplay::{
-    AmmoType, Card, GameMode, Skill, PlayerStatus, WBPlayerStruct, WBStartStruct, WeaponType, WEAPON_INFO,
+    AmmoType, Card, GameMode, PlayerStatus, Skill, WBPlayerStruct, WBStartStruct, WeaponType,
+    WEAPON_INFO,
 };
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
@@ -17,9 +18,13 @@ use wad::lumps::{WadPalette, WadPatch};
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameState {
     ForceWipe = -1,
+    /// The state the game will spend most of its time in is `GameState::Level` as this
+    /// is where all of the actual gameplay happens (including net + deathmatch play).
     Level,
     Intermission,
     Finale,
+    /// The second most seen state is `GameState::Demo` which plays back recorded demos
+    /// and is the default startup mode.
     Demo,
 }
 
