@@ -1,3 +1,5 @@
+//! User configuration options.
+
 use crate::{shaders::Shaders, CLIOptions, BASE_DIR};
 use dirs::config_dir;
 use gameplay::log::{error, info, warn};

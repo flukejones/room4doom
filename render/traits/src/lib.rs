@@ -1,4 +1,5 @@
-//! A generic pixel buffer plus trits for rendering parts of the game-exe
+//! A generic `PixelBuf` that can be drawn to and is blitted to screen by the game,
+//! and a generic `PlayRenderer` for rendering the players view of the level.
 
 use gameplay::{Level, Player};
 

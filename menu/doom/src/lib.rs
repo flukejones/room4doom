@@ -1,3 +1,8 @@
+//! A menu `Machination` as used by Doom. This loads and uses the Doom assets to
+//! display the menu but because it uses `MachinationTrait` for the actual interaction
+//! with the rest of the game it ends up being fairly generic - you could make this
+//! fully generic with a little work, or use it as the basis for a different menu.
+
 use gamestate_traits::{GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, Skill};
 use sound_traits::SfxName;
 use std::collections::HashMap;
@@ -23,7 +28,9 @@ struct MenuItem {
     status: Status,
     /// The name of the patch in the wad to draw for this item
     patch: &'static str,
+    /// A function pointer to the 'logic' that drives this menu item
     logic: fn(&mut MenuDoom, i32, &mut dyn GameTraits),
+    /// The `char` which activates this item (as a capital letter)
     hotkey: char,
 }
 
@@ -43,8 +50,11 @@ impl MenuItem {
     }
 }
 
+/// A title item, such as the DOOM logo. Typically drawn at the top of the menu but
+/// you could draw it anywhere you want really.
 #[derive(Clone)]
 struct Title {
+    /// The name of the patch in the wad to draw for this item
     patch: &'static str,
     x: i32,
     y: i32,
@@ -58,16 +68,24 @@ impl Title {
 
 #[derive(Clone)]
 struct MenuSet {
+    /// Must match this items location in the menu array as determined by the
+    /// order or `MenuIndex`
     this: MenuIndex,
+    /// The location in the menu array of the `MenuSet` that popping this one
+    /// would lead to -- as in, the previous `MenuSet`, for example popping the
+    /// Skill selection leads back to the Episode selection.
     prev: MenuIndex,
+    /// Titles associated with this menu. Can be empty.
     titles: Vec<Title>,
-    /// Each item is drawn later during menu setup
+    /// Each `MenuItem` is a row in this `MenuSet`. The order in the vector is
+    /// the order they are drawn in (top to bottom)
     items: Vec<MenuItem>,
     /// Sub-item start X coord
     x: i32,
     /// Sub-item start Y coord
     y: i32,
-    /// The index of the last item the user was on in this menu
+    /// The index of the last item the user was on in this menu. When the user
+    /// selects this `MenuSet` again this item will be pre-selected.
     last_on: usize,
 }
 
@@ -109,7 +127,7 @@ type Patches = HashMap<&'static str, WadPatch>;
 pub struct MenuDoom {
     /// Is the menu active?
     active: bool,
-    ///
+    /// A specific helper for pressing F1
     in_help: bool,
     save_enter: bool,
     save_slot: usize,
@@ -124,7 +142,7 @@ pub struct MenuDoom {
 
     patches: Patches,
     palette: WadPalette,
-
+    /// Track the episode selected by episode menu
     episode: i32,
     which_skull: usize,
     skull_anim_counter: i32,
@@ -171,7 +189,11 @@ impl MenuDoom {
             ),
             MenuSet::new(
                 MenuIndex::Skill,
-                MenuIndex::Episodes,
+                if mode == GameMode::Commercial {
+                    MenuIndex::TopLevel
+                } else {
+                    MenuIndex::Episodes
+                },
                 vec![Title::new("M_NEWG", 96, 14), Title::new("M_SKILL", 54, 38)],
                 48,
                 63,
@@ -271,6 +293,7 @@ impl MenuDoom {
         }
     }
 
+    /// Sets menu state for entering
     fn enter_menu(&mut self, game: &mut dyn GameTraits) {
         if self.in_help {
             self.in_help = false;
@@ -282,6 +305,7 @@ impl MenuDoom {
         }
     }
 
+    /// Sets menu state on exit
     fn exit_menu(&mut self, game: &mut dyn GameTraits) {
         self.active = false;
         self.in_help = false;
@@ -306,7 +330,7 @@ impl MenuDoom {
     }
 }
 
-fn sel_new_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_new_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
     if game.get_mode() == GameMode::Commercial {
         menu.current_menu = MenuIndex::Skill;
         return;
@@ -314,19 +338,19 @@ fn sel_new_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::Episodes;
 }
 
-fn sel_readthis(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_readthis(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis1;
 }
 
-fn sel_readthis1(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_readthis1(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis2;
 }
 
-fn sel_readthis2(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_readthis2(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::TopLevel;
 }
 
-fn sel_quit_game(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_quit_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 

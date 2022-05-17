@@ -3,11 +3,11 @@
 use crate::defs::{
     animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE,
 };
+use gameplay::m_random;
 use gamestate_traits::{
     GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode, WBPlayerStruct,
     WBStartStruct,
 };
-use gameplay::m_random;
 use log::warn;
 use wad::{
     lumps::{WadPalette, WadPatch},

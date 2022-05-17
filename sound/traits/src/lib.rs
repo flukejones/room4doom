@@ -1,3 +1,6 @@
+//! Traits and interface structs/enums required for a generalised `SoundServer` to
+//! play music and sound effects.
+
 use std::{
     fmt::Debug,
     sync::mpsc::{Receiver, Sender},

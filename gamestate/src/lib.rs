@@ -1,16 +1,23 @@
-//! Game structure. Holds game-exe state, menu state, runs various display routines
-//! and other stuff. Functions as a state machine.
+//! Game state, fairly self-descriptive but bares expanding on in a little more detail.
 //!
-//! Various states can be:
+//! The state of the game can be a few states only:
+//!
 //! - level playing
 //! - intermission/finale
 //! - demo playing
 //! - screen wipe
 //!
-//! Note that the primary state is either demo-play or level-play. Other UI elements
-//! like menus are overlaid on top of these states.
+//! The game state can be changed by a few actions - these are more concretely
+//! defined as trait functions in `GameTraits`, where the exposed functions trigger
+//! an action from `GameAction`. When an action is set it takes effect on the next tic.
 //!
-//! A state can be affected by `GameAction` such as load/save/new.
+//! Note that the primary state is either demo-play or level-play.
+//!
+//! The active game state also determines which `Machinations` are run, and the order
+//! in which they run - these are such things as intermission screens or statusbars
+//! during gameplay. In the case of a statusbar for example it ticks only during the
+//! `GameState::Level` state, and draws to the buffer after the player view is drawn.
+//!
 
 pub mod game_impl;
 pub mod machination;
@@ -18,7 +25,6 @@ pub mod machination;
 use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
 
 use crate::machination::Machinations;
-use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use gameplay::{
     log,
     log::{debug, error, info, trace, warn},
@@ -27,12 +33,23 @@ use gameplay::{
     update_specials, GameAction, GameMission, GameMode, Level, MapObjFlag, MapObject, PicAnimation,
     PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
+use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::{lumps::WadPatch, WadData};
 
-/// Options specific to Doom. This will get phased out for `GameOptions`
+pub const BACKUPTICS: usize = 12;
+/// Description of the unregistered shareware release
+pub const DESC_SHAREWARE: &str = "DOOM Shareware";
+/// Description of registered shareware release
+pub const DESC_REGISTERED: &str = "DOOM Registered";
+/// Description of The Ultimate Doom release
+pub const DESC_ULTIMATE: &str = "The Ultimate DOOM";
+/// Description of DOOM II commercial release
+pub const DESC_COMMERCIAL: &str = "DOOM 2: Hell on Earth";
+
+/// Options specific to Doom gameplay
 #[derive(Debug)]
 pub struct DoomOptions {
     pub iwad: String,
@@ -70,9 +87,7 @@ impl Default for DoomOptions {
     }
 }
 
-pub const BACKUPTICS: usize = 12;
-
-pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
+fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, &'static str) {
     let game_mode;
     let game_mission;
     let game_description;
@@ -89,17 +104,17 @@ pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
         // Doom 1.  But which version?
         if wad.lump_exists("E4M1") {
             game_mode = GameMode::Retail;
-            game_description = String::from("The Ultimate DOOM");
+            game_description = DESC_ULTIMATE;
         } else if wad.lump_exists("E3M1") {
             game_mode = GameMode::Registered;
-            game_description = String::from("DOOM Registered");
+            game_description = DESC_REGISTERED;
         } else {
             game_mode = GameMode::Shareware;
-            game_description = String::from("DOOM Shareware");
+            game_description = DESC_SHAREWARE;
         }
     } else {
         game_mode = GameMode::Commercial;
-        game_description = String::from("DOOM 2: Hell on Earth");
+        game_description = DESC_COMMERCIAL;
         // TODO: check for TNT or Plutonia
     }
     (game_mode, game_mission, game_description)
@@ -108,8 +123,11 @@ pub fn identify_version(wad: &wad::WadData) -> (GameMode, GameMission, String) {
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
     pub title: WadPatch,
-    /// Contains the full wad file
+    /// Contains the full wad file. Wads are tiny in terms of today's memory use
+    /// so it doesn't hurt to store the full file in ram. May change later.
     pub wad_data: WadData,
+    /// The complete `Level` data encompassing the everything everywhere all at once...
+    /// (if loaded).
     pub level: Option<Level>,
     /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
     /// access to change animations + translation tables.
@@ -118,9 +136,8 @@ pub struct Game {
     pub animations: Vec<PicAnimation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
-
+    /// Is the game running? Used as main loop control
     running: bool,
-    // Game locals
     /// only if started as net death
     deathmatch: bool,
     /// only true if packets are broadcast
@@ -296,7 +313,7 @@ impl Game {
         // TODO: HU_Init ();
         // TODO: ST_Init ();
 
-        let mut game_action = GameAction::Nothing;
+        let mut game_action = GameAction::None;
         let gamestate = GameState::Demo;
         if options.warp {
             game_action = GameAction::NewGame;
@@ -386,7 +403,7 @@ impl Game {
 
         // TODO: not pass these, they are stored already
         self.init_new(self.game_skill, self.game_episode, self.game_map);
-        self.game_action = GameAction::Nothing;
+        self.game_action = GameAction::None;
     }
 
     fn init_new(&mut self, skill: Skill, mut episode: i32, mut map: i32) {
@@ -506,7 +523,7 @@ impl Game {
         self.displayplayer = self.consoleplayer; // view the guy you are playing
 
         // TODO: starttime = I_GetTime();
-        self.game_action = GameAction::Nothing;
+        self.game_action = GameAction::None;
 
         let level = unsafe {
             Level::new(
@@ -573,19 +590,21 @@ impl Game {
         // TODO: deathmatch spawns
     }
 
+    /// Load the next level and set the `GameAction` to None
+    ///
     /// Doom function name `G_DoWorldDone`
     fn do_world_done(&mut self) {
         self.gamestate = GameState::Level;
         self.game_map = self.wminfo.next + 1;
         self.do_load_level();
-        self.game_action = GameAction::Nothing;
+        self.game_action = GameAction::None;
         // TODO: viewactive = true;
     }
 
     /// Cleanup, re-init, and set up for next level or episode. Also sets up info
     /// that can be displayed on the intermission screene.
     fn do_completed(&mut self) {
-        self.game_action = GameAction::Nothing;
+        self.game_action = GameAction::None;
 
         for (i, in_game) in self.player_in_game.iter().enumerate() {
             if *in_game {
@@ -696,7 +715,7 @@ impl Game {
                 self.do_completed();
                 machinations.intermission.init(self);
             }
-            GameAction::Nothing => {}
+            GameAction::None => {}
             GameAction::LoadGame => todo!("G_DoLoadGame()"),
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
             GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
@@ -757,13 +776,6 @@ impl Game {
                     //     break;
                 }
             }
-        }
-
-        if self.old_game_state == GameState::Intermission
-            && self.gamestate != GameState::Intermission
-        {
-            //WI_End();
-            error!("TODO: screen wipe with WI_End(). Done between level end and stat show");
         }
 
         self.old_game_state = self.gamestate;

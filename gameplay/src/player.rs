@@ -130,7 +130,7 @@ impl Default for PlayerStatus {
             weaponowned: Default::default(),
             ammo: Default::default(),
             maxammo: Default::default(),
-            backpack: false
+            backpack: false,
         };
         tmp.ammo[AmmoType::Clip as usize] = 50;
         tmp.maxammo.copy_from_slice(&MAX_AMMO);

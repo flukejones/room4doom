@@ -2,7 +2,11 @@
 //!
 //! Displays things like ammo count, weapons owned, key/skulls owned, health and so on.
 
-use gamestate_traits::{util::{draw_num, get_num_sprites, get_st_key_sprites}, AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, WeaponType, WEAPON_INFO, PlayerStatus};
+use gamestate_traits::{
+    util::{draw_num, get_num_sprites, get_st_key_sprites},
+    AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, PlayerStatus, Scancode, WeaponType,
+    WEAPON_INFO,
+};
 use std::collections::HashMap;
 use wad::{
     lumps::{WadPalette, WadPatch},
@@ -119,7 +123,8 @@ impl Statusbar {
         if matches!(self.status.readyweapon, WeaponType::NoChange) {
             return;
         }
-        if !(self.mode == GameMode::Commercial) && self.status.readyweapon == WeaponType::SuperShotgun
+        if !(self.mode == GameMode::Commercial)
+            && self.status.readyweapon == WeaponType::SuperShotgun
         {
             return;
         }

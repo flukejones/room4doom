@@ -297,7 +297,8 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
     if let Some(player) = thing.player_mut() {
         match line.special {
             26 | 32 => {
-                if !player.status.cards[Card::Bluecard as usize] && !player.status.cards[Card::Blueskull as usize]
+                if !player.status.cards[Card::Bluecard as usize]
+                    && !player.status.cards[Card::Blueskull as usize]
                 {
                     player.message = Some(PD_BLUEK);
                     start_sector_sound(&line, SfxName::Oof, &level.snd_command);
@@ -314,7 +315,9 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
                 }
             }
             28 | 33 => {
-                if !player.status.cards[Card::Redcard as usize] && !player.status.cards[Card::Redskull as usize] {
+                if !player.status.cards[Card::Redcard as usize]
+                    && !player.status.cards[Card::Redskull as usize]
+                {
                     player.message = Some(PD_REDK);
                     start_sector_sound(&line, SfxName::Oof, &level.snd_command);
                     return;
