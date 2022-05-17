@@ -20,7 +20,6 @@ use crate::{
         map_data::BSPTrace,
         map_defs::{BBox, LineDef, SlopeType},
     },
-    thinker::Think,
     utilities::{
         box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
     },
@@ -461,7 +460,7 @@ impl MapObject {
                         && thing.kind == MapObjKind::MT_BRUISER)
                 {
                     // Don't hit same species as originator.
-                    if std::ptr::eq(thing, target) {
+                    if ptr::eq(thing, target) {
                         return true;
                     }
 

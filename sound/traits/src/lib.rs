@@ -203,6 +203,12 @@ mod tests {
 
         fn stop_sound_all(&mut self) {}
 
+        fn set_sfx_volume(&mut self, _volume: i32) {}
+
+        fn get_sfx_volume(&mut self) -> i32 {
+            6
+        }
+
         fn start_music(&mut self, music: Music, _looping: bool) {
             dbg!(music);
         }
@@ -214,12 +220,6 @@ mod tests {
         fn change_music(&mut self, _music: Music, _looping: bool) {}
 
         fn stop_music(&mut self) {}
-
-        fn set_sfx_volume(&mut self, _volume: i32) {}
-
-        fn get_sfx_volume(&mut self) -> i32 {
-            6
-        }
 
         fn set_mus_volume(&mut self, _volume: i32) {}
 

@@ -289,7 +289,7 @@ pub(crate) fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
     player.start_sound(SfxName::Bfg);
 }
 
-pub(crate) fn a_bfgspray(player: &mut MapObject) {
+pub(crate) fn a_bfgspray(_player: &mut MapObject) {
     error!("TODO: a_bfgspray not implemented");
 }
 

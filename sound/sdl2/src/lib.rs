@@ -108,7 +108,7 @@ fn lump_sfx_to_chunk(
     let converter = AudioCVT::new(AudioFormat::U8, 1, rate, to_fmt, 2, to_rate)?;
     let fixed = converter.convert(raw_lump[7..len as usize].to_vec());
 
-    sdl2::mixer::Chunk::from_raw_buffer(fixed.into_boxed_slice())
+    Chunk::from_raw_buffer(fixed.into_boxed_slice())
 }
 
 pub struct Snd<'a> {
@@ -340,38 +340,38 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
 
     fn start_music(&mut self, music: usize, looping: bool) {
         unsafe {
-            let music = sdl2::mixer::Music::from_static_bytes(MUS_DATA[music].data()).unwrap();
+            let music = Music::from_static_bytes(MUS_DATA[music].data()).unwrap();
             music.play(if looping { -1 } else { 0 }).unwrap();
             self.music = Some(music);
-            sdl2::mixer::Music::set_volume(self.mus_vol);
+            Music::set_volume(self.mus_vol);
         }
     }
 
     fn pause_music(&mut self) {
-        sdl2::mixer::Music::pause();
+        Music::pause();
     }
 
     fn resume_music(&mut self) {
-        sdl2::mixer::Music::resume();
+        Music::resume();
     }
 
     fn change_music(&mut self, music: usize, looping: bool) {
-        sdl2::mixer::Music::halt();
+        Music::halt();
         self.music.take();
         self.start_music(music, looping)
     }
 
     fn stop_music(&mut self) {
-        sdl2::mixer::Music::halt();
+        Music::halt();
     }
 
     fn set_mus_volume(&mut self, volume: i32) {
-        sdl2::mixer::Music::set_volume(volume);
+        Music::set_volume(volume);
         self.mus_vol = volume;
     }
 
     fn get_mus_volume(&mut self) -> i32 {
-        sdl2::mixer::Music::get_volume()
+        Music::get_volume()
     }
 
     fn update_self(&mut self) {}

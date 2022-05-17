@@ -1,6 +1,6 @@
 use crate::Game;
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
-use gamestate_traits::{GameState, GameTraits, PlayerStatus};
+use gamestate_traits::{GameTraits, PlayerStatus};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 
 impl GameTraits for Game {
@@ -23,11 +23,11 @@ impl GameTraits for Game {
         self.game_mode
     }
 
-    fn load_game(&mut self, name: String) {
+    fn load_game(&mut self, _name: String) {
         todo!()
     }
 
-    fn save_game(&mut self, name: String, slot: usize) {
+    fn save_game(&mut self, _name: String, _slot: usize) {
         todo!()
     }
 

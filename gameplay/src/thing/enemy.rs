@@ -80,16 +80,15 @@ fn sound_flood(
 pub(crate) fn a_facetarget(actor: &mut MapObject) {
     actor.flags &= !(MapObjFlag::Ambush as u32);
 
-    if let Some(target) = actor.target {
-        let target = unsafe { (*target).mobj() };
-
-        let angle = point_to_angle_2(target.xy, actor.xy);
-        actor.angle = angle;
-
+    let xy = actor.xy;
+    let mut angle = actor.angle;
+    if let Some(target) = actor.target_mut() {
+        angle = point_to_angle_2(target.xy, xy);
         if target.flags & MapObjFlag::Shadow as u32 == MapObjFlag::Shadow as u32 {
             actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
     }
+    actor.angle = angle;
 }
 
 /// Actor has a melee attack,
