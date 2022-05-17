@@ -115,6 +115,9 @@ pub struct PlayerStatus {
     pub ammo: [u32; AmmoType::NumAmmo as usize],
     pub maxammo: [u32; AmmoType::NumAmmo as usize],
     pub(crate) backpack: bool,
+    /// For screen flashing (red or bright).
+    pub damagecount: i32,
+    pub bonuscount: i32,
 }
 
 impl Default for PlayerStatus {
@@ -131,6 +134,8 @@ impl Default for PlayerStatus {
             ammo: Default::default(),
             maxammo: Default::default(),
             backpack: false,
+            damagecount: 0,
+            bonuscount: 0,
         };
         tmp.ammo[AmmoType::Clip as usize] = 50;
         tmp.maxammo.copy_from_slice(&MAX_AMMO);
@@ -185,10 +190,6 @@ pub struct Player {
     /// Hint messages.
     pub message: Option<&'static str>,
 
-    /// For screen flashing (red or bright).
-    pub damagecount: i32,
-    pub bonuscount: i32,
-
     // Who did damage (NULL for floors/ceilings).
     pub(crate) attacker: Option<*mut MapObject>,
     /// So gun flashes light up areas.
@@ -239,8 +240,6 @@ impl Player {
             secretcount: 0,
 
             message: None,
-            damagecount: 0,
-            bonuscount: 0,
 
             _colormap: 0,
             didsecret: false,
@@ -329,8 +328,8 @@ impl Player {
 
         self.extralight = 0;
         self.fixedcolormap = 0;
-        self.damagecount = 0;
-        self.bonuscount = 0;
+        self.status.damagecount = 0;
+        self.status.bonuscount = 0;
         if let Some(mobj) = self.mobj_mut() {
             mobj.flags &= !(MapObjFlag::Shadow as u32);
         }
@@ -701,7 +700,7 @@ impl Player {
         if self.status.cards[card as usize] {
             return;
         }
-        self.bonuscount += BONUSADD;
+        self.status.bonuscount += BONUSADD;
         self.status.cards[card as usize] = true;
     }
 
@@ -990,12 +989,12 @@ impl Player {
         }
 
         // Screen flashing, red, damage etc
-        if self.damagecount != 0 {
-            self.damagecount -= 1;
+        if self.status.damagecount != 0 {
+            self.status.damagecount -= 1;
         }
 
-        if self.bonuscount != 0 {
-            self.bonuscount -= 1;
+        if self.status.bonuscount != 0 {
+            self.status.bonuscount -= 1;
         }
 
         // Setting the colourmaps
@@ -1046,8 +1045,8 @@ impl Player {
 
                     if delta.abs() <= ANG5 {
                         mobj.angle = angle;
-                        if self.damagecount > 0 {
-                            self.damagecount -= 1;
+                        if self.status.damagecount > 0 {
+                            self.status.damagecount -= 1;
                         }
                     } else if delta > -ANG5 {
                         mobj.angle += ANG5;
@@ -1055,8 +1054,8 @@ impl Player {
                         mobj.angle -= ANG5;
                     }
                 }
-            } else if self.damagecount > 0 {
-                self.damagecount -= 1;
+            } else if self.status.damagecount > 0 {
+                self.status.damagecount -= 1;
             }
         }
 

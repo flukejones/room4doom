@@ -1,4 +1,5 @@
-use gamestate_traits::PixelBuf;
+use crate::PlayerStatus;
+use gamestate_traits::{m_random, PixelBuf, WeaponType};
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
     WadData,
@@ -27,12 +28,23 @@ const EVILGRINCOUNT: usize = 2 * TICRATE;
 const STRAIGHTFACECOUNT: usize = TICRATE / 2;
 const TURNCOUNT: usize = 1 * TICRATE;
 const OUCHCOUNT: usize = 1 * TICRATE;
-const RAMPAGEDELAY: usize = 2 * TICRATE;
+const RAMPAGEDELAY: i32 = 2 * TICRATE as i32;
 
-const MUCH_PAIN: usize = 20;
+const MUCH_PAIN: i32 = 20;
 
 pub(crate) struct DoomguyFace {
     faces: [WadPatch; FACE_COUNT],
+    /// Index to the face to show
+    index: usize,
+    /// How many to show
+    count: usize,
+    //
+    old_weapons_owned: [bool; WeaponType::NumWeapons as usize],
+    old_health: i32,
+    last_pain_calc: i32,
+    last_attack_down: i32,
+    rand: i32,
+    priority: i32,
 }
 
 impl DoomguyFace {
@@ -75,54 +87,145 @@ impl DoomguyFace {
         faces[face_num] = WadPatch::from_lump(lump);
         face_num += 1;
 
-        Self { faces }
+        Self {
+            faces,
+            index: 0,
+            count: 0,
+            old_weapons_owned: Default::default(),
+            old_health: -1,
+            last_pain_calc: 0,
+            last_attack_down: -1,
+            rand: 0,
+            priority: 0,
+        }
     }
 
-    // fn draw_face(&self, mut big: bool, upper: bool, buffer: &mut PixelBuf) {
-    //     let screen_width = buffer.width();
-    //     let screen_height = buffer.height();
-    //     if upper {
-    //         big = true;
-    //     }
+    pub(crate) fn tick(&mut self, status: &PlayerStatus) {
+        self.rand = m_random();
+        self.update_face(status);
+        self.old_health = status.health;
+    }
 
-    //     let mut x;
-    //     let mut y;
-    //     if big && !upper {
-    //         let patch = self.get_patch("STFB1");
-    //         y = if upper {
-    //             0
-    //         } else {
-    //             screen_height - patch.height as i32
-    //         };
-    //         x = screen_width / 2 - patch.width as i32 / 2;
-    //         self.draw_patch(patch, x, y, buffer);
-    //     };
+    fn calc_pain_offset(&mut self, status: &PlayerStatus) -> usize {
+        let health = if status.health > 100 {
+            100
+        } else {
+            status.health
+        };
 
-    //     let patch = if self.status.health < 20 {
-    //         self.get_patch("STFST41")
-    //     } else if self.status.health < 40 {
-    //         self.get_patch("STFST31")
-    //     } else if self.status.health < 60 {
-    //         self.get_patch("STFST21")
-    //     } else if self.status.health < 80 {
-    //         self.get_patch("STFST11")
-    //     } else {
-    //         self.get_patch("STFST01")
-    //     };
+        if health != self.old_health {
+            self.last_pain_calc = FACE_STRIDE as i32 * (((100 - health) * PAIN_FACES as i32) / 101);
+            self.old_health = health;
+        }
 
-    //     let offset_x = patch.width as i32 / 2;
-    //     let offset_y = patch.height as i32;
-    //     if upper || big {
-    //         x = screen_width / 2 - patch.width as i32 / 2;
-    //         y = if upper {
-    //             1
-    //         } else {
-    //             screen_height - patch.height as i32
-    //         };
-    //     } else {
-    //         x = offset_x;
-    //         y = screen_height - offset_y
-    //     };
-    //     self.draw_patch(patch, x, y, buffer);
-    // }
+        if self.last_pain_calc < 0 {
+            self.last_pain_calc = 0;
+        }
+
+        return self.last_pain_calc as usize;
+    }
+
+    fn update_face(&mut self, status: &PlayerStatus) {
+        if self.priority < 10 {
+            // dead
+            if status.health <= 0 {
+                self.priority = 9;
+                self.index = DEADFACE;
+                self.count = 1;
+            }
+        }
+
+        if self.priority < 9 {
+            if status.bonuscount != 0 {
+                // picking up bonus
+                let mut doevilgrin = false;
+
+                for (i, w) in status.weaponowned.iter().enumerate() {
+                    if self.old_weapons_owned[i] != *w {
+                        doevilgrin = true;
+                        self.old_weapons_owned[i] = *w;
+                    }
+                }
+                if doevilgrin {
+                    // evil grin if just picked up weapon
+                    self.priority = 8;
+                    self.count = EVILGRINCOUNT;
+                    self.index = self.calc_pain_offset(status) + EVILGRINOFFSET;
+                }
+            }
+        }
+
+        // being attacked
+        if self.priority < 8 {
+            // if status.damagecount != 0 {
+            //     self.priority = 7;
+            //
+            //     if self.old_health - status.health >= MUCH_PAIN {
+            //         self.count = TURNCOUNT;
+            //         self.index = self.calc_pain_offset(status) + OUCHOFFSET;
+            //     } else {
+            //         // TODO: else show angle
+            //         self.count = TURNCOUNT;
+            //         self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
+            //     }
+            // }
+        }
+
+        if self.priority < 7 {
+            // getting hurt because of your own damn stupidity
+            if status.damagecount != 0 {
+                if self.old_health - status.health >= MUCH_PAIN {
+                    self.priority = 7;
+                    self.count = TURNCOUNT;
+                    self.index = self.calc_pain_offset(status) + OUCHOFFSET;
+                } else {
+                    self.priority = 6;
+                    self.count = TURNCOUNT;
+                    self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
+                }
+            }
+        }
+
+        if self.priority < 6 {
+            // rapid firing
+            if status.attackdown {
+                if self.last_attack_down == -1 {
+                    self.last_attack_down = RAMPAGEDELAY;
+                } else {
+                    self.last_attack_down -= 1;
+                    if self.last_attack_down == 0 {
+                        self.priority = 5;
+                        self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
+                        self.count = 1;
+                        self.last_attack_down = 1;
+                    }
+                }
+            } else {
+                self.last_attack_down = -1;
+            }
+        }
+
+        // if (self.priority < 5) {
+        //     // TODO invulnerability
+        //     if ((plyr->cheats & CF_GODMODE) || plyr->powers[pw_invulnerability]) {
+        //         self.priority = 4;
+        //
+        //         self.index = ST_GODFACE;
+        //         self.count = 1;
+        //     }
+        // }
+
+        // look left or look right if the facecount has timed out
+        if self.count == 0 {
+            self.index = self.calc_pain_offset(status) + (self.rand % 3) as usize;
+            self.count = STRAIGHTFACECOUNT;
+            self.priority = 0;
+        }
+
+        self.count -= 1;
+    }
+
+    pub(crate) fn get_face(&self) -> &WadPatch {
+        &self.faces[self.index]
+    }
 }

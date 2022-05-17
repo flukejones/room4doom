@@ -362,7 +362,7 @@ impl PicData {
 
     /// Used to set effects for the player visually, such as damage
     pub fn set_player_palette(&mut self, player: &Player) {
-        let mut damagecount = player.damagecount;
+        let mut damagecount = player.status.damagecount;
         let berkers;
 
         if player.powers[PowerType::Strength as usize] != 0 {
@@ -380,8 +380,8 @@ impl PicData {
                 self.use_pallette = NUMREDPALS - 1;
             }
             self.use_pallette += STARTREDPALS;
-        } else if player.bonuscount != 0 {
-            self.use_pallette = ((player.bonuscount + 7) >> 3) as usize;
+        } else if player.status.bonuscount != 0 {
+            self.use_pallette = ((player.status.bonuscount + 7) >> 3) as usize;
             if self.use_pallette >= NUMBONUSPALS {
                 self.use_pallette = NUMBONUSPALS - 1;
             }

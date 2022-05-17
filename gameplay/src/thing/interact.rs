@@ -143,9 +143,9 @@ impl MapObject {
                 player.attacker = Some(*source);
             }
 
-            player.damagecount += damage;
-            if player.damagecount > 100 {
-                player.damagecount = 100; // teleport stomp does 10k points...
+            player.status.damagecount += damage;
+            if player.status.damagecount > 100 {
+                player.status.damagecount = 100; // teleport stomp does 10k points...
             }
             // Tactile feedback thing removed here
         }
@@ -572,7 +572,7 @@ impl MapObject {
                 player.itemcount += 1;
             }
             special.remove();
-            player.bonuscount += BONUSADD;
+            player.status.bonuscount += BONUSADD;
 
             // TODO: if (player == &players[consoleplayer])
             self.start_sound(sound);

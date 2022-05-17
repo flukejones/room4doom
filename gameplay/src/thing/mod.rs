@@ -361,8 +361,8 @@ impl MapObject {
         player.player_state = PlayerState::Live;
         player.refire = 0;
         player.message = None;
-        player.damagecount = 0;
-        player.bonuscount = 0;
+        player.status.damagecount = 0;
+        player.status.bonuscount = 0;
         player.extralight = 0;
         player.fixedcolormap = 0;
         player.viewheight = VIEWHEIGHT;
