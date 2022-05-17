@@ -462,7 +462,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
             if let Some(player) = thing.player_mut() {
                 if player.status.cards[Card::Bluecard as usize] || player.status.cards[Card::Blueskull as usize] {
                     change_switch_texture(line.clone(), line.special == 99, &level.switch_list, &mut level.button_list, &level.snd_command);
-                    ev_vertical_door(line, thing, level);
+                    ev_do_door(line, DoorKind::BlazeOpen, level);
                 } else {
                     player.message = Some(PD_BLUEO);
                     player.start_sound(SfxName::Oof);
@@ -474,7 +474,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
             if let Some(player) = thing.player_mut() {
                 if player.status.cards[Card::Redcard as usize] || player.status.cards[Card::Redskull as usize] {
                     change_switch_texture(line.clone(), line.special == 134, &level.switch_list, &mut level.button_list, &level.snd_command);
-                    ev_vertical_door(line, thing, level);
+                    ev_do_door(line, DoorKind::BlazeOpen, level);
                 } else {
                     player.message = Some(PD_REDO);
 			        player.start_sound(SfxName::Oof);
@@ -486,7 +486,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
             if let Some(player) = thing.player_mut() {
                 if player.status.cards[Card::Yellowcard as usize] || player.status.cards[Card::Yellowskull as usize] {
                     change_switch_texture(line.clone(), line.special == 136, &level.switch_list, &mut level.button_list, &level.snd_command);
-                    ev_vertical_door(line, thing, level);
+                    ev_do_door(line, DoorKind::BlazeOpen, level);
                 } else {
                     player.message = Some(PD_YELLOWO);
 			        player.start_sound(SfxName::Oof);
