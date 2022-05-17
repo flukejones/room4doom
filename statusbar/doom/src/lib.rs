@@ -2,6 +2,7 @@
 //!
 //! Displays things like ammo count, weapons owned, key/skulls owned, health and so on.
 
+use faces::DoomguyFace;
 use gamestate_traits::{
     util::{draw_num, get_num_sprites, get_st_key_sprites},
     AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, PlayerStatus, Scancode, WeaponType,
@@ -12,6 +13,8 @@ use wad::{
     lumps::{WadPalette, WadPatch},
     WadData,
 };
+
+mod faces;
 
 pub struct Statusbar {
     screen_width: i32,
@@ -27,6 +30,7 @@ pub struct Statusbar {
     /// Keys: blue yellow red. Skulls: blue yellow red
     keys: [WadPatch; 6],
     status: PlayerStatus,
+    faces: DoomguyFace,
 }
 
 impl Statusbar {
@@ -54,6 +58,7 @@ impl Statusbar {
             yell_nums: get_num_sprites("STYSNUM", 0, wad),
             keys: get_st_key_sprites(wad),
             status: PlayerStatus::default(),
+            faces: DoomguyFace::new(wad),
         }
     }
 

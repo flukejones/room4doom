@@ -42,6 +42,9 @@ impl Default for WadPalette {
     }
 }
 
+/// Specifically to help create static arrays of `WadPatch`
+pub const WAD_PATCH: WadPatch = WadPatch::default();
+
 /// The key component of textures. Some textures may use a patch as-is, and some may
 /// use a group of these in differing layouts to compose unique textures.
 #[derive(Debug, Clone)]
@@ -60,6 +63,17 @@ pub struct WadPatch {
 }
 
 impl WadPatch {
+    pub const fn default() -> WadPatch {
+        WadPatch {
+            name: String::new(),
+            width: 0,
+            height: 0,
+            left_offset: 0,
+            top_offset: 0,
+            columns: Vec::new(),
+        }
+    }
+
     /// Create a patch from lump data. The data must be that which is associated with the
     /// patch, e.g, `wad.file_data[lump.handle]`
     pub fn from_lump(lump: &Lump) -> Self {
