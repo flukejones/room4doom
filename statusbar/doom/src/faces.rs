@@ -99,7 +99,7 @@ impl DoomguyFace {
     pub(crate) fn tick(&mut self, status: &PlayerStatus) {
         self.rand = m_random();
         self.update_face(status);
-        self.old_health = status.health;
+        //self.old_health = status.health;
         self.old_weapons_owned = status.weaponowned;
     }
 
