@@ -8,6 +8,7 @@ use gamestate_traits::{
     AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuf, PlayerStatus, Scancode, WeaponType,
     WEAPON_INFO,
 };
+use hud_lines::HUDString;
 use std::collections::HashMap;
 use wad::{
     lumps::{WadPalette, WadPatch},
@@ -31,6 +32,11 @@ pub struct Statusbar {
     keys: [WadPatch; 6],
     status: PlayerStatus,
     faces: DoomguyFace,
+
+    // TODO: remove, this is testing stuff
+    strings: HUDString,
+    cur_char: usize,
+    st: [char; 17],
 }
 
 impl Statusbar {
@@ -55,6 +61,12 @@ impl Statusbar {
             keys: get_st_key_sprites(wad),
             status: PlayerStatus::default(),
             faces: DoomguyFace::new(wad),
+            // TODO: testing, remove
+            strings: HUDString::new(wad),
+            cur_char: 0,
+            st: [
+                'D', 'O', 'O', 'M', ' ', 'I', 'S', ' ', 'A', 'W', 'E', 'S', 'O', 'M', 'E', '!', ' ',
+            ],
         }
     }
 
@@ -260,6 +272,13 @@ impl MachinationTrait for Statusbar {
     }
 
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
+        if self.cur_char >= self.st.len() {
+            // self.strings.clear();
+            self.cur_char = 0;
+        }
+        self.strings.add_char(self.st[self.cur_char]);
+        self.cur_char += 1;
+
         self.status = game.player_status();
         self.faces.tick(&self.status);
         false
@@ -282,5 +301,10 @@ impl MachinationTrait for Statusbar {
         self.draw_ammo_big(buffer);
         self.draw_weapons(buffer);
         self.draw_keys(buffer);
+
+        if self.strings.draw_wrapped(10, 10, self, buffer).is_none() {
+            self.cur_char = 0;
+            self.strings.clear();
+        }
     }
 }
