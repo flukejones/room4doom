@@ -1,0 +1,10 @@
+[package]
+name = "hud-lines"
+version = "0.2.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+
+[dependencies]
+wad = { path = "../wad" }
+# versions are set by game-exe crate
+log = "*"

@@ -120,6 +120,19 @@ impl Intermission {
             }
         }
 
+        // TODO: TMP TESTING STUFF HERE
+        let font_start = b'!';
+        let font_end = b'_';
+        let font_count = font_end - font_start + 1;
+        for i in 0..font_count {
+            let i = i + font_start;
+            if let Some(lump) = wad.get_lump(&format!("STCFN{i:0>3}")) {
+                WadPatch::from_lump(lump);
+            } else if mode != GameMode::Commercial {
+                warn!("Missing STCFN{i:0>3}");
+            }
+        }
+
         Self {
             palette,
             bg_patches,
