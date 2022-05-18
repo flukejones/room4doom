@@ -16,7 +16,6 @@ pub unsafe fn load_char_patches(wad: &WadData) {
     if CHARS_INITIALISED {
         return;
     }
-    //let mut chars = [WAD_PATCH; FONT_COUNT as usize];
     for i in 0..FONT_COUNT {
         let f = i + FONT_START;
         if let Some(lump) = wad.get_lump(&format!("STCFN{f:0>3}")) {
@@ -34,16 +33,30 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
             warn!("Character patches not initialised");
             return None;
         }
+        if c == ' ' {
+            return None;
+        }
         CHARS.get((c as u8 - FONT_START) as usize)
     }
 }
 
+/// Specifically to help create static arrays of `WadPatch`
+pub const HUD_STRING: HUDString = HUDString::default();
+
+#[derive(Debug, Clone)]
 pub struct HUDString {
     data: String,
     line_height: i32,
 }
 
 impl HUDString {
+    const fn default() -> Self {
+        Self {
+            data: String::new(),
+            line_height: 0,
+        }
+    }
+
     pub fn new(wad: &WadData) -> Self {
         unsafe { load_char_patches(wad) };
 
@@ -54,12 +67,26 @@ impl HUDString {
         }
     }
 
+    pub fn line_height(&self) -> i32 {
+        self.line_height
+    }
+
+    pub fn line(&self) -> &str {
+        &self.data
+    }
+
+    pub fn replace(&mut self, string: String) {
+        self.data = string;
+        self.line_height = get_patch_for_char('A').unwrap().width as i32;
+    }
+
     pub fn add_char(&mut self, c: char) {
         self.data.push(c);
-        // let line_height = get_patch_for_char(c).unwrap().width  as i32;
-        // if line_height > self.line_height {
-        //     self.line_height = line_height;
-        // }
+        if let Some(p) = get_patch_for_char(c) {
+            if p.height as i32 > self.line_height {
+                self.line_height = p.height as i32;
+            }
+        }
     }
 
     pub fn clear(&mut self) {
@@ -97,7 +124,7 @@ impl HUDString {
                 continue;
             }
 
-            let patch = get_patch_for_char(ch).unwrap();
+            let patch = get_patch_for_char(ch).expect(&format!("Did not find {ch}"));
             if y + self.line_height >= height {
                 warn!("HUD String to long for screen size");
                 return None;
@@ -112,7 +139,7 @@ impl HUDString {
 
 #[cfg(test)]
 mod tests {
-    use crate::{get_patch_for_char, load_char_patches, CHARS};
+    use crate::{get_patch_for_char, load_char_patches};
     use wad::WadData;
 
     #[test]

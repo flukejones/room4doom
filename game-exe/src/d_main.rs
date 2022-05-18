@@ -11,6 +11,7 @@ use gameplay::{
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{GameState, MachinationTrait};
 use golem::Context;
+use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
@@ -104,6 +105,7 @@ pub fn d_doom_loop(
     let mut machines = Machinations {
         statusbar: Statusbar::new(game.game_mode, &game.wad_data),
         intermission: Intermission::new(game.game_mode, &game.wad_data),
+        hud_msgs: Messages::new(&game.wad_data),
     };
 
     loop {
@@ -254,10 +256,10 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
 /// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
 ///
 /// D_Display
-fn d_display<I, S>(
+fn d_display<I, S, H>(
     rend: &mut impl PlayRenderer,
     menu: &mut impl MachinationTrait,
-    machines: &mut Machinations<I, S>,
+    machines: &mut Machinations<I, S, H>,
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
@@ -267,6 +269,7 @@ fn d_display<I, S>(
 ) where
     I: MachinationTrait,
     S: MachinationTrait,
+    H: MachinationTrait,
 {
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
@@ -304,6 +307,7 @@ fn d_display<I, S>(
         GameState::Level => {
             // TODO: Automap draw
             machines.statusbar.draw(draw_buf);
+            machines.hud_msgs.draw(draw_buf);
         }
         GameState::Intermission => machines.intermission.draw(draw_buf),
         GameState::Finale => {
@@ -349,16 +353,17 @@ fn d_display<I, S>(
     //menu.draw(disp_buf); // menu is drawn on top of wipes too
 }
 
-fn try_run_tics<I, S>(
+fn try_run_tics<I, S, H>(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I, S>,
+    machinations: &mut Machinations<I, S, H>,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
 ) where
     I: MachinationTrait,
     S: MachinationTrait,
+    H: MachinationTrait,
 {
     // TODO: net.c starts here
     process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
@@ -373,15 +378,16 @@ fn try_run_tics<I, S>(
     });
 }
 
-fn process_events<I, S>(
+fn process_events<I, S, H>(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I, S>,
+    machinations: &mut Machinations<I, S, H>,
     cheats: &mut Cheats,
 ) where
     I: MachinationTrait,
     S: MachinationTrait,
+    H: MachinationTrait,
 {
     // required for cheats and menu so they don't receive multiple key-press fo same key
     let callback = |sc: Scancode| {
@@ -393,6 +399,11 @@ fn process_events<I, S>(
         if menu.responder(sc, game) {
             return true; // Menu took event
         }
+
+        if machinations.hud_msgs.responder(sc, game) {
+            return true; // Menu took event
+        }
+
         // We want intermission to check checks only if the level isn't loaded
         if game.level.is_none() {
             if machinations.intermission.responder(sc, game) {

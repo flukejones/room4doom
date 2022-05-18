@@ -105,4 +105,10 @@ impl GameTraits for Game {
     fn player_status(&self) -> PlayerStatus {
         self.players[self.consoleplayer].status.clone()
     }
+
+    fn player_message(&self) -> Option<String> {
+        self.players[self.consoleplayer]
+            .message
+            .map(|s| s.to_string())
+    }
 }

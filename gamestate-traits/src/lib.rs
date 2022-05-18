@@ -69,6 +69,8 @@ pub trait GameTraits {
     /// Fetch the basic player statistics (player 1)
     fn player_status(&self) -> PlayerStatus;
 
+    fn player_message(&self) -> Option<String>;
+
     // TODO: get and set settings Struct
 }
 
