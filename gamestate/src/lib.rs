@@ -687,10 +687,11 @@ impl Game {
     /// through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
-    pub fn ticker<I, S>(&mut self, machinations: &mut Machinations<I, S>)
+    pub fn ticker<I, S, H>(&mut self, machinations: &mut Machinations<I, S, H>)
     where
         I: MachinationTrait,
         S: MachinationTrait,
+        H: MachinationTrait,
     {
         trace!("Entered ticker");
         // do player reborns if needed
@@ -788,7 +789,8 @@ impl Game {
                 // AM_Ticker();
                 // update the HUD statuses (things like timeout displayed messages)
                 // HU_Ticker();
-                self.hu_ticker();
+                machinations.hud_msgs.ticker(self);
+                self.hud_console_ticker();
             }
             GameState::Intermission => {
                 // WI_Ticker calls world_done()
@@ -848,7 +850,7 @@ impl Game {
     }
 
     /// TODO: temporary to get player messages in CLI out
-    fn hu_ticker(&mut self) {
+    fn hud_console_ticker(&mut self) {
         if self.level.is_some() {
             for (i, player) in self.players.iter_mut().enumerate() {
                 if self.player_in_game[i] {
