@@ -6,5 +6,6 @@ edition = "2021"
 
 [dependencies]
 wad = { path = "../wad" }
+gamestate-traits = { path = "../gamestate-traits" }
 # versions are set by game-exe crate
 log = "*"
