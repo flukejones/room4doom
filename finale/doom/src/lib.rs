@@ -1,7 +1,9 @@
 mod text;
 
 use crate::text::*;
-use gamestate_traits::{GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode};
+use gamestate_traits::{
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode, TICRATE,
+};
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::{
     lumps::{WadFlat, WadPalette},
@@ -14,6 +16,7 @@ pub struct Finale {
     screen_height: i32,
     text: HUDString,
     bg_flat: WadFlat,
+    count: i32,
 }
 
 impl Finale {
@@ -34,6 +37,7 @@ impl Finale {
             screen_height: 0,
             text: HUD_STRING,
             bg_flat,
+            count: 0,
         }
     }
 }
@@ -41,6 +45,7 @@ impl Finale {
 impl MachinationTrait for Finale {
     fn init(&mut self, game: &impl GameTraits) {
         let mut name = "FLOOR4_8";
+        self.count = 20 * TICRATE;
 
         if game.get_mode() != GameMode::Commercial {
             game.change_music(MusTrack::Victor);
@@ -65,7 +70,7 @@ impl MachinationTrait for Finale {
             }
         } else {
             game.change_music(MusTrack::Read_M);
-            match game.level_end_info().map {
+            match game.level_end_info().next {
                 6 => {
                     name = "SLIME16";
                     self.text.replace(C1TEXT.to_ascii_uppercase());
@@ -101,12 +106,20 @@ impl MachinationTrait for Finale {
         };
     }
 
-    fn responder(&mut self, _sc: Scancode, _game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, sc: Scancode, _game: &mut impl GameTraits) -> bool {
+        if sc == Scancode::Return || sc == Scancode::Space {
+            self.count = 0;
+            return true;
+        }
         false
     }
 
-    fn ticker(&mut self, _game: &mut impl GameTraits) -> bool {
+    fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
         self.text.inc_current_char();
+        self.count -= 1;
+        if self.count <= 0 && game.get_mode() == GameMode::Commercial {
+            game.finale_done();
+        }
         false
     }
 

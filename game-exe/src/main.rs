@@ -222,6 +222,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let wad = WadData::new(options.iwad.clone().into());
     setup_timidity(&wad);
+
     let game = Game::new(
         options.clone().into(),
         wad,

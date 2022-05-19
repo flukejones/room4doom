@@ -63,6 +63,8 @@ pub trait GameTraits {
     /// Tell the game that the level is completed and the next level or state should begin
     fn level_done(&mut self);
 
+    fn finale_done(&mut self);
+
     /// Fetch the end-of-level information
     fn level_end_info(&self) -> &WBStartStruct;
 
