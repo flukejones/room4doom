@@ -99,6 +99,10 @@ impl HUDString {
         }
     }
 
+    pub fn is_at_end(&self) -> bool {
+        self.current_char == self.data.len()
+    }
+
     pub fn set_draw_all(&mut self) {
         self.current_char = self.data.len();
     }
@@ -156,7 +160,7 @@ impl HUDString {
             }
 
             machination.draw_patch(patch, x, y + self.line_height - patch.height as i32, pixels);
-            x += patch.width as i32 + 1;
+            x += patch.width as i32;
         }
         Some(())
     }

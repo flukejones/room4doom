@@ -70,7 +70,7 @@ impl MachinationTrait for Finale {
             }
         } else {
             game.change_music(MusTrack::Read_M);
-            match game.level_end_info().next {
+            match game.level_end_info().last {
                 6 => {
                     name = "SLIME16";
                     self.text.replace(C1TEXT.to_ascii_uppercase());
@@ -108,7 +108,11 @@ impl MachinationTrait for Finale {
 
     fn responder(&mut self, sc: Scancode, _game: &mut impl GameTraits) -> bool {
         if sc == Scancode::Return || sc == Scancode::Space {
-            self.count = 0;
+            if !self.text.is_at_end() {
+                self.text.set_draw_all();
+            } else {
+                self.count = 0;
+            }
             return true;
         }
         false
@@ -143,6 +147,6 @@ impl MachinationTrait for Finale {
                 }
             }
         }
-        self.text.draw(4, 4, self, buffer);
+        self.text.draw(6, 6, self, buffer);
     }
 }
