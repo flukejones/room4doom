@@ -11,7 +11,10 @@ pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
 pub use sound_traits::{MusTrack, SfxName};
 
-use wad::lumps::{WadPalette, WadPatch};
+use wad::{
+    lumps::{WadPalette, WadPatch},
+    WadData,
+};
 
 /// The current state of the game-exe: whether we are playing, gazing at the intermission screen,
 /// the game-exe final animation, or a demo.
@@ -37,7 +40,7 @@ pub trait GameTraits {
     /// is currently being played. Commercial (Doom II) contains demons that Doom
     /// doesn't have, and Doom contains intermission screens that Doom II doesn't
     /// have (for example).
-    fn get_mode(&mut self) -> GameMode;
+    fn get_mode(&self) -> GameMode;
 
     /// Ask the game to load this save
     fn load_game(&mut self, name: String);
@@ -55,7 +58,7 @@ pub trait GameTraits {
     fn start_sound(&mut self, sfx: SfxName);
 
     /// Change to or play this music track
-    fn change_music(&mut self, music: MusTrack);
+    fn change_music(&self, music: MusTrack);
 
     /// Tell the game that the level is completed and the next level or state should begin
     fn level_done(&mut self);
@@ -70,6 +73,8 @@ pub trait GameTraits {
     fn player_status(&self) -> PlayerStatus;
 
     fn player_message(&self) -> Option<String>;
+
+    fn get_wad_data(&self) -> &WadData;
 
     // TODO: get and set settings Struct
 }

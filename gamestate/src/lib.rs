@@ -27,7 +27,7 @@ use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
 use crate::machination::Machinations;
 use gameplay::{
     log,
-    log::{debug, error, info, trace, warn},
+    log::{debug, info, trace, warn},
     m_clear_random, spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
@@ -681,17 +681,34 @@ impl Game {
         self.gamestate = GameState::Intermission;
     }
 
+    fn start_finale<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
+    where
+        I: MachinationTrait,
+        S: MachinationTrait,
+        H: MachinationTrait,
+        F: MachinationTrait,
+    {
+        self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
+        self.wminfo.epsd = self.game_episode - 1;
+        self.wminfo.last = self.game_map - 1;
+
+        self.gamestate = GameState::Finale;
+        self.level = None; // drop the level
+        machinations.finale.init(self);
+    }
+
     /// The ticker which controls the state the game-exe is in. For example the game-exe could be
     /// in menu mode, demo play, intermission (`GameState`). A state may also be
     /// running other functions that can change the game-exe state or cause an action
     /// through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
-    pub fn ticker<I, S, H>(&mut self, machinations: &mut Machinations<I, S, H>)
+    pub fn ticker<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
     where
         I: MachinationTrait,
         S: MachinationTrait,
         H: MachinationTrait,
+        F: MachinationTrait,
     {
         trace!("Entered ticker");
         // do player reborns if needed
@@ -720,15 +737,7 @@ impl Game {
             GameAction::LoadGame => todo!("G_DoLoadGame()"),
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
             GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
-            GameAction::Victory => {
-                // TODO: temporary to allow Doom 2 to continue
-                if self.game_mode == GameMode::Commercial && self.game_map == 7 {
-                    error!("DOOM II finale for Map07 not done. Using GameAction::CompletedLevel");
-                    self.game_action = GameAction::CompletedLevel
-                } else {
-                    todo!("F_StartFinale()")
-                }
-            }
+            GameAction::Victory => self.start_finale(machinations),
             GameAction::WorldDone => self.do_world_done(),
             GameAction::Screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
         }
@@ -797,7 +806,7 @@ impl Game {
                 machinations.intermission.ticker(self);
             }
             GameState::Finale => {
-                // F_Ticker();
+                machinations.finale.ticker(self);
             }
             GameState::Demo => {
                 // D_PageTicker();

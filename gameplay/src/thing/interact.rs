@@ -81,7 +81,9 @@ impl MapObject {
                 // DOn't push away if it's a player with a chainsaw
                 do_push = source.as_ref().unwrap().player.is_none()
                     || unsafe {
-                        (*source.as_ref().unwrap().player.unwrap()).readyweapon
+                        (*source.as_ref().unwrap().player.unwrap())
+                            .status
+                            .readyweapon
                             != WeaponType::Chainsaw
                     };
                 source.as_mut().unwrap()
@@ -399,7 +401,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTBERSERK);
-                    if !(player.readyweapon == WeaponType::Fist) {
+                    if !(player.status.readyweapon == WeaponType::Fist) {
                         player.pendingweapon = WeaponType::Fist;
                     }
                     // TODO: sound = sfx_getpow;

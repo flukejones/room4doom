@@ -38,7 +38,9 @@ impl Messages {
         if self.current == self.lines.len() {
             self.current = 0;
         }
+        self.lines[self.current].clear();
         self.lines[self.current].replace(line);
+        //self.lines[self.current].set_draw_all();
         self.count_down = COUNT_DOWN;
 
         if self.start == self.current {
@@ -62,24 +64,26 @@ impl Messages {
 
     pub fn draw_wrapped(&self, machination: &impl MachinationTrait, pixels: &mut PixelBuf) {
         let x = 10;
-        let mut y = 10;
+        let mut y = 2;
         let mut pos = self.start;
         loop {
-            if pos == self.lines.len() {
-                break;
+            if pos >= self.lines.len() {
+                pos = 0;
             }
             if self.lines[pos].line().is_empty() {
+                if pos == self.current {
+                    break;
+                }
                 pos += 1;
                 continue;
             }
 
-            self.lines[pos].draw_wrapped(x, y, machination, pixels);
+            self.lines[pos].draw(x, y, machination, pixels);
             y += self.lines[pos].line_height() + 1;
 
             if pos == self.current {
                 break;
             }
-
             pos += 1;
         }
     }
@@ -93,6 +97,11 @@ impl MachinationTrait for Messages {
     }
 
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
+        for l in self.lines.iter_mut() {
+            if !l.line().is_empty() {
+                l.inc_current_char();
+            }
+        }
         if let Some(msg) = game.player_message() {
             self.add_line(msg.to_ascii_uppercase());
         }
@@ -102,7 +111,7 @@ impl MachinationTrait for Messages {
             self.start = 0;
             self.current = 0;
             for l in self.lines.iter_mut() {
-                l.replace(String::new());
+                l.clear();
             }
         }
         false

@@ -47,7 +47,7 @@ pub(crate) fn a_refire(player: &mut Player, _pspr: &mut PspDef) {
 
 pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     let mut level_time = 0;
-    let readyweapon = player.readyweapon;
+    let readyweapon = player.status.readyweapon;
     if let Some(mobj) = player.mobj_mut() {
         if std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK1 as usize])
             || std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK2 as usize])
@@ -74,8 +74,8 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     if player.pendingweapon != WeaponType::NoChange || player.status.health <= 0 {
         // change weapon
         //  (pending weapon should allready be validated)
-        if player.readyweapon != WeaponType::NoChange {
-            let new_state = WEAPON_INFO[player.readyweapon as usize].downstate;
+        if player.status.readyweapon != WeaponType::NoChange {
+            let new_state = WEAPON_INFO[player.status.readyweapon as usize].downstate;
             player.set_psprite(PsprNum::Weapon as usize, new_state);
         }
         return;
@@ -84,7 +84,8 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     // TODO: TEMPORARY
     if player.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
         if !player.status.attackdown
-            || (player.readyweapon != WeaponType::Missile && player.readyweapon != WeaponType::BFG)
+            || (player.status.readyweapon != WeaponType::Missile
+                && player.status.readyweapon != WeaponType::BFG)
         {
             player.status.attackdown = true;
             player.fire_weapon();
@@ -118,7 +119,7 @@ pub(crate) fn a_lower(player: &mut Player, pspr: &mut PspDef) {
         return;
     }
 
-    player.readyweapon = player.pendingweapon;
+    player.status.readyweapon = player.pendingweapon;
     player.bring_up_weapon();
 }
 
@@ -129,7 +130,7 @@ pub(crate) fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     }
     pspr.sy = WEAPONTOP;
 
-    let new_state = WEAPON_INFO[player.readyweapon as usize].readystate;
+    let new_state = WEAPON_INFO[player.status.readyweapon as usize].readystate;
     player.set_psprite(PsprNum::Weapon as usize, new_state);
 }
 
@@ -148,10 +149,10 @@ fn shoot_bullet(player: &mut Player) {
 
 pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
     shoot_bullet(player);
-    player.status.ammo[WEAPON_INFO[player.readyweapon as usize].ammo as usize] -= 1;
+    player.status.ammo[WEAPON_INFO[player.status.readyweapon as usize].ammo as usize] -= 1;
     player.set_psprite(
         PsprNum::Flash as usize,
-        WEAPON_INFO[player.readyweapon as usize].flashstate,
+        WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     );
 }
 
@@ -173,7 +174,7 @@ pub(crate) fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     player.set_psprite(
         PsprNum::Flash as usize,
-        WEAPON_INFO[player.readyweapon as usize].flashstate,
+        WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     );
 }
 
@@ -204,7 +205,7 @@ pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(2);
     player.set_psprite(
         PsprNum::Flash as usize,
-        WEAPON_INFO[player.readyweapon as usize].flashstate,
+        WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     );
 }
 
@@ -214,7 +215,7 @@ pub(crate) fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     }
     shoot_bullet(player);
     let state = StateNum::from(
-        WEAPON_INFO[player.readyweapon as usize].flashstate as u16
+        WEAPON_INFO[player.status.readyweapon as usize].flashstate as u16
             + pspr.state.unwrap().next_state as u16
             - StateNum::CHAIN1 as u16
             - 1,
@@ -227,7 +228,7 @@ pub(crate) fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
 pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     let state = StateNum::from(
-        (WEAPON_INFO[player.readyweapon as usize].flashstate as u16 + p_random() as u16) & 1,
+        (WEAPON_INFO[player.status.readyweapon as usize].flashstate as u16 + p_random() as u16) & 1,
     );
     player.set_psprite(PsprNum::Flash as usize, state);
     if let Some(mobj) = player.mobj_raw() {
@@ -246,7 +247,7 @@ pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     // player.set_psprite(
     //     PsprNum::Flash as usize,
-    //     WEAPON_INFO[player.readyweapon as usize].flashstate,
+    //     WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     // );
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
@@ -264,7 +265,7 @@ pub(crate) fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     // player.set_psprite(
     //     PsprNum::Flash as usize,
-    //     WEAPON_INFO[player.readyweapon as usize].flashstate,
+    //     WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     // );
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
@@ -289,7 +290,7 @@ pub(crate) fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
     player.set_mobj_state(StateNum::PLAY_ATK2);
     player.set_psprite(
         PsprNum::Flash as usize,
-        WEAPON_INFO[player.readyweapon as usize].flashstate,
+        WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     );
 }
 

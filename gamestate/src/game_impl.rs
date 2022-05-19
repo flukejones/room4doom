@@ -2,6 +2,7 @@ use crate::Game;
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
 use gamestate_traits::{GameTraits, PlayerStatus};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
+use wad::WadData;
 
 impl GameTraits for Game {
     /// G_InitNew
@@ -19,7 +20,7 @@ impl GameTraits for Game {
         self.game_action = GameAction::NewGame;
     }
 
-    fn get_mode(&mut self) -> GameMode {
+    fn get_mode(&self) -> GameMode {
         self.game_mode
     }
 
@@ -49,7 +50,7 @@ impl GameTraits for Game {
         self.snd_command.send(sfx).unwrap();
     }
 
-    fn change_music(&mut self, mus: MusTrack) {
+    fn change_music(&self, mus: MusTrack) {
         let music = if mus == MusTrack::None {
             if self.game_mode == GameMode::Commercial {
                 MusTrack::Runnin as usize + self.game_map as usize - 1
@@ -110,5 +111,9 @@ impl GameTraits for Game {
         self.players[self.consoleplayer]
             .message
             .map(|s| s.to_string())
+    }
+
+    fn get_wad_data(&self) -> &WadData {
+        &self.wad_data
     }
 }
