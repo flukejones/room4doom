@@ -90,7 +90,11 @@ impl Messages {
 }
 
 impl MachinationTrait for Messages {
-    fn init(&mut self, _game: &impl GameTraits) {}
+    fn init(&mut self, _game: &impl GameTraits) {
+        for l in self.lines.iter_mut() {
+            l.clear();
+        }
+    }
 
     fn responder(&mut self, _sc: Scancode, _game: &mut impl GameTraits) -> bool {
         false

@@ -80,7 +80,7 @@ impl GameTraits for Game {
             }
         }
         if matches!(self.game_mode, GameMode::Commercial) {
-            match self.game_map {
+            match self.wminfo.last {
                 6 | 11 | 15 | 20 | 30 | 31 => {
                     if !self.wminfo.didsecret && (self.game_map == 15 || self.game_map == 31) {
                         return;

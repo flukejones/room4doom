@@ -41,7 +41,7 @@ impl Intermission {
         );
         y += (5 * self.patches.finish.height as i32) / 4;
         let ep = self.level_info.epsd as usize;
-        let patch = &self.level_names[ep][self.level_info.last as usize];
+        let patch = &self.level_names[ep][self.level_info.last as usize - 1];
         self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
     }
 
