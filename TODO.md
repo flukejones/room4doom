@@ -7,7 +7,7 @@
 - [X] Screen wipe
 - [X] HUD (Done except for multiplayer chat)
 - [ ] Automap
-- [-] Status bar drawing (Mostly complete. Needs attacked-from-angle)
+- [X] Status bar
 - [ ] Demo playback
 - [ ] Save/load game
 - [ ] Sound:
@@ -20,7 +20,6 @@
 
 ## BUGS
 
-- [ ] Player sprite isn't rendered with 'static' if player is invisible (not implemented)
 - [ ] Don't pickup armour shards if have max armour
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
@@ -32,6 +31,7 @@
 
 ## IMPROVEMENTS
 
+- [ ] Statusbar doomguy face attacked-from-angle
 - [ ] Make responders use ticcmds to ensure they are generic
 - [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
   data is initialised and valid.
@@ -43,7 +43,6 @@
 - [ ] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
     . It's (currently) not possible to "step" on top of another object
 - [ ] Step over things if higher
-- [ ] Shade screen with red palettes for increased damage (not the "took damage" flash)
 
 ## BOOM stuff to consider
 
@@ -62,6 +61,8 @@
 
 ## DONE
 
+- [X] Shade screen with red palettes for increased damage (not the "took damage" flash)
+- [X] Player sprite isn't rendered with 'static' if player is invisible
 - [X] Chaingun guy doesn't do burst-fire (shoots, but not sustained) (remove invalid state set)
 - [X] Monsters don't activate when player is real close (related to angle fix?)
 - [X] Colours seem off for darker areas? (was incorrect float conversion on zlight table creation)

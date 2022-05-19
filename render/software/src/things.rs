@@ -380,13 +380,19 @@ impl SoftwareRenderer {
 
             for sprite in player.psprites.iter() {
                 if sprite.state.is_some() {
-                    self.draw_player_sprite(sprite, light as usize, pixels);
+                    self.draw_player_sprite(sprite, light as usize, mobj.flags, pixels);
                 }
             }
         }
     }
 
-    fn draw_player_sprite(&mut self, sprite: &PspDef, light: usize, pixels: &mut PixelBuf) {
+    fn draw_player_sprite(
+        &mut self,
+        sprite: &PspDef,
+        light: usize,
+        flags: u32,
+        pixels: &mut PixelBuf,
+    ) {
         let pspriteiscale = 0.99;
         let pspritescale = 1;
 
@@ -410,6 +416,7 @@ impl SoftwareRenderer {
         }
 
         let mut vis = VisSprite::new();
+        vis.mobj_flags = flags;
         vis.patch = frame.lump[0] as usize;
         vis.texture_mid = SCREENHEIGHT_HALF as f32 - (sprite.sy.floor() - patch.top_offset as f32);
         vis.x1 = if x1 < 0 { 0 } else { x1 };
