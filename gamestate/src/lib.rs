@@ -799,7 +799,6 @@ impl Game {
                 // update the HUD statuses (things like timeout displayed messages)
                 // HU_Ticker();
                 machinations.hud_msgs.ticker(self);
-                self.hud_console_ticker();
             }
             GameState::Intermission => {
                 // WI_Ticker calls world_done()
@@ -855,19 +854,6 @@ impl Game {
             let animations = &mut self.animations;
             let mut pic_data = self.pic_data.borrow_mut();
             update_specials(level, animations, &mut pic_data);
-        }
-    }
-
-    /// TODO: temporary to get player messages in CLI out
-    fn hud_console_ticker(&mut self) {
-        if self.level.is_some() {
-            for (i, player) in self.players.iter_mut().enumerate() {
-                if self.player_in_game[i] {
-                    if let Some(msg) = player.message.take() {
-                        info!("Console: {msg}");
-                    }
-                }
-            }
         }
     }
 }

@@ -72,7 +72,8 @@ pub trait GameTraits {
     /// Fetch the basic player statistics (player 1)
     fn player_status(&self) -> PlayerStatus;
 
-    fn player_message(&self) -> Option<String>;
+    /// Takes the player message waiting and replaces with None
+    fn player_msg_take(&mut self) -> Option<String>;
 
     fn get_wad_data(&self) -> &WadData;
 

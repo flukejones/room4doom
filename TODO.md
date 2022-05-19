@@ -8,10 +8,19 @@
 - [X] HUD (Done except for multiplayer chat)
 - [ ] Automap
 - [-] Status bar drawing (Mostly complete. Needs attacked-from-angle)
+- [ ] Demo playback
 - [ ] Save/load game
+- [ ] Sound:
+  - [ ] Verify positional sound
+  - [ ] Verify distance and cutoff
+  - [ ] Check the volumes (had to divide midi track vol in half)
+  - [ ] Add the pitch shift
+  - [ ] Maybe use the `usefulness` field..
+  - [ ] OPL2 emulation (a lot of work here)
 
 ## BUGS
 
+- [ ] Player sprite isn't rendered with 'static' if player is invisible (not implemented)
 - [ ] Don't pickup armour shards if have max armour
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)

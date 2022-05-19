@@ -120,7 +120,7 @@ enum MenuIndex {
     ReadThis2,
 }
 
-fn place_holder(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {}
+fn place_holder(_: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {}
 
 type Patches = HashMap<&'static str, WadPatch>;
 
@@ -350,11 +350,11 @@ fn sel_readthis2(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::TopLevel;
 }
 
-fn sel_quit_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
+fn sel_quit_game(_menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 
-fn sel_episode(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_episode(menu: &mut MenuDoom, choice: i32, _game: &mut dyn GameTraits) {
     menu.episode = choice;
     menu.current_menu = MenuIndex::Skill;
 }

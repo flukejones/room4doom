@@ -1,5 +1,5 @@
 use crate::PlayerStatus;
-use gamestate_traits::{m_random, PixelBuf, WeaponType, TICRATE};
+use gamestate_traits::{m_random, WeaponType, TICRATE};
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
     WadData,
@@ -81,7 +81,6 @@ impl DoomguyFace {
         // dead
         let lump = wad.get_lump(&format!("STFDEAD0")).unwrap();
         faces[face_num] = WadPatch::from_lump(lump);
-        face_num += 1;
 
         Self {
             faces,
