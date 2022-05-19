@@ -159,6 +159,7 @@ impl<'a> Snd<'a> {
 
         let mut mus_count = 0;
         unsafe {
+            // TODO: make function unsafe to call instead to reflect the static mut
             for mus in MUS_DATA.iter_mut() {
                 if let Some(lump) = wad.get_lump(mus.lump_name().as_str()) {
                     if lump.data[..4] == MUS_ID {

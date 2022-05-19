@@ -102,7 +102,7 @@ impl MachinationTrait for Messages {
                 l.inc_current_char();
             }
         }
-        if let Some(msg) = game.player_message() {
+        if let Some(msg) = game.player_msg_take() {
             self.add_line(msg.to_ascii_uppercase());
         }
         self.count_down -= 1;
@@ -143,28 +143,27 @@ mod tests {
         msgs.add_line("1".to_string());
         msgs.add_line("2".to_string());
         msgs.add_line("3".to_string());
-        msgs.add_line("4".to_string());
-        msgs.add_line("5".to_string());
-        msgs.add_line("6".to_string());
-        msgs.add_line("7".to_string());
-        msgs.add_line("8".to_string());
-        msgs.add_line("9".to_string());
 
-        assert_eq!(msgs.lines[0].line(), "9");
-        assert_eq!(msgs.lines[9].line(), "8");
+        assert_eq!(msgs.lines[0].line(), "3");
         assert_eq!(msgs.lines[1].line(), "0");
         assert_eq!(msgs.lines[2].line(), "1");
-        assert_eq!(msgs.lines[msgs.current].line(), "9");
+        assert_eq!(msgs.lines[3].line(), "2");
+
+        assert_eq!(msgs.lines[msgs.current].line(), "3");
         assert_eq!(msgs.lines[msgs.start].line(), "0");
 
         msgs.add_line("11".to_string());
         assert_eq!(msgs.lines[msgs.start].line(), "1");
-        assert_eq!(msgs.lines[0].line(), "9");
+        assert_eq!(msgs.lines[0].line(), "3");
+        assert_eq!(msgs.lines[1].line(), "11");
         assert_eq!(msgs.lines[msgs.current].line(), "11");
 
         msgs.add_line("12".to_string());
         assert_eq!(msgs.lines[msgs.start].line(), "2");
+        assert_eq!(msgs.lines[0].line(), "3");
         assert_eq!(msgs.lines[1].line(), "11");
+        assert_eq!(msgs.lines[2].line(), "12");
+        assert_eq!(msgs.lines[3].line(), "2");
         assert_eq!(msgs.lines[msgs.current].line(), "12");
 
         msgs.pop_last();

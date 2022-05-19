@@ -146,128 +146,128 @@ pub(crate) const C6TEXT: &str = "CONGRATULATIONS, YOU'VE FOUND THE
 SUPER SECRET LEVEL!  YOU'D BETTER
 BLAZE THROUGH THIS ONE!";
 
-// after map 06
+// // after map 06
 
-pub(crate) const P1TEXT: &str = "You gloat over the steaming carcass of the
-Guardian.  With its death, you've wrested
-the Accelerator from the stinking claws
-of Hell.  You relax and glance around the
-room.  Damn!  There was supposed to be at
-least one working prototype, but you can't
-see it. The demons must have taken it.
+// pub(crate) const P1TEXT: &str = "You gloat over the steaming carcass of the
+// Guardian.  With its death, you've wrested
+// the Accelerator from the stinking claws
+// of Hell.  You relax and glance around the
+// room.  Damn!  There was supposed to be at
+// least one working prototype, but you can't
+// see it. The demons must have taken it.
 
-You must find the prototype, or all your
-struggles will have been wasted. Keep
-moving, keep fighting, keep killing.
-Oh yes, keep living, too.";
+// You must find the prototype, or all your
+// struggles will have been wasted. Keep
+// moving, keep fighting, keep killing.
+// Oh yes, keep living, too.";
 
-// after map 11
+// // after map 11
 
-pub(crate) const P2TEXT: &str = "Even the deadly Arch-Vile labyrinth could
-not stop you, and you've gotten to the
-prototype Accelerator which is soon
-efficiently and permanently deactivated.
+// pub(crate) const P2TEXT: &str = "Even the deadly Arch-Vile labyrinth could
+// not stop you, and you've gotten to the
+// prototype Accelerator which is soon
+// efficiently and permanently deactivated.
 
-You're good at that kind of thing.";
+// You're good at that kind of thing.";
 
-// after map 20
+// // after map 20
 
-pub(crate) const P3TEXT: &str = "You've bashed and battered your way into
-the heart of the devil-hive.  Time for a
-Search-and-Destroy mission, aimed at the
-Gatekeeper, whose foul offspring is
-cascading to Earth.  Yeah, he's bad. But
-you know who's worse!
+// pub(crate) const P3TEXT: &str = "You've bashed and battered your way into
+// the heart of the devil-hive.  Time for a
+// Search-and-Destroy mission, aimed at the
+// Gatekeeper, whose foul offspring is
+// cascading to Earth.  Yeah, he's bad. But
+// you know who's worse!
 
-Grinning evilly, you check your gear, and
-get ready to give the bastard a little Hell
-of your own making!";
+// Grinning evilly, you check your gear, and
+// get ready to give the bastard a little Hell
+// of your own making!";
 
-// after map 30
+// // after map 30
 
-pub(crate) const P4TEXT: &str = "The Gatekeeper's evil face is splattered
-all over the place.  As its tattered corpse
-collapses, an inverted Gate forms and
-sucks down the shards of the last
-prototype Accelerator, not to mention the
-few remaining demons.  You're done. Hell
-has gone back to pounding bad dead folks
-instead of good live ones.  Remember to
-tell your grandkids to put a rocket
-launcher in your coffin. If you go to Hell
-when you die, you'll need it for some
-final cleaning-up ...";
+// pub(crate) const P4TEXT: &str = "The Gatekeeper's evil face is splattered
+// all over the place.  As its tattered corpse
+// collapses, an inverted Gate forms and
+// sucks down the shards of the last
+// prototype Accelerator, not to mention the
+// few remaining demons.  You're done. Hell
+// has gone back to pounding bad dead folks
+// instead of good live ones.  Remember to
+// tell your grandkids to put a rocket
+// launcher in your coffin. If you go to Hell
+// when you die, you'll need it for some
+// final cleaning-up ...";
 
-// before map 31
+// // before map 31
 
-pub(crate) const P5TEXT: &str = "You've found the second-hardest level we
-got. Hope you have a saved game a level or
-two previous.  If not, be prepared to die
-aplenty. For master marines only.";
+// pub(crate) const P5TEXT: &str = "You've found the second-hardest level we
+// got. Hope you have a saved game a level or
+// two previous.  If not, be prepared to die
+// aplenty. For master marines only.";
 
-// before map 32
+// // before map 32
 
-pub(crate) const P6TEXT: &str = "Betcha wondered just what WAS the hardest
-evel we had ready for ya?  Now you know.
-No one gets out alive.";
+// pub(crate) const P6TEXT: &str = "Betcha wondered just what WAS the hardest
+// evel we had ready for ya?  Now you know.
+// No one gets out alive.";
 
-pub(crate) const T1TEXT: &str = "You've fought your way out of the infested
-experimental labs.   It seems that UAC has
-once again gulped it down.  With their
-high turnover, it must be hard for poor
-old UAC to buy corporate health insurance
-nowadays..
+// pub(crate) const T1TEXT: &str = "You've fought your way out of the infested
+// experimental labs.   It seems that UAC has
+// once again gulped it down.  With their
+// high turnover, it must be hard for poor
+// old UAC to buy corporate health insurance
+// nowadays..
 
-Ahead lies the military complex, now
-swarming with diseased horrors hot to get
-their teeth into you. With luck, the
-complex still has some warlike ordnance
-laying around.";
+// Ahead lies the military complex, now
+// swarming with diseased horrors hot to get
+// their teeth into you. With luck, the
+// complex still has some warlike ordnance
+// laying around.";
 
-pub(crate) const T2TEXT: &str = "You hear the grinding of heavy machinery
-ahead.  You sure hope they're not stamping
-out new hellspawn, but you're ready to
-ream out a whole herd if you have to.
-They might be planning a blood feast, but
-you feel about as mean as two thousand
-maniacs packed into one mad killer.
+// pub(crate) const T2TEXT: &str = "You hear the grinding of heavy machinery
+// ahead.  You sure hope they're not stamping
+// out new hellspawn, but you're ready to
+// ream out a whole herd if you have to.
+// They might be planning a blood feast, but
+// you feel about as mean as two thousand
+// maniacs packed into one mad killer.
 
-You don't plan to go down easy.";
+// You don't plan to go down easy.";
 
-pub(crate) const T3TEXT: &str = "The vista opening ahead looks real damn
-familiar. Smells familiar, too -- like
-fried excrement. You didn't like this
-place before, and you sure as hell ain't
-planning to like it now. The more you
-brood on it, the madder you get.
-Hefting your gun, an evil grin trickles
-onto your face. Time to take some names.";
+// pub(crate) const T3TEXT: &str = "The vista opening ahead looks real damn
+// familiar. Smells familiar, too -- like
+// fried excrement. You didn't like this
+// place before, and you sure as hell ain't
+// planning to like it now. The more you
+// brood on it, the madder you get.
+// Hefting your gun, an evil grin trickles
+// onto your face. Time to take some names.";
 
-pub(crate) const T4TEXT: &str = "Suddenly, all is silent, from one horizon
-to the other. The agonizing echo of Hell
-fades away, the nightmare sky turns to
-blue, the heaps of monster corpses start
-to evaporate along with the evil stench
-that filled the air. Jeeze, maybe you've
-done it. Have you really won?
+// pub(crate) const T4TEXT: &str = "Suddenly, all is silent, from one horizon
+// to the other. The agonizing echo of Hell
+// fades away, the nightmare sky turns to
+// blue, the heaps of monster corpses start
+// to evaporate along with the evil stench
+// that filled the air. Jeeze, maybe you've
+// done it. Have you really won?
 
-Something rumbles in the distance.
-A blue light begins to glow inside the
-ruined skull of the demon-spitter.";
+// Something rumbles in the distance.
+// A blue light begins to glow inside the
+// ruined skull of the demon-spitter.";
 
-pub(crate) const T5TEXT: &str = "What now? Looks totally different. Kind
-of like King Tut's condo. Well,
-whatever's here can't be any worse
-than usual. Can it?  Or maybe it's best
-to let sleeping gods lie..";
+// pub(crate) const T5TEXT: &str = "What now? Looks totally different. Kind
+// of like King Tut's condo. Well,
+// whatever's here can't be any worse
+// than usual. Can it?  Or maybe it's best
+// to let sleeping gods lie..";
 
-pub(crate) const T6TEXT: &str = "Time for a vacation. You've burst the
-bowels of hell and by golly you're ready
-for a break. You mutter to yourself,
-Maybe someone else can kick Hell's ass
-next time around. Ahead lies a quiet town,
-with peaceful flowing water, quaint
-buildings, and presumably no Hellspawn.
+// pub(crate) const T6TEXT: &str = "Time for a vacation. You've burst the
+// bowels of hell and by golly you're ready
+// for a break. You mutter to yourself,
+// Maybe someone else can kick Hell's ass
+// next time around. Ahead lies a quiet town,
+// with peaceful flowing water, quaint
+// buildings, and presumably no Hellspawn.
 
-As you step off the transport, you hear
-the stomp of a cyberdemon's iron shoe.";
+// As you step off the transport, you hear
+// the stomp of a cyberdemon's iron shoe.";
