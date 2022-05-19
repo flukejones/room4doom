@@ -3,9 +3,9 @@
 ## FUNCTIONALITY
 
 - [-] Menu screens (partial. Other functionality required before completion)
-- [-] Intermissions and finale (intermission has no animated text. No finale screens yet)
+- [-] Intermissions and finale (intermission has no animated text. Finale needs cast for Doom II, and bunny for Doom)
 - [X] Screen wipe
-- [ ] HUD (gameplay crate inserts messages in to player struct)
+- [X] HUD (Done except for multiplayer chat)
 - [ ] Automap
 - [-] Status bar drawing (Mostly complete. Needs attacked-from-angle)
 - [ ] Save/load game
@@ -13,7 +13,7 @@
 ## BUGS
 
 - [ ] Don't pickup armour shards if have max armour
-- [ ] Total kills: doesn't count for player if they shoot a barrell and that barrell kills a demon.
+- [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`

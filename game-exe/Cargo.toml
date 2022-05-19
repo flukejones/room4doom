@@ -24,6 +24,7 @@ gamestate = { path = "../gamestate" }
 gamestate-traits = { path = "../gamestate-traits" }
 intermission-doom = { path = "../intermission/doom" }
 hud-doom = { path = "../hud-messages/doom" }
+finale-doom = { path = "../finale/doom" }
 statusbar-doom = { path = "../statusbar/doom" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }

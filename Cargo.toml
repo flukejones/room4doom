@@ -1,5 +1,5 @@
 [workspace]
-members = ["wad", "game-exe", "gameplay", "gamestate", "gamestate-traits", "intermission/doom", "statusbar/doom", "input", "menu/doom", "render/traits", "render/software", "sound/traits", "sound/sdl2", "multigen", "hud-util", "hud-messages/doom"]
+members = ["wad", "game-exe", "gameplay", "gamestate", "gamestate-traits", "intermission/doom", "statusbar/doom", "input", "menu/doom", "render/traits", "render/software", "sound/traits", "sound/sdl2", "multigen", "hud-util", "hud-messages/doom", "finale/doom"]
 
 [profile.release]
 lto = true

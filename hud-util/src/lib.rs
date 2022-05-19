@@ -47,23 +47,28 @@ pub const HUD_STRING: HUDString = HUDString::default();
 pub struct HUDString {
     data: String,
     line_height: i32,
+    current_char: usize,
+    space_width: i32,
 }
 
 impl HUDString {
     const fn default() -> Self {
         Self {
             data: String::new(),
-            line_height: 0,
+            line_height: 10,
+            current_char: 0,
+            space_width: 4,
         }
     }
 
     pub fn new(wad: &WadData) -> Self {
         unsafe { load_char_patches(wad) };
 
-        let line_height = get_patch_for_char('A').unwrap().width as i32;
         Self {
             data: String::new(),
-            line_height,
+            line_height: 10,
+            current_char: 0,
+            space_width: 4,
         }
     }
 
@@ -77,7 +82,6 @@ impl HUDString {
 
     pub fn replace(&mut self, string: String) {
         self.data = string;
-        self.line_height = get_patch_for_char('A').unwrap().width as i32;
     }
 
     pub fn add_char(&mut self, c: char) {
@@ -89,23 +93,38 @@ impl HUDString {
         }
     }
 
+    pub fn inc_current_char(&mut self) {
+        if self.current_char < self.data.len() {
+            self.current_char += 1;
+        }
+    }
+
+    pub fn set_draw_all(&mut self) {
+        self.current_char = self.data.len();
+    }
+
     pub fn clear(&mut self) {
+        self.current_char = 0;
         self.data.clear();
     }
 
-    pub fn draw_wrapped(
+    pub fn draw(
         &self,
         mut x: i32,
         mut y: i32,
         machination: &impl MachinationTrait,
         pixels: &mut PixelBuf,
     ) -> Option<()> {
-        let space_width = get_patch_for_char('_').unwrap().width as i32;
         let width = pixels.width() as i32;
         let height = pixels.height() as i32;
         let start_x = x;
 
         for (i, ch) in self.data.chars().enumerate() {
+            if i > self.current_char {
+                break;
+            }
+
+            // Word len check
             if ch == ' ' {
                 let mut len = 0;
                 for c in self.data[i + 1..].chars() {
@@ -115,12 +134,18 @@ impl HUDString {
                     }
                 }
 
-                if x + len * space_width + space_width >= width {
+                if x + len * self.space_width + self.space_width >= width {
                     x = start_x;
-                    y += self.line_height + 1;
+                    y += self.line_height;
                 } else {
-                    x += space_width;
+                    x += self.space_width;
                 }
+                continue;
+            }
+
+            if ch == '\n' {
+                x = start_x;
+                y += self.line_height;
                 continue;
             }
 
@@ -130,7 +155,7 @@ impl HUDString {
                 return None;
             }
 
-            machination.draw_patch(patch, x, y - patch.height as i32 / 2, pixels);
+            machination.draw_patch(patch, x, y + self.line_height - patch.height as i32, pixels);
             x += patch.width as i32 + 1;
         }
         Some(())

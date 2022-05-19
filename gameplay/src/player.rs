@@ -170,7 +170,6 @@ pub struct Player {
 
     /// Frags, kills of other players.
     pub frags: [i32; MAXPLAYERS as usize],
-    pub readyweapon: WeaponType,
 
     /// Is wp_nochange if not changing.
     pub pendingweapon: WeaponType,
@@ -247,7 +246,6 @@ impl Player {
             fixedcolormap: 0,
 
             frags: [0; 4],
-            readyweapon: WeaponType::NoChange,
             pendingweapon: WeaponType::Pistol,
 
             player_state: PlayerState::Reborn,
@@ -351,7 +349,7 @@ impl Player {
         self.status = PlayerStatus::default();
         self.status.attackdown = true;
         self.player_state = PlayerState::Live;
-        self.readyweapon = WeaponType::Pistol;
+        self.status.readyweapon = WeaponType::Pistol;
         self.pendingweapon = WeaponType::NoChange;
     }
 
@@ -627,7 +625,7 @@ impl Player {
 
         match ammo {
             AmmoType::Clip => {
-                if self.readyweapon == WeaponType::Fist {
+                if self.status.readyweapon == WeaponType::Fist {
                     if self.status.weaponowned[WeaponType::Chaingun as usize] {
                         self.pendingweapon = WeaponType::Chaingun;
                     } else {
@@ -636,7 +634,7 @@ impl Player {
                 }
             }
             AmmoType::Shell => {
-                if (self.readyweapon == WeaponType::Fist
+                if (self.status.readyweapon == WeaponType::Fist
                     || self.pendingweapon == WeaponType::Pistol)
                     && self.status.weaponowned[WeaponType::Shotgun as usize]
                 {
@@ -644,7 +642,7 @@ impl Player {
                 }
             }
             AmmoType::Cell => {
-                if (self.readyweapon == WeaponType::Fist
+                if (self.status.readyweapon == WeaponType::Fist
                     || self.pendingweapon == WeaponType::Pistol)
                     && self.status.weaponowned[WeaponType::Plasma as usize]
                 {
@@ -652,7 +650,7 @@ impl Player {
                 }
             }
             AmmoType::Missile => {
-                if self.readyweapon == WeaponType::Fist
+                if self.status.readyweapon == WeaponType::Fist
                     && self.status.weaponowned[WeaponType::Missile as usize]
                 {
                     self.pendingweapon = WeaponType::Missile;
@@ -761,7 +759,7 @@ impl Player {
             return;
         }
 
-        let new_state = WEAPON_INFO[self.readyweapon as usize].atkstate;
+        let new_state = WEAPON_INFO[self.status.readyweapon as usize].atkstate;
         self.set_psprite(PsprNum::Weapon as usize, new_state);
         if let Some(mobj) = self.mobj_mut() {
             noise_alert(mobj);
@@ -769,11 +767,11 @@ impl Player {
     }
 
     pub(crate) fn check_ammo(&mut self) -> bool {
-        let ammo = &WEAPON_INFO[self.readyweapon as usize].ammo;
+        let ammo = &WEAPON_INFO[self.status.readyweapon as usize].ammo;
         // Minimum for one shot varies with weapon
-        let count = if self.readyweapon == WeaponType::BFG {
+        let count = if self.status.readyweapon == WeaponType::BFG {
             BFGCELLS
-        } else if self.readyweapon == WeaponType::SuperShotgun {
+        } else if self.status.readyweapon == WeaponType::SuperShotgun {
             2
         } else {
             1
@@ -828,7 +826,7 @@ impl Player {
 
         self.set_psprite(
             PsprNum::Weapon as usize,
-            WEAPON_INFO[self.readyweapon as usize].downstate,
+            WEAPON_INFO[self.status.readyweapon as usize].downstate,
         );
 
         false
@@ -836,10 +834,10 @@ impl Player {
 
     pub(crate) fn bring_up_weapon(&mut self) {
         if self.pendingweapon == WeaponType::NoChange {
-            self.pendingweapon = self.readyweapon;
+            self.pendingweapon = self.status.readyweapon;
         }
         if self.pendingweapon == WeaponType::Chainsaw {
-            self.pendingweapon = self.readyweapon;
+            self.pendingweapon = self.status.readyweapon;
             // TODO: StartSound(player->mo, sfx_sawup);
         }
 
@@ -858,8 +856,8 @@ impl Player {
     }
 
     pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
-        if self.status.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] != 0 {
-            self.status.ammo[WEAPON_INFO[self.readyweapon as usize].ammo as usize] -= num;
+        if self.status.ammo[WEAPON_INFO[self.status.readyweapon as usize].ammo as usize] != 0 {
+            self.status.ammo[WEAPON_INFO[self.status.readyweapon as usize].ammo as usize] -= num;
         }
     }
 
@@ -923,7 +921,7 @@ impl Player {
 
             if new_weapon == WeaponType::Fist
                 && self.status.weaponowned[WeaponType::Chainsaw as usize]
-                && !(self.readyweapon == WeaponType::Chainsaw
+                && !(self.status.readyweapon == WeaponType::Chainsaw
                     && self.powers[PowerType::Strength as usize] == 0)
             {
                 new_weapon = WeaponType::Chainsaw;
@@ -932,12 +930,13 @@ impl Player {
             if level.game_mode == GameMode::Commercial
                 && new_weapon == WeaponType::Shotgun
                 && self.status.weaponowned[WeaponType::SuperShotgun as usize]
-                && self.readyweapon != WeaponType::SuperShotgun
+                && self.status.readyweapon != WeaponType::SuperShotgun
             {
                 new_weapon = WeaponType::SuperShotgun;
             }
 
-            if self.status.weaponowned[new_weapon as usize] && new_weapon != self.readyweapon {
+            if self.status.weaponowned[new_weapon as usize] && new_weapon != self.status.readyweapon
+            {
                 // Do not go to plasma or BFG in shareware,
                 //  even if cheated.
                 if (new_weapon != WeaponType::Plasma && new_weapon != WeaponType::BFG)

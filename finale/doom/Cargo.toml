@@ -1,0 +1,12 @@
+[package]
+name = "finale-doom"
+version = "0.1.0"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+
+[dependencies]
+wad = { path = "../../wad" }
+gamestate-traits = { path = "../../gamestate-traits" }
+hud-util = { path = "../../hud-util" }
+# versions are set by game-exe crate
+log = "*"
