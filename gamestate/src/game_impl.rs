@@ -1,6 +1,6 @@
 use crate::Game;
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
-use gamestate_traits::{GameTraits, PlayerStatus};
+use gamestate_traits::{GameState, GameTraits, PlayerStatus};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 use wad::WadData;
 
@@ -74,25 +74,27 @@ impl GameTraits for Game {
     /// Doom function name `G_WorldDone`
     fn level_done(&mut self) {
         self.game_action = GameAction::WorldDone;
-        if let Some(level) = &self.level {
-            if level.secret_exit {
-                for p in self.players.iter_mut() {
-                    p.didsecret = true;
-                }
-            }
-            if matches!(self.game_mode, GameMode::Commercial) {
-                match self.game_map {
-                    6 | 11 | 15 | 20 | 30 | 31 => {
-                        // if !level.secret_exit && (self.game_map == 15 || self.game_map == 31) {
-                        //     // ignore
-                        // } else {
-                        //     // TODO: F_StartFinale();
-                        // }
-                    }
-                    _ => {}
-                }
+        if self.wminfo.didsecret {
+            for p in self.players.iter_mut() {
+                p.didsecret = true;
             }
         }
+        if matches!(self.game_mode, GameMode::Commercial) {
+            match self.game_map {
+                6 | 11 | 15 | 20 | 30 | 31 => {
+                    if !self.wminfo.didsecret && (self.game_map == 15 || self.game_map == 31) {
+                        return;
+                    }
+                    self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
+                    self.game_action = GameAction::Victory;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn finale_done(&mut self) {
+        self.game_action = GameAction::WorldDone;
     }
 
     fn level_end_info(&self) -> &WBStartStruct {

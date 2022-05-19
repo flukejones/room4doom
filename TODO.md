@@ -32,6 +32,7 @@
 
 ## IMPROVEMENTS
 
+- [ ] Make responders use ticcmds to ensure they are generic
 - [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the
   data is initialised and valid.
 - [ ] The Thinker data access methods really should return `Option<T>`

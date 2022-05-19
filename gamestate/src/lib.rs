@@ -594,16 +594,22 @@ impl Game {
     ///
     /// Doom function name `G_DoWorldDone`
     fn do_world_done(&mut self) {
+        self.do_load_level();
         self.gamestate = GameState::Level;
         self.game_map = self.wminfo.next + 1;
-        self.do_load_level();
         self.game_action = GameAction::None;
         // TODO: viewactive = true;
     }
 
     /// Cleanup, re-init, and set up for next level or episode. Also sets up info
     /// that can be displayed on the intermission screene.
-    fn do_completed(&mut self) {
+    fn do_completed<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
+    where
+        I: MachinationTrait,
+        S: MachinationTrait,
+        H: MachinationTrait,
+        F: MachinationTrait,
+    {
         self.game_action = GameAction::None;
 
         for (i, in_game) in self.player_in_game.iter().enumerate() {
@@ -676,25 +682,20 @@ impl Game {
                 .frags
                 .copy_from_slice(&self.players[i].frags);
         }
+        machinations.intermission.init(self);
 
         self.level = None; // Drop level data
         self.gamestate = GameState::Intermission;
     }
 
-    fn start_finale<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
-    where
-        I: MachinationTrait,
-        S: MachinationTrait,
-        H: MachinationTrait,
-        F: MachinationTrait,
-    {
+    fn start_finale(&mut self) {
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
         self.wminfo.epsd = self.game_episode - 1;
         self.wminfo.last = self.game_map - 1;
 
         self.gamestate = GameState::Finale;
         self.level = None; // drop the level
-        machinations.finale.init(self);
+        self.game_action = GameAction::None;
     }
 
     /// The ticker which controls the state the game-exe is in. For example the game-exe could be
@@ -730,14 +731,16 @@ impl Game {
             GameAction::LoadLevel => self.do_load_level(),
             GameAction::NewGame => self.do_new_game(),
             GameAction::CompletedLevel => {
-                self.do_completed();
-                machinations.intermission.init(self);
+                self.do_completed(machinations);
             }
             GameAction::None => {}
             GameAction::LoadGame => todo!("G_DoLoadGame()"),
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
             GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
-            GameAction::Victory => self.start_finale(machinations),
+            GameAction::Victory => {
+                machinations.finale.init(self);
+                self.start_finale();
+            }
             GameAction::WorldDone => self.do_world_done(),
             GameAction::Screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
         }

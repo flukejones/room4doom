@@ -409,11 +409,18 @@ fn process_events<I, S, H, F>(
 
         // We want intermission to check checks only if the level isn't loaded
         if game.level.is_none() {
-            if machinations.intermission.responder(sc, game) {
-                return true; // Menu took event
-            }
-            if machinations.finale.responder(sc, game) {
-                return true; // Menu took event
+            match game.gamestate {
+                GameState::Intermission => {
+                    if machinations.intermission.responder(sc, game) {
+                        return true; // Menu took event
+                    }
+                }
+                GameState::Finale => {
+                    if machinations.finale.responder(sc, game) {
+                        return true; // Menu took event
+                    }
+                }
+                _ => {}
             }
         }
 
