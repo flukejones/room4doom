@@ -6,7 +6,7 @@
 //!
 //! Doom source name `p_enemy`
 
-use std::{f32::consts::FRAC_PI_4, ptr, ptr::null_mut};
+use std::{f32::consts::FRAC_PI_4, ptr};
 
 use log::error;
 use sound_traits::SfxName;
@@ -335,7 +335,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         tag: 666,
         bbox: Default::default(),
         slopetype: SlopeType::Horizontal,
-        front_sidedef: sidedef, // Cause segfault when trying to make sound if null
+        front_sidedef: sidedef,
         back_sidedef: None,
         frontsector: sector,
         backsector: None,
@@ -718,7 +718,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         tag: 666,
         bbox: Default::default(),
         slopetype: SlopeType::Horizontal,
-        front_sidedef: sidedef, // Cause segfault when trying to make sound if null
+        front_sidedef: sidedef,
         back_sidedef: None,
         frontsector: sector,
         backsector: None,
@@ -782,17 +782,57 @@ pub(crate) fn a_skelmissile(actor: &mut MapObject) {
 
         let level = unsafe { &mut *actor.level };
         actor.z += 16.0;
-        MapObject::spawn_missile(actor, target, MapObjKind::MT_TRACER, level);
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_TRACER, level);
         actor.z -= 16.0;
 
-        // TODO: mo->x += mo->momx;
-        //  mo->y += mo->momy;
-        //  mo->tracer = actor->target;
+        missile.xy += missile.momxy;
+        missile.tracer = actor.target;
     }
 }
 
+/// Skelly missile that tracks the player/target
 pub(crate) fn a_tracer(actor: &mut MapObject) {
-    error!("a_tracer not implemented");
+    let level = unsafe { &mut *actor.level };
+    // spawn a puff of smoke behind the rocket
+    MapObject::spawn_puff(actor.xy.x, actor.xy.y, actor.z as i32, 0.0, level);
+    let thing = MapObject::spawn_map_object(
+        actor.xy.x,
+        actor.xy.y,
+        actor.z as i32,
+        MapObjKind::MT_SMOKE,
+        level,
+    );
+    let smoke = unsafe { &mut *thing };
+    smoke.momz = 1.0;
+    smoke.tics -= p_random() & 3;
+    if smoke.tics < 1 {
+        smoke.tics = 1;
+    }
+
+    if let Some(dest) = actor.tracer {
+        let dest = unsafe { &mut *dest };
+        if dest.mobj().health <= 0 {
+            return;
+        }
+
+        let delta = actor.angle.unit().angle_between(dest.mobj().angle.unit());
+
+        // TODO: the slight adjustment if angle is greater than a limit
+
+        actor.momxy.x = actor.info.speed * delta.cos();
+        actor.momxy.y = actor.info.speed * delta.sin();
+
+        let mut dist = actor.xy.distance(dest.mobj().xy) / actor.info.speed;
+        if dist < 1.0 {
+            dist = 1.0;
+        }
+        let slope = (dest.mobj().z + 40.0 - actor.z) / dist;
+        if slope < actor.momz {
+            actor.momz -= 1.0 / 8.0;
+        } else {
+            actor.momz += 1.0 / 8.0;
+        }
+    }
 }
 
 pub(crate) fn a_startfire(actor: &mut MapObject) {
