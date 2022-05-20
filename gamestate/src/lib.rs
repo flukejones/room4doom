@@ -613,6 +613,11 @@ impl Game {
             }
         }
 
+        self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
+        self.wminfo.epsd = self.game_episode - 1;
+        self.wminfo.last = self.game_map;
+        dbg!(self.wminfo.epsd);
+
         if !matches!(self.game_mode, GameMode::Commercial) {
             if self.game_map == 8 {
                 self.game_action = GameAction::Victory;
@@ -624,10 +629,6 @@ impl Game {
                 }
             }
         }
-
-        self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
-        self.wminfo.epsd = self.game_episode - 1;
-        self.wminfo.last = self.game_map;
 
         // wminfo.next is 0 biased, unlike gamemap, which is just bloody confusing...
         if matches!(self.game_mode, GameMode::Commercial) {
@@ -687,7 +688,7 @@ impl Game {
 
     fn start_finale(&mut self) {
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
-        self.wminfo.epsd = self.game_episode - 1;
+        self.wminfo.epsd = self.game_episode;
         self.wminfo.last = self.game_map;
 
         self.gamestate = GameState::Finale;
@@ -740,9 +741,9 @@ impl Game {
             GameAction::SaveGame => todo!("G_DoSaveGame()"),
             GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
             GameAction::Victory => {
+                self.start_finale();
                 machinations.finale.init(self);
                 machinations.hud_msgs.init(self);
-                self.start_finale();
             }
             GameAction::WorldDone => self.do_world_done(),
             GameAction::Screenshot => todo!("M_ScreenShot(); gameaction = ga_nothing"),
