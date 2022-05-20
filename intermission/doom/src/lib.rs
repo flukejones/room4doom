@@ -274,8 +274,16 @@ impl MachinationTrait for Intermission {
             } else {
                 0
             };
-            self.player_info.sitems = (self.player_info.sitems * 100) / self.level_info.maxitems;
-            self.player_info.ssecret = (self.player_info.ssecret * 100) / self.level_info.maxsecret;
+            self.player_info.sitems = if self.level_info.maxitems > 0 {
+                (self.player_info.sitems * 100) / self.level_info.maxitems
+            } else {
+                0
+            };
+            self.player_info.ssecret = if self.level_info.maxsecret > 0 {
+                (self.player_info.ssecret * 100) / self.level_info.maxsecret
+            } else {
+                0
+            };
         }
 
         match self.state {

@@ -1,5 +1,10 @@
 # TODO
 
+- [X] Archvile attacks and chase
+- [ ] Archvile raise the dead
+- [ ] Pain elemental attacks and die
+- [ ] Doom 2 boss brain thing
+
 ## FUNCTIONALITY
 
 - [-] Menu screens (partial. Other functionality required before completion)
@@ -20,6 +25,7 @@
 
 ## BUGS
 
+- [X] Revenant rockets head off in wrong direction
 - [ ] Don't pickup armour shards if have max armour
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)

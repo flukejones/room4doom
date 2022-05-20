@@ -11,7 +11,7 @@ use std::{
     ptr,
 };
 
-use log::error;
+use log::{error, warn};
 use sound_traits::SfxName;
 
 use crate::{
@@ -22,7 +22,7 @@ use crate::{
     },
     info::StateNum,
     level::map_defs::{LineDef, SlopeType},
-    thing::{DirType, MapObjFlag, MapObject},
+    thing::{MapObjFlag, MapObject, MoveDir},
     thinker::ThinkerData,
     utilities::{p_random, point_to_angle_2, PortalZ},
     Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS,
@@ -116,7 +116,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
         }
     }
 
-    if actor.movedir < DirType::NoDir {
+    if actor.movedir < MoveDir::None {
         let delta = actor
             .angle
             .unit()
@@ -248,29 +248,22 @@ pub(crate) fn a_look(actor: &mut MapObject) {
     actor.set_state(actor.info.seestate);
 }
 
-pub(crate) fn a_fire(_actor: &mut MapObject) {
-    error!("a_fire not implemented");
-    // mobj_t *dest;
-    // mobj_t *target;
-    // unsigned an;
-    //
-    // dest = actor->tracer;
-    // if (!dest)
-    // return;
-    //
-    // target = P_SubstNullMobj(actor->target);
-    //
-    // // don't move it if the vile lost sight
-    // if (!P_CheckSight(target, dest))
-    // return;
-    //
-    // an = dest->angle >> ANGLETOFINESHIFT;
-    //
-    // P_UnsetThingPosition(actor);
-    // actor->x = dest->x + FixedMul(24 * FRACUNIT, finecosine[an]);
-    // actor->y = dest->y + FixedMul(24 * FRACUNIT, finesine[an]);
-    // actor->z = dest->z;
-    // P_SetThingPosition(actor);
+pub(crate) fn a_fire(actor: &mut MapObject) {
+    if let Some(dest) = actor.tracer {
+        let dest = unsafe { (*dest).mobj() };
+        if let Some(targ) = actor.target_mut() {
+            // don't move it if the vile lost sight
+            if !targ.check_sight_target(dest) {
+                return;
+            }
+
+            unsafe { actor.unset_thing_position() };
+            actor.xy.x = dest.xy.x + 24.0 * dest.angle.cos();
+            actor.xy.y = dest.xy.y + 24.0 * dest.angle.sin();
+            actor.z = dest.z;
+            unsafe { actor.set_thing_position() };
+        }
+    }
 }
 
 pub(crate) fn a_scream(actor: &mut MapObject) {
@@ -379,6 +372,7 @@ pub(crate) fn a_brainpain(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainscream(actor: &mut MapObject) {
+    actor.start_sound(SfxName::Bosdth);
     error!("a_brainscream not implemented");
 }
 
@@ -396,19 +390,57 @@ pub(crate) fn a_spawnsound(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_vilestart(actor: &mut MapObject) {
-    error!("a_vilestart not implemented");
+    actor.start_sound(SfxName::Vilatk);
 }
 
 pub(crate) fn a_vilechase(actor: &mut MapObject) {
-    error!("a_vilechase not implemented");
+    if actor.movedir == MoveDir::None {
+        warn!("a_vilechase not fully implemented. Not raising dead");
+    }
+    a_chase(actor);
 }
 
 pub(crate) fn a_viletarget(actor: &mut MapObject) {
-    error!("a_viletarget not implemented");
+    if let Some(targ) = actor.target {
+        let targ = unsafe { (*targ).mobj_mut() };
+        a_facetarget(actor);
+
+        let level = unsafe { &mut *actor.level };
+        let fog = MapObject::spawn_map_object(
+            targ.xy.x,
+            targ.xy.y,
+            targ.z as i32,
+            MapObjKind::MT_FIRE,
+            level,
+        );
+        let fog = unsafe { &mut *fog };
+        actor.tracer = Some(fog.thinker); // actor/vile owns the fire
+        fog.target = Some(actor.thinker); // fire target is vile so the fire can check its owner
+        fog.tracer = actor.target;
+        a_fire(fog);
+    }
 }
 
 pub(crate) fn a_vileattack(actor: &mut MapObject) {
-    error!("a_vileattack not implemented");
+    if let Some(targ) = actor.target {
+        let targ = unsafe { (*targ).mobj_mut() };
+        a_facetarget(actor);
+
+        if !actor.check_sight_target(targ) {
+            return;
+        }
+
+        actor.start_sound(SfxName::Barexp);
+        targ.p_take_damage(Some(actor), None, true, 20);
+        targ.momz = 1000.0 / targ.info.mass as f32;
+
+        if let Some(fire) = actor.tracer {
+            let fire = unsafe { (*fire).mobj_mut() };
+            fire.xy.x = targ.xy.x - 24.0 * actor.angle.cos();
+            fire.xy.y = targ.xy.y - 24.0 * actor.angle.sin();
+            fire.radius_attack(70.0);
+        }
+    }
 }
 
 pub(crate) fn a_posattack(actor: &mut MapObject) {
@@ -874,12 +906,12 @@ pub(crate) fn a_tracer(actor: &mut MapObject) {
             return;
         }
 
-        let delta = actor.angle.unit().angle_between(dest.mobj().angle.unit());
-
+        // let delta = actor.angle.unit().angle_between(dest.mobj().angle.unit());
         // TODO: the slight adjustment if angle is greater than a limit
 
-        actor.momxy.x = actor.info.speed * delta.cos();
-        actor.momxy.y = actor.info.speed * delta.sin();
+        let an = point_to_angle_2(dest.mobj().xy, actor.xy);
+        actor.momxy.x = actor.info.speed * an.cos();
+        actor.momxy.y = actor.info.speed * an.sin();
 
         let mut dist = actor.xy.distance(dest.mobj().xy) / actor.info.speed;
         if dist < 1.0 {

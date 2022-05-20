@@ -141,7 +141,7 @@ pub struct MapObject {
     pub health: i32,
     /// Movement direction, movement generation (zig-zagging).
     /// 0-7
-    pub(crate) movedir: DirType,
+    pub(crate) movedir: MoveDir,
     /// when 0, select a new dir
     pub(crate) movecount: i32,
     /// The best slide move for a player object
@@ -227,7 +227,7 @@ impl MapObject {
             flags: info.flags,
             health: info.spawnhealth,
             tics: state.tics,
-            movedir: DirType::North,
+            movedir: MoveDir::North,
             movecount: 0,
             best_slide: BestSlide::default(),
             reactiontime,
