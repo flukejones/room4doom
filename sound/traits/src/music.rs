@@ -73,7 +73,7 @@ pub static mut MUS_DATA: [MusData; 68] = [
     MusData::new("dead"),
     MusData::new("stlks2"),
     MusData::new("theda2"),
-    MusData::new("doom2,"),
+    MusData::new("doom2"),
     MusData::new("ddtbl2"),
     MusData::new("runni2"),
     MusData::new("dead2"),

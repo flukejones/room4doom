@@ -341,7 +341,9 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
 
     fn start_music(&mut self, music: usize, looping: bool) {
         unsafe {
-            if let Ok(music) = Music::from_static_bytes(MUS_DATA[music].data()) {
+            if let Ok(music) = Music::from_static_bytes(MUS_DATA[music].data())
+                .map_err(|e| log::error!("MUS: {}, error: {e}", MUS_DATA[music].lump_name()))
+            {
                 music.play(if looping { -1 } else { 0 }).unwrap();
                 self.music = Some(music);
                 Music::set_volume(self.mus_vol);
