@@ -6,7 +6,10 @@
 //!
 //! Doom source name `p_enemy`
 
-use std::{f32::consts::FRAC_PI_4, ptr};
+use std::{
+    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    ptr,
+};
 
 use log::error;
 use sound_traits::SfxName;
@@ -606,14 +609,70 @@ pub(crate) fn a_paindie(actor: &mut MapObject) {
     // A_PainShootSkull(actor, actor->angle + ANG270);
 }
 
+const FAT_SPREAD: f32 = FRAC_PI_2 / 8.0;
+
 pub(crate) fn a_fatattack1(actor: &mut MapObject) {
-    error!("a_fatattack1 not implemented");
+    if let Some(target) = actor.target {
+        let level = unsafe { &mut *actor.level };
+        let target = unsafe { (*target).mobj_mut() };
+
+        a_facetarget(actor);
+        actor.angle += FAT_SPREAD;
+        // 1 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+
+        // 2 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        actor.angle += FAT_SPREAD;
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+    }
 }
 pub(crate) fn a_fatattack2(actor: &mut MapObject) {
-    error!("a_fatattack2 not implemented");
+    if let Some(target) = actor.target {
+        let level = unsafe { &mut *actor.level };
+        let target = unsafe { (*target).mobj_mut() };
+
+        a_facetarget(actor);
+        actor.angle -= FAT_SPREAD;
+        // 1 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+
+        // 2 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        actor.angle -= FAT_SPREAD * 2.0;
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+    }
 }
 pub(crate) fn a_fatattack3(actor: &mut MapObject) {
-    error!("a_fatattack3 not implemented");
+    if let Some(target) = actor.target {
+        let level = unsafe { &mut *actor.level };
+        let target = unsafe { (*target).mobj_mut() };
+
+        a_facetarget(actor);
+        actor.angle -= FAT_SPREAD / 2.0;
+        // 1 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+
+        // 2 away
+        let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_FATSHOT, level);
+        actor.angle += FAT_SPREAD / 2.0;
+        let an = missile.angle;
+        missile.momxy.x = missile.info.speed * an.cos();
+        missile.momxy.y = missile.info.speed * an.sin();
+    }
 }
 
 pub(crate) fn a_fatraise(actor: &mut MapObject) {
@@ -836,11 +895,13 @@ pub(crate) fn a_tracer(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_startfire(actor: &mut MapObject) {
-    error!("a_startfire not implemented");
+    actor.start_sound(SfxName::Flamst);
+    a_fire(actor);
 }
 
 pub(crate) fn a_firecrackle(actor: &mut MapObject) {
-    error!("a_firecrackle not implemented");
+    actor.start_sound(SfxName::Flame);
+    a_fire(actor);
 }
 
 pub(crate) fn a_playerscream(actor: &mut MapObject) {
