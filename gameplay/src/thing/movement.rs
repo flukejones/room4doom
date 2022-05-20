@@ -835,7 +835,7 @@ impl MapObject {
         }
 
         let old_dir = self.movedir;
-        let mut dirs = [DirType::NoDir, DirType::NoDir, DirType::NoDir];
+        let mut dirs = [MoveDir::None, MoveDir::None, MoveDir::None];
         let turnaround = DIR_OPPOSITE[old_dir as usize];
 
         let target = unsafe { (**self.target.as_mut().unwrap()).mobj() };
@@ -844,23 +844,23 @@ impl MapObject {
         let dy = target.xy.y - self.xy.y;
         // Select a cardinal angle based on delta
         if dx > 10.0 {
-            dirs[1] = DirType::East;
+            dirs[1] = MoveDir::East;
         } else if dx < -10.0 {
-            dirs[1] = DirType::West;
+            dirs[1] = MoveDir::West;
         } else {
-            dirs[1] = DirType::NoDir;
+            dirs[1] = MoveDir::None;
         }
 
         if dy < -10.0 {
-            dirs[2] = DirType::South;
+            dirs[2] = MoveDir::South;
         } else if dy > 10.0 {
-            dirs[2] = DirType::North;
+            dirs[2] = MoveDir::North;
         } else {
-            dirs[2] = DirType::NoDir;
+            dirs[2] = MoveDir::None;
         }
 
         // try direct route
-        if dirs[1] != DirType::NoDir && dirs[2] != DirType::NoDir {
+        if dirs[1] != MoveDir::None && dirs[2] != MoveDir::None {
             self.movedir = DIR_DIAGONALS[(((dy < 0.0) as usize) << 1) + (dx > 0.0) as usize];
             if self.movedir != turnaround && self.try_walk() {
                 return;
@@ -872,13 +872,13 @@ impl MapObject {
             dirs.swap(1, 2);
         }
         if dirs[1] == turnaround {
-            dirs[1] = DirType::NoDir;
+            dirs[1] = MoveDir::None;
         }
         if dirs[2] == turnaround {
-            dirs[2] = DirType::NoDir;
+            dirs[2] = MoveDir::None;
         }
 
-        if dirs[1] != DirType::NoDir {
+        if dirs[1] != MoveDir::None {
             self.movedir = dirs[1];
             if self.try_walk() {
                 // either moved forward or attacked
@@ -886,7 +886,7 @@ impl MapObject {
             }
         }
 
-        if dirs[2] != DirType::NoDir {
+        if dirs[2] != MoveDir::None {
             self.movedir = dirs[2];
             if self.try_walk() {
                 // either moved forward or attacked
@@ -895,7 +895,7 @@ impl MapObject {
         }
 
         // there is no direct path to the player, so pick another direction.
-        if old_dir != DirType::NoDir {
+        if old_dir != MoveDir::None {
             self.movedir = old_dir;
             if self.try_walk() {
                 return;
@@ -904,8 +904,8 @@ impl MapObject {
 
         // randomly determine direction of search
         if p_random() & 1 != 0 {
-            for t in DirType::East as usize..=DirType::SouthEast as usize {
-                let tdir = DirType::from(t);
+            for t in MoveDir::East as usize..=MoveDir::SouthEast as usize {
+                let tdir = MoveDir::from(t);
                 if tdir != turnaround {
                     self.movedir = tdir;
                     if self.try_walk() {
@@ -914,8 +914,8 @@ impl MapObject {
                 }
             }
         } else {
-            for t in (DirType::East as usize..=DirType::SouthEast as usize).rev() {
-                let tdir = DirType::from(t);
+            for t in (MoveDir::East as usize..=MoveDir::SouthEast as usize).rev() {
+                let tdir = MoveDir::from(t);
                 if tdir != turnaround {
                     self.movedir = tdir;
                     if self.try_walk() {
@@ -925,7 +925,7 @@ impl MapObject {
             }
         }
 
-        if turnaround != DirType::NoDir {
+        if turnaround != MoveDir::None {
             self.movedir = turnaround;
             if self.try_walk() {
                 return;
@@ -933,7 +933,7 @@ impl MapObject {
         }
 
         // Can't move
-        self.movedir = DirType::NoDir;
+        self.movedir = MoveDir::None;
     }
 
     /// Try to move in current direction. If blocked by a wall or other actor it
@@ -947,7 +947,7 @@ impl MapObject {
     }
 
     pub(crate) fn do_move(&mut self) -> bool {
-        if self.movedir == DirType::NoDir {
+        if self.movedir == MoveDir::None {
             return false;
         }
 
@@ -973,7 +973,7 @@ impl MapObject {
                 return false;
             }
 
-            self.movedir = DirType::NoDir;
+            self.movedir = MoveDir::None;
             let mut good = false;
             for ld in &specs.spec_hits {
                 if p_use_special_line(0, ld.clone(), self) || ld.special == 0 {
@@ -995,7 +995,7 @@ impl MapObject {
 
 #[repr(usize)]
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
-pub(crate) enum DirType {
+pub(crate) enum MoveDir {
     East,
     NorthEast,
     North,
@@ -1004,52 +1004,52 @@ pub(crate) enum DirType {
     SouthWest,
     South,
     SouthEast,
-    NoDir,
+    None,
     NumDirs,
 }
 
-impl From<usize> for DirType {
+impl From<usize> for MoveDir {
     fn from(w: usize) -> Self {
-        if w >= DirType::NumDirs as usize {
+        if w >= MoveDir::NumDirs as usize {
             panic!("{} is not a variant of DirType", w);
         }
         unsafe { std::mem::transmute(w) }
     }
 }
 
-impl From<DirType> for Angle {
-    fn from(d: DirType) -> Angle {
+impl From<MoveDir> for Angle {
+    fn from(d: MoveDir) -> Angle {
         match d {
-            DirType::East => Angle::default(),
-            DirType::NorthEast => Angle::new(FRAC_PI_4),
-            DirType::North => Angle::new(FRAC_PI_2),
-            DirType::NorthWest => Angle::new(FRAC_PI_2 + FRAC_PI_4),
-            DirType::West => Angle::new(PI),
-            DirType::SouthWest => Angle::new(PI + FRAC_PI_4),
-            DirType::South => Angle::new(PI + FRAC_PI_2),
-            DirType::SouthEast => Angle::new(PI + FRAC_PI_2 + FRAC_PI_4),
+            MoveDir::East => Angle::default(),
+            MoveDir::NorthEast => Angle::new(FRAC_PI_4),
+            MoveDir::North => Angle::new(FRAC_PI_2),
+            MoveDir::NorthWest => Angle::new(FRAC_PI_2 + FRAC_PI_4),
+            MoveDir::West => Angle::new(PI),
+            MoveDir::SouthWest => Angle::new(PI + FRAC_PI_4),
+            MoveDir::South => Angle::new(PI + FRAC_PI_2),
+            MoveDir::SouthEast => Angle::new(PI + FRAC_PI_2 + FRAC_PI_4),
             _ => Angle::default(),
         }
     }
 }
 
-const DIR_OPPOSITE: [DirType; 9] = [
-    DirType::West,
-    DirType::SouthWest,
-    DirType::South,
-    DirType::SouthEast,
-    DirType::East,
-    DirType::NorthEast,
-    DirType::North,
-    DirType::NorthWest,
-    DirType::NoDir,
+const DIR_OPPOSITE: [MoveDir; 9] = [
+    MoveDir::West,
+    MoveDir::SouthWest,
+    MoveDir::South,
+    MoveDir::SouthEast,
+    MoveDir::East,
+    MoveDir::NorthEast,
+    MoveDir::North,
+    MoveDir::NorthWest,
+    MoveDir::None,
 ];
 
-const DIR_DIAGONALS: [DirType; 4] = [
-    DirType::NorthWest,
-    DirType::NorthEast,
-    DirType::SouthWest,
-    DirType::SouthEast,
+const DIR_DIAGONALS: [MoveDir; 4] = [
+    MoveDir::NorthWest,
+    MoveDir::NorthEast,
+    MoveDir::SouthWest,
+    MoveDir::SouthEast,
 ];
 
 const DIR_XSPEED: [f32; 8] = [1.0, 0.47, 0.0, -0.47, -1.0, -0.47, 0.0, 0.47];
