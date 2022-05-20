@@ -237,7 +237,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug Doom 2 M32",
+            "name": "Debug Doom 2 M30",
             "cargo": {
                 "args": [
                     "build",
@@ -255,7 +255,7 @@
                 "1024",
                 "-h",
                 "768",
-                "-m32",
+                "-m30",
                 "-v",
                 "debug"
             ],

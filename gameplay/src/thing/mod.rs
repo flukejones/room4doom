@@ -716,7 +716,7 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn unset_thing_position(&mut self) {
-        if self.flags & MapObjFlag::Nosector as u32 == 0 {
+        if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
             (*self.subsector)
                 .sector
                 .remove_from_thinglist(self.thinker_mut());
@@ -732,8 +732,8 @@ impl MapObject {
         let subsector = level.map_data.point_in_subsector_raw(self.xy);
         self.subsector = subsector;
 
-        if self.flags & MapObjFlag::Nosector as u32 == 0 {
-            (*self.subsector).sector.add_to_thinglist(self.thinker)
+        if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
+            (*subsector).sector.add_to_thinglist(self.thinker)
         }
     }
 

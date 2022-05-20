@@ -121,7 +121,10 @@ impl MachinationTrait for Finale {
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool {
         self.text.inc_current_char();
         self.count -= 1;
-        if self.count <= 0 && game.get_mode() == GameMode::Commercial {
+        if self.count <= 0
+            && game.get_mode() == GameMode::Commercial
+            && game.level_end_info().last != 30
+        {
             game.finale_done();
         }
         false
