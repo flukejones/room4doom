@@ -27,13 +27,14 @@
 
 ## BUGS
 
+- [ ] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()` on an `Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
+- [ ] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
+- [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
+- [ ] e2m8 `thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:401:21`
 - [X] Revenant rockets head off in wrong direction
 - [ ] Don't pickup armour shards if have max armour
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [ ] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
-- [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
-- [ ] e2m8 `thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:401:21`
 - [ ] angle_to_screen has an impact on sizing and scale
 - [ ] Fix the types in texture module
 - [ ] The fix for players stuck in doors is causing floaty blood
