@@ -628,7 +628,6 @@ impl Game {
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
         self.wminfo.epsd = self.game_episode - 1;
         self.wminfo.last = self.game_map;
-        dbg!(self.wminfo.last);
 
         // wminfo.next is 0 biased, unlike gamemap, which is just bloody confusing...
         if matches!(self.game_mode, GameMode::Commercial) {
@@ -639,7 +638,11 @@ impl Game {
                     self.wminfo.next = 31;
                 }
             } else {
-                self.wminfo.next = self.game_map;
+                if self.game_map == 31 || self.game_map == 32 {
+                    self.wminfo.next = 15;
+                } else {
+                    self.wminfo.next = self.game_map;
+                }
             }
         } else if self.level.as_ref().unwrap().secret_exit {
             // go to secret level

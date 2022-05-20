@@ -305,8 +305,43 @@ pub(crate) fn a_xscream(actor: &mut MapObject) {
     actor.start_sound(SfxName::Slop);
 }
 
-pub(crate) fn a_keendie(_actor: &mut MapObject) {
-    error!("a_keendie not implemented");
+pub(crate) fn a_keendie(actor: &mut MapObject) {
+    a_fall(actor);
+
+    let level = unsafe { &mut *actor.level };
+    // Check keens are all dead
+    let mut dead = true;
+    level.thinkers.run_fn_on_things(|thinker| {
+        if let ThinkerData::MapObject(ref mobj) = thinker.data() {
+            if !ptr::eq(mobj, actor) && mobj.kind == actor.kind && mobj.health > 0 {
+                dead = false;
+            }
+        }
+        true
+    });
+    if !dead {
+        return;
+    };
+
+    let sidedef = unsafe { (*actor.subsector).sector.lines[0].front_sidedef.clone() };
+    let sector = unsafe { (*actor.subsector).sector.clone() };
+
+    let mut junk = LineDef {
+        v1: Default::default(),
+        v2: Default::default(),
+        delta: Default::default(),
+        flags: 0,
+        special: 0,
+        tag: 666,
+        bbox: Default::default(),
+        slopetype: SlopeType::Horizontal,
+        front_sidedef: sidedef, // Cause segfault when trying to make sound if null
+        back_sidedef: None,
+        frontsector: sector,
+        backsector: None,
+        valid_count: 0,
+    };
+    ev_do_door(DPtr::new(&mut junk), DoorKind::BlazeOpen, level);
 }
 
 pub(crate) fn a_hoof(actor: &mut MapObject) {
@@ -671,21 +706,25 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         return;
     };
 
+    let sidedef = unsafe { (*actor.subsector).sector.lines[0].front_sidedef.clone() };
+    let sector = unsafe { (*actor.subsector).sector.clone() };
+
     let mut junk = LineDef {
         v1: Default::default(),
         v2: Default::default(),
         delta: Default::default(),
         flags: 0,
         special: 0,
-        tag: 0,
+        tag: 666,
         bbox: Default::default(),
         slopetype: SlopeType::Horizontal,
-        front_sidedef: DPtr { inner: null_mut() },
+        front_sidedef: sidedef, // Cause segfault when trying to make sound if null
         back_sidedef: None,
-        frontsector: DPtr { inner: null_mut() },
+        frontsector: sector,
         backsector: None,
         valid_count: 0,
     };
+
     if mode == GameMode::Commercial && map == 7 {
         if actor.kind == MapObjKind::MT_FATSO {
             junk.tag = 666;

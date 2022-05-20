@@ -237,6 +237,33 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug Doom 2 M32",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=room4doom"
+                ],
+                "filter": {
+                    "name": "room4doom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "/home/luke/DOOM/doom2.wad",
+                "-w",
+                "1024",
+                "-h",
+                "768",
+                "-m32",
+                "-v",
+                "debug"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug release 'room4doom'",
             "cargo": {
                 "args": [
