@@ -149,6 +149,7 @@ pub struct MapObject {
     /// Thing being chased/attacked (or NULL),
     /// also the originator for missiles.
     pub(crate) target: Option<*mut Thinker>,
+    pub(crate) tracer: Option<*mut Thinker>,
     /// Reaction time: if non 0, don't attack yet.
     /// Used by player to freeze a bit after teleporting.
     pub(crate) reactiontime: i32,
@@ -234,6 +235,7 @@ impl MapObject {
             lastlook: p_random() % MAXPLAYERS as i32,
             spawn_point: None,
             target: None,
+            tracer: None,
             s_next: None,
             s_prev: None,
             subsector: null_mut(),
@@ -564,12 +566,12 @@ impl MapObject {
     /// A thinker for shooty blowy things.
     ///
     /// Doom function name is `P_SpawnMissile`
-    pub(crate) fn spawn_missile(
+    pub(crate) fn spawn_missile<'a>(
         source: &mut MapObject,
         target: &mut MapObject,
         kind: MapObjKind,
         level: &mut Level,
-    ) {
+    ) -> &'a mut Self {
         let x = source.xy.x;
         let y = source.xy.y;
         let z = source.z + 32.0;
@@ -597,6 +599,7 @@ impl MapObject {
         mobj.momz = (target.z - source.z) / dist;
 
         mobj.check_missile_spawn();
+        mobj
     }
 
     fn check_missile_spawn(&mut self) {
