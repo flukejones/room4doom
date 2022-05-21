@@ -543,7 +543,7 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen as i32  + 1;
+                        let top = sprtopscreen as i32 + 1;
                         let bottom = top + (spryscale * texture_column.len() as f32) as i32;
                         let mut yl = top;
                         let mut yh = bottom;
