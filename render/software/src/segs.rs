@@ -191,8 +191,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = (frontsector.ceilingheight.ceil() - viewz).floor() as i32;
-        self.worldbottom = (frontsector.floorheight.ceil() - viewz).floor() as i32;
+        self.worldtop = (frontsector.ceilingheight.floor() - viewz).floor() as i32;
+        self.worldbottom = (frontsector.floorheight.floor() - viewz).floor() as i32;
 
         self.midtexture = false;
         self.toptexture = false;
@@ -210,7 +210,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = textures.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight.ceil() + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight.floor() + texture_column.len() as f32 - 1.0;
                     self.rw_midtexturemid = vtop - viewz;
                 } else {
                     // top of texture at top
@@ -238,7 +238,7 @@ impl SegRender {
 
             if frontsector.floorheight > backsector.floorheight {
                 ds_p.silhouette = SIL_BOTTOM;
-                ds_p.bsilheight = frontsector.floorheight.ceil();
+                ds_p.bsilheight = frontsector.floorheight.floor();
             } else if backsector.floorheight > viewz {
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
@@ -246,7 +246,7 @@ impl SegRender {
 
             if frontsector.ceilingheight < backsector.ceilingheight {
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = frontsector.ceilingheight.ceil();
+                ds_p.tsilheight = frontsector.ceilingheight.floor();
             } else if backsector.ceilingheight < viewz {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = f32::MIN;
@@ -267,8 +267,8 @@ impl SegRender {
             //     ds_p.tsilheight = f32::MIN;
             // }
 
-            self.worldhigh = (backsector.ceilingheight - viewz).ceil() as i32;
-            self.worldlow = (backsector.floorheight - viewz).ceil() as i32;
+            self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
+            self.worldlow = (backsector.floorheight - viewz).floor() as i32;
 
             // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.sky_num()
@@ -587,7 +587,7 @@ impl SegRender {
 
                 if self.bottomtexture {
                     // floor vs ceil affects how things align in slightly off ways
-                    mid = self.pixlow.ceil() as i32;
+                    mid = self.pixlow.floor() as i32 + 1;
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
