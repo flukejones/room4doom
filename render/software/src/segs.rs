@@ -549,7 +549,8 @@ impl SegRender {
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture {
-                    mid = self.pixhigh.ceil() as i32;
+                    // floor vs ceil affects how things align in slightly off ways
+                    mid = self.pixhigh.floor() as i32;
                     self.pixhigh += self.pixhighstep;
 
                     if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
@@ -585,7 +586,7 @@ impl SegRender {
                 }
 
                 if self.bottomtexture {
-                    // TODO: this affects some placement
+                    // floor vs ceil affects how things align in slightly off ways
                     mid = self.pixlow.ceil() as i32;
                     self.pixlow += self.pixlowstep;
 
