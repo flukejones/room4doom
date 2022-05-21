@@ -475,7 +475,7 @@ impl SegRender {
         while self.rw_x < self.rw_stopx {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = (self.topfrac) as i32 + 1;
+            yl = self.topfrac as i32 + 1;
             if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
             }
@@ -678,7 +678,7 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac.floor() as i32 & 127;
+            let mut select = frac.floor() as i32 & 0xff;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
