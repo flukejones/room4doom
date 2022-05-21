@@ -4,8 +4,8 @@ use std::{
 };
 
 use gameplay::{
-    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
-    Sector,
+    log::warn, p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player,
+    PspDef, Sector,
 };
 use glam::Vec2;
 use render_traits::PixelBuf;
@@ -398,6 +398,9 @@ impl SoftwareRenderer {
 
         let texture_data = self.texture_data.borrow();
         let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
+        if def.frames.len() == 0 {
+            warn!("{:?} has no frames", sprite.state.unwrap().sprite);
+        }
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
         let patch = texture_data.sprite_patch(frame.lump[0] as usize);
         let flip = frame.flip[0];
