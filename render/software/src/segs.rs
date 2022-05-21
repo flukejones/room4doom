@@ -678,7 +678,10 @@ impl<'a> DrawColumn<'a> {
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
-            let mut select = frac.floor() as i32 & 0xff;
+            // (frac - 0.01).floor() is a ridiculous magic number to prevent the
+            // jaggy line across horizontal center. It tips the number *just enough*
+            // without throwing all the alignment out of wack.
+            let mut select = (frac - 0.01).floor() as i32 & 0xff;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
