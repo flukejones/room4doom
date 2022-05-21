@@ -273,7 +273,7 @@ impl SoftwareRenderer {
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * (texture_column.len() as f32 + 1.0)).floor() as i32;
+            let mut bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -543,7 +543,7 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen as i32;
+                        let top = sprtopscreen as i32  + 1;
                         let bottom = top + (spryscale * texture_column.len() as f32) as i32;
                         let mut yl = top;
                         let mut yh = bottom;
@@ -594,7 +594,7 @@ fn draw_masked_column(
     let pal = &textures.palette();
     let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
     for n in yl..=yh {
-        let select = (frac - 1.0).round() as usize;
+        let select = frac.floor() as usize;
 
         if select >= texture_column.len() {
             break;
