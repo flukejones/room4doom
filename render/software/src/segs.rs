@@ -191,8 +191,8 @@ impl SegRender {
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
         let viewz = player.viewz;
-        self.worldtop = (frontsector.ceilingheight - viewz).floor() as i32;
-        self.worldbottom = (frontsector.floorheight - viewz).floor() as i32;
+        self.worldtop = (frontsector.ceilingheight.ceil() - viewz).floor() as i32;
+        self.worldbottom = (frontsector.floorheight.ceil() - viewz).floor() as i32;
 
         self.midtexture = false;
         self.toptexture = false;
