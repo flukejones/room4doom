@@ -1,9 +1,9 @@
-use crate::defs::SCREENWIDTH;
+use crate::{defs::SCREENWIDTH, utilities::screen_to_x_view};
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
 use render_traits::PixelBuf;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
-use crate::utilities::{point_to_dist, scale_from_view_angle, CLASSIC_SCREEN_X_TO_VIEW};
+use crate::utilities::{point_to_dist, scale_from_view_angle};
 
 use super::{
     defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT_HALF, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
@@ -122,14 +122,14 @@ impl SegRender {
         rdata: &mut RenderData,
         pixels: &mut PixelBuf,
     ) {
+        // Keep original Doom behaviour here
+        if rdata.drawsegs.len() >= MAXDRAWSEGS {
+            return;
+        }
+
         // bounds check before getting ref
         if rdata.ds_p >= rdata.drawsegs.len() {
             rdata.drawsegs.push(DrawSeg::new(NonNull::from(seg)));
-        }
-
-        // Keep original Doom behaviour here
-        if rdata.drawsegs.len() - 1 > MAXDRAWSEGS {
-            return;
         }
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
@@ -163,11 +163,11 @@ impl SegRender {
         let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[start as usize].to_radians();
+        let visangle = view_angle + screen_to_x_view(start);
         self.rw_scale =
             scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
-        let visangle = view_angle + CLASSIC_SCREEN_X_TO_VIEW[stop as usize].to_radians();
+        let visangle = view_angle + screen_to_x_view(stop);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -516,8 +516,7 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle =
-                    self.rw_centerangle + CLASSIC_SCREEN_X_TO_VIEW[self.rw_x as usize].to_radians();
+                angle = self.rw_centerangle + screen_to_x_view(self.rw_x);
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;

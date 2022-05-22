@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use crate::utilities::CLASSIC_SCREEN_X_TO_VIEW;
+use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use render_traits::PixelBuf;
@@ -270,12 +270,9 @@ fn map_plane(
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = CLASSIC_SCREEN_X_TO_VIEW[x1 as usize]
-        .to_radians()
-        .cos()
-        .abs();
+    let distscale = screen_to_x_view(x1).cos().abs();
     let length = distance * (1.0 / distscale);
-    let angle = plane.view_angle + (CLASSIC_SCREEN_X_TO_VIEW[x1 as usize].to_radians());
+    let angle = plane.view_angle + screen_to_x_view(x1);
     let ds_xfrac = viewxy.x + angle.cos() * length;
     let ds_yfrac = -viewxy.y - angle.sin() * length;
 
