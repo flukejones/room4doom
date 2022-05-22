@@ -723,20 +723,21 @@ fn angle_to_screen(mut radian: f32) -> i32 {
     let mut x;
 
     // Left side
-    let p = 160.9 / (FRAC_PI_4).tan();
-    if radian > FRAC_PI_2 {
-        radian -= FRAC_PI_2;
-        let t = radian.tan();
-        x = t * p;
-        x = p - x;
-    } else {
-        // Right side
-        radian = FRAC_PI_2 - radian;
-        let t = radian.tan();
-        x = t * p;
-        x += p;
-    }
-    x as i32
+    let p = (SCREENWIDTH / 2) as f32; // / (FRAC_PI_4).tan();
+                                      // if radian >= FRAC_PI_2 {
+    radian -= FRAC_PI_2;
+    let t = radian.tan();
+    x = t * p;
+    x = p - x - 0.01;
+    // TODO: remove?
+    // } else {
+    //     // Right side
+    //     radian = FRAC_PI_2 - radian;
+    //     let t = radian.tan();
+    //     x = t * p;
+    //     x = x + p;
+    // }
+    x.ceil() as i32
 }
 
 /// R_PointToAngle
