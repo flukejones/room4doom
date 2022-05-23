@@ -3,6 +3,8 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 use gameplay::Angle;
 use glam::Vec2;
 
+use crate::defs::SCREENWIDTH;
+
 fn player_dist_to_screen() -> f32 {
     160.0 / (45.0f32.to_radians()).tan()
 }
@@ -82,7 +84,7 @@ pub fn scale_from_view_angle(
 
     //            projection
     //m_iDistancePlayerToScreen = m_HalfScreenWidth / HalfFOV.GetTanValue();
-    let p = 160.0 / (FRAC_PI_4).tan();
+    let p = (SCREENWIDTH / 2) as f32; // / (FRAC_PI_4).tan();
     let num = p * sineb;
     let den = rw_distance * sinea;
 

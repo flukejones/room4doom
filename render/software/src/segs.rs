@@ -270,7 +270,6 @@ impl SegRender {
             self.worldhigh = (backsector.ceilingheight - viewz).floor() as i32;
             self.worldlow = (backsector.floorheight - viewz).floor() as i32;
 
-            // TODO: hack to allow height changes in outdoor areas
             if frontsector.ceilingpic == textures.sky_num()
                 && backsector.ceilingpic == textures.sky_num()
             {
@@ -326,7 +325,6 @@ impl SegRender {
                 }
             }
 
-            // TODO: how to deal with negative rowoffset
             self.rw_toptexturemid += sidedef.rowoffset;
             self.rw_bottomtexturemid += sidedef.rowoffset;
 
@@ -359,12 +357,12 @@ impl SegRender {
         // if a floor / ceiling plane is on the wrong side
         //  of the view plane, it is definitely invisible
         //  and doesn't need to be marked.
-        if frontsector.floorheight >= viewz {
+        if frontsector.floorheight > viewz {
             // above view plane
             self.markfloor = false;
         }
 
-        if frontsector.ceilingheight <= viewz
+        if frontsector.ceilingheight < viewz
             && frontsector.ceilingpic != self.texture_data.borrow().sky_num()
         {
             // below view plane
@@ -494,6 +492,10 @@ impl SegRender {
                 }
             }
 
+            // TODO: yh/bottomfrac is sometimes negative?
+            if self.bottomfrac.is_sign_negative() {
+                self.bottomfrac = 0.0;
+            }
             yh = self.bottomfrac as i32;
 
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
@@ -552,11 +554,11 @@ impl SegRender {
                     mid = self.pixhigh.floor() as i32;
                     self.pixhigh += self.pixhighstep;
 
-                    if mid > rdata.portal_clip.floorclip[self.rw_x as usize] {
+                    if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                         mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1;
                     }
 
-                    if mid >= yl {
+                    if mid > yl {
                         if let Some(top_tex) = seg.sidedef.toptexture {
                             let texture_column = textures.wall_pic_column(top_tex, texture_column);
                             let mut dc = DrawColumn::new(
@@ -593,7 +595,7 @@ impl SegRender {
                         mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1;
                     }
 
-                    if mid <= yh {
+                    if mid < yh {
                         if let Some(bot_tex) = seg.sidedef.bottomtexture {
                             let texture_column = textures.wall_pic_column(bot_tex, texture_column);
                             let mut dc = DrawColumn::new(
