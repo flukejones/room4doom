@@ -83,6 +83,8 @@ impl VisPlaneRender {
 
         self.lastvisplane = 0;
         self.lastopening = 0;
+        self.floorplane = 0;
+        self.ceilingplane = 0;
 
         // texture calculation
         for i in self.cachedheight.iter_mut() {
@@ -158,7 +160,7 @@ impl VisPlaneRender {
         //     return plane_idx;
         // }
 
-        for i in intrl..=321 {
+        for i in intrl..=320 {
             if i >= intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;
@@ -209,6 +211,7 @@ pub fn make_spans(
     texture_data: &PicData,
     pixels: &mut PixelBuf,
 ) {
+    // TODO: t1, y, is causing a glitch
     while t1 < t2 && t1 <= b1 {
         map_plane(
             t1,
@@ -263,7 +266,7 @@ fn map_plane(
 ) {
     let planeheight = (plane.height as f32 - viewz).abs();
     // TODO: maybe cache?
-    let dy = (y as f32 - SCREENHEIGHT as f32 / 2.0) + 0.5; // OK
+    let dy = (y as f32 - SCREENHEIGHT as f32 / 2.0).floor(); // OK
     let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs(); // OK
     let distance = planeheight as f32 * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
@@ -331,8 +334,8 @@ impl<'a> DrawSpan<'a> {
             let mut x = (self.ds_xfrac.floor() as i32 & 127) + 64;
             let mut y = (self.ds_yfrac.floor() as i32 & 127) + 64;
 
-            while y >= self.texture.data[0].len() as i32 {
-                y -= self.texture.data[0].len() as i32;
+            if y >= self.texture.data[0].len() as i32 {
+                y %= self.texture.data[0].len() as i32;
             }
 
             if x >= self.texture.data.len() as i32 {
