@@ -156,7 +156,7 @@ impl Visplane {
         }
 
         for x in self.bottom.iter_mut() {
-            *x = 0.0;
+            *x = f32::MIN;
         }
     }
 }
