@@ -264,7 +264,7 @@ fn map_plane(
     texture_data: &PicData,
     pixels: &mut PixelBuf,
 ) {
-    let planeheight = (plane.height as f32 - viewz).abs();
+    let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
     let dy = y - SCREENHEIGHT_HALF as f32; // OK
     let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs(); // OK

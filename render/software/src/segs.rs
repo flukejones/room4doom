@@ -180,7 +180,7 @@ impl SegRender {
             ds_p.scale2 =
                 scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
 
-            self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start) as f32;
+            self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
             ds_p.scalestep = self.rw_scalestep;
         } else {
             ds_p.scale2 = ds_p.scale1;
@@ -480,12 +480,14 @@ impl SegRender {
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl - 0.2; // Magic float
+                // Magic float. Prevents incorrect ceiling in e1m3, and missing ceiling in
+                // other maps. Too high == missing, too low == ceiling where it shouldn't be
+                bottom = yl; // + 0.001;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
                 }
-                if top <= bottom {
+                if top < bottom {
                     let ceil = rdata.visplanes.ceilingplane;
                     rdata.visplanes.visplanes[ceil].top[self.rw_x as usize] = top.floor();
                     rdata.visplanes.visplanes[ceil].bottom[self.rw_x as usize] = bottom.floor();
@@ -496,8 +498,8 @@ impl SegRender {
             if self.bottomfrac.is_sign_negative() {
                 self.bottomfrac = f32::MAX;
             }
-            yh = self.bottomfrac.floor();
 
+            yh = self.bottomfrac.floor();
             if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0 {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
@@ -677,7 +679,7 @@ impl<'a> DrawColumn<'a> {
     pub fn draw_column(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette();
         let mut frac =
-            self.dc_texturemid + (self.yl - SCREENHEIGHT_HALF as i32) as f32 * self.fracstep;
+            self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
         for n in self.yl..=self.yh {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
