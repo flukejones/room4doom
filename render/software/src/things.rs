@@ -230,8 +230,6 @@ impl SoftwareRenderer {
         }
 
         vis.patch = patch_index;
-        // TODO: fixedcolourmap index
-        //  - shadow
         if thing.frame & FF_FULLBRIGHT != 0 {
             // full bright
             vis.light_level = 255;
@@ -269,11 +267,11 @@ impl SoftwareRenderer {
                 break;
             }
 
-            let sprtopscreen = (SCREENHEIGHT_HALF as f32 + 1.0 - dc_texmid * spryscale).floor();
+            let sprtopscreen = (SCREENHEIGHT_HALF as f32 - dc_texmid * spryscale).floor();
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
+            let mut bottom = top + (spryscale * texture_column.len() as f32).ceil() as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -283,7 +281,7 @@ impl SoftwareRenderer {
                 top = clip_top[x as usize] + 1;
             }
 
-            if top < bottom {
+            if top <= bottom {
                 draw_masked_column(
                     texture_column,
                     colourmap,
@@ -335,7 +333,7 @@ impl SoftwareRenderer {
             };
 
             unsafe {
-                if scale < vis.scale
+                if scale <= vis.scale
                     || (lowscale < vis.scale
                         && seg
                             .curline
@@ -356,7 +354,7 @@ impl SoftwareRenderer {
                     clip_bottom[r as usize] = self.r_data.visplanes.openings
                         [(seg.sprbottomclip.unwrap() + r) as usize]
                         .floor() as i32;
-                    if clip_bottom[r as usize] <= 0 {
+                    if clip_bottom[r as usize] < 0 {
                         clip_bottom[r as usize] = 0;
                     }
                 }
@@ -559,8 +557,8 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen as i32 + 1;
-                        let bottom = top + (spryscale * texture_column.len() as f32) as i32;
+                        let top = sprtopscreen.floor() as i32 + 1;
+                        let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
                         let mut yl = top;
                         let mut yh = bottom;
 
