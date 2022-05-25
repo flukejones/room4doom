@@ -132,9 +132,8 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
-        // debug!("Visplanes used: {}", visplanes.lastvisplane);
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
-            if plane.minx > plane.maxx {
+            if plane.minx >= plane.maxx {
                 continue;
             }
 
@@ -143,7 +142,7 @@ impl SoftwareRenderer {
                 let sky_mid = SCREENHEIGHT_HALF;
                 let skytex = textures.sky_pic();
 
-                for x in plane.minx..=plane.maxx {
+                for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
@@ -168,27 +167,27 @@ impl SoftwareRenderer {
             }
 
             if plane.maxx as usize + 1 < plane.top.len() {
-                plane.top[plane.maxx as usize + 1] = 0xff;
+                plane.top[plane.maxx as usize + 1] = f32::MAX;
             }
             if plane.minx as usize > 0 {
-                plane.top[plane.minx as usize - 1] = 0xff;
+                plane.top[plane.minx as usize - 1] = f32::MAX;
             }
             plane.basexscale = basexscale;
             plane.baseyscale = baseyscale;
             plane.view_angle = view_angle;
 
-            let mut span_start = [0; SCREENWIDTH];
-            for x in plane.minx..=plane.maxx {
+            let mut span_start = [0.0; SCREENWIDTH];
+            for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
                 let mut step = x - 1;
                 if step < 0 {
                     step = 0;
                 }
                 make_spans(
-                    x,
-                    plane.top[step as usize] as i32,
-                    plane.bottom[step as usize] as i32,
-                    plane.top[x as usize] as i32,
-                    plane.bottom[x as usize] as i32,
+                    x as f32,
+                    plane.top[step as usize] as f32,
+                    plane.bottom[step as usize] as f32,
+                    plane.top[x as usize] as f32,
+                    plane.bottom[x as usize] as f32,
                     mobj.xy,
                     player.viewz,
                     player.extralight,
@@ -246,7 +245,7 @@ impl SoftwareRenderer {
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() > 2.0 * clipangle.rad() {
+        if tspan.rad() >= 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -271,7 +270,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, pixels);
+                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
                 return;
             }
 
@@ -280,7 +279,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, pixels);
+                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
                 return;
             }
 
@@ -294,9 +293,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1, seg, player, pixels);
+            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, pixels);
+            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
         }
     }
 
@@ -310,21 +309,21 @@ impl SoftwareRenderer {
     ) {
         let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
+        if subsect.sector.floorheight < player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
-                subsect.sector.floorheight.floor() as i32,
+                subsect.sector.floorheight.ceil(),
                 subsect.sector.floorpic,
                 skynum,
                 subsect.sector.lightlevel,
             );
         }
 
-        if (subsect.sector.ceilingheight >= player.viewz
+        if (subsect.sector.ceilingheight > player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num())
             && subsect.sector.ceilingpic != usize::MAX
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
-                subsect.sector.ceilingheight.floor() as i32,
+                subsect.sector.ceilingheight.floor(),
                 subsect.sector.ceilingpic,
                 skynum,
                 subsect.sector.lightlevel,
@@ -345,13 +344,13 @@ impl SoftwareRenderer {
     fn clear_clip_segs(&mut self) {
         self.solidsegs.clear();
         self.solidsegs.push(ClipRange {
-            first: -0x7fffffff,
-            last: -1,
+            first: f32::MAX,
+            last: f32::MIN,
         });
         for _ in 0..MAX_SEGS {
             self.solidsegs.push(ClipRange {
-                first: 320,
-                last: i32::MAX,
+                first: SCREENWIDTH as f32,
+                last: f32::MAX,
             });
         }
         self.new_end = 1;
@@ -360,8 +359,8 @@ impl SoftwareRenderer {
     /// R_ClipSolidWallSegment - r_bsp
     fn clip_solid_seg(
         &mut self,
-        first: i32,
-        last: i32,
+        first: f32,
+        last: f32,
         seg: &Segment,
         object: &Player,
         pixels: &mut PixelBuf,
@@ -371,7 +370,7 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - 1 {
+        while self.solidsegs[start].last < first - 1.0 {
             start += 1;
         }
 
@@ -379,11 +378,11 @@ impl SoftwareRenderer {
         // TODO: check the above
         // self.seg_renderer = SegRender::new(self.texture_data.clone());
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - 1 {
+            if last < self.solidsegs[start].first - 1.0 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
                 self.seg_renderer.store_wall_range(
-                    first,
+                    first as f32,
                     last,
                     seg,
                     object,
@@ -408,7 +407,7 @@ impl SoftwareRenderer {
             // TODO: this causes a glitch?
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - 1,
+                self.solidsegs[start].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -424,10 +423,10 @@ impl SoftwareRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - 1 {
+        while last >= self.solidsegs[next + 1].first - 1.0 {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[next].last + 1,
-                self.solidsegs[next + 1].first - 1,
+                self.solidsegs[next].last + 1.0,
+                self.solidsegs[next + 1].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -444,7 +443,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[next].last + 1,
+            self.solidsegs[next].last + 1.0,
             last,
             seg,
             object,
@@ -463,8 +462,8 @@ impl SoftwareRenderer {
     /// Does handle windows, e.g. LineDefs with upper and lower texture
     fn clip_portal_seg(
         &mut self,
-        first: i32,
-        last: i32,
+        first: f32,
+        last: f32,
         seg: &Segment,
         object: &Player,
         pixels: &mut PixelBuf,
@@ -472,12 +471,12 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - 1 {
+        while self.solidsegs[start].last < first - 1.0 {
             start += 1;
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - 1 {
+            if last < self.solidsegs[start].first - 1.0 {
                 // Post is entirely visible (above start),
                 self.seg_renderer.store_wall_range(
                     first,
@@ -493,7 +492,7 @@ impl SoftwareRenderer {
             // There is a fragment above *start.
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - 1,
+                self.solidsegs[start].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -506,10 +505,10 @@ impl SoftwareRenderer {
             return;
         }
 
-        while last >= self.solidsegs[start + 1].first - 1 {
+        while last >= self.solidsegs[start + 1].first - 1.0 {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[start].last + 1,
-                self.solidsegs[start + 1].first - 1,
+                self.solidsegs[start].last + 1.0,
+                self.solidsegs[start + 1].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -525,7 +524,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[start].last + 1,
+            self.solidsegs[start].last + 1.0,
             last,
             seg,
             object,
@@ -705,7 +704,7 @@ impl SoftwareRenderer {
         if x1 == x2 {
             return false;
         }
-        x2 -= 1;
+        x2 -= 1.0;
 
         let mut start = 0;
         while self.solidsegs[start].last < x2 {
@@ -719,7 +718,7 @@ impl SoftwareRenderer {
     }
 }
 
-fn angle_to_screen(mut radian: f32) -> i32 {
+fn angle_to_screen(mut radian: f32) -> f32 {
     let mut x;
 
     // Left side
@@ -728,7 +727,7 @@ fn angle_to_screen(mut radian: f32) -> i32 {
     radian -= FRAC_PI_2;
     let t = radian.tan();
     x = t * p;
-    x = p - x - 0.01;
+    x = p - x - 0.5;
     // TODO: remove?
     // } else {
     //     // Right side
@@ -737,29 +736,15 @@ fn angle_to_screen(mut radian: f32) -> i32 {
     //     x = t * p;
     //     x = x + p;
     // }
-    x.ceil() as i32
+    x.ceil()
 }
 
 /// R_PointToAngle
-// To get a global angle from cartesian coordinates,
-//  the coordinates are flipped until they are in
-//  the first octant of the coordinate system, then
-//  the y (<=x) is scaled and divided by x to get a
-//  tangent (slope) value which is looked up in the
-//  tantoangle[] table.
-///
-/// The flipping isn't done here...
 fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x - mobj.xy.x;
     let y = vertex.y - mobj.xy.y;
     Angle::new(y.atan2(x))
 }
-
-// pub fn point_to_angle_2(point1: &Vec2, point2: &Vec2) -> Angle {
-//     let x = point1.x - point2.x;
-//     let y = point1.y - point2.y;
-//     Angle::new(y.atan2(x))
-// }
 
 #[cfg(test)]
 mod tests {

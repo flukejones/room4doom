@@ -17,8 +17,8 @@ pub const MAXOPENINGS: usize = SCREENWIDTH * 128;
 #[derive(Debug, Clone, Copy)]
 pub struct DrawSeg {
     pub curline: NonNull<Segment>,
-    pub x1: i32,
-    pub x2: i32,
+    pub x1: f32,
+    pub x2: f32,
 
     pub scale1: f32,
     pub scale2: f32,
@@ -48,8 +48,8 @@ impl DrawSeg {
     pub fn new(seg: NonNull<Segment>) -> Self {
         DrawSeg {
             curline: seg,
-            x1: 0,
-            x2: 0,
+            x1: 0.0,
+            x2: 0.0,
             scale1: 0.0,
             scale2: 0.0,
             scalestep: 0.0,
@@ -65,23 +65,23 @@ impl DrawSeg {
 
 #[derive(Copy, Clone)]
 pub struct ClipRange {
-    pub first: i32,
-    pub last: i32,
+    pub first: f32,
+    pub last: f32,
 }
 
 /// Now what is a visplane, anyway?
 #[derive(Copy, Clone)]
 pub struct Visplane {
-    pub height: i32,
+    pub height: f32,
     pub picnum: usize,
     pub lightlevel: i32,
-    pub minx: i32,
-    pub maxx: i32,
+    pub minx: f32,
+    pub maxx: f32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
-    pub top: [u8; SCREENWIDTH + 1],
+    pub top: [f32; SCREENWIDTH + 1],
     /// See above.
-    pub bottom: [u8; SCREENWIDTH + 1],
+    pub bottom: [f32; SCREENWIDTH + 1],
 
     pub basexscale: f32,
     pub baseyscale: f32,
@@ -127,13 +127,13 @@ impl Debug for Visplane {
 impl Default for Visplane {
     fn default() -> Self {
         Visplane {
-            height: 0,
+            height: 0.0,
             picnum: 0,
             lightlevel: 0,
-            minx: 0,
-            maxx: 0,
-            top: [0xff; SCREENWIDTH + 1],
-            bottom: [0; SCREENWIDTH + 1],
+            minx: 0.0,
+            maxx: 0.0,
+            top: [f32::MAX; SCREENWIDTH + 1],
+            bottom: [0.0; SCREENWIDTH + 1],
 
             basexscale: 0.0,
             baseyscale: 0.0,
@@ -144,19 +144,19 @@ impl Default for Visplane {
 
 impl Visplane {
     pub fn clear(&mut self) {
-        self.height = 0;
+        self.height = 0.0;
         self.picnum = 0;
         self.lightlevel = 0;
         self.picnum = 0;
-        self.minx = 0;
-        self.maxx = 0;
+        self.minx = 0.0;
+        self.maxx = 0.0;
 
-        // for x in self.top.iter_mut() {
-        //     *x = 0xff;
-        // }
+        for x in self.top.iter_mut() {
+            *x = f32::MAX;
+        }
 
-        // for x in self.bottom.iter_mut() {
-        //     *x = 0;
-        // }
+        for x in self.bottom.iter_mut() {
+            *x = 0.0;
+        }
     }
 }

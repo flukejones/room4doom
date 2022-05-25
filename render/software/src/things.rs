@@ -310,15 +310,23 @@ impl SoftwareRenderer {
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
-            if seg.x1 > vis.x2
-                || seg.x2 < vis.x1
+            if seg.x1.floor() as i32 > vis.x2
+                || (seg.x2.floor() as i32) < vis.x1
                 || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
             {
                 continue;
             }
 
-            let r1 = if seg.x1 < vis.x1 { vis.x1 } else { seg.x1 };
-            let r2 = if seg.x2 > vis.x2 { vis.x2 } else { seg.x2 };
+            let r1 = if (seg.x1.floor() as i32) < vis.x1 {
+                vis.x1
+            } else {
+                seg.x1.floor() as i32
+            };
+            let r2 = if (seg.x2.floor() as i32) > vis.x2 {
+                vis.x2
+            } else {
+                seg.x2.floor() as i32
+            };
 
             let (lowscale, scale) = if seg.scale1 > seg.scale2 {
                 (seg.scale2, seg.scale1)
@@ -345,15 +353,17 @@ impl SoftwareRenderer {
 
             for r in r1..=r2 {
                 if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
-                    clip_bottom[r as usize] =
-                        self.r_data.visplanes.openings[(seg.sprbottomclip.unwrap() + r) as usize];
+                    clip_bottom[r as usize] = self.r_data.visplanes.openings
+                        [(seg.sprbottomclip.unwrap() + r) as usize]
+                        .floor() as i32;
                     if clip_bottom[r as usize] <= 0 {
                         clip_bottom[r as usize] = 0;
                     }
                 }
                 if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
-                    clip_top[r as usize] =
-                        self.r_data.visplanes.openings[(seg.sprtopclip.unwrap() + r) as usize];
+                    clip_top[r as usize] = self.r_data.visplanes.openings
+                        [(seg.sprtopclip.unwrap() + r) as usize]
+                        .floor() as i32;
                     if clip_top[r as usize] >= SCREENHEIGHT as i32 {
                         clip_top[r as usize] = SCREENHEIGHT as i32;
                     }
@@ -462,7 +472,13 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
+            self.render_masked_seg_range(
+                player,
+                ds,
+                ds.x1.floor() as i32,
+                ds.x2.floor() as i32,
+                pixels,
+            );
         }
 
         self.draw_player_sprites(player, pixels);
@@ -490,7 +506,7 @@ impl SoftwareRenderer {
             let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
             let rw_scalestep = ds.scalestep;
-            let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
+            let mut spryscale = ds.scale1 + (x1 as f32 - ds.x1) * rw_scalestep;
 
             let mut dc_texturemid;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
@@ -520,12 +536,12 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.r_data.visplanes.openings[index] != i32::MAX
+                    if self.r_data.visplanes.openings[index] != f32::MAX
                         && seg.sidedef.midtexture.is_some()
                     {
                         let texture_column = textures.wall_pic_column(
                             unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                            self.r_data.visplanes.openings[index],
+                            self.r_data.visplanes.openings[index].floor() as i32,
                         );
 
                         let mut mceilingclip = self.r_data.visplanes.openings
@@ -568,7 +584,7 @@ impl SoftwareRenderer {
                             pixels,
                         );
 
-                        self.r_data.visplanes.openings[index] = i32::MAX;
+                        self.r_data.visplanes.openings[index] = f32::MAX;
                     } else {
                     }
                 }

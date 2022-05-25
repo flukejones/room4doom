@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use crate::utilities::screen_to_x_view;
+use crate::{defs::SCREENHEIGHT_HALF, utilities::screen_to_x_view};
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use render_traits::PixelBuf;
@@ -19,15 +19,15 @@ pub struct VisPlaneRender {
     pub ceilingplane: usize,
 
     /// Stores the column number of the texture required for this opening
-    pub openings: [i32; MAXOPENINGS],
-    pub lastopening: i32,
+    pub openings: [f32; MAXOPENINGS],
+    pub lastopening: f32,
 
-    pub floorclip: [i32; SCREENWIDTH],
-    pub ceilingclip: [i32; SCREENWIDTH],
+    pub floorclip: [f32; SCREENWIDTH],
+    pub ceilingclip: [f32; SCREENWIDTH],
     /// spanstart holds the start of a plane span
     /// initialized to 0 at start
-    pub spanstart: [i32; SCREENHEIGHT],
-    pub spanstop: [i32; SCREENHEIGHT],
+    pub spanstart: [f32; SCREENHEIGHT],
+    pub spanstop: [f32; SCREENHEIGHT],
 
     //lighttable_t **planezlight;
     pub planeheight: f32,
@@ -50,12 +50,12 @@ impl VisPlaneRender {
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: [i32::MAX; MAXOPENINGS],
-            lastopening: 0,
-            floorclip: [SCREENHEIGHT as i32; SCREENWIDTH],
-            ceilingclip: [-1; SCREENWIDTH],
-            spanstart: [0; SCREENHEIGHT],
-            spanstop: [0; SCREENHEIGHT],
+            openings: [f32::MAX; MAXOPENINGS],
+            lastopening: 0.0,
+            floorclip: [SCREENHEIGHT as f32; SCREENWIDTH],
+            ceilingclip: [-1.0; SCREENWIDTH],
+            spanstart: [0.0; SCREENHEIGHT],
+            spanstop: [0.0; SCREENHEIGHT],
             planeheight: 0.0,
             yslope: [0.0; SCREENHEIGHT],
             distscale: [0.0; SCREENWIDTH],
@@ -73,8 +73,8 @@ impl VisPlaneRender {
     pub fn clear_planes(&mut self, view_angle: Angle) {
         // opening / clipping determination
         for i in 0..SCREENWIDTH {
-            self.floorclip[i] = SCREENHEIGHT as i32;
-            self.ceilingclip[i] = -1;
+            self.floorclip[i] = SCREENHEIGHT as f32;
+            self.ceilingclip[i] = -1.0;
         }
 
         for p in self.visplanes.iter_mut() {
@@ -82,14 +82,14 @@ impl VisPlaneRender {
         }
 
         self.lastvisplane = 0;
-        self.lastopening = 0;
+        self.lastopening = 0.;
         self.floorplane = 0;
         self.ceilingplane = 0;
 
         // texture calculation
-        for i in self.cachedheight.iter_mut() {
-            *i = 0.0;
-        }
+        // for i in self.cachedheight.iter_mut() {
+        //     *i = 0.0;
+        // }
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
@@ -100,13 +100,13 @@ impl VisPlaneRender {
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
     pub fn find_plane(
         &mut self,
-        mut height: i32,
+        mut height: f32,
         picnum: usize,
         skynum: usize,
         mut light_level: i32,
     ) -> usize {
         if picnum == skynum {
-            height = 0;
+            height = 0.0;
             light_level = 0;
         }
 
@@ -129,17 +129,17 @@ impl VisPlaneRender {
         check.height = height;
         check.picnum = picnum;
         check.lightlevel = light_level;
-        check.minx = SCREENWIDTH as i32;
-        check.maxx = 0;
+        check.minx = SCREENWIDTH as f32;
+        check.maxx = 0.0;
         for t in &mut check.top {
-            *t = 0xff;
+            *t = f32::MAX;
         }
 
         self.lastvisplane
     }
 
     /// Check if this plane should be used, otherwise use a new plane.
-    pub fn check_plane(&mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
+    pub fn check_plane(&mut self, start: f32, stop: f32, plane_idx: usize) -> usize {
         let plane = &mut self.visplanes[plane_idx];
 
         let (intrl, unionl) = if start < plane.minx {
@@ -160,14 +160,14 @@ impl VisPlaneRender {
         //     return plane_idx;
         // }
 
-        for i in intrl..=320 {
-            if i >= intrh {
+        for i in intrl.floor() as i32..=SCREENWIDTH as i32 {
+            if i >= intrh.floor() as i32 {
                 plane.minx = unionl;
                 plane.maxx = unionh;
                 // Use the same plane
                 return plane_idx;
             }
-            if plane.top[i as usize] != 0xff {
+            if plane.top[i as usize] != f32::MAX {
                 break;
             }
         }
@@ -190,7 +190,7 @@ impl VisPlaneRender {
         plane.maxx = stop;
 
         for t in &mut plane.top {
-            *t = 0xff;
+            *t = 0.0;
         }
 
         self.lastvisplane
@@ -198,16 +198,16 @@ impl VisPlaneRender {
 }
 
 pub fn make_spans(
-    x: i32,
-    mut t1: i32,
-    mut b1: i32,
-    mut t2: i32,
-    mut b2: i32,
+    x: f32,
+    mut t1: f32,
+    mut b1: f32,
+    mut t2: f32,
+    mut b2: f32,
     viewxy: Vec2,
     viewz: f32,
     extra_light: i32,
     plane: &Visplane,
-    span_start: &mut [i32; SCREENWIDTH],
+    span_start: &mut [f32; SCREENWIDTH],
     texture_data: &PicData,
     pixels: &mut PixelBuf,
 ) {
@@ -215,8 +215,8 @@ pub fn make_spans(
     while t1 < t2 && t1 <= b1 {
         map_plane(
             t1,
-            span_start[t1 as usize],
-            x - 1,
+            span_start[t1 as usize], // TODO: check if need floor
+            x - 1.0,
             viewxy,
             viewz,
             extra_light,
@@ -224,14 +224,14 @@ pub fn make_spans(
             texture_data,
             pixels,
         );
-        t1 += 1;
+        t1 += 1.0;
     }
 
     while b1 > b2 && b1 >= t1 {
         map_plane(
             b1,
             span_start[b1 as usize],
-            x - 1,
+            x - 1.0,
             viewxy,
             viewz,
             extra_light,
@@ -239,24 +239,24 @@ pub fn make_spans(
             texture_data,
             pixels,
         );
-        b1 -= 1;
+        b1 -= 1.0;
     }
 
     while t2 < t1 && t2 <= b2 {
         span_start[t2 as usize] = x;
-        t2 += 1;
+        t2 += 1.0;
     }
 
     while b2 > b1 && b2 >= t2 {
         span_start[b2 as usize] = x;
-        b2 -= 1;
+        b2 -= 1.0;
     }
 }
 
 fn map_plane(
-    y: i32,
-    x1: i32,
-    x2: i32,
+    y: f32,
+    x1: f32,
+    x2: f32,
     viewxy: Vec2,
     viewz: f32,
     extra_light: i32,
@@ -266,9 +266,9 @@ fn map_plane(
 ) {
     let planeheight = (plane.height as f32 - viewz).abs();
     // TODO: maybe cache?
-    let dy = (y as f32 - SCREENHEIGHT as f32 / 2.0).floor(); // OK
+    let dy = y - SCREENHEIGHT_HALF as f32; // OK
     let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs(); // OK
-    let distance = planeheight as f32 * yslope; // OK
+    let distance = planeheight * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;
 
@@ -298,9 +298,9 @@ pub struct DrawSpan<'a> {
     ds_ystep: f32,
     ds_xfrac: f32,
     ds_yfrac: f32,
-    ds_y: i32,
-    ds_x1: i32,
-    ds_x2: i32,
+    ds_y: f32,
+    ds_x1: f32,
+    ds_x2: f32,
 }
 
 impl<'a> DrawSpan<'a> {
@@ -311,9 +311,9 @@ impl<'a> DrawSpan<'a> {
         ds_ystep: f32,
         ds_xfrac: f32,
         ds_yfrac: f32,
-        ds_y: i32,
-        ds_x1: i32,
-        ds_x2: i32,
+        ds_y: f32,
+        ds_x1: f32,
+        ds_x2: f32,
     ) -> Self {
         Self {
             texture,
@@ -330,7 +330,7 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette();
-        for s in self.ds_x1..=self.ds_x2 {
+        for s in self.ds_x1.floor() as i32..=self.ds_x2.floor() as i32 {
             let mut x = (self.ds_xfrac.floor() as i32 & 127) + 64;
             let mut y = (self.ds_yfrac.floor() as i32 & 127) + 64;
 
@@ -344,7 +344,7 @@ impl<'a> DrawSpan<'a> {
 
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
             let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(s as usize, self.ds_y.floor() as usize, c.r, c.g, c.b, 255);
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;

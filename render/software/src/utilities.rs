@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
+use std::f32::consts::FRAC_PI_2;
 
 use gameplay::Angle;
 use glam::Vec2;
@@ -6,11 +6,11 @@ use glam::Vec2;
 use crate::defs::SCREENWIDTH;
 
 fn player_dist_to_screen() -> f32 {
-    160.0 / (45.0f32.to_radians()).tan()
+    SCREENWIDTH as f32 / 2.0 / (45.0f32.to_radians()).tan()
 }
 
-pub fn screen_to_x_view(x: i32) -> f32 {
-    ((160.0 - x as f32) / player_dist_to_screen()).atan()
+pub fn screen_to_x_view(x: f32) -> f32 {
+    ((SCREENWIDTH as f32 / 2.0 - x) / player_dist_to_screen()).atan()
 }
 
 #[allow(clippy::excessive_precision)]

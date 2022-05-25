@@ -7,22 +7,22 @@ pub struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
-    pub floorclip: [i32; SCREENWIDTH],
-    pub ceilingclip: [i32; SCREENWIDTH],
+    pub floorclip: [f32; SCREENWIDTH],
+    pub ceilingclip: [f32; SCREENWIDTH],
 }
 
 impl PortalClip {
     pub fn new() -> Self {
         PortalClip {
-            floorclip: [0; SCREENWIDTH],
-            ceilingclip: [0; SCREENWIDTH],
+            floorclip: [0.0; SCREENWIDTH],
+            ceilingclip: [0.0; SCREENWIDTH],
         }
     }
 
     pub(super) fn clear(&mut self) {
         for i in 0..SCREENWIDTH {
-            self.floorclip[i] = SCREENHEIGHT as i32;
-            self.ceilingclip[i] = -1;
+            self.floorclip[i] = SCREENHEIGHT as f32;
+            self.ceilingclip[i] = -1.0;
         }
     }
 }

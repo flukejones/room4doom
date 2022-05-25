@@ -357,7 +357,7 @@ impl Segment {
         let end = &self.v2;
 
         let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
-        if d <= f32::EPSILON {
+        if d <= 0.1 {
             return true;
         }
         false
