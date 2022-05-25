@@ -480,7 +480,7 @@ impl SegRender {
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl;
+                bottom = yl - 0.2; // Magic float
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
@@ -498,7 +498,7 @@ impl SegRender {
             }
             yh = self.bottomfrac.floor();
 
-            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
+            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0 {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
 
