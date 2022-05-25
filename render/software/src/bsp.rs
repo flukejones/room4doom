@@ -727,7 +727,7 @@ fn angle_to_screen(mut radian: f32) -> f32 {
     radian -= FRAC_PI_2;
     let t = radian.tan();
     x = t * p;
-    x = p - x - 0.5;
+    x = p - x - 0.01;
     // TODO: remove?
     // } else {
     //     // Right side
