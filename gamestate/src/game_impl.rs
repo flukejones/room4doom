@@ -1,6 +1,6 @@
 use crate::Game;
 use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
-use gamestate_traits::{GameState, GameTraits, PlayerStatus};
+use gamestate_traits::{GameTraits, PlayerStatus};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 use wad::WadData;
 
