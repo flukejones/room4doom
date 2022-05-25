@@ -474,13 +474,13 @@ impl SegRender {
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac.ceil() + 1.0;
-            if yl < rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
+            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
             }
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
-                bottom = yl - 1.0;
+                bottom = yl;
 
                 if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                     bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
@@ -498,7 +498,7 @@ impl SegRender {
             }
             yh = self.bottomfrac.floor();
 
-            if yh > rdata.portal_clip.floorclip[self.rw_x as usize] {
+            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] {
                 yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
             }
 
