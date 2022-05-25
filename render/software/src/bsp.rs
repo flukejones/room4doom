@@ -184,10 +184,10 @@ impl SoftwareRenderer {
                 }
                 make_spans(
                     x as f32,
-                    plane.top[step as usize] as f32,
-                    plane.bottom[step as usize] as f32,
-                    plane.top[x as usize] as f32,
-                    plane.bottom[x as usize] as f32,
+                    plane.top[step as usize],
+                    plane.bottom[step as usize],
+                    plane.top[x as usize],
+                    plane.bottom[x as usize],
                     mobj.xy,
                     player.viewz,
                     player.extralight,
