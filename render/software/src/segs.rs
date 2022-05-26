@@ -471,26 +471,28 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
         while self.rw_x < self.rw_stopx {
+            let clip_index = self.rw_x.floor() as usize;
+
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac.ceil() + 1.0;
-            if yl <= rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0 {
-                yl = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+            if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
+                yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
             if self.markceiling {
-                top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 // Magic float. Prevents incorrect ceiling in e1m3, and missing ceiling in
                 // other maps. Too high == missing, too low == ceiling where it shouldn't be
                 bottom = yl; // + 0.001;
 
-                if bottom >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                    bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                if bottom >= rdata.portal_clip.floorclip[clip_index] {
+                    bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top < bottom {
                     let ceil = rdata.visplanes.ceilingplane;
-                    rdata.visplanes.visplanes[ceil].top[self.rw_x as usize] = top.floor();
-                    rdata.visplanes.visplanes[ceil].bottom[self.rw_x as usize] = bottom.floor();
+                    rdata.visplanes.visplanes[ceil].top[clip_index] = top.floor();
+                    rdata.visplanes.visplanes[ceil].bottom[clip_index] = bottom.floor();
                 }
             }
 
@@ -500,21 +502,21 @@ impl SegRender {
             }
 
             yh = self.bottomfrac.floor();
-            if yh >= rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0 {
-                yh = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+            if yh >= rdata.portal_clip.floorclip[clip_index] - 1.0 {
+                yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
             }
 
             if self.markfloor {
                 top = yh + 1.0;
-                bottom = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
 
-                if top <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                    top = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                if top <= rdata.portal_clip.ceilingclip[clip_index] {
+                    top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
                 if top <= bottom {
                     let floor = rdata.visplanes.floorplane;
-                    rdata.visplanes.visplanes[floor].top[self.rw_x as usize] = top.floor();
-                    rdata.visplanes.visplanes[floor].bottom[self.rw_x as usize] = bottom.floor();
+                    rdata.visplanes.visplanes[floor].top[clip_index] = top.floor();
+                    rdata.visplanes.visplanes[floor].bottom[clip_index] = bottom.floor();
                 }
             }
 
@@ -547,8 +549,8 @@ impl SegRender {
                     dc.draw_column(textures, pixels);
                 };
 
-                rdata.portal_clip.ceilingclip[self.rw_x as usize] = view_height;
-                rdata.portal_clip.floorclip[self.rw_x as usize] = -1.0;
+                rdata.portal_clip.ceilingclip[clip_index] = view_height;
+                rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
                 let textures = &self.texture_data.borrow();
                 if self.toptexture {
@@ -556,8 +558,8 @@ impl SegRender {
                     mid = self.pixhigh;
                     self.pixhigh += self.pixhighstep;
 
-                    if mid >= rdata.portal_clip.floorclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.floorclip[self.rw_x as usize] - 1.0;
+                    if mid >= rdata.portal_clip.floorclip[clip_index] {
+                        mid = rdata.portal_clip.floorclip[clip_index] - 1.0;
                     }
 
                     if mid > yl {
@@ -580,12 +582,12 @@ impl SegRender {
                             dc.draw_column(textures, pixels);
                         }
 
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = mid;
+                        rdata.portal_clip.ceilingclip[clip_index] = mid;
                     } else {
-                        rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
+                        rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[self.rw_x as usize] = yl - 1.0;
+                    rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                 }
 
                 if self.bottomtexture {
@@ -593,8 +595,8 @@ impl SegRender {
                     mid = self.pixlow + 1.0;
                     self.pixlow += self.pixlowstep;
 
-                    if mid <= rdata.portal_clip.ceilingclip[self.rw_x as usize] {
-                        mid = rdata.portal_clip.ceilingclip[self.rw_x as usize] + 1.0;
+                    if mid <= rdata.portal_clip.ceilingclip[clip_index] {
+                        mid = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                     }
 
                     if mid < yh {
@@ -616,12 +618,12 @@ impl SegRender {
                             );
                             dc.draw_column(textures, pixels);
                         }
-                        rdata.portal_clip.floorclip[self.rw_x as usize] = mid;
+                        rdata.portal_clip.floorclip[clip_index] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
+                        rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[self.rw_x as usize] = yh + 1.0;
+                    rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                 }
 
                 if self.maskedtexture {
