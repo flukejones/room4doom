@@ -1,3 +1,9 @@
+//! The gameplay crate is purely gameplay. It loads a level from the wad, all definitions, and level state.
+//!
+//! The `Gameplay` is very self contained, such that it really only expects input, the player thinkers to be
+//! run, and the MapObject thinkers to be run. Theowner of the `Gameplay` is then expected to get what is
+//! required to display the results from the exposed public API.
+
 // #![feature(const_fn_floating_point_arithmetic)]
 #![allow(clippy::new_without_default)]
 
