@@ -113,7 +113,10 @@ impl VisPlaneRender {
         let len = self.visplanes.len();
 
         for (index, plane) in self.visplanes[0..self.lastvisplane].iter().enumerate() {
-            if height == plane.height && picnum == plane.picnum && light_level == plane.lightlevel {
+            if height.floor() == plane.height.floor()
+                && picnum == plane.picnum
+                && light_level == plane.lightlevel
+            {
                 return index;
             }
         }

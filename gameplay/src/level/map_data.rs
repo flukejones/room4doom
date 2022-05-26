@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::{f32::consts::FRAC_PI_2, time::Instant};
 
 use crate::{
     angle::Angle,
@@ -308,20 +308,20 @@ impl MapData {
                 let v1 = vertexes[s.start_vertex as usize];
                 let v2 = vertexes[s.end_vertex as usize];
 
-                let ldef = &mut self.linedefs[s.linedef as usize];
+                let linedef = &mut self.linedefs[s.linedef as usize];
 
                 let frontsector;
                 let backsector;
                 let side;
                 // The front and back sectors interchange depending on BSP
                 if s.side == 0 {
-                    side = ldef.front_sidedef.clone();
-                    frontsector = ldef.frontsector.clone();
-                    backsector = ldef.backsector.clone();
+                    side = linedef.front_sidedef.clone();
+                    frontsector = linedef.frontsector.clone();
+                    backsector = linedef.backsector.clone();
                 } else {
-                    side = ldef.back_sidedef.as_ref().unwrap().clone();
-                    frontsector = ldef.backsector.as_ref().unwrap().clone();
-                    backsector = Some(ldef.frontsector.clone());
+                    side = linedef.back_sidedef.as_ref().unwrap().clone();
+                    frontsector = linedef.backsector.as_ref().unwrap().clone();
+                    backsector = Some(linedef.frontsector.clone());
                 };
 
                 let angle = bam_to_radian((s.angle as u32) << 16);
@@ -332,7 +332,7 @@ impl MapData {
                     offset: s.offset as f32,
                     angle: Angle::new(angle),
                     sidedef: side,
-                    linedef: DPtr::new(ldef),
+                    linedef: DPtr::new(linedef),
                     frontsector,
                     backsector,
                 }
@@ -393,6 +393,7 @@ impl MapData {
         self.start_node = (self.nodes.len() - 1) as u16;
         self.set_extents();
         self.set_scale();
+        self.fix_vertices();
     }
 
     /// Get a raw pointer to the subsector a point is in. This is mostly used to update
@@ -425,6 +426,90 @@ impl MapData {
         }
 
         &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize]
+    }
+
+    /// Remove slime trails. killough 10/98
+    ///
+    // Slime trails are inherent to Doom's coordinate system -- i.e. there is
+    /// nothing that a node builder can do to prevent slime trails ALL of the time,
+    /// because it's a product of the integer coordinate system, and just because
+    /// two lines pass through exact integer coordinates, doesn't necessarily mean
+    /// that they will intersect at integer coordinates. Thus we must allow for
+    /// fractional coordinates if we are to be able to split segs with node lines,
+    /// as a node builder must do when creating a BSP tree.
+    ///
+    /// A wad file does not allow fractional coordinates, so node builders are out
+    /// of luck except that they can try to limit the number of splits (they might
+    /// also be able to detect the degree of roundoff error and try to avoid splits
+    /// with a high degree of roundoff error). But we can use fractional coordinates
+    /// here, inside the engine. It's like the difference between square inches and
+    /// square miles, in terms of granularity.
+    ///
+    /// For each vertex of every seg, check to see whether it's also a vertex of
+    /// the linedef associated with the seg (i.e, it's an endpoint). If it's not
+    /// an endpoint, and it wasn't already moved, move the vertex towards the
+    /// linedef by projecting it using the law of cosines. Formula:
+    ///
+    ///      2        2                         2        2
+    ///    dx  x0 + dy  x1 + dx dy (y0 - y1)  dy  y0 + dx  y1 + dx dy (x0 - x1)
+    ///   {---------------------------------, ---------------------------------}
+    ///                  2     2                            2     2
+    ///                dx  + dy                           dx  + dy
+    ///
+    /// (x0,y0) is the vertex being moved, and (x1,y1)-(x1+dx,y1+dy) is the
+    /// reference linedef.
+    ///
+    /// Segs corresponding to orthogonal linedefs (exactly vertical or horizontal
+    /// linedefs), which comprise at least half of all linedefs in most wads, don't
+    /// need to be considered, because they almost never contribute to slime trails
+    /// (because then any roundoff error is parallel to the linedef, which doesn't
+    /// cause slime). Skipping simple orthogonal lines lets the code finish quicker.
+    ///
+    /// Please note: This section of code is not interchangable with TeamTNT's
+    /// code which attempts to fix the same problem.
+    ///
+    /// Firelines (TM) is a Rezistered Trademark of MBF Productions
+    fn fix_vertices(&mut self) {
+        let start = Instant::now();
+        for seg in self.segments.iter_mut() {
+            let linedef = seg.linedef.as_mut();
+            // Commented this part out because cycles are now very very cheap
+            // if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
+            let mut step2 = false;
+            let mut vertex = &mut seg.v1;
+            loop {
+                let dx2 = linedef.delta.x * linedef.delta.x;
+                let dy2 = linedef.delta.y * linedef.delta.y;
+                let dxy = linedef.delta.x * linedef.delta.y;
+                let s = dx2 + dy2;
+                let x0 = vertex.x;
+                let y0 = vertex.y;
+                let x1 = linedef.v1.x;
+                let y1 = linedef.v1.y;
+                vertex.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
+                vertex.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
+
+                if step2 {
+                    // Also set the v2 linedef
+                    // linedef.v2.x = vertex.x;
+                    // linedef.v2.y = vertex.y;
+                    break;
+                }
+                // Linedef are not used for rendering
+                // linedef.v1.x = vertex.x;
+                // linedef.v1.y = vertex.y;
+                vertex = &mut seg.v2;
+                step2 = true;
+            }
+            // }
+        }
+
+        let end = Instant::now();
+        info!(
+            "{}: Fixed map vertices, took: {:#?}",
+            self.name,
+            end.duration_since(start)
+        );
     }
 }
 
