@@ -229,6 +229,8 @@ pub fn d_doom_loop(
             }
         }
     }
+    // game.snd_command.send(SoundAction::Shutdown).unwrap();
+    // game.snd_thread.join().unwrap();
     Ok(())
 }
 

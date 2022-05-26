@@ -186,15 +186,15 @@ pub struct Game {
 
     /// Sound tx
     pub snd_command: SndServerTx,
-    _snd_thread: JoinHandle<()>,
+    pub snd_thread: JoinHandle<()>,
 }
 
 impl Drop for Game {
     fn drop(&mut self) {
         self.snd_command.send(SoundAction::Shutdown).unwrap();
         // Nightly only
-        // while !self.snd_thread.is_finished() {}
-        std::thread::sleep(Duration::from_millis(100));
+        //while self.snd_thread.is_running() {}
+        std::thread::sleep(Duration::from_millis(500));
     }
 }
 
@@ -365,7 +365,7 @@ impl Game {
             usergame: false,
             options,
             snd_command: tx,
-            _snd_thread: snd_thread,
+            snd_thread,
         }
     }
 
@@ -416,7 +416,7 @@ impl Game {
 
         debug!("Game: init_new: mode = {:?}", self.game_mode);
         if self.game_mode == GameMode::Retail {
-            if episode > 4 {
+            if episode > 4 && self.options.pwad.is_empty() {
                 warn!(
                     "Game: init_new: {:?} mode but episode {} is greater than 4",
                     self.game_mode, episode
@@ -438,7 +438,7 @@ impl Game {
                 );
                 map = 5;
             }
-        } else if episode > 3 {
+        } else if episode > 3 && self.options.pwad.is_empty() {
             warn!(
                 "Game: init_new: {:?} mode but episode {} is greater than 3",
                 self.game_mode, episode

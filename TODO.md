@@ -6,6 +6,7 @@
 - [ ] Doom 2 boss brain thing
   - [ ] Can't target it, probably because it's not visible? There's that thing in front?
 - [ ] Wad mobj flags a different to in-game info flags...
+- [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
 
 ## FUNCTIONALITY
 

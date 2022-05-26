@@ -27,7 +27,7 @@ enum Status {
 struct MenuItem {
     status: Status,
     /// The name of the patch in the wad to draw for this item
-    patch: &'static str,
+    patch: String,
     /// A function pointer to the 'logic' that drives this menu item
     logic: fn(&mut MenuDoom, i32, &mut dyn GameTraits),
     /// The `char` which activates this item (as a capital letter)
@@ -37,13 +37,13 @@ struct MenuItem {
 impl MenuItem {
     fn new(
         status: Status,
-        patch: &'static str,
+        patch: impl ToString,
         logic: fn(&mut MenuDoom, i32, &mut (dyn GameTraits)),
         hotkey: char,
     ) -> Self {
         Self {
             status,
-            patch,
+            patch: patch.to_string(),
             logic,
             hotkey,
         }
@@ -55,14 +55,18 @@ impl MenuItem {
 #[derive(Clone)]
 struct Title {
     /// The name of the patch in the wad to draw for this item
-    patch: &'static str,
+    patch: String,
     x: i32,
     y: i32,
 }
 
 impl Title {
-    fn new(patch: &'static str, x: i32, y: i32) -> Self {
-        Self { patch, x, y }
+    fn new(patch: impl ToString, x: i32, y: i32) -> Self {
+        Self {
+            patch: patch.to_string(),
+            x,
+            y,
+        }
     }
 }
 
@@ -122,7 +126,7 @@ enum MenuIndex {
 
 fn place_holder(_: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {}
 
-type Patches = HashMap<&'static str, WadPatch>;
+type Patches = HashMap<String, WadPatch>;
 
 pub struct MenuDoom {
     /// Is the menu active?
@@ -172,20 +176,19 @@ impl MenuDoom {
                 vec![Title::new("M_EPISOD", 54, 38)],
                 48,
                 63,
-                if mode == GameMode::Retail {
-                    vec![
-                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'K'),
-                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 'T'),
-                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'I'),
-                        MenuItem::new(Status::Ok, "M_EPI4", sel_episode, 'S'),
-                    ]
-                } else {
-                    vec![
-                        MenuItem::new(Status::Ok, "M_EPI1", sel_episode, 'K'),
-                        MenuItem::new(Status::Ok, "M_EPI2", sel_episode, 'T'),
-                        MenuItem::new(Status::Ok, "M_EPI3", sel_episode, 'I'),
-                    ]
-                },
+                (1..=9)
+                    .map_while(|e| {
+                        if wad.lump_exists(&format!("M_EPI{e}")) {
+                            return Some(MenuItem::new(
+                                Status::Ok,
+                                &format!("M_EPI{e}"),
+                                sel_episode,
+                                char::from_digit(e, 10).unwrap(),
+                            ));
+                        }
+                        None
+                    })
+                    .collect(),
             ),
             MenuSet::new(
                 MenuIndex::Skill,
@@ -256,20 +259,20 @@ impl MenuDoom {
         let mut patches = HashMap::new();
         for menu in &menus {
             for item in &menu.titles {
-                if let Some(lump) = wad.get_lump(item.patch) {
-                    patches.insert(item.patch, WadPatch::from_lump(lump));
+                if let Some(lump) = wad.get_lump(&item.patch) {
+                    patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
                 }
             }
             for item in &menu.items {
-                if let Some(lump) = wad.get_lump(item.patch) {
-                    patches.insert(item.patch, WadPatch::from_lump(lump));
+                if let Some(lump) = wad.get_lump(&item.patch) {
+                    patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
                 }
             }
         }
 
         for patch in SKULLS {
             if let Some(lump) = wad.get_lump(patch) {
-                patches.insert(patch, WadPatch::from_lump(lump));
+                patches.insert(patch.to_string(), WadPatch::from_lump(lump));
             }
         }
 
@@ -500,13 +503,13 @@ impl MachinationTrait for MenuDoom {
             let active = &self.menus[self.current_menu as usize];
             // Titles
             for item in active.titles.iter() {
-                self.draw_patch(self.get_patch(item.patch), item.x, item.y, buffer);
+                self.draw_patch(self.get_patch(&item.patch), item.x, item.y, buffer);
             }
             // sub-items
             let x = active.x;
             let mut y = active.y;
             for item in active.items.iter() {
-                self.draw_patch(self.get_patch(item.patch), x, y, buffer);
+                self.draw_patch(self.get_patch(&item.patch), x, y, buffer);
                 y += LINEHEIGHT;
             }
 

@@ -152,6 +152,30 @@ impl Intermission {
         }
     }
 
+    pub(crate) fn get_bg(&self) -> &WadPatch {
+        self.bg_patches
+            .get(self.current_bg)
+            .unwrap_or(&self.bg_patches[self.bg_patches.len() - 1])
+    }
+
+    pub(crate) fn get_this_level_name(&self) -> &WadPatch {
+        let ep = if self.level_info.epsd as usize >= self.level_names.len() {
+            self.level_names.len() - 1
+        } else {
+            self.level_info.epsd as usize
+        };
+        &self.level_names[ep][self.level_info.last as usize - 1]
+    }
+
+    pub(crate) fn get_enter_level_name(&self) -> &WadPatch {
+        let ep = if self.level_info.epsd as usize >= self.level_names.len() {
+            self.level_names.len() - 1
+        } else {
+            self.level_info.epsd as usize
+        };
+        &self.level_names[ep][self.level_info.next as usize]
+    }
+
     fn init_animated_bg(&mut self) {
         if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
             return;
