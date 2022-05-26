@@ -40,8 +40,7 @@ impl Intermission {
             buffer,
         );
         y += (5 * self.patches.finish.height as i32) / 4;
-        let ep = self.level_info.epsd as usize;
-        let patch = &self.level_names[ep][self.level_info.last as usize - 1];
+        let patch = self.get_this_level_name();
         self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
     }
 
@@ -72,7 +71,7 @@ impl Intermission {
 
     pub(super) fn draw_stats(&mut self, buffer: &mut PixelBuf) {
         // Background
-        self.draw_patch(&self.bg_patches[self.current_bg], 0, 0, buffer);
+        self.draw_patch(self.get_bg(), 0, 0, buffer);
         self.draw_animated_bg(buffer);
         self.draw_level_finish(buffer);
 
