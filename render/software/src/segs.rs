@@ -599,7 +599,7 @@ impl SegRender {
                         mid = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                     }
 
-                    if mid < yh {
+                    if mid <= yh + 1.0 {
                         if let Some(bot_tex) = seg.sidedef.bottomtexture {
                             let texture_column = textures.wall_pic_column(bot_tex, texture_column);
                             let mut dc = DrawColumn::new(
