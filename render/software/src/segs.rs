@@ -475,7 +475,7 @@ impl SegRender {
 
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
-            yl = self.topfrac.ceil() + 1.0;
+            yl = self.topfrac.floor() + 1.0;
             if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
@@ -687,7 +687,7 @@ impl<'a> DrawColumn<'a> {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
-            let mut select = (frac - 0.01).floor() as i32 & 0xff;
+            let mut select = (frac - 0.01).round() as i32 & 0xff;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
