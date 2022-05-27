@@ -69,6 +69,8 @@ pub struct CLIOptions {
     pub height: u32,
     #[options(meta = "", help = "fullscreen?")]
     pub fullscreen: Option<bool>,
+    #[options(meta = "", help = "double-resolution?")]
+    pub double: Option<bool>,
 
     #[options(help = "Disable monsters")]
     pub no_monsters: bool,

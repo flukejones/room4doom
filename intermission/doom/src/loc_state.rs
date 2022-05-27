@@ -32,16 +32,17 @@ impl Intermission {
     }
 
     pub(super) fn draw_enter_level(&self, buffer: &mut PixelBuf) {
+        let half = buffer.width() as i32;
         let mut y = TITLE_Y;
         self.draw_patch(
             &self.patches.enter,
-            160 - self.patches.enter.width as i32 / 2,
+            half - self.patches.enter.width as i32 / 2,
             y,
             buffer,
         );
         y += (5 * self.patches.enter.height as i32) / 4;
         let patch = self.get_enter_level_name();
-        self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
+        self.draw_patch(patch, half - patch.width as i32 / 2, y, buffer);
     }
 
     pub(super) fn draw_next_loc(&self, buffer: &mut PixelBuf) {

@@ -207,6 +207,7 @@ impl PicData {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTZ)
                     .map(|j| {
+                        // TODO: scale to screen res
                         let scale = 160.0 / (j + 1) as f32;
                         let mut level = startmap - (scale / 2.0) as i32;
                         if level < 0 {

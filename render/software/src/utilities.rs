@@ -3,8 +3,6 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::Angle;
 use glam::Vec2;
 
-use crate::defs::SCREENWIDTH;
-
 fn player_dist_to_screen(screen_width: f32) -> f32 {
     screen_width as f32 / 2.0 / (45.0f32.to_radians()).tan()
 }
