@@ -155,10 +155,10 @@ impl SoftwareRenderer {
                             texture_column,
                             colourmap,
                             1.0,
-                            x,
+                            x as f32,
                             sky_mid as f32,
-                            dc_yl as i32,
-                            dc_yh as i32,
+                            dc_yl,
+                            dc_yh,
                         );
                         dc.draw_column(&textures, pixels);
                     }
