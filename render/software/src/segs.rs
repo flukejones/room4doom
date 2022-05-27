@@ -541,10 +541,10 @@ impl SegRender {
                             self.rw_scale,
                         ),
                         dc_iscale,
-                        self.rw_x.floor() as i32,
+                        self.rw_x,
                         self.rw_midtexturemid,
-                        yl.floor() as i32,
-                        yh.floor() as i32,
+                        yl,
+                        yh,
                     );
                     dc.draw_column(textures, pixels);
                 };
@@ -574,10 +574,10 @@ impl SegRender {
                                     self.rw_scale,
                                 ),
                                 dc_iscale,
-                                self.rw_x.floor() as i32,
+                                self.rw_x,
                                 self.rw_toptexturemid,
-                                yl.floor() as i32,
-                                mid.floor() as i32,
+                                yl,
+                                mid,
                             );
                             dc.draw_column(textures, pixels);
                         }
@@ -611,10 +611,10 @@ impl SegRender {
                                     self.rw_scale,
                                 ),
                                 dc_iscale,
-                                self.rw_x.floor() as i32,
+                                self.rw_x,
                                 self.rw_bottomtexturemid,
-                                mid.floor() as i32,
-                                yh.floor() as i32,
+                                mid,
+                                yh,
                             );
                             dc.draw_column(textures, pixels);
                         }
@@ -646,10 +646,10 @@ pub struct DrawColumn<'a> {
     texture_column: &'a [usize],
     colourmap: &'a [usize],
     fracstep: f32,
-    dc_x: i32,
+    dc_x: f32,
     dc_texturemid: f32,
-    yl: i32,
-    yh: i32,
+    yl: f32,
+    yh: f32,
 }
 
 impl<'a> DrawColumn<'a> {
@@ -657,10 +657,10 @@ impl<'a> DrawColumn<'a> {
         texture_column: &'a [usize],
         colourmap: &'a [usize],
         fracstep: f32,
-        dc_x: i32,
+        dc_x: f32,
         dc_texturemid: f32,
-        yl: i32,
-        yh: i32,
+        yl: f32,
+        yh: f32,
     ) -> Self {
         Self {
             texture_column,
@@ -683,11 +683,11 @@ impl<'a> DrawColumn<'a> {
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
 
-        for n in self.yl..=self.yh {
+        for n in self.yl.floor() as i32..=self.yh.floor() as i32 {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
-            let mut select = (frac - 0.01).round() as i32 & 0xff;
+            let mut select = (frac - 0.51).round() as i32 & 0xff;
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
@@ -698,7 +698,7 @@ impl<'a> DrawColumn<'a> {
 
             let px = self.colourmap[self.texture_column[select as usize]];
             let c = pal[px];
-            pixels.set_pixel(self.dc_x as usize, n as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(self.dc_x.floor() as usize, n as usize, c.r, c.g, c.b, 255);
 
             frac += self.fracstep;
         }
