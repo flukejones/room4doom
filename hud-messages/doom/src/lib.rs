@@ -63,6 +63,8 @@ impl Messages {
     }
 
     pub fn draw_wrapped(&self, machination: &impl MachinationTrait, pixels: &mut PixelBuf) {
+        let f = (pixels.height() / 200) as i32;
+
         let x = 10;
         let mut y = 2;
         let mut pos = self.start;
@@ -79,7 +81,7 @@ impl Messages {
             }
 
             self.lines[pos].draw(x, y, machination, pixels);
-            y += self.lines[pos].line_height() + 1;
+            y += self.lines[pos].line_height() * f + 1;
 
             if pos == self.current {
                 break;

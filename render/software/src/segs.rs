@@ -1,4 +1,4 @@
-use crate::{defs::SCREENWIDTH, utilities::screen_to_x_view};
+use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
 use render_traits::PixelBuf;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
@@ -6,7 +6,7 @@ use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
 use super::{
-    defs::{DrawSeg, MAXDRAWSEGS, SCREENHEIGHT_HALF, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
+    defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
     RenderData,
 };
 
@@ -134,7 +134,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if !(0.0..SCREENWIDTH as f32).contains(&start) || start > stop {
+        if !(0.0..pixels.width() as f32 as f32).contains(&start) || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -163,11 +163,16 @@ impl SegRender {
         let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + screen_to_x_view(start);
-        self.rw_scale =
-            scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
+        let visangle = view_angle + screen_to_x_view(start, pixels.width() as f32);
+        self.rw_scale = scale_from_view_angle(
+            visangle,
+            self.rw_normalangle,
+            self.rw_distance,
+            view_angle,
+            pixels.width() as f32,
+        );
 
-        let visangle = view_angle + screen_to_x_view(stop);
+        let visangle = view_angle + screen_to_x_view(stop, pixels.width() as f32);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -177,8 +182,13 @@ impl SegRender {
 
         if stop > start {
             // scale2 and rw_scale appears corrrect
-            ds_p.scale2 =
-                scale_from_view_angle(visangle, self.rw_normalangle, self.rw_distance, view_angle);
+            ds_p.scale2 = scale_from_view_angle(
+                visangle,
+                self.rw_normalangle,
+                self.rw_distance,
+                view_angle,
+                pixels.width() as f32,
+            );
 
             self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
             ds_p.scalestep = self.rw_scalestep;
@@ -370,19 +380,19 @@ impl SegRender {
         }
 
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = SCREENHEIGHT_HALF as f32 - (self.worldtop * self.rw_scale);
+        self.topfrac = pixels.height() as f32 / 2.0 - (self.worldtop * self.rw_scale);
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
-        self.bottomfrac = SCREENHEIGHT_HALF as f32 - (self.worldbottom * self.rw_scale);
+        self.bottomfrac = pixels.height() as f32 / 2.0 - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
             if self.worldhigh < self.worldtop {
-                self.pixhigh = SCREENHEIGHT_HALF as f32 - (self.worldhigh * self.rw_scale);
+                self.pixhigh = pixels.height() as f32 / 2.0 - (self.worldhigh * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
             if self.worldlow > self.worldbottom {
-                self.pixlow = SCREENHEIGHT_HALF as f32 - (self.worldlow * self.rw_scale);
+                self.pixlow = pixels.height() as f32 / 2.0 - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -522,7 +532,7 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle + screen_to_x_view(self.rw_x);
+                angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as f32);
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;
@@ -546,7 +556,7 @@ impl SegRender {
                         yl,
                         yh,
                     );
-                    dc.draw_column(textures, pixels);
+                    dc.draw_column(textures, false, pixels);
                 };
 
                 rdata.portal_clip.ceilingclip[clip_index] = view_height;
@@ -579,7 +589,7 @@ impl SegRender {
                                 yl,
                                 mid,
                             );
-                            dc.draw_column(textures, pixels);
+                            dc.draw_column(textures, false, pixels);
                         }
 
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
@@ -616,7 +626,7 @@ impl SegRender {
                                 mid,
                                 yh,
                             );
-                            dc.draw_column(textures, pixels);
+                            dc.draw_column(textures, false, pixels);
                         }
                         rdata.portal_clip.floorclip[clip_index] = mid;
                     } else {
@@ -678,16 +688,20 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    pub fn draw_column(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
+    pub fn draw_column(&mut self, textures: &PicData, doubled: bool, pixels: &mut PixelBuf) {
         let pal = textures.palette();
         let mut frac =
-            self.dc_texturemid + (self.yl as f32 - SCREENHEIGHT_HALF as f32) * self.fracstep;
+            self.dc_texturemid + (self.yl as f32 - pixels.height() as f32 / 2.0) * self.fracstep;
 
         for n in self.yl.floor() as i32..=self.yh.floor() as i32 {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
-            let mut select = (frac - 0.51).round() as i32 & 0xff;
+            let mut select = if doubled {
+                ((frac - 0.51).round() as i32 / 2) & 0xff
+            } else {
+                ((frac - 0.51).round() as i32) & 0xff
+            };
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }

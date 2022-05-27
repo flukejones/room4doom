@@ -32,6 +32,8 @@ down to the following points:
     related stuff is delegated out
 - Boom improvements compatibility
 - Add an example isometric renderer
+- Hi-Res mode
+- Widescreen modes
 
 And maybe write a book on all I've learned about writing a Doom engine.
 
@@ -51,13 +53,14 @@ And maybe write a book on all I've learned about writing a Doom engine.
 - Music
 - Shooting
 - Item pickup and use
-- 98% of gameplay (Need to do Doom II demons then it's done)
+- 99% of gameplay (Need to do Doom II boss and pain elemental then it's done)
 
 **Some of the improvements I've made (so far):**
 
 - BSP used for collisions (Doom used the blockmap)
 - BSP used for aiming, shooting, and LoS (Doom used the blockmap)
 - Floats instead of fixed-point (this may cause slight behaviour changes)
+- Hi-Res mode
 
 ## TODO:
 

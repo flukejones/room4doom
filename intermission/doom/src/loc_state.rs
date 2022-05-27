@@ -21,33 +21,40 @@ impl Intermission {
         }
     }
 
-    pub(super) fn draw_on_lnode(&self, lv: usize, patch: &WadPatch, buffer: &mut PixelBuf) {
+    pub(super) fn draw_on_lnode(
+        &self,
+        lv: usize,
+        patch: &WadPatch,
+        scale: i32,
+        buffer: &mut PixelBuf,
+    ) {
         let ep = self.level_info.epsd as usize;
         let point = MAP_POINTS[ep][lv];
 
         let x = point.0 - patch.left_offset as i32;
         let y = point.1 - patch.top_offset as i32;
 
-        self.draw_patch(patch, x, y, buffer);
+        self.draw_patch(patch, x * scale, y * scale, buffer);
     }
 
-    pub(super) fn draw_enter_level(&self, buffer: &mut PixelBuf) {
-        let mut y = TITLE_Y;
+    pub(super) fn draw_enter_level(&self, scale: i32, buffer: &mut PixelBuf) {
+        let half = buffer.width() as i32 / 2;
+        let mut y = TITLE_Y * scale;
         self.draw_patch(
             &self.patches.enter,
-            160 - self.patches.enter.width as i32 / 2,
+            half - self.patches.enter.width as i32 * scale / 2,
             y,
             buffer,
         );
-        y += (5 * self.patches.enter.height as i32) / 4;
+        y += (5 * self.patches.enter.height as i32 * scale) / 4;
         let patch = self.get_enter_level_name();
-        self.draw_patch(patch, 160 - patch.width as i32 / 2, y, buffer);
+        self.draw_patch(patch, half - patch.width as i32 * scale / 2, y, buffer);
     }
 
-    pub(super) fn draw_next_loc(&self, buffer: &mut PixelBuf) {
+    pub(super) fn draw_next_loc(&self, scale: i32, buffer: &mut PixelBuf) {
         // Background
         self.draw_patch(self.get_bg(), 0, 0, buffer);
-        self.draw_animated_bg(buffer);
+        self.draw_animated_bg(scale, buffer);
 
         // Location stuff only for episodes 1-3
         if self.mode != GameMode::Commercial && self.level_info.epsd <= 2 {
@@ -58,21 +65,21 @@ impl Intermission {
             };
 
             for i in 0..last {
-                self.draw_on_lnode(i as usize, &self.yah_patches[2], buffer);
+                self.draw_on_lnode(i as usize, &self.yah_patches[2], scale, buffer);
             }
 
             if self.level_info.didsecret {
-                self.draw_on_lnode(8, &self.yah_patches[2], buffer);
+                self.draw_on_lnode(8, &self.yah_patches[2], scale, buffer);
             }
 
             if self.pointer_on {
                 let next_level = self.level_info.next as usize;
-                self.draw_on_lnode(next_level, &self.yah_patches[self.yah_idx], buffer);
+                self.draw_on_lnode(next_level, &self.yah_patches[self.yah_idx], scale, buffer);
             }
         }
 
         if self.mode != GameMode::Commercial || self.level_info.next != 30 {
-            self.draw_enter_level(buffer);
+            self.draw_enter_level(scale, buffer);
         }
     }
 }

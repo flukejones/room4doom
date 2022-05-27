@@ -241,7 +241,7 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg(&self, buffer: &mut PixelBuf) {
+    fn draw_animated_bg(&self, scale: i32, buffer: &mut PixelBuf) {
         if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
             return;
         }
@@ -250,8 +250,8 @@ impl Intermission {
             if anim.counter >= 0 {
                 self.draw_patch(
                     &anim.patches[anim.counter as usize],
-                    anim.location.0,
-                    anim.location.1,
+                    anim.location.0 * scale,
+                    anim.location.1 * scale,
                     buffer,
                 );
             }
@@ -330,16 +330,18 @@ impl MachinationTrait for Intermission {
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
+        let scale = (buffer.height() / 200) as i32;
+
         // TODO: stats and next are two different screens.
         match self.state {
             State::StatCount => {
-                self.draw_stats(buffer);
+                self.draw_stats(scale, buffer);
             }
             State::NextLoc => {
-                self.draw_next_loc(buffer);
+                self.draw_next_loc(scale, buffer);
             }
             State::None => {
-                self.draw_no_state(buffer);
+                self.draw_no_state(scale, buffer);
             }
         }
     }

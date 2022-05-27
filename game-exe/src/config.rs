@@ -32,6 +32,7 @@ pub struct UserConfig {
     pub width: u32,
     pub height: u32,
     pub fullscreen: bool,
+    pub hi_res: bool,
     pub shader: Shaders,
     pub sfx_vol: i32,
     pub mus_vol: i32,
@@ -70,6 +71,7 @@ impl UserConfig {
         let config = UserConfig {
             width: 640,
             height: 480,
+            hi_res: true,
             sfx_vol: 100,
             mus_vol: 70,
             ..UserConfig::default()
@@ -111,6 +113,14 @@ impl UserConfig {
             self.height = cli.height;
         } else {
             cli.height = self.height;
+        }
+
+        if let Some(f) = cli.double {
+            if f != self.hi_res {
+                self.hi_res = f;
+            }
+        } else {
+            cli.double = Some(self.hi_res);
         }
 
         if let Some(shader) = cli.shader {

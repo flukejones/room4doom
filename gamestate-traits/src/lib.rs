@@ -101,20 +101,29 @@ pub trait MachinationTrait {
     /// Free method, requires `get_palette()` to be implemented
     fn draw_patch(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut PixelBuf) {
         let mut xtmp = 0;
+        let mut ytmp = 0;
+        let f = pixels.height() / 200;
         for c in patch.columns.iter() {
-            for (ytmp, p) in c.pixels.iter().enumerate() {
-                let colour = self.get_palette().0[*p];
-                pixels.set_pixel(
-                    (x + xtmp as i32) as usize, // - (image.left_offset as i32),
-                    (y + ytmp as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
-                    colour.r,
-                    colour.g,
-                    colour.b,
-                    255,
-                );
-            }
-            if c.y_offset == 255 {
-                xtmp += 1;
+            for n in 0..f {
+                for p in c.pixels.iter() {
+                    let colour = self.get_palette().0[*p];
+                    for _ in 0..f {
+                        pixels.set_pixel(
+                            (x + xtmp as i32 - n as i32) as usize, // - (image.left_offset as i32),
+                            (y + ytmp as i32 + c.y_offset as i32 * f as i32) as usize, // - image.top_offset as i32 - 30,
+                            colour.r,
+                            colour.g,
+                            colour.b,
+                            255,
+                        );
+                        ytmp += 1;
+                    }
+                }
+                ytmp = 0;
+
+                if c.y_offset == 255 {
+                    xtmp += 1;
+                }
             }
         }
     }

@@ -4,11 +4,7 @@ use super::{
     things::VisSprite,
     RenderData,
 };
-use crate::{
-    defs::{SCREENHEIGHT_HALF, SCREENWIDTH},
-    planes::make_spans,
-    utilities::CLASSIC_SCREEN_X_TO_VIEW,
-};
+use crate::{planes::make_spans, utilities::screen_to_x_view};
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
     SubSector, IS_SSECTOR_MASK,
@@ -76,7 +72,7 @@ impl PlayRenderer for SoftwareRenderer {
     fn render_player_view(&mut self, player: &Player, level: &Level, pixels: &mut PixelBuf) {
         let map = &level.map_data;
 
-        self.clear(player);
+        self.clear(player, pixels.width() as f32);
         // TODO: netupdate
         let mut count = 0;
         self.checked_sectors.clear();
@@ -97,9 +93,15 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(texture_data: Rc<RefCell<PicData>>, debug: bool) -> Self {
+    pub fn new(
+        screen_width: usize,
+        screen_height: usize,
+        texture_data: Rc<RefCell<PicData>>,
+        debug: bool,
+    ) -> Self {
+        dbg!();
         Self {
-            r_data: RenderData::new(),
+            r_data: RenderData::new(screen_width, screen_height),
             seg_renderer: SegRender::new(texture_data.clone()),
             new_end: 0,
             solidsegs: Vec::new(),
@@ -111,14 +113,14 @@ impl SoftwareRenderer {
         }
     }
 
-    fn clear(&mut self, player: &Player) {
+    fn clear(&mut self, player: &Player, screen_width: f32) {
         let view_angle = unsafe { player.mobj_unchecked().angle };
         for vis in self.vissprites.iter_mut() {
             vis.clear();
         }
         self.next_vissprite = 0;
 
-        self.clear_clip_segs();
+        self.clear_clip_segs(screen_width);
         self.r_data.clear_data(view_angle);
         self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
@@ -132,6 +134,7 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
+        let sky_doubled = !(pixels.height() == 200);
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx >= plane.maxx {
                 continue;
@@ -139,7 +142,7 @@ impl SoftwareRenderer {
 
             if plane.picnum == self.texture_data.borrow().sky_num() {
                 let colourmap = textures.colourmap(0);
-                let sky_mid = SCREENHEIGHT_HALF;
+                let sky_mid = pixels.height() / 2;
                 let skytex = textures.sky_pic();
 
                 for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
@@ -147,7 +150,7 @@ impl SoftwareRenderer {
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
                         let angle = (view_angle.rad().to_degrees()
-                            + CLASSIC_SCREEN_X_TO_VIEW[x as usize])
+                            + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees())
                             * 2.8444;
                         let texture_column = textures.wall_pic_column(skytex, angle.floor() as i32);
 
@@ -160,7 +163,7 @@ impl SoftwareRenderer {
                             dc_yl,
                             dc_yh,
                         );
-                        dc.draw_column(&textures, pixels);
+                        dc.draw_column(&textures, sky_doubled, pixels);
                     }
                 }
                 continue;
@@ -176,7 +179,7 @@ impl SoftwareRenderer {
             plane.baseyscale = baseyscale;
             plane.view_angle = view_angle;
 
-            let mut span_start = [0.0; SCREENWIDTH];
+            let mut span_start = vec![0.0; pixels.width() as usize];
             for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
                 let mut step = x - 1;
                 if step < 0 {
@@ -257,8 +260,8 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(angle1.rad());
-        let x2 = angle_to_screen(angle2.rad());
+        let x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
+        let x2 = angle_to_screen(pixels.width() as f32, angle2.rad());
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -332,7 +335,7 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector);
+        self.add_sprites(player, front_sector, pixels.width());
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
@@ -341,7 +344,7 @@ impl SoftwareRenderer {
     }
 
     /// R_ClearClipSegs - r_bsp
-    fn clear_clip_segs(&mut self) {
+    fn clear_clip_segs(&mut self, screen_width: f32) {
         self.solidsegs.clear();
         self.solidsegs.push(ClipRange {
             first: f32::MAX,
@@ -349,7 +352,7 @@ impl SoftwareRenderer {
         });
         for _ in 0..MAX_SEGS {
             self.solidsegs.push(ClipRange {
-                first: SCREENWIDTH as f32,
+                first: screen_width,
                 last: f32::MAX,
             });
         }
@@ -576,7 +579,7 @@ impl SoftwareRenderer {
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if self.bb_extents_in_fov(node, mobj, side ^ 1) {
+        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.width() as f32) {
             self.render_bsp_node(map, player, node.child_index[side ^ 1], pixels, count);
         }
     }
@@ -584,7 +587,13 @@ impl SoftwareRenderer {
     /// R_CheckBBox - r_bsp
     ///
     /// TODO: solidsegs list
-    fn bb_extents_in_fov(&self, node: &Node, mobj: &MapObject, side: usize) -> bool {
+    fn bb_extents_in_fov(
+        &self,
+        node: &Node,
+        mobj: &MapObject,
+        side: usize,
+        screen_width: f32,
+    ) -> bool {
         let view_angle = mobj.angle;
         // BOXTOP = 0
         // BOXBOT = 1
@@ -697,8 +706,8 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(angle1.rad());
-        let mut x2 = angle_to_screen(angle2.rad());
+        let x1 = angle_to_screen(screen_width, angle1.rad());
+        let mut x2 = angle_to_screen(screen_width, angle2.rad());
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -718,12 +727,12 @@ impl SoftwareRenderer {
     }
 }
 
-fn angle_to_screen(mut radian: f32) -> f32 {
+fn angle_to_screen(screen_width: f32, mut radian: f32) -> f32 {
     let mut x;
 
     // Left side
-    let p = (SCREENWIDTH / 2) as f32; // / (FRAC_PI_4).tan();
-                                      // if radian >= FRAC_PI_2 {
+    let p = screen_width / 2.0; // / (FRAC_PI_4).tan();
+                                // if radian >= FRAC_PI_2 {
     radian -= FRAC_PI_2;
     let t = radian.tan();
     x = t * p;

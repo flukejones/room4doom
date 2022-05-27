@@ -499,23 +499,30 @@ impl MachinationTrait for MenuDoom {
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
+        let f = (buffer.height() / 200) as i32;
+
         if self.active || self.in_help {
             let active = &self.menus[self.current_menu as usize];
             // Titles
             for item in active.titles.iter() {
-                self.draw_patch(self.get_patch(&item.patch), item.x, item.y, buffer);
+                self.draw_patch(self.get_patch(&item.patch), item.x * f, item.y * f, buffer);
             }
             // sub-items
-            let x = active.x;
-            let mut y = active.y;
+            let x = active.x * f;
+            let mut y = active.y * f;
             for item in active.items.iter() {
                 self.draw_patch(self.get_patch(&item.patch), x, y, buffer);
-                y += LINEHEIGHT;
+                y += LINEHEIGHT * f;
             }
 
             // SKULL
-            let y = active.y - 5 + active.last_on as i32 * LINEHEIGHT;
-            self.draw_patch(self.get_patch(SKULLS[self.which_skull]), x + -32, y, buffer);
+            let y = active.y * f - 5 + active.last_on as i32 * LINEHEIGHT * f;
+            self.draw_patch(
+                self.get_patch(SKULLS[self.which_skull]),
+                x + -(32 * f),
+                y,
+                buffer,
+            );
         }
     }
 }

@@ -34,13 +34,14 @@ pub(crate) struct RenderData {
 }
 
 impl RenderData {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(screen_width: usize, screen_height: usize) -> Self {
+        dbg!();
         Self {
             rw_angle1: Angle::default(),
             drawsegs: Vec::new(),
-            portal_clip: PortalClip::default(),
             ds_p: 0,
-            visplanes: VisPlaneRender::new(),
+            visplanes: VisPlaneRender::new(screen_width, screen_height),
+            portal_clip: PortalClip::new(screen_width, screen_height),
         }
     }
 
@@ -51,4 +52,27 @@ impl RenderData {
         self.rw_angle1 = Angle::default();
         self.visplanes.clear_planes(view_angle);
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{defs::Visplane, portals::PortalClip};
+
+    #[test]
+    fn default_portal_clip() {
+        let mut rd = PortalClip::new(640, 400);
+        rd.clear();
+    }
+
+    #[test]
+    fn default_vis_plane_render() {
+        let mut rd = Visplane::default();
+        rd.clear();
+    }
+
+    // #[test]
+    // fn default_render_data() {
+    //     let mut rd = RenderData::new(640, 400);
+    //     rd.clear_data(Angle::default());
+    // }
 }

@@ -40,15 +40,28 @@ pub fn d_doom_loop(
     ctx: Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
+    // TODO: switch 320x200 | 640x400 on option
+    let screen_width = if options.double.is_some() && options.double.unwrap() {
+        640
+    } else {
+        320
+    };
+    let screen_height = if options.double.is_some() && options.double.unwrap() {
+        400
+    } else {
+        200
+    };
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
+        screen_width,
+        screen_height,
         game.pic_data.clone(),
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 
     let mut timestep = TimeStep::new();
-    let mut render_buffer = PixelBuf::new(320, 200);
-    let mut render_buffer2 = PixelBuf::new(320, 200);
+    let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32);
+    let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
@@ -236,20 +249,29 @@ pub fn d_doom_loop(
 
 fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
     let mut xtmp = 0;
+    let mut ytmp = 0;
+    let f = draw_buf.height() / 200;
     for c in game.title.columns.iter() {
-        for (ytmp, p) in c.pixels.iter().enumerate() {
-            let colour = game.pic_data.borrow().palette()[*p];
-            draw_buf.set_pixel(
-                (xtmp as i32) as usize,                     // - (image.left_offset as i32),
-                (ytmp as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
-                colour.r,
-                colour.g,
-                colour.b,
-                255,
-            );
-        }
-        if c.y_offset == 255 {
-            xtmp += 1;
+        for n in 0..f {
+            for p in c.pixels.iter() {
+                let colour = game.pic_data.borrow().palette()[*p];
+                for _ in 0..f {
+                    draw_buf.set_pixel(
+                        (xtmp as i32 - n as i32) as usize, // - (image.left_offset as i32),
+                        (ytmp + c.y_offset as i32 * f as i32) as usize, // - image.top_offset as i32 - 30,
+                        colour.r,
+                        colour.g,
+                        colour.b,
+                        255,
+                    );
+                    ytmp += 1;
+                }
+            }
+            ytmp = 0;
+
+            if c.y_offset == 255 {
+                xtmp += 1;
+            }
         }
     }
 }
@@ -305,7 +327,14 @@ fn d_display<I, S, H, F>(
         }
         // TODO: HU_Drawer();
         // Fake crosshair
-        draw_buf.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
+        draw_buf.set_pixel(
+            disp_buf.width() as usize / 2,
+            disp_buf.height() as usize / 2,
+            200,
+            14,
+            14,
+            255,
+        );
     }
 
     match game.gamestate {

@@ -64,6 +64,30 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug Doom",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=room4doom"
+                ],
+                "filter": {
+                    "name": "room4doom",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--iwad",
+                "/home/luke/DOOM/doom.wad",
+                "-w1024",
+                "-h768",
+                "-v",
+                "debug"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug E1M3",
             "cargo": {
                 "args": [

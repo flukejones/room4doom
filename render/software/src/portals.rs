@@ -1,34 +1,41 @@
 //! Vertical clipping for windows/portals, used in Segs render part
 //! which will have some of it's function split out to here.
 
-use super::defs::{SCREENHEIGHT, SCREENWIDTH};
-
 pub struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
-    pub floorclip: [f32; SCREENWIDTH],
-    pub ceilingclip: [f32; SCREENWIDTH],
+    pub floorclip: Vec<f32>,
+    pub ceilingclip: Vec<f32>,
+    screen_width: usize,
+    screen_height: usize,
 }
 
 impl PortalClip {
-    pub fn new() -> Self {
+    pub fn new(screen_width: usize, screen_height: usize) -> Self {
         PortalClip {
-            floorclip: [0.0; SCREENWIDTH],
-            ceilingclip: [0.0; SCREENWIDTH],
+            floorclip: vec![0.0; screen_width],
+            ceilingclip: vec![0.0; screen_width],
+            screen_width,
+            screen_height,
         }
     }
 
     pub(super) fn clear(&mut self) {
-        for i in 0..SCREENWIDTH {
-            self.floorclip[i] = SCREENHEIGHT as f32;
+        for i in 0..self.screen_width {
+            self.floorclip[i] = self.screen_height as f32;
             self.ceilingclip[i] = -1.0;
         }
     }
 }
 
-impl Default for PortalClip {
-    fn default() -> Self {
-        PortalClip::new()
+#[cfg(test)]
+mod tests {
+    use super::PortalClip;
+
+    #[test]
+    fn default_portal_clip() {
+        let mut rd = PortalClip::new(640, 400);
+        rd.clear();
     }
 }

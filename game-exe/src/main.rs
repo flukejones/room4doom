@@ -69,6 +69,8 @@ pub struct CLIOptions {
     pub height: u32,
     #[options(meta = "", help = "fullscreen?")]
     pub fullscreen: Option<bool>,
+    #[options(meta = "", help = "double-resolution?")]
+    pub double: Option<bool>,
 
     #[options(help = "Disable monsters")]
     pub no_monsters: bool,
@@ -233,7 +235,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            let mode = if options.width != 320 {
+            let mode = if options.width != 640 {
                 sdl2::video::FullscreenType::Desktop
             } else {
                 sdl2::video::FullscreenType::True

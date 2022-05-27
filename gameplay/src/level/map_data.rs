@@ -144,9 +144,9 @@ impl MapData {
         let map_height = self.extents.height as f32;
 
         if map_height > map_width {
-            self.extents.automap_scale = map_height / 200.0 * 1.1;
+            self.extents.automap_scale = map_height / 400.0 * 1.1;
         } else {
-            self.extents.automap_scale = map_width / 320.0 * 1.4;
+            self.extents.automap_scale = map_width / 640.0 * 1.4;
         }
     }
 
@@ -450,11 +450,13 @@ impl MapData {
     /// an endpoint, and it wasn't already moved, move the vertex towards the
     /// linedef by projecting it using the law of cosines. Formula:
     ///
+    /// ```ignore
     ///      2        2                         2        2
     ///    dx  x0 + dy  x1 + dx dy (y0 - y1)  dy  y0 + dx  y1 + dx dy (x0 - x1)
     ///   {---------------------------------, ---------------------------------}
     ///                  2     2                            2     2
     ///                dx  + dy                           dx  + dy
+    /// ```
     ///
     /// (x0,y0) is the vertex being moved, and (x1,y1)-(x1+dx,y1+dy) is the
     /// reference linedef.

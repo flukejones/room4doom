@@ -32,13 +32,18 @@ impl Wipe {
         draw_buf: &mut PixelBuf, // Draw to this buffer
     ) -> bool {
         let mut done = true;
+        let f = (disp_buf.height() / 200) as i32;
         for x in 0..self.width as usize {
             if self.y[x] < 0 {
                 // This is the offset to start with, sort of like a timer
                 self.y[x] += 1;
                 done = false;
             } else if self.y[x] < self.height {
-                let mut dy = if self.y[x] < 16 { self.y[x] + 1 } else { 8 };
+                let mut dy = if self.y[x] < (16 * f) {
+                    self.y[x] + 1
+                } else {
+                    8 * f
+                };
                 if self.y[x] + dy >= self.height {
                     dy = self.height - self.y[x];
                 }
