@@ -1,8 +1,8 @@
 use crate::{Intermission, State, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
 use gamestate_traits::{util::draw_num, GameMode, MachinationTrait, PixelBuf};
 
-const SCREEN_WIDTH: i32 = 320;
-const SCREEN_HEIGHT: i32 = 200;
+const SCREEN_WIDTH: i32 = 640;
+const SCREEN_HEIGHT: i32 = 400;
 
 const SP_STATSX: i32 = 50;
 const SP_STATSY: i32 = 50;

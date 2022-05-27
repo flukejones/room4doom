@@ -144,9 +144,9 @@ impl MapData {
         let map_height = self.extents.height as f32;
 
         if map_height > map_width {
-            self.extents.automap_scale = map_height / 200.0 * 1.1;
+            self.extents.automap_scale = map_height / 400.0 * 1.1;
         } else {
-            self.extents.automap_scale = map_width / 320.0 * 1.4;
+            self.extents.automap_scale = map_width / 640.0 * 1.4;
         }
     }
 

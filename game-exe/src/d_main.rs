@@ -40,15 +40,20 @@ pub fn d_doom_loop(
     ctx: Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
+    // TODO: switch 320x200 | 640x400 on option
+    let screen_width = 640;
+    let screen_height = 400;
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
+        screen_width,
+        screen_height,
         game.pic_data.clone(),
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 
     let mut timestep = TimeStep::new();
-    let mut render_buffer = PixelBuf::new(320, 200);
-    let mut render_buffer2 = PixelBuf::new(320, 200);
+    let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32);
+    let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
 
     // TODO: sort this block of stuff out
     let wsize = gl.drawable_size();
@@ -305,7 +310,14 @@ fn d_display<I, S, H, F>(
         }
         // TODO: HU_Drawer();
         // Fake crosshair
-        draw_buf.set_pixel(320 / 2, 200 / 2, 200, 14, 14, 255);
+        draw_buf.set_pixel(
+            disp_buf.width() as usize / 2,
+            disp_buf.height() as usize / 2,
+            200,
+            14,
+            14,
+            255,
+        );
     }
 
     match game.gamestate {

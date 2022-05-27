@@ -1,13 +1,13 @@
 use std::f32::consts::FRAC_PI_2;
 
-use crate::{defs::SCREENHEIGHT_HALF, utilities::screen_to_x_view};
+use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use render_traits::PixelBuf;
 
-use super::defs::{Visplane, MAXOPENINGS, SCREENHEIGHT, SCREENWIDTH};
+use super::defs::{Visplane, MAXOPENINGS};
 
-pub const MAXVISPLANES: usize = 512;
+pub const MAXVISPLANES: usize = 256;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
@@ -22,29 +22,27 @@ pub struct VisPlaneRender {
     pub openings: [f32; MAXOPENINGS],
     pub lastopening: f32,
 
-    pub floorclip: [f32; SCREENWIDTH],
-    pub ceilingclip: [f32; SCREENWIDTH],
+    pub floorclip: Vec<f32>,
+    pub ceilingclip: Vec<f32>,
     /// spanstart holds the start of a plane span
     /// initialized to 0 at start
-    pub spanstart: [f32; SCREENHEIGHT],
-    pub spanstop: [f32; SCREENHEIGHT],
+    pub spanstart: Vec<f32>,
+    pub spanstop: Vec<f32>,
 
     //lighttable_t **planezlight;
     pub planeheight: f32,
 
-    pub yslope: [f32; SCREENHEIGHT],
-    pub distscale: [f32; SCREENWIDTH],
+    pub yslope: Vec<f32>,
+    pub distscale: Vec<f32>,
     pub basexscale: f32,
     pub baseyscale: f32,
 
-    pub cachedheight: [f32; SCREENHEIGHT],
-    pub cacheddistance: [f32; SCREENHEIGHT],
-    pub cachedxstep: [f32; SCREENHEIGHT],
-    pub cachedystep: [f32; SCREENHEIGHT],
+    screen_width: f32,
+    screen_height: f32,
 }
 
 impl VisPlaneRender {
-    pub fn new() -> Self {
+    pub fn new(screen_width: usize, screen_height: usize) -> Self {
         VisPlaneRender {
             visplanes: [Visplane::default(); MAXVISPLANES],
             lastvisplane: 0,
@@ -52,19 +50,17 @@ impl VisPlaneRender {
             ceilingplane: 0,
             openings: [f32::MAX; MAXOPENINGS],
             lastopening: 0.0,
-            floorclip: [SCREENHEIGHT as f32; SCREENWIDTH],
-            ceilingclip: [-1.0; SCREENWIDTH],
-            spanstart: [0.0; SCREENHEIGHT],
-            spanstop: [0.0; SCREENHEIGHT],
+            floorclip: vec![screen_height as f32; screen_width],
+            ceilingclip: vec![-1.0; screen_width],
+            spanstart: vec![0.0; screen_height],
+            spanstop: vec![0.0; screen_height],
             planeheight: 0.0,
-            yslope: [0.0; SCREENHEIGHT],
-            distscale: [0.0; SCREENWIDTH],
+            yslope: vec![0.0; screen_height],
+            distscale: vec![0.0; screen_width],
             basexscale: 0.0,
             baseyscale: 0.0,
-            cachedheight: [0.0; SCREENHEIGHT],
-            cacheddistance: [0.0; SCREENHEIGHT],
-            cachedxstep: [0.0; SCREENHEIGHT],
-            cachedystep: [0.0; SCREENHEIGHT],
+            screen_width: screen_width as f32,
+            screen_height: screen_height as f32,
         }
     }
 
@@ -72,8 +68,8 @@ impl VisPlaneRender {
     /// At begining of frame.
     pub fn clear_planes(&mut self, view_angle: Angle) {
         // opening / clipping determination
-        for i in 0..SCREENWIDTH {
-            self.floorclip[i] = SCREENHEIGHT as f32;
+        for i in 0..self.floorclip.len() {
+            self.floorclip[i] = self.screen_height;
             self.ceilingclip[i] = -1.0;
         }
 
@@ -86,15 +82,10 @@ impl VisPlaneRender {
         self.floorplane = 0;
         self.ceilingplane = 0;
 
-        // texture calculation
-        // for i in self.cachedheight.iter_mut() {
-        //     *i = 0.0;
-        // }
-
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle - FRAC_PI_2).cos() / (SCREENWIDTH / 2) as f32;
-        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (SCREENWIDTH / 2) as f32);
+        self.basexscale = (view_angle - FRAC_PI_2).cos() / (self.screen_width / 2.0);
+        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (self.screen_width / 2.0));
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
@@ -132,7 +123,7 @@ impl VisPlaneRender {
         check.height = height;
         check.picnum = picnum;
         check.lightlevel = light_level;
-        check.minx = SCREENWIDTH as f32;
+        check.minx = self.screen_width;
         check.maxx = 0.0;
         for t in &mut check.top {
             *t = f32::MAX;
@@ -163,7 +154,7 @@ impl VisPlaneRender {
         //     return plane_idx;
         // }
 
-        for i in intrl.floor() as i32..=SCREENWIDTH as i32 {
+        for i in intrl.floor() as i32..=self.screen_width as i32 {
             if i >= intrh.floor() as i32 {
                 plane.minx = unionl;
                 plane.maxx = unionh;
@@ -210,7 +201,7 @@ pub fn make_spans(
     viewz: f32,
     extra_light: i32,
     plane: &Visplane,
-    span_start: &mut [f32; SCREENWIDTH],
+    span_start: &mut [f32],
     texture_data: &PicData,
     pixels: &mut PixelBuf,
 ) {
@@ -269,16 +260,16 @@ fn map_plane(
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
-    let dy = y - SCREENHEIGHT_HALF as f32; // OK
-    let yslope = (SCREENWIDTH as f32 / 2.0) / dy.abs(); // OK
+    let dy = y - (pixels.height() as f32 / 2.0); // OK
+    let yslope = (pixels.width() as f32 / 2.0) / dy.abs(); // OK
     let distance = planeheight * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = screen_to_x_view(x1).cos().abs();
+    let distscale = screen_to_x_view(x1, pixels.width() as f32).cos().abs();
     let length = distance * (1.0 / distscale);
-    let angle = plane.view_angle + screen_to_x_view(x1);
+    let angle = plane.view_angle + screen_to_x_view(x1, pixels.width() as f32);
     let ds_xfrac = viewxy.x + angle.cos() * length;
     let ds_yfrac = -viewxy.y - angle.sin() * length;
 
@@ -352,5 +343,16 @@ impl<'a> DrawSpan<'a> {
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::defs::Visplane;
+
+    #[test]
+    fn default_vis_plane_render() {
+        let mut rd = Visplane::default();
+        rd.clear();
     }
 }

@@ -302,8 +302,8 @@ impl SoftwareRenderer {
 
     /// Doom function name `R_DrawSprite`
     fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, pixels: &mut PixelBuf) {
-        let mut clip_bottom = [-2i32; SCREENWIDTH];
-        let mut clip_top = [-2i32; SCREENWIDTH];
+        let mut clip_bottom = vec![-2i32; pixels.width() as usize];
+        let mut clip_top = vec![-2i32; pixels.width() as usize];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
@@ -362,8 +362,8 @@ impl SoftwareRenderer {
                     clip_top[r as usize] = self.r_data.visplanes.openings
                         [(seg.sprtopclip.unwrap() + r) as usize]
                         .floor() as i32;
-                    if clip_top[r as usize] >= SCREENHEIGHT as i32 {
-                        clip_top[r as usize] = SCREENHEIGHT as i32;
+                    if clip_top[r as usize] >= pixels.height() as i32 {
+                        clip_top[r as usize] = pixels.height() as i32;
                     }
                 }
             }
@@ -371,7 +371,7 @@ impl SoftwareRenderer {
 
         for x in vis.x1..=vis.x2 {
             if clip_bottom[x as usize] == -2 {
-                clip_bottom[x as usize] = SCREENHEIGHT as i32;
+                clip_bottom[x as usize] = pixels.height() as i32;
             }
             if clip_top[x as usize] == -2 {
                 clip_top[x as usize] = -1;
@@ -414,13 +414,13 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
 
         let mut tx = sprite.sx as i32 - 160 - patch.left_offset;
-        let x1 = (SCREENWIDTH as i32 / 2) + tx * pspritescale;
+        let x1 = (pixels.width() as i32 / 2) + tx * pspritescale;
 
-        if x1 >= SCREENWIDTH as i32 {
+        if x1 >= pixels.width() as i32 {
             return;
         }
         tx += patch.data.len() as i32;
-        let x2 = ((SCREENWIDTH / 2) as i32 + tx * pspritescale) - 1;
+        let x2 = ((pixels.width() / 2) as i32 + tx * pspritescale) - 1;
 
         if x2 < 0 {
             return;
@@ -429,10 +429,10 @@ impl SoftwareRenderer {
         let mut vis = VisSprite::new();
         vis.mobj_flags = flags;
         vis.patch = frame.lump[0] as usize;
-        vis.texture_mid = SCREENHEIGHT_HALF as f32 - (sprite.sy.floor() - patch.top_offset as f32);
+        vis.texture_mid = -(sprite.sy.floor() - patch.top_offset as f32);
         vis.x1 = if x1 < 0 { 0 } else { x1 };
-        vis.x2 = if x2 >= SCREENWIDTH as i32 {
-            SCREENWIDTH as i32
+        vis.x2 = if x2 >= pixels.width() as i32 {
+            pixels.width() as i32
         } else {
             x2
         };
@@ -488,7 +488,6 @@ impl SoftwareRenderer {
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
-
         pixels: &mut PixelBuf,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
@@ -548,15 +547,15 @@ impl SoftwareRenderer {
                         let mut mfloorclip = self.r_data.visplanes.openings
                             [(ds.sprbottomclip.unwrap() + x) as usize]
                             as i32;
-                        if mceilingclip >= SCREENHEIGHT as i32 {
-                            mceilingclip = SCREENHEIGHT as i32;
+                        if mceilingclip >= pixels.height() as i32 {
+                            mceilingclip = pixels.height() as i32;
                         }
                         if mfloorclip <= 0 {
                             mfloorclip = 0;
                         }
 
                         // // calculate unclipped screen coordinates for post
-                        let sprtopscreen = SCREENHEIGHT_HALF as f32 - dc_texturemid * spryscale;
+                        let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
                         let top = sprtopscreen.floor() as i32 + 1;
                         let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
                         let mut yl = top;
@@ -606,7 +605,7 @@ fn draw_masked_column(
     pixels: &mut PixelBuf,
 ) {
     let pal = &textures.palette();
-    let mut frac = dc_texturemid + (yl as f32 - SCREENHEIGHT_HALF as f32) * fracstep;
+    let mut frac = dc_texturemid + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
     for n in yl..=yh {
         let select = frac.floor() as usize;
 
