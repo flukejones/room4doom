@@ -333,9 +333,9 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette();
-        for s in self.ds_x1.floor() as i32..=self.ds_x2.floor() as i32 {
-            let mut x = (self.ds_xfrac.floor() as i32 & 127) + 64;
-            let mut y = (self.ds_yfrac.floor() as i32 & 127) + 64;
+        for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
+            let mut x = (self.ds_xfrac.round() as i32 & 127) + 64;
+            let mut y = (self.ds_yfrac.round() as i32 & 127) + 64;
 
             if y >= self.texture.data[0].len() as i32 {
                 y %= self.texture.data[0].len() as i32;
@@ -347,7 +347,7 @@ impl<'a> DrawSpan<'a> {
 
             let px = self.colourmap[self.texture.data[x as usize][y as usize] as usize];
             let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y.floor() as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(s as usize, self.ds_y.round() as usize, c.r, c.g, c.b, 255);
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;
