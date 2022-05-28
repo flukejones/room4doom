@@ -64,6 +64,7 @@ pub struct DoomOptions {
     pub episode: i32,
     pub map: i32,
     pub autostart: bool,
+    pub hi_res: bool,
     pub verbose: log::LevelFilter,
 }
 
@@ -82,6 +83,7 @@ impl Default for DoomOptions {
             map: Default::default(),
             warp: false,
             autostart: Default::default(),
+            hi_res: true,
             verbose: log::LevelFilter::Info,
         }
     }
@@ -295,7 +297,7 @@ impl Game {
             }
         }
 
-        let pic_data = PicData::init(&wad);
+        let pic_data = PicData::init(options.hi_res, &wad);
         info!("Init playloop state.");
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);

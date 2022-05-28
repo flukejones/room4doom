@@ -607,7 +607,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
-        let textures = PicData::init(&wad);
+        let textures = PicData::init(false, &wad);
         let (tx, _rx) = channel();
 
         let mut l = unsafe {
