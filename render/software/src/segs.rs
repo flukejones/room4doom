@@ -556,7 +556,7 @@ impl SegRender {
                         yl,
                         yh,
                     );
-                    dc.draw_column(textures, pixels);
+                    dc.draw_column(textures, false, pixels);
                 };
 
                 rdata.portal_clip.ceilingclip[clip_index] = view_height;
@@ -589,7 +589,7 @@ impl SegRender {
                                 yl,
                                 mid,
                             );
-                            dc.draw_column(textures, pixels);
+                            dc.draw_column(textures, false, pixels);
                         }
 
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
@@ -626,7 +626,7 @@ impl SegRender {
                                 mid,
                                 yh,
                             );
-                            dc.draw_column(textures, pixels);
+                            dc.draw_column(textures, false, pixels);
                         }
                         rdata.portal_clip.floorclip[clip_index] = mid;
                     } else {
@@ -688,7 +688,7 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    pub fn draw_column(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
+    pub fn draw_column(&mut self, textures: &PicData, doubled: bool, pixels: &mut PixelBuf) {
         let pal = textures.palette();
         let mut frac =
             self.dc_texturemid + (self.yl as f32 - pixels.height() as f32 / 2.0) * self.fracstep;
@@ -697,7 +697,11 @@ impl<'a> DrawColumn<'a> {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
-            let mut select = (frac - 0.51).round() as i32 & 0xff;
+            let mut select = if doubled {
+                ((frac - 0.51).round() as i32 / 2) & 0xff
+            } else {
+                ((frac - 0.51).round() as i32) & 0xff
+            };
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }

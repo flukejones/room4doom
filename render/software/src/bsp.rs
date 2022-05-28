@@ -134,6 +134,7 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
+        let sky_doubled = !(pixels.height() == 200);
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx >= plane.maxx {
                 continue;
@@ -162,7 +163,7 @@ impl SoftwareRenderer {
                             dc_yl,
                             dc_yh,
                         );
-                        dc.draw_column(&textures, pixels);
+                        dc.draw_column(&textures, sky_doubled, pixels);
                     }
                 }
                 continue;
