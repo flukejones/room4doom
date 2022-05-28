@@ -1,5 +1,7 @@
 # TODO
 
+- [ ] Convert static arrays in much of the renderer structs to Vec since at high res they
+      can potentially overflow the stack
 - [X] Archvile attacks and chase
 - [ ] Archvile raise the dead
 - [ ] Pain elemental attacks and die
