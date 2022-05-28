@@ -102,14 +102,14 @@ pub trait MachinationTrait {
     fn draw_patch(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut PixelBuf) {
         let mut xtmp = 0;
         let mut ytmp = 0;
-        let f = 1; //pixels.height() / 200;
+        let f = pixels.height() / 200;
         for c in patch.columns.iter() {
-            for _ in 0..f {
+            for n in 0..f {
                 for p in c.pixels.iter() {
                     let colour = self.get_palette().0[*p];
                     for _ in 0..f {
                         pixels.set_pixel(
-                            (x + xtmp as i32) as usize, // - (image.left_offset as i32),
+                            (x + xtmp as i32 - n as i32) as usize, // - (image.left_offset as i32),
                             (y + ytmp as i32 + c.y_offset as i32 * f as i32) as usize, // - image.top_offset as i32 - 30,
                             colour.r,
                             colour.g,
@@ -120,14 +120,8 @@ pub trait MachinationTrait {
                     }
                 }
                 ytmp = 0;
-                xtmp += f - 1;
-            }
-            xtmp -= f - 1;
 
-            if c.y_offset == 255 {
-                if f - 1 > 0 {
-                    xtmp -= 1;
-                } else {
+                if c.y_offset == 255 {
                     xtmp += 1;
                 }
             }
