@@ -44,7 +44,9 @@ pub struct VisPlaneRender {
 impl VisPlaneRender {
     pub fn new(screen_width: usize, screen_height: usize) -> Self {
         VisPlaneRender {
-            visplanes: vec![Visplane::default(); MAXVISPLANES],
+            // TODO: this uses a huge amount of memory and is inefficient
+            //  MAXVISPLANES * screen_width * 2
+            visplanes: vec![Visplane::new(screen_width); MAXVISPLANES],
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
@@ -352,7 +354,7 @@ mod tests {
 
     #[test]
     fn default_vis_plane_render() {
-        let mut rd = Visplane::default();
+        let mut rd = Visplane::new(320);
         rd.clear();
     }
 }
