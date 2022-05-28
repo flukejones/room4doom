@@ -236,9 +236,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            let mode = if options.width != 640 {
+            let mode = if matches!(options.width, 320 | 640) {
+                info!("Fullscreen mode is 320x200 or 640x400");
                 sdl2::video::FullscreenType::Desktop
             } else {
+                warn!("Fullscreen resolution isn't 320x200 or 640x400. Image will be stretched.");
                 sdl2::video::FullscreenType::True
             };
             window.set_fullscreen(mode)?;

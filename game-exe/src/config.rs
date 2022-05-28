@@ -72,6 +72,7 @@ impl UserConfig {
             width: 640,
             height: 480,
             hi_res: true,
+            fullscreen: true,
             sfx_vol: 100,
             mus_vol: 70,
             ..UserConfig::default()
