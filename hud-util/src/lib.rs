@@ -119,6 +119,7 @@ impl HUDString {
         machination: &impl MachinationTrait,
         pixels: &mut PixelBuf,
     ) -> Option<()> {
+        let f = (pixels.height() / 200) as i32;
         let width = pixels.width() as i32;
         let height = pixels.height() as i32;
         let start_x = x;
@@ -160,7 +161,7 @@ impl HUDString {
             }
 
             machination.draw_patch(patch, x, y + self.line_height - patch.height as i32, pixels);
-            x += patch.width as i32;
+            x += patch.width as i32 * f;
         }
         Some(())
     }
