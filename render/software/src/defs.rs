@@ -7,8 +7,6 @@ pub const SIL_BOTTOM: i32 = 1;
 pub const SIL_TOP: i32 = 2;
 pub const SIL_BOTH: i32 = 3;
 
-pub const SCREENWIDTH: usize = 1024;
-
 pub const MAXDRAWSEGS: usize = 1024;
 
 #[derive(Debug, Clone, Copy)]
@@ -67,7 +65,7 @@ pub struct ClipRange {
 }
 
 /// Now what is a visplane, anyway?
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Visplane {
     pub height: f32,
     pub picnum: usize,
@@ -76,9 +74,9 @@ pub struct Visplane {
     pub maxx: f32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
-    pub top: [f32; SCREENWIDTH + 1],
+    pub top: Vec<f32>,
     /// See above.
-    pub bottom: [f32; SCREENWIDTH + 1],
+    pub bottom: Vec<f32>,
 
     pub basexscale: f32,
     pub baseyscale: f32,
@@ -93,44 +91,44 @@ impl Debug for Visplane {
             .field("lightlevel", &self.lightlevel)
             .field("minx", &self.minx)
             .field("maxx", &self.maxx)
-            .field(
-                "top",
-                &self
-                    .top
-                    .into_iter()
-                    .map(|d| {
-                        let mut d = d.to_string();
-                        d.push(',');
-                        d
-                    })
-                    .collect::<String>(),
-            )
-            .field(
-                "bottom",
-                &self
-                    .bottom
-                    .into_iter()
-                    .map(|d| {
-                        let mut d = d.to_string();
-                        d.push(',');
-                        d
-                    })
-                    .collect::<String>(),
-            )
-            .finish()
+            // .field(
+            //     "top",
+            //     &self
+            //         .top
+            //         .into_iter()
+            //         .map(|d| {
+            //             let mut d = d.to_string();
+            //             d.push(',');
+            //             d
+            //         })
+            //         .collect::<String>(),
+            // )
+            // .field(
+            //     "bottom",
+            //     &self
+            //         .bottom
+            //         .into_iter()
+            //         .map(|d| {
+            //             let mut d = d.to_string();
+            //             d.push(',');
+            //             d
+            //         })
+            //         .collect::<String>(),
+            // )
+            .finish_non_exhaustive()
     }
 }
 
-impl Default for Visplane {
-    fn default() -> Self {
+impl Visplane {
+    pub fn new(screen_width: usize) -> Self {
         Visplane {
             height: 0.0,
             picnum: 0,
             lightlevel: 0,
             minx: 0.0,
             maxx: 0.0,
-            top: [f32::MAX; SCREENWIDTH + 1],
-            bottom: [0.0; SCREENWIDTH + 1],
+            top: vec![f32::MAX; screen_width + 1],
+            bottom: vec![0.0; screen_width + 1],
 
             basexscale: 0.0,
             baseyscale: 0.0,

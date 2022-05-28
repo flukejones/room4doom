@@ -55,7 +55,9 @@ impl RenderData {
 
 #[cfg(test)]
 mod tests {
-    use crate::{defs::Visplane, portals::PortalClip};
+    use gameplay::Angle;
+
+    use crate::{defs::Visplane, portals::PortalClip, RenderData};
 
     #[test]
     fn default_portal_clip() {
@@ -65,13 +67,13 @@ mod tests {
 
     #[test]
     fn default_vis_plane_render() {
-        let mut rd = Visplane::default();
+        let mut rd = Visplane::new(320);
         rd.clear();
     }
 
-    // #[test]
-    // fn default_render_data() {
-    //     let mut rd = RenderData::new(640, 400);
-    //     rd.clear_data(Angle::default());
-    // }
+    #[test]
+    fn default_render_data() {
+        let mut rd = RenderData::new(640, 400);
+        rd.clear_data(Angle::default());
+    }
 }
