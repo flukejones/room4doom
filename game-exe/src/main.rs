@@ -133,6 +133,7 @@ impl From<CLIOptions> for DoomOptions {
             episode: g.episode,
             map: g.map,
             warp: g.map != 0 || g.episode != 0,
+            hi_res: g.double.unwrap_or(true),
             verbose: g.verbose,
             ..DoomOptions::default()
         }

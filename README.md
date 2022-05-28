@@ -39,7 +39,10 @@ And maybe write a book on all I've learned about writing a Doom engine.
 
 ### Implemented (so far):
 
-- Software rendering walls
+- Software rendering
+- Menus (not all items complete though)
+- HUD + statusbar (improved)
+- Intermission and finales.
 - Lighting (diminished, animated)
 - Movers (environment things, like doors, platforms)
 - Thinkers (used for the above + demons)
@@ -70,11 +73,7 @@ snapshot of where the engine state is right now.
 
 **Functionality TODO:**
 
-- Menu screens
-- Intermissions and finale
-- HUD messages
 - Automap
-- Status bar drawing
 - Save/load game
 
 ## Building

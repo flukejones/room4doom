@@ -89,12 +89,12 @@ pub struct PicData {
 }
 
 impl PicData {
-    pub fn init(wad: &WadData) -> Self {
+    pub fn init(double_res: bool, wad: &WadData) -> Self {
         print!("Init image data  [");
 
         let colourmap = Self::init_colourmap(wad);
         let palettes = Self::init_palette(wad);
-        let light_scale = Self::init_light_scales(&colourmap);
+        let light_scale = Self::init_light_scales(double_res, &colourmap);
         let zlight_scale = Self::init_zlight_scales(&colourmap);
 
         let (walls, sky_pic) = Self::init_wall_pics(wad);
@@ -174,14 +174,18 @@ impl PicData {
             .collect()
     }
 
-    fn init_light_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+    fn init_light_scales(double_res: bool, colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
         print!(".");
+        let div = if double_res { 4 } else { 2 };
         (0..LIGHTLEVELS)
             .map(|i| {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTSCALE)
                     .map(|j| {
-                        let mut level = startmap - j / 2;
+                        // let j = MAXLIGHTSCALE - j;
+                        let mut level = startmap - j / div;
+                        // let scale = (160 / (j + 1)) as f32;
+                        // let mut level = startmap - (scale / 2.0) as i32;
                         if level < 0 {
                             level = 0;
                         }
@@ -207,8 +211,7 @@ impl PicData {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTZ)
                     .map(|j| {
-                        // TODO: scale to screen res
-                        let scale = 160.0 / (j + 1) as f32;
+                        let scale = (160 / (j + 1)) as f32;
                         let mut level = startmap - (scale / 2.0) as i32;
                         if level < 0 {
                             level = 0;
