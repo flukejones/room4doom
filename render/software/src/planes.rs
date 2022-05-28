@@ -5,13 +5,13 @@ use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
 use render_traits::PixelBuf;
 
-use super::defs::{Visplane, MAXOPENINGS};
+use super::defs::Visplane;
 
-pub const MAXVISPLANES: usize = 256;
+pub const MAXVISPLANES: usize = 512;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
-    pub visplanes: [Visplane; MAXVISPLANES],
+    pub visplanes: Vec<Visplane>,
     pub lastvisplane: usize,
     /// Index of current visplane in `self.visplanes` for floor
     pub floorplane: usize,
@@ -19,7 +19,7 @@ pub struct VisPlaneRender {
     pub ceilingplane: usize,
 
     /// Stores the column number of the texture required for this opening
-    pub openings: [f32; MAXOPENINGS],
+    pub openings: Vec<f32>,
     pub lastopening: f32,
 
     pub floorclip: Vec<f32>,
@@ -44,11 +44,11 @@ pub struct VisPlaneRender {
 impl VisPlaneRender {
     pub fn new(screen_width: usize, screen_height: usize) -> Self {
         VisPlaneRender {
-            visplanes: [Visplane::default(); MAXVISPLANES],
+            visplanes: vec![Visplane::default(); MAXVISPLANES],
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: [f32::MAX; MAXOPENINGS],
+            openings: vec![f32::MAX; screen_width * 64],
             lastopening: 0.0,
             floorclip: vec![screen_height as f32; screen_width],
             ceilingclip: vec![-1.0; screen_width],
