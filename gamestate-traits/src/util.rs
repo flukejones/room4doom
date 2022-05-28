@@ -42,7 +42,8 @@ pub fn draw_num(
     drawer: &impl MachinationTrait,
     buffer: &mut PixelBuf,
 ) -> i32 {
-    let width = nums[0].width as i32;
+    let f = (buffer.height() / 200) as i32;
+    let width = nums[0].width as i32 * f;
     let digits: Vec<u32> = p
         .to_string()
         .chars()
