@@ -450,11 +450,13 @@ impl MapData {
     /// an endpoint, and it wasn't already moved, move the vertex towards the
     /// linedef by projecting it using the law of cosines. Formula:
     ///
+    /// ```ignore
     ///      2        2                         2        2
     ///    dx  x0 + dy  x1 + dx dy (y0 - y1)  dy  y0 + dx  y1 + dx dy (x0 - x1)
     ///   {---------------------------------, ---------------------------------}
     ///                  2     2                            2     2
     ///                dx  + dy                           dx  + dy
+    /// ```
     ///
     /// (x0,y0) is the vertex being moved, and (x1,y1)-(x1+dx,y1+dy) is the
     /// reference linedef.
