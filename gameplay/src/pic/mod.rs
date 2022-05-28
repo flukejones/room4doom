@@ -86,6 +86,7 @@ pub struct PicData {
     /// The pallette to be used. Can be set with `set_pallette()` or `set_player_palette()`,
     /// typically done on frame start to set effects like take-damage.
     use_pallette: usize,
+    double_res: bool,
 }
 
 impl PicData {
@@ -94,7 +95,7 @@ impl PicData {
 
         let colourmap = Self::init_colourmap(wad);
         let palettes = Self::init_palette(wad);
-        let light_scale = Self::init_light_scales(double_res, &colourmap);
+        let light_scale = Self::init_light_scales(&colourmap);
         let zlight_scale = Self::init_zlight_scales(&colourmap);
 
         let (walls, sky_pic) = Self::init_wall_pics(wad);
@@ -156,6 +157,7 @@ impl PicData {
             sprite_patches,
             sprite_defs,
             use_pallette: 0,
+            double_res,
         }
     }
 
@@ -174,16 +176,15 @@ impl PicData {
             .collect()
     }
 
-    fn init_light_scales(double_res: bool, colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+    fn init_light_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
         print!(".");
-        let div = if double_res { 4 } else { 2 };
         (0..LIGHTLEVELS)
             .map(|i| {
                 let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
                 (0..MAXLIGHTSCALE)
                     .map(|j| {
                         // let j = MAXLIGHTSCALE - j;
-                        let mut level = startmap - j / div;
+                        let mut level = startmap - j / 2;
                         // let scale = (160 / (j + 1)) as f32;
                         // let mut level = startmap - (scale / 2.0) as i32;
                         if level < 0 {
@@ -445,6 +446,18 @@ impl PicData {
         &self.colourmap[index]
     }
 
+    fn colourmap_for_scale(&self, scale: f32) -> usize {
+        let mut colourmap = if self.double_res {
+            (scale * 15.8 / 2.0).floor() as u32
+        } else {
+            (scale * 15.8).ceil() as u32
+        };
+        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
+            colourmap = MAXLIGHTSCALE as u32 - 1;
+        }
+        colourmap as usize
+    }
+
     /// Get the correct colourmapping for a light level. The colourmap is indexed by the Y coordinate
     /// of a texture column.
     pub fn wall_light_colourmap(
@@ -471,11 +484,7 @@ impl PicData {
             light_level += 1;
         }
 
-        let mut colourmap = (wall_scale * 15.8).floor() as u32;
-        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
-            colourmap = MAXLIGHTSCALE as u32 - 1;
-        }
-
+        let colourmap = self.colourmap_for_scale(wall_scale);
         &self.light_scale[light_level as usize][colourmap as usize]
     }
 
@@ -490,11 +499,7 @@ impl PicData {
             light_level = self.light_scale.len() - 1;
         }
 
-        let mut colourmap = (scale * 15.8).ceil() as u32;
-        if colourmap >= MAXLIGHTSCALE as u32 {
-            colourmap = MAXLIGHTSCALE as u32 - 1;
-        }
-
+        let colourmap = self.colourmap_for_scale(scale);
         &self.light_scale[light_level as usize][colourmap as usize]
     }
 
