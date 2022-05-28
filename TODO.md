@@ -28,6 +28,7 @@
 
 ## BUGS
 
+- [ ] Aim/shoot tries to hit low enemy even if portal blocks view
 - [X] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()` on an `Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
 - [X] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
