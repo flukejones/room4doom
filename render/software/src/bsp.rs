@@ -99,7 +99,6 @@ impl SoftwareRenderer {
         texture_data: Rc<RefCell<PicData>>,
         debug: bool,
     ) -> Self {
-        dbg!();
         Self {
             r_data: RenderData::new(screen_width, screen_height),
             seg_renderer: SegRender::new(texture_data.clone()),

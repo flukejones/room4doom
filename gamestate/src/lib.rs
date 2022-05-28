@@ -497,7 +497,7 @@ impl Game {
             .borrow_mut()
             .set_sky_pic(self.game_mode, self.game_episode, self.game_map);
 
-        info!("New game-exe!");
+        info!("Begin new game!");
         self.do_load_level();
     }
 

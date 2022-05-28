@@ -35,7 +35,6 @@ pub(crate) struct RenderData {
 
 impl RenderData {
     pub(crate) fn new(screen_width: usize, screen_height: usize) -> Self {
-        dbg!();
         Self {
             rw_angle1: Angle::default(),
             drawsegs: Vec::new(),
