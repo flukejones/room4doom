@@ -135,6 +135,7 @@ impl MachinationTrait for Finale {
     }
 
     fn draw(&mut self, buffer: &mut PixelBuf) {
+        let f = (buffer.height() / 200) as i32;
         self.screen_width = buffer.width() as i32;
         self.screen_height = buffer.height() as i32;
 
@@ -150,6 +151,6 @@ impl MachinationTrait for Finale {
                 }
             }
         }
-        self.text.draw(6, 6, self, buffer);
+        self.text.draw(6 * f, 6 * f, self, buffer);
     }
 }

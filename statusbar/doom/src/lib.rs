@@ -243,7 +243,7 @@ impl Statusbar {
         let patch = self.faces.get_face();
 
         let offset_x = (patch.width as i32 * f) / 2;
-        let offset_y = (patch.height as i32 * f);
+        let offset_y = patch.height as i32 * f;
         if upper || big {
             x = self.screen_width / 2 - patch.width as i32 / 2;
             y = if upper {
