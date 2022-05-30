@@ -381,9 +381,6 @@ impl Player {
             let y = mobj.momxy.y;
             self.bob = x * x + y * y;
 
-            // Reduce precision
-            self.bob = (self.bob as i32 >> 2) as f32;
-
             if self.bob > MAX_BOB {
                 self.bob = MAX_BOB;
             }
@@ -402,9 +399,8 @@ impl Player {
             // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
             let mut bob = 0.0;
             if self.head_bob {
-                let angle =
-                    ((3350528u32.overflowing_mul(level_time).0) & 67100672) as f32 * 8.381_903e-8;
-                bob = self.bob / 2.0 * angle.cos(); // not sine!
+                let angle = (level_time as f32 / 3.0).sin(); // Controls frequency (3.0 seems ideal)
+                bob = self.bob / 3.0 * angle; // Controls depth of bob (2.0 is original)
             }
 
             // move viewheight

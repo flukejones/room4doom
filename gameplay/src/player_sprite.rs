@@ -95,10 +95,13 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
         player.status.attackdown = false;
     }
 
-    let angle = (level_time as f32) * 0.1;
-    pspr.sx = 1.0 + player.bob * (angle as f32).cos();
-    let angle = (level_time as f32) * 0.2;
-    pspr.sy = WEAPONTOP + 5.0 + player.bob * (angle as f32).sin() * 0.1;
+    // the division is the frequency
+    let angle = (level_time as f32 / 8.0).cos();
+    pspr.sx = player.bob * angle;
+    // the division is the frequency
+    let angle = (level_time as f32 / 4.0).sin();
+    // the division (3.0) is the depth
+    pspr.sy = WEAPONTOP + 6.0 + player.bob / 3.0 * angle;
 }
 
 pub(crate) fn a_lower(player: &mut Player, pspr: &mut PspDef) {
