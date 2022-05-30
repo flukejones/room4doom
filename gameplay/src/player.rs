@@ -436,7 +436,7 @@ impl Player {
             if self.viewz > mobj.ceilingz - 4.0 {
                 self.viewz = mobj.ceilingz - 4.0;
             }
-            self.viewz = self.viewz.floor();
+            self.viewz = self.viewz;
         }
     }
 
