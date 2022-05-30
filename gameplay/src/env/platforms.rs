@@ -24,8 +24,6 @@ use crate::{
     DPtr,
 };
 
-// TODO: active platform tracking? Seems to be required for "animated" platforms.
-
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
 
@@ -80,7 +78,6 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
-        // TODO: track active platforms and reset sector special data
         if sector.specialdata.is_some() {
             continue;
         }

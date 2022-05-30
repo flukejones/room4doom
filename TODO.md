@@ -57,6 +57,7 @@
 - [ ] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
     . It's (currently) not possible to "step" on top of another object
 - [ ] Step over things if higher
+- [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
 ## BOOM stuff to consider
 

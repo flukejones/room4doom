@@ -6,6 +6,8 @@ as I go along.
 
 I originally started by following along with [https://github.com/amroibrahim/DIYDoom](https://github.com/amroibrahim/DIYDoom)
 
+Take a look at how [I progressed through](https://ljones.dev/blog/room4doom-20220529/)
+
 Be warned that because the initial code is transliterated as much as possible from the Doom C except
 where that causes issues, many things may not be optimal or idiomatic rust. There will be things like
 dodgy casts, unrequired `as` casts, unused fields or args, lots of `unsafe` blocks etc. The main thing

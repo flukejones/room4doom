@@ -282,22 +282,22 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
 /// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
 ///
 /// D_Display
-fn d_display<I, S, H, F>(
+fn d_display(
     rend: &mut impl PlayRenderer,
     menu: &mut impl MachinationTrait,
-    machines: &mut Machinations<I, S, H, F>,
+    machines: &mut Machinations<
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+    >,
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
     gl: &mut Window,
     shader: &mut dyn Drawer,
     timestep: &mut TimeStep,
-) where
-    I: MachinationTrait,
-    S: MachinationTrait,
-    H: MachinationTrait,
-    F: MachinationTrait,
-{
+) {
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
@@ -385,19 +385,19 @@ fn d_display<I, S, H, F>(
     //menu.draw(disp_buf); // menu is drawn on top of wipes too
 }
 
-fn try_run_tics<I, S, H, F>(
+fn try_run_tics(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I, S, H, F>,
+    machinations: &mut Machinations<
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+    >,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
-) where
-    I: MachinationTrait,
-    S: MachinationTrait,
-    H: MachinationTrait,
-    F: MachinationTrait,
-{
+) {
     // TODO: net.c starts here
     process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
 
@@ -411,18 +411,18 @@ fn try_run_tics<I, S, H, F>(
     });
 }
 
-fn process_events<I, S, H, F>(
+fn process_events(
     game: &mut Game,
     input: &mut Input,
     menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<I, S, H, F>,
+    machinations: &mut Machinations<
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+        impl MachinationTrait,
+    >,
     cheats: &mut Cheats,
-) where
-    I: MachinationTrait,
-    S: MachinationTrait,
-    H: MachinationTrait,
-    F: MachinationTrait,
-{
+) {
     // required for cheats and menu so they don't receive multiple key-press fo same key
     let callback = |sc: Scancode| {
         if game.level.is_some() {

@@ -175,7 +175,6 @@ pub struct WadTexPatch {
 /// |  0x08-0x09 |    i16    | Flags      |
 ///
 /// Each `Thing` record is 10 bytes
-// TODO: A `Thing` type will need to be mapped against an enum
 #[derive(Debug, Copy, Clone)]
 pub struct WadThing {
     pub x: i16,

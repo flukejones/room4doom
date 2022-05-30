@@ -220,6 +220,7 @@ impl MapObject {
         }
     }
 
+    /// Try to attack along a line using the previous `AimResult` and `BSPTrace`.
     pub(crate) fn line_attack(
         &mut self,
         damage: f32,
@@ -235,6 +236,8 @@ impl MapObject {
         }
     }
 
+    /// Get a `BSPTrace` for the selected point. It uses the shooters radius to get visibility as opposed to
+    /// using the victims radius (this should be changed to the reverse).
     pub(crate) fn get_sight_bsp_trace(&self, xy2: Vec2) -> BSPTrace {
         // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
         // demons might overlap from a subsector that isn't caught otherwise (for example demon
@@ -246,6 +249,9 @@ impl MapObject {
         bsp_trace
     }
 
+    /// Check if there is a clear line of sight to the selected point.
+    ///
+    /// Note that this doesn't take in to account the radius of the point.
     pub(crate) fn check_sight(
         &mut self,
         to_xy: Vec2,
@@ -268,6 +274,7 @@ impl MapObject {
         )
     }
 
+    /// Iterate through the available live players and check if there is a LOS to one.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
         let mut see = 0;
         let stop = (self.lastlook - 1) & 3;
@@ -315,6 +322,8 @@ impl MapObject {
         }
     }
 
+    /// Check if there is a clear line of sight to the selected target object. This checks teh '2D top-down'
+    /// nature of Doom, followed by the Z (height) axis.
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
         let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
         self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)

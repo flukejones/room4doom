@@ -139,7 +139,6 @@ impl MachinationTrait for Finale {
         self.screen_width = buffer.width() as i32;
         self.screen_height = buffer.height() as i32;
 
-        // TODO: Need to draw a flat
         let pal = &self.palette;
         for sx in (0..self.screen_width).step_by(64) {
             for sy in (0..self.screen_height).step_by(64) {
