@@ -1,0 +1,76 @@
+
+From B. (Bernd.Kreimeier@nero.uni-bonn.de), 1995
+
+
+I got this info about the Netgame packet structure from Jake Page.
+It has been posted by Antony Suter <antony@werple.apana.org.au>
+on a.g.d. in 1994, who got it from Id.
+
+Remember, Objective C.
+
+
+/*  Note that type unsigned is a 4 byte quantity */
+
+
+typedef struct
+{
+	char		forwardmove;	  // *2048 for move
+	char		sidemove;	  // *2048 for move
+	short		angleturn;	  // <<16 for angle delta
+	short		consistancy;	  // checks for net game
+	byte		chatchar;
+	byte		buttons;
+} ticcmd_t;
+
+#define	BT_ATTACK		1
+#define	BT_USE			2
+#define	BT_CHANGE		4   // if true, 
+                                    // the next 3 bits hold weapon num
+#define	BT_WEAPONMASK	(8+16+32)
+#define	BT_WEAPONSHIFT	3
+
+#define BT_SPECIAL	      128   // game events, not really buttons
+#define	BTS_SAVEMASK	(4+8+16)
+#define	BTS_SAVESHIFT	2
+#define	BT_SPECIALMASK	3
+#define	BTS_PAUSE		1   // pause the game
+#define	BTS_SAVEGAME	2	    // save the game at each console
+// savegame slot numbers occupy the second byte of buttons
+
+typedef struct
+{
+	unsigned	checksum;	// high bit is retransmit request
+	byte		retransmitfrom;	// only valid if NCMD_RETRANSMIT
+	byte		starttic;
+	byte		player, numtics;		
+	ticcmd_t	cmds[BACKUPTICS];
+} doomdata_t;
+
+int	NetbufferSize (void)
+{
+	return (int)&( ((doomdata_t *)0)->cmds[netbuffer->numtics] ); 
+
+}
+
+unsigned NetbufferChecksum (void)
+{
+	unsigned		c;
+	int		i,l;
+
+	c = 0x1234567;
+
+#ifdef NeXT
+	return 0;			// byte order problems
+#endif
+
+	l = (NetbufferSize () 
+                 - (int)&(((doomdata_t*)0)->retransmitfrom))/4;
+	for (i=0 ; i<l ; i++)
+	  c += ((unsigned *)&netbuffer->retransmitfrom)[i] * (i+1);
+
+	return c & NCMD_CHECKSUM;
+}
+
+
+
+

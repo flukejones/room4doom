@@ -114,13 +114,13 @@ to achieve here.
 
 **Comparison:**
 
-![](./misc/compare/e1m1-room.png)
-![](./misc/compare/e1m1-doom.png)
+![](./misc/compare/e1m1-room.jpg)
+![](./misc/compare/e1m1-doom.jpg)
 
 **SI6IL**
 
-![](./misc/compare/e5m7-room.png)
-![](./misc/compare/e5m7-doom.png)
+![](./misc/compare/e5m7-room.jpg)
+![](./misc/compare/e5m7-doom.jpg)
 
 
 # License change
