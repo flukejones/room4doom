@@ -1,0 +1,14 @@
+strict digraph {
+  LINEDEFS -> SIDEDEFS
+  LINEDEFS -> VERTEXES
+  LINEDEFS -> SECTORS[label="has index to"]
+  SIDEDEFS -> SECTORS[label="has index to"]
+  VERTEXES
+  NODES -> SSECTORS
+  SSECTORS -> SEGS
+  SSECTORS -> SECTORS
+  SEGS -> VERTEXES
+  SECTORS -> LINEDEFS[label="has index to"]
+  BLOCKMAP -> LINEDEFS
+  REJECT
+}
