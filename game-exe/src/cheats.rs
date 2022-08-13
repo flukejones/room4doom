@@ -3,7 +3,7 @@
 use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
 use gamestate::Game;
 use gamestate_traits::GameTraits;
-use sdl2::keyboard::{Keycode, Scancode};
+use gamestate_traits::sdl2::keyboard::{Keycode, Scancode};
 use sound_traits::MusTrack;
 
 pub struct Cheats {

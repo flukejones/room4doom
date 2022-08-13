@@ -18,7 +18,7 @@ use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_soft::SoftwareRenderer;
 use render_traits::{PixelBuf, PlayRenderer};
-use sdl2::{keyboard::Scancode, rect::Rect, video::Window};
+use gamestate_traits::sdl2::{keyboard::Scancode, rect::Rect, video::Window};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
