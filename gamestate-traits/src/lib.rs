@@ -9,6 +9,7 @@ pub use gameplay::{
 };
 pub use render_traits::PixelBuf;
 pub use sdl2::keyboard::Scancode;
+pub use sdl2;
 pub use sound_traits::{MusTrack, SfxName};
 
 use wad::{

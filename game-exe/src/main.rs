@@ -7,6 +7,7 @@ mod timestep;
 mod wipe;
 
 use dirs::{cache_dir, data_dir};
+use gamestate_traits::sdl2;
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
 
 use d_main::d_doom_loop;

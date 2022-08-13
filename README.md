@@ -85,7 +85,7 @@ I use and develop on Linux exclusively so although I once did a Windows build I 
 - Bundled SDL2: `cargo build --features "sdl2-bundled"`
 - Distro SDL2: `cargo build`
 
-The distro requires SDL2 + SDL2-mixer to be installed along with the related dev packages.
+The distro requires SDL2 + SDL2-mixer to be installed along with the related dev packages including `alsa-lib-devel` and `pulseaudio-libs-devel`.
 Music support requires fluidsynth or timidity to be installed along with files in the `data/sound/`
 being installed to `~/.local/share/room4doom/sound/`.
 

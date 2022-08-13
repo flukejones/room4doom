@@ -12,10 +12,11 @@ path = "src/main.rs"
 
 [features]
 default = ["sdl2-bundled"]
-sdl2-bundled = ["sdl2/bundled", "sound-sdl2/sdl2-bundled"]
+sdl2-bundled = [
+    "gamestate-traits/sdl2-bundled",
+]
 
 [dependencies]
-sdl2 = { version = "~0.35.2", features = ["mixer"] }
 gumdrop = "~0.8"
 input = { path = "../input" }
 menu-doom = { path = "../menu/doom" }

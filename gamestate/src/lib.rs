@@ -34,7 +34,7 @@ use gameplay::{
     Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
-use sdl2::AudioSubsystem;
+use gamestate_traits::sdl2::AudioSubsystem;
 use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::{lumps::WadPatch, WadData};
