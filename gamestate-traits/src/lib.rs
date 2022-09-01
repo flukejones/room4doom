@@ -8,8 +8,7 @@ pub use gameplay::{
     WeaponType, TICRATE, WEAPON_INFO,
 };
 pub use render_traits::PixelBuf;
-pub use sdl2::keyboard::Scancode;
-pub use sdl2;
+pub use sdl2::{self, keyboard::Scancode};
 pub use sound_traits::{MusTrack, SfxName};
 
 use wad::{
