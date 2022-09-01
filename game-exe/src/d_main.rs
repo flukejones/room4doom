@@ -15,8 +15,8 @@ use gamestate_traits::{
         keyboard::Scancode,
         pixels,
         rect::Rect,
-        render::Canvas,
-        video::Window,
+        render::{Canvas, TextureCreator},
+        video::{Window, WindowContext},
         {self},
     },
     GameState, MachinationTrait,
@@ -106,7 +106,7 @@ pub fn d_doom_loop(
     };
 
     let mut canvas = window.into_canvas().accelerated().build().unwrap();
-    let mut texture = canvas.texture_creator();
+    let tex_creator = canvas.texture_creator();
     loop {
         if !game.running() {
             break;
@@ -140,7 +140,6 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        //render_buffer.clear();
         d_display(
             &mut renderer,
             &mut menu,
@@ -148,6 +147,7 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
+            &tex_creator,
             &mut canvas,
             &mut timestep,
         );
@@ -176,22 +176,20 @@ pub fn d_doom_loop(
             );
         }
 
-        // shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
-        // shader.draw().unwrap();
-        let mut data = render_buffer.read_pixels().to_owned();
+        let w = render_buffer.width();
+        let h = render_buffer.height();
         let surf = sdl2::surface::Surface::from_data(
-            &mut data,
-            render_buffer.width(),
-            render_buffer.height(),
-            4 * render_buffer.width(),
+            render_buffer.read_pixels_mut(),
+            w,
+            h,
+            4 * w,
             pixels::PixelFormatEnum::BGR888,
         )
+        .unwrap()
+        .as_texture(&tex_creator)
         .unwrap();
-        let tex = texture.create_texture_from_surface(surf).unwrap();
-        canvas.copy(&tex, None, None).unwrap();
+        canvas.copy(&surf, None, None).unwrap();
         canvas.present();
-
-        // gl.gl_swap_window();
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
@@ -289,7 +287,8 @@ fn d_display(
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
-    window: &mut Canvas<Window>,
+    tex_creator: &TextureCreator<WindowContext>,
+    canvas: &mut Canvas<Window>,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -365,10 +364,20 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf, draw_buf);
-            // TODO:
-            // shader.set_image_data(disp_buf.read_pixels(), disp_buf.size());
-            // shader.draw().unwrap();
-            window.present();
+            let w = disp_buf.width();
+            let h = disp_buf.height();
+            let surf = sdl2::surface::Surface::from_data(
+                disp_buf.read_pixels_mut(),
+                w,
+                h,
+                4 * w,
+                pixels::PixelFormatEnum::BGR888,
+            )
+            .unwrap()
+            .as_texture(&tex_creator)
+            .unwrap();
+            canvas.copy(&surf, None, None).unwrap();
+            canvas.present();
         });
 
         if done {
