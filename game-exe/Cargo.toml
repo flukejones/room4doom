@@ -34,7 +34,6 @@ sound-sdl2 = { path = "../sound/sdl2" }
 render-traits = { path = "../render/traits" }
 render-soft = { path = "../render/software" }
 wad = { path = "../wad" }
-glow = "*"
 # utility deps
 env_logger = { version = "^0.9", default-features = false, features = ["termcolor", "atty"] }
 dirs = "~4.0"

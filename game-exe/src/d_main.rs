@@ -10,12 +10,17 @@ use gameplay::{
     MapObject,
 };
 use gamestate::{machination::Machinations, Game};
-use gamestate_traits::sdl2::{keyboard::Scancode, pixels, rect::Rect, video::Window};
 use gamestate_traits::{
-    sdl2::{self},
+    sdl2::{
+        keyboard::Scancode,
+        pixels,
+        rect::Rect,
+        render::Canvas,
+        video::Window,
+        {self},
+    },
     GameState, MachinationTrait,
 };
-use glow::Context;
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -26,21 +31,13 @@ use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
-use crate::{
-    cheats::Cheats,
-    shaders::{basic::Basic, Drawer, Shaders},
-    test_funcs::*,
-    timestep::TimeStep,
-    wipe::Wipe,
-    CLIOptions,
-};
+use crate::{cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOptions};
 
 /// Never returns
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    mut gl: Window,
-    ctx: Context,
+    mut window: Window,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: switch 320x200 | 640x400 on option
@@ -67,22 +64,11 @@ pub fn d_doom_loop(
     let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
 
     // TODO: sort this block of stuff out
-    let wsize = gl.drawable_size();
+    let wsize = window.drawable_size();
     let ratio = wsize.1 as f32 * 1.333333;
     let xp = (wsize.0 as f32 - ratio) / 2.0;
 
     let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
-
-    let mut shader: Box<dyn Drawer> = if let Some(shader) = options.shader {
-        match shader {
-            Shaders::None => Box::new(Basic::new(&ctx)),
-            Shaders::Lottes => Box::new(Basic::new(&ctx)), //Box::new(LottesCRT::new(&ctx)),
-            Shaders::Cgwg => Box::new(Basic::new(&ctx)), //Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
-        }
-    } else {
-        Box::new(Basic::new(&ctx))
-    };
-    shader.set_tex_filter().unwrap();
 
     let mut pal_num = 0;
     let mut image_num = 0;
@@ -119,6 +105,8 @@ pub fn d_doom_loop(
         finale: Finale::new(&game.wad_data),
     };
 
+    let mut canvas = window.into_canvas().accelerated().build().unwrap();
+    let mut texture = canvas.texture_creator();
     loop {
         if !game.running() {
             break;
@@ -160,8 +148,7 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
-            &mut gl,
-            shader.as_mut(),
+            &mut canvas,
             &mut timestep,
         );
 
@@ -189,7 +176,6 @@ pub fn d_doom_loop(
             );
         }
 
-        shader.clear();
         // shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
         // shader.draw().unwrap();
         let mut data = render_buffer.read_pixels().to_owned();
@@ -197,12 +183,13 @@ pub fn d_doom_loop(
             &mut data,
             render_buffer.width(),
             render_buffer.height(),
-            3,
-            pixels::PixelFormatEnum::RGB888,
+            4 * render_buffer.width(),
+            pixels::PixelFormatEnum::BGR888,
         )
         .unwrap();
-        let mut can = surf.into_canvas().unwrap();
-        can.present();
+        let tex = texture.create_texture_from_surface(surf).unwrap();
+        canvas.copy(&tex, None, None).unwrap();
+        canvas.present();
 
         // gl.gl_swap_window();
 
@@ -302,8 +289,7 @@ fn d_display(
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
-    gl: &mut Window,
-    shader: &mut dyn Drawer,
+    window: &mut Canvas<Window>,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -379,9 +365,10 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf, draw_buf);
-            shader.set_image_data(disp_buf.read_pixels(), disp_buf.size());
-            shader.draw().unwrap();
-            gl.gl_swap_window();
+            // TODO:
+            // shader.set_image_data(disp_buf.read_pixels(), disp_buf.size());
+            // shader.draw().unwrap();
+            window.present();
         });
 
         if done {
