@@ -10,6 +10,7 @@ gameplay = { path = "../gameplay" }
 gamestate-traits = { path = "../gamestate-traits" }
 sound-traits = { path = "../sound/traits" }
 sound-sdl2 = { path = "../sound/sdl2" }
+sound-nosnd = { path = "../sound/nosnd" }
 menu-doom = { path = "../menu/doom" }
 wad = { path = "../wad" }
 # utility deps

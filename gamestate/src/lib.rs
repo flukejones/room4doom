@@ -35,7 +35,8 @@ use gameplay::{
 };
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use gamestate_traits::sdl2::AudioSubsystem;
-use sound_sdl2::SndServerTx;
+use sound_nosnd::SndServerTx;
+// use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::{lumps::WadPatch, WadData};
 
@@ -204,7 +205,7 @@ impl Game {
     pub fn new(
         mut options: DoomOptions,
         mut wad: WadData,
-        snd_ctx: AudioSubsystem,
+        //snd_ctx: AudioSubsystem,
         sfx_vol: i32,
         mus_vol: i32,
     ) -> Game {
@@ -302,7 +303,7 @@ impl Game {
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
 
-        let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad).unwrap();
+        let mut snd_server = sound_nosnd::Snd::new(&wad).unwrap(); //sound_sdl2::Snd::new(snd_ctx, &wad).unwrap();
         let tx = snd_server.init().unwrap();
         let snd_thread = std::thread::spawn(move || loop {
             if !snd_server.tic() {

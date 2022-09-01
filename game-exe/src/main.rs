@@ -8,12 +8,12 @@ mod wipe;
 
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
+use glow::Context;
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
 use gamestate::{DoomOptions, Game};
-use golem::*;
 use gumdrop::Options;
 
 use crate::config::UserConfig;
@@ -200,7 +200,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut user_config = UserConfig::load();
 
     let sdl_ctx = sdl2::init()?;
-    let snd_ctx = sdl_ctx.audio()?;
+    //let snd_ctx = sdl_ctx.audio().unwrap();
     let video_ctx = sdl_ctx.video()?;
 
     let events = sdl_ctx.event_pump()?;
@@ -218,19 +218,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _gl_ctx = window.gl_create_context()?;
 
     let context = unsafe {
-        Context::from_glow(glow::Context::from_loader_function(|s| {
-            video_ctx.gl_get_proc_address(s) as *const _
-        }))
-        .unwrap()
+        Context::from_loader_function(|s| video_ctx.gl_get_proc_address(s) as *const _)
     };
 
     let wad = WadData::new(options.iwad.clone().into());
-    setup_timidity(&wad);
+    //setup_timidity(&wad);
 
     let game = Game::new(
         options.clone().into(),
         wad,
-        snd_ctx,
+        //snd_ctx,
         user_config.sfx_vol,
         user_config.mus_vol,
     );

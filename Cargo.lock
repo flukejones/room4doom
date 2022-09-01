@@ -26,12 +26,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ad822118d20d2c234f427000d5acc36eabe1e29a348c89b63dd60b13f28e5d"
 
 [[package]]
-name = "bytemuck"
-version = "1.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f5715e491b5a1598fc2bef5a606847b5dc1d48ea625bd3c02c00de8285591da"
-
-[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -112,6 +106,7 @@ dependencies = [
  "gamestate-traits",
  "menu-doom",
  "serde",
+ "sound-nosnd",
  "sound-sdl2",
  "sound-traits",
  "toml",
@@ -156,16 +151,6 @@ dependencies = [
  "slotmap",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "golem"
-version = "0.2.0"
-source = "git+https://github.com/flukejones/golem/#81a571680eb380185595cd92a5aa7ea06a04056d"
-dependencies = [
- "bytemuck",
- "glow",
- "log",
 ]
 
 [[package]]
@@ -353,7 +338,7 @@ dependencies = [
  "gameplay",
  "gamestate",
  "gamestate-traits",
- "golem",
+ "glow",
  "gumdrop",
  "hud-doom",
  "input",
@@ -418,6 +403,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1e08e261d0e8f5c43123b7adf3e4ca1690d655377ac93a03b2c9d3e98de1342"
 dependencies = [
  "version_check",
+]
+
+[[package]]
+name = "sound-nosnd"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "log",
+ "serde",
+ "sound-traits",
+ "wad",
 ]
 
 [[package]]
