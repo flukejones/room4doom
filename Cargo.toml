@@ -13,6 +13,7 @@ members = [
     "render/software",
     "sound/traits",
     "sound/sdl2",
+    "sound/nosnd",
     "multigen",
     "hud-util",
     "hud-messages/doom",

@@ -17,29 +17,26 @@ sdl2-bundled = [
 ]
 
 [dependencies]
-gumdrop.workspace = true
-input.workspace = true
-menu-doom.workspace = true
-gameplay.workspace = true
-gamestate.workspace = true
-gamestate-traits.workspace = true
+gumdrop = "~0.8"
+input = { path = "../input" }
+menu-doom = { path = "../menu/doom" }
+gameplay = { path = "../gameplay" }
+gamestate = { path = "../gamestate" }
+gamestate-traits = { path = "../gamestate-traits" }
 
-intermission-doom.workspace = true
-hud-doom.workspace = true
-finale-doom.workspace = true
-statusbar-doom.workspace = true
+intermission-doom = { path = "../intermission/doom" }
+hud-doom = { path = "../hud-messages/doom" }
+finale-doom = { path = "../finale/doom" }
+statusbar-doom = { path = "../statusbar/doom" }
 
-sound-traits.workspace = true
-sound-sdl2.workspace = true
-render-traits.workspace = true
-render-soft.workspace = true
-wad.workspace = true
-golem.workspace = true
+sound-traits = { path = "../sound/traits" }
+sound-sdl2 = { path = "../sound/sdl2" }
+render-traits = { path = "../render/traits" }
+render-soft = { path = "../render/software" }
+wad = { path = "../wad" }
+glow = "*"
 # utility deps
-env_logger.workspace = true
-dirs.workspace = true
-toml.workspace = true
-serde.workspace = true
-
-[dev-dependencies]
-cargo-husky.workspace = true
+env_logger = { version = "^0.9", default-features = false, features = ["termcolor", "atty"] }
+dirs = "~4.0"
+toml = "0.5"
+serde = { version = "1.0", features = ["serde_derive"] }

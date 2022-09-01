@@ -10,11 +10,12 @@ use gameplay::{
     MapObject,
 };
 use gamestate::{machination::Machinations, Game};
+use gamestate_traits::sdl2::{keyboard::Scancode, pixels, rect::Rect, video::Window};
 use gamestate_traits::{
-    sdl2::{keyboard::Scancode, rect::Rect, video::Window},
+    sdl2::{self},
     GameState, MachinationTrait,
 };
-use golem::Context;
+use glow::Context;
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -27,7 +28,7 @@ use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
     cheats::Cheats,
-    shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
+    shaders::{basic::Basic, Drawer, Shaders},
     test_funcs::*,
     timestep::TimeStep,
     wipe::Wipe,
@@ -72,18 +73,11 @@ pub fn d_doom_loop(
 
     let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
 
-    ctx.set_viewport(
-        crop_rect.x as u32,
-        crop_rect.y as u32,
-        crop_rect.width(),
-        crop_rect.height(),
-    );
-
     let mut shader: Box<dyn Drawer> = if let Some(shader) = options.shader {
         match shader {
             Shaders::None => Box::new(Basic::new(&ctx)),
-            Shaders::Lottes => Box::new(LottesCRT::new(&ctx)),
-            Shaders::Cgwg => Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
+            Shaders::Lottes => Box::new(Basic::new(&ctx)), //Box::new(LottesCRT::new(&ctx)),
+            Shaders::Cgwg => Box::new(Basic::new(&ctx)), //Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
         }
     } else {
         Box::new(Basic::new(&ctx))
@@ -196,9 +190,21 @@ pub fn d_doom_loop(
         }
 
         shader.clear();
-        shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
-        shader.draw().unwrap();
-        gl.gl_swap_window();
+        // shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
+        // shader.draw().unwrap();
+        let mut data = render_buffer.read_pixels().to_owned();
+        let surf = sdl2::surface::Surface::from_data(
+            &mut data,
+            render_buffer.width(),
+            render_buffer.height(),
+            3,
+            pixels::PixelFormatEnum::RGB888,
+        )
+        .unwrap();
+        let mut can = surf.into_canvas().unwrap();
+        can.present();
+
+        // gl.gl_swap_window();
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
