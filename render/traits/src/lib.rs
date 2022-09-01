@@ -71,6 +71,10 @@ impl PixelBuf {
     pub fn read_pixels(&self) -> &[u8] {
         &self.data
     }
+
+    pub fn read_pixels_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
 }
 
 pub trait PlayRenderer {
