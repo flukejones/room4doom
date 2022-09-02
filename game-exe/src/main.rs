@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut user_config = UserConfig::load();
 
     let sdl_ctx = sdl2::init()?;
-    //let snd_ctx = sdl_ctx.audio().unwrap();
+    //let snd_ctx = sdl_ctx.audio()?;
     let video_ctx = sdl_ctx.video()?;
 
     let events = sdl_ctx.event_pump()?;
