@@ -217,8 +217,8 @@ impl SoftwareRenderer {
         vis.scale = x_scale;
         vis.gx = thing.xy.x;
         vis.gy = thing.xy.y;
-        vis.gz = thing.z.ceil();
-        vis.gzt = thing.z.ceil() + patch.top_offset as f32;
+        vis.gz = thing.z;
+        vis.gzt = thing.z + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;
         vis.x1 = if x1 < 0 { 0 } else { x1 };
         vis.x2 = if x2 >= screen_width as i32 {
@@ -568,7 +568,7 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen.floor() as i32 + 1;
+                        let top = sprtopscreen.ceil() as i32 + 1;
                         let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
                         let mut yl = top;
                         let mut yh = bottom;
@@ -617,7 +617,7 @@ fn draw_masked_column(
     pixels: &mut PixelBuf,
 ) {
     let pal = &textures.palette();
-    let mut frac = dc_texturemid + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
+    let mut frac = dc_texturemid + 0.5 + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
     for n in yl..=yh {
         let select = frac.floor() as usize;
 
