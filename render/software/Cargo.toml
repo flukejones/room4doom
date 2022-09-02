@@ -6,7 +6,7 @@ edition = "2021"
 build = "../../build.rs"
 
 [dependencies]
-glam = "*"
+glam = "~0.20"
 gameplay = { path = "../../gameplay" }
 render-traits = { path = "../traits" }
 
