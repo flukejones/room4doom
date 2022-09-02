@@ -313,7 +313,7 @@ impl SoftwareRenderer {
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight < player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
-                subsect.sector.floorheight.ceil(),
+                subsect.sector.floorheight,
                 subsect.sector.floorpic,
                 skynum,
                 subsect.sector.lightlevel,
@@ -325,7 +325,7 @@ impl SoftwareRenderer {
             && subsect.sector.ceilingpic != usize::MAX
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
-                subsect.sector.ceilingheight.floor(),
+                subsect.sector.ceilingheight,
                 subsect.sector.ceilingpic,
                 skynum,
                 subsect.sector.lightlevel,
