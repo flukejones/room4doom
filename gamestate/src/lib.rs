@@ -22,7 +22,7 @@
 pub mod game_impl;
 pub mod machination;
 
-use std::{cell::RefCell, rc::Rc, time::Duration, sync::mpsc::channel};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use crate::machination::Machinations;
 use gameplay::{

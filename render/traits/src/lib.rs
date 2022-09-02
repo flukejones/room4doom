@@ -3,11 +3,13 @@
 
 use gameplay::{Level, Player};
 
+const CHANNELS: usize = 3;
+
 /// A structure holding display data
 pub struct PixelBuf {
     width: u32,
     height: u32,
-    /// Total length is width * height * 4, where 4 is RGBA bytes
+    /// Total length is width * height * CHANNELS, where CHANNELS is RGBA bytes
     data: Vec<u8>,
 }
 
@@ -16,14 +18,14 @@ impl PixelBuf {
         Self {
             width,
             height,
-            data: vec![0; (width * height * 4) as usize],
+            data: vec![0; (width * height) as usize * CHANNELS],
         }
     }
 
-    #[inline]
-    pub fn clear(&mut self) {
-        self.data = vec![0; (self.width * self.height * 4) as usize]
-    }
+    // #[inline]
+    // pub fn clear(&mut self) {
+    //     self.data = vec![0; (self.width * self.height) as usize * CHANNELS]
+    // }
 
     #[inline]
     pub fn width(&self) -> u32 {
@@ -49,21 +51,20 @@ impl PixelBuf {
             return;
         }
 
-        let pos = y * (self.width as usize * 4) + x * 4;
+        let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
         self.data[pos] = r;
         self.data[pos + 1] = g;
         self.data[pos + 2] = b;
-        self.data[pos + 3] = a;
     }
 
     /// Read the colour of a single pixel at X|Y
     pub fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        let pos = y * (self.width as usize * 4) + x * 4;
+        let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
         (
             self.data[pos],
             self.data[pos + 1],
             self.data[pos + 2],
-            self.data[pos + 3],
+            0,
         )
     }
 
