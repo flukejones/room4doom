@@ -60,12 +60,7 @@ impl PixelBuf {
     /// Read the colour of a single pixel at X|Y
     pub fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
         let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
-        (
-            self.data[pos],
-            self.data[pos + 1],
-            self.data[pos + 2],
-            0,
-        )
+        (self.data[pos], self.data[pos + 1], self.data[pos + 2], 0)
     }
 
     /// Get the array of pixels. The layout of which is [Row<RGBA>]

@@ -70,7 +70,7 @@ dependencies = [
 name = "gameplay"
 version = "0.11.0"
 dependencies = [
- "glam",
+ "glam 0.20.5",
  "log",
  "sound-sdl2",
  "sound-traits",
@@ -113,6 +113,12 @@ dependencies = [
  "libc",
  "wasi",
 ]
+
+[[package]]
+name = "glam"
+version = "0.20.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43e957e744be03f5801a55472f593d43fabdebf25a4585db250f04d86b1675f"
 
 [[package]]
 name = "glam"
@@ -268,7 +274,7 @@ name = "render-soft"
 version = "0.9.1"
 dependencies = [
  "gameplay",
- "glam",
+ "glam 0.20.5",
  "render-traits",
  "wad",
 ]
@@ -308,7 +314,7 @@ dependencies = [
 [[package]]
 name = "sdl2"
 version = "0.35.2"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#7b54256e87ae1d12bf674159b0b019fa297059d7"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#98d54c3d630a0d5101797489e7d1182d11b826f5"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -319,7 +325,7 @@ dependencies = [
 [[package]]
 name = "sdl2-sys"
 version = "0.35.2"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#7b54256e87ae1d12bf674159b0b019fa297059d7"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#98d54c3d630a0d5101797489e7d1182d11b826f5"
 dependencies = [
  "cfg-if",
  "libc",
@@ -350,7 +356,7 @@ dependencies = [
 name = "sound-nosnd"
 version = "0.1.0"
 dependencies = [
- "glam",
+ "glam 0.21.3",
  "log",
  "serde",
  "sound-traits",
@@ -361,7 +367,7 @@ dependencies = [
 name = "sound-sdl2"
 version = "0.1.0"
 dependencies = [
- "glam",
+ "glam 0.21.3",
  "log",
  "sdl2",
  "serde",
@@ -405,18 +411,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.32"
+version = "1.0.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f6586b7f764adc0231f4c79be7b920e766bb2f3e51b3661cdb263828f19994"
+checksum = "3d0a539a918745651435ac7db7a18761589a94cd7e94cd56999f828bf73c8a57"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.32"
+version = "1.0.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12bafc5b54507e0149cdf1b145a5d80ab80a90bcd9275df43d4fff68460f6c21"
+checksum = "c251e90f708e16c49a16f4917dc2131e75222b72edfa9cb7f7c58ae56aae0c09"
 dependencies = [
  "proc-macro2",
  "quote",

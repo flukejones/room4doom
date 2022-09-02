@@ -312,7 +312,7 @@ impl Game {
                 tx.send(SoundAction::SfxVolume(sfx_vol)).unwrap();
                 tx.send(SoundAction::MusicVolume(mus_vol)).unwrap();
                 tx
-            },
+            }
             Err(e) => {
                 warn!("Could not set up sound server: {e}");
                 let mut s = sound_nosnd::Snd::new(&wad).unwrap();
@@ -323,7 +323,7 @@ impl Game {
                     }
                 });
                 tx
-            },
+            }
         };
 
         // TODO: D_CheckNetGame ();
