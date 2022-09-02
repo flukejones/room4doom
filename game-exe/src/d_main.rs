@@ -183,8 +183,8 @@ pub fn d_doom_loop(
             render_buffer.read_pixels_mut(),
             w,
             h,
-            4 * w,
-            pixels::PixelFormatEnum::BGR888,
+            3 * w,
+            pixels::PixelFormatEnum::RGB24,
         )
         .unwrap()
         .as_texture(&tex_creator)
@@ -372,8 +372,8 @@ fn d_display(
                 disp_buf.read_pixels_mut(),
                 w,
                 h,
-                4 * w,
-                pixels::PixelFormatEnum::BGR888,
+                3 * w,
+                pixels::PixelFormatEnum::RGB24,
             )
             .unwrap()
             .as_texture(&tex_creator)
