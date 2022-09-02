@@ -97,7 +97,7 @@ dependencies = [
 name = "gameplay"
 version = "0.11.0"
 dependencies = [
- "glam",
+ "glam 0.20.5",
  "log",
  "sound-sdl2",
  "sound-traits",
@@ -139,6 +139,12 @@ dependencies = [
  "libc",
  "wasi",
 ]
+
+[[package]]
+name = "glam"
+version = "0.20.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43e957e744be03f5801a55472f593d43fabdebf25a4585db250f04d86b1675f"
 
 [[package]]
 name = "glam"
@@ -331,7 +337,7 @@ name = "render-soft"
 version = "0.9.1"
 dependencies = [
  "gameplay",
- "glam",
+ "glam 0.20.5",
  "render-traits",
  "wad",
 ]
@@ -424,7 +430,7 @@ dependencies = [
 name = "sound-sdl2"
 version = "0.1.0"
 dependencies = [
- "glam",
+ "glam 0.21.3",
  "log",
  "sdl2",
  "serde",
