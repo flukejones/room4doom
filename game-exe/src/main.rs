@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut user_config = UserConfig::load();
 
     let sdl_ctx = sdl2::init()?;
-    //let snd_ctx = sdl_ctx.audio()?;
+    let snd_ctx = sdl_ctx.audio()?;
     let video_ctx = sdl_ctx.video()?;
 
     let events = sdl_ctx.event_pump()?;
@@ -188,12 +188,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let wad = WadData::new(options.iwad.clone().into());
-    //setup_timidity(&wad);
+    setup_timidity(&wad);
 
     let game = Game::new(
         options.clone().into(),
         wad,
-        //snd_ctx,
+        snd_ctx,
         user_config.sfx_vol,
         user_config.mus_vol,
     );
