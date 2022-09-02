@@ -29,7 +29,7 @@ modules:
       - type: archive
         url: https://github.com/FluidSynth/fluidsynth/archive/v2.2.7.tar.gz
         sha256: 460d86d8d687f567dc4780890b72538c7ff6b2082080ef2f9359d41670a309cf
-  
+
   # - name: SDL2
   #   buildsystem: autotools
   #   cleanup:
@@ -58,7 +58,7 @@ modules:
   #         - type: archive
   #           url: https://gitlab.gnome.org/jadahl/libdecor/uploads/81adf91d27620e20bcc5f6b9b312d768/libdecor-0.1.0.tar.xz
   #           sha256: fdefa11de4bd51cb14223a97e41fdd848f01f5c5ddca9b036a0c4e3e74d9f486
-  
+
   # - name: SDL2_mixer
   #   buildsystem: autotools
   #   rm-configure: true
@@ -74,7 +74,7 @@ modules:
   #       url: https://github.com/libsdl-org/SDL_mixer
   #       tag: release-2.0.4
   #       commit: da75a58c19de9fedea62724a5f7770cbbe39adf9
-  
+
   - name: freepats
     buildsystem: simple
     build-commands:
@@ -87,7 +87,7 @@ modules:
       - type: archive
         url: https://freepats.zenvoid.org/freepats-20060219.tar.xz
         sha256: 500c61782ff4b22de6887c0a32e68dd98b511c4396ddf89e8cab482c7dcea89e
-        
+
   - name: room4doom
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin
@@ -98,7 +98,7 @@ modules:
         RUST_BACKTRACE: "1"
     buildsystem: simple
     build-commands:
-      - cargo --offline build --release --features "sdl2-bundled"
+      - cargo --offline build --release
       - install -D -m 755 ./target/release/room4doom -t /app/bin/
       - install -D -m 755 ./target/release/libSDL2.so -t /app/lib/
       - ln -s /app/lib/libSDL2.so /app/lib/libSDL2.so.0

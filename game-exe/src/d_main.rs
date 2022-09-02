@@ -12,12 +12,12 @@ use gameplay::{
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{
     sdl2::{
+        self,
         keyboard::Scancode,
         pixels,
         rect::Rect,
         render::{Canvas, TextureCreator},
         video::{Window, WindowContext},
-        {self},
     },
     GameState, MachinationTrait,
 };
@@ -37,7 +37,7 @@ use crate::{cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOp
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    mut window: Window,
+    window: Window,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: switch 320x200 | 640x400 on option
@@ -65,7 +65,7 @@ pub fn d_doom_loop(
 
     // TODO: sort this block of stuff out
     let wsize = window.drawable_size();
-    let ratio = wsize.1 as f32 * 1.333333;
+    let ratio = wsize.1 as f32 * 1.333;
     let xp = (wsize.0 as f32 - ratio) / 2.0;
 
     let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
@@ -149,6 +149,7 @@ pub fn d_doom_loop(
             &mut render_buffer2,
             &tex_creator,
             &mut canvas,
+            crop_rect,
             &mut timestep,
         );
 
@@ -188,12 +189,12 @@ pub fn d_doom_loop(
         .unwrap()
         .as_texture(&tex_creator)
         .unwrap();
-        canvas.copy(&surf, None, None).unwrap();
+        canvas.copy(&surf, None, Some(crop_rect)).unwrap();
         canvas.present();
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
-            //println!("{:?}", fps);
+            println!("{:?}", _fps);
 
             if options.palette_test {
                 if pal_num == 13 {
@@ -289,6 +290,7 @@ fn d_display(
     draw_buf: &mut PixelBuf, // Draw to this buffer
     tex_creator: &TextureCreator<WindowContext>,
     canvas: &mut Canvas<Window>,
+    crop_rect: Rect,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -376,7 +378,7 @@ fn d_display(
             .unwrap()
             .as_texture(&tex_creator)
             .unwrap();
-            canvas.copy(&surf, None, None).unwrap();
+            canvas.copy(&surf, None, Some(crop_rect)).unwrap();
             canvas.present();
         });
 
