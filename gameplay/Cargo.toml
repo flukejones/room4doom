@@ -9,8 +9,8 @@ build = "../build.rs"
 null_check = []
 
 [dependencies]
-sound-traits.workspace = true
-sound-sdl2.workspace = true
-wad.workspace = true
-glam.workspace = true
-log.workspace = true
+sound-traits = { path = "../sound/traits" }
+sound-sdl2 = { path = "../sound/sdl2" }
+wad = { path = "../wad" }
+glam = "~0.20"
+log = "^0.4"
