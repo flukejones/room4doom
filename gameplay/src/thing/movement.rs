@@ -392,7 +392,7 @@ impl MapObject {
             // Check things in subsectors
             if !ssect
                 .sector
-                .run_func_on_thinglist(|thing| self.pit_check_thing(thing, endpoint))
+                .run_mut_func_on_thinglist(|thing| self.pit_check_thing(thing, endpoint))
             {
                 return false;
             }

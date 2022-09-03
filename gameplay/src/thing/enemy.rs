@@ -7,11 +7,11 @@
 //! Doom source name `p_enemy`
 
 use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
     ptr,
 };
 
-use log::{error, warn};
+use log::{error, trace};
 use sound_traits::SfxName;
 
 use crate::{
@@ -20,13 +20,15 @@ use crate::{
         doors::{ev_do_door, DoorKind},
         floor::{ev_do_floor, FloorKind},
     },
-    info::StateNum,
+    info::{StateNum, MOBJINFO},
     level::map_defs::{LineDef, SlopeType},
     thing::{MapObjFlag, MapObject, MoveDir},
-    thinker::ThinkerData,
+    thinker::{Thinker, ThinkerData},
     utilities::{p_random, point_to_angle_2, PortalZ},
     Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS,
 };
+
+use super::movement::SubSectorMinMax;
 
 /// This was only ever called with the player as the target, so it never follows
 /// the original comment stating that if a monster yells it alerts surrounding monsters
@@ -356,7 +358,21 @@ pub(crate) fn a_babymetal(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainawake(actor: &mut MapObject) {
-    error!("a_brainawake not implemented");
+    let mut targets = Vec::new();
+    actor.level().thinkers.find_thinker_mut(|t| {
+        if t.is_mobj() {
+            // todo: store pointers....
+            // since these are level objects they should
+            // never have their memory location move
+            if t.mobj().kind == MapObjKind::MT_BOSSTARGET {
+                // eeeesssh...
+                // TODO: fix this
+                targets.push(t as *const Thinker as *mut Thinker)
+            }
+        }
+        false
+    });
+    actor.boss_targets = targets;
 }
 
 pub(crate) fn a_braindie(actor: &mut MapObject) {
@@ -364,7 +380,26 @@ pub(crate) fn a_braindie(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainspit(actor: &mut MapObject) {
-    error!("a_brainspit not implemented");
+    let skill = unsafe { (*actor.level).game_skill };
+    if skill == Skill::Baby {
+        return;
+    }
+    // spooge a cube at the thing
+    let target_thinker = unsafe { &mut (*actor.boss_targets[actor.boss_target_on]) };
+    actor.boss_target_on = (actor.boss_target_on + 1) % actor.boss_targets.len();
+
+    let target_xy = target_thinker.mobj_mut().xy;
+    let level = unsafe { &mut *actor.level };
+    let m = MapObject::spawn_missile(
+        actor,
+        target_thinker.mobj_mut(),
+        MapObjKind::MT_SPAWNSHOT,
+        level,
+    );
+    m.target = Some(target_thinker);
+    m.reactiontime = ((target_xy.y - actor.xy.y) / m.momxy.y) as i32 / m.state.tics;
+
+    actor.start_sound(SfxName::Bospit);
 }
 
 pub(crate) fn a_brainpain(actor: &mut MapObject) {
@@ -372,16 +407,96 @@ pub(crate) fn a_brainpain(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainscream(actor: &mut MapObject) {
+    let mut x = actor.xy.x as i32 - 196;
+    while x < actor.xy.x as i32 + 320 {
+        let y = actor.xy.y - 320.0;
+        let z = 128 + p_random();
+        let level = unsafe { &mut *actor.level };
+        let th = MapObject::spawn_map_object(x as f32, y, z, MapObjKind::MT_ROCKET, level);
+        unsafe {
+            let th = &mut (*th);
+            th.momz = (p_random() as f32 / 64.0).ceil();
+            th.set_state(StateNum::BRAINEXPLODE1);
+            th.tics -= p_random() & 7;
+            if th.tics < 1 {
+                th.tics = 1;
+            }
+        }
+        x += 8;
+    }
     actor.start_sound(SfxName::Bosdth);
-    error!("a_brainscream not implemented");
 }
 
 pub(crate) fn a_brainexplode(actor: &mut MapObject) {
-    error!("a_brainexplode not implemented");
+    let x = actor.xy.x + (p_random() - p_random()) as f32 * 2.0;
+    let y = actor.xy.y;
+    let z = 128 + p_random();
+    let level = unsafe { &mut *actor.level };
+    let th = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_ROCKET, level);
+    unsafe {
+        let th = &mut (*th);
+        th.momz = (p_random() as f32 / 64.0).ceil();
+        th.set_state(StateNum::BRAINEXPLODE1);
+        th.tics -= p_random() & 7;
+        if th.tics < 1 {
+            th.tics = 1;
+        }
+    }
 }
 
 pub(crate) fn a_spawnfly(actor: &mut MapObject) {
-    error!("a_spawnfly not implemented");
+    actor.reactiontime -= 1;
+    if actor.reactiontime > 0 {
+        return;
+    }
+
+    let level = unsafe { &mut *actor.level };
+    if let Some(target) = actor.target() {
+        let xy = target.xy;
+        let fog = unsafe {
+            &mut *MapObject::spawn_map_object(
+                xy.x,
+                xy.y,
+                target.z as i32,
+                MapObjKind::MT_SPAWNFIRE,
+                level,
+            )
+        };
+        fog.start_sound(SfxName::Telept);
+
+        let r = p_random();
+        let t = if r < 50 {
+            MapObjKind::MT_TROOP
+        } else if r < 90 {
+            MapObjKind::MT_SERGEANT
+        } else if r < 120 {
+            MapObjKind::MT_SHADOWS
+        } else if r < 130 {
+            MapObjKind::MT_PAIN
+        } else if r < 160 {
+            MapObjKind::MT_HEAD
+        } else if r < 162 {
+            MapObjKind::MT_VILE
+        } else if r < 172 {
+            MapObjKind::MT_UNDEAD
+        } else if r < 192 {
+            MapObjKind::MT_BABY
+        } else if r < 222 {
+            MapObjKind::MT_FATSO
+        } else if r < 246 {
+            MapObjKind::MT_KNIGHT
+        } else {
+            MapObjKind::MT_BRUISER
+        };
+
+        let new_critter =
+            unsafe { &mut *MapObject::spawn_map_object(xy.x, xy.y, target.z as i32, t, level) };
+        if new_critter.look_for_players(true) {
+            new_critter.set_state(new_critter.info.seestate);
+        }
+        // TODO: P_TeleportMove
+        actor.remove();
+    }
 }
 
 pub(crate) fn a_spawnsound(actor: &mut MapObject) {
@@ -393,10 +508,72 @@ pub(crate) fn a_vilestart(actor: &mut MapObject) {
     actor.start_sound(SfxName::Vilatk);
 }
 
-pub(crate) fn a_vilechase(actor: &mut MapObject) {
-    if actor.movedir == MoveDir::None {
-        warn!("a_vilechase not fully implemented. Not raising dead");
+fn vile_raise_check(actor: &mut MapObject, obj: &mut MapObject) -> bool {
+    if obj.flags & MapObjFlag::Corpse as u32 != MapObjFlag::Corpse as u32 {
+        return true; // not a monster
     }
+
+    if obj.tics != -1 {
+        return true; // not lying still yet
+    }
+
+    if obj.info.raisestate == StateNum::None {
+        return true; // monster doesn't have a raise state
+    }
+
+    let max_dist = obj.radius + actor.radius;
+    let try_dist = actor.xy + actor.info.speed * Angle::from(actor.movedir).unit();
+    if obj.xy.distance(try_dist) > max_dist {
+        return true;
+    }
+
+    obj.momxy.x = 0.0;
+    obj.momxy.y = 0.0;
+    let old_height = obj.height;
+    obj.height = obj.info.height;
+    let mut ctrl = SubSectorMinMax::default();
+    let check = obj.p_check_position(obj.xy, &mut ctrl);
+    obj.height = old_height;
+    if !check {
+        return true;
+    }
+
+    false
+}
+
+pub(crate) fn a_vilechase(actor: &mut MapObject) {
+    if actor.movedir != MoveDir::None {
+        // look for corpses
+        unsafe {
+            if !(*actor.subsector).sector.run_mut_func_on_thinglist(|obj| {
+                // Check corpses are within radius
+                if !vile_raise_check(actor, obj) {
+                    // found one so raise it
+                    let last_target = actor.target.take();
+                    actor.target = Some(obj.thinker);
+                    a_facetarget(actor);
+                    actor.target = last_target;
+
+                    actor.set_state(StateNum::VILE_HEAL1);
+                    actor.start_sound(SfxName::Slop);
+                    // info = corpsehit->info;
+
+                    obj.set_state(obj.info.raisestate);
+                    obj.height *= 2.0;
+                    obj.flags = obj.info.flags;
+                    obj.health = obj.info.spawnhealth;
+                    obj.target = None;
+                    return false;
+                }
+                true
+            }) {
+                // found a corpse so return
+                trace!("Archvile found a corpse to raise");
+                return;
+            }
+        }
+    }
+
     a_chase(actor);
 }
 
@@ -625,20 +802,42 @@ pub(crate) fn a_pain(actor: &mut MapObject) {
     }
 }
 
-pub(crate) fn a_painattack(actor: &mut MapObject) {
-    if let Some(target) = actor.target {
-        a_facetarget(actor);
-        let _target = unsafe { (*target).mobj_mut() };
-        error!("A_PainShootSkull not implemented");
+fn a_painshootskull(actor: &mut MapObject, angle: Angle) {
+    a_facetarget(actor);
+    // TODO: limit amount of skulls
+    //
+    let mut d = angle.unit();
+    d += 4.0 + 3.0 * (actor.radius + MOBJINFO[MapObjKind::MT_SKULL as usize].radius) / 2.0;
+
+    let level = unsafe { &mut *actor.level };
+    unsafe {
+        let skull = &mut (*MapObject::spawn_map_object(
+            actor.xy.x + d.x,
+            actor.xy.y + d.y,
+            actor.z as i32 + 8,
+            MapObjKind::MT_SKULL,
+            level,
+        ));
+        let mut ctrl = SubSectorMinMax::default();
+        if !skull.p_try_move(skull.xy.x, skull.xy.y, &mut ctrl) {
+            skull.p_take_damage(None, None, false, 10000);
+            return;
+        }
+        skull.target = actor.target;
+        a_skullattack(skull);
     }
 }
 
+pub(crate) fn a_painattack(actor: &mut MapObject) {
+    a_facetarget(actor);
+    a_painshootskull(actor, actor.angle);
+}
+
 pub(crate) fn a_paindie(actor: &mut MapObject) {
-    error!("a_paindie not implemented");
-    // A_Fall(actor);
-    // A_PainShootSkull(actor, actor->angle + ANG90);
-    // A_PainShootSkull(actor, actor->angle + ANG180);
-    // A_PainShootSkull(actor, actor->angle + ANG270);
+    a_fall(actor);
+    a_painshootskull(actor, actor.angle + FRAC_PI_2);
+    a_painshootskull(actor, actor.angle + PI);
+    a_painshootskull(actor, actor.angle + PI + FRAC_PI_2);
 }
 
 const FAT_SPREAD: f32 = FRAC_PI_2 / 8.0;

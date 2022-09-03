@@ -28,6 +28,7 @@ use crate::{
         Level,
     },
     pic::{ButtonWhere, PicAnimation},
+    utilities::circle_line_collide,
     DPtr, PicData,
 };
 use log::{debug, error, trace};
@@ -161,7 +162,7 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
     let valid = sector.validcount + 1;
     // The call to pit_change_sector relies on the mobj doing height_clip() which
     // initiates the position check on itself
-    sector.run_func_on_thinglist(|thing| {
+    sector.run_mut_func_on_thinglist(|thing| {
         trace!("Thing type {:?} is in affected sector", thing.kind);
         thing.pit_change_sector(&mut no_fit, crunch)
     });
@@ -173,9 +174,22 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
             if next.validcount == valid {
                 continue;
             }
-            next.run_func_on_thinglist(|thing| {
-                trace!("Thing type {:?} is in affected sector", thing.kind);
-                thing.pit_change_sector(&mut no_fit, crunch)
+            next.run_mut_func_on_thinglist(|thing| {
+                let mut hit = false;
+                for line in &sector.lines {
+                    if circle_line_collide(thing.xy, thing.radius, line.v1, line.v2) {
+                        trace!(
+                            "Thing type {:?} is in affected neightbouring sector",
+                            thing.kind
+                        );
+                        hit = thing.pit_change_sector(&mut no_fit, crunch);
+                        break;
+                    }
+                }
+                if !hit {
+                    thing.pit_change_sector(&mut no_fit, crunch);
+                }
+                true
             });
             next.validcount = valid;
         }

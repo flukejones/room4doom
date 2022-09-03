@@ -120,7 +120,7 @@ fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i3
     }
 
     let thing_xy = this_thing.xy;
-    sector.run_func_on_thinglist(move |thing| {
+    sector.run_mut_func_on_thinglist(move |thing| {
         let dist = this_thing.radius + thing.radius;
         if (thing.xy.x - thing_xy.x).abs() >= dist || (thing.xy.y - thing_xy.y).abs() >= dist {
             return true;

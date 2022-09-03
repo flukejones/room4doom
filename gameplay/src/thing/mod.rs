@@ -101,6 +101,13 @@ pub struct MapObject {
     /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
     /// out of the `Thinker` then you must update sector thing lists and self linked list
     pub(crate) thinker: *mut Thinker,
+    /// Specific to Doom II. These are pointers to targets that the
+    /// final boss shoots demon spawn cubes towards. It is expected that
+    /// because these are level items they will never shift their memory
+    /// location.
+    pub(crate) boss_targets: Vec<*mut Thinker>,
+    /// Specific to Doom II. The current target (spawn point for demons)
+    pub(crate) boss_target_on: usize,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -211,6 +218,8 @@ impl MapObject {
     ) -> Self {
         Self {
             thinker: null_mut(),
+            boss_targets: Vec::new(),
+            boss_target_on: 0,
             player: None,
             xy: Vec2::new(x, y),
             z: z as f32,
@@ -635,8 +644,8 @@ impl MapObject {
             0
         };
 
-        // // do not set the state with P_SetMobjState,
-        // // because action routines can not be called yet
+        // do not set the state with P_SetMobjState,
+        // because action routines can not be called yet
         let state = &STATES[info.spawnstate as usize];
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);

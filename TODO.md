@@ -6,7 +6,7 @@
 - [ ] Archvile raise the dead
 - [ ] Pain elemental attacks and die
 - [ ] Doom 2 boss brain thing
-  - [ ] Can't target it, probably because it's not visible? There's that thing in front?
+  - [x] Can't target it, probably because it's not visible? There's that thing in front?
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
 
@@ -76,6 +76,7 @@
 
 ## DONE
 
+<<<<<<< HEAD
 - [X] Shade screen with red palettes for increased damage (not the "took damage" flash)
 - [X] Player sprite isn't rendered with 'static' if player is invisible
 - [X] Chaingun guy doesn't do burst-fire (shoots, but not sustained) (remove invalid state set)
@@ -93,6 +94,42 @@ the thinker list fucnction for the door sector runs it doesn't see it
 - [X] Lift sounds for E5M3 don't stop
 - [X] Shots from demons don't push the player
 - [X] Sight angle incorrect for any mobj not 90-270 degrees:
+=======
+- [x] Pain elemental attacks and die
+- [x] Archvile attacks and chase
+- [x] Archvile raise the dead
+- [x] Clipping under sprites (like hanging things)
+- [x] Step over sprites that are short
+- [x] Prevent player getting stuck in door if standing next to when close (change_sector() needs to check object radius is crossing over segs)
+- [x] E1M5 lamps are on window height not floor (they get raised by the lifting floor in other sector: Note: something with height clipping height_clip() and floorz)
+- [x] E2M1 after second teleport there is a missing plane line at top of floor drop
+- [x] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()`on an`Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
+- [x] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
+- [x] Step over things if higher
+- [x] e2m8 `thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:401:21`
+- [x] Revenant rockets head off in wrong direction
+- [x] angle_to_screen has an impact on sizing and scale (note: needed a float tweak and floor())
+- [x] Statusbar doomguy face attacked-from-angle
+- [x] Screen wipe
+- [x] Shade screen with red palettes for increased damage (not the "took damage" flash)
+- [x] Player sprite isn't rendered with 'static' if player is invisible
+- [x] Chaingun guy doesn't do burst-fire (shoots, but not sustained) (remove invalid state set)
+- [x] Monsters don't activate when player is real close (related to angle fix?)
+- [x] Colours seem off for darker areas? (was incorrect float conversion on zlight table creation)
+- [x] Re-implement warp
+- [x] Player can get stuck in doors if the close on the edge of bounds
+      the thinker list fucnction for the door sector runs it doesn't see it
+- [x] Shadow-pinkies (use p_random instead of rewriting framebuffer)
+- [x] Sprites colourmap/light selection (spectors)
+- [x] Average the lines in a sector for sound origins (determined by center of sector AABB)
+- [x] Don't shoot sky
+- [x] Explosions shouldn't hit above or below (sight check)
+- [x] E1M5 Candelebra not on ground?
+- [x] Lift sounds for E5M3 don't stop
+- [x] Shots from demons don't push the player
+- [x] Sight angle incorrect for any mobj not 90-270 degrees:
+
+>>>>>>> 27a03f379dfc (Add last few Doom II functions)
 ```rust
 if !all_around {
     let angle = point_to_angle_2(xy, self.xy).rad() - self.angle.rad();

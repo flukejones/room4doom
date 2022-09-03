@@ -76,7 +76,10 @@ impl Sector {
     }
 
     /// Returns false if `func` returns false
-    pub fn run_func_on_thinglist(&mut self, mut func: impl FnMut(&mut MapObject) -> bool) -> bool {
+    pub fn run_mut_func_on_thinglist(
+        &mut self,
+        mut func: impl FnMut(&mut MapObject) -> bool,
+    ) -> bool {
         if let Some(thing) = self.thinglist {
             #[cfg(null_check)]
             if thing.is_null() {
@@ -114,7 +117,7 @@ impl Sector {
         true
     }
 
-    pub fn run_rfunc_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
+    pub fn run_func_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
             #[cfg(null_check)]
             if thing.is_null() {

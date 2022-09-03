@@ -133,7 +133,7 @@ impl MapObject {
             let ssect = &mut sub_sectors[*n as usize];
 
             // Check things in subsectors
-            if !ssect.sector.run_func_on_thinglist(|thing| {
+            if !ssect.sector.run_mut_func_on_thinglist(|thing| {
                 self.radius_damage_other(thing, damage, level.valid_count)
             }) {
                 return;

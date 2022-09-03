@@ -254,7 +254,7 @@ pub fn path_traverse(
         if flags & PT_ADDTHINGS != 0
             && !level.map_data.subsectors_mut()[*n as usize]
                 .sector
-                .run_func_on_thinglist(|thing| {
+                .run_mut_func_on_thinglist(|thing| {
                     add_thing_intercept(trace, &mut intercepts, thing, level.valid_count)
                 })
         {

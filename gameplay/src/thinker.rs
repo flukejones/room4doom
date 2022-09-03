@@ -174,6 +174,32 @@ impl ThinkerAlloc {
         }
     }
 
+    /// Iterates through the list of thinkers until either the closure returns true
+    /// or the end is reached.
+    ///
+    /// # This is worse than the `find_thinker()` as there can be side effects
+    pub(crate) fn find_thinker_mut<F>(&self, mut finder: F) -> Option<&mut Thinker>
+    where
+        F: FnMut(&mut Thinker) -> bool,
+    {
+        let mut current = unsafe { &mut *self.head };
+        let mut next;
+
+        loop {
+            unsafe {
+                if finder(current) {
+                    return Some(current);
+                }
+                next = &mut *current.next;
+            }
+            current = next;
+
+            if ptr::eq(current, self.head) {
+                return None;
+            }
+        }
+    }
+
     unsafe fn drop_item(&mut self, idx: usize) {
         debug_assert!(idx < self.capacity);
         let ptr = self.ptr_for_idx(idx);
@@ -405,6 +431,13 @@ impl Thinker {
 
     pub fn data(&self) -> &ThinkerData {
         &self.data
+    }
+
+    pub fn is_mobj(&self) -> bool {
+        match self.data {
+            ThinkerData::MapObject(_) => true,
+            _ => false,
+        }
     }
 
     /// Get inner `MapObject` data as ref. Panics if the inner is not actually `MapObject`
