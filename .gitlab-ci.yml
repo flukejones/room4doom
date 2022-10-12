@@ -1,4 +1,4 @@
-image: rust:1.59
+image: rust:1.64
 
 .rust_cache: &rust_cache
   cache:
