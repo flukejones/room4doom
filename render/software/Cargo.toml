@@ -6,9 +6,9 @@ edition = "2021"
 build = "../../build.rs"
 
 [dependencies]
-glam = "~0.20"
-gameplay = { path = "../../gameplay" }
-render-traits = { path = "../traits" }
+glam.workspace = true
+gameplay.workspace = true
+render-traits.workspace = true
 
 [dev-dependencies]
-wad = { path = "../../wad" }
+wad.workspace = true
