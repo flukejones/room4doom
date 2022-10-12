@@ -9,8 +9,8 @@ default = ["sdl2-bundled"]
 sdl2-bundled = ["sdl2/bundled"]
 
 [dependencies]
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
-gameplay = { path = "../gameplay" }
-render-traits = { path = "../render/traits" }
-sound-traits = { path = "../sound/traits" }
-wad = { path = "../wad" }
+sdl2.workspace = true
+gameplay.workspace = true
+render-traits.workspace = true
+sound-traits.workspace = true
+wad.workspace = true

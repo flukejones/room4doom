@@ -6,4 +6,4 @@ edition = "2021"
 build = "../../build.rs"
 
 [dependencies]
-gameplay = { path = "../../gameplay" }
+gameplay.workspace = true

@@ -19,6 +19,39 @@ members = [
     "finale/doom"
 ]
 
+[workspace.package]
+version = "0.9.0"
+
+[workspace.dependencies]
+wad = { path = "./wad" }
+input = { path = "./input" }
+menu-doom = { path = "./menu/doom" }
+gameplay = { path = "./gameplay" }
+gamestate = { path = "./gamestate" }
+gamestate-traits = { path = "./gamestate-traits" }
+intermission-doom = { path = "./intermission/doom" }
+hud-util = { path = "./hud-util" }
+hud-doom = { path = "./hud-messages/doom" }
+finale-doom = { path = "./finale/doom" }
+statusbar-doom = { path = "./statusbar/doom" }
+
+sound-traits = { path = "./sound/traits" }
+sound-sdl2 = { path = "./sound/sdl2" }
+render-traits = { path = "./render/traits" }
+render-soft = { path = "./render/software" }
+
+glam = "*"
+golem = { git = "https://github.com/flukejones/golem/" }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
+
+gumdrop = "~0.8"
+
+log = "*"
+env_logger = { version = "^0.9", default-features = false, features = ["termcolor", "atty"] }
+dirs = "~4.0"
+toml = "0.5"
+serde = { version = "1.0", features = ["serde_derive"] }
+
 [profile.release]
 lto = true
 debug = false
