@@ -38,6 +38,7 @@ statusbar-doom = { path = "./statusbar/doom" }
 
 sound-traits = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
+sound-nosnd = { path = "./sound/nosnd" }
 render-traits = { path = "./render/traits" }
 render-soft = { path = "./render/software" }
 
@@ -59,11 +60,6 @@ env_logger = { version = "^0.9", default-features = false, features = [
 dirs = "~4.0"
 toml = "0.5"
 serde = { version = "1.0", features = ["serde_derive"] }
-
-[workspace.dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["user-hooks"]
 
 [profile.release]
 lto = true

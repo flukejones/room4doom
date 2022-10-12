@@ -6,13 +6,14 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-gameplay = { path = "../gameplay" }
-gamestate-traits = { path = "../gamestate-traits" }
-sound-traits = { path = "../sound/traits" }
-sound-sdl2 = { path = "../sound/sdl2" }
-sound-nosnd = { path = "../sound/nosnd" }
-menu-doom = { path = "../menu/doom" }
-wad = { path = "../wad" }
+gameplay.workspace = true
+gamestate-traits.workspace = true
+sound-traits.workspace = true
+sound-sdl2.workspace = true
+sound-nosnd.workspace = true
+menu-doom.workspace = true
+wad.workspace = true
+
 # utility deps
-toml = "*"
-serde = { version = "1.0", features = ["serde_derive"] }
+toml.workspace = true
+serde.workspace = true
