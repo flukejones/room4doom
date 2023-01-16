@@ -110,7 +110,7 @@ pub const EPISODE4_MUS: [MusTrack; 9] = [
     MusTrack::E1M9, // Tim        e4m9
 ];
 
-#[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Ord, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum MusTrack {
     None,

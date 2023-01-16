@@ -54,7 +54,7 @@ where
     /// object owns which sounds so it can be stopped e.g, death, shoot..
     uid: usize,
     /// The Sound effect this object has
-    sfx: S,
+    _sfx: S,
     /// The world XY coords of this object
     x: f32,
     y: f32,
@@ -69,30 +69,30 @@ where
 struct SfxInfo {
     /// Up to 6-character name. In the Lump the names are typically prefixed by `DS` or `DP`, so
     /// the full Lump name is 8-char, while the name here has the prefix striped off.
-    name: String,
+    _name: String,
     /// Priority of sound
     priority: i32,
 
     // Not really used
-    pitch: i32,
-    volume: i32,
+    _pitch: i32,
+    _volume: i32,
 
     /// Pre-processed SDL2 Chunk data
     data: Option<Chunk>,
     /// this is checked every second to see if sound can be thrown out (if 0,
     /// then decrement, if -1, then throw out, if > 0, then it is in use)
-    usefulness: i32,
+    _usefulness: i32,
 }
 
 impl SfxInfo {
     pub(crate) fn new(name: String, priority: i32, data: Option<Chunk>) -> Self {
         Self {
-            name,
+            _name: name,
             priority,
-            pitch: -1,
-            volume: -1,
+            _pitch: -1,
+            _volume: -1,
             data,
-            usefulness: 0,
+            _usefulness: 0,
         }
     }
 }
@@ -242,7 +242,7 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         let chunk = &self.chunks[sfx as usize];
         let mut origin = SoundObject {
             uid,
-            sfx,
+            _sfx: sfx,
             x,
             y,
             angle,

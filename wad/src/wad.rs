@@ -252,12 +252,10 @@ impl WadData {
 
     /// Find a general lump by name
     pub fn get_lump(&self, name: &str) -> Option<&Lump> {
-        for info in self.lumps.iter().rev() {
-            if info.name == name.to_ascii_uppercase() {
-                return Some(info);
-            }
-        }
-        None
+        self.lumps
+            .iter()
+            .rev()
+            .find(|lump| lump.name == name.to_ascii_uppercase())
     }
 
     /// Find a general lump by name
