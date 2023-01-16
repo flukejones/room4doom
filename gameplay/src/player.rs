@@ -36,7 +36,7 @@ pub enum PsprNum {
 }
 
 //// Player states.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PlayerState {
     /// Playing or camping.
     Live,
@@ -432,7 +432,6 @@ impl Player {
             if self.viewz > mobj.ceilingz - 4.0 {
                 self.viewz = mobj.ceilingz - 4.0;
             }
-            self.viewz = self.viewz;
         }
     }
 

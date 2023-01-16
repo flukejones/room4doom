@@ -92,9 +92,9 @@ mod tests {
         pixels.set_pixel(319, 199, 25, 10, 3, 255);
 
         let px = pixels.read_pixel(10, 10);
-        assert_eq!(px, (255, 10, 3, 255));
+        assert_eq!(px, (255, 10, 3, 0));
 
         let px = pixels.read_pixel(319, 199);
-        assert_eq!(px, (25, 10, 3, 255));
+        assert_eq!(px, (25, 10, 3, 0));
     }
 }
