@@ -121,7 +121,7 @@ impl SoftwareRenderer {
 
         // }
 
-        sector.run_rfunc_on_thinglist(|thing| {
+        sector.run_func_on_thinglist(|thing| {
             self.project_sprite(player, thing, light_level, screen_width)
         });
     }
