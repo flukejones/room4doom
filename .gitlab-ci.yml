@@ -1,4 +1,4 @@
-image: rust:1.64
+image: rust:latest
 
 .rust_cache: &rust_cache
   cache:
@@ -6,24 +6,26 @@ image: rust:1.64
       - .cargo/
       - target/
 
+before_script:
+  - apt-get update -qq && apt install -y libsdl2-dev libsdl2-gfx-dev libsdl2-mixer-dev cmake
+  
 stages:
+    - check
     - test
-    - rustfmt
     - deploy
 
 test:
   <<: *rust_cache
   script:
-    - apt update
-    - apt install -y libsdl2-dev libsdl2-gfx-dev libsdl2-mixer-dev cmake
-    - cargo check --verbose --all
     - cargo test --verbose --all
 
-rustfmt:
+check:
  <<: *rust_cache
  script:
+   - rustup component add clippy
    - rustup component add rustfmt
    - cargo fmt --all -- --check
+   - cargo check --verbose --all
 
 #clippy:
 #  <<: *rust_cache
@@ -32,13 +34,11 @@ rustfmt:
 #    - cargo clippy --all
 
 pages:
-  image: rust:1.58
+  image: rust:latest
   stage: deploy
   only:
     - main
   script:
-    - apt update
-    - apt install -y libsdl2-dev libsdl2-gfx-dev cmake
     - cargo doc --document-private-items --no-deps --workspace
     - rm -rf public
     - mkdir public
