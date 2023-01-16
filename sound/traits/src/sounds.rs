@@ -1,5 +1,5 @@
 /// Identifiers for all sfx in game-exe.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SfxName {
     None,
     Pistol,

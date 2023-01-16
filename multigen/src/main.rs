@@ -329,11 +329,11 @@ pub fn validate_field(input: &str) -> String {
     } else if input.starts_with("A_") {
         // Action function
         let lower = input.to_lowercase();
-        return if PLAYER_FUNCS.contains(&lower.as_str()) {
+        if PLAYER_FUNCS.contains(&lower.as_str()) {
             format!("ActFn::P({lower})")
         } else {
             format!("ActFn::A({lower})")
-        };
+        }
     } else {
         input.to_string()
     }
