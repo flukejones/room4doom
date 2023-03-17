@@ -1,6 +1,6 @@
 //! User configuration options.
 
-use crate::{CLIOptions, BASE_DIR};
+use crate::{shaders::Shaders, CLIOptions, BASE_DIR};
 use dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
@@ -34,6 +34,7 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
+    pub shader: Option<Shaders>,
     pub sfx_vol: i32,
     pub mus_vol: i32,
     pub gus_mem_size: GusMemSize,
@@ -122,6 +123,14 @@ impl UserConfig {
             }
         } else {
             cli.double = Some(self.hi_res);
+        }
+
+        if cli.shader.is_some() {
+            if cli.shader != self.shader {
+                self.shader = cli.shader;
+            }
+        } else {
+            cli.shader = self.shader;
         }
 
         if let Some(f) = cli.fullscreen {
