@@ -11,6 +11,8 @@ name = "room4doom"
 path = "src/main.rs"
 
 [dependencies]
+golem = { git = "https://github.com/flukejones/golem/" }
+
 gumdrop.workspace = true
 input.workspace = true
 menu-doom.workspace = true

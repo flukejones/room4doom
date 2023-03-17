@@ -31,13 +31,22 @@ use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
-use crate::{cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOptions};
+use crate::{
+    blit::Blitter,
+    cheats::Cheats,
+    shaders::{self, basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
+    test_funcs::*,
+    timestep::TimeStep,
+    wipe::Wipe,
+    CLIOptions,
+};
 
 /// Never returns
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    window: Window,
+    mut window: Window,
+    gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: switch 320x200 | 640x400 on option
@@ -63,12 +72,7 @@ pub fn d_doom_loop(
     let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32);
     let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
 
-    // TODO: sort this block of stuff out
-    let wsize = window.drawable_size();
-    let ratio = wsize.1 as f32 * 1.333;
-    let xp = (wsize.0 as f32 - ratio) / 2.0;
-
-    let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
+    let mut blitter = Blitter::new(options.shader, &gl_ctx, window);
 
     let mut pal_num = 0;
     let mut image_num = 0;
@@ -105,8 +109,6 @@ pub fn d_doom_loop(
         finale: Finale::new(&game.wad_data),
     };
 
-    let mut canvas = window.into_canvas().accelerated().build().unwrap();
-    let tex_creator = canvas.texture_creator();
     loop {
         if !game.running() {
             break;
@@ -147,9 +149,7 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
-            &tex_creator,
-            &mut canvas,
-            crop_rect,
+            &mut blitter,
             &mut timestep,
         );
 
@@ -177,20 +177,7 @@ pub fn d_doom_loop(
             );
         }
 
-        let w = render_buffer.width();
-        let h = render_buffer.height();
-        let surf = sdl2::surface::Surface::from_data(
-            render_buffer.read_pixels_mut(),
-            w,
-            h,
-            3 * w,
-            pixels::PixelFormatEnum::RGB24,
-        )
-        .unwrap()
-        .as_texture(&tex_creator)
-        .unwrap();
-        canvas.copy(&surf, None, Some(crop_rect)).unwrap();
-        canvas.present();
+        blitter.blit(&mut render_buffer);
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
@@ -288,9 +275,7 @@ fn d_display(
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
-    tex_creator: &TextureCreator<WindowContext>,
-    canvas: &mut Canvas<Window>,
-    crop_rect: Rect,
+    blitter: &mut Blitter,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -366,20 +351,7 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf, draw_buf);
-            let w = disp_buf.width();
-            let h = disp_buf.height();
-            let surf = sdl2::surface::Surface::from_data(
-                disp_buf.read_pixels_mut(),
-                w,
-                h,
-                3 * w,
-                pixels::PixelFormatEnum::RGB24,
-            )
-            .unwrap()
-            .as_texture(&tex_creator)
-            .unwrap();
-            canvas.copy(&surf, None, Some(crop_rect)).unwrap();
-            canvas.present();
+            blitter.blit(disp_buf);
         });
 
         if done {

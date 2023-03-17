@@ -1,12 +1,15 @@
+mod blit;
 mod cheats;
 mod config;
 mod d_main;
+mod shaders;
 mod test_funcs;
 mod timestep;
 mod wipe;
 
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
+use shaders::Shaders;
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf};
 
 use d_main::d_doom_loop;
@@ -88,6 +91,9 @@ pub struct CLIOptions {
     pub flats_test: bool,
     #[options(help = "sprite test, cycle through the sprites")]
     pub sprites_test: bool,
+
+    #[options(meta = "", help = "Screen shader <none, cgwg, lottes, lottesbasic>")]
+    pub shader: Option<Shaders>,
 }
 
 impl From<CLIOptions> for DoomOptions {
@@ -186,6 +192,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         .position_centered()
         .opengl()
         .build()?;
+    let _gl_ctx = window.gl_create_context()?;
+    let gl_ctx = unsafe {
+        golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
+            video_ctx.gl_get_proc_address(s) as *const _
+        }))
+        .unwrap()
+    };
+
+    let gl_attr = video_ctx.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
 
     let wad = WadData::new(options.iwad.clone().into());
     setup_timidity(&wad);
@@ -216,6 +232,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, options)?;
+    d_doom_loop(game, input, window, gl_ctx, options)?;
     Ok(())
 }
