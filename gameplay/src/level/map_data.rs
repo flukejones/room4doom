@@ -140,8 +140,8 @@ impl MapData {
     }
 
     fn set_scale(&mut self) {
-        let map_width = self.extents.width as f32;
-        let map_height = self.extents.height as f32;
+        let map_width = self.extents.width;
+        let map_height = self.extents.height;
 
         if map_height > map_width {
             self.extents.automap_scale = map_height / 400.0 * 1.1;

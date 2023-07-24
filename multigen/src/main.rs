@@ -160,6 +160,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
 
     // MOBJ INFO
     file.write_all(MOBJ_INFO_HEADER_STR.as_bytes()).unwrap();
+    file.write_all(CLIPPY_ALLOW.as_bytes()).unwrap();
     file.write_all(MOBJ_INFO_TYPE_STR.as_bytes()).unwrap();
     file.write_all(MOBJ_INFO_ARRAY_STR.as_bytes()).unwrap();
     for key in data.mobj_order.iter() {

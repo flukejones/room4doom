@@ -5,6 +5,7 @@ authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 license = "MPL-2.0"
 build = "../build.rs"
+default-run = "room4doom"
 
 [[bin]]
 name = "room4doom"

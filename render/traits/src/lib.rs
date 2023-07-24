@@ -28,18 +28,18 @@ impl PixelBuf {
     // }
 
     #[inline]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
     #[inline]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.height
     }
 
     /// Get width and height as a tuple
     #[inline]
-    pub fn size(&self) -> (u32, u32) {
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
