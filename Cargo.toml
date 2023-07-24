@@ -13,6 +13,7 @@ members = [
     "render/software",
     "sound/traits",
     "sound/sdl2",
+    "sound/nosnd",
     "multigen",
     "hud-util",
     "hud-messages/doom",
@@ -37,6 +38,7 @@ statusbar-doom = { path = "./statusbar/doom" }
 
 sound-traits = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
+sound-nosnd = { path = "./sound/nosnd" }
 render-traits = { path = "./render/traits" }
 render-soft = { path = "./render/software" }
 

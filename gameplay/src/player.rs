@@ -92,7 +92,7 @@ pub struct WBStartStruct {
     pub partime: i32,
     /// index of this player in game-exe
     pub pnum: i32,
-    pub plyr: [WBPlayerStruct; MAXPLAYERS as usize],
+    pub plyr: [WBPlayerStruct; MAXPLAYERS],
 }
 
 /// Contains the players current status such as attacking, loadout, health. This
@@ -169,7 +169,7 @@ pub struct Player {
     pub(crate) powers: [i32; PowerType::NumPowers as usize],
 
     /// Frags, kills of other players.
-    pub frags: [i32; MAXPLAYERS as usize],
+    pub frags: [i32; MAXPLAYERS],
 
     /// Is wp_nochange if not changing.
     pub pendingweapon: WeaponType,
@@ -358,8 +358,8 @@ impl Player {
     fn thrust(&mut self, angle: Angle, mv: i32) {
         // mv is in a fixed float format, we need to convert it
         let mv = fixed_to_float(mv);
-        let x = mv as f32 * angle.cos();
-        let y = mv as f32 * angle.sin();
+        let x = mv * angle.cos();
+        let y = mv * angle.sin();
         let mxy = Vec2::new(x, y);
         if let Some(mobj) = self.mobj_mut() {
             mobj.momxy += mxy;

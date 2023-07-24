@@ -11,10 +11,16 @@ use gameplay::{
 };
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{
-    sdl2::{keyboard::Scancode, rect::Rect, video::Window},
+    sdl2::{
+        self,
+        keyboard::Scancode,
+        pixels,
+        rect::Rect,
+        render::{Canvas, TextureCreator},
+        video::{Window, WindowContext},
+    },
     GameState, MachinationTrait,
 };
-use golem::Context;
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -26,8 +32,9 @@ use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
+    blit::Blitter,
     cheats::Cheats,
-    shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
+    shaders::{self, basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
     test_funcs::*,
     timestep::TimeStep,
     wipe::Wipe,
@@ -38,8 +45,8 @@ use crate::{
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    mut gl: Window,
-    ctx: Context,
+    mut window: Window,
+    gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: switch 320x200 | 640x400 on option
@@ -65,30 +72,7 @@ pub fn d_doom_loop(
     let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32);
     let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
 
-    // TODO: sort this block of stuff out
-    let wsize = gl.drawable_size();
-    let ratio = wsize.1 as f32 * 1.333333;
-    let xp = (wsize.0 as f32 - ratio) / 2.0;
-
-    let crop_rect = Rect::new(xp as i32, 0, ratio as u32, wsize.1);
-
-    ctx.set_viewport(
-        crop_rect.x as u32,
-        crop_rect.y as u32,
-        crop_rect.width(),
-        crop_rect.height(),
-    );
-
-    let mut shader: Box<dyn Drawer> = if let Some(shader) = options.shader {
-        match shader {
-            Shaders::None => Box::new(Basic::new(&ctx)),
-            Shaders::Lottes => Box::new(LottesCRT::new(&ctx)),
-            Shaders::Cgwg => Box::new(Cgwgcrt::new(&ctx, crop_rect.width(), crop_rect.height())),
-        }
-    } else {
-        Box::new(Basic::new(&ctx))
-    };
-    shader.set_tex_filter().unwrap();
+    let mut blitter = Blitter::new(options.shader, &gl_ctx, window);
 
     let mut pal_num = 0;
     let mut image_num = 0;
@@ -158,7 +142,6 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        //render_buffer.clear();
         d_display(
             &mut renderer,
             &mut menu,
@@ -166,8 +149,7 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
-            &mut gl,
-            shader.as_mut(),
+            &mut blitter,
             &mut timestep,
         );
 
@@ -195,14 +177,11 @@ pub fn d_doom_loop(
             );
         }
 
-        shader.clear();
-        shader.set_image_data(render_buffer.read_pixels(), render_buffer.size());
-        shader.draw().unwrap();
-        gl.gl_swap_window();
+        blitter.blit(&mut render_buffer);
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
-            //println!("{:?}", fps);
+            println!("{:?}", _fps);
 
             if options.palette_test {
                 if pal_num == 13 {
@@ -296,8 +275,7 @@ fn d_display(
     game: &mut Game,
     disp_buf: &mut PixelBuf, // Display from this buffer
     draw_buf: &mut PixelBuf, // Draw to this buffer
-    gl: &mut Window,
-    shader: &mut dyn Drawer,
+    blitter: &mut Blitter,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -373,9 +351,7 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf, draw_buf);
-            shader.set_image_data(disp_buf.read_pixels(), disp_buf.size());
-            shader.draw().unwrap();
-            gl.gl_swap_window();
+            blitter.blit(disp_buf);
         });
 
         if done {

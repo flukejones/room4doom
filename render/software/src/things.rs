@@ -526,7 +526,7 @@ impl SoftwareRenderer {
                 };
 
                 let texture_column = textures.wall_pic_column(texnum, 0);
-                dc_texturemid += texture_column.len() as f32 - player.viewz;
+                dc_texturemid += texture_column.len() as f32 - player.viewz - 1.0;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
                     frontsector.ceilingheight
@@ -568,8 +568,8 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen.ceil() as i32 + 1;
-                        let bottom = top + (spryscale * texture_column.len() as f32).floor() as i32;
+                        let top = sprtopscreen.ceil() as i32;
+                        let bottom = top + (spryscale * texture_column.len() as f32).ceil() as i32;
                         let mut yl = top;
                         let mut yh = bottom;
 
@@ -622,7 +622,7 @@ fn draw_masked_column(
         let select = frac.floor() as usize;
 
         if select >= texture_column.len() {
-            break;
+            continue;
         }
 
         // Transparency

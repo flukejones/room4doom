@@ -5,11 +5,14 @@ use std::str::FromStr;
 pub mod basic;
 pub mod cgwg_crt;
 pub mod lottes_crt;
+pub mod lottes_reduced;
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Shaders {
     Lottes,
+    LottesBasic,
     Cgwg,
+    Basic,
     None,
 }
 
@@ -25,8 +28,10 @@ impl FromStr for Shaders {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "lottes" => Ok(Shaders::Lottes),
+            "lottesbasic" => Ok(Shaders::LottesBasic),
             "cgwg" => Ok(Shaders::Cgwg),
-            "off" | "none" => Ok(Shaders::None),
+            "basic" => Ok(Shaders::Basic),
+            "none" => Ok(Shaders::None),
             _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Doh!")),
         }
     }
@@ -43,7 +48,10 @@ const GL_QUAD: [f32; 16] = [
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
 pub trait Drawer {
-    fn clear(&self);
+    fn clear(&self, ctx: &golem::Context) {
+        ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
+        ctx.clear();
+    }
 
     fn set_tex_filter(&self) -> Result<(), GolemError>;
 

@@ -1,3 +1,4 @@
+mod blit;
 mod cheats;
 mod config;
 mod d_main;
@@ -8,18 +9,17 @@ mod wipe;
 
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
-use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf, str::FromStr};
+use shaders::Shaders;
+use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
 use gamestate::{DoomOptions, Game};
-use golem::*;
 use gumdrop::Options;
 
 use crate::config::UserConfig;
 use gameplay::{log, Skill};
 use input::Input;
-use shaders::Shaders;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 
 use crate::log::{info, warn};
@@ -28,29 +28,6 @@ use wad::WadData;
 const SOUND_DIR: &str = "room4doom/sound/";
 const TIMIDITY_CFG: &str = "timidity.cfg";
 const BASE_DIR: &str = "room4doom/";
-
-#[derive(Debug, Clone, Copy)]
-pub enum ShaderType {
-    Basic,
-    Lottes,
-    Cgwg,
-}
-
-impl FromStr for ShaderType {
-    type Err = std::io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "basic" => Ok(ShaderType::Basic),
-            "lottes" => Ok(ShaderType::Lottes),
-            "cgwg" => Ok(ShaderType::Cgwg),
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::Unsupported,
-                "Doh! ShaderType invalid",
-            )),
-        }
-    }
-}
 
 /// CLI options for the game-exe
 #[derive(Debug, Clone, Options)]
@@ -115,7 +92,7 @@ pub struct CLIOptions {
     #[options(help = "sprite test, cycle through the sprites")]
     pub sprites_test: bool,
 
-    #[options(meta = "", help = "Screen shader <basic, cgwg, lottes>")]
+    #[options(meta = "", help = "Screen shader <none, cgwg, lottes, lottesbasic>")]
     pub shader: Option<Shaders>,
 }
 
@@ -216,13 +193,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .opengl()
         .build()?;
     let _gl_ctx = window.gl_create_context()?;
-
-    let context = unsafe {
-        Context::from_glow(glow::Context::from_loader_function(|s| {
+    let gl_ctx = unsafe {
+        golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
             video_ctx.gl_get_proc_address(s) as *const _
         }))
         .unwrap()
     };
+
+    let gl_attr = video_ctx.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
 
     let wad = WadData::new(options.iwad.clone().into());
     setup_timidity(&wad);
@@ -253,6 +232,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, context, options)?;
+    d_doom_loop(game, input, window, gl_ctx, options)?;
     Ok(())
 }

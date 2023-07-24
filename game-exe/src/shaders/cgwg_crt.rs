@@ -17,8 +17,7 @@ use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
 ///  *  any later version.
 ///  */
 /// ```
-pub struct Cgwgcrt<'c> {
-    ctx: &'c Context,
+pub struct Cgwgcrt {
     _quad: [f32; 16],
     indices: [u32; 6],
     crt_shader: ShaderProgram,
@@ -31,8 +30,8 @@ pub struct Cgwgcrt<'c> {
     eb: ElementBuffer,
 }
 
-impl<'c> Cgwgcrt<'c> {
-    pub fn new(ctx: &'c Context, crt_width: u32, crt_height: u32) -> Self {
+impl Cgwgcrt {
+    pub fn new(ctx: &Context, crt_width: u32, crt_height: u32) -> Self {
         let crt = ShaderProgram::new(
             ctx,
             ShaderDescription {
@@ -75,6 +74,7 @@ impl<'c> Cgwgcrt<'c> {
                 fragment_shader: FRAG,
             },
         )
+        .map_err(|e| format!("{}", e))
         .unwrap();
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
@@ -90,7 +90,6 @@ impl<'c> Cgwgcrt<'c> {
         eb.set_data(&GL_QUAD_INDICES);
 
         Self {
-            ctx,
             _quad: GL_QUAD,
             indices: GL_QUAD_INDICES,
             crt_shader: crt,
@@ -105,12 +104,7 @@ impl<'c> Cgwgcrt<'c> {
     }
 }
 
-impl<'c> Drawer for Cgwgcrt<'c> {
-    fn clear(&self) {
-        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-        self.ctx.clear();
-    }
-
+impl Drawer for Cgwgcrt {
     fn set_tex_filter(&self) -> Result<(), GolemError> {
         self.texture.set_minification(TextureFilter::Nearest)?;
         self.texture.set_magnification(TextureFilter::Nearest)
@@ -118,7 +112,7 @@ impl<'c> Drawer for Cgwgcrt<'c> {
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
         self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
     }
 
     fn draw(&mut self) -> Result<(), GolemError> {

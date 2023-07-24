@@ -4,10 +4,6 @@ version = "0.2.0"
 authors = ["Luke Jones <luke@ljones.dev>"]
 edition = "2021"
 
-[features]
-default = ["sdl2-bundled"]
-sdl2-bundled = ["sdl2/bundled"]
-
 [dependencies]
 sdl2.workspace = true
 gameplay.workspace = true

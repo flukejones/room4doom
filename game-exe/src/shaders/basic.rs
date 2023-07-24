@@ -5,8 +5,7 @@ use golem::{Dimension::*, *};
 
 use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
 
-pub struct Basic<'c> {
-    ctx: &'c Context,
+pub struct Basic {
     _quad: [f32; 16],
     indices: [u32; 6],
     shader: ShaderProgram,
@@ -17,9 +16,9 @@ pub struct Basic<'c> {
     eb: ElementBuffer,
 }
 
-impl<'c> Basic<'c> {
-    pub fn new(ctx: &'c Context) -> Self {
-        let shader = ShaderProgram::new(
+impl Basic {
+    pub fn new(ctx: &Context) -> Self {
+        let mut shader = ShaderProgram::new(
             ctx,
             ShaderDescription {
                 vertex_input: &[
@@ -40,13 +39,30 @@ impl<'c> Basic<'c> {
             },
         )
         .unwrap();
+        shader.bind();
+        shader.set_uniform("image", UniformValue::Int(1)).unwrap();
 
         let projection = Mat4::perspective_rh_gl(FRAC_PI_4, 1.0, 0.1, 50.0);
+        shader
+            .set_uniform("projMat", UniformValue::Matrix4(projection.to_cols_array()))
+            .unwrap();
+
         let look_at = Mat4::look_at_rh(
             Vec3::new(0.0, 0.0, 2.42),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 1.0, 0.0),
         );
+
+        shader
+            .set_uniform("viewMat", UniformValue::Matrix4(look_at.to_cols_array()))
+            .unwrap();
+
+        shader
+            .set_uniform(
+                "modelMat",
+                UniformValue::Matrix4(Mat4::IDENTITY.to_cols_array()),
+            )
+            .unwrap();
 
         let mut vb = VertexBuffer::new(ctx).unwrap();
         let mut eb = ElementBuffer::new(ctx).unwrap();
@@ -54,7 +70,6 @@ impl<'c> Basic<'c> {
         eb.set_data(&GL_QUAD_INDICES);
 
         Self {
-            ctx,
             _quad: GL_QUAD,
             indices: GL_QUAD_INDICES,
             shader,
@@ -67,44 +82,21 @@ impl<'c> Basic<'c> {
     }
 }
 
-impl<'c> Drawer for Basic<'c> {
-    fn clear(&self) {
-        self.ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-        self.ctx.clear();
-    }
-
+impl Drawer for Basic {
     fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Nearest)
+        self.texture.set_minification(TextureFilter::Linear)?;
+        self.texture.set_magnification(TextureFilter::Linear)
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
         self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGBA);
+            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
     }
 
     fn draw(&mut self) -> Result<(), GolemError> {
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
         self.texture.set_active(bind_point);
-
-        self.shader.bind();
-
-        self.shader.set_uniform("image", UniformValue::Int(1))?;
-
-        self.shader.set_uniform(
-            "projMat",
-            UniformValue::Matrix4(self.projection.to_cols_array()),
-        )?;
-        self.shader.set_uniform(
-            "viewMat",
-            UniformValue::Matrix4(self.look_at.to_cols_array()),
-        )?;
-        self.shader.set_uniform(
-            "modelMat",
-            UniformValue::Matrix4(Mat4::IDENTITY.to_cols_array()),
-        )?;
-
-        self.ctx.clear();
+        // self.ctx.clear();
         unsafe {
             self.shader.draw(
                 &self.vb,

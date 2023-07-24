@@ -22,7 +22,7 @@
 pub mod game_impl;
 pub mod machination;
 
-use std::{cell::RefCell, rc::Rc, thread::JoinHandle, time::Duration};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use crate::machination::Machinations;
 use gameplay::{
@@ -34,7 +34,8 @@ use gameplay::{
     Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
 };
 use gamestate_traits::{sdl2::AudioSubsystem, GameState, GameTraits, MachinationTrait};
-use sound_sdl2::SndServerTx;
+use sound_nosnd::SndServerTx;
+// use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::{lumps::WadPatch, WadData};
 
@@ -187,7 +188,6 @@ pub struct Game {
 
     /// Sound tx
     pub snd_command: SndServerTx,
-    pub snd_thread: JoinHandle<()>,
 }
 
 impl Drop for Game {
@@ -301,15 +301,31 @@ impl Game {
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_mode, &pic_data);
 
-        let mut snd_server = sound_sdl2::Snd::new(snd_ctx, &wad).unwrap();
-        let tx = snd_server.init().unwrap();
-        let snd_thread = std::thread::spawn(move || loop {
-            if !snd_server.tic() {
-                break;
+        let tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
+            Ok(mut s) => {
+                let tx = s.init().unwrap();
+                std::thread::spawn(move || loop {
+                    if !s.tic() {
+                        break;
+                    }
+                });
+                tx.send(SoundAction::SfxVolume(sfx_vol)).unwrap();
+                tx.send(SoundAction::MusicVolume(mus_vol)).unwrap();
+                tx
             }
-        });
-        tx.send(SoundAction::SfxVolume(sfx_vol)).unwrap();
-        tx.send(SoundAction::MusicVolume(mus_vol)).unwrap();
+            Err(e) => {
+                warn!("Could not set up sound server: {e}");
+                let mut s = sound_nosnd::Snd::new(&wad).unwrap();
+                let tx = s.init().unwrap();
+                std::thread::spawn(move || loop {
+                    if !s.tic() {
+                        break;
+                    }
+                });
+                tx
+            }
+        };
+
         // TODO: D_CheckNetGame ();
         // TODO: HU_Init ();
         // TODO: ST_Init ();
@@ -366,7 +382,6 @@ impl Game {
             usergame: false,
             options,
             snd_command: tx,
-            snd_thread,
         }
     }
 

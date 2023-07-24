@@ -1,11 +1,11 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    #[cfg(all(target_os = "macos", feature = "sdl2-bundled"))]
-    println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
+    // #[cfg(all(target_os = "macos", feature = "sdl2-bundled"))]
+    // println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
 
-    #[cfg(all(target_os = "linux", feature = "sdl2-bundled"))]
-    println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN");
+    //#[cfg(all(target_os = "linux", feature = "sdl2-bundled"))]
+    //println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN");
 
     let target = env::var("TARGET").unwrap();
     if target.contains("pc-windows") {

@@ -27,13 +27,14 @@ fn get_cfg_file() -> PathBuf {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct UserConfig {
     pub iwad: String,
     pub width: u32,
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
-    pub shader: Shaders,
+    pub shader: Option<Shaders>,
     pub sfx_vol: i32,
     pub mus_vol: i32,
     pub gus_mem_size: GusMemSize,
@@ -124,12 +125,12 @@ impl UserConfig {
             cli.double = Some(self.hi_res);
         }
 
-        if let Some(shader) = cli.shader {
-            if shader != self.shader {
-                self.shader = shader;
+        if cli.shader.is_some() {
+            if cli.shader != self.shader {
+                self.shader = cli.shader;
             }
         } else {
-            cli.shader = Some(self.shader);
+            cli.shader = self.shader;
         }
 
         if let Some(f) = cli.fullscreen {

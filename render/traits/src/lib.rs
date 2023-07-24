@@ -3,11 +3,13 @@
 
 use gameplay::{Level, Player};
 
+const CHANNELS: usize = 3;
+
 /// A structure holding display data
 pub struct PixelBuf {
     width: u32,
     height: u32,
-    /// Total length is width * height * 4, where 4 is RGBA bytes
+    /// Total length is width * height * CHANNELS, where CHANNELS is RGBA bytes
     data: Vec<u8>,
 }
 
@@ -16,28 +18,28 @@ impl PixelBuf {
         Self {
             width,
             height,
-            data: vec![0; (width * height * 4) as usize],
+            data: vec![0; (width * height) as usize * CHANNELS],
         }
     }
 
-    #[inline]
-    pub fn clear(&mut self) {
-        self.data = vec![0; (self.width * self.height * 4) as usize]
-    }
+    // #[inline]
+    // pub fn clear(&mut self) {
+    //     self.data = vec![0; (self.width * self.height) as usize * CHANNELS]
+    // }
 
     #[inline]
-    pub fn width(&self) -> u32 {
+    pub const fn width(&self) -> u32 {
         self.width
     }
 
     #[inline]
-    pub fn height(&self) -> u32 {
+    pub const fn height(&self) -> u32 {
         self.height
     }
 
     /// Get width and height as a tuple
     #[inline]
-    pub fn size(&self) -> (u32, u32) {
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
@@ -49,27 +51,25 @@ impl PixelBuf {
             return;
         }
 
-        let pos = y * (self.width as usize * 4) + x * 4;
+        let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
         self.data[pos] = r;
         self.data[pos + 1] = g;
         self.data[pos + 2] = b;
-        self.data[pos + 3] = a;
     }
 
     /// Read the colour of a single pixel at X|Y
     pub fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        let pos = y * (self.width as usize * 4) + x * 4;
-        (
-            self.data[pos],
-            self.data[pos + 1],
-            self.data[pos + 2],
-            self.data[pos + 3],
-        )
+        let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
+        (self.data[pos], self.data[pos + 1], self.data[pos + 2], 0)
     }
 
     /// Get the array of pixels. The layout of which is [Row<RGBA>]
     pub fn read_pixels(&self) -> &[u8] {
         &self.data
+    }
+
+    pub fn read_pixels_mut(&mut self) -> &mut [u8] {
+        &mut self.data
     }
 }
 

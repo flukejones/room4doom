@@ -321,7 +321,7 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
                     let texture_column = textures.wall_pic_column(top_tex, 0);
-                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - viewz;
                 }
             }
@@ -698,9 +698,9 @@ impl<'a> DrawColumn<'a> {
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
             let mut select = if doubled {
-                ((frac - 0.51).round() as i32 / 2) & 0xff
+                ((frac - 0.01).round() as i32 / 2) & 0xff
             } else {
-                ((frac - 0.51).round() as i32) & 0xff
+                ((frac - 0.01).round() as i32) & 0xff
             };
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;

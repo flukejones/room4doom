@@ -134,29 +134,30 @@ impl SoftwareRenderer {
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
         let sky_doubled = !(pixels.height() == 200);
+        let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
-            if plane.minx >= plane.maxx {
+            if plane.minx > plane.maxx {
                 continue;
             }
 
             if plane.picnum == self.texture_data.borrow().sky_num() {
                 let colourmap = textures.colourmap(0);
-                let sky_mid = pixels.height() / 2;
+                let sky_mid = pixels.height() / 2 - down_shift; // shift down by 6 pixels
                 let skytex = textures.sky_pic();
 
-                for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
+                for x in plane.minx.floor() as i32..=plane.maxx.ceil() as i32 {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
                         let angle = (view_angle.rad().to_degrees()
                             + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees())
-                            * 2.8444;
+                            * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = textures.wall_pic_column(skytex, angle.floor() as i32);
 
                         let mut dc = DrawColumn::new(
                             texture_column,
                             colourmap,
-                            1.0,
+                            0.94,
                             x as f32,
                             sky_mid as f32,
                             dc_yl,
