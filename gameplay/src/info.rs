@@ -1,6 +1,7 @@
 //! THIS FILE IS GENERATED WITH MULTIGEN
 //!
 //! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
+#![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
 
 const NUM_SPRNAMES: usize = SpriteNum::Count as usize;
 pub const SPRNAMES: [&str; NUM_SPRNAMES] = [

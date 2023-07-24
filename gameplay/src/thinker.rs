@@ -295,8 +295,8 @@ impl ThinkerAlloc {
             if ptr::eq(thinker, self.head) {
                 self.head = thinker.next;
             }
-            (*thinker.next).prev = (*thinker).prev;
-            (*thinker.prev).next = (*thinker).next;
+            (*thinker.next).prev = thinker.prev;
+            (*thinker.prev).next = thinker.next;
 
             self.len -= 1;
             self.next_free = thinker; // reuse the slot on next insert

@@ -75,8 +75,8 @@ pub fn m_clear_random() {
 }
 
 pub fn p_subrandom() -> i32 {
-    let r = p_random() as i32;
-    r - p_random() as i32
+    let r = p_random();
+    r - p_random()
 }
 
 /// Used in path tracing for intercepts

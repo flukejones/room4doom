@@ -144,7 +144,7 @@ pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject
     //  Switches that other things can activate
     if thing.player().is_none() {
         // never open secret doors
-        if (line.flags as u32) & LineDefFlags::Secret as u32 != 0 {
+        if line.flags & LineDefFlags::Secret as u32 != 0 {
             return false;
         }
 

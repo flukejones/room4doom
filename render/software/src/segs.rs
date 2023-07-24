@@ -698,9 +698,9 @@ impl<'a> DrawColumn<'a> {
             // jaggy line across horizontal center. It tips the number *just enough*
             // without throwing all the alignment out of wack.
             let mut select = if doubled {
-                ((frac - 0.51).round() as i32 / 2) & 0xff
+                ((frac - 0.01).round() as i32 / 2) & 0xff
             } else {
-                ((frac - 0.51).round() as i32) & 0xff
+                ((frac - 0.01).round() as i32) & 0xff
             };
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;

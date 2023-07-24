@@ -150,11 +150,11 @@ impl VisPlaneRender {
             (stop, plane.maxx)
         };
 
-        // if intrh <= intrl {
-        //     plane.minx = unionl;
-        //     plane.maxx = unionh;
-        //     return plane_idx;
-        // }
+        if intrh <= intrl {
+            plane.minx = unionl;
+            plane.maxx = unionh;
+            return plane_idx;
+        }
 
         for i in intrl.floor() as i32..=self.screen_width as i32 {
             if i >= intrh.floor() as i32 {

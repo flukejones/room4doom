@@ -120,7 +120,7 @@ impl PicData {
                         break;
                     }
                     for (y, p) in c.pixels.iter().enumerate() {
-                        let y_pos = y as i32 + c.y_offset as i32;
+                        let y_pos = y as i32 + c.y_offset;
                         if y_pos >= 0 && y_pos < patch.height as i32 && x_pos >= 0 {
                             compose[x_pos as usize][y_pos as usize] = *p;
                         }
@@ -337,7 +337,7 @@ impl PicData {
                     break;
                 }
                 for (y, p) in c.pixels.iter().enumerate() {
-                    let y_pos = y as i32 + patch_pos.origin_y + c.y_offset as i32;
+                    let y_pos = y as i32 + patch_pos.origin_y + c.y_offset;
                     if y_pos >= 0 && y_pos < texture.height as i32 && x_pos >= 0 {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
@@ -485,7 +485,7 @@ impl PicData {
         }
 
         let colourmap = self.colourmap_for_scale(wall_scale);
-        &self.light_scale[light_level as usize][colourmap as usize]
+        &self.light_scale[light_level as usize][colourmap]
     }
 
     /// Light may need right-shifting by 4
@@ -500,7 +500,7 @@ impl PicData {
         }
 
         let colourmap = self.colourmap_for_scale(scale);
-        &self.light_scale[light_level as usize][colourmap as usize]
+        &self.light_scale[light_level][colourmap]
     }
 
     // pub fn light_colourmap(&self, light_level: usize, colourmap: usize) -> &[usize] {

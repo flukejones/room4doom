@@ -72,20 +72,15 @@ impl fmt::Display for DoomArgError {
 }
 
 #[repr(i32)]
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Skill {
     NoItems = -1, // the "-skill 0" hack
     Baby = 0,
     Easy = 1,
+    #[default]
     Medium = 2,
     Hard = 3,
     Nightmare = 4,
-}
-
-impl Default for Skill {
-    fn default() -> Self {
-        Skill::Medium
-    }
 }
 
 impl From<i32> for Skill {

@@ -8,6 +8,10 @@ use crate::thing::MapObjFlag;
 use sound_traits::SfxName;
 "#;
 
+pub const CLIPPY_ALLOW: &str = r#"
+#![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
+"#;
+
 pub const MOBJ_INFO_TYPE_STR: &str = r#"
 #[derive(Debug, Copy, Clone)]
 pub struct MapObjInfo {

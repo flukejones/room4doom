@@ -206,6 +206,7 @@ impl Debug for MapObject {
 }
 
 impl MapObject {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         x: f32,
         y: f32,
@@ -359,8 +360,7 @@ impl MapObject {
 
         let mobj_ptr_mut = unsafe { &mut *mobj };
         if mthing.kind > 1 {
-            mobj_ptr_mut.flags = mobj_ptr_mut.flags as u32
-                | (mthing.kind as u32 - 1) << MapObjFlag::Transshift as u8;
+            mobj_ptr_mut.flags |= (mthing.kind as u32 - 1) << MapObjFlag::Transshift as u8;
         }
 
         // TODO: check this angle stuff

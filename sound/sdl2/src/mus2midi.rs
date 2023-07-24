@@ -401,10 +401,10 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
 
     // write the length
     let len = (out.len() as u32 - 22).to_be_bytes();
-    out[18] = len[0] as u8;
-    out[19] = len[1] as u8;
-    out[20] = len[2] as u8;
-    out[21] = len[3] as u8;
+    out[18] = len[0];
+    out[19] = len[1];
+    out[20] = len[2];
+    out[21] = len[3];
 
     Some(out)
 }
