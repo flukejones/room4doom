@@ -190,7 +190,7 @@ impl SoftwareRenderer {
         if sprite_frame.rotate == 1 {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
-            let rot = rot.floor();
+            let rot = rot;
             patch_index = sprite_frame.lump[rot as usize] as usize;
             patch = texture_data.sprite_patch(patch_index);
             flip = sprite_frame.flip[rot as usize];
@@ -201,13 +201,13 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale).floor() as i32 - 1;
+        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale) as i32 - 1;
         if x1 > screen_width as i32 {
             return true;
         }
 
         tx += patch.data.len() as f32;
-        let x2 = ((screen_width as f32 / 2.0) + tx * x_scale).floor() as i32;
+        let x2 = ((screen_width as f32 / 2.0) + tx * x_scale) as i32;
         if x2 < 0 {
             return true;
         }
@@ -272,16 +272,16 @@ impl SoftwareRenderer {
         };
 
         for x in vis.x1..=vis.x2 {
-            let tex_column = (frac).floor() as usize;
+            let tex_column = (frac) as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
 
-            let sprtopscreen = (pixels.height() as f32 / 2.0 - dc_texmid * spryscale).floor();
+            let sprtopscreen = pixels.height() as f32 / 2.0 - dc_texmid * spryscale;
             let texture_column = &patch.data[tex_column];
 
             let mut top = sprtopscreen as i32;
-            let mut bottom = top + (spryscale * texture_column.len() as f32).ceil() as i32;
+            let mut bottom = top + (spryscale * texture_column.len() as f32) as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -318,22 +318,22 @@ impl SoftwareRenderer {
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
-            if seg.x1.floor() as i32 > vis.x2
-                || (seg.x2.floor() as i32) < vis.x1
+            if seg.x1 as i32 > vis.x2
+                || (seg.x2 as i32) < vis.x1
                 || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
             {
                 continue;
             }
 
-            let r1 = if (seg.x1.floor() as i32) < vis.x1 {
+            let r1 = if (seg.x1 as i32) < vis.x1 {
                 vis.x1
             } else {
-                seg.x1.floor() as i32
+                seg.x1 as i32
             };
-            let r2 = if (seg.x2.floor() as i32) > vis.x2 {
+            let r2 = if (seg.x2 as i32) > vis.x2 {
                 vis.x2
             } else {
-                seg.x2.floor() as i32
+                seg.x2 as i32
             };
 
             let (lowscale, scale) = if seg.scale1 > seg.scale2 {
@@ -363,7 +363,7 @@ impl SoftwareRenderer {
                 if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
                     clip_bottom[r as usize] = self.r_data.visplanes.openings
                         [(seg.sprbottomclip.unwrap() + r) as usize]
-                        .floor() as i32;
+                        as i32;
                     if clip_bottom[r as usize] < 0 {
                         clip_bottom[r as usize] = 0;
                     }
@@ -371,7 +371,7 @@ impl SoftwareRenderer {
                 if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
                     clip_top[r as usize] = self.r_data.visplanes.openings
                         [(seg.sprtopclip.unwrap() + r) as usize]
-                        .floor() as i32;
+                        as i32;
                     if clip_top[r as usize] >= pixels.height() as i32 {
                         clip_top[r as usize] = pixels.height() as i32;
                     }
@@ -425,13 +425,13 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
-        let x1 = (pixels.width() as i32 / 2) + (tx * pspritescale).floor() as i32;
+        let x1 = (pixels.width() as i32 / 2) + (tx * pspritescale) as i32;
 
         if x1 >= pixels.width() as i32 {
             return;
         }
         tx += patch.data.len() as f32;
-        let x2 = ((pixels.width() / 2) as i32 + (tx * pspritescale).floor() as i32) - 1;
+        let x2 = ((pixels.width() / 2) as i32 + (tx * pspritescale) as i32) - 1;
 
         if x2 < 0 {
             return;
@@ -482,13 +482,7 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = self.r_data.drawsegs.to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(
-                player,
-                ds,
-                ds.x1.floor() as i32,
-                ds.x2.floor() as i32,
-                pixels,
-            );
+            self.render_masked_seg_range(player, ds, ds.x1 as i32, ds.x2 as i32, pixels);
         }
 
         self.draw_player_sprites(player, pixels);
@@ -550,7 +544,7 @@ impl SoftwareRenderer {
                     {
                         let texture_column = textures.wall_pic_column(
                             unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                            self.r_data.visplanes.openings[index].floor() as i32,
+                            self.r_data.visplanes.openings[index] as i32,
                         );
 
                         let mut mceilingclip = self.r_data.visplanes.openings
@@ -568,8 +562,8 @@ impl SoftwareRenderer {
 
                         // // calculate unclipped screen coordinates for post
                         let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen.ceil() as i32;
-                        let bottom = top + (spryscale * texture_column.len() as f32).ceil() as i32;
+                        let top = sprtopscreen as i32;
+                        let bottom = top + (spryscale * texture_column.len() as f32) as i32;
                         let mut yl = top;
                         let mut yh = bottom;
 
@@ -619,7 +613,7 @@ fn draw_masked_column(
     let pal = &textures.palette();
     let mut frac = dc_texturemid + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
     for n in yl..=yh {
-        let select = frac.floor() as usize;
+        let select = frac as usize;
 
         if select >= texture_column.len() {
             continue;

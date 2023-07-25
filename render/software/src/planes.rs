@@ -106,10 +106,7 @@ impl VisPlaneRender {
         let len = self.visplanes.len();
 
         for (index, plane) in self.visplanes[0..self.lastvisplane].iter().enumerate() {
-            if height.floor() == plane.height.floor()
-                && picnum == plane.picnum
-                && light_level == plane.lightlevel
-            {
+            if height == plane.height && picnum == plane.picnum && light_level == plane.lightlevel {
                 return index;
             }
         }
@@ -156,8 +153,8 @@ impl VisPlaneRender {
             return plane_idx;
         }
 
-        for i in intrl.floor() as i32..=self.screen_width as i32 {
-            if i >= intrh.floor() as i32 {
+        for i in intrl as i32..=self.screen_width as i32 {
+            if i >= intrh as i32 {
                 plane.minx = unionl;
                 plane.maxx = unionh;
                 // Use the same plane
@@ -329,7 +326,8 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette();
-        for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
+        // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
+        for s in self.ds_x1 as i32..=self.ds_x2 as i32 {
             let mut x = self.ds_xfrac.abs() as usize & 0xff;
             let mut y = self.ds_yfrac.abs() as usize & 0xff;
 
@@ -343,7 +341,7 @@ impl<'a> DrawSpan<'a> {
 
             let px = self.colourmap[self.texture.data[x][y] as usize];
             let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y.floor() as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(s as usize, self.ds_y as usize, c.r, c.g, c.b, 255);
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;

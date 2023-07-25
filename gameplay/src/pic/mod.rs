@@ -448,9 +448,9 @@ impl PicData {
 
     fn colourmap_for_scale(&self, scale: f32) -> usize {
         let mut colourmap = if self.double_res {
-            (scale * 15.8 / 2.0).floor() as u32
+            (scale * 15.8 / 2.0) as u32
         } else {
-            (scale * 15.8).ceil() as u32
+            (scale * 15.8) as u32
         };
         if colourmap >= MAXLIGHTSCALE as u32 - 1 {
             colourmap = MAXLIGHTSCALE as u32 - 1;

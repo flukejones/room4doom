@@ -220,7 +220,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = textures.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight.ceil() + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
                     self.rw_midtexturemid = vtop - viewz;
                 } else {
                     // top of texture at top
@@ -341,7 +341,7 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (rdata.visplanes.lastopening - self.rw_x).floor() as i32;
+            self.maskedtexturecol = (rdata.visplanes.lastopening - self.rw_x) as i32;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
             rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
@@ -429,7 +429,7 @@ impl SegRender {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some((rdata.visplanes.lastopening - start).floor() as i32);
+            ds_p.sprtopclip = Some((rdata.visplanes.lastopening - start) as i32);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
@@ -448,7 +448,7 @@ impl SegRender {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some((rdata.visplanes.lastopening - start).floor() as i32);
+            ds_p.sprbottomclip = Some((rdata.visplanes.lastopening - start) as i32);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
@@ -481,7 +481,7 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
         while self.rw_x < self.rw_stopx {
-            let clip_index = self.rw_x.floor() as usize;
+            let clip_index = self.rw_x as usize;
 
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
@@ -533,7 +533,7 @@ impl SegRender {
             let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as f32);
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
@@ -637,8 +637,7 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    rdata.visplanes.openings
-                        [(self.maskedtexturecol + self.rw_x.floor() as i32) as usize] =
+                    rdata.visplanes.openings[(self.maskedtexturecol + self.rw_x as i32) as usize] =
                         texture_column as f32;
                 }
             }
@@ -691,16 +690,13 @@ impl<'a> DrawColumn<'a> {
     pub fn draw_column(&mut self, textures: &PicData, doubled: bool, pixels: &mut PixelBuf) {
         let pal = textures.palette();
         let mut frac =
-            self.dc_texturemid + (self.yl - pixels.height() as f32 / 2.0) * self.fracstep;
+            self.dc_texturemid + (self.yl - pixels.height() as f32 / 2.0) * self.fracstep + 0.1;
 
-        for n in self.yl.floor() as i32..=self.yh.floor() as i32 {
-            // (frac - 0.01).floor() is a ridiculous magic number to prevent the
-            // jaggy line across horizontal center. It tips the number *just enough*
-            // without throwing all the alignment out of wack.
+        for n in self.yl as i32..=self.yh as i32 {
             let mut select = if doubled {
-                ((frac - 0.01).round() as i32 / 2) & 0xff
+                (frac as i32 / 2) & 0xff
             } else {
-                ((frac - 0.01).round() as i32) & 0xff
+                (frac as i32) & 0xff
             };
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
@@ -712,7 +708,7 @@ impl<'a> DrawColumn<'a> {
 
             let px = self.colourmap[self.texture_column[select as usize]];
             let c = pal[px];
-            pixels.set_pixel(self.dc_x.floor() as usize, n as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(self.dc_x as usize, n as usize, c.r, c.g, c.b, 255);
 
             frac += self.fracstep;
         }

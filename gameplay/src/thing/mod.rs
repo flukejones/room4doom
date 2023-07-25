@@ -871,7 +871,7 @@ impl Think for MapObject {
             }
         }
 
-        if (this.z.floor() - this.floorz.floor()).abs() > f32::EPSILON || this.momz != 0.0 {
+        if (this.z - this.floorz).abs() > f32::EPSILON || this.momz != 0.0 {
             this.p_z_movement();
         }
 

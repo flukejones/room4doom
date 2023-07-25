@@ -145,14 +145,14 @@ impl SoftwareRenderer {
                 let sky_mid = pixels.height() / 2 - down_shift; // shift down by 6 pixels
                 let skytex = textures.sky_pic();
 
-                for x in plane.minx.floor() as i32..=plane.maxx.ceil() as i32 {
+                for x in plane.minx as i32..=plane.maxx as i32 {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
                         let angle = (view_angle.rad().to_degrees()
                             + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees())
                             * 2.8444; // 2.8444 seems to give the corect skybox width
-                        let texture_column = textures.wall_pic_column(skytex, angle.floor() as i32);
+                        let texture_column = textures.wall_pic_column(skytex, angle as i32);
 
                         let mut dc = DrawColumn::new(
                             texture_column,
@@ -180,7 +180,7 @@ impl SoftwareRenderer {
             plane.view_angle = view_angle;
 
             let mut span_start = vec![0.0; pixels.width() as usize];
-            for x in plane.minx.floor() as i32..=plane.maxx.floor() as i32 {
+            for x in plane.minx as i32..=plane.maxx as i32 {
                 let mut step = x - 1;
                 if step < 0 {
                     step = 0;
