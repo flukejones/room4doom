@@ -45,7 +45,7 @@ impl PixelBuf {
 
     /// Set this pixel at X|Y to RGBA colour
     #[inline]
-    pub fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, a: u8) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, _a: u8) {
         // Shitty safeguard. Need to find actual cause of fail
         if x >= self.width as usize || y >= self.height as usize {
             return;

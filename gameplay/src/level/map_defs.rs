@@ -52,6 +52,7 @@ pub struct Sector {
 }
 
 impl Sector {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         num: u32,
         floorheight: f32,

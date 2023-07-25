@@ -9,8 +9,8 @@ pub struct LottesCRT {
     _quad: [f32; 16],
     indices: [u32; 6],
     crt_shader: ShaderProgram,
-    projection: Mat4,
-    look_at: Mat4,
+    _projection: Mat4,
+    _look_at: Mat4,
     texture: Texture,
     vb: VertexBuffer,
     eb: ElementBuffer,
@@ -123,8 +123,8 @@ impl LottesCRT {
             _quad: GL_QUAD,
             indices: GL_QUAD_INDICES,
             crt_shader: shader,
-            projection,
-            look_at,
+            _projection: projection,
+            _look_at: look_at,
             texture,
             vb,
             eb,
@@ -168,7 +168,7 @@ impl Drawer for LottesCRT {
                 &self.eb,
                 0..self.indices.len(),
                 GeometryMode::Triangles,
-            );
+            )?;
         }
         Ok(())
     }

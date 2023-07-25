@@ -154,7 +154,7 @@ impl HUDString {
                 continue;
             }
 
-            let patch = get_patch_for_char(ch).expect(&format!("Did not find {ch}"));
+            let patch = get_patch_for_char(ch).unwrap_or_else(|| panic!("Did not find {ch}"));
             if y + self.line_height * f >= height {
                 warn!("HUD String to long for screen size");
                 return None;

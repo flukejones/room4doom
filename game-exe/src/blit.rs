@@ -25,7 +25,7 @@ struct Software {
 }
 
 pub struct Blitter<'c> {
-    gl_ctx: &'c golem::Context,
+    _gl_ctx: &'c golem::Context,
     crop_rect: Rect,
     shader: Option<Shader>,
     soft: Option<Software>,
@@ -84,7 +84,7 @@ impl<'c> Blitter<'c> {
         }
 
         Self {
-            gl_ctx,
+            _gl_ctx: gl_ctx,
             crop_rect,
             shader,
             soft,
