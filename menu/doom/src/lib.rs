@@ -181,7 +181,7 @@ impl MenuDoom {
                         if wad.lump_exists(&format!("M_EPI{e}")) {
                             return Some(MenuItem::new(
                                 Status::Ok,
-                                &format!("M_EPI{e}"),
+                                format!("M_EPI{e}"),
                                 sel_episode,
                                 char::from_digit(e, 10).unwrap(),
                             ));
@@ -329,7 +329,7 @@ impl MenuDoom {
     fn get_patch(&self, name: &str) -> &WadPatch {
         self.patches
             .get(name)
-            .expect(&format!("{name} not in cache"))
+            .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 }
 

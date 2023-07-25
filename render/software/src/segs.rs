@@ -134,7 +134,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if !(0.0..pixels.width() as f32 as f32).contains(&start) || start > stop {
+        if !(0.0..pixels.width() as f32).contains(&start) || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -691,7 +691,7 @@ impl<'a> DrawColumn<'a> {
     pub fn draw_column(&mut self, textures: &PicData, doubled: bool, pixels: &mut PixelBuf) {
         let pal = textures.palette();
         let mut frac =
-            self.dc_texturemid + (self.yl as f32 - pixels.height() as f32 / 2.0) * self.fracstep;
+            self.dc_texturemid + (self.yl - pixels.height() as f32 / 2.0) * self.fracstep;
 
         for n in self.yl.floor() as i32..=self.yh.floor() as i32 {
             // (frac - 0.01).floor() is a ridiculous magic number to prevent the
@@ -705,7 +705,7 @@ impl<'a> DrawColumn<'a> {
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
-            if self.texture_column[select as usize] as usize == usize::MAX {
+            if self.texture_column[select as usize] == usize::MAX {
                 frac += self.fracstep;
                 continue;
             }

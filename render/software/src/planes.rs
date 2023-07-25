@@ -193,6 +193,7 @@ impl VisPlaneRender {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn make_spans(
     x: f32,
     mut t1: f32,
@@ -249,6 +250,7 @@ pub fn make_spans(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn map_plane(
     y: f32,
     x1: f32,
@@ -300,6 +302,7 @@ pub struct DrawSpan<'a> {
 }
 
 impl<'a> DrawSpan<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         texture: &'a FlatPic,
         colourmap: &'a [usize],

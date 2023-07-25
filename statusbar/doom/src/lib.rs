@@ -61,7 +61,7 @@ impl Statusbar {
     fn get_patch(&self, name: &str) -> &WadPatch {
         self.patches
             .get(name)
-            .expect(&format!("{name} not in cache"))
+            .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 
     fn draw_health(&self, big: bool, face: bool, buffer: &mut PixelBuf) {
@@ -107,7 +107,7 @@ impl Statusbar {
 
         let mut y = nums[0].height as i32 * f;
         let mut x = nums[0].width as i32 * f;
-        y = y + 1;
+        y += 1;
         x *= 5;
         if face {
             x += self.faces.get_face().width as i32 * f + 1;
@@ -158,7 +158,7 @@ impl Statusbar {
         let height = self.keys[3].height as i32 * f;
         let width = self.keys[0].width as i32 * f;
 
-        let skull_x = self.screen_width - width as i32 - 4;
+        let skull_x = self.screen_width - width - 4;
         let mut x = skull_x - width - 2;
         let start_y = self.screen_height - height - 2;
 
@@ -171,7 +171,7 @@ impl Statusbar {
             let patch = &self.keys[i];
             let mut pad = 0;
             if i > 2 {
-                i = i - 3;
+                i -= 3;
                 x = skull_x;
             } else {
                 pad = -3;

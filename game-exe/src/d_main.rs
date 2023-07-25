@@ -11,14 +11,7 @@ use gameplay::{
 };
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{
-    sdl2::{
-        self,
-        keyboard::Scancode,
-        pixels,
-        rect::Rect,
-        render::{Canvas, TextureCreator},
-        video::{Window, WindowContext},
-    },
+    sdl2::{keyboard::Scancode, video::Window},
     GameState, MachinationTrait,
 };
 use hud_doom::Messages;
@@ -32,20 +25,14 @@ use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
-    blit::Blitter,
-    cheats::Cheats,
-    shaders::{self, basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders},
-    test_funcs::*,
-    timestep::TimeStep,
-    wipe::Wipe,
-    CLIOptions,
+    blit::Blitter, cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOptions,
 };
 
 /// Never returns
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
-    mut window: Window,
+    window: Window,
     gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
@@ -238,8 +225,8 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
                 let colour = game.pic_data.borrow().palette()[*p];
                 for _ in 0..f {
                     draw_buf.set_pixel(
-                        (xtmp as i32 - n as i32) as usize, // - (image.left_offset as i32),
-                        (ytmp + c.y_offset as i32 * f as i32) as usize, // - image.top_offset as i32 - 30,
+                        (xtmp - n as i32) as usize,              // - (image.left_offset as i32),
+                        (ytmp + c.y_offset * f as i32) as usize, // - image.top_offset as i32 - 30,
                         colour.r,
                         colour.g,
                         colour.b,
@@ -263,6 +250,7 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
 /// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
 ///
 /// D_Display
+#[allow(clippy::too_many_arguments)]
 fn d_display(
     rend: &mut impl PlayRenderer,
     menu: &mut impl MachinationTrait,
@@ -281,12 +269,7 @@ fn d_display(
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
-    let wipe = if game.gamestate != game.wipe_game_state {
-        // TODO: wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
-        true
-    } else {
-        false
-    };
+    let wipe = game.gamestate != game.wipe_game_state;
 
     // Drawing order is different for RUST4DOOM as the screensize-statusbar is
     // never taken in to account. A full Doom-style statusbar will never be added

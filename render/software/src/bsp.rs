@@ -133,7 +133,7 @@ impl SoftwareRenderer {
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
         let textures = self.texture_data.borrow();
-        let sky_doubled = !(pixels.height() == 200);
+        let sky_doubled = pixels.height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
@@ -303,8 +303,8 @@ impl SoftwareRenderer {
     }
 
     /// R_Subsector - r_bsp
-    fn draw_subsector<'a>(
-        &'a mut self,
+    fn draw_subsector(
+        &mut self,
         map: &MapData,
         player: &Player,
         subsect: &SubSector,
@@ -385,7 +385,7 @@ impl SoftwareRenderer {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
                 self.seg_renderer.store_wall_range(
-                    first as f32,
+                    first,
                     last,
                     seg,
                     object,
@@ -550,8 +550,8 @@ impl SoftwareRenderer {
     }
 
     /// R_RenderBSPNode - r_bsp
-    fn render_bsp_node<'a>(
-        &'a mut self,
+    fn render_bsp_node(
+        &mut self,
         map: &MapData,
         player: &Player,
         node_id: u16,

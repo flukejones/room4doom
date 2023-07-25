@@ -43,8 +43,8 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut PixelBuf) {
             let colour = pals[0].0[*p];
 
             pixels.set_pixel(
-                (xs + x as i32) as usize, // - (image.left_offset as i32),
-                (ys + y as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
+                (xs + x) as usize,                     // - (image.left_offset as i32),
+                (ys + y as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
                 colour.r,
                 colour.g,
                 colour.b,
@@ -68,8 +68,8 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut Pixe
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
             pixels.set_pixel(
-                (xs + x as i32) as usize, // - (image.left_offset as i32),
-                (ys + y as i32 + c.y_offset as i32) as usize, // - image.top_offset as i32 - 30,
+                (xs + x) as usize,                     // - (image.left_offset as i32),
+                (ys + y as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
                 colour.r,
                 colour.g,
                 colour.b,

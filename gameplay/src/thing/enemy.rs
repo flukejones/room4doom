@@ -239,12 +239,13 @@ pub(crate) fn a_look(actor: &mut MapObject) {
             _ => actor.info.seesound,
         };
 
-        if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG {
-            // TODO: FULL VOLUME!
-            actor.start_sound(sound);
-        } else {
-            actor.start_sound(sound);
-        }
+        // if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG {
+        //     // TODO: FULL VOLUME!
+        //     actor.start_sound(sound);
+        // } else {
+        //     actor.start_sound(sound);
+        // }
+        actor.start_sound(sound);
     }
 
     actor.set_state(actor.info.seestate);
