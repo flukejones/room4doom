@@ -244,7 +244,7 @@ pub fn make_spans(
         t2 += 1;
     }
 
-    while b2 > b1 && b2 >= t2 && b2 != 0 {
+    while b2 > b1 && b2 >= t2 && b2 != 0 && (b2 as usize) < span_start.len() {
         span_start[b2 as usize] = x;
         b2 -= 1;
     }
