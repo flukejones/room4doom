@@ -521,12 +521,12 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1..=x2 {
-                if ds.maskedtexturecol + x < 0 {
+            for dc_x in x1..=x2 {
+                if ds.maskedtexturecol + dc_x < 0 {
                     spryscale += rw_scalestep;
                     continue;
                 }
-                let index = (ds.maskedtexturecol + x) as usize;
+                let index = (ds.maskedtexturecol + dc_x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
                     if self.r_data.visplanes.openings[index] != i32::MAX
@@ -537,10 +537,10 @@ impl SoftwareRenderer {
                             self.r_data.visplanes.openings[index],
                         );
 
-                        let mut mceilingclip =
-                            self.r_data.visplanes.openings[(ds.sprtopclip.unwrap() + x) as usize];
+                        let mut mceilingclip = self.r_data.visplanes.openings
+                            [(ds.sprtopclip.unwrap() + dc_x) as usize];
                         let mut mfloorclip = self.r_data.visplanes.openings
-                            [(ds.sprbottomclip.unwrap() + x) as usize];
+                            [(ds.sprbottomclip.unwrap() + dc_x) as usize];
                         if mceilingclip >= pixels.height() as i32 {
                             mceilingclip = pixels.height() as i32;
                         }
@@ -567,7 +567,7 @@ impl SoftwareRenderer {
                             textures.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
                             false,
                             1.0 / spryscale,
-                            x,
+                            dc_x,
                             dc_texturemid,
                             yl,
                             yh,
@@ -599,7 +599,7 @@ fn draw_masked_column(
     pixels: &mut PixelBuf,
 ) {
     let pal = &textures.palette();
-    let mut frac = dc_texturemid + 0.5 + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
+    let mut frac = dc_texturemid + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
     for n in yl..=yh {
         let select = frac.floor() as usize;
 

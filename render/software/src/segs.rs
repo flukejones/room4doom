@@ -175,12 +175,12 @@ impl SegRender {
         let visangle = view_angle + screen_to_x_view(stop, pixels.width() as i32);
 
         ds_p.scale1 = self.rw_scale;
-        ds_p.x1 = start; // TODO: work out why this needs -1
+        ds_p.x1 = start;
         self.rw_x = ds_p.x1;
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1;
 
-        if stop > start {
+        if stop >= start {
             // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
                 visangle,

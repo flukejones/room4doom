@@ -261,10 +261,10 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
         let mut x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
-        let x2 = angle_to_screen(pixels.width() as f32, angle2.rad());
+        let x2 = angle_to_screen(pixels.width() as f32, angle2.rad()) - 1;
 
         // Does not cross a pixel?
-        if x1 == x2 {
+        if x1 == x2 + 1 {
             return;
         }
         // TODO: this is a terrible crusty hack due to angle_to_screen() needing .ceil() to prevent glitches, but it also
@@ -479,7 +479,7 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - 1 {
+        while self.solidsegs[start].last <= first {
             start += 1;
         }
 
@@ -712,13 +712,13 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
         let x1 = angle_to_screen(screen_width, angle1.rad());
-        let x2 = angle_to_screen(screen_width, angle2.rad());
+        let mut x2 = angle_to_screen(screen_width, angle2.rad());
 
         // Does not cross a pixel?
         if x1 == x2 {
             return false;
         }
-        // x2 -= 1;
+        x2 -= 1;
 
         let mut start = 0;
         while self.solidsegs[start].last < x2 {
@@ -738,7 +738,7 @@ fn angle_to_screen(screen_width: f32, mut radian: f32) -> i32 {
                                 // if radian >= FRAC_PI_2 {
     radian -= FRAC_PI_2;
     let t = radian.tan();
-    let x = p - (t * p);
+    let x = p - t * p;
     x.ceil() as i32
 }
 

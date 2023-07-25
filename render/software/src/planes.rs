@@ -213,7 +213,7 @@ pub fn make_spans(
         map_plane(
             t1,
             span_start[t1 as usize], // TODO: check if need floor
-            x - 1,
+            x,
             viewxy,
             viewz,
             extra_light,
@@ -228,7 +228,7 @@ pub fn make_spans(
         map_plane(
             b1,
             span_start[b1 as usize],
-            x - 1,
+            x,
             viewxy,
             viewz,
             extra_light,
