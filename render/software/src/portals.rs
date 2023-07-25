@@ -5,8 +5,8 @@ pub struct PortalClip {
     /// Clip values are the solid pixel bounding the range.
     ///  floorclip starts out SCREENHEIGHT
     ///  ceilingclip starts out -1
-    pub floorclip: Vec<f32>,
-    pub ceilingclip: Vec<f32>,
+    pub floorclip: Vec<i32>,
+    pub ceilingclip: Vec<i32>,
     screen_width: usize,
     screen_height: usize,
 }
@@ -14,8 +14,8 @@ pub struct PortalClip {
 impl PortalClip {
     pub fn new(screen_width: usize, screen_height: usize) -> Self {
         PortalClip {
-            floorclip: vec![0.0; screen_width],
-            ceilingclip: vec![0.0; screen_width],
+            floorclip: vec![0; screen_width],
+            ceilingclip: vec![0; screen_width],
             screen_width,
             screen_height,
         }
@@ -23,8 +23,8 @@ impl PortalClip {
 
     pub(super) fn clear(&mut self) {
         for i in 0..self.screen_width {
-            self.floorclip[i] = self.screen_height as f32;
-            self.ceilingclip[i] = -1.0;
+            self.floorclip[i] = self.screen_height as i32;
+            self.ceilingclip[i] = -1;
         }
     }
 }

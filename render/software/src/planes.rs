@@ -19,7 +19,7 @@ pub struct VisPlaneRender {
     pub ceilingplane: usize,
 
     /// Stores the column number of the texture required for this opening
-    pub openings: Vec<f32>,
+    pub openings: Vec<i32>,
     pub lastopening: i32,
 
     pub floorclip: Vec<f32>,
@@ -50,7 +50,7 @@ impl VisPlaneRender {
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: vec![f32::MAX; screen_width * 64],
+            openings: vec![i32::MAX; screen_width * 64],
             lastopening: 0,
             floorclip: vec![screen_height as f32; screen_width],
             ceilingclip: vec![-1.0; screen_width],
@@ -128,7 +128,7 @@ impl VisPlaneRender {
         check.minx = self.screen_width;
         check.maxx = 0;
         for t in &mut check.top {
-            *t = f32::MAX;
+            *t = i32::MAX;
         }
 
         self.lastvisplane
@@ -163,7 +163,7 @@ impl VisPlaneRender {
                 // Use the same plane
                 return plane_idx;
             }
-            if plane.top[i as usize] != f32::MAX {
+            if plane.top[i as usize] != i32::MAX {
                 break;
             }
         }
@@ -186,7 +186,7 @@ impl VisPlaneRender {
         plane.maxx = stop;
 
         for t in &mut plane.top {
-            *t = 0.0;
+            *t = 0;
         }
 
         self.lastvisplane
@@ -195,10 +195,10 @@ impl VisPlaneRender {
 
 pub fn make_spans(
     x: i32,
-    mut t1: f32,
-    mut b1: f32,
-    mut t2: f32,
-    mut b2: f32,
+    mut t1: i32,
+    mut b1: i32,
+    mut t2: i32,
+    mut b2: i32,
     viewxy: Vec2,
     viewz: f32,
     extra_light: i32,
@@ -220,7 +220,7 @@ pub fn make_spans(
             texture_data,
             pixels,
         );
-        t1 += 1.0;
+        t1 += 1;
     }
 
     while b1 > b2 && b1 >= t1 {
@@ -235,22 +235,22 @@ pub fn make_spans(
             texture_data,
             pixels,
         );
-        b1 -= 1.0;
+        b1 -= 1;
     }
 
     while t2 < t1 && t2 <= b2 {
         span_start[t2 as usize] = x;
-        t2 += 1.0;
+        t2 += 1;
     }
 
     while b2 > b1 && b2 >= t2 {
         span_start[b2 as usize] = x;
-        b2 -= 1.0;
+        b2 -= 1;
     }
 }
 
 fn map_plane(
-    y: f32,
+    y: i32,
     x1: i32,
     x2: i32,
     viewxy: Vec2,
@@ -262,7 +262,7 @@ fn map_plane(
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
-    let dy = y - (pixels.height() as f32 / 2.0); // OK
+    let dy = y as f32 - (pixels.height() as f32 / 2.0); // OK
     let yslope = (pixels.width() as f32 / 2.0) / dy.abs(); // OK
     let distance = planeheight * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
@@ -294,7 +294,7 @@ pub struct DrawSpan<'a> {
     ds_ystep: f32,
     ds_xfrac: f32,
     ds_yfrac: f32,
-    ds_y: f32,
+    ds_y: i32,
     ds_x1: i32,
     ds_x2: i32,
 }
@@ -307,7 +307,7 @@ impl<'a> DrawSpan<'a> {
         ds_ystep: f32,
         ds_xfrac: f32,
         ds_yfrac: f32,
-        ds_y: f32,
+        ds_y: i32,
         ds_x1: i32,
         ds_x2: i32,
     ) -> Self {
@@ -340,7 +340,7 @@ impl<'a> DrawSpan<'a> {
 
             let px = self.colourmap[self.texture.data[x][y] as usize];
             let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y.floor() as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(s as usize, self.ds_y as usize, c.r, c.g, c.b, 255);
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;

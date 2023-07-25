@@ -74,9 +74,9 @@ pub struct Visplane {
     pub maxx: i32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
-    pub top: Vec<f32>,
+    pub top: Vec<i32>,
     /// See above.
-    pub bottom: Vec<f32>,
+    pub bottom: Vec<i32>,
 
     pub basexscale: f32,
     pub baseyscale: f32,
@@ -127,8 +127,8 @@ impl Visplane {
             lightlevel: 0,
             minx: 0,
             maxx: 0,
-            top: vec![f32::MAX; screen_width + 1],
-            bottom: vec![0.0; screen_width + 1],
+            top: vec![i32::MAX; screen_width + 1],
+            bottom: vec![0; screen_width + 1],
 
             basexscale: 0.0,
             baseyscale: 0.0,
@@ -147,11 +147,11 @@ impl Visplane {
         self.maxx = 0;
 
         for x in self.top.iter_mut() {
-            *x = f32::MAX;
+            *x = i32::MAX;
         }
 
         for x in self.bottom.iter_mut() {
-            *x = f32::MIN;
+            *x = i32::MIN;
         }
     }
 }

@@ -170,10 +170,10 @@ impl SoftwareRenderer {
             }
 
             if plane.maxx as usize + 1 < plane.top.len() {
-                plane.top[plane.maxx as usize + 1] = f32::MAX;
+                plane.top[plane.maxx as usize + 1] = i32::MAX;
             }
             if plane.minx as usize > 0 {
-                plane.top[plane.minx as usize - 1] = f32::MAX;
+                plane.top[plane.minx as usize - 1] = i32::MAX;
             }
             plane.basexscale = basexscale;
             plane.baseyscale = baseyscale;
