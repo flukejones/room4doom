@@ -3,7 +3,7 @@
 
 use gameplay::{Level, Player};
 
-const CHANNELS: usize = 3;
+const CHANNELS: usize = 4;
 
 /// A structure holding display data
 pub struct PixelBuf {
@@ -43,6 +43,11 @@ impl PixelBuf {
         (self.width, self.height)
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.data = vec![0; (self.width * self.height) as usize * CHANNELS];
+    }
+
     /// Set this pixel at X|Y to RGBA colour
     #[inline]
     pub fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, a: u8) {
@@ -55,6 +60,7 @@ impl PixelBuf {
         self.data[pos] = r;
         self.data[pos + 1] = g;
         self.data[pos + 2] = b;
+        self.data[pos + 3] = a;
     }
 
     /// Read the colour of a single pixel at X|Y

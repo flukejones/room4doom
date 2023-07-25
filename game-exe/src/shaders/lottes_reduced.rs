@@ -168,7 +168,7 @@ impl Drawer for LottesCRT {
                 &self.eb,
                 0..self.indices.len(),
                 GeometryMode::Triangles,
-            );
+            )?;
         }
         Ok(())
     }

@@ -25,7 +25,7 @@ struct Software {
 }
 
 pub struct Blitter<'c> {
-    gl_ctx: &'c golem::Context,
+    _gl_ctx: &'c golem::Context,
     crop_rect: Rect,
     shader: Option<Shader>,
     soft: Option<Software>,
@@ -84,7 +84,7 @@ impl<'c> Blitter<'c> {
         }
 
         Self {
-            gl_ctx,
+            _gl_ctx: gl_ctx,
             crop_rect,
             shader,
             soft,
@@ -106,8 +106,8 @@ impl<'c> Blitter<'c> {
                 render_buffer.read_pixels_mut(),
                 w,
                 h,
-                3 * w,
-                pixels::PixelFormatEnum::RGB24,
+                4 * w,
+                pixels::PixelFormatEnum::RGBA32,
             )
             .unwrap()
             .as_texture(&soft.tex_creator)

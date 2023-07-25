@@ -97,6 +97,7 @@ impl Level {
     /// are spawning specials, things.
     ///
     /// Doom method name is `P_SetupLevel`
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         skill: Skill,
         episode: i32,

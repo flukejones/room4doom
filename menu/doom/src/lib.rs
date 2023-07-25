@@ -329,7 +329,7 @@ impl MenuDoom {
     fn get_patch(&self, name: &str) -> &WadPatch {
         self.patches
             .get(name)
-            .expect(&format!("{name} not in cache"))
+            .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 }
 

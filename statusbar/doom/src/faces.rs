@@ -23,7 +23,7 @@ const DEAD_FACE: usize = IMMORTAL_FACE + 1;
 
 const EVIL_TICS: usize = 2 * TICRATE as usize;
 const STRAIGHT_TICS: usize = TICRATE as usize / 2;
-const TURN_TICS: usize = 1 * TICRATE as usize;
+const TURN_TICS: usize = TICRATE as usize;
 const RAMPAGE_DELAY: i32 = 2 * TICRATE;
 
 const MUCH_PAIN: i32 = 20;
@@ -75,11 +75,11 @@ impl DoomguyFace {
             face_num += 1;
         }
         // immortal
-        let lump = wad.get_lump(&format!("STFGOD0")).unwrap();
+        let lump = wad.get_lump("STFGOD0").unwrap();
         faces[face_num] = WadPatch::from_lump(lump);
         face_num += 1;
         // dead
-        let lump = wad.get_lump(&format!("STFDEAD0")).unwrap();
+        let lump = wad.get_lump("STFDEAD0").unwrap();
         faces[face_num] = WadPatch::from_lump(lump);
 
         Self {
@@ -118,7 +118,7 @@ impl DoomguyFace {
             self.last_pain_calc = 0;
         }
 
-        return self.last_pain_calc as usize;
+        self.last_pain_calc as usize
     }
 
     fn update_face(&mut self, status: &PlayerStatus) {
@@ -131,23 +131,21 @@ impl DoomguyFace {
             }
         }
 
-        if self.priority < 9 {
-            if status.bonuscount != 0 {
-                // picking up bonus
-                let mut doevilgrin = false;
+        if self.priority < 9 && status.bonuscount != 0 {
+            // picking up bonus
+            let mut doevilgrin = false;
 
-                for (i, w) in status.weaponowned.iter().enumerate() {
-                    if self.old_weapons_owned[i] != *w {
-                        doevilgrin = true;
-                        self.old_weapons_owned[i] = *w;
-                    }
+            for (i, w) in status.weaponowned.iter().enumerate() {
+                if self.old_weapons_owned[i] != *w {
+                    doevilgrin = true;
+                    self.old_weapons_owned[i] = *w;
                 }
-                if doevilgrin {
-                    // evil grin if just picked up weapon
-                    self.priority = 8;
-                    self.count = EVIL_TICS;
-                    self.index = self.calc_pain_offset(status) + EVIL_OFFSET;
-                }
+            }
+            if doevilgrin {
+                // evil grin if just picked up weapon
+                self.priority = 8;
+                self.count = EVIL_TICS;
+                self.index = self.calc_pain_offset(status) + EVIL_OFFSET;
             }
         }
 

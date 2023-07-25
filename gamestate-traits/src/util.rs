@@ -6,19 +6,19 @@ use wad::{
     WadData,
 };
 
-/// Pattern like `WINUM` or `STTNUM`
+/// Pattern like `WINUM` or `STTNUM`. The number fonts.
 pub fn get_num_sprites(pattern: &str, start: usize, wad: &WadData) -> [WadPatch; 10] {
     let mut nums: [WadPatch; 10] = [WAD_PATCH; 10];
-    for n in 0..10 {
+    for (n, x) in nums.iter_mut().enumerate() {
         let p = n + start;
         let lump = wad.get_lump(&format!("{pattern}{p}")).unwrap();
-        nums[n] = WadPatch::from_lump(lump);
+        *x = WadPatch::from_lump(lump);
     }
     nums
 }
 
 pub fn get_st_key_sprites(wad: &WadData) -> [WadPatch; 6] {
-    let mut nums: [MaybeUninit<WadPatch>; 6] = [
+    let mut keys: [MaybeUninit<WadPatch>; 6] = [
         MaybeUninit::uninit(),
         MaybeUninit::uninit(),
         MaybeUninit::uninit(),
@@ -26,11 +26,11 @@ pub fn get_st_key_sprites(wad: &WadData) -> [WadPatch; 6] {
         MaybeUninit::uninit(),
         MaybeUninit::uninit(),
     ];
-    for n in 0..6 {
-        let lump = wad.get_lump(&format!("STKEYS{n}")).unwrap();
-        nums[n] = MaybeUninit::new(WadPatch::from_lump(lump));
+    for (i, x) in keys.iter_mut().enumerate() {
+        let lump = wad.get_lump(&format!("STKEYS{i}")).unwrap();
+        *x = MaybeUninit::new(WadPatch::from_lump(lump));
     }
-    unsafe { nums.map(|n| n.assume_init()) }
+    unsafe { keys.map(|n| n.assume_init()) }
 }
 
 pub fn draw_num(

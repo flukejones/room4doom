@@ -407,7 +407,7 @@ impl SoftwareRenderer {
 
         let texture_data = self.texture_data.borrow();
         let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
-        if def.frames.len() == 0 {
+        if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
         }
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
@@ -438,7 +438,7 @@ impl SoftwareRenderer {
         } else {
             x2
         };
-        vis.scale = pspritescale as f32;
+        vis.scale = pspritescale;
         vis.light_level = light + 2;
 
         if flip != 0 {
@@ -460,7 +460,7 @@ impl SoftwareRenderer {
 
     pub(crate) fn draw_masked(&mut self, player: &Player, pixels: &mut PixelBuf) {
         // Sort only the vissprites used
-        self.vissprites[..self.next_vissprite].sort_by(|a, b| a.cmp(b));
+        self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
@@ -470,7 +470,7 @@ impl SoftwareRenderer {
             }
         }
 
-        let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
+        let segs: Vec<DrawSeg> = (self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
             self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
         }
@@ -537,12 +537,10 @@ impl SoftwareRenderer {
                             self.r_data.visplanes.openings[index],
                         );
 
-                        let mut mceilingclip = self.r_data.visplanes.openings
-                            [(ds.sprtopclip.unwrap() + x) as usize]
-                            as i32;
+                        let mut mceilingclip =
+                            self.r_data.visplanes.openings[(ds.sprtopclip.unwrap() + x) as usize];
                         let mut mfloorclip = self.r_data.visplanes.openings
-                            [(ds.sprbottomclip.unwrap() + x) as usize]
-                            as i32;
+                            [(ds.sprbottomclip.unwrap() + x) as usize];
                         if mceilingclip >= pixels.height() as i32 {
                             mceilingclip = pixels.height() as i32;
                         }
@@ -610,12 +608,12 @@ fn draw_masked_column(
         }
 
         // Transparency
-        if texture_column[select] as usize == usize::MAX || (fuzz && p_random() % 3 != 0) {
+        if texture_column[select] == usize::MAX || (fuzz && p_random() % 3 != 0) {
             frac += fracstep;
             continue;
         }
 
-        let px = colourmap[texture_column[select as usize]];
+        let px = colourmap[texture_column[select]];
         let c = pal[px];
         pixels.set_pixel(dc_x as usize, n as usize, c.r, c.g, c.b, 255);
         frac += fracstep;

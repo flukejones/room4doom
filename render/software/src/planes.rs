@@ -156,7 +156,7 @@ impl VisPlaneRender {
             return plane_idx;
         }
 
-        for i in intrl..=self.screen_width as i32 {
+        for i in intrl..=self.screen_width {
             if i >= intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;
@@ -193,6 +193,7 @@ impl VisPlaneRender {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn make_spans(
     x: i32,
     mut t1: i32,
@@ -208,7 +209,7 @@ pub fn make_spans(
     pixels: &mut PixelBuf,
 ) {
     // TODO: t1, y, is causing a glitch
-    while t1 < t2 && t1 <= b1 {
+    while t1 < t2 && t1 <= b1 && (t1 as usize) < span_start.len() {
         map_plane(
             t1,
             span_start[t1 as usize], // TODO: check if need floor
@@ -223,7 +224,7 @@ pub fn make_spans(
         t1 += 1;
     }
 
-    while b1 > b2 && b1 >= t1 {
+    while b1 > b2 && b1 >= t1 && (b1 as usize) < span_start.len() {
         map_plane(
             b1,
             span_start[b1 as usize],
@@ -238,17 +239,18 @@ pub fn make_spans(
         b1 -= 1;
     }
 
-    while t2 < t1 && t2 <= b2 {
+    while t2 < t1 && t2 <= b2 && (t2 as usize) < span_start.len() {
         span_start[t2 as usize] = x;
         t2 += 1;
     }
 
-    while b2 > b1 && b2 >= t2 {
+    while b2 > b1 && b2 >= t2 && b2 != 0 {
         span_start[b2 as usize] = x;
         b2 -= 1;
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn map_plane(
     y: i32,
     x1: i32,
@@ -300,6 +302,7 @@ pub struct DrawSpan<'a> {
 }
 
 impl<'a> DrawSpan<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         texture: &'a FlatPic,
         colourmap: &'a [usize],

@@ -704,7 +704,7 @@ impl<'a> DrawColumn<'a> {
             if select >= self.texture_column.len() as i32 {
                 select %= self.texture_column.len() as i32;
             }
-            if self.texture_column[select as usize] as usize == usize::MAX {
+            if self.texture_column[select as usize] == usize::MAX {
                 frac += self.fracstep;
                 continue;
             }

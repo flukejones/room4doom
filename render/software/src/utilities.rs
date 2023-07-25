@@ -4,7 +4,7 @@ use gameplay::Angle;
 use glam::Vec2;
 
 fn player_dist_to_screen(screen_width: f32) -> f32 {
-    screen_width as f32 / 2.0 / (45.0f32.to_radians()).tan()
+    screen_width / 2.0 / (45.0f32.to_radians()).tan()
 }
 
 pub fn screen_to_x_view(x: i32, screen_width: i32) -> f32 {
