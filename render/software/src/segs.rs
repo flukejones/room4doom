@@ -41,8 +41,8 @@ pub(crate) struct SegRender {
     //
     rw_normalangle: Angle,
     // regular wall
-    rw_x: f32,
-    rw_stopx: f32,
+    rw_x: i32,
+    rw_stopx: i32,
     rw_centerangle: Angle,
     rw_offset: f32,
     rw_distance: f32, // In R_ScaleFromGlobalAngle? Compute when needed
@@ -85,8 +85,8 @@ impl SegRender {
             bottomtexture: false,
             midtexture: false,
             rw_normalangle: Angle::default(),
-            rw_x: 0.0,
-            rw_stopx: 0.0,
+            rw_x: 0,
+            rw_stopx: 0,
             rw_centerangle: Angle::default(),
             rw_offset: 0.0,
             rw_distance: 0.0,
@@ -115,8 +115,8 @@ impl SegRender {
     /// R_StoreWallRange - r_segs
     pub fn store_wall_range(
         &mut self,
-        start: f32,
-        stop: f32,
+        start: i32,
+        stop: i32,
         seg: &Segment,
         player: &Player,
         rdata: &mut RenderData,
@@ -134,7 +134,7 @@ impl SegRender {
 
         let mut ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if !(0.0..pixels.width() as f32 as f32).contains(&start) || start > stop {
+        if !(0..pixels.width() as i32).contains(&start) || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -163,7 +163,7 @@ impl SegRender {
         let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + screen_to_x_view(start, pixels.width() as f32);
+        let visangle = view_angle + screen_to_x_view(start, pixels.width() as i32);
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
@@ -172,13 +172,13 @@ impl SegRender {
             pixels.width() as f32,
         );
 
-        let visangle = view_angle + screen_to_x_view(stop, pixels.width() as f32);
+        let visangle = view_angle + screen_to_x_view(stop, pixels.width() as i32);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
         self.rw_x = ds_p.x1;
         ds_p.x2 = stop;
-        self.rw_stopx = stop + 1.0;
+        self.rw_stopx = stop + 1;
 
         if stop > start {
             // scale2 and rw_scale appears corrrect
@@ -190,7 +190,7 @@ impl SegRender {
                 pixels.width() as f32,
             );
 
-            self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
+            self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start) as f32;
             ds_p.scalestep = self.rw_scalestep;
         } else {
             ds_p.scale2 = ds_p.scale1;
@@ -341,7 +341,7 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (rdata.visplanes.lastopening - self.rw_x).floor() as i32;
+            self.maskedtexturecol = rdata.visplanes.lastopening - self.rw_x;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
             rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
@@ -425,11 +425,11 @@ impl SegRender {
             {
                 let last = rdata.visplanes.lastopening as usize;
                 rdata.visplanes.openings[last + i] = *n;
-                if i as f32 > self.rw_stopx - start {
+                if i as i32 > self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some((rdata.visplanes.lastopening - start).floor() as i32);
+            ds_p.sprtopclip = Some(rdata.visplanes.lastopening - start);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
@@ -444,11 +444,11 @@ impl SegRender {
             {
                 let last = rdata.visplanes.lastopening as usize;
                 rdata.visplanes.openings[last + i] = *n;
-                if i as f32 > self.rw_stopx - start {
+                if i as i32 > self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some((rdata.visplanes.lastopening - start).floor() as i32);
+            ds_p.sprbottomclip = Some(rdata.visplanes.lastopening - start);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
@@ -481,7 +481,7 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
         while self.rw_x < self.rw_stopx {
-            let clip_index = self.rw_x.floor() as usize;
+            let clip_index = self.rw_x as usize;
 
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
@@ -532,7 +532,7 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as f32);
+                angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as i32);
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance).floor() as i32;
 
                 dc_iscale = 1.0 / self.rw_scale;
@@ -637,13 +637,12 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    rdata.visplanes.openings
-                        [(self.maskedtexturecol + self.rw_x.floor() as i32) as usize] =
+                    rdata.visplanes.openings[(self.maskedtexturecol + self.rw_x) as usize] =
                         texture_column as f32;
                 }
             }
 
-            self.rw_x += 1.0;
+            self.rw_x += 1;
             self.rw_scale += self.rw_scalestep;
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
@@ -656,7 +655,7 @@ pub struct DrawColumn<'a> {
     texture_column: &'a [usize],
     colourmap: &'a [usize],
     fracstep: f32,
-    dc_x: f32,
+    dc_x: i32,
     dc_texturemid: f32,
     yl: f32,
     yh: f32,
@@ -667,7 +666,7 @@ impl<'a> DrawColumn<'a> {
         texture_column: &'a [usize],
         colourmap: &'a [usize],
         fracstep: f32,
-        dc_x: f32,
+        dc_x: i32,
         dc_texturemid: f32,
         yl: f32,
         yh: f32,
@@ -712,7 +711,7 @@ impl<'a> DrawColumn<'a> {
 
             let px = self.colourmap[self.texture_column[select as usize]];
             let c = pal[px];
-            pixels.set_pixel(self.dc_x.floor() as usize, n as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(self.dc_x as usize, n as usize, c.r, c.g, c.b, 255);
 
             frac += self.fracstep;
         }

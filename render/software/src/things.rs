@@ -318,23 +318,15 @@ impl SoftwareRenderer {
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
-            if seg.x1.floor() as i32 > vis.x2
-                || (seg.x2.floor() as i32) < vis.x1
+            if seg.x1 > vis.x2
+                || (seg.x2) < vis.x1
                 || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
             {
                 continue;
             }
 
-            let r1 = if (seg.x1.floor() as i32) < vis.x1 {
-                vis.x1
-            } else {
-                seg.x1.floor() as i32
-            };
-            let r2 = if (seg.x2.floor() as i32) > vis.x2 {
-                vis.x2
-            } else {
-                seg.x2.floor() as i32
-            };
+            let r1 = if (seg.x1) < vis.x1 { vis.x1 } else { seg.x1 };
+            let r2 = if (seg.x2) > vis.x2 { vis.x2 } else { seg.x2 };
 
             let (lowscale, scale) = if seg.scale1 > seg.scale2 {
                 (seg.scale2, seg.scale1)
@@ -482,13 +474,7 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = (&self.r_data.drawsegs).to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(
-                player,
-                ds,
-                ds.x1.floor() as i32,
-                ds.x2.floor() as i32,
-                pixels,
-            );
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
         }
 
         self.draw_player_sprites(player, pixels);
@@ -515,7 +501,7 @@ impl SoftwareRenderer {
             let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
             let rw_scalestep = ds.scalestep;
-            let mut spryscale = ds.scale1 + (x1 as f32 - ds.x1) * rw_scalestep;
+            let mut spryscale = ds.scale1 + (x1 - ds.x1) as f32 * rw_scalestep;
 
             let mut dc_texturemid;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {

@@ -12,8 +12,8 @@ pub const MAXDRAWSEGS: usize = 1024;
 #[derive(Debug, Clone, Copy)]
 pub struct DrawSeg {
     pub curline: NonNull<Segment>,
-    pub x1: f32,
-    pub x2: f32,
+    pub x1: i32,
+    pub x2: i32,
 
     pub scale1: f32,
     pub scale2: f32,
@@ -43,8 +43,8 @@ impl DrawSeg {
     pub fn new(seg: NonNull<Segment>) -> Self {
         DrawSeg {
             curline: seg,
-            x1: 0.0,
-            x2: 0.0,
+            x1: 0,
+            x2: 0,
             scale1: 0.0,
             scale2: 0.0,
             scalestep: 0.0,
@@ -60,8 +60,8 @@ impl DrawSeg {
 
 #[derive(Copy, Clone)]
 pub struct ClipRange {
-    pub first: f32,
-    pub last: f32,
+    pub first: i32,
+    pub last: i32,
 }
 
 /// Now what is a visplane, anyway?
@@ -70,8 +70,8 @@ pub struct Visplane {
     pub height: f32,
     pub picnum: usize,
     pub lightlevel: i32,
-    pub minx: f32,
-    pub maxx: f32,
+    pub minx: i32,
+    pub maxx: i32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
     pub top: Vec<f32>,
@@ -125,8 +125,8 @@ impl Visplane {
             height: 0.0,
             picnum: 0,
             lightlevel: 0,
-            minx: 0.0,
-            maxx: 0.0,
+            minx: 0,
+            maxx: 0,
             top: vec![f32::MAX; screen_width + 1],
             bottom: vec![0.0; screen_width + 1],
 
@@ -143,8 +143,8 @@ impl Visplane {
         self.picnum = 0;
         self.lightlevel = 0;
         self.picnum = 0;
-        self.minx = 0.0;
-        self.maxx = 0.0;
+        self.minx = 0;
+        self.maxx = 0;
 
         for x in self.top.iter_mut() {
             *x = f32::MAX;

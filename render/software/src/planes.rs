@@ -20,7 +20,7 @@ pub struct VisPlaneRender {
 
     /// Stores the column number of the texture required for this opening
     pub openings: Vec<f32>,
-    pub lastopening: f32,
+    pub lastopening: i32,
 
     pub floorclip: Vec<f32>,
     pub ceilingclip: Vec<f32>,
@@ -37,7 +37,7 @@ pub struct VisPlaneRender {
     pub basexscale: f32,
     pub baseyscale: f32,
 
-    screen_width: f32,
+    screen_width: i32,
     screen_height: f32,
 }
 
@@ -51,7 +51,7 @@ impl VisPlaneRender {
             floorplane: 0,
             ceilingplane: 0,
             openings: vec![f32::MAX; screen_width * 64],
-            lastopening: 0.0,
+            lastopening: 0,
             floorclip: vec![screen_height as f32; screen_width],
             ceilingclip: vec![-1.0; screen_width],
             spanstart: vec![0.0; screen_height],
@@ -61,7 +61,7 @@ impl VisPlaneRender {
             distscale: vec![0.0; screen_width],
             basexscale: 0.0,
             baseyscale: 0.0,
-            screen_width: screen_width as f32,
+            screen_width: screen_width as i32,
             screen_height: screen_height as f32,
         }
     }
@@ -80,14 +80,14 @@ impl VisPlaneRender {
         }
 
         self.lastvisplane = 0;
-        self.lastopening = 0.;
+        self.lastopening = 0;
         self.floorplane = 0;
         self.ceilingplane = 0;
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle - FRAC_PI_2).cos() / (self.screen_width / 2.0);
-        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (self.screen_width / 2.0));
+        self.basexscale = (view_angle - FRAC_PI_2).cos() / (self.screen_width / 2) as f32;
+        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (self.screen_width / 2) as f32);
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
@@ -126,7 +126,7 @@ impl VisPlaneRender {
         check.picnum = picnum;
         check.lightlevel = light_level;
         check.minx = self.screen_width;
-        check.maxx = 0.0;
+        check.maxx = 0;
         for t in &mut check.top {
             *t = f32::MAX;
         }
@@ -135,7 +135,7 @@ impl VisPlaneRender {
     }
 
     /// Check if this plane should be used, otherwise use a new plane.
-    pub fn check_plane(&mut self, start: f32, stop: f32, plane_idx: usize) -> usize {
+    pub fn check_plane(&mut self, start: i32, stop: i32, plane_idx: usize) -> usize {
         let plane = &mut self.visplanes[plane_idx];
 
         let (intrl, unionl) = if start < plane.minx {
@@ -156,8 +156,8 @@ impl VisPlaneRender {
             return plane_idx;
         }
 
-        for i in intrl.floor() as i32..=self.screen_width as i32 {
-            if i >= intrh.floor() as i32 {
+        for i in intrl..=self.screen_width as i32 {
+            if i >= intrh {
                 plane.minx = unionl;
                 plane.maxx = unionh;
                 // Use the same plane
@@ -194,7 +194,7 @@ impl VisPlaneRender {
 }
 
 pub fn make_spans(
-    x: f32,
+    x: i32,
     mut t1: f32,
     mut b1: f32,
     mut t2: f32,
@@ -203,7 +203,7 @@ pub fn make_spans(
     viewz: f32,
     extra_light: i32,
     plane: &Visplane,
-    span_start: &mut [f32],
+    span_start: &mut [i32],
     texture_data: &PicData,
     pixels: &mut PixelBuf,
 ) {
@@ -212,7 +212,7 @@ pub fn make_spans(
         map_plane(
             t1,
             span_start[t1 as usize], // TODO: check if need floor
-            x - 1.0,
+            x - 1,
             viewxy,
             viewz,
             extra_light,
@@ -227,7 +227,7 @@ pub fn make_spans(
         map_plane(
             b1,
             span_start[b1 as usize],
-            x - 1.0,
+            x - 1,
             viewxy,
             viewz,
             extra_light,
@@ -251,8 +251,8 @@ pub fn make_spans(
 
 fn map_plane(
     y: f32,
-    x1: f32,
-    x2: f32,
+    x1: i32,
+    x2: i32,
     viewxy: Vec2,
     viewz: f32,
     extra_light: i32,
@@ -269,9 +269,9 @@ fn map_plane(
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = screen_to_x_view(x1, pixels.width() as f32).cos().abs();
+    let distscale = screen_to_x_view(x1, pixels.width() as i32).cos().abs();
     let length = distance * (1.0 / distscale);
-    let angle = plane.view_angle + screen_to_x_view(x1, pixels.width() as f32);
+    let angle = plane.view_angle + screen_to_x_view(x1, pixels.width() as i32);
     let ds_xfrac = viewxy.x + angle.cos() * length;
     let ds_yfrac = -viewxy.y - angle.sin() * length;
 
@@ -295,8 +295,8 @@ pub struct DrawSpan<'a> {
     ds_xfrac: f32,
     ds_yfrac: f32,
     ds_y: f32,
-    ds_x1: f32,
-    ds_x2: f32,
+    ds_x1: i32,
+    ds_x2: i32,
 }
 
 impl<'a> DrawSpan<'a> {
@@ -308,8 +308,8 @@ impl<'a> DrawSpan<'a> {
         ds_xfrac: f32,
         ds_yfrac: f32,
         ds_y: f32,
-        ds_x1: f32,
-        ds_x2: f32,
+        ds_x1: i32,
+        ds_x2: i32,
     ) -> Self {
         Self {
             texture,
@@ -326,7 +326,7 @@ impl<'a> DrawSpan<'a> {
 
     fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
         let pal = textures.palette();
-        for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
+        for s in self.ds_x1..=self.ds_x2 {
             let mut x = self.ds_xfrac.abs() as usize & 0xff;
             let mut y = self.ds_yfrac.abs() as usize & 0xff;
 
