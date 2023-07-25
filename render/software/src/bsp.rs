@@ -260,12 +260,17 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
+        let mut x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
         let x2 = angle_to_screen(pixels.width() as f32, angle2.rad());
 
         // Does not cross a pixel?
         if x1 == x2 {
             return;
+        }
+        // TODO: this is a terrible crusty hack due to angle_to_screen() needing .ceil() to prevent glitches, but it also
+        //  shunts the screen over by 1
+        if x1 == 1 {
+            x1 -= 1;
         }
 
         if let Some(back_sector) = &seg.backsector {
@@ -273,7 +278,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, pixels);
+                self.clip_solid_seg(x1, x2, seg, player, pixels);
                 return;
             }
 
@@ -282,7 +287,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, pixels);
+                self.clip_portal_seg(x1, x2, seg, player, pixels);
                 return;
             }
 
@@ -296,9 +301,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1, seg, player, pixels);
+            self.clip_portal_seg(x1, x2, seg, player, pixels);
         } else {
-            self.clip_solid_seg(x1, x2 - 1, seg, player, pixels);
+            self.clip_solid_seg(x1, x2, seg, player, pixels);
         }
     }
 
@@ -479,7 +484,7 @@ impl SoftwareRenderer {
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - 1 {
+            if last <= self.solidsegs[start].first - 1 {
                 // Post is entirely visible (above start),
                 self.seg_renderer.store_wall_range(
                     first,
@@ -707,28 +712,26 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
         let x1 = angle_to_screen(screen_width, angle1.rad());
-        let mut x2 = angle_to_screen(screen_width, angle2.rad());
+        let x2 = angle_to_screen(screen_width, angle2.rad());
 
         // Does not cross a pixel?
         if x1 == x2 {
             return false;
         }
-        x2 -= 1;
+        // x2 -= 1;
 
         let mut start = 0;
         while self.solidsegs[start].last < x2 {
             start += 1;
         }
 
-        if x1 >= self.solidsegs[start].first && x2 <= self.solidsegs[start].last {
+        if x1 > self.solidsegs[start].first && x2 < self.solidsegs[start].last {
             return false;
         }
         true
     }
 }
 
-/// The returned result is `.ceil()` due to this function primarily being used for
-/// and integer based comparison
 fn angle_to_screen(screen_width: f32, mut radian: f32) -> i32 {
     // Left side
     let p = screen_width / 2.0; // / (FRAC_PI_4).tan();
@@ -736,7 +739,7 @@ fn angle_to_screen(screen_width: f32, mut radian: f32) -> i32 {
     radian -= FRAC_PI_2;
     let t = radian.tan();
     let x = p - (t * p);
-    x.floor() as i32
+    x.ceil() as i32
 }
 
 /// R_PointToAngle

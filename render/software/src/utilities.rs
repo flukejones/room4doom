@@ -8,7 +8,7 @@ fn player_dist_to_screen(screen_width: f32) -> f32 {
 }
 
 pub fn screen_to_x_view(x: i32, screen_width: i32) -> f32 {
-    ((screen_width / 2 - x) as f32 / player_dist_to_screen(screen_width as f32)).atan()
+    ((screen_width as f32 / 2.0 - x as f32) / player_dist_to_screen(screen_width as f32)).atan()
 }
 
 // #[allow(clippy::excessive_precision)]

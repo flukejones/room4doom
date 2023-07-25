@@ -201,7 +201,7 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale).floor() as i32 - 1;
+        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale).floor() as i32;
         if x1 > screen_width as i32 {
             return true;
         }

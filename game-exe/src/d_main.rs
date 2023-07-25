@@ -305,7 +305,6 @@ fn d_display(
                 }
             }
         }
-        // TODO: HU_Drawer();
         // Fake crosshair
         draw_buf.set_pixel(
             disp_buf.width() as usize / 2,
