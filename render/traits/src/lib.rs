@@ -9,16 +9,22 @@ const CHANNELS: usize = 3;
 pub struct PixelBuf {
     width: u32,
     height: u32,
-    /// Total length is width * height * CHANNELS, where CHANNELS is RGBA bytes
-    data: Vec<u8>,
+    is_software: bool,
+    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
+    software_buffer: Vec<u8>,
 }
 
 impl PixelBuf {
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32, is_software: bool) -> Self {
         Self {
             width,
             height,
-            data: vec![0; (width * height) as usize * CHANNELS],
+            is_software,
+            software_buffer: if is_software {
+                vec![0; (width * height) as usize * CHANNELS]
+            } else {
+                Vec::default()
+            },
         }
     }
 
@@ -37,12 +43,6 @@ impl PixelBuf {
         self.height
     }
 
-    /// Get width and height as a tuple
-    #[inline]
-    pub const fn size(&self) -> (u32, u32) {
-        (self.width, self.height)
-    }
-
     /// Set this pixel at X|Y to RGBA colour
     #[inline]
     pub fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, _a: u8) {
@@ -52,24 +52,33 @@ impl PixelBuf {
         }
 
         let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
-        self.data[pos] = r;
-        self.data[pos + 1] = g;
-        self.data[pos + 2] = b;
+        self.software_buffer[pos] = r;
+        self.software_buffer[pos + 1] = g;
+        self.software_buffer[pos + 2] = b;
     }
 
     /// Read the colour of a single pixel at X|Y
     pub fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
         let pos = y * (self.width as usize * CHANNELS) + x * CHANNELS;
-        (self.data[pos], self.data[pos + 1], self.data[pos + 2], 0)
+        (
+            self.software_buffer[pos],
+            self.software_buffer[pos + 1],
+            self.software_buffer[pos + 2],
+            0,
+        )
     }
 
-    /// Get the array of pixels. The layout of which is [Row<RGBA>]
+    pub fn is_software(&self) -> bool {
+        self.is_software
+    }
+
+    // /// Get the array of pixels. The layout of which is [Row<RGBA>]
     pub fn read_pixels(&self) -> &[u8] {
-        &self.data
+        &self.software_buffer
     }
 
     pub fn read_pixels_mut(&mut self) -> &mut [u8] {
-        &mut self.data
+        &mut self.software_buffer
     }
 }
 
@@ -86,7 +95,7 @@ mod tests {
 
     #[test]
     fn write_read_pixel() {
-        let mut pixels = PixelBuf::new(320, 200);
+        let mut pixels = PixelBuf::new(320, 200, true);
 
         pixels.set_pixel(10, 10, 255, 10, 3, 255);
         pixels.set_pixel(319, 199, 25, 10, 3, 255);

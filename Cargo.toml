@@ -41,6 +41,7 @@ sound-sdl2 = { path = "./sound/sdl2" }
 sound-nosnd = { path = "./sound/nosnd" }
 render-traits = { path = "./render/traits" }
 render-soft = { path = "./render/software" }
+render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
@@ -61,10 +62,10 @@ dirs = "~4.0"
 toml = "0.5"
 serde = { version = "1.0", features = ["serde_derive"] }
 
-[workspace.dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["user-hooks"]
+#[workspace.dependencies.cargo-husky]
+#version = "1"
+#default-features = false
+#features = ["user-hooks"]
 
 [profile.release]
 lto = true

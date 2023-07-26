@@ -728,16 +728,16 @@ impl SoftwareRenderer {
 }
 
 fn angle_to_screen(screen_width: f32, mut radian: f32) -> f32 {
-    let p = screen_width / 2.0; // / (FRAC_PI_4).tan();
-    if radian >= FRAC_PI_2 {
-        // Left side
-        radian -= FRAC_PI_2;
-        (p - radian.tan() * p - 0.001).ceil()
-    } else {
-        // Right side
-        radian = FRAC_PI_2 - radian;
-        (radian.tan() * p + p).ceil()
-    }
+    let p = screen_width / 2.0 + 1.0; // / (FRAC_PI_4).tan();
+                                      // if radian > FRAC_PI_2 {
+                                      // Left side
+    radian -= FRAC_PI_2;
+    (p - radian.tan() * p).floor()
+    // } else {
+    //     // Right side
+    //     radian = FRAC_PI_2 - radian;
+    //     (radian.tan() * p + p).ceil()
+    // }
 }
 
 /// R_PointToAngle

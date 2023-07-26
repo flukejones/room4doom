@@ -38,5 +38,5 @@ dirs.workspace = true
 toml.workspace = true
 serde.workspace = true
 
-[dev-dependencies]
-cargo-husky.workspace = true
+#[dev-dependencies]
+#cargo-husky.workspace = true

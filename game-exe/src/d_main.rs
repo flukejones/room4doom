@@ -56,8 +56,8 @@ pub fn d_doom_loop(
     );
 
     let mut timestep = TimeStep::new();
-    let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32);
-    let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32);
+    let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32, true);
+    let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32, true);
 
     let mut blitter = Blitter::new(options.shader, &gl_ctx, window);
 
