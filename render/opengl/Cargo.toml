@@ -1,0 +1,14 @@
+[package]
+name = "render-opengl"
+version = "0.9.1"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2021"
+build = "../../build.rs"
+
+[dependencies]
+glam.workspace = true
+gameplay.workspace = true
+render-traits.workspace = true
+
+[dev-dependencies]
+wad.workspace = true

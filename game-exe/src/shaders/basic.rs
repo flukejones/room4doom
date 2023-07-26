@@ -84,8 +84,8 @@ impl Basic {
 
 impl Drawer for Basic {
     fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Linear)?;
-        self.texture.set_magnification(TextureFilter::Linear)
+        self.texture.set_minification(TextureFilter::Nearest)?;
+        self.texture.set_magnification(TextureFilter::Nearest)
     }
 
     fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {

@@ -94,9 +94,10 @@ impl<'c> Blitter<'c> {
     pub fn blit(&mut self, render_buffer: &mut PixelBuf) {
         if let Some(shader) = &mut self.shader {
             // shader.shader.clear();
+            let size = (render_buffer.width(), render_buffer.height());
             shader
                 .shader
-                .set_image_data(render_buffer.read_pixels(), render_buffer.size());
+                .set_image_data(render_buffer.read_pixels_mut(), size);
             shader.shader.draw().unwrap();
             shader.window.gl_swap_window();
         } else if let Some(soft) = &mut self.soft {
