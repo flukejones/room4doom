@@ -28,7 +28,7 @@ use crate::{
     blit::Blitter, cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOptions,
 };
 
-/// Never returns
+/// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
