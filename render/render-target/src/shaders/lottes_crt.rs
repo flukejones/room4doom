@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_4;
 use gameplay::glam::{Mat4, Vec3};
 use golem::{Dimension::*, *};
 
-use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
+use super::{ShaderDraw, GL_QUAD, GL_QUAD_INDICES};
 
 pub struct LottesCRT {
     _quad: [f32; 16],
@@ -82,7 +82,7 @@ impl LottesCRT {
     }
 }
 
-impl Drawer for LottesCRT {
+impl ShaderDraw for LottesCRT {
     fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         self.crt_shader.bind();
         self.crt_shader.prepare_draw(&self.vb, &self.eb)?;

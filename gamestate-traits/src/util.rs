@@ -1,5 +1,5 @@
 use crate::MachinationTrait;
-use render_traits::{PixelBuffer, RenderTarget};
+use render_target::{PixelBuffer, RenderTarget};
 use std::mem::MaybeUninit;
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
@@ -76,15 +76,15 @@ pub fn draw_num(
 ) -> i32 {
     // TODO: remove duplicated functionality
     match buffer.render_type() {
-        render_traits::RenderType::Software => {
+        render_target::RenderType::Software => {
             let pixels = unsafe { buffer.software_unchecked() };
             draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
         }
-        render_traits::RenderType::SoftOpenGL => {
+        render_target::RenderType::SoftOpenGL => {
             let pixels = unsafe { buffer.soft_opengl_unchecked() };
             draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
         }
-        render_traits::RenderType::OpenGL => todo!(),
-        render_traits::RenderType::Vulkan => todo!(),
+        render_target::RenderType::OpenGL => todo!(),
+        render_target::RenderType::Vulkan => todo!(),
     }
 }

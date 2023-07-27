@@ -10,7 +10,7 @@ use gameplay::{
     SubSector, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use render_traits::{PixelBuffer, PlayRenderer, RenderTarget};
+use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::{
     cell::RefCell,
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
@@ -74,7 +74,7 @@ impl PlayRenderer for SoftwareRenderer {
 
         // TODO: pull duplicate functionality out to a function
         match pixels.render_type() {
-            render_traits::RenderType::Software => {
+            render_target::RenderType::Software => {
                 let pixels = unsafe { pixels.software_unchecked() };
                 self.clear(player, pixels.width() as f32);
                 // TODO: netupdate
@@ -94,7 +94,7 @@ impl PlayRenderer for SoftwareRenderer {
                 self.draw_masked(player, pixels);
                 // TODO: netupdate again
             }
-            render_traits::RenderType::SoftOpenGL => {
+            render_target::RenderType::SoftOpenGL => {
                 let pixels = unsafe { pixels.soft_opengl_unchecked() };
                 self.clear(player, pixels.width() as f32);
                 // TODO: netupdate

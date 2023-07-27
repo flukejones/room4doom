@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
-use render_traits::PixelBuffer;
+use render_target::PixelBuffer;
 
 use super::defs::Visplane;
 

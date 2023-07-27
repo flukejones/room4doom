@@ -8,7 +8,7 @@ use gameplay::{
     PspDef, Sector,
 };
 use glam::Vec2;
-use render_traits::PixelBuffer;
+use render_target::PixelBuffer;
 
 use super::{bsp::SoftwareRenderer, defs::DrawSeg};
 

@@ -1,15 +1,17 @@
 //! User configuration options.
 
-use crate::{shaders::Shaders, CLIOptions, BASE_DIR};
+use crate::{CLIOptions, BASE_DIR};
 use dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
+use render_target::shaders::Shaders;
 use serde::{Deserialize, Serialize};
 use sound_sdl2::timidity::GusMemSize;
 use std::{
     fs::{create_dir, File, OpenOptions},
     io::{Read, Write},
     path::PathBuf,
+    str::FromStr,
 };
 
 const LOG_TAG: &str = "UserConfig";
@@ -26,6 +28,37 @@ fn get_cfg_file() -> PathBuf {
     dir
 }
 
+#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, Serialize, Deserialize)]
+pub enum RenderType {
+    /// Purely software. Typically used with blitting a framebuffer maintained in memory
+    /// directly to screen using SDL2
+    #[default]
+    Software,
+    /// Software framebuffer blitted to screen using OpenGL (and can use shaders)
+    SoftOpenGL,
+    /// OpenGL
+    OpenGL,
+    /// Vulkan
+    Vulkan,
+}
+
+impl FromStr for RenderType {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "software" => Ok(Self::Software),
+            "softopengl" => Ok(Self::SoftOpenGL),
+            "cgwg" => Ok(Self::OpenGL),
+            "basic" => Ok(Self::Vulkan),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Invalid rendering type",
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserConfig {
@@ -34,6 +67,7 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
+    pub renderer: RenderType,
     pub shader: Option<Shaders>,
     pub sfx_vol: i32,
     pub mus_vol: i32,
@@ -74,7 +108,7 @@ impl UserConfig {
             height: 480,
             hi_res: true,
             fullscreen: true,
-            sfx_vol: 100,
+            sfx_vol: 80,
             mus_vol: 70,
             ..UserConfig::default()
         };
@@ -123,6 +157,14 @@ impl UserConfig {
             }
         } else {
             cli.double = Some(self.hi_res);
+        }
+
+        if let Some(renderer) = cli.rendering {
+            if renderer != self.renderer {
+                self.renderer = renderer;
+            }
+        } else {
+            cli.rendering = Some(self.renderer);
         }
 
         if cli.shader.is_some() {

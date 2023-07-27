@@ -1,6 +1,6 @@
 use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
-use render_traits::PixelBuffer;
+use render_target::PixelBuffer;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};

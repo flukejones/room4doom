@@ -7,7 +7,7 @@ pub use gameplay::{
     m_random, AmmoType, Card, GameMode, PlayerStatus, Skill, WBPlayerStruct, WBStartStruct,
     WeaponType, TICRATE, WEAPON_INFO,
 };
-pub use render_traits::{PixelBuffer, RenderTarget, RenderType};
+pub use render_target::{PixelBuffer, RenderTarget, RenderType};
 pub use sdl2::{self, keyboard::Scancode};
 pub use sound_traits::{MusTrack, SfxName};
 

@@ -1,15 +1,13 @@
-mod blit;
 mod cheats;
 mod config;
 mod d_main;
-mod shaders;
 // mod test_funcs;
 mod timestep;
 mod wipe;
 
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
-use shaders::Shaders;
+use render_target::shaders::Shaders;
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf};
 
 use d_main::d_doom_loop;
@@ -91,7 +89,8 @@ pub struct CLIOptions {
     pub flats_test: bool,
     #[options(help = "sprite test, cycle through the sprites")]
     pub sprites_test: bool,
-
+    #[options(meta = "", help = "Rendering type")]
+    pub rendering: Option<config::RenderType>,
     #[options(meta = "", help = "Screen shader <none, cgwg, lottes, lottesbasic>")]
     pub shader: Option<Shaders>,
 }

@@ -7,6 +7,6 @@ edition = "2021"
 [dependencies]
 sdl2.workspace = true
 gameplay.workspace = true
-render-traits.workspace = true
+render-target.workspace = true
 sound-traits.workspace = true
 wad.workspace = true

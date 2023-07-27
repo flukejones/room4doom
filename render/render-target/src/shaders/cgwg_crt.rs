@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_4;
 use gameplay::glam::{Mat4, Vec3};
 use golem::{Dimension::*, *};
 
-use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
+use super::{ShaderDraw, GL_QUAD, GL_QUAD_INDICES};
 
 /// CRT shader
 /// ```
@@ -102,7 +102,7 @@ impl Cgwgcrt {
     }
 }
 
-impl Drawer for Cgwgcrt {
+impl ShaderDraw for Cgwgcrt {
     fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         // Set the image to use
         let bind_point = std::num::NonZeroU32::new(1).unwrap();

@@ -3,7 +3,7 @@
 use gameplay::WallPic;
 use gamestate::Game;
 
-use render_traits::RenderTarget;
+use render_target::RenderTarget;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut RenderTarget) {
