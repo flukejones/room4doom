@@ -131,6 +131,7 @@ impl ShaderDraw for LottesCRT {
         // Set the image to use
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
         texture.set_active(bind_point);
+        self.crt_shader.bind();
 
         // CRT settings
         self.crt_shader

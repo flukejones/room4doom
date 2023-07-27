@@ -84,6 +84,8 @@ impl ShaderDraw for Basic {
     fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
         texture.set_active(bind_point);
+        self.shader.bind();
+
         // self.ctx.clear();
         unsafe {
             self.shader.draw(
