@@ -1,5 +1,5 @@
 use crate::{Intermission, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
-use gamestate_traits::{GameMode, MachinationTrait, PixelBuf};
+use gamestate_traits::{GameMode, MachinationTrait, PixelBuffer};
 use wad::lumps::WadPatch;
 
 impl Intermission {
@@ -26,7 +26,7 @@ impl Intermission {
         lv: usize,
         patch: &WadPatch,
         scale: i32,
-        buffer: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let ep = self.level_info.epsd as usize;
         let point = MAP_POINTS[ep][lv];
@@ -34,13 +34,13 @@ impl Intermission {
         let x = point.0 - patch.left_offset as i32;
         let y = point.1 - patch.top_offset as i32;
 
-        self.draw_patch(patch, x * scale, y * scale, buffer);
+        self.draw_patch_pixels(patch, x * scale, y * scale, pixels);
     }
 
-    pub(super) fn draw_enter_level(&self, scale: i32, buffer: &mut PixelBuf) {
+    pub(super) fn draw_enter_level_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
         let half = buffer.width() as i32 / 2;
         let mut y = TITLE_Y * scale;
-        self.draw_patch(
+        self.draw_patch_pixels(
             &self.patches.enter,
             half - self.patches.enter.width as i32 * scale / 2,
             y,
@@ -48,13 +48,13 @@ impl Intermission {
         );
         y += (5 * self.patches.enter.height as i32 * scale) / 4;
         let patch = self.get_enter_level_name();
-        self.draw_patch(patch, half - patch.width as i32 * scale / 2, y, buffer);
+        self.draw_patch_pixels(patch, half - patch.width as i32 * scale / 2, y, buffer);
     }
 
-    pub(super) fn draw_next_loc(&self, scale: i32, buffer: &mut PixelBuf) {
+    pub(super) fn draw_next_loc_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
         // Background
-        self.draw_patch(self.get_bg(), 0, 0, buffer);
-        self.draw_animated_bg(scale, buffer);
+        self.draw_patch_pixels(self.get_bg(), 0, 0, buffer);
+        self.draw_animated_bg_pixels(scale, buffer);
 
         // Location stuff only for episodes 1-3
         if self.mode != GameMode::Commercial && self.level_info.epsd <= 2 {
@@ -79,7 +79,7 @@ impl Intermission {
         }
 
         if self.mode != GameMode::Commercial || self.level_info.next != 30 {
-            self.draw_enter_level(scale, buffer);
+            self.draw_enter_level_pixels(scale, buffer);
         }
     }
 }

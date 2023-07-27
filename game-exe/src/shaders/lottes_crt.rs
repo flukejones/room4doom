@@ -11,7 +11,6 @@ pub struct LottesCRT {
     crt_shader: ShaderProgram,
     projection: Mat4,
     look_at: Mat4,
-    texture: Texture,
     vb: VertexBuffer,
     eb: ElementBuffer,
 }
@@ -77,7 +76,6 @@ impl LottesCRT {
             crt_shader: shader,
             projection,
             look_at,
-            texture: Texture::new(ctx).unwrap(),
             vb,
             eb,
         }
@@ -85,17 +83,7 @@ impl LottesCRT {
 }
 
 impl Drawer for LottesCRT {
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Linear)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
+    fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         self.crt_shader.bind();
         self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
 
@@ -117,13 +105,13 @@ impl Drawer for LottesCRT {
         // CRT settings
         self.crt_shader.set_uniform(
             "color_texture_sz",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+            UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
         )?;
 
         // size of color texture rounded up to power of 2
         self.crt_shader.set_uniform(
             "color_texture_pow2_sz",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+            UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
         )?;
 
         // Hardness of scanline.
@@ -162,7 +150,7 @@ impl Drawer for LottesCRT {
             .set_uniform("cornersmooth", UniformValue::Float(70.0))?; // 70.0 to 170.0
 
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
+        texture.set_active(bind_point);
 
         unsafe {
             self.crt_shader

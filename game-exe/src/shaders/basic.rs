@@ -9,9 +9,8 @@ pub struct Basic {
     _quad: [f32; 16],
     indices: [u32; 6],
     shader: ShaderProgram,
-    projection: Mat4,
-    look_at: Mat4,
-    texture: Texture,
+    _projection: Mat4,
+    _look_at: Mat4,
     vb: VertexBuffer,
     eb: ElementBuffer,
 }
@@ -73,9 +72,8 @@ impl Basic {
             _quad: GL_QUAD,
             indices: GL_QUAD_INDICES,
             shader,
-            projection,
-            look_at,
-            texture: Texture::new(ctx).unwrap(),
+            _projection: projection,
+            _look_at: look_at,
             vb,
             eb,
         }
@@ -83,19 +81,9 @@ impl Basic {
 }
 
 impl Drawer for Basic {
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Nearest)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
+    fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
+        texture.set_active(bind_point);
         // self.ctx.clear();
         unsafe {
             self.shader.draw(

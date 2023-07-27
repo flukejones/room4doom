@@ -1,6 +1,6 @@
 use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
-use render_traits::PixelBuf;
+use render_traits::PixelBuffer;
 use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
@@ -120,7 +120,7 @@ impl SegRender {
         seg: &Segment,
         player: &Player,
         rdata: &mut RenderData,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         // Keep original Doom behaviour here
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
@@ -470,7 +470,7 @@ impl SegRender {
         seg: &Segment,
         view_height: f32,
         rdata: &mut RenderData,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         // R_RenderSegLoop
         let mut yl: f32;
@@ -687,7 +687,12 @@ impl<'a> DrawColumn<'a> {
     ///  will always have constant z depth.
     /// Thus a special case loop for very fast rendering can
     ///  be used. It has also been used with Wolfenstein 3D.
-    pub fn draw_column(&mut self, textures: &PicData, doubled: bool, pixels: &mut PixelBuf) {
+    pub fn draw_column(
+        &mut self,
+        textures: &PicData,
+        doubled: bool,
+        pixels: &mut impl PixelBuffer,
+    ) {
         let pal = textures.palette();
         let mut frac =
             self.dc_texturemid + (self.yl - pixels.height() as f32 / 2.0) * self.fracstep + 0.1;
@@ -708,7 +713,7 @@ impl<'a> DrawColumn<'a> {
 
             let px = self.colourmap[self.texture_column[select as usize]];
             let c = pal[px];
-            pixels.set_pixel(self.dc_x as usize, n as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(self.dc_x as usize, n as usize, (c.r, c.g, c.b, 255));
 
             frac += self.fracstep;
         }

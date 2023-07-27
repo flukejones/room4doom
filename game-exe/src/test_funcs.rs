@@ -3,10 +3,10 @@
 use gameplay::WallPic;
 use gamestate::Game;
 
-use render_traits::PixelBuf;
+use render_traits::RenderTarget;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
-pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut PixelBuf) {
+pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut RenderTarget) {
     let height = pixels.height();
 
     let row_count: i32 = 16;
@@ -18,7 +18,7 @@ pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut PixelBu
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     for (i, c) in pals[pal_num].0.iter().enumerate() {
-        pixels.set_pixel(
+        pixels.set_softbuf_pixel(
             (i as i32 % row_count * block_size + x_start) as usize,
             (i as i32 / row_count * block_size + y_start) as usize,
             c.r,
@@ -29,7 +29,7 @@ pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut PixelBu
     }
 }
 
-pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut PixelBuf) {
+pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut RenderTarget) {
     let lump = game.wad_data.get_lump(name).unwrap();
     let image = WadPatch::from_lump(lump);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
@@ -42,7 +42,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut PixelBuf) {
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
 
-            pixels.set_pixel(
+            pixels.set_softbuf_pixel(
                 (xs + x) as usize,                     // - (image.left_offset as i32),
                 (ys + y as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
                 colour.r,
@@ -57,7 +57,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut PixelBuf) {
     }
 }
 
-pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut PixelBuf) {
+pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut RenderTarget) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = ((pixels.width() - image.width as u32) / 2) as i32;
@@ -67,7 +67,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut Pixe
     for c in image.columns.iter() {
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
-            pixels.set_pixel(
+            pixels.set_softbuf_pixel(
                 (xs + x) as usize,                     // - (image.left_offset as i32),
                 (ys + y as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
                 colour.r,
@@ -82,7 +82,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut Pixe
     }
 }
 
-pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut PixelBuf) {
+pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut RenderTarget) {
     let width = texture.data.len() as u32;
     let height = texture.data[0].len() as u32;
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
@@ -97,7 +97,7 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut P
                 continue;
             }
             let colour = pal[*idx];
-            pixels.set_pixel(
+            pixels.set_softbuf_pixel(
                 (xs + x_pos as i32) as usize,
                 (ys + y_pos as i32) as usize,
                 colour.r,
@@ -109,7 +109,7 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut P
     }
 }
 
-pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut PixelBuf) {
+pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut RenderTarget) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = ((pixels.width() - 64) / 2) as i32;
@@ -122,7 +122,7 @@ pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut PixelBu
                 continue;
             }
             let colour = pal[*px as usize];
-            pixels.set_pixel(
+            pixels.set_softbuf_pixel(
                 (xs + x as i32) as usize,
                 (ys + y as i32) as usize,
                 colour.r,

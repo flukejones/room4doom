@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, FlatPic, PicData};
 use glam::Vec2;
-use render_traits::PixelBuf;
+use render_traits::PixelBuffer;
 
 use super::defs::Visplane;
 
@@ -203,7 +203,7 @@ pub fn make_spans(
     plane: &Visplane,
     span_start: &mut [f32],
     texture_data: &PicData,
-    pixels: &mut PixelBuf,
+    pixels: &mut impl PixelBuffer,
 ) {
     // TODO: t1, y, is causing a glitch
     while t1 < t2 && t1 <= b1 {
@@ -257,7 +257,7 @@ fn map_plane(
     extra_light: i32,
     plane: &Visplane,
     texture_data: &PicData,
-    pixels: &mut PixelBuf,
+    pixels: &mut impl PixelBuffer,
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
@@ -324,7 +324,7 @@ impl<'a> DrawSpan<'a> {
         }
     }
 
-    fn draw(&mut self, textures: &PicData, pixels: &mut PixelBuf) {
+    fn draw(&mut self, textures: &PicData, pixels: &mut impl PixelBuffer) {
         let pal = textures.palette();
         // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
         for s in self.ds_x1 as i32..=self.ds_x2 as i32 {
@@ -341,7 +341,7 @@ impl<'a> DrawSpan<'a> {
 
             let px = self.colourmap[self.texture.data[x][y] as usize];
             let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y as usize, c.r, c.g, c.b, 255);
+            pixels.set_pixel(s as usize, self.ds_y as usize, (c.r, c.g, c.b, 255));
 
             self.ds_xfrac += self.ds_xstep;
             self.ds_yfrac += self.ds_ystep;

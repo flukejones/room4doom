@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode, TICRATE,
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, RenderTarget, Scancode, TICRATE,
 };
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::{
@@ -39,6 +39,25 @@ impl Finale {
             bg_flat,
             count: 0,
         }
+    }
+
+    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
+        let f = (pixels.height() / 200) as i32;
+        self.screen_width = pixels.width() as i32;
+        self.screen_height = pixels.height() as i32;
+
+        let pal = &self.palette;
+        for sx in (0..self.screen_width).step_by(64) {
+            for sy in (0..self.screen_height).step_by(64) {
+                for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
+                    for (x, c) in col.iter().enumerate() {
+                        let c = &pal.0[*c as usize];
+                        pixels.set_pixel(sx as usize + x, sy as usize + y, (c.r, c.g, c.b, 255));
+                    }
+                }
+            }
+        }
+        self.text.draw_pixels(6 * f, 6 * f, self, pixels);
     }
 }
 
@@ -134,22 +153,18 @@ impl MachinationTrait for Finale {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut PixelBuf) {
-        let f = (buffer.height() / 200) as i32;
-        self.screen_width = buffer.width() as i32;
-        self.screen_height = buffer.height() as i32;
-
-        let pal = &self.palette;
-        for sx in (0..self.screen_width).step_by(64) {
-            for sy in (0..self.screen_height).step_by(64) {
-                for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
-                    for (x, c) in col.iter().enumerate() {
-                        let c = &pal.0[*c as usize];
-                        buffer.set_pixel(sx as usize + x, sy as usize + y, c.r, c.g, c.b, 255);
-                    }
-                }
+    fn draw(&mut self, buffer: &mut RenderTarget) {
+        match buffer.render_type() {
+            gamestate_traits::RenderType::Software => {
+                let pixels = unsafe { buffer.software_unchecked() };
+                self.draw_pixels(pixels);
             }
+            gamestate_traits::RenderType::SoftOpenGL => {
+                let pixels = unsafe { buffer.soft_opengl_unchecked() };
+                self.draw_pixels(pixels);
+            }
+            gamestate_traits::RenderType::OpenGL => todo!(),
+            gamestate_traits::RenderType::Vulkan => todo!(),
         }
-        self.text.draw(6 * f, 6 * f, self, buffer);
     }
 }

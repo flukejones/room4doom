@@ -8,7 +8,7 @@ use gameplay::{
     PspDef, Sector,
 };
 use glam::Vec2;
-use render_traits::PixelBuf;
+use render_traits::PixelBuffer;
 
 use super::{bsp::SoftwareRenderer, defs::DrawSeg};
 
@@ -255,7 +255,7 @@ impl SoftwareRenderer {
         vis: &VisSprite,
         clip_bottom: &[i32],
         clip_top: &[i32],
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let naff = self.texture_data.clone(); // Need to separate lifetimes
         let texture_data = naff.borrow();
@@ -311,9 +311,9 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawSprite`
-    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, pixels: &mut PixelBuf) {
-        let mut clip_bottom = vec![-2i32; pixels.width() as usize];
-        let mut clip_top = vec![-2i32; pixels.width() as usize];
+    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, pixels: &mut impl PixelBuffer) {
+        let mut clip_bottom = vec![-2i32; pixels.width()];
+        let mut clip_top = vec![-2i32; pixels.width()];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
@@ -391,7 +391,7 @@ impl SoftwareRenderer {
         self.draw_vissprite(vis, &clip_bottom, &clip_top, pixels);
     }
 
-    fn draw_player_sprites(&mut self, player: &Player, pixels: &mut PixelBuf) {
+    fn draw_player_sprites(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
         if let Some(mobj) = player.mobj() {
             let light = unsafe { (*mobj.subsector).sector.lightlevel };
             let light = (light >> 4) + player.extralight;
@@ -409,7 +409,7 @@ impl SoftwareRenderer {
         sprite: &PspDef,
         light: usize,
         flags: u32,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let f = pixels.height() / 200;
         let pspriteiscale = 0.99 / f as f32;
@@ -463,12 +463,12 @@ impl SoftwareRenderer {
             vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
         }
 
-        let clip_bottom = vec![0i32; pixels.width() as usize];
-        let clip_top = vec![pixels.height() as i32; pixels.width() as usize];
+        let clip_bottom = vec![0i32; pixels.width()];
+        let clip_top = vec![pixels.height() as i32; pixels.width()];
         self.draw_vissprite(&vis, &clip_top, &clip_bottom, pixels)
     }
 
-    pub(crate) fn draw_masked(&mut self, player: &Player, pixels: &mut PixelBuf) {
+    pub(crate) fn draw_masked(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
@@ -494,7 +494,7 @@ impl SoftwareRenderer {
         ds: &DrawSeg,
         x1: i32,
         x2: i32,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
@@ -608,7 +608,7 @@ fn draw_masked_column(
     yl: i32,
     yh: i32,
     textures: &PicData,
-    pixels: &mut PixelBuf,
+    pixels: &mut impl PixelBuffer,
 ) {
     let pal = &textures.palette();
     let mut frac = dc_texturemid + (yl as f32 - (pixels.height() / 2) as f32) * fracstep;
@@ -627,7 +627,7 @@ fn draw_masked_column(
 
         let px = colourmap[texture_column[select]];
         let c = pal[px];
-        pixels.set_pixel(dc_x as usize, n as usize, c.r, c.g, c.b, 255);
+        pixels.set_pixel(dc_x as usize, n as usize, (c.r, c.g, c.b, 255));
         frac += fracstep;
     }
 }

@@ -7,8 +7,9 @@ use gamestate_traits::{
         surface,
         video::{Window, WindowContext},
     },
-    PixelBuf,
+    RenderTarget,
 };
+use render_traits::{PixelBuffer, RenderType};
 
 use crate::shaders::{
     self, basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, Drawer, Shaders,
@@ -68,7 +69,7 @@ impl<'c> Blitter<'c> {
 
         if let Some(post_process) = post_process {
             info!("Using a post-process shader");
-            post_process.set_tex_filter().unwrap();
+            // post_process.set_tex_filter().unwrap();
             shader = Some(Shader {
                 window,
                 shader: post_process,
@@ -91,30 +92,33 @@ impl<'c> Blitter<'c> {
         }
     }
 
-    pub fn blit(&mut self, render_buffer: &mut PixelBuf) {
+    pub fn blit(&mut self, render_buffer: &mut RenderTarget) {
         if let Some(shader) = &mut self.shader {
-            // shader.shader.clear();
-            let size = (render_buffer.width(), render_buffer.height());
-            shader
-                .shader
-                .set_image_data(render_buffer.read_pixels_mut(), size);
-            shader.shader.draw().unwrap();
-            shader.window.gl_swap_window();
+            if matches!(render_buffer.render_type(), RenderType::SoftOpenGL) {
+                let render_buffer = unsafe { render_buffer.soft_opengl_unchecked() };
+                // shader.shader.clear();
+                render_buffer.copy_softbuf_to_gl_texture();
+                shader.shader.draw(render_buffer.gl_texture()).unwrap();
+                shader.window.gl_swap_window();
+            }
         } else if let Some(soft) = &mut self.soft {
-            let w = render_buffer.width();
-            let h = render_buffer.height();
-            let surf = surface::Surface::from_data(
-                render_buffer.read_pixels_mut(),
-                w,
-                h,
-                3 * w,
-                pixels::PixelFormatEnum::RGB24,
-            )
-            .unwrap()
-            .as_texture(&soft.tex_creator)
-            .unwrap();
-            soft.canvas.copy(&surf, None, Some(self.crop_rect)).unwrap();
-            soft.canvas.present();
+            let w = render_buffer.width() as u32;
+            let h = render_buffer.height() as u32;
+            if matches!(render_buffer.render_type(), RenderType::Software) {
+                let render_buffer = unsafe { render_buffer.software_unchecked() };
+                let surf = surface::Surface::from_data(
+                    render_buffer.read_softbuf_pixels(),
+                    w,
+                    h,
+                    4 * w,
+                    pixels::PixelFormatEnum::RGBA32,
+                )
+                .unwrap()
+                .as_texture(&soft.tex_creator)
+                .unwrap();
+                soft.canvas.copy(&surf, None, Some(self.crop_rect)).unwrap();
+                soft.canvas.present();
+            }
         }
     }
 }

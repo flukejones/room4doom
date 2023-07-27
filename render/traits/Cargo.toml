@@ -7,3 +7,4 @@ build = "../../build.rs"
 
 [dependencies]
 gameplay.workspace = true
+golem.workspace = true

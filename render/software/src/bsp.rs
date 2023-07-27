@@ -10,7 +10,7 @@ use gameplay::{
     SubSector, IS_SSECTOR_MASK,
 };
 use glam::Vec2;
-use render_traits::{PixelBuf, PlayRenderer};
+use render_traits::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::{
     cell::RefCell,
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
@@ -69,26 +69,55 @@ pub struct SoftwareRenderer {
 }
 
 impl PlayRenderer for SoftwareRenderer {
-    fn render_player_view(&mut self, player: &Player, level: &Level, pixels: &mut PixelBuf) {
+    fn render_player_view(&mut self, player: &Player, level: &Level, pixels: &mut RenderTarget) {
         let map = &level.map_data;
 
-        self.clear(player, pixels.width() as f32);
-        // TODO: netupdate
-        let mut count = 0;
-        self.checked_sectors.clear();
+        // TODO: pull duplicate functionality out to a function
+        match pixels.render_type() {
+            render_traits::RenderType::Software => {
+                let pixels = unsafe { pixels.software_unchecked() };
+                self.clear(player, pixels.width() as f32);
+                // TODO: netupdate
+                let mut count = 0;
+                self.checked_sectors.clear();
 
-        self.texture_data
-            .borrow_mut()
-            .set_fixed_lightscale(player.fixedcolormap as usize);
-        self.texture_data.borrow_mut().set_player_palette(player);
+                self.texture_data
+                    .borrow_mut()
+                    .set_fixed_lightscale(player.fixedcolormap as usize);
+                self.texture_data.borrow_mut().set_player_palette(player);
 
-        self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
-        trace!("BSP traversals for render: {count}");
-        // TODO: netupdate again
-        self.draw_planes(player, pixels);
-        // TODO: netupdate again
-        self.draw_masked(player, pixels);
-        // TODO: netupdate again
+                self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
+                trace!("BSP traversals for render: {count}");
+                // TODO: netupdate again
+                self.draw_planes(player, pixels);
+                // TODO: netupdate again
+                self.draw_masked(player, pixels);
+                // TODO: netupdate again
+            }
+            render_traits::RenderType::SoftOpenGL => {
+                let pixels = unsafe { pixels.soft_opengl_unchecked() };
+                self.clear(player, pixels.width() as f32);
+                // TODO: netupdate
+                let mut count = 0;
+                self.checked_sectors.clear();
+
+                self.texture_data
+                    .borrow_mut()
+                    .set_fixed_lightscale(player.fixedcolormap as usize);
+                self.texture_data.borrow_mut().set_player_palette(player);
+
+                self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
+                trace!("BSP traversals for render: {count}");
+                // TODO: netupdate again
+                self.draw_planes(player, pixels);
+                // TODO: netupdate again
+                self.draw_masked(player, pixels);
+                // TODO: netupdate again
+            }
+            _ => {
+                panic!("Not a valid renderer for software mode")
+            }
+        }
     }
 }
 
@@ -125,7 +154,7 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawPlanes`
-    fn draw_planes(&mut self, player: &Player, pixels: &mut PixelBuf) {
+    fn draw_planes(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
         let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
@@ -179,7 +208,7 @@ impl SoftwareRenderer {
             plane.baseyscale = baseyscale;
             plane.view_angle = view_angle;
 
-            let mut span_start = vec![0.0; pixels.width() as usize];
+            let mut span_start = vec![0.0; pixels.width()];
             for x in plane.minx as i32..=plane.maxx as i32 {
                 let mut step = x - 1;
                 if step < 0 {
@@ -209,7 +238,7 @@ impl SoftwareRenderer {
         player: &Player,
         seg: &'a Segment,
         front_sector: &'a Sector,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
@@ -308,7 +337,7 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         subsect: &SubSector,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
@@ -335,7 +364,7 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, pixels.width());
+        self.add_sprites(player, front_sector, pixels.width() as u32);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
@@ -366,7 +395,7 @@ impl SoftwareRenderer {
         last: f32,
         seg: &Segment,
         object: &Player,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         let mut next;
 
@@ -469,7 +498,7 @@ impl SoftwareRenderer {
         last: f32,
         seg: &Segment,
         object: &Player,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
     ) {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -555,7 +584,7 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         node_id: u16,
-        pixels: &mut PixelBuf,
+        pixels: &mut impl PixelBuffer,
         count: &mut usize,
     ) {
         *count += 1;

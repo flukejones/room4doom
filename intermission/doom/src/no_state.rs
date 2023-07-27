@@ -1,11 +1,11 @@
 use crate::{Intermission, State};
-use gamestate_traits::{GameTraits, PixelBuf};
+use gamestate_traits::{GameTraits, PixelBuffer};
 use log::info;
 
 impl Intermission {
-    pub(super) fn draw_no_state(&mut self, scale: i32, buffer: &mut PixelBuf) {
+    pub(super) fn draw_no_state(&mut self, scale: i32, pixels: &mut impl PixelBuffer) {
         self.pointer_on = true;
-        self.draw_next_loc(scale, buffer);
+        self.draw_next_loc_pixels(scale, pixels);
     }
 
     pub(super) fn init_no_state(&mut self) {

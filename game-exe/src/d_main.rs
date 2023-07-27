@@ -19,13 +19,13 @@ use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_soft::SoftwareRenderer;
-use render_traits::{PixelBuf, PlayRenderer};
+use render_traits::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
 use crate::{
-    blit::Blitter, cheats::Cheats, test_funcs::*, timestep::TimeStep, wipe::Wipe, CLIOptions,
+    blit::Blitter, cheats::Cheats, shaders::Shaders, timestep::TimeStep, wipe::Wipe, CLIOptions,
 };
 
 /// Never returns until `game.running` is set to false
@@ -55,9 +55,24 @@ pub fn d_doom_loop(
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 
+    let mut render_type = RenderType::Software;
+    if let Some(shader) = options.shader {
+        if !matches!(shader, Shaders::None) {
+            render_type = RenderType::SoftOpenGL;
+        }
+    };
+    info!("Using {render_type:?}");
+
     let mut timestep = TimeStep::new();
-    let mut render_buffer = PixelBuf::new(screen_width as u32, screen_height as u32, true);
-    let mut render_buffer2 = PixelBuf::new(screen_width as u32, screen_height as u32, true);
+    let mut render_buffer = RenderTarget::new(screen_width, screen_height, &gl_ctx, render_type);
+    let mut render_buffer2 = RenderTarget::new(screen_width, screen_height, &gl_ctx, render_type);
+
+    if matches!(render_type, RenderType::SoftOpenGL) {
+        let buf = unsafe { render_buffer.soft_opengl_unchecked() };
+        buf.set_gl_filter().unwrap();
+        let buf = unsafe { render_buffer.soft_opengl_unchecked() };
+        buf.set_gl_filter().unwrap();
+    }
 
     let mut blitter = Blitter::new(options.shader, &gl_ctx, window);
 
@@ -140,29 +155,29 @@ pub fn d_doom_loop(
             &mut timestep,
         );
 
-        if options.palette_test {
-            palette_test(pal_num, &mut game, &mut render_buffer);
-        }
+        // if options.palette_test {
+        //     palette_test(pal_num, &mut game, &mut render_buffer);
+        // }
 
-        if let Some(name) = options.image_test.clone() {
-            image_test(&name.to_ascii_uppercase(), &game, &mut render_buffer);
-        }
-        if let Some(images) = &images {
-            patch_select_test(&images[image_num], &game, &mut render_buffer);
-        }
-        if let Some(flats) = &flats {
-            flat_select_test(&flats[flat_num], &game, &mut render_buffer);
-        }
-        if let Some(sprites) = &sprites {
-            patch_select_test(&sprites[sprite_num], &game, &mut render_buffer);
-        }
-        if options.texture_test {
-            texture_select_test(
-                game.pic_data.borrow_mut().get_texture(tex_num),
-                &game,
-                &mut render_buffer,
-            );
-        }
+        // if let Some(name) = options.image_test.clone() {
+        //     image_test(&name.to_ascii_uppercase(), &game, &mut render_buffer);
+        // }
+        // if let Some(images) = &images {
+        //     patch_select_test(&images[image_num], &game, &mut render_buffer);
+        // }
+        // if let Some(flats) = &flats {
+        //     flat_select_test(&flats[flat_num], &game, &mut render_buffer);
+        // }
+        // if let Some(sprites) = &sprites {
+        //     patch_select_test(&sprites[sprite_num], &game, &mut render_buffer);
+        // }
+        // if options.texture_test {
+        //     texture_select_test(
+        //         game.pic_data.borrow_mut().get_texture(tex_num),
+        //         &game,
+        //         &mut render_buffer,
+        //     );
+        // }
 
         blitter.blit(&mut render_buffer);
 
@@ -215,7 +230,7 @@ pub fn d_doom_loop(
     Ok(())
 }
 
-fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
+fn draw_title_pixels(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
     let mut xtmp = 0;
     let mut ytmp = 0;
     let f = draw_buf.height() / 200;
@@ -227,10 +242,7 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
                     draw_buf.set_pixel(
                         (xtmp - n as i32) as usize,              // - (image.left_offset as i32),
                         (ytmp + c.y_offset * f as i32) as usize, // - image.top_offset as i32 - 30,
-                        colour.r,
-                        colour.g,
-                        colour.b,
-                        255,
+                        (colour.r, colour.g, colour.b, 255),
                     );
                     ytmp += 1;
                 }
@@ -241,6 +253,21 @@ fn draw_title(game: &mut Game, draw_buf: &mut PixelBuf) {
                 xtmp += 1;
             }
         }
+    }
+}
+
+fn draw_title(game: &mut Game, draw_buf: &mut RenderTarget) {
+    match draw_buf.render_type() {
+        gamestate_traits::RenderType::Software => {
+            let pixels = unsafe { draw_buf.software_unchecked() };
+            draw_title_pixels(game, pixels);
+        }
+        gamestate_traits::RenderType::SoftOpenGL => {
+            let pixels = unsafe { draw_buf.soft_opengl_unchecked() };
+            draw_title_pixels(game, pixels);
+        }
+        gamestate_traits::RenderType::OpenGL => todo!(),
+        gamestate_traits::RenderType::Vulkan => todo!(),
     }
 }
 
@@ -261,8 +288,8 @@ fn d_display(
         impl MachinationTrait,
     >,
     game: &mut Game,
-    disp_buf: &mut PixelBuf, // Display from this buffer
-    draw_buf: &mut PixelBuf, // Draw to this buffer
+    disp_buf: &mut RenderTarget, // Display from this buffer
+    draw_buf: &mut RenderTarget, // Draw to this buffer
     blitter: &mut Blitter,
     timestep: &mut TimeStep,
 ) {
@@ -288,16 +315,27 @@ fn d_display(
                 }
             }
         }
-        // TODO: HU_Drawer();
         // Fake crosshair
-        draw_buf.set_pixel(
-            disp_buf.width() as usize / 2,
-            disp_buf.height() as usize / 2,
-            200,
-            14,
-            14,
-            255,
-        );
+        match draw_buf.render_type() {
+            gamestate_traits::RenderType::Software => {
+                let pixels = unsafe { draw_buf.software_unchecked() };
+                pixels.set_pixel(
+                    disp_buf.width() / 2,
+                    disp_buf.height() / 2,
+                    (200, 14, 14, 255),
+                );
+            }
+            gamestate_traits::RenderType::SoftOpenGL => {
+                let pixels = unsafe { draw_buf.soft_opengl_unchecked() };
+                pixels.set_pixel(
+                    disp_buf.width() / 2,
+                    disp_buf.height() / 2,
+                    (200, 14, 14, 255),
+                );
+            }
+            gamestate_traits::RenderType::OpenGL => todo!(),
+            gamestate_traits::RenderType::Vulkan => todo!(),
+        }
     }
 
     match game.gamestate {
@@ -317,6 +355,7 @@ fn d_display(
     }
 
     // // menus go directly to the screen
+    // draw_buf.clear();
     menu.draw(draw_buf); // menu is drawn even on top of everything
                          // net update does i/o and buildcmds...
                          // TODO: NetUpdate(); // send out any new accumulation
