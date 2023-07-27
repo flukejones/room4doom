@@ -89,7 +89,7 @@ pub struct CLIOptions {
     pub flats_test: bool,
     #[options(help = "sprite test, cycle through the sprites")]
     pub sprites_test: bool,
-    #[options(meta = "", help = "Rendering type")]
+    #[options(meta = "", help = "Rendering type <software, softopengl>")]
     pub rendering: Option<config::RenderType>,
     #[options(meta = "", help = "Screen shader <none, cgwg, lottes, lottesbasic>")]
     pub shader: Option<Shaders>,
