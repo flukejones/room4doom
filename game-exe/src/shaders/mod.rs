@@ -1,4 +1,4 @@
-use golem::GolemError;
+use golem::{GolemError, Texture};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -48,15 +48,5 @@ const GL_QUAD: [f32; 16] = [
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
 pub trait Drawer {
-    fn clear(&self, ctx: &golem::Context) {
-        ctx.set_clear_color(0.0, 0.0, 0.0, 1.0);
-        ctx.clear();
-    }
-
-    fn set_tex_filter(&self) -> Result<(), GolemError>;
-
-    /// The input buffer/image of Doom
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32));
-
-    fn draw(&mut self) -> Result<(), GolemError>;
+    fn draw(&mut self, texture: &Texture) -> Result<(), GolemError>;
 }

@@ -3,7 +3,9 @@
 //! with the rest of the game it ends up being fairly generic - you could make this
 //! fully generic with a little work, or use it as the basis for a different menu.
 
-use gamestate_traits::{GameMode, GameTraits, MachinationTrait, PixelBuf, Scancode, Skill};
+use gamestate_traits::{
+    GameMode, GameTraits, MachinationTrait, PixelBuffer, RenderTarget, Scancode, Skill,
+};
 use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::{
@@ -331,6 +333,34 @@ impl MenuDoom {
             .get(name)
             .unwrap_or_else(|| panic!("{name} not in cache"))
     }
+
+    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
+        let f = (pixels.height() / 200) as i32;
+
+        if self.active || self.in_help {
+            let active = &self.menus[self.current_menu as usize];
+            // Titles
+            for item in active.titles.iter() {
+                self.draw_patch_pixels(self.get_patch(&item.patch), item.x * f, item.y * f, pixels);
+            }
+            // sub-items
+            let x = active.x * f;
+            let mut y = active.y * f;
+            for item in active.items.iter() {
+                self.draw_patch_pixels(self.get_patch(&item.patch), x, y, pixels);
+                y += LINEHEIGHT * f;
+            }
+
+            // SKULL
+            let y = active.y * f - 5 + active.last_on as i32 * LINEHEIGHT * f;
+            self.draw_patch_pixels(
+                self.get_patch(SKULLS[self.which_skull]),
+                x + -(32 * f),
+                y,
+                pixels,
+            );
+        }
+    }
 }
 
 fn sel_new_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
@@ -498,31 +528,18 @@ impl MachinationTrait for MenuDoom {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut PixelBuf) {
-        let f = (buffer.height() / 200) as i32;
-
-        if self.active || self.in_help {
-            let active = &self.menus[self.current_menu as usize];
-            // Titles
-            for item in active.titles.iter() {
-                self.draw_patch(self.get_patch(&item.patch), item.x * f, item.y * f, buffer);
+    fn draw(&mut self, buffer: &mut RenderTarget) {
+        match buffer.render_type() {
+            gamestate_traits::RenderType::Software => {
+                let pixels = unsafe { buffer.software_unchecked() };
+                self.draw_pixels(pixels)
             }
-            // sub-items
-            let x = active.x * f;
-            let mut y = active.y * f;
-            for item in active.items.iter() {
-                self.draw_patch(self.get_patch(&item.patch), x, y, buffer);
-                y += LINEHEIGHT * f;
+            gamestate_traits::RenderType::SoftOpenGL => {
+                let pixels = unsafe { buffer.soft_opengl_unchecked() };
+                self.draw_pixels(pixels)
             }
-
-            // SKULL
-            let y = active.y * f - 5 + active.last_on as i32 * LINEHEIGHT * f;
-            self.draw_patch(
-                self.get_patch(SKULLS[self.which_skull]),
-                x + -(32 * f),
-                y,
-                buffer,
-            );
+            gamestate_traits::RenderType::OpenGL => todo!(),
+            gamestate_traits::RenderType::Vulkan => todo!(),
         }
     }
 }

@@ -11,7 +11,6 @@ pub struct LottesCRT {
     crt_shader: ShaderProgram,
     _projection: Mat4,
     _look_at: Mat4,
-    texture: Texture,
     vb: VertexBuffer,
     eb: ElementBuffer,
 }
@@ -115,17 +114,12 @@ impl LottesCRT {
         vb.set_data(&GL_QUAD);
         eb.set_data(&GL_QUAD_INDICES);
 
-        let texture = Texture::new(ctx).unwrap();
-        let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        texture.set_active(bind_point);
-
         Self {
             _quad: GL_QUAD,
             indices: GL_QUAD_INDICES,
             crt_shader: shader,
             _projection: projection,
             _look_at: look_at,
-            texture,
             vb,
             eb,
         }
@@ -133,24 +127,16 @@ impl LottesCRT {
 }
 
 impl Drawer for LottesCRT {
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Linear)?;
-        self.texture.set_magnification(TextureFilter::Linear)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
-        self.crt_shader.bind();
+    fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
+        // Set the image to use
+        let bind_point = std::num::NonZeroU32::new(1).unwrap();
+        texture.set_active(bind_point);
 
         // CRT settings
         self.crt_shader
             .set_uniform(
                 "color_texture_sz",
-                UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+                UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
             )
             .unwrap();
 
@@ -158,7 +144,7 @@ impl Drawer for LottesCRT {
         self.crt_shader
             .set_uniform(
                 "color_texture_pow2_sz",
-                UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+                UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
             )
             .unwrap();
 

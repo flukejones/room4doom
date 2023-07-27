@@ -1,5 +1,6 @@
 use gameplay::m_random;
-use gamestate_traits::PixelBuf;
+use gamestate_traits::RenderTarget;
+use render_traits::PixelBuffer;
 
 #[derive(Debug)]
 pub(crate) struct Wipe {
@@ -26,10 +27,10 @@ impl Wipe {
         Self { y, height, width }
     }
 
-    pub(crate) fn do_melt(
+    fn do_melt_pixels(
         &mut self,
-        disp_buf: &mut PixelBuf, // Display from this buffer
-        draw_buf: &mut PixelBuf, // Draw to this buffer
+        disp_buf: &mut impl PixelBuffer, // Display from this buffer
+        draw_buf: &mut impl PixelBuffer, // Draw to this buffer
     ) -> bool {
         let mut done = true;
         let f = (disp_buf.height() / 200) as i32;
@@ -50,20 +51,41 @@ impl Wipe {
 
                 let mut y = self.y[x] as usize;
                 for _ in (0..dy).rev() {
-                    let px = draw_buf.read_pixel(x, y);
-                    disp_buf.set_pixel(x, y, px.0, px.1, px.2, px.3);
+                    let px = draw_buf.read_softbuf_pixel(x, y);
+                    disp_buf.set_pixel(x, y, (px.0, px.1, px.2, px.3));
                     y += 1;
                 }
                 self.y[x] += dy;
 
                 for c in 0..=self.height - self.y[x] - dy {
                     let y = self.height - c - dy;
-                    let px = disp_buf.read_pixel(x, y as usize);
-                    disp_buf.set_pixel(x, (self.height - c) as usize, px.0, px.1, px.2, px.3);
+                    let px = disp_buf.read_softbuf_pixel(x, y as usize);
+                    disp_buf.set_pixel(x, (self.height - c) as usize, (px.0, px.1, px.2, px.3));
                 }
                 done = false;
             }
         }
         done
+    }
+
+    pub(crate) fn do_melt(
+        &mut self,
+        disp_buf: &mut RenderTarget, // Display from this buffer
+        draw_buf: &mut RenderTarget, // Draw to this buffer
+    ) -> bool {
+        match disp_buf.render_type() {
+            render_traits::RenderType::Software => {
+                let disp_buf = unsafe { disp_buf.software_unchecked() };
+                let draw_buf = unsafe { draw_buf.software_unchecked() };
+                self.do_melt_pixels(disp_buf, draw_buf)
+            }
+            render_traits::RenderType::SoftOpenGL => {
+                let disp_buf = unsafe { disp_buf.soft_opengl_unchecked() };
+                let draw_buf = unsafe { draw_buf.soft_opengl_unchecked() };
+                self.do_melt_pixels(disp_buf, draw_buf)
+            }
+            render_traits::RenderType::OpenGL => todo!(),
+            render_traits::RenderType::Vulkan => todo!(),
+        }
     }
 }

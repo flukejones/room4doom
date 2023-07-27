@@ -7,7 +7,7 @@ pub use gameplay::{
     m_random, AmmoType, Card, GameMode, PlayerStatus, Skill, WBPlayerStruct, WBStartStruct,
     WeaponType, TICRATE, WEAPON_INFO,
 };
-pub use render_traits::PixelBuf;
+pub use render_traits::{PixelBuffer, RenderTarget, RenderType};
 pub use sdl2::{self, keyboard::Scancode};
 pub use sound_traits::{MusTrack, SfxName};
 
@@ -96,12 +96,13 @@ pub trait MachinationTrait {
     fn get_palette(&self) -> &WadPalette;
 
     /// Draw this Machination to the `PixelBuf`.
-    fn draw(&mut self, buffer: &mut PixelBuf);
+    fn draw(&mut self, buffer: &mut RenderTarget);
 
     /// Free method, requires `get_palette()` to be implemented
-    fn draw_patch(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut PixelBuf) {
+    fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut impl PixelBuffer) {
         let mut xtmp = 0;
         let mut ytmp = 0;
+
         let f = pixels.height() / 200;
         for c in patch.columns.iter() {
             for n in 0..f {
@@ -111,10 +112,7 @@ pub trait MachinationTrait {
                         pixels.set_pixel(
                             (x + xtmp - n as i32) as usize, // - (image.left_offset as i32),
                             (y + ytmp + c.y_offset * f as i32) as usize, // - image.top_offset as i32 - 30,
-                            colour.r,
-                            colour.g,
-                            colour.b,
-                            255,
+                            (colour.r, colour.g, colour.b, 255),
                         );
                         ytmp += 1;
                     }

@@ -1,5 +1,5 @@
 use crate::MachinationTrait;
-use render_traits::PixelBuf;
+use render_traits::{PixelBuffer, RenderTarget};
 use std::mem::MaybeUninit;
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
@@ -33,16 +33,16 @@ pub fn get_st_key_sprites(wad: &WadData) -> [WadPatch; 6] {
     unsafe { keys.map(|n| n.assume_init()) }
 }
 
-pub fn draw_num(
+pub fn draw_num_pixels(
     p: u32,
     mut x: i32,
     y: i32,
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl MachinationTrait,
-    buffer: &mut PixelBuf,
+    pixels: &mut impl PixelBuffer,
 ) -> i32 {
-    let f = (buffer.height() / 200) as i32;
+    let f = (pixels.height() / 200) as i32;
     let width = nums[0].width as i32 * f;
     let digits: Vec<u32> = p
         .to_string()
@@ -53,14 +53,38 @@ pub fn draw_num(
     for n in digits.iter().rev() {
         x -= width;
         let num = &nums[*n as usize];
-        drawer.draw_patch(num, x, y, buffer);
+        drawer.draw_patch_pixels(num, x, y, pixels);
     }
     if digits.len() <= pad {
         for _ in 0..=pad - digits.len() {
             x -= width;
-            drawer.draw_patch(&nums[0], x, y, buffer);
+            drawer.draw_patch_pixels(&nums[0], x, y, pixels);
         }
     }
 
     x
+}
+
+pub fn draw_num(
+    p: u32,
+    x: i32,
+    y: i32,
+    pad: usize,
+    nums: &[WadPatch],
+    drawer: &impl MachinationTrait,
+    buffer: &mut RenderTarget,
+) -> i32 {
+    // TODO: remove duplicated functionality
+    match buffer.render_type() {
+        render_traits::RenderType::Software => {
+            let pixels = unsafe { buffer.software_unchecked() };
+            draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
+        }
+        render_traits::RenderType::SoftOpenGL => {
+            let pixels = unsafe { buffer.soft_opengl_unchecked() };
+            draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
+        }
+        render_traits::RenderType::OpenGL => todo!(),
+        render_traits::RenderType::Vulkan => todo!(),
+    }
 }

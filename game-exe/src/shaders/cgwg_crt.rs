@@ -25,7 +25,6 @@ pub struct Cgwgcrt {
     crt_height: u32,
     projection: Mat4,
     look_at: Mat4,
-    texture: Texture,
     vb: VertexBuffer,
     eb: ElementBuffer,
 }
@@ -97,7 +96,6 @@ impl Cgwgcrt {
             crt_height,
             projection,
             look_at,
-            texture: Texture::new(ctx).unwrap(),
             vb,
             eb,
         }
@@ -105,20 +103,10 @@ impl Cgwgcrt {
 }
 
 impl Drawer for Cgwgcrt {
-    fn set_tex_filter(&self) -> Result<(), GolemError> {
-        self.texture.set_minification(TextureFilter::Nearest)?;
-        self.texture.set_magnification(TextureFilter::Nearest)
-    }
-
-    fn set_image_data(&mut self, input: &[u8], input_size: (u32, u32)) {
-        self.texture
-            .set_image(Some(input), input_size.0, input_size.1, ColorFormat::RGB);
-    }
-
-    fn draw(&mut self) -> Result<(), GolemError> {
+    fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         // Set the image to use
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
-        self.texture.set_active(bind_point);
+        texture.set_active(bind_point);
 
         self.crt_shader.bind();
         self.crt_shader.prepare_draw(&self.vb, &self.eb)?;
@@ -140,7 +128,7 @@ impl Drawer for Cgwgcrt {
 
         self.crt_shader.set_uniform(
             "inputSize",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+            UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
         )?;
 
         self.crt_shader.set_uniform(
@@ -149,7 +137,7 @@ impl Drawer for Cgwgcrt {
         )?;
         self.crt_shader.set_uniform(
             "textureSize",
-            UniformValue::Vector2([self.texture.width() as f32, self.texture.height() as f32]),
+            UniformValue::Vector2([texture.width() as f32, texture.height() as f32]),
         )?;
 
         self.crt_shader

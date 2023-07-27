@@ -8,10 +8,8 @@ build = "../../build.rs"
 [features]
 
 [dependencies]
-wad = { path = "../../wad" }
-sound-traits = { path = "../traits" }
-# versions are set by game-exe crate
-log = "*"
-glam = "*"
-# Required for config options
-serde = { version = "*", features = ["serde_derive"] }
+wad.workspace = true
+sound-traits.workspace = true
+log.workspace = true
+glam.workspace = true
+serde.workspace = true

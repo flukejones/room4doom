@@ -5,8 +5,8 @@ use crate::defs::{
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuf, Scancode, WBPlayerStruct,
-    WBStartStruct,
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, RenderTarget, Scancode,
+    WBPlayerStruct, WBStartStruct,
 };
 use log::warn;
 use wad::{
@@ -241,22 +241,41 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg(&self, scale: i32, buffer: &mut PixelBuf) {
+    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl PixelBuffer) {
         if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
             return;
         }
 
         for anim in self.animations[self.level_info.epsd as usize].iter() {
             if anim.counter >= 0 {
-                self.draw_patch(
+                self.draw_patch_pixels(
                     &anim.patches[anim.counter as usize],
                     anim.location.0 * scale,
                     anim.location.1 * scale,
-                    buffer,
+                    pixels,
                 );
             }
         }
     }
+
+    // fn draw_animated_bg(&self, scale: i32, buffer: &mut RenderTarget) {
+    //     if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+    //         return;
+    //     }
+
+    //     match buffer.render_type() {
+    //         gamestate_traits::RenderType::Software => {
+    //             let pixels = unsafe { buffer.software_unchecked() };
+    //             self.draw_animated_bg_pixels(scale, pixels);
+    //         }
+    //         gamestate_traits::RenderType::SoftOpenGL => {
+    //             let pixels = unsafe { buffer.soft_opengl_unchecked() };
+    //             self.draw_animated_bg_pixels(scale, pixels);
+    //         }
+    //         gamestate_traits::RenderType::OpenGL => todo!(),
+    //         gamestate_traits::RenderType::Vulkan => todo!(),
+    //     }
+    // }
 }
 
 impl MachinationTrait for Intermission {
@@ -329,20 +348,41 @@ impl MachinationTrait for Intermission {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut PixelBuf) {
+    fn draw(&mut self, buffer: &mut RenderTarget) {
         let scale = (buffer.height() / 200) as i32;
 
         // TODO: stats and next are two different screens.
-        match self.state {
-            State::StatCount => {
-                self.draw_stats(scale, buffer);
+        match buffer.render_type() {
+            gamestate_traits::RenderType::Software => {
+                let pixels = unsafe { buffer.software_unchecked() };
+                match self.state {
+                    State::StatCount => {
+                        self.draw_stats_pixels(scale, pixels);
+                    }
+                    State::NextLoc => {
+                        self.draw_next_loc_pixels(scale, pixels);
+                    }
+                    State::None => {
+                        self.draw_no_state(scale, pixels);
+                    }
+                }
             }
-            State::NextLoc => {
-                self.draw_next_loc(scale, buffer);
+            gamestate_traits::RenderType::SoftOpenGL => {
+                let pixels = unsafe { buffer.soft_opengl_unchecked() };
+                match self.state {
+                    State::StatCount => {
+                        self.draw_stats_pixels(scale, pixels);
+                    }
+                    State::NextLoc => {
+                        self.draw_next_loc_pixels(scale, pixels);
+                    }
+                    State::None => {
+                        self.draw_no_state(scale, pixels);
+                    }
+                }
             }
-            State::None => {
-                self.draw_no_state(scale, buffer);
-            }
+            gamestate_traits::RenderType::OpenGL => todo!(),
+            gamestate_traits::RenderType::Vulkan => todo!(),
         }
     }
 }
