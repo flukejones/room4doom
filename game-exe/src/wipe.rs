@@ -1,6 +1,6 @@
 use gameplay::m_random;
 use gamestate_traits::RenderTarget;
-use render_traits::PixelBuffer;
+use render_target::PixelBuffer;
 
 #[derive(Debug)]
 pub(crate) struct Wipe {
@@ -74,18 +74,18 @@ impl Wipe {
         draw_buf: &mut RenderTarget, // Draw to this buffer
     ) -> bool {
         match disp_buf.render_type() {
-            render_traits::RenderType::Software => {
+            render_target::RenderType::Software => {
                 let disp_buf = unsafe { disp_buf.software_unchecked() };
                 let draw_buf = unsafe { draw_buf.software_unchecked() };
                 self.do_melt_pixels(disp_buf, draw_buf)
             }
-            render_traits::RenderType::SoftOpenGL => {
+            render_target::RenderType::SoftOpenGL => {
                 let disp_buf = unsafe { disp_buf.soft_opengl_unchecked() };
                 let draw_buf = unsafe { draw_buf.soft_opengl_unchecked() };
                 self.do_melt_pixels(disp_buf, draw_buf)
             }
-            render_traits::RenderType::OpenGL => todo!(),
-            render_traits::RenderType::Vulkan => todo!(),
+            render_target::RenderType::OpenGL => todo!(),
+            render_target::RenderType::Vulkan => todo!(),
         }
     }
 }

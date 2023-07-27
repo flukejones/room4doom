@@ -11,7 +11,7 @@ use gameplay::{
 };
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{
-    sdl2::{keyboard::Scancode, video::Window},
+    sdl2::{keyboard::Scancode, render::Canvas, video::Window},
     GameState, MachinationTrait,
 };
 use hud_doom::Messages;
@@ -19,14 +19,12 @@ use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_soft::SoftwareRenderer;
-use render_traits::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
+use render_target::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
-use crate::{
-    blit::Blitter, cheats::Cheats, shaders::Shaders, timestep::TimeStep, wipe::Wipe, CLIOptions,
-};
+use crate::{cheats::Cheats, timestep::TimeStep, wipe::Wipe, CLIOptions};
 
 /// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
@@ -55,17 +53,31 @@ pub fn d_doom_loop(
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 
+    let mut render_buffer: RenderTarget;
+    let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
-    if let Some(shader) = options.shader {
-        if !matches!(shader, Shaders::None) {
-            render_type = RenderType::SoftOpenGL;
+    let mut canvas = window.into_canvas().accelerated().build().unwrap();
+
+    match options.rendering.unwrap() {
+        crate::config::RenderType::Software => {
+            render_buffer = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
+            render_buffer2 = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
         }
-    };
+        crate::config::RenderType::SoftOpenGL => {
+            let shader = options.shader.unwrap_or_default();
+            render_type = RenderType::SoftOpenGL;
+            render_buffer =
+                RenderTarget::new(screen_width, screen_height).with_gl(&canvas, &gl_ctx, shader);
+            render_buffer2 =
+                RenderTarget::new(screen_width, screen_height).with_gl(&canvas, &gl_ctx, shader);
+        }
+        crate::config::RenderType::OpenGL => todo!(),
+        crate::config::RenderType::Vulkan => todo!(),
+    }
+
     info!("Using {render_type:?}");
 
     let mut timestep = TimeStep::new();
-    let mut render_buffer = RenderTarget::new(screen_width, screen_height, &gl_ctx, render_type);
-    let mut render_buffer2 = RenderTarget::new(screen_width, screen_height, &gl_ctx, render_type);
 
     if matches!(render_type, RenderType::SoftOpenGL) {
         let buf = unsafe { render_buffer.soft_opengl_unchecked() };
@@ -73,8 +85,6 @@ pub fn d_doom_loop(
         let buf = unsafe { render_buffer.soft_opengl_unchecked() };
         buf.set_gl_filter().unwrap();
     }
-
-    let mut blitter = Blitter::new(options.shader, &gl_ctx, window);
 
     let mut pal_num = 0;
     let mut image_num = 0;
@@ -151,7 +161,7 @@ pub fn d_doom_loop(
             &mut game,
             &mut render_buffer,
             &mut render_buffer2,
-            &mut blitter,
+            &mut canvas,
             &mut timestep,
         );
 
@@ -179,7 +189,7 @@ pub fn d_doom_loop(
         //     );
         // }
 
-        blitter.blit(&mut render_buffer);
+        render_buffer.blit(&mut canvas);
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
@@ -290,7 +300,7 @@ fn d_display(
     game: &mut Game,
     disp_buf: &mut RenderTarget, // Display from this buffer
     draw_buf: &mut RenderTarget, // Draw to this buffer
-    blitter: &mut Blitter,
+    canvas: &mut Canvas<Window>,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -373,7 +383,7 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf, draw_buf);
-            blitter.blit(disp_buf);
+            disp_buf.blit(canvas);
         });
 
         if done {

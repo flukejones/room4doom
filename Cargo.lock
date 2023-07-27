@@ -133,7 +133,7 @@ name = "gamestate-traits"
 version = "0.2.0"
 dependencies = [
  "gameplay",
- "render-traits",
+ "render-target",
  "sdl2",
  "sound-traits",
  "wad",
@@ -398,16 +398,18 @@ version = "0.9.1"
 dependencies = [
  "gameplay",
  "glam",
- "render-traits",
+ "render-target",
  "wad",
 ]
 
 [[package]]
-name = "render-traits"
+name = "render-target"
 version = "1.0.0"
 dependencies = [
  "gameplay",
  "golem",
+ "sdl2",
+ "serde",
 ]
 
 [[package]]
@@ -427,7 +429,7 @@ dependencies = [
  "intermission-doom",
  "menu-doom",
  "render-soft",
- "render-traits",
+ "render-target",
  "serde",
  "sound-sdl2",
  "sound-traits",

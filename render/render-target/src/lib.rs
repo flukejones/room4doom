@@ -1,8 +1,18 @@
 //! A generic `PixelBuf` that can be drawn to and is blitted to screen by the game,
 //! and a generic `PlayRenderer` for rendering the players view of the level.
 
+pub mod shaders;
+
 use gameplay::{Level, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
+use sdl2::{
+    pixels,
+    rect::Rect,
+    render::{Canvas, TextureCreator},
+    surface,
+    video::{Window, WindowContext},
+};
+use shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, ShaderDraw, Shaders};
 
 const CHANNELS: usize = 4;
 
@@ -35,14 +45,23 @@ pub struct SoftFramebuffer {
     height: usize,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     buffer: Vec<u8>,
+    crop_rect: Rect,
+    tex_creator: TextureCreator<WindowContext>,
 }
 
 impl SoftFramebuffer {
-    fn new(width: usize, height: usize) -> Self {
+    fn new(width: usize, height: usize, canvas: &Canvas<Window>) -> Self {
+        let wsize = canvas.window().drawable_size();
+        let ratio = wsize.1 as f32 * 1.333;
+        let xp = (wsize.0 as f32 - ratio) / 2.0;
+
+        let tex_creator = canvas.texture_creator();
         Self {
             width,
             height,
             buffer: vec![0; (width * height) * CHANNELS],
+            crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
+            tex_creator,
         }
     }
 }
@@ -100,25 +119,28 @@ impl PixelBuffer for SoftFramebuffer {
 pub struct SoftOpenGL {
     width: usize,
     height: usize,
-    frame_buffer: SoftFramebuffer,
+    buffer: Vec<u8>,
     gl_texture: Texture,
+    screen_shader: Box<dyn ShaderDraw>,
 }
 
 impl SoftOpenGL {
-    fn new(width: usize, height: usize, ctx: &Context) -> Self {
-        let mut gl_texture = Texture::new(ctx).unwrap();
+    fn new(width: usize, height: usize, gl_ctx: &Context, screen_shader: Shaders) -> Self {
+        let mut gl_texture = Texture::new(gl_ctx).unwrap();
         gl_texture.set_image(None, width as u32, height as u32, golem::ColorFormat::RGB);
+
         Self {
             width,
             height,
-            frame_buffer: SoftFramebuffer::new(width, height),
+            buffer: vec![0; (width * height) * CHANNELS],
             gl_texture,
+            screen_shader: match screen_shader {
+                Shaders::Basic => Box::new(Basic::new(gl_ctx)),
+                Shaders::Lottes => Box::new(LottesCRT::new(gl_ctx)),
+                Shaders::LottesBasic => Box::new(shaders::lottes_reduced::LottesCRT::new(gl_ctx)),
+                Shaders::Cgwg => Box::new(Cgwgcrt::new(gl_ctx, width as u32, height as u32)),
+            },
         }
-    }
-
-    #[inline]
-    pub fn frame_buffer(&mut self) -> &mut SoftFramebuffer {
-        &mut self.frame_buffer
     }
 
     #[inline]
@@ -133,7 +155,7 @@ impl SoftOpenGL {
 
     pub fn copy_softbuf_to_gl_texture(&mut self) {
         self.gl_texture.set_image(
-            Some(&self.frame_buffer.buffer),
+            Some(&self.buffer),
             self.width as u32,
             self.height as u32,
             ColorFormat::RGBA,
@@ -144,34 +166,49 @@ impl SoftOpenGL {
 impl PixelBuffer for SoftOpenGL {
     #[inline]
     fn width(&self) -> usize {
-        self.frame_buffer.width
+        self.width
     }
 
     #[inline]
     fn height(&self) -> usize {
-        self.frame_buffer.height
+        self.height
     }
 
     #[inline]
     fn clear(&mut self) {
-        self.frame_buffer.clear();
+        self.buffer.iter_mut().for_each(|n| *n = 0);
     }
 
     #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8)) {
-        self.frame_buffer.set_pixel(x, y, rgba);
+        // Shitty safeguard. Need to find actual cause of fail
+        if x >= self.width || y >= self.height {
+            return;
+        }
+
+        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
+        self.buffer[pos] = rgba.0;
+        self.buffer[pos + 1] = rgba.1;
+        self.buffer[pos + 2] = rgba.2;
+        self.buffer[pos + 3] = rgba.3;
     }
 
     /// Read the colour of a single pixel at X|Y
     #[inline]
     fn read_softbuf_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        self.frame_buffer.read_softbuf_pixel(x, y)
+        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
+        (
+            self.buffer[pos],
+            self.buffer[pos + 1],
+            self.buffer[pos + 2],
+            self.buffer[pos + 3],
+        )
     }
 
     /// Read the full buffer
     #[inline]
     fn read_softbuf_pixels(&mut self) -> &mut [u8] {
-        &mut self.frame_buffer.buffer
+        &mut self.buffer
     }
 }
 
@@ -186,24 +223,48 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn new(width: usize, height: usize, ctx: &Context, render_type: RenderType) -> Self {
-        let mut software = None;
-        let mut soft_opengl = None;
-
-        match render_type {
-            RenderType::Software => software = Some(SoftFramebuffer::new(width, height)),
-            RenderType::SoftOpenGL => soft_opengl = Some(SoftOpenGL::new(width, height, ctx)),
-            RenderType::OpenGL => todo!(),
-            RenderType::Vulkan => todo!(),
-        }
-
+    pub fn new(width: usize, height: usize) -> Self {
         Self {
             width,
             height,
-            render_type,
-            software,
-            soft_opengl,
+            render_type: RenderType::Software,
+            software: None,
+            soft_opengl: None,
         }
+    }
+
+    pub fn with_software(mut self, canvas: &Canvas<Window>) -> Self {
+        if self.soft_opengl.is_some() {
+            panic!("Rendering already set up for software-opengl");
+        }
+        self.software = Some(SoftFramebuffer::new(self.width, self.height, canvas));
+        self.render_type = RenderType::Software;
+        self
+    }
+
+    pub fn with_gl(
+        mut self,
+        canvas: &Canvas<Window>,
+        gl_ctx: &Context,
+        screen_shader: Shaders,
+    ) -> Self {
+        if self.software.is_some() {
+            panic!("Rendering already set up for software");
+        }
+        self.soft_opengl = Some(SoftOpenGL::new(
+            self.width,
+            self.height,
+            gl_ctx,
+            screen_shader,
+        ));
+        self.render_type = RenderType::SoftOpenGL;
+
+        let wsize = canvas.window().drawable_size();
+        let ratio = wsize.1 as f32 * 1.333;
+        let xp = (wsize.0 as f32 - ratio) / 2.0;
+
+        gl_ctx.set_viewport(xp as u32, 0, ratio as u32, wsize.1);
+        self
     }
 
     #[inline]
@@ -241,14 +302,39 @@ impl RenderTarget {
         self.soft_opengl.as_mut().unwrap_unchecked()
     }
 
-    // // /// Get the array of pixels. The layout of which is [Row<RGBA>]
-    // pub fn softbuf_pixels(&self) -> &[u8] {
-    //     &self.software
-    // }
-
-    // pub fn softbuf_pixels_mut(&mut self) -> &mut [u8] {
-    //     &mut self.software
-    // }
+    pub fn blit(&mut self, sdl_canvas: &mut Canvas<Window>) {
+        match self.render_type {
+            RenderType::SoftOpenGL => {
+                let ogl = unsafe { self.soft_opengl.as_mut().unwrap_unchecked() };
+                // shader.shader.clear();
+                ogl.copy_softbuf_to_gl_texture();
+                ogl.screen_shader.draw(&ogl.gl_texture).unwrap();
+                sdl_canvas.window().gl_swap_window();
+            }
+            RenderType::Software => {
+                let w = self.width() as u32;
+                let h = self.height() as u32;
+                let render_buffer = unsafe { self.software.as_mut().unwrap_unchecked() };
+                let texc = &render_buffer.tex_creator;
+                let surf = surface::Surface::from_data(
+                    &mut render_buffer.buffer,
+                    w,
+                    h,
+                    4 * w,
+                    pixels::PixelFormatEnum::RGBA32,
+                )
+                .unwrap()
+                .as_texture(texc)
+                .unwrap();
+                sdl_canvas
+                    .copy(&surf, None, Some(render_buffer.crop_rect))
+                    .unwrap();
+                sdl_canvas.present();
+            }
+            RenderType::OpenGL => todo!(),
+            RenderType::Vulkan => todo!(),
+        }
+    }
 }
 
 pub trait PlayRenderer {

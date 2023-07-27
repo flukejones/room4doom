@@ -9,7 +9,7 @@ members = [
     "statusbar/doom",
     "input",
     "menu/doom",
-    "render/traits",
+    "render/render-target",
     "render/software",
     "sound/traits",
     "sound/sdl2",
@@ -39,7 +39,7 @@ statusbar-doom = { path = "./statusbar/doom" }
 sound-traits = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
 sound-nosnd = { path = "./sound/nosnd" }
-render-traits = { path = "./render/traits" }
+render-target = { path = "./render/render-target" }
 render-soft = { path = "./render/software" }
 render-opengl = { path = "./render/opengl" }
 

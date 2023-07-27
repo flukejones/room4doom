@@ -28,7 +28,7 @@ statusbar-doom.workspace = true
 
 sound-traits.workspace = true
 sound-sdl2.workspace = true
-render-traits.workspace = true
+render-target.workspace = true
 render-soft.workspace = true
 wad.workspace = true
 

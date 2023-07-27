@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_4;
 use gameplay::glam::{Mat4, Vec3};
 use golem::{Dimension::*, *};
 
-use super::{Drawer, GL_QUAD, GL_QUAD_INDICES};
+use super::{ShaderDraw, GL_QUAD, GL_QUAD_INDICES};
 
 pub struct Basic {
     _quad: [f32; 16],
@@ -80,7 +80,7 @@ impl Basic {
     }
 }
 
-impl Drawer for Basic {
+impl ShaderDraw for Basic {
     fn draw(&mut self, texture: &Texture) -> Result<(), GolemError> {
         let bind_point = std::num::NonZeroU32::new(1).unwrap();
         texture.set_active(bind_point);

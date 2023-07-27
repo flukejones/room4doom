@@ -13,7 +13,6 @@ pub enum Shaders {
     LottesBasic,
     Cgwg,
     Basic,
-    None,
 }
 
 impl Default for Shaders {
@@ -31,7 +30,6 @@ impl FromStr for Shaders {
             "lottesbasic" => Ok(Shaders::LottesBasic),
             "cgwg" => Ok(Shaders::Cgwg),
             "basic" => Ok(Shaders::Basic),
-            "none" => Ok(Shaders::None),
             _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Doh!")),
         }
     }
@@ -47,6 +45,6 @@ const GL_QUAD: [f32; 16] = [
 
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-pub trait Drawer {
+pub trait ShaderDraw {
     fn draw(&mut self, texture: &Texture) -> Result<(), GolemError>;
 }
