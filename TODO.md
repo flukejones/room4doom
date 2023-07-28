@@ -8,6 +8,7 @@
 - [ ] Doom 2 boss brain thing
   - [ ] Can't target it, probably because it's not visible? There's that thing in front?
 - [ ] Wad mobj flags a different to in-game info flags...
+- [ ] Statusbar doomguy face god-mode
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
 
 ## FUNCTIONALITY
@@ -59,6 +60,12 @@
 - [ ] Step over things if higher
 - [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
+## Graphics
+- [ ] Graphics options config in config file
+- [ ] Add a *true* software renderer using the OG fixed-point style of DOOM
+- [ ] OpenGL renderer
+- [ ] Vulkan renderer
+
 ## BOOM stuff to consider
 
 - [ ] Lump name `SWITCHES`, extend the switch list
@@ -108,7 +115,7 @@ if !all_around {
     let v1 = self.angle.unit();                    // Get a unit from mobj angle
     let angle = v1.angle_between(xy).abs();        // then use glam to get angle between (it's +/- for .abs())
     if angle > FRAC_PI_2 && self.xy.distance(xy) > MELEERANGE {
-    continue;
+        continue;
     }
 }
 ```
