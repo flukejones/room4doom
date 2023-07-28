@@ -56,7 +56,12 @@ pub fn d_doom_loop(
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
-    let mut canvas = window.into_canvas().accelerated().build().unwrap();
+    let mut canvas = window
+        .into_canvas()
+        .present_vsync()
+        .accelerated()
+        .build()
+        .unwrap();
 
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
