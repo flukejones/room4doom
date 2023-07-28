@@ -200,7 +200,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let gl_attr = video_ctx.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
 
     let wad = WadData::new(options.iwad.clone().into());
     setup_timidity(&wad);
