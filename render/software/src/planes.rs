@@ -70,11 +70,8 @@ impl VisPlaneRender {
     /// At begining of frame.
     pub fn clear_planes(&mut self, view_angle: Angle) {
         // opening / clipping determination
-        for i in 0..self.floorclip.len() {
-            self.floorclip[i] = self.screen_height;
-            self.ceilingclip[i] = -1.0;
-        }
-
+        self.floorclip.fill(self.screen_height);
+        self.ceilingclip.fill(-1.0);
         for p in self.visplanes.iter_mut() {
             p.clear();
         }
@@ -268,7 +265,7 @@ fn map_plane(
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = screen_to_x_view(x1, pixels.width() as f32).cos().abs();
+    let distscale = screen_to_x_view(x1, pixels.width() as f32).cos();
     let length = distance * (1.0 / distscale);
     let angle = plane.view_angle + screen_to_x_view(x1, pixels.width() as f32);
     let ds_xfrac = viewxy.x + angle.cos() * length;

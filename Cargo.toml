@@ -75,7 +75,7 @@ panic = "abort"
 
 [profile.dev]
 debug = true
-opt-level = 1
+opt-level = 3
 
 [profile.bench]
 debug = false

@@ -369,7 +369,7 @@ fn d_display(
         _ => {}
     }
 
-    // // menus go directly to the screen
+    // menus go directly to the screen
     // draw_buf.clear();
     menu.draw(draw_buf); // menu is drawn even on top of everything
                          // net update does i/o and buildcmds...
