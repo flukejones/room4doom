@@ -129,7 +129,6 @@ impl Visplane {
             maxx: 0.0,
             top: vec![f32::MAX; screen_width + 1],
             bottom: vec![0.0; screen_width + 1],
-
             basexscale: 0.0,
             baseyscale: 0.0,
             view_angle: Angle::default(),
@@ -145,13 +144,7 @@ impl Visplane {
         self.picnum = 0;
         self.minx = 0.0;
         self.maxx = 0.0;
-
-        for x in self.top.iter_mut() {
-            *x = f32::MAX;
-        }
-
-        for x in self.bottom.iter_mut() {
-            *x = f32::MIN;
-        }
+        self.top.fill(f32::MAX);
+        self.bottom.fill(f32::MIN);
     }
 }

@@ -694,26 +694,27 @@ impl<'a> DrawColumn<'a> {
         pixels: &mut impl PixelBuffer,
     ) {
         let pal = textures.palette();
+        let dc_x = self.dc_x as usize;
         let mut frac =
-            self.dc_texturemid + (self.yl - pixels.height() as f32 / 2.0) * self.fracstep + 0.1;
+            self.dc_texturemid + (self.yl - (pixels.height() / 2) as f32) * self.fracstep;
 
-        for n in self.yl as i32..=self.yh as i32 {
+        for n in self.yl as usize..=self.yh as usize {
             let mut select = if doubled {
                 (frac as i32 / 2) & 0xff
             } else {
                 (frac as i32) & 0xff
-            };
-            if select >= self.texture_column.len() as i32 {
-                select %= self.texture_column.len() as i32;
+            } as usize;
+            if select >= self.texture_column.len() {
+                select %= self.texture_column.len();
             }
-            if self.texture_column[select as usize] == usize::MAX {
-                frac += self.fracstep;
-                continue;
-            }
+            // if self.texture_column[select as usize] == usize::MAX {
+            //     frac += self.fracstep;
+            //     continue;
+            // }
 
-            let px = self.colourmap[self.texture_column[select as usize]];
+            let px = self.colourmap[self.texture_column[select]];
             let c = pal[px];
-            pixels.set_pixel(self.dc_x as usize, n as usize, (c.r, c.g, c.b, 255));
+            pixels.set_pixel(dc_x, n, (c.r, c.g, c.b, 255));
 
             frac += self.fracstep;
         }
