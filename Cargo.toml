@@ -45,21 +45,15 @@ render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
-    "mixer",
-    "bundled",
-] }
-#sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
+#sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer", "bundled"] }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
 gumdrop = "~0.8"
 
 log = "*"
-env_logger = { version = "^0.9", default-features = false, features = [
-    "termcolor",
-    "atty",
-] }
-dirs = "~4.0"
-toml = "0.5"
+env_logger = { version = "^0.10" }
+dirs = "~5.0"
+toml = "0.7"
 serde = { version = "1.0", features = ["serde_derive"] }
 
 #[workspace.dependencies.cargo-husky]
@@ -68,10 +62,12 @@ serde = { version = "1.0", features = ["serde_derive"] }
 #features = ["user-hooks"]
 
 [profile.release]
-lto = true
+lto = "fat"
 debug = false
-opt-level = 3
+opt-level = "z"
 panic = "abort"
+strip = "symbols"
+codegen-units = 1
 
 [profile.dev]
 debug = true
