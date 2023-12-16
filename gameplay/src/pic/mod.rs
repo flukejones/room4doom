@@ -333,20 +333,22 @@ impl PicData {
             // draw patch
             let mut x_pos = patch_pos.origin_x;
             for c in patch.columns.iter() {
+                if c.y_offset == 255 {
+                    x_pos += 1;
+                }
                 if x_pos == texture.width as i32 {
                     break;
                 }
+
                 for (y, p) in c.pixels.iter().enumerate() {
                     let y_pos = y as i32 + patch_pos.origin_y + c.y_offset;
                     if y_pos >= 0 && y_pos < texture.height as i32 && x_pos >= 0 {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
                 }
-                if c.y_offset == 255 {
-                    x_pos += 1;
-                }
             }
         }
+
         debug!("Built texture: {}", &texture.name);
         WallPic {
             name: texture.name,
@@ -554,14 +556,14 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
-    pub fn wall_pic_column(&self, texture: usize, texture_column: i32) -> &[usize] {
+    pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
         let texture = &self.walls[self.wall_translation[texture]];
-        let mut col = texture_column;
-        if col >= texture.data.len() as i32 {
-            col -= 1;
+
+        if texture_column >= texture.data.len() {
+            texture_column &= texture.data.len() - 1; // texture.data.len() as i32 - 1;
         }
-        let index = col & (texture.data.len() as i32 - 1);
-        &texture.data[index as usize]
+
+        &texture.data[texture_column]
     }
 
     pub fn num_textures(&self) -> usize {

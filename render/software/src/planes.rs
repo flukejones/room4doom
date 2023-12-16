@@ -50,7 +50,7 @@ impl VisPlaneRender {
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: vec![f32::MAX; screen_width * 64],
+            openings: vec![f32::MAX; screen_width * 128], // TODO: find a good limit
             lastopening: 0.0,
             floorclip: vec![screen_height as f32; screen_width],
             ceilingclip: vec![-1.0; screen_width],

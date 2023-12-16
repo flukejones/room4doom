@@ -190,7 +190,6 @@ impl SoftwareRenderer {
         if sprite_frame.rotate == 1 {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
-            let rot = rot;
             patch_index = sprite_frame.lump[rot as usize] as usize;
             patch = texture_data.sprite_patch(patch_index);
             flip = sprite_frame.flip[rot as usize];
@@ -420,6 +419,8 @@ impl SoftwareRenderer {
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
         }
+        // TODO: WARN: SHT2 has no frames
+        // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:423:21
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
         let patch = texture_data.sprite_patch(frame.lump[0] as usize);
         let flip = frame.flip[0];
@@ -544,7 +545,7 @@ impl SoftwareRenderer {
                     {
                         let texture_column = textures.wall_pic_column(
                             unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                            self.r_data.visplanes.openings[index] as i32,
+                            self.r_data.visplanes.openings[index].abs() as usize,
                         );
 
                         let mut mceilingclip = self.r_data.visplanes.openings

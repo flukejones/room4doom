@@ -533,7 +533,7 @@ impl SegRender {
             let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as f32);
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance) as i32;
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance).abs() as usize;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
@@ -700,19 +700,17 @@ impl<'a> DrawColumn<'a> {
 
         for n in self.yl as usize..=self.yh as usize {
             let mut select = if doubled {
-                (frac as i32 / 2) & 0xff
+                frac as i32 / 2
             } else {
-                (frac as i32) & 0xff
+                frac as i32
             } as usize;
-            if select >= self.texture_column.len() {
-                select %= self.texture_column.len();
-            }
-            // if self.texture_column[select as usize] == usize::MAX {
-            //     frac += self.fracstep;
-            //     continue;
-            // }
+            select %= self.texture_column.len();
 
-            let px = self.colourmap[self.texture_column[select]];
+            let cm = self.texture_column[select]; // TODO: texture_column isn't completely full of data for some textures
+            if cm == usize::MAX {
+                return;
+            }
+            let px = self.colourmap[cm];
             let c = pal[px];
             pixels.set_pixel(dc_x, n, (c.r, c.g, c.b, 255));
 

@@ -14,8 +14,8 @@ pub struct PortalClip {
 impl PortalClip {
     pub fn new(screen_width: usize, screen_height: usize) -> Self {
         PortalClip {
-            floorclip: vec![0.0; screen_width],
-            ceilingclip: vec![0.0; screen_width],
+            floorclip: vec![0.0; screen_width + 1],
+            ceilingclip: vec![0.0; screen_width + 1],
             screen_width,
             screen_height,
         }
