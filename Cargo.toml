@@ -20,7 +20,7 @@ members = [
     "finale/doom",
 ]
 default-members = ["game-exe"]
-resolve = 2
+resolver = "2"
 
 [workspace.package]
 version = "0.9.0"
@@ -47,8 +47,8 @@ render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
-#sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer", "bundled"] }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer", "bundled"] }
+#sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
 gumdrop = "~0.8"
 
@@ -64,11 +64,11 @@ serde = { version = "1.0", features = ["serde_derive"] }
 #features = ["user-hooks"]
 
 [profile.release]
-lto = "fat"
+lto = true
 debug = false
 opt-level = 3
 panic = "abort"
-strip = "symbols"
+strip = true
 codegen-units = 1
 
 [profile.dev]
