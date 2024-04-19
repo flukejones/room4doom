@@ -503,7 +503,7 @@ impl SoftwareRenderer {
 
             let rw_scalestep = ds.scalestep;
             // TODO: hmmmm 0.05
-            let mut spryscale = ds.scale1 + 0.05 + (x1 - ds.x1) * rw_scalestep;
+            let mut spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep;
 
             let mut dc_texturemid;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
@@ -514,14 +514,14 @@ impl SoftwareRenderer {
                 };
 
                 let texture_column = textures.wall_pic_column(texnum, 0);
-                dc_texturemid += texture_column.len() as f32 - player.viewz - 0.5;
+                dc_texturemid += texture_column.len() as f32 - player.viewz - 1.0;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
                     frontsector.ceilingheight
                 } else {
                     backsector.ceilingheight
                 };
-                dc_texturemid -= player.viewz - 0.5;
+                dc_texturemid -= player.viewz;
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
@@ -552,8 +552,10 @@ impl SoftwareRenderer {
                             mfloorclip = 0.0;
                         }
 
-                        // // calculate unclipped screen coordinates for post
-                        let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
+                        // calculate unclipped screen coordinates for post
+                        // pixels.height() / 2 - 1 required to prevent vis from going over the span
+                        let sprtopscreen =
+                            (pixels.height() / 2 - 1) as f32 - dc_texturemid * spryscale;
                         let top = sprtopscreen;
                         let bottom = top + (spryscale * texture_column.len() as f32);
                         let mut yl = top;
