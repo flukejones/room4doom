@@ -24,16 +24,7 @@ pub struct VisPlaneRender {
 
     pub floorclip: Vec<f32>,
     pub ceilingclip: Vec<f32>,
-    /// spanstart holds the start of a plane span
-    /// initialized to 0 at start
-    pub spanstart: Vec<f32>,
-    pub spanstop: Vec<f32>,
 
-    //lighttable_t **planezlight;
-    pub planeheight: f32,
-
-    pub yslope: Vec<f32>,
-    pub distscale: Vec<f32>,
     pub basexscale: f32,
     pub baseyscale: f32,
 
@@ -54,11 +45,6 @@ impl VisPlaneRender {
             lastopening: 0.0,
             floorclip: vec![screen_height as f32; screen_width],
             ceilingclip: vec![-1.0; screen_width],
-            spanstart: vec![0.0; screen_height],
-            spanstop: vec![0.0; screen_height],
-            planeheight: 0.0,
-            yslope: vec![0.0; screen_height],
-            distscale: vec![0.0; screen_width],
             basexscale: 0.0,
             baseyscale: 0.0,
             screen_width: screen_width as f32,
@@ -115,7 +101,7 @@ impl VisPlaneRender {
         }
 
         // Otherwise edit new
-        let mut check = &mut self.visplanes[self.lastvisplane];
+        let check = &mut self.visplanes[self.lastvisplane];
         check.height = height;
         check.picnum = picnum;
         check.lightlevel = light_level;

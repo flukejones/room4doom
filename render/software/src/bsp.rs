@@ -1,10 +1,5 @@
-use super::{
-    defs::ClipRange,
-    segs::{DrawColumn, SegRender},
-    things::VisSprite,
-    RenderData,
-};
-use crate::{planes::make_spans, utilities::screen_to_x_view};
+use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
+use crate::{planes::make_spans, segs::draw_column, utilities::screen_to_x_view};
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
     SubSector, IS_SSECTOR_MASK,
@@ -179,11 +174,12 @@ impl SoftwareRenderer {
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
                         let angle = (view_angle.rad().to_degrees()
-                            + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees())
+                            + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees()
+                            + 360.0)
                             * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = textures.wall_pic_column(skytex, angle.abs() as usize);
-
-                        let mut dc = DrawColumn::new(
+                        // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
+                        draw_column(
                             texture_column,
                             colourmap,
                             0.94,
@@ -191,9 +187,10 @@ impl SoftwareRenderer {
                             sky_mid as f32,
                             dc_yl,
                             dc_yh,
+                            &textures,
+                            sky_doubled,
+                            pixels,
                         );
-                        // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-                        dc.draw_column(&textures, sky_doubled, pixels);
                     }
                 }
                 continue;

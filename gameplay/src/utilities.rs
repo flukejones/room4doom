@@ -272,6 +272,9 @@ pub fn traverse_intercepts(
     max_frac: f32,
     mut trav: impl FnMut(&mut Intercept) -> bool,
 ) -> bool {
+    if intercepts.len() == 0 {
+        return false;
+    }
     let mut intercept: *mut Intercept = unsafe { intercepts.get_unchecked_mut(0) };
     let mut intercepts = Vec::from(intercepts);
     let mut count = intercepts.len();
