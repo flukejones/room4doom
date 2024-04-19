@@ -21,8 +21,8 @@ const FRAME_ROT_SELECT: f32 = 8.0 / (PI * 2.0);
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct VisSprite {
-    x1: i32,
-    x2: i32,
+    x1: f32,
+    x2: f32,
     // Line side calc
     gx: f32,
     gy: f32,
@@ -65,8 +65,8 @@ impl Eq for VisSprite {}
 impl VisSprite {
     pub fn new() -> Self {
         Self {
-            x1: 0,
-            x2: 0,
+            x1: 0.0,
+            x2: 0.0,
             gx: 0.0,
             gy: 0.0,
             gz: 0.0,
@@ -82,8 +82,8 @@ impl VisSprite {
     }
 
     pub fn clear(&mut self) {
-        self.x1 = 0;
-        self.x2 = 0;
+        self.x1 = 0.0;
+        self.x2 = 0.0;
         self.gx = 0.0;
         self.gy = 0.0;
         self.gz = 0.0;
@@ -200,14 +200,14 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale) as i32 - 1;
-        if x1 > screen_width as i32 {
+        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale) - 1.0;
+        if x1 > screen_width as f32 {
             return true;
         }
 
         tx += patch.data.len() as f32;
-        let x2 = ((screen_width as f32 / 2.0) + tx * x_scale) as i32;
-        if x2 < 0 {
+        let x2 = (screen_width as f32 / 2.0) + tx * x_scale;
+        if x2 < 0.0 {
             return true;
         }
 
@@ -219,9 +219,9 @@ impl SoftwareRenderer {
         vis.gz = thing.z;
         vis.gzt = thing.z + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;
-        vis.x1 = if x1 < 0 { 0 } else { x1 };
-        vis.x2 = if x2 >= screen_width as i32 {
-            screen_width as i32 - 1
+        vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
+        vis.x2 = if x2 >= screen_width as f32 {
+            screen_width as f32 - 1.0
         } else {
             x2
         };
@@ -270,7 +270,7 @@ impl SoftwareRenderer {
             texture_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
-        for x in vis.x1..=vis.x2 {
+        for x in vis.x1 as i32..=vis.x2 as i32 {
             let tex_column = (frac) as usize;
             if tex_column >= patch.data.len() {
                 break;
@@ -318,23 +318,15 @@ impl SoftwareRenderer {
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
-            if seg.x1 as i32 > vis.x2
-                || (seg.x2 as i32) < vis.x1
+            if seg.x1 > vis.x2
+                || seg.x2 < vis.x1
                 || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
             {
                 continue;
             }
 
-            let r1 = if (seg.x1 as i32) < vis.x1 {
-                vis.x1
-            } else {
-                seg.x1 as i32
-            };
-            let r2 = if (seg.x2 as i32) > vis.x2 {
-                vis.x2
-            } else {
-                seg.x2 as i32
-            };
+            let r1 = if (seg.x1) < vis.x1 { vis.x1 } else { seg.x1 };
+            let r2 = if (seg.x2) > vis.x2 { vis.x2 } else { seg.x2 };
 
             let (lowscale, scale) = if seg.scale1 > seg.scale2 {
                 (seg.scale2, seg.scale1)
@@ -359,7 +351,7 @@ impl SoftwareRenderer {
                 }
             }
 
-            for r in r1..=r2 {
+            for r in r1 as i32..=r2 as i32 {
                 if clip_bottom[r as usize] == -2.0 && seg.sprbottomclip.is_some() {
                     clip_bottom[r as usize] =
                         self.r_data.visplanes.openings[(seg.sprbottomclip.unwrap() + r) as usize];
@@ -377,7 +369,7 @@ impl SoftwareRenderer {
             }
         }
 
-        for x in vis.x1..=vis.x2 {
+        for x in vis.x1 as i32..=vis.x2 as i32 {
             if clip_bottom[x as usize] == -2.0 {
                 clip_bottom[x as usize] = pixels.height() as f32;
             }
@@ -425,15 +417,15 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
-        let x1 = (pixels.width() as i32 / 2) + (tx * pspritescale) as i32;
+        let x1 = (pixels.width() / 2) as f32 + (tx * pspritescale);
 
-        if x1 >= pixels.width() as i32 {
+        if x1 >= pixels.width() as f32 {
             return;
         }
         tx += patch.data.len() as f32;
-        let x2 = ((pixels.width() / 2) as i32 + (tx * pspritescale) as i32) - 1;
+        let x2 = ((pixels.width() / 2) as f32 + (tx * pspritescale)) - 1.0;
 
-        if x2 < 0 {
+        if x2 < 0.0 {
             return;
         }
 
@@ -441,10 +433,10 @@ impl SoftwareRenderer {
         vis.mobj_flags = flags;
         vis.patch = frame.lump[0] as usize;
         // -(sprite.sy.floor() - patch.top_offset as f32);
-        vis.texture_mid = 100.0 - (sprite.sy.floor() - patch.top_offset as f32);
-        vis.x1 = if x1 < 0 { 0 } else { x1 };
-        vis.x2 = if x2 >= pixels.width() as i32 {
-            pixels.width() as i32
+        vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
+        vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
+        vis.x2 = if x2 >= pixels.width() as f32 {
+            pixels.width() as f32
         } else {
             x2
         };
@@ -482,7 +474,7 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = self.r_data.drawsegs.to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(player, ds, ds.x1 as i32, ds.x2 as i32, pixels);
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
         }
 
         self.draw_player_sprites(player, pixels);
@@ -492,8 +484,8 @@ impl SoftwareRenderer {
         &mut self,
         player: &Player,
         ds: &DrawSeg,
-        x1: i32,
-        x2: i32,
+        x1: f32,
+        x2: f32,
         pixels: &mut impl PixelBuffer,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
@@ -510,7 +502,8 @@ impl SoftwareRenderer {
             let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
             let rw_scalestep = ds.scalestep;
-            let mut spryscale = ds.scale1 + 0.05 + (x1 as f32 - ds.x1) * rw_scalestep;
+            // TODO: hmmmm 0.05
+            let mut spryscale = ds.scale1 + 0.05 + (x1 - ds.x1) * rw_scalestep;
 
             let mut dc_texturemid;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
@@ -532,7 +525,7 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1..=x2 {
+            for x in x1 as i32..=x2 as i32 {
                 if ds.maskedtexturecol + x < 0 {
                     spryscale += rw_scalestep;
                     continue;
