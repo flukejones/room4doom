@@ -7,7 +7,7 @@ use render_target::PixelBuffer;
 
 use super::defs::Visplane;
 
-pub const MAXVISPLANES: usize = 512;
+pub const MAXVISPLANES: usize = 1024;
 
 pub struct VisPlaneRender {
     // Here comes the obnoxious "visplane".
