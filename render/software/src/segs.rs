@@ -128,7 +128,7 @@ impl SegRender {
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
             return;
         }
-        static COL_OFFSET: f32 = 0.5;
+        static COL_OFFSET: f32 = 1.0;
 
         // bounds check before getting ref
         if rdata.ds_p >= rdata.drawsegs.len() {
@@ -224,7 +224,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = textures.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight + texture_column.len() as f32;
                     self.rw_midtexturemid = vtop - player.viewz;
                 }
             }

@@ -514,14 +514,14 @@ impl SoftwareRenderer {
                 };
 
                 let texture_column = textures.wall_pic_column(texnum, 0);
-                dc_texturemid += texture_column.len() as f32 - player.viewz;
+                dc_texturemid += texture_column.len() as f32 - player.viewz - 0.5;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
                     frontsector.ceilingheight
                 } else {
                     backsector.ceilingheight
                 };
-                dc_texturemid -= player.viewz;
+                dc_texturemid -= player.viewz - 0.5;
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
