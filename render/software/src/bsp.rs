@@ -145,7 +145,7 @@ impl SoftwareRenderer {
 
         self.clear_clip_segs(screen_width);
         self.r_data.clear_data(view_angle);
-        self.seg_renderer = SegRender::new(self.texture_data.clone());
+        // self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
 
     /// Doom function name `R_DrawPlanes`
