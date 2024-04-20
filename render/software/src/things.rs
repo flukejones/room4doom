@@ -270,7 +270,7 @@ impl SoftwareRenderer {
             texture_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
-        for x in vis.x1 as i32..=vis.x2 as i32 {
+        for x in vis.x1.ceil() as i32..=vis.x2.floor() as i32 {
             let tex_column = (frac) as usize;
             if tex_column >= patch.data.len() {
                 break;
