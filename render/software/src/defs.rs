@@ -31,9 +31,9 @@ pub struct DrawSeg {
     // TODO: Pointers to lists for sprite clipping,
     //  all three adjusted so [x1] is first value.
     /// Index in to visplanes.ceilingclip
-    pub sprtopclip: Option<i32>,
+    pub sprtopclip: Option<f32>,
     /// Index in to visplanes.floorclip
-    pub sprbottomclip: Option<i32>,
+    pub sprbottomclip: Option<f32>,
 
     /// Keeps an index that is used to index in to `openings`
     pub maskedtexturecol: i32,

@@ -10,6 +10,8 @@ use super::{
     RenderData,
 };
 
+const COL_OFFSET: f32 = 1.0;
+
 //const HEIGHTUNIT: f32 = 0.062485;
 
 // angle_t rw_normalangle; // From global angle? R_ScaleFromGlobalAngle
@@ -128,7 +130,6 @@ impl SegRender {
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
             return;
         }
-        static COL_OFFSET: f32 = 1.0;
 
         // bounds check before getting ref
         if rdata.ds_p >= rdata.drawsegs.len() {
@@ -148,8 +149,7 @@ impl SegRender {
         // mark the segment as visible for automap
         linedef.flags |= LineDefFlags::Mapped as u32;
 
-        self.rw_normalangle = seg.angle;
-        self.rw_normalangle += FRAC_PI_2;
+        self.rw_normalangle = seg.angle + FRAC_PI_2;
         let mut offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
 
         // Unrequired with full angle range
@@ -163,19 +163,18 @@ impl SegRender {
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
-        let view_angle = mobj.angle;
 
         // TODO: doublecheck the angles and bounds
-        let visangle = view_angle + screen_to_x_view(start, pixels.width() as f32);
+        let visangle = mobj.angle + screen_to_x_view(start, pixels.width() as f32);
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
             self.rw_distance,
-            view_angle,
+            mobj.angle,
             pixels.width() as f32,
         );
 
-        let visangle = view_angle + screen_to_x_view(stop, pixels.width() as f32);
+        let visangle = mobj.angle + screen_to_x_view(stop, pixels.width() as f32);
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -189,7 +188,7 @@ impl SegRender {
                 visangle,
                 self.rw_normalangle,
                 self.rw_distance,
-                view_angle,
+                mobj.angle,
                 pixels.width() as f32,
             );
 
@@ -231,8 +230,8 @@ impl SegRender {
             self.rw_midtexturemid += seg.sidedef.rowoffset - COL_OFFSET;
 
             ds_p.silhouette = SIL_BOTH;
-            ds_p.sprtopclip = Some(0); // start of screenheightarray
-            ds_p.sprbottomclip = Some(0); // start of negonearray
+            ds_p.sprtopclip = Some(0.0); // start of screenheightarray
+            ds_p.sprbottomclip = Some(0.0); // start of negonearray
             ds_p.bsilheight = f32::MAX;
             ds_p.tsilheight = f32::MIN;
         } else {
@@ -357,7 +356,7 @@ impl SegRender {
             self.rw_offset = -self.rw_offset;
             //  }
             self.rw_offset += sidedef.textureoffset + seg.offset;
-            self.rw_centerangle = view_angle - self.rw_normalangle;
+            self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
         }
 
@@ -427,7 +426,7 @@ impl SegRender {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some((rdata.visplanes.lastopening - start) as i32);
+            ds_p.sprtopclip = Some(rdata.visplanes.lastopening - start);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
@@ -446,7 +445,7 @@ impl SegRender {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some((rdata.visplanes.lastopening - start) as i32);
+            ds_p.sprbottomclip = Some(rdata.visplanes.lastopening - start);
             rdata.visplanes.lastopening += self.rw_stopx - start;
         }
 
