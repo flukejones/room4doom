@@ -490,7 +490,7 @@ impl SoftwareRenderer {
     ) {
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
-        let doubled = pixels.height() != 200;
+        let doubled = pixels.height() > 200;
 
         if let Some(backsector) = seg.backsector.as_ref() {
             let textures = self.texture_data.borrow();

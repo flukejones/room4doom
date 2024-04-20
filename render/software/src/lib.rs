@@ -1,4 +1,5 @@
 use self::{defs::DrawSeg, planes::VisPlaneRender, portals::PortalClip};
+use defs::MAXDRAWSEGS;
 use gameplay::Angle;
 
 mod bsp;
@@ -37,7 +38,7 @@ impl RenderData {
     pub(crate) fn new(screen_width: usize, screen_height: usize) -> Self {
         Self {
             rw_angle1: Angle::default(),
-            drawsegs: Vec::new(),
+            drawsegs: Vec::with_capacity(MAXDRAWSEGS),
             ds_p: 0,
             visplanes: VisPlaneRender::new(screen_width, screen_height),
             portal_clip: PortalClip::new(screen_width, screen_height),

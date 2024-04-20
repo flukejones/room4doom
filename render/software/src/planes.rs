@@ -261,73 +261,54 @@ fn map_plane(
     let light = (plane.lightlevel >> 4) + extra_light;
     let colourmap = texture_data.flat_light_colourmap(light, distance);
 
-    let mut ds = DrawSpan::new(
-        flat, colourmap, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2,
+    draw(
+        flat,
+        colourmap,
+        ds_xstep,
+        ds_ystep,
+        ds_xfrac,
+        ds_yfrac,
+        y,
+        x1,
+        x2,
+        texture_data,
+        pixels,
     );
-
-    ds.draw(texture_data, pixels);
 }
 
-pub struct DrawSpan<'a> {
-    texture: &'a FlatPic,
-    colourmap: &'a [usize],
+fn draw(
+    texture: &FlatPic,
+    colourmap: &[usize],
     ds_xstep: f32,
     ds_ystep: f32,
-    ds_xfrac: f32,
-    ds_yfrac: f32,
+    mut ds_xfrac: f32,
+    mut ds_yfrac: f32,
     ds_y: f32,
     ds_x1: f32,
     ds_x2: f32,
-}
+    textures: &PicData,
+    pixels: &mut impl PixelBuffer,
+) {
+    let pal = textures.palette();
+    // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
+    for s in ds_x1 as i32..=ds_x2 as i32 {
+        let mut x = ds_xfrac.abs() as usize & 0xff;
+        let mut y = ds_yfrac.abs() as usize & 0xff;
 
-impl<'a> DrawSpan<'a> {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        texture: &'a FlatPic,
-        colourmap: &'a [usize],
-        ds_xstep: f32,
-        ds_ystep: f32,
-        ds_xfrac: f32,
-        ds_yfrac: f32,
-        ds_y: f32,
-        ds_x1: f32,
-        ds_x2: f32,
-    ) -> Self {
-        Self {
-            texture,
-            colourmap,
-            ds_xstep,
-            ds_ystep,
-            ds_xfrac,
-            ds_yfrac,
-            ds_y,
-            ds_x1,
-            ds_x2,
+        if y >= texture.data[0].len() {
+            y %= texture.data[0].len();
         }
-    }
 
-    fn draw(&mut self, textures: &PicData, pixels: &mut impl PixelBuffer) {
-        let pal = textures.palette();
-        // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
-        for s in self.ds_x1 as i32..=self.ds_x2 as i32 {
-            let mut x = self.ds_xfrac.abs() as usize & 0xff;
-            let mut y = self.ds_yfrac.abs() as usize & 0xff;
-
-            if y >= self.texture.data[0].len() {
-                y %= self.texture.data[0].len();
-            }
-
-            if x >= self.texture.data.len() {
-                x %= self.texture.data.len();
-            }
-
-            let px = self.colourmap[self.texture.data[x][y] as usize];
-            let c = pal[px];
-            pixels.set_pixel(s as usize, self.ds_y as usize, (c.r, c.g, c.b, 255));
-
-            self.ds_xfrac += self.ds_xstep;
-            self.ds_yfrac += self.ds_ystep;
+        if x >= texture.data.len() {
+            x %= texture.data.len();
         }
+
+        let px = colourmap[texture.data[x][y] as usize];
+        let c = pal[px];
+        pixels.set_pixel(s as usize, ds_y as usize, (c.r, c.g, c.b, 255));
+
+        ds_xfrac += ds_xstep;
+        ds_yfrac += ds_ystep;
     }
 }
 

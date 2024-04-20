@@ -403,7 +403,7 @@ impl SegRender {
                     .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.floorplane);
         }
 
-        self.doubled = pixels.height() != 200;
+        self.doubled = pixels.height() > 200;
         self.render_seg_loop(seg, player.viewheight, rdata, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];

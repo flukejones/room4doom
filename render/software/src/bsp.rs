@@ -127,7 +127,13 @@ impl SoftwareRenderer {
             r_data: RenderData::new(screen_width, screen_height),
             seg_renderer: SegRender::new(texture_data.clone()),
             new_end: 0,
-            solidsegs: Vec::new(),
+            solidsegs: vec![
+                ClipRange {
+                    first: 0.0,
+                    last: 0.0
+                };
+                MAX_SEGS
+            ],
             texture_data,
             _debug: debug,
             checked_sectors: Vec::new(),
@@ -145,6 +151,7 @@ impl SoftwareRenderer {
 
         self.clear_clip_segs(screen_width);
         self.r_data.clear_data(view_angle);
+        // No need to recreate or clear as it is fully overwritten each frame
         // self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
 
@@ -371,17 +378,12 @@ impl SoftwareRenderer {
 
     /// R_ClearClipSegs - r_bsp
     fn clear_clip_segs(&mut self, screen_width: f32) {
-        self.solidsegs.clear();
-        self.solidsegs.push(ClipRange {
-            first: f32::MAX,
-            last: f32::MIN,
-        });
-        for _ in 0..MAX_SEGS {
-            self.solidsegs.push(ClipRange {
-                first: screen_width,
-                last: f32::MAX,
-            });
+        for s in self.solidsegs.iter_mut() {
+            s.first = screen_width;
+            s.last = f32::MAX;
         }
+        self.solidsegs[0].first = f32::MAX;
+        self.solidsegs[0].last = f32::MIN;
         self.new_end = 1;
     }
 
@@ -403,9 +405,6 @@ impl SoftwareRenderer {
             start += 1;
         }
 
-        // We create the seg-renderer for each seg as data is not shared
-        // TODO: check the above
-        // self.seg_renderer = SegRender::new(self.texture_data.clone());
         if first < self.solidsegs[start].first {
             if last < self.solidsegs[start].first - 1.0 {
                 // Post is entirely visible (above start),
