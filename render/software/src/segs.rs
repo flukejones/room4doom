@@ -139,7 +139,7 @@ impl SegRender {
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
         if start < 0.0 || pixels.width() as f32 <= start || start > stop {
-            return;
+            // return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 

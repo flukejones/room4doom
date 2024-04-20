@@ -290,9 +290,9 @@ impl SoftwareRenderer {
         let x2 = angle_to_screen(pixels.width() as f32, angle2);
 
         // Does not cross a pixel?
-        // if x1.floor() == x2.floor() {
-        //     return;
-        // }
+        if x1 == x2 {
+            return;
+        }
 
         if let Some(back_sector) = &seg.backsector {
             // Doors. Block view
