@@ -253,7 +253,6 @@ impl SoftwareRenderer {
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj);
 
         let span = angle1 - angle2;
-
         if span.rad() >= PI {
             return;
         }
@@ -265,7 +264,7 @@ impl SoftwareRenderer {
         angle2 -= angle;
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= FRAC_PI_2 {
+        if tspan.rad() > FRAC_PI_2 {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -275,7 +274,7 @@ impl SoftwareRenderer {
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() >= 2.0 * clipangle.rad() {
+        if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -287,20 +286,21 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
+
         let x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
         let x2 = angle_to_screen(pixels.width() as f32, angle2.rad());
 
         // Does not cross a pixel?
-        if x1 == x2 {
-            return;
-        }
+        // if x1.floor() == x2.floor() {
+        //     return;
+        // }
 
         if let Some(back_sector) = &seg.backsector {
             // Doors. Block view
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
+                self.clip_solid_seg(x1, x2, seg, player, pixels);
                 return;
             }
 
@@ -309,7 +309,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
+                self.clip_portal_seg(x1, x2, seg, player, pixels);
                 return;
             }
 
@@ -323,9 +323,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
+            self.clip_portal_seg(x1, x2, seg, player, pixels);
         } else {
-            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
+            self.clip_solid_seg(x1, x2, seg, player, pixels);
         }
     }
 
@@ -755,9 +755,9 @@ impl SoftwareRenderer {
 }
 
 fn angle_to_screen(screen_width: f32, mut radian: f32) -> f32 {
-    let p = screen_width / 2.0 + 1.0; // / (FRAC_PI_4).tan();
-                                      // if radian > FRAC_PI_2 {
-                                      // Left side
+    let p = screen_width / 2.0; // / (FRAC_PI_4).tan();
+                                // if radian > FRAC_PI_2 {
+                                // Left side
     radian -= FRAC_PI_2;
     (p - radian.tan() * p).floor()
     // } else {
