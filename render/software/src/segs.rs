@@ -138,7 +138,8 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if !(0.0..pixels.width() as f32).contains(&start) || start > stop {
+        if start < 0.0 || pixels.width() as f32 <= start || start > stop {
+            return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -152,17 +153,11 @@ impl SegRender {
         self.rw_normalangle = seg.angle + FRAC_PI_2;
         let mut offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
 
-        // Unrequired with full angle range
-        // if offsetangle > FRAC_PI_2 {
-        //     offsetangle = FRAC_PI_2;
-        // }
         let mobj = unsafe { player.mobj_unchecked() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
-
-        // viewangle = player->mo->angle + viewangleoffset; // offset can be 0, 90, 270
 
         // TODO: doublecheck the angles and bounds
         let visangle = mobj.angle + screen_to_x_view(start, pixels.width() as f32);
@@ -422,7 +417,7 @@ impl SegRender {
             {
                 let last = rdata.visplanes.lastopening as usize;
                 rdata.visplanes.openings[last + i] = *n;
-                if i as f32 > self.rw_stopx - start {
+                if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
@@ -441,7 +436,7 @@ impl SegRender {
             {
                 let last = rdata.visplanes.lastopening as usize;
                 rdata.visplanes.openings[last + i] = *n;
-                if i as f32 > self.rw_stopx - start {
+                if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
@@ -477,7 +472,7 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0;
-        while self.rw_x < self.rw_stopx {
+        while self.rw_x.floor() < self.rw_stopx.ceil() {
             let clip_index = self.rw_x as usize;
 
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;

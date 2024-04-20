@@ -188,7 +188,6 @@ pub fn make_spans(
     texture_data: &PicData,
     pixels: &mut impl PixelBuffer,
 ) {
-    // TODO: t1, y, is causing a glitch
     while t1 < t2 && t1 <= b1 {
         map_plane(
             t1,

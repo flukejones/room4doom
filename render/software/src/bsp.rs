@@ -240,10 +240,9 @@ impl SoftwareRenderer {
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
-        let xy = mobj.xy;
         let angle = mobj.angle;
 
-        if !seg.is_facing_point(&xy) {
+        if !seg.is_facing_point(&mobj.xy) {
             return;
         }
 
@@ -252,8 +251,8 @@ impl SoftwareRenderer {
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj);
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj);
 
-        let span = angle1 - angle2;
-        if span.rad() >= PI {
+        let span = (angle1 - angle2).rad().abs();
+        if span >= PI {
             return;
         }
 
@@ -264,21 +263,21 @@ impl SoftwareRenderer {
         angle2 -= angle;
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() > FRAC_PI_2 {
+        if tspan.rad() >= FRAC_PI_2 {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
-            if tspan.rad() >= span.rad() {
+            if tspan.rad() >= span {
                 return;
             }
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() > 2.0 * clipangle.rad() {
+        if tspan.rad() >= 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
-            if tspan.rad() >= span.rad() {
+            if tspan.rad() >= span {
                 return;
             }
             angle2 = -clipangle;
@@ -287,8 +286,8 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
 
-        let x1 = angle_to_screen(pixels.width() as f32, angle1.rad());
-        let x2 = angle_to_screen(pixels.width() as f32, angle2.rad());
+        let x1 = angle_to_screen(pixels.width() as f32, angle1);
+        let x2 = angle_to_screen(pixels.width() as f32, angle2);
 
         // Does not cross a pixel?
         // if x1.floor() == x2.floor() {
@@ -300,7 +299,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2, seg, player, pixels);
+                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
                 return;
             }
 
@@ -309,7 +308,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2, seg, player, pixels);
+                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
                 return;
             }
 
@@ -323,9 +322,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2, seg, player, pixels);
+            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
         } else {
-            self.clip_solid_seg(x1, x2, seg, player, pixels);
+            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
         }
     }
 
@@ -339,7 +338,7 @@ impl SoftwareRenderer {
     ) {
         let skynum = self.texture_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
-        if subsect.sector.floorheight < player.viewz && subsect.sector.floorpic != usize::MAX {
+        if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
                 subsect.sector.floorheight,
                 subsect.sector.floorpic,
@@ -348,7 +347,7 @@ impl SoftwareRenderer {
             );
         }
 
-        if (subsect.sector.ceilingheight > player.viewz
+        if (subsect.sector.ceilingheight >= player.viewz
             || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num())
             && subsect.sector.ceilingpic != usize::MAX
         {
@@ -721,7 +720,7 @@ impl SoftwareRenderer {
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() > 2.0 * clipangle.rad() {
+        if tspan.rad() >= 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -733,8 +732,8 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(screen_width, angle1.rad());
-        let mut x2 = angle_to_screen(screen_width, angle2.rad());
+        let x1 = angle_to_screen(screen_width, angle1);
+        let mut x2 = angle_to_screen(screen_width, angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -754,17 +753,17 @@ impl SoftwareRenderer {
     }
 }
 
-fn angle_to_screen(screen_width: f32, mut radian: f32) -> f32 {
-    let p = screen_width / 2.0; // / (FRAC_PI_4).tan();
-                                // if radian > FRAC_PI_2 {
-                                // Left side
+// TODO: this is a source of issues
+fn angle_to_screen(screen_width: f32, angle: Angle) -> f32 {
+    // int t = FixedMul(finetangent[i], FocalLengthX);
+    // t = (centerxfrac - t + FRACUNIT-1) >> FRACBITS;
+    let focal = screen_width / 2.0; // / (FRAC_PI_4).tan();
+    let mut radian = angle.rad();
     radian -= FRAC_PI_2;
-    (p - radian.tan() * p).floor()
-    // } else {
-    //     // Right side
-    //     radian = FRAC_PI_2 - radian;
-    //     (radian.tan() * p + p).ceil()
-    // }
+    (focal - (radian.tan() + 0.0000001) * focal).ceil()
+    // radian -= FRAC_PI_2;
+    // let r = focal - (radian.tan() * focal) + 0.9;
+    // r.floor().clamp(0.0, screen_width)
 }
 
 /// R_PointToAngle
