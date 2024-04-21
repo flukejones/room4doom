@@ -339,7 +339,7 @@ impl MapObject {
         }
 
         // TODO: Properly sort this out
-        let mut player = &mut players[0];
+        let player = &mut players[0];
         info!("Spawing player 1");
 
         if player.player_state == PlayerState::Reborn {

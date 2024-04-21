@@ -257,15 +257,15 @@ impl ThinkerAlloc {
             _ => debug!("Adding Thinker of type {:?}", thinker.data),
         }
         unsafe { ptr::write(root_ptr, thinker) };
-        let mut current = unsafe { &mut *root_ptr };
+        let current = unsafe { &mut *root_ptr };
 
         if self.head.is_null() {
             self.head = root_ptr;
-            let mut head = unsafe { &mut *self.head };
+            let head = unsafe { &mut *self.head };
             head.prev = head;
             head.next = head;
         } else {
-            let mut head = unsafe { &mut *self.head };
+            let head = unsafe { &mut *self.head };
             unsafe {
                 (*head.prev).next = current;
             }
