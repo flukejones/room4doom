@@ -662,6 +662,9 @@ pub fn draw_column(
     doubled: bool,
     pixels: &mut impl PixelBuffer,
 ) {
+    if yh - yl < 1.0 {
+        return;
+    }
     let pal = pic_data.palette();
     let dc_x = dc_x as usize;
     let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
