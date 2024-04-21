@@ -85,7 +85,7 @@ pub struct Switches;
 
 impl Switches {
     /// Doom function name `P_InitSwitchList`
-    pub fn init(game_mode: GameMode, textures: &PicData) -> Vec<usize> {
+    pub fn init(game_mode: GameMode, pic_data: &PicData) -> Vec<usize> {
         let episode = match game_mode {
             GameMode::Registered | GameMode::Retail => 2,
             GameMode::Commercial => 3,
@@ -96,12 +96,12 @@ impl Switches {
         for def in BUTTON_DEFS {
             if def.episode <= episode {
                 switch_list.push(
-                    textures
+                    pic_data
                         .wallpic_num_for_name(def.name1)
                         .unwrap_or_else(|| panic!("No texture for {}", def.name1)),
                 );
                 switch_list.push(
-                    textures
+                    pic_data
                         .wallpic_num_for_name(def.name2)
                         .unwrap_or_else(|| panic!("No texture for {}", def.name2)),
                 );

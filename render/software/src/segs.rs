@@ -72,7 +72,7 @@ pub(crate) struct SegRender {
     /// Light level for the wall
     wall_lights: i32,
 
-    texture_data: Rc<RefCell<PicData>>,
+    pic_data: Rc<RefCell<PicData>>,
     doubled: bool,
 }
 
@@ -111,7 +111,7 @@ impl SegRender {
             worldhigh: 0.0,
             worldlow: 0.0,
             wall_lights: 0,
-            texture_data,
+            pic_data: texture_data,
             doubled: false,
         }
     }
@@ -209,7 +209,7 @@ impl SegRender {
         if seg.backsector.is_none() {
             self.markfloor = true;
             self.markceiling = true;
-            let textures = &self.texture_data.borrow();
+            let textures = &self.pic_data.borrow();
             // single sided line
             self.midtexture = seg.sidedef.midtexture.is_some();
 
@@ -230,7 +230,7 @@ impl SegRender {
             ds_p.bsilheight = f32::MAX;
             ds_p.tsilheight = f32::MIN;
         } else {
-            let textures = &self.texture_data.borrow();
+            let textures = &self.pic_data.borrow();
             let backsector = seg.backsector.as_ref().unwrap();
             // two sided line
             // TODO: when thing render started
@@ -364,7 +364,7 @@ impl SegRender {
         }
 
         if frontsector.ceilingheight <= player.viewz
-            && frontsector.ceilingpic != self.texture_data.borrow().sky_num()
+            && frontsector.ceilingpic != self.pic_data.borrow().sky_num()
         {
             // below view plane
             self.markceiling = false;
@@ -532,7 +532,7 @@ impl SegRender {
 
             if self.midtexture {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
-                    let textures = &self.texture_data.borrow();
+                    let textures = &self.pic_data.borrow();
                     let texture_column = textures.wall_pic_column(mid_tex, texture_column);
                     draw_column(
                         texture_column,
@@ -556,7 +556,7 @@ impl SegRender {
                 rdata.portal_clip.ceilingclip[clip_index] = view_height;
                 rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
-                let textures = &self.texture_data.borrow();
+                let textures = &self.pic_data.borrow();
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
                     mid = self.pixhigh.floor();
@@ -663,11 +663,11 @@ pub fn draw_column(
     dc_texturemid: f32,
     yl: f32,
     yh: f32,
-    textures: &PicData,
+    pic_data: &PicData,
     doubled: bool,
     pixels: &mut impl PixelBuffer,
 ) {
-    let pal = textures.palette();
+    let pal = pic_data.palette();
     let dc_x = dc_x as usize;
     let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
 

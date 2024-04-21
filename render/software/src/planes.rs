@@ -185,7 +185,7 @@ pub fn make_spans(
     extra_light: i32,
     plane: &Visplane,
     span_start: &mut [f32],
-    texture_data: &PicData,
+    pic_data: &PicData,
     pixels: &mut impl PixelBuffer,
 ) {
     while t1 < t2 && t1 <= b1 {
@@ -197,7 +197,7 @@ pub fn make_spans(
             viewz,
             extra_light,
             plane,
-            texture_data,
+            pic_data,
             pixels,
         );
         t1 += 1.0;
@@ -212,7 +212,7 @@ pub fn make_spans(
             viewz,
             extra_light,
             plane,
-            texture_data,
+            pic_data,
             pixels,
         );
         b1 -= 1.0;
@@ -238,7 +238,7 @@ fn map_plane(
     viewz: f32,
     extra_light: i32,
     plane: &Visplane,
-    texture_data: &PicData,
+    pic_data: &PicData,
     pixels: &mut impl PixelBuffer,
 ) {
     let planeheight = (plane.height - viewz).abs();
@@ -257,22 +257,12 @@ fn map_plane(
     let ds_yfrac = -viewxy.y - angle.sin() * length;
 
     // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
-    let flat = texture_data.get_flat(plane.picnum);
+    let flat = pic_data.get_flat(plane.picnum);
     let light = (plane.lightlevel >> 4) + extra_light;
-    let colourmap = texture_data.flat_light_colourmap(light, distance);
+    let colourmap = pic_data.flat_light_colourmap(light, distance);
 
     draw(
-        flat,
-        colourmap,
-        ds_xstep,
-        ds_ystep,
-        ds_xfrac,
-        ds_yfrac,
-        y,
-        x1,
-        x2,
-        texture_data,
-        pixels,
+        flat, colourmap, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2, pic_data, pixels,
     );
 }
 
@@ -286,10 +276,10 @@ fn draw(
     ds_y: f32,
     ds_x1: f32,
     ds_x2: f32,
-    textures: &PicData,
+    pic_data: &PicData,
     pixels: &mut impl PixelBuffer,
 ) {
-    let pal = textures.palette();
+    let pal = pic_data.palette();
     // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
     for s in ds_x1 as i32..=ds_x2 as i32 {
         let mut x = ds_xfrac.abs() as usize & 0xff;

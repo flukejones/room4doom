@@ -174,7 +174,7 @@ impl SoftwareRenderer {
         }
 
         // Find the sprite def to use
-        let naff = self.texture_data.clone(); // Need to separate lifetimes
+        let naff = self.pic_data.clone(); // Need to separate lifetimes
         let texture_data = naff.borrow();
         let sprnum = thing.state.sprite;
         let sprite_def = texture_data.sprite_def(sprnum as usize);
@@ -256,7 +256,7 @@ impl SoftwareRenderer {
         clip_top: &[f32],
         pixels: &mut impl PixelBuffer,
     ) {
-        let naff = self.texture_data.clone();
+        let naff = self.pic_data.clone();
         let texture_data = naff.borrow();
         let patch = texture_data.sprite_patch(vis.patch);
 
@@ -405,7 +405,7 @@ impl SoftwareRenderer {
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 
-        let texture_data = self.texture_data.borrow();
+        let texture_data = self.pic_data.borrow();
         let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
@@ -493,7 +493,7 @@ impl SoftwareRenderer {
         let doubled = pixels.height() > 200;
 
         if let Some(backsector) = seg.backsector.as_ref() {
-            let textures = self.texture_data.borrow();
+            let textures = self.pic_data.borrow();
             if seg.sidedef.midtexture.is_none() {
                 return;
             }
@@ -602,11 +602,11 @@ fn draw_masked_column(
     dc_texturemid: f32,
     yl: f32,
     yh: f32,
-    textures: &PicData,
+    pic_data: &PicData,
     doubled: bool,
     pixels: &mut impl PixelBuffer,
 ) {
-    let pal = &textures.palette();
+    let pal = &pic_data.palette();
     let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
     for n in yl.floor() as usize..=yh.ceil() as usize {
         let select = if doubled { frac / 2.0 } else { frac } as usize;

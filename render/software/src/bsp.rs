@@ -55,7 +55,7 @@ pub struct SoftwareRenderer {
 
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
-    pub(super) texture_data: Rc<RefCell<PicData>>,
+    pub(super) pic_data: Rc<RefCell<PicData>>,
 
     pub(super) _debug: bool,
 
@@ -76,10 +76,10 @@ impl PlayRenderer for SoftwareRenderer {
                 let mut count = 0;
                 self.checked_sectors.clear();
 
-                self.texture_data
+                self.pic_data
                     .borrow_mut()
                     .set_fixed_lightscale(player.fixedcolormap as usize);
-                self.texture_data.borrow_mut().set_player_palette(player);
+                self.pic_data.borrow_mut().set_player_palette(player);
 
                 self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
                 trace!("BSP traversals for render: {count}");
@@ -96,10 +96,10 @@ impl PlayRenderer for SoftwareRenderer {
                 let mut count = 0;
                 self.checked_sectors.clear();
 
-                self.texture_data
+                self.pic_data
                     .borrow_mut()
                     .set_fixed_lightscale(player.fixedcolormap as usize);
-                self.texture_data.borrow_mut().set_player_palette(player);
+                self.pic_data.borrow_mut().set_player_palette(player);
 
                 self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
                 trace!("BSP traversals for render: {count}");
@@ -134,7 +134,7 @@ impl SoftwareRenderer {
                 };
                 MAX_SEGS
             ],
-            texture_data,
+            pic_data: texture_data,
             _debug: debug,
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
@@ -163,7 +163,7 @@ impl SoftwareRenderer {
         let basexscale = self.r_data.visplanes.basexscale;
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
-        let textures = self.texture_data.borrow();
+        let textures = self.pic_data.borrow();
         let sky_doubled = pixels.height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
@@ -171,7 +171,7 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            if plane.picnum == self.texture_data.borrow().sky_num() {
+            if plane.picnum == self.pic_data.borrow().sky_num() {
                 let colourmap = textures.colourmap(0);
                 let sky_mid = pixels.height() / 2 - down_shift; // shift down by 6 pixels
                 let skytex = textures.sky_pic();
@@ -343,7 +343,7 @@ impl SoftwareRenderer {
         subsect: &SubSector,
         pixels: &mut impl PixelBuffer,
     ) {
-        let skynum = self.texture_data.borrow().sky_num();
+        let skynum = self.pic_data.borrow().sky_num();
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
@@ -355,7 +355,7 @@ impl SoftwareRenderer {
         }
 
         if (subsect.sector.ceilingheight >= player.viewz
-            || subsect.sector.ceilingpic == self.texture_data.borrow().sky_num())
+            || subsect.sector.ceilingpic == self.pic_data.borrow().sky_num())
             && subsect.sector.ceilingpic != usize::MAX
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(

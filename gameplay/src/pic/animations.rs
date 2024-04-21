@@ -23,22 +23,22 @@ impl PicAnimation {
     }
 
     /// Doom function name `P_InitPicAnims`
-    pub fn init(textures: &PicData) -> Vec<PicAnimation> {
+    pub fn init(pic_data: &PicData) -> Vec<PicAnimation> {
         let mut anims = Vec::with_capacity(ANIM_DEFS.len());
 
         for def in ANIM_DEFS {
             let mut animation = PicAnimation::default();
             if def.is_texture {
-                if let Some(start_num) = textures.wallpic_num_for_name(def.start_name) {
-                    if let Some(end_num) = textures.wallpic_num_for_name(def.end_name) {
+                if let Some(start_num) = pic_data.wallpic_num_for_name(def.start_name) {
+                    if let Some(end_num) = pic_data.wallpic_num_for_name(def.end_name) {
                         animation.picnum = end_num;
                         animation.basepic = start_num;
                     }
                 } else {
                     continue;
                 }
-            } else if let Some(start_num) = textures.flat_num_for_name(def.start_name) {
-                if let Some(end_num) = textures.flat_num_for_name(def.end_name) {
+            } else if let Some(start_num) = pic_data.flat_num_for_name(def.start_name) {
+                if let Some(end_num) = pic_data.flat_num_for_name(def.end_name) {
                     animation.picnum = end_num;
                     animation.basepic = start_num;
                 }
