@@ -11,7 +11,7 @@ Take a look at how [I progressed through](https://ljones.dev/blog/room4doom-2022
 Be warned that because the initial code is transliterated as much as possible from the Doom C except
 where that causes issues, many things may not be optimal or idiomatic rust. There will be things like
 dodgy casts, unrequired `as` casts, unused fields or args, lots of `unsafe` blocks etc. The main thing
-I tried to do was bring up the game to a fully playable state *fast*, and *then* begin to optimise,
+I tried to do was bring up the game to a fully playable state _fast_, and _then_ begin to optimise,
 refactor, or redesign components - it is much easier to do when you have a working playable state to
 begin with that can be used for play-testing and such.
 
@@ -94,7 +94,7 @@ On start a user config file is created at `~/.config/room4doom/user.toml`. This 
 
 Options set via CLI are saved to the user-config file.
 
-Starting `room4doom` without CLI options *after* previously setting options then exiting will load
+Starting `room4doom` without CLI options _after_ previously setting options then exiting will load
 those options (as saved to `~/.config/room4doom/user.toml`).
 
 Use `room4doom --help` to see all available CLI options.
@@ -115,14 +115,13 @@ to achieve here.
 
 **Comparison:**
 
-![](./misc/compare/e1m1-room.jpg)
-![](./misc/compare/e1m1-doom.jpg)
+![](./misc/compare/e1m1-room.png)
+![](./misc/compare/e1m1-doom.png)
 
 **SI6IL**
 
-![](./misc/compare/e5m7-room.jpg)
-![](./misc/compare/e5m7-doom.jpg)
-
+![](./misc/compare/e5m7-room.png)
+![](./misc/compare/e5m7-doom.png)
 
 # License change
 

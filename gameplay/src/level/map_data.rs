@@ -1,4 +1,4 @@
-use std::{collections::HashMap, f32::consts::FRAC_PI_2, time::Instant};
+use std::{f32::consts::FRAC_PI_2, time::Instant};
 
 use crate::{
     angle::Angle,
@@ -473,46 +473,34 @@ impl MapData {
     /// Firelines (TM) is a Rezistered Trademark of MBF Productions
     fn fix_vertices(&mut self) {
         let start = Instant::now();
-        let mut vertexes: HashMap<String, Vec2> = HashMap::with_capacity(self.segments.len() * 2);
 
         for seg in self.segments.iter_mut() {
             let linedef = seg.linedef.as_mut();
-            // Commented this part out because cycles are now very very cheap
-            // if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
-            let mut step2 = false;
-            let mut vertex = &mut seg.v1;
-
-            loop {
-                if let Some(v) = vertexes.get_mut(&format!("{vertex}")) {
-                    vertex.x = v.x;
-                    vertex.y = v.y;
-                } else {
-                    let dx2 = linedef.delta.x * linedef.delta.x;
-                    let dy2 = linedef.delta.y * linedef.delta.y;
-                    let dxy = linedef.delta.x * linedef.delta.y;
-                    let s = dx2 + dy2;
-                    let x0 = vertex.x;
-                    let y0 = vertex.y;
-                    let x1 = linedef.v1.x;
-                    let y1 = linedef.v1.y;
-                    vertex.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
-                    vertex.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
-                    vertexes.insert(format!("{vertex}"), *vertex);
+            if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
+                let mut vertex = &mut seg.v1;
+                let mut step2 = false;
+                loop {
+                    if *vertex != linedef.v1 && *vertex != linedef.v2
+                    // Exclude endpoints of linedefs
+                    {
+                        let dx2 = linedef.delta.x * linedef.delta.x;
+                        let dy2 = linedef.delta.y * linedef.delta.y;
+                        let dxy = linedef.delta.x * linedef.delta.y;
+                        let s = dx2 + dy2;
+                        let x0 = vertex.x;
+                        let y0 = vertex.y;
+                        let x1 = linedef.v1.x;
+                        let y1 = linedef.v1.y;
+                        vertex.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
+                        vertex.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
+                    }
+                    if step2 {
+                        break;
+                    }
+                    vertex = &mut seg.v2;
+                    step2 = true;
                 }
-
-                if step2 {
-                    // Also set the v2 linedef
-                    // linedef.v2.x = vertex.x;
-                    // linedef.v2.y = vertex.y;
-                    break;
-                }
-                // Linedef are not used for rendering
-                // linedef.v1.x = vertex.x;
-                // linedef.v1.y = vertex.y;
-                vertex = &mut seg.v2;
-                step2 = true;
             }
-            // }
         }
 
         let end = Instant::now();
