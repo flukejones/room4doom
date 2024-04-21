@@ -7,7 +7,6 @@ pub struct PortalClip {
     ///  ceilingclip starts out -1
     pub floorclip: Vec<f32>,
     pub ceilingclip: Vec<f32>,
-    screen_width: usize,
     screen_height: usize,
 }
 
@@ -16,7 +15,6 @@ impl PortalClip {
         PortalClip {
             floorclip: vec![0.0; screen_width + 1],
             ceilingclip: vec![0.0; screen_width + 1],
-            screen_width,
             screen_height,
         }
     }

@@ -49,7 +49,6 @@ pub fn d_doom_loop(
     let mut renderer = SoftwareRenderer::new(
         screen_width,
         screen_height,
-        game.pic_data.clone(),
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 
@@ -326,7 +325,8 @@ fn d_display(
                     error!("Active console player has no MapObject, can't render player view");
                 } else {
                     let player = &game.players[game.consoleplayer];
-                    rend.render_player_view(player, level, draw_buf);
+                    let mut pic_data = level.pic_data.borrow_mut();
+                    rend.render_player_view(player, level, &mut pic_data, draw_buf);
                 }
             }
         }

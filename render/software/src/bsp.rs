@@ -6,11 +6,7 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
-use std::{
-    cell::RefCell,
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
-    rc::Rc,
-};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 const MAX_SEGS: usize = 32;
 const MAX_VIS_SPRITES: usize = 128 * 2;
@@ -55,8 +51,6 @@ pub struct SoftwareRenderer {
 
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
-    pub(super) pic_data: Rc<RefCell<PicData>>,
-
     pub(super) _debug: bool,
 
     /// Used for checking if a sector has been worked on when iterating over
@@ -64,7 +58,13 @@ pub struct SoftwareRenderer {
 }
 
 impl PlayRenderer for SoftwareRenderer {
-    fn render_player_view(&mut self, player: &Player, level: &Level, pixels: &mut RenderTarget) {
+    fn render_player_view(
+        &mut self,
+        player: &Player,
+        level: &Level,
+        pic_data: &mut PicData,
+        pixels: &mut RenderTarget,
+    ) {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
@@ -76,17 +76,15 @@ impl PlayRenderer for SoftwareRenderer {
                 let mut count = 0;
                 self.checked_sectors.clear();
 
-                self.pic_data
-                    .borrow_mut()
-                    .set_fixed_lightscale(player.fixedcolormap as usize);
-                self.pic_data.borrow_mut().set_player_palette(player);
+                pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
+                pic_data.set_player_palette(player);
 
-                self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
+                self.render_bsp_node(map, player, map.start_node(), pic_data, pixels, &mut count);
                 trace!("BSP traversals for render: {count}");
                 // TODO: netupdate again
-                self.draw_planes(player, pixels);
+                self.draw_planes(player, pic_data, pixels);
                 // TODO: netupdate again
-                self.draw_masked(player, pixels);
+                self.draw_masked(player, pic_data, pixels);
                 // TODO: netupdate again
             }
             render_target::RenderType::SoftOpenGL => {
@@ -96,17 +94,15 @@ impl PlayRenderer for SoftwareRenderer {
                 let mut count = 0;
                 self.checked_sectors.clear();
 
-                self.pic_data
-                    .borrow_mut()
-                    .set_fixed_lightscale(player.fixedcolormap as usize);
-                self.pic_data.borrow_mut().set_player_palette(player);
+                pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
+                pic_data.set_player_palette(player);
 
-                self.render_bsp_node(map, player, map.start_node(), pixels, &mut count);
+                self.render_bsp_node(map, player, map.start_node(), pic_data, pixels, &mut count);
                 trace!("BSP traversals for render: {count}");
                 // TODO: netupdate again
-                self.draw_planes(player, pixels);
+                self.draw_planes(player, pic_data, pixels);
                 // TODO: netupdate again
-                self.draw_masked(player, pixels);
+                self.draw_masked(player, pic_data, pixels);
                 // TODO: netupdate again
             }
             _ => {
@@ -117,15 +113,10 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(
-        screen_width: usize,
-        screen_height: usize,
-        texture_data: Rc<RefCell<PicData>>,
-        debug: bool,
-    ) -> Self {
+    pub fn new(screen_width: usize, screen_height: usize, debug: bool) -> Self {
         Self {
             r_data: RenderData::new(screen_width, screen_height),
-            seg_renderer: SegRender::new(texture_data.clone()),
+            seg_renderer: SegRender::new(),
             new_end: 0,
             solidsegs: vec![
                 ClipRange {
@@ -134,7 +125,6 @@ impl SoftwareRenderer {
                 };
                 MAX_SEGS
             ],
-            pic_data: texture_data,
             _debug: debug,
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
@@ -156,14 +146,13 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawPlanes`
-    fn draw_planes(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
+    fn draw_planes(&mut self, player: &Player, pic_data: &PicData, pixels: &mut impl PixelBuffer) {
         let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
         let basexscale = self.r_data.visplanes.basexscale;
         let baseyscale = self.r_data.visplanes.baseyscale;
         let visplanes = &mut self.r_data.visplanes;
-        let textures = self.pic_data.borrow();
         let sky_doubled = pixels.height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
@@ -171,10 +160,10 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            if plane.picnum == self.pic_data.borrow().sky_num() {
-                let colourmap = textures.colourmap(0);
+            if plane.picnum == pic_data.sky_num() {
+                let colourmap = pic_data.colourmap(0);
                 let sky_mid = pixels.height() / 2 - down_shift; // shift down by 6 pixels
-                let skytex = textures.sky_pic();
+                let skytex = pic_data.sky_pic();
 
                 for x in plane.minx as i32..=plane.maxx as i32 {
                     let dc_yl = plane.top[x as usize];
@@ -184,7 +173,7 @@ impl SoftwareRenderer {
                             + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees()
                             + 360.0)
                             * 2.8444; // 2.8444 seems to give the corect skybox width
-                        let texture_column = textures.wall_pic_column(skytex, angle.abs() as usize);
+                        let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
                         // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
                         draw_column(
                             texture_column,
@@ -194,7 +183,7 @@ impl SoftwareRenderer {
                             sky_mid as f32,
                             dc_yl,
                             dc_yh,
-                            &textures,
+                            pic_data,
                             sky_doubled,
                             pixels,
                         );
@@ -230,7 +219,7 @@ impl SoftwareRenderer {
                     player.extralight,
                     plane,
                     &mut span_start,
-                    &textures,
+                    pic_data,
                     pixels,
                 )
             }
@@ -243,6 +232,7 @@ impl SoftwareRenderer {
         player: &Player,
         seg: &'a Segment,
         front_sector: &'a Sector,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
@@ -306,7 +296,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
+                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
                 return;
             }
 
@@ -315,7 +305,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
+                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
                 return;
             }
 
@@ -329,9 +319,9 @@ impl SoftwareRenderer {
             {
                 return;
             }
-            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pixels);
+            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
         } else {
-            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pixels);
+            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
         }
     }
 
@@ -341,9 +331,10 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         subsect: &SubSector,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
-        let skynum = self.pic_data.borrow().sky_num();
+        let skynum = pic_data.sky_num();
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
             self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
@@ -355,7 +346,7 @@ impl SoftwareRenderer {
         }
 
         if (subsect.sector.ceilingheight >= player.viewz
-            || subsect.sector.ceilingpic == self.pic_data.borrow().sky_num())
+            || subsect.sector.ceilingpic == pic_data.sky_num())
             && subsect.sector.ceilingpic != usize::MAX
         {
             self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
@@ -368,11 +359,11 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, pixels.width() as u32);
+        self.add_sprites(player, front_sector, pixels.width() as u32, pic_data);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(player, seg, front_sector, pixels);
+            self.add_line(player, seg, front_sector, pic_data, pixels);
         }
     }
 
@@ -394,6 +385,7 @@ impl SoftwareRenderer {
         last: f32,
         seg: &Segment,
         object: &Player,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         let mut next;
@@ -415,6 +407,7 @@ impl SoftwareRenderer {
                     seg,
                     object,
                     &mut self.r_data,
+                    pic_data,
                     pixels,
                 );
 
@@ -439,6 +432,7 @@ impl SoftwareRenderer {
                 seg,
                 object,
                 &mut self.r_data,
+                pic_data,
                 pixels,
             );
             // Now adjust the clip size.
@@ -458,6 +452,7 @@ impl SoftwareRenderer {
                 seg,
                 object,
                 &mut self.r_data,
+                pic_data,
                 pixels,
             );
 
@@ -476,6 +471,7 @@ impl SoftwareRenderer {
             seg,
             object,
             &mut self.r_data,
+            pic_data,
             pixels,
         );
         // Adjust the clip size.
@@ -494,6 +490,7 @@ impl SoftwareRenderer {
         last: f32,
         seg: &Segment,
         object: &Player,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         // Find the first range that touches the range
@@ -512,6 +509,7 @@ impl SoftwareRenderer {
                     seg,
                     object,
                     &mut self.r_data,
+                    pic_data,
                     pixels,
                 );
                 return;
@@ -524,6 +522,7 @@ impl SoftwareRenderer {
                 seg,
                 object,
                 &mut self.r_data,
+                pic_data,
                 pixels,
             );
         }
@@ -540,6 +539,7 @@ impl SoftwareRenderer {
                 seg,
                 object,
                 &mut self.r_data,
+                pic_data,
                 pixels,
             );
 
@@ -557,6 +557,7 @@ impl SoftwareRenderer {
             seg,
             object,
             &mut self.r_data,
+            pic_data,
             pixels,
         );
     }
@@ -580,6 +581,7 @@ impl SoftwareRenderer {
         map: &MapData,
         player: &Player,
         node_id: u16,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
         count: &mut usize,
     ) {
@@ -590,7 +592,7 @@ impl SoftwareRenderer {
             // It's a leaf node and is the index to a subsector
             let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
             // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, subsect, pixels);
+            self.draw_subsector(map, player, subsect, pic_data, pixels);
             return;
         }
 
@@ -599,13 +601,20 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], pixels, count);
+        self.render_bsp_node(map, player, node.child_index[side], pic_data, pixels, count);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
         if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.width() as f32) {
-            self.render_bsp_node(map, player, node.child_index[side ^ 1], pixels, count);
+            self.render_bsp_node(
+                map,
+                player,
+                node.child_index[side ^ 1],
+                pic_data,
+                pixels,
+                count,
+            );
         }
     }
 

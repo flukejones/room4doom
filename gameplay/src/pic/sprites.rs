@@ -144,7 +144,7 @@ fn install_sprite(
 
     if rotation == 0 {
         // Check existing if any
-        let mut sprite = &mut tmp[frame as usize];
+        let sprite = &mut tmp[frame as usize];
 
         if sprite.rotate == 0 {
             error!(
@@ -170,7 +170,7 @@ fn install_sprite(
     }
 
     // the lump is only used for one rotation
-    let mut sprite = &mut tmp[frame as usize];
+    let sprite = &mut tmp[frame as usize];
     // Not effective due to defaults to false
     if sprite.rotate == 0 {
         error!(

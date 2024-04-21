@@ -342,7 +342,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         // TODO:
-        let mut door = unsafe { (*data).vdoor_mut() };
+        let door = unsafe { (*data).vdoor_mut() };
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {

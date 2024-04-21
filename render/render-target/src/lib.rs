@@ -3,7 +3,7 @@
 
 pub mod shaders;
 
-use gameplay::{Level, Player};
+use gameplay::{Level, PicData, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
 use sdl2::{
     pixels,
@@ -341,7 +341,13 @@ pub trait PlayRenderer {
     /// Drawing the full player view to the `PixelBuf`.
     ///
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_view(&mut self, player: &Player, level: &Level, buf: &mut RenderTarget);
+    fn render_player_view(
+        &mut self,
+        player: &Player,
+        level: &Level,
+        pic_data: &mut PicData,
+        buf: &mut RenderTarget,
+    );
 }
 
 // TODO: somehow test with gl context

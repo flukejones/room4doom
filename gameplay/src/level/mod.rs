@@ -67,7 +67,7 @@ pub struct Level {
     pub(super) button_list: Vec<Button>,
     pub(super) line_special_list: Vec<DPtr<LineDef>>,
     /// Need access to texture data for a few things
-    pub(super) pic_data: Rc<RefCell<PicData>>,
+    pub pic_data: Rc<RefCell<PicData>>,
     /// Some stuff needs to know the game-exe mode (e.g, switching weapons)
     pub(super) game_mode: GameMode,
     /// Provides ability for things to start a sound

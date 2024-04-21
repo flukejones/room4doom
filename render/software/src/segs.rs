@@ -1,7 +1,7 @@
 use crate::utilities::screen_to_x_view;
 use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
 use render_target::PixelBuffer;
-use std::{cell::RefCell, f32::consts::FRAC_PI_2, ptr::NonNull, rc::Rc};
+use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
@@ -71,13 +71,11 @@ pub(crate) struct SegRender {
 
     /// Light level for the wall
     wall_lights: i32,
-
-    pic_data: Rc<RefCell<PicData>>,
     doubled: bool,
 }
 
 impl SegRender {
-    pub fn new(texture_data: Rc<RefCell<PicData>>) -> Self {
+    pub fn new() -> Self {
         Self {
             segtextured: false,
             markfloor: false,
@@ -111,7 +109,6 @@ impl SegRender {
             worldhigh: 0.0,
             worldlow: 0.0,
             wall_lights: 0,
-            pic_data: texture_data,
             doubled: false,
         }
     }
@@ -124,6 +121,7 @@ impl SegRender {
         seg: &Segment,
         player: &Player,
         rdata: &mut RenderData,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         // Keep original Doom behaviour here
@@ -209,7 +207,6 @@ impl SegRender {
         if seg.backsector.is_none() {
             self.markfloor = true;
             self.markceiling = true;
-            let textures = &self.pic_data.borrow();
             // single sided line
             self.midtexture = seg.sidedef.midtexture.is_some();
 
@@ -217,7 +214,7 @@ impl SegRender {
             self.rw_midtexturemid = self.worldtop;
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
-                    let texture_column = textures.wall_pic_column(mid_tex, 0);
+                    let texture_column = pic_data.wall_pic_column(mid_tex, 0);
                     let vtop = frontsector.floorheight + texture_column.len() as f32;
                     self.rw_midtexturemid = vtop - player.viewz;
                 }
@@ -230,7 +227,6 @@ impl SegRender {
             ds_p.bsilheight = f32::MAX;
             ds_p.tsilheight = f32::MIN;
         } else {
-            let textures = &self.pic_data.borrow();
             let backsector = seg.backsector.as_ref().unwrap();
             // two sided line
             // TODO: when thing render started
@@ -272,8 +268,8 @@ impl SegRender {
             self.worldhigh = backsector.ceilingheight - player.viewz;
             self.worldlow = backsector.floorheight - player.viewz;
 
-            if frontsector.ceilingpic == textures.sky_num()
-                && backsector.ceilingpic == textures.sky_num()
+            if frontsector.ceilingpic == pic_data.sky_num()
+                && backsector.ceilingpic == pic_data.sky_num()
             {
                 self.worldtop = self.worldhigh;
             }
@@ -312,7 +308,7 @@ impl SegRender {
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
-                    let texture_column = textures.wall_pic_column(top_tex, 0);
+                    let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     self.rw_toptexturemid = vtop - player.viewz;
                 }
@@ -363,8 +359,7 @@ impl SegRender {
             self.markfloor = false;
         }
 
-        if frontsector.ceilingheight <= player.viewz
-            && frontsector.ceilingpic != self.pic_data.borrow().sky_num()
+        if frontsector.ceilingheight <= player.viewz && frontsector.ceilingpic != pic_data.sky_num()
         {
             // below view plane
             self.markceiling = false;
@@ -404,7 +399,7 @@ impl SegRender {
         }
 
         self.doubled = pixels.height() > 200;
-        self.render_seg_loop(seg, player.viewheight, rdata, pixels);
+        self.render_seg_loop(seg, player.viewheight, rdata, pic_data, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -462,6 +457,7 @@ impl SegRender {
         seg: &Segment,
         view_height: f32,
         rdata: &mut RenderData,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         // R_RenderSegLoop
@@ -532,11 +528,10 @@ impl SegRender {
 
             if self.midtexture {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
-                    let textures = &self.pic_data.borrow();
-                    let texture_column = textures.wall_pic_column(mid_tex, texture_column);
+                    let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
                     draw_column(
                         texture_column,
-                        textures.wall_light_colourmap(
+                        pic_data.wall_light_colourmap(
                             &seg.v1,
                             &seg.v2,
                             self.wall_lights,
@@ -547,7 +542,7 @@ impl SegRender {
                         self.rw_midtexturemid,
                         yl,
                         yh,
-                        textures,
+                        pic_data,
                         false,
                         pixels,
                     );
@@ -556,7 +551,6 @@ impl SegRender {
                 rdata.portal_clip.ceilingclip[clip_index] = view_height;
                 rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
-                let textures = &self.pic_data.borrow();
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
                     mid = self.pixhigh.floor();
@@ -568,10 +562,10 @@ impl SegRender {
 
                     if mid >= yl {
                         if let Some(top_tex) = seg.sidedef.toptexture {
-                            let texture_column = textures.wall_pic_column(top_tex, texture_column);
+                            let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
                             draw_column(
                                 texture_column,
-                                textures.wall_light_colourmap(
+                                pic_data.wall_light_colourmap(
                                     &seg.v1,
                                     &seg.v2,
                                     self.wall_lights,
@@ -582,7 +576,7 @@ impl SegRender {
                                 self.rw_toptexturemid,
                                 yl,
                                 mid,
-                                textures,
+                                pic_data,
                                 false,
                                 pixels,
                             );
@@ -607,10 +601,10 @@ impl SegRender {
 
                     if mid <= yh + 1.0 {
                         if let Some(bot_tex) = seg.sidedef.bottomtexture {
-                            let texture_column = textures.wall_pic_column(bot_tex, texture_column);
+                            let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
                             draw_column(
                                 texture_column,
-                                textures.wall_light_colourmap(
+                                pic_data.wall_light_colourmap(
                                     &seg.v1,
                                     &seg.v2,
                                     self.wall_lights,
@@ -621,7 +615,7 @@ impl SegRender {
                                 self.rw_bottomtexturemid,
                                 mid,
                                 yh,
-                                textures,
+                                pic_data,
                                 false,
                                 pixels,
                             );

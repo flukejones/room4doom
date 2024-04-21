@@ -104,6 +104,7 @@ impl SoftwareRenderer {
         player: &Player,
         sector: &'a Sector,
         screen_width: u32,
+        pic_data: &PicData,
     ) {
         // Need to track sectors as we recurse through BSP as the BSP
         // iteration is via subsectors, and sectors can be split in to
@@ -122,7 +123,7 @@ impl SoftwareRenderer {
         // }
 
         sector.run_func_on_thinglist(|thing| {
-            self.project_sprite(player, thing, light_level, screen_width)
+            self.project_sprite(player, thing, light_level, screen_width, pic_data)
         });
     }
 
@@ -141,6 +142,7 @@ impl SoftwareRenderer {
         thing: &MapObject,
         light_level: i32,
         screen_width: u32,
+        pic_data: &PicData,
     ) -> bool {
         if thing.player().is_some() {
             return true;
@@ -174,10 +176,8 @@ impl SoftwareRenderer {
         }
 
         // Find the sprite def to use
-        let naff = self.pic_data.clone(); // Need to separate lifetimes
-        let texture_data = naff.borrow();
         let sprnum = thing.state.sprite;
-        let sprite_def = texture_data.sprite_def(sprnum as usize);
+        let sprite_def = pic_data.sprite_def(sprnum as usize);
 
         let frame = thing.frame & FF_FRAMEMASK;
         if frame & FF_FRAMEMASK > 28 {
@@ -191,11 +191,11 @@ impl SoftwareRenderer {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
             patch_index = sprite_frame.lump[rot as usize] as usize;
-            patch = texture_data.sprite_patch(patch_index);
+            patch = pic_data.sprite_patch(patch_index);
             flip = sprite_frame.flip[rot as usize];
         } else {
             patch_index = sprite_frame.lump[0] as usize;
-            patch = texture_data.sprite_patch(patch_index);
+            patch = pic_data.sprite_patch(patch_index);
             flip = sprite_frame.flip[0];
         }
 
@@ -254,20 +254,19 @@ impl SoftwareRenderer {
         vis: &VisSprite,
         clip_bottom: &[f32],
         clip_top: &[f32],
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
-        let naff = self.pic_data.clone();
-        let texture_data = naff.borrow();
-        let patch = texture_data.sprite_patch(vis.patch);
+        let patch = pic_data.sprite_patch(vis.patch);
 
         let dc_iscale = vis.x_iscale.abs();
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
         let spryscale = vis.scale;
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
-            texture_data.colourmap(33)
+            pic_data.colourmap(33)
         } else {
-            texture_data.sprite_light_colourmap(vis.light_level, vis.scale)
+            pic_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
         for x in vis.x1.ceil() as i32..=vis.x2.floor() as i32 {
@@ -300,7 +299,7 @@ impl SoftwareRenderer {
                     dc_texmid,
                     top,
                     bottom,
-                    &texture_data,
+                    pic_data,
                     false,
                     pixels,
                 );
@@ -311,7 +310,13 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawSprite`
-    fn draw_sprite(&mut self, player: &Player, vis: &VisSprite, pixels: &mut impl PixelBuffer) {
+    fn draw_sprite(
+        &mut self,
+        player: &Player,
+        vis: &VisSprite,
+        pic_data: &PicData,
+        pixels: &mut impl PixelBuffer,
+    ) {
         let mut clip_bottom = vec![-2f32; pixels.width()];
         let mut clip_top = vec![-2f32; pixels.width()];
 
@@ -344,7 +349,7 @@ impl SoftwareRenderer {
                             == 0)
                 {
                     if seg.maskedtexturecol != -1 {
-                        self.render_masked_seg_range(player, seg, r1, r2, pixels);
+                        self.render_masked_seg_range(player, seg, r1, r2, pic_data, pixels);
                     }
                     // seg is behind sprite
                     continue;
@@ -378,17 +383,22 @@ impl SoftwareRenderer {
             }
         }
 
-        self.draw_vissprite(vis, &clip_bottom, &clip_top, pixels);
+        self.draw_vissprite(vis, &clip_bottom, &clip_top, pic_data, pixels);
     }
 
-    fn draw_player_sprites(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
+    fn draw_player_sprites(
+        &mut self,
+        player: &Player,
+        pic_data: &PicData,
+        pixels: &mut impl PixelBuffer,
+    ) {
         if let Some(mobj) = player.mobj() {
             let light = unsafe { (*mobj.subsector).sector.lightlevel };
             let light = (light >> 4) + player.extralight;
 
             for sprite in player.psprites.iter() {
                 if sprite.state.is_some() {
-                    self.draw_player_sprite(sprite, light as usize, mobj.flags, pixels);
+                    self.draw_player_sprite(sprite, light as usize, mobj.flags, pic_data, pixels);
                 }
             }
         }
@@ -399,21 +409,21 @@ impl SoftwareRenderer {
         sprite: &PspDef,
         light: usize,
         flags: u32,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         let f = pixels.height() / 200;
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 
-        let texture_data = self.pic_data.borrow();
-        let def = texture_data.sprite_def(sprite.state.unwrap().sprite as usize);
+        let def = pic_data.sprite_def(sprite.state.unwrap().sprite as usize);
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
         }
         // TODO: WARN: SHT2 has no frames
         // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:423:21
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
-        let patch = texture_data.sprite_patch(frame.lump[0] as usize);
+        let patch = pic_data.sprite_patch(frame.lump[0] as usize);
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
@@ -457,16 +467,21 @@ impl SoftwareRenderer {
 
         let clip_bottom = vec![0f32; pixels.width()];
         let clip_top = vec![pixels.height() as f32; pixels.width()];
-        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pixels)
+        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, pixels)
     }
 
-    pub(crate) fn draw_masked(&mut self, player: &Player, pixels: &mut impl PixelBuffer) {
+    pub(crate) fn draw_masked(
+        &mut self,
+        player: &Player,
+        pic_data: &PicData,
+        pixels: &mut impl PixelBuffer,
+    ) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
-            self.draw_sprite(player, vis, pixels);
+            self.draw_sprite(player, vis, pic_data, pixels);
             if i == self.next_vissprite {
                 break;
             }
@@ -474,10 +489,10 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = self.r_data.drawsegs.to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pixels);
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pic_data, pixels);
         }
 
-        self.draw_player_sprites(player, pixels);
+        self.draw_player_sprites(player, pic_data, pixels);
     }
 
     fn render_masked_seg_range(
@@ -486,6 +501,7 @@ impl SoftwareRenderer {
         ds: &DrawSeg,
         x1: f32,
         x2: f32,
+        pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
         let seg = unsafe { ds.curline.as_ref() };
@@ -493,7 +509,6 @@ impl SoftwareRenderer {
         let doubled = pixels.height() > 200;
 
         if let Some(backsector) = seg.backsector.as_ref() {
-            let textures = self.pic_data.borrow();
             if seg.sidedef.midtexture.is_none() {
                 return;
             }
@@ -513,7 +528,7 @@ impl SoftwareRenderer {
                     backsector.floorheight
                 };
 
-                let texture_column = textures.wall_pic_column(texnum, 0);
+                let texture_column = pic_data.wall_pic_column(texnum, 0);
                 dc_texturemid += texture_column.len() as f32 - player.viewz - 1.0;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
@@ -536,7 +551,7 @@ impl SoftwareRenderer {
                     if self.r_data.visplanes.openings[index] != f32::MAX
                         && seg.sidedef.midtexture.is_some()
                     {
-                        let texture_column = textures.wall_pic_column(
+                        let texture_column = pic_data.wall_pic_column(
                             unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
                             self.r_data.visplanes.openings[index].abs() as usize,
                         );
@@ -570,14 +585,14 @@ impl SoftwareRenderer {
 
                         draw_masked_column(
                             texture_column,
-                            textures.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
+                            pic_data.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
                             false,
                             1.0 / spryscale,
                             x,
                             dc_texturemid,
                             yl,
                             yh,
-                            &textures,
+                            pic_data,
                             doubled,
                             pixels,
                         );
