@@ -254,13 +254,13 @@ impl SegRender {
             // sprites lower/higher than player and blocked by lower or upper
             // part of portal
             // if backsector.ceilingheight <= frontsector.floorheight {
-            //     ds_p.sprbottomclip = Some(0); // start of negonearray
+            //     ds_p.sprbottomclip = Some(0.0); // start of negonearray
             //     ds_p.silhouette |= SIL_BOTTOM;
             //     ds_p.bsilheight = f32::MAX;
             // }
 
             // if backsector.floorheight >= frontsector.ceilingheight {
-            //     ds_p.sprtopclip = Some(0);
+            //     ds_p.sprtopclip = Some(0.0);
             //     ds_p.silhouette |= SIL_TOP;
             //     ds_p.tsilheight = f32::MIN;
             // }
@@ -354,31 +354,32 @@ impl SegRender {
         // if a floor / ceiling plane is on the wrong side
         //  of the view plane, it is definitely invisible
         //  and doesn't need to be marked.
-        if frontsector.floorheight >= player.viewz {
+        if frontsector.floorheight > player.viewz {
             // above view plane
             self.markfloor = false;
         }
 
-        if frontsector.ceilingheight <= player.viewz && frontsector.ceilingpic != pic_data.sky_num()
+        if frontsector.ceilingheight < player.viewz && frontsector.ceilingpic != pic_data.sky_num()
         {
             // below view plane
             self.markceiling = false;
         }
 
+        let half_height = pixels.height() as f32 / 2.0; // TODO: hmmm, - 0.5;
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = pixels.height() as f32 / 2.0 - (self.worldtop * self.rw_scale);
+        self.topfrac = half_height - (self.worldtop * self.rw_scale);
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
-        self.bottomfrac = pixels.height() as f32 / 2.0 - (self.worldbottom * self.rw_scale);
+        self.bottomfrac = half_height - (self.worldbottom * self.rw_scale);
 
         if seg.backsector.is_some() {
             if self.worldhigh < self.worldtop {
-                self.pixhigh = pixels.height() as f32 / 2.0 - (self.worldhigh * self.rw_scale);
+                self.pixhigh = half_height - (self.worldhigh * self.rw_scale);
                 self.pixhighstep = -(self.worldhigh * self.rw_scalestep);
             }
 
             if self.worldlow > self.worldbottom {
-                self.pixlow = pixels.height() as f32 / 2.0 - (self.worldlow * self.rw_scale);
+                self.pixlow = half_height - (self.worldlow * self.rw_scale);
                 self.pixlowstep = -(self.worldlow * self.rw_scalestep);
             }
         }
@@ -599,7 +600,7 @@ impl SegRender {
                         mid = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                     }
 
-                    if mid <= yh + 1.0 {
+                    if mid <= yh {
                         if let Some(bot_tex) = seg.sidedef.bottomtexture {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
                             draw_column(
