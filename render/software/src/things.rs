@@ -279,8 +279,8 @@ impl SoftwareRenderer {
             let sprtopscreen = pixels.height() as f32 / 2.0 - dc_texmid * spryscale;
             let texture_column = &patch.data[tex_column];
 
-            let mut top = sprtopscreen;
-            let mut bottom = top + (spryscale * texture_column.len() as f32);
+            let mut top = sprtopscreen.ceil();
+            let mut bottom = top + (spryscale * texture_column.len() as f32).floor();
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1.0;
