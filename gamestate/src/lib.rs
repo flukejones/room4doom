@@ -560,7 +560,7 @@ impl Game {
         self.level = Some(level);
 
         if let Some(ref mut level) = self.level {
-            level.load(&self.pic_data.borrow_mut(), &self.wad_data);
+            level.load(&self.wad_data);
 
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
