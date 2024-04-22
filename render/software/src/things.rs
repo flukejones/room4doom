@@ -279,8 +279,8 @@ impl SoftwareRenderer {
             let sprtopscreen = pixels.height() as f32 / 2.0 - dc_texmid * spryscale;
             let texture_column = &patch.data[tex_column];
 
-            let mut top = sprtopscreen.ceil();
-            let mut bottom = top + (spryscale * texture_column.len() as f32).floor();
+            let mut top = sprtopscreen;
+            let mut bottom = top + (spryscale * texture_column.len() as f32);
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1.0;
@@ -301,7 +301,6 @@ impl SoftwareRenderer {
                     top,
                     bottom,
                     pic_data,
-                    false,
                     pixels,
                 );
             }
@@ -413,7 +412,7 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
-        let f = pixels.height() / pixels.height();
+        let f = pixels.height() / 200;
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 
@@ -428,7 +427,7 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
-        let x1 = (pixels.width() / 2) as f32 + (tx * pspritescale);
+        let x1 = pixels.half_width() as f32 + (tx * pspritescale);
 
         if x1 >= pixels.width() as f32 {
             return;
@@ -507,7 +506,6 @@ impl SoftwareRenderer {
     ) {
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
-        let doubled = pixels.height() > 200;
 
         if let Some(backsector) = seg.backsector.as_ref() {
             if seg.sidedef.midtexture.is_none() {
@@ -572,16 +570,14 @@ impl SoftwareRenderer {
                         // pixels.height() / 2 - 1 required to prevent vis from going over the span
                         let sprtopscreen =
                             (pixels.height() / 2 - 1) as f32 - dc_texturemid * spryscale;
-                        let top = sprtopscreen;
-                        let bottom = top + (spryscale * texture_column.len() as f32);
-                        let mut yl = top;
-                        let mut yh = bottom;
+                        let mut top = sprtopscreen;
+                        let mut bottom = top + (spryscale * texture_column.len() as f32);
 
                         if bottom >= mfloorclip {
-                            yh = mfloorclip - 1.0;
+                            bottom = mfloorclip - 1.0;
                         }
                         if top <= mceilingclip {
-                            yl = mceilingclip + 1.0;
+                            top = mceilingclip + 1.0;
                         }
 
                         draw_masked_column(
@@ -591,10 +587,9 @@ impl SoftwareRenderer {
                             1.0 / spryscale,
                             x,
                             dc_texturemid,
-                            yl,
-                            yh,
+                            top,
+                            bottom,
                             pic_data,
-                            doubled,
                             pixels,
                         );
 
@@ -619,25 +614,21 @@ fn draw_masked_column(
     yl: f32,
     yh: f32,
     pic_data: &PicData,
-    doubled: bool,
     pixels: &mut impl PixelBuffer,
 ) {
     let pal = &pic_data.palette();
     let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
-    for n in yl.floor() as usize..=yh.ceil() as usize {
-        let select = if doubled { frac / 2.0 } else { frac } as usize;
+    for n in yl as usize..=yh.ceil() as usize {
+        let select = frac as usize;
         if select >= texture_column.len() {
-            continue;
+            return;
         }
-
         // Transparency
         if texture_column[select] == usize::MAX || (fuzz && p_random() % 3 != 0) {
             frac += fracstep;
             continue;
         }
-
-        let px = colourmap[texture_column[select]];
-        let c = pal[px];
+        let c = pal[colourmap[texture_column[select]]];
         pixels.set_pixel(dc_x as usize, n as usize, (c.r, c.g, c.b, 255));
         frac += fracstep;
     }

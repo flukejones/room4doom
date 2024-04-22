@@ -59,6 +59,28 @@ impl FromStr for RenderType {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum MusicType {
+    FluidSynth,
+    #[default]
+    Timidity,
+}
+
+impl FromStr for MusicType {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "timidity" => Ok(Self::Timidity),
+            "fluidsynth" => Ok(Self::FluidSynth),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Invalid Music type",
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserConfig {
@@ -71,6 +93,7 @@ pub struct UserConfig {
     pub shader: Option<Shaders>,
     pub sfx_vol: i32,
     pub mus_vol: i32,
+    pub music_type: MusicType,
     pub gus_mem_size: GusMemSize,
     pub input: InputConfig,
 }
@@ -181,6 +204,14 @@ impl UserConfig {
             }
         } else {
             cli.fullscreen = Some(self.fullscreen);
+        }
+
+        if let Some(f) = cli.music_type {
+            if f != self.music_type {
+                self.music_type = f;
+            }
+        } else {
+            cli.music_type = Some(self.music_type);
         }
     }
 }

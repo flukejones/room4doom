@@ -255,34 +255,36 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         };
 
         if let Some(sfx) = chunk.data.as_ref() {
+            let mut playing = false;
             for c in 0..MIXER_CHANNELS {
                 if !sdl2::mixer::Channel(c).is_playing() || sdl2::mixer::Channel(c).is_paused() {
-                    // TODO: Set a volume for player sounds
                     if origin.uid != self.listener.uid {
                         sdl2::mixer::Channel(c)
                             .set_position(angle as i16, dist as u8)
                             .unwrap();
                     }
-                    sdl2::mixer::Channel(c).set_volume(self.sfx_vol);
                     sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
                     origin.channel = c;
                     self.sources[c as usize] = origin;
+                    playing = true;
                     break;
                 }
             }
-            for c in 0..MIXER_CHANNELS {
-                if self.sources[c as usize].priority >= origin.priority {
-                    sdl2::mixer::Channel(c).halt();
-                    // TODO: Set a volume for player sounds
-                    if origin.uid != self.listener.uid {
-                        sdl2::mixer::Channel(c)
-                            .set_position(angle as i16, dist as u8)
-                            .unwrap();
+            // evict a sound maybe
+            if !playing {
+                for c in 0..MIXER_CHANNELS {
+                    if origin.priority >= self.sources[c as usize].priority {
+                        sdl2::mixer::Channel(c).halt();
+                        if origin.uid != self.listener.uid {
+                            sdl2::mixer::Channel(c)
+                                .set_position(angle as i16, dist as u8)
+                                .unwrap();
+                        }
+                        sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
+                        origin.channel = c;
+                        self.sources[c as usize] = origin;
+                        break;
                     }
-                    sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
-                    origin.channel = c;
-                    self.sources[c as usize] = origin;
-                    break;
                 }
             }
         }

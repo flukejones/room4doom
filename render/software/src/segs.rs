@@ -681,14 +681,10 @@ pub fn draw_column(
         } as usize;
         select %= texture_column.len();
 
-        let cm = texture_column[select]; // TODO: texture_column isn't completely full of data for some textures
-        if cm == usize::MAX {
-            return;
-        }
-        let px = colourmap[cm];
-        let c = pal[px];
+        let tc = texture_column[select];
+        let cm = colourmap[tc];
+        let c = pal[cm];
         pixels.set_pixel(dc_x, n, (c.r, c.g, c.b, 255));
-
         frac += fracstep;
     }
 }

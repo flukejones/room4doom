@@ -5,6 +5,7 @@ mod test_funcs;
 mod timestep;
 mod wipe;
 
+use config::MusicType;
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
 use render_target::shaders::Shaders;
@@ -91,8 +92,13 @@ pub struct CLIOptions {
     pub sprites_test: bool,
     #[options(meta = "", help = "Rendering type <software, softopengl>")]
     pub rendering: Option<config::RenderType>,
-    #[options(meta = "", help = "Screen shader <none, cgwg, lottes, lottesbasic>")]
+    #[options(
+        meta = "",
+        help = "Screen shader <cgwg, lottes, lottesbasic>, not used with Software renderer"
+    )]
     pub shader: Option<Shaders>,
+    #[options(meta = "", help = "Rendering type <software, softopengl>")]
+    pub music_type: Option<MusicType>,
 }
 
 impl From<CLIOptions> for DoomOptions {
@@ -117,13 +123,18 @@ impl From<CLIOptions> for DoomOptions {
     }
 }
 
-fn setup_timidity(wad: &WadData) {
+fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
+    if music_type == MusicType::FluidSynth {
+        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "0");
+        info!("Using fluidsynth for sound");
+        return;
+    }
     if let Some(mut path) = data_dir() {
         path.push(SOUND_DIR);
         if path.exists() {
             let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
             cache_dir.push(TIMIDITY_CFG);
-            if let Some(cfg) = make_timidity_cfg(wad, path, GusMemSize::Perfect) {
+            if let Some(cfg) = make_timidity_cfg(wad, path, gus_mem) {
                 let mut file = File::create(cache_dir.as_path()).unwrap();
                 file.write_all(&cfg).unwrap();
                 set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
@@ -203,7 +214,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
 
     let wad = WadData::new(options.iwad.clone().into());
-    setup_timidity(&wad);
+    setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
     let game = Game::new(
         options.clone().into(),
