@@ -29,6 +29,7 @@ pub struct VisPlaneRender {
     pub baseyscale: f32,
 
     screen_width: f32,
+    half_screen_width: f32,
     screen_height: f32,
 }
 
@@ -48,6 +49,7 @@ impl VisPlaneRender {
             basexscale: 0.0,
             baseyscale: 0.0,
             screen_width: screen_width as f32,
+            half_screen_width: screen_width as f32 / 2.0,
             screen_height: screen_height as f32,
         }
     }
@@ -69,8 +71,8 @@ impl VisPlaneRender {
 
         // left to right mapping
         // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
-        self.basexscale = (view_angle - FRAC_PI_2).cos() / (self.screen_width / 2.0);
-        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / (self.screen_width / 2.0));
+        self.basexscale = (view_angle - FRAC_PI_2).cos() / self.half_screen_width;
+        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / self.half_screen_width);
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
@@ -243,8 +245,8 @@ fn map_plane(
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
-    let dy = y - (pixels.height() as f32 / 2.0); // OK
-    let yslope = (pixels.width() as f32 / 2.0) / dy.abs(); // OK
+    let dy = y - pixels.half_height() as f32; // OK
+    let yslope = pixels.half_width() as f32 / dy.abs(); // OK
     let distance = planeheight * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;

@@ -283,8 +283,8 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
 
-        let x1 = angle_to_screen(pixels.width() as f32, angle1);
-        let x2 = angle_to_screen(pixels.width() as f32, angle2);
+        let x1 = angle_to_screen(pixels.half_width() as f32, angle1);
+        let x2 = angle_to_screen(pixels.half_width() as f32, angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -606,7 +606,7 @@ impl SoftwareRenderer {
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.width() as f32) {
+        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.half_width() as f32) {
             self.render_bsp_node(
                 map,
                 player,
@@ -626,7 +626,7 @@ impl SoftwareRenderer {
         node: &Node,
         mobj: &MapObject,
         side: usize,
-        screen_width: f32,
+        half_screen_width: f32,
     ) -> bool {
         let view_angle = mobj.angle;
         // BOXTOP = 0
@@ -740,8 +740,8 @@ impl SoftwareRenderer {
 
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
-        let x1 = angle_to_screen(screen_width, angle1);
-        let mut x2 = angle_to_screen(screen_width, angle2);
+        let x1 = angle_to_screen(half_screen_width, angle1);
+        let mut x2 = angle_to_screen(half_screen_width, angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -762,13 +762,13 @@ impl SoftwareRenderer {
 }
 
 // TODO: this is a source of issues
-fn angle_to_screen(screen_width: f32, angle: Angle) -> f32 {
+fn angle_to_screen(half_screen_width: f32, angle: Angle) -> f32 {
     // int t = FixedMul(finetangent[i], FocalLengthX);
     // t = (centerxfrac - t + FRACUNIT-1) >> FRACBITS;
-    let focal = screen_width / 2.0; // / (FRAC_PI_4).tan();
+    // let focal = half_screen_width; // / (FRAC_PI_4).tan();
     let mut radian = angle.rad();
     radian -= FRAC_PI_2;
-    (focal - (radian.tan() + 0.0000001) * focal).ceil()
+    (half_screen_width - (radian.tan() + 0.0000001) * half_screen_width).ceil()
     // radian -= FRAC_PI_2;
     // let r = focal - (radian.tan() * focal) + 0.9;
     // r.floor().clamp(0.0, screen_width)

@@ -33,6 +33,8 @@ pub enum RenderType {
 pub trait PixelBuffer {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
+    fn half_width(&self) -> usize;
+    fn half_height(&self) -> usize;
     fn clear(&mut self);
     fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8));
     fn read_softbuf_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
@@ -43,6 +45,8 @@ pub trait PixelBuffer {
 pub struct SoftFramebuffer {
     width: usize,
     height: usize,
+    half_width: usize,
+    half_height: usize,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     buffer: Vec<u8>,
     crop_rect: Rect,
@@ -59,6 +63,8 @@ impl SoftFramebuffer {
         Self {
             width,
             height,
+            half_width: width / 2,
+            half_height: height / 2,
             buffer: vec![0; (width * height) * CHANNELS],
             crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
             tex_creator,
@@ -75,6 +81,16 @@ impl PixelBuffer for SoftFramebuffer {
     #[inline]
     fn height(&self) -> usize {
         self.height
+    }
+
+    #[inline]
+    fn half_width(&self) -> usize {
+        self.half_width
+    }
+
+    #[inline]
+    fn half_height(&self) -> usize {
+        self.half_height
     }
 
     #[inline]
@@ -119,6 +135,8 @@ impl PixelBuffer for SoftFramebuffer {
 pub struct SoftOpenGL {
     width: usize,
     height: usize,
+    half_width: usize,
+    half_height: usize,
     buffer: Vec<u8>,
     gl_texture: Texture,
     screen_shader: Box<dyn ShaderDraw>,
@@ -132,6 +150,8 @@ impl SoftOpenGL {
         Self {
             width,
             height,
+            half_width: width / 2,
+            half_height: height / 2,
             buffer: vec![0; (width * height) * CHANNELS],
             gl_texture,
             screen_shader: match screen_shader {
@@ -172,6 +192,16 @@ impl PixelBuffer for SoftOpenGL {
     #[inline]
     fn height(&self) -> usize {
         self.height
+    }
+
+    #[inline]
+    fn half_width(&self) -> usize {
+        self.half_width
+    }
+
+    #[inline]
+    fn half_height(&self) -> usize {
+        self.half_height
     }
 
     #[inline]

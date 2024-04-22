@@ -164,7 +164,8 @@ impl SoftwareRenderer {
             return true; // keep checking
         }
 
-        let x_scale = (screen_width / 2) as f32 / tz;
+        let half_screen_width = screen_width as f32 / 2.0;
+        let x_scale = half_screen_width / tz;
 
         let gxt = -(tr_x * view_sin);
         let gyt = tr_y * view_cos;
@@ -200,13 +201,13 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = ((screen_width as f32 / 2.0) + tx * x_scale) - 1.0;
+        let x1 = (half_screen_width + tx * x_scale) - 1.0;
         if x1 > screen_width as f32 {
             return true;
         }
 
         tx += patch.data.len() as f32;
-        let x2 = (screen_width as f32 / 2.0) + tx * x_scale;
+        let x2 = half_screen_width + tx * x_scale;
         if x2 < 0.0 {
             return true;
         }
@@ -412,7 +413,7 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
-        let f = pixels.height() / 200;
+        let f = pixels.height() / pixels.height();
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 

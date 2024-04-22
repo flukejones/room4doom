@@ -365,7 +365,7 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        let half_height = pixels.height() as f32 / 2.0; // TODO: hmmm, - 0.5;
+        let half_height = pixels.half_height() as f32; // TODO: hmmm, - 0.5;
         self.topstep = -(self.worldtop * self.rw_scalestep);
         self.topfrac = half_height - (self.worldtop * self.rw_scale);
 
@@ -587,7 +587,7 @@ impl SegRender {
                             );
                         }
 
-                        rdata.portal_clip.ceilingclip[clip_index] = mid;
+                        rdata.portal_clip.ceilingclip[clip_index] = mid.floor();
                     } else {
                         rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                     }
@@ -625,7 +625,7 @@ impl SegRender {
                                 pixels,
                             );
                         }
-                        rdata.portal_clip.floorclip[clip_index] = mid;
+                        rdata.portal_clip.floorclip[clip_index] = mid.floor();
                     } else {
                         rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                     }
@@ -671,7 +671,7 @@ pub fn draw_column(
     }
     let pal = pic_data.palette();
     let dc_x = dc_x as usize;
-    let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
+    let mut frac = dc_texturemid + (yl - pixels.half_height() as f32) * fracstep;
 
     for n in yl as usize..=yh as usize {
         let mut select = if doubled {
