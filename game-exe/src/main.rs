@@ -1,7 +1,7 @@
 mod cheats;
 mod config;
 mod d_main;
-// mod test_funcs;
+mod test_funcs;
 mod timestep;
 mod wipe;
 

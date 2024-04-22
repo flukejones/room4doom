@@ -24,7 +24,13 @@ use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
-use crate::{cheats::Cheats, timestep::TimeStep, wipe::Wipe, CLIOptions};
+use crate::{
+    cheats::Cheats,
+    test_funcs::{flat_select_test, image_test, patch_select_test, texture_select_test},
+    timestep::TimeStep,
+    wipe::Wipe,
+    CLIOptions,
+};
 
 /// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
@@ -173,25 +179,35 @@ pub fn d_doom_loop(
         //     palette_test(pal_num, &mut game, &mut render_buffer);
         // }
 
-        // if let Some(name) = options.image_test.clone() {
-        //     image_test(&name.to_ascii_uppercase(), &game, &mut render_buffer);
-        // }
-        // if let Some(images) = &images {
-        //     patch_select_test(&images[image_num], &game, &mut render_buffer);
-        // }
-        // if let Some(flats) = &flats {
-        //     flat_select_test(&flats[flat_num], &game, &mut render_buffer);
-        // }
-        // if let Some(sprites) = &sprites {
-        //     patch_select_test(&sprites[sprite_num], &game, &mut render_buffer);
-        // }
-        // if options.texture_test {
-        //     texture_select_test(
-        //         game.pic_data.borrow_mut().get_texture(tex_num),
-        //         &game,
-        //         &mut render_buffer,
-        //     );
-        // }
+        if let Some(name) = options.image_test.clone() {
+            image_test(
+                &name.to_ascii_uppercase(),
+                &game,
+                render_buffer.pixel_buffer(),
+            );
+        }
+        if options.image_cycle_test {
+            if let Some(images) = &images {
+                patch_select_test(&images[image_num], &game, render_buffer.pixel_buffer());
+            }
+        }
+        if options.flats_test {
+            if let Some(flats) = &flats {
+                flat_select_test(&flats[flat_num], &game, render_buffer.pixel_buffer());
+            }
+        }
+        if options.sprites_test {
+            if let Some(sprites) = &sprites {
+                patch_select_test(&sprites[sprite_num], &game, render_buffer.pixel_buffer());
+            }
+        }
+        if options.texture_test {
+            texture_select_test(
+                game.pic_data.borrow_mut().get_texture(tex_num),
+                &game,
+                render_buffer.pixel_buffer(),
+            );
+        }
 
         render_buffer.blit(&mut canvas);
 

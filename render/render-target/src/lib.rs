@@ -263,6 +263,15 @@ impl RenderTarget {
         }
     }
 
+    pub fn pixel_buffer(&mut self) -> &mut dyn PixelBuffer {
+        match self.render_type {
+            RenderType::Software => self.software.as_mut().unwrap(),
+            RenderType::SoftOpenGL => self.soft_opengl.as_mut().unwrap(),
+            RenderType::OpenGL => todo!(),
+            RenderType::Vulkan => todo!(),
+        }
+    }
+
     pub fn with_software(mut self, canvas: &Canvas<Window>) -> Self {
         if self.soft_opengl.is_some() {
             panic!("Rendering already set up for software-opengl");

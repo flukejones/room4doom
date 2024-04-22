@@ -110,7 +110,7 @@ fn lump_sfx_to_chunk(
 
     Chunk::from_raw_buffer(fixed.into_boxed_slice()).map(|mut c| {
         // Set base volume
-        c.set_volume(c.get_volume() / 2); // TODO: figure out the best chunk base volume
+        c.set_volume(64); // TODO: figure out the best chunk base volume. Default is 128
         c
     })
 }
