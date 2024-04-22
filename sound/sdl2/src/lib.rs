@@ -108,7 +108,11 @@ fn lump_sfx_to_chunk(
     let converter = AudioCVT::new(AudioFormat::U8, 1, rate, to_fmt, 2, to_rate)?;
     let fixed = converter.convert(raw_lump[7..len as usize].to_vec());
 
-    Chunk::from_raw_buffer(fixed.into_boxed_slice())
+    Chunk::from_raw_buffer(fixed.into_boxed_slice()).map(|mut c| {
+        // Set base volume
+        c.set_volume(c.get_volume() / 2); // TODO: figure out the best chunk base volume
+        c
+    })
 }
 
 pub struct Snd<'a> {
@@ -259,6 +263,7 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
                             .set_position(angle as i16, dist as u8)
                             .unwrap();
                     }
+                    sdl2::mixer::Channel(c).set_volume(self.sfx_vol);
                     sdl2::mixer::Channel(c).play(sfx, 0).unwrap();
                     origin.channel = c;
                     self.sources[c as usize] = origin;

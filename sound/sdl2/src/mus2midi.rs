@@ -160,7 +160,8 @@ impl MusEvent {
         if data & 0x80 == 0x80 {
             *marker += 1;
             // TODO: reverse the division once correct volume is found
-            channels[byte.channel as usize] = (buf[*marker] & 0x7f) / 2;
+            // Set base volume
+            channels[byte.channel as usize] = (buf[*marker] & 0x7f) / 4;
         }
 
         let delay = read_delay(buf, marker, byte.last);
