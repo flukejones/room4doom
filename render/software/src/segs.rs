@@ -461,6 +461,11 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
+        // TODO: yh/bottomfrac is sometimes negative?
+        if self.bottomfrac.is_sign_negative() {
+            return;
+        }
+
         // R_RenderSegLoop
         let mut yl: f32;
         let mut yh: f32;
@@ -469,9 +474,13 @@ impl SegRender {
         let mut mid;
         let mut angle;
         let mut texture_column = 0;
+
         while self.rw_x.floor() < self.rw_stopx.ceil() {
             let clip_index = self.rw_x as usize;
-
+            if rdata.portal_clip.floorclip[clip_index] <= 0.0 {
+                // TODO: shouldn't be happening, early out?
+                return;
+            }
             // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
             // Whaaaat?
             yl = self.topfrac.ceil();
@@ -495,14 +504,14 @@ impl SegRender {
                 }
             }
 
-            // TODO: yh/bottomfrac is sometimes negative?
-            if self.bottomfrac.is_sign_negative() {
-                self.bottomfrac = f32::MAX;
-            }
-
             yh = self.bottomfrac.floor();
             if yh >= rdata.portal_clip.floorclip[clip_index] - 1.0 {
                 yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
+                // if yh.is_sign_negative() {
+                //     dbg!(rdata.portal_clip.floorclip[clip_index]);
+                //     // TODO: shouldn't be happening
+                //     return;
+                // }
             }
 
             if self.markfloor {
@@ -662,14 +671,11 @@ pub fn draw_column(
     doubled: bool,
     pixels: &mut impl PixelBuffer,
 ) {
-    if yh - yl < 1.0 {
-        return;
-    }
     let pal = pic_data.palette();
     let dc_x = dc_x as usize;
     let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
 
-    for n in yl.floor() as usize..=yh.ceil() as usize {
+    for n in yl as usize..=yh as usize {
         let mut select = if doubled {
             frac as i32 / 2
         } else {
