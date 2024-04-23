@@ -101,7 +101,7 @@ impl Statusbar {
         if self.status.armorpoints <= 0 {
             return;
         }
-        let f = (pixels.size().height() / 200);
+        let f = pixels.size().height() / 200;
 
         let nums = &self.lil_nums;
 
@@ -137,7 +137,7 @@ impl Statusbar {
         if ammo == AmmoType::NoAmmo {
             return;
         }
-        let f = (pixels.size().height() / 200);
+        let f = pixels.size().height() / 200;
 
         let height = self.big_nums[0].height as i32 * f;
         let start_x = self.big_nums[0].width as i32 * f + self.keys[0].width as i32 * f + 2;
@@ -154,7 +154,7 @@ impl Statusbar {
     }
 
     fn draw_keys_pixels(&self, pixels: &mut dyn PixelBuffer) {
-        let f = (pixels.size().height() / 200);
+        let f = pixels.size().height() / 200;
         let height = self.keys[3].height as i32 * f;
         let width = self.keys[0].width as i32 * f;
 
@@ -186,7 +186,7 @@ impl Statusbar {
     }
 
     fn draw_weapons_pixels(&self, pixels: &mut dyn PixelBuffer) {
-        let f = (pixels.size().height() / 200);
+        let f = pixels.size().height() / 200;
         let y = self.grey_nums[0].height as i32 * f;
         let x = self.grey_nums[0].width as i32 * f;
         let mult = if self.mode == GameMode::Commercial {
@@ -222,7 +222,7 @@ impl Statusbar {
     }
 
     fn draw_face_pixels(&self, mut big: bool, upper: bool, pixels: &mut dyn PixelBuffer) {
-        let f = (pixels.size().height() / 200);
+        let f = pixels.size().height() / 200;
         if upper {
             big = true;
         }

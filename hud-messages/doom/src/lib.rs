@@ -63,7 +63,7 @@ impl Messages {
     }
 
     pub fn draw_wrapped(&self, machination: &impl MachinationTrait, buffer: &mut dyn PixelBuffer) {
-        let f = (buffer.size().height() / 200) as i32;
+        let f = buffer.size().height() / 200;
 
         let x = 10;
         let mut y = 2;

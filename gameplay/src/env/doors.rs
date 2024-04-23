@@ -383,7 +383,7 @@ pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &
             door.kind = DoorKind::Normal;
             start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
         }
-        31 | 32 | 33 | 34 => {
+        31..=34 => {
             door.kind = DoorKind::Open;
             line.special = 0;
             start_sector_sound(&line, SfxName::Doropn, &level.snd_command);

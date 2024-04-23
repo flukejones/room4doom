@@ -110,8 +110,8 @@ pub trait MachinationTrait {
                     let colour = self.get_palette().0[*p];
                     for _ in 0..f {
                         pixels.set_pixel(
-                            (x + xtmp - n as i32) as usize, // - (image.left_offset as i32),
-                            (y + ytmp + c.y_offset * f as i32) as usize, // - image.top_offset as i32 - 30,
+                            (x + xtmp - n) as usize,              // - (image.left_offset as i32),
+                            (y + ytmp + c.y_offset * f) as usize, // - image.top_offset as i32 - 30,
                             (colour.r, colour.g, colour.b, 255),
                         );
                         ytmp += 1;

@@ -272,7 +272,7 @@ pub fn traverse_intercepts(
     max_frac: f32,
     mut trav: impl FnMut(&mut Intercept) -> bool,
 ) -> bool {
-    if intercepts.len() == 0 {
+    if intercepts.is_empty() {
         return false;
     }
     let mut intercept: *mut Intercept = unsafe { intercepts.get_unchecked_mut(0) };

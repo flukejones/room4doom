@@ -35,7 +35,7 @@ pub enum PsprNum {
     NumPSprites,
 }
 
-//// Player states.
+/// Player states.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PlayerState {
     /// Playing or camping.
@@ -46,7 +46,7 @@ pub enum PlayerState {
     Reborn,
 }
 
-//// Player internal flags, for cheats and debug.
+/// Player internal flags, for cheats and debug.
 #[derive(Debug)]
 pub enum PlayerCheat {
     /// No clipping, walk through barriers.

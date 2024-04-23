@@ -119,7 +119,7 @@ impl HUDString {
         machination: &impl MachinationTrait,
         pixels: &mut dyn PixelBuffer,
     ) -> Option<()> {
-        let f = (pixels.size().height() / 200) as i32;
+        let f = pixels.size().height() / 200;
         let width = pixels.size().width();
         let height = pixels.size().height();
         let start_x = x;

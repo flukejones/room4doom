@@ -472,11 +472,7 @@ impl Game {
 
         m_clear_random();
 
-        if skill == Skill::Nightmare || self.options.respawn_parm {
-            self.respawn_monsters = true;
-        } else {
-            self.respawn_monsters = false;
-        }
+        self.respawn_monsters = skill == Skill::Nightmare || self.options.respawn_parm;
 
         // TODO: This shit (mobjinfo) is constant for now. Change it later
         // if (fastparm || (skill == sk_nightmare && gameskill != sk_nightmare))
@@ -654,12 +650,10 @@ impl Game {
                 } else if self.game_map == 31 {
                     self.wminfo.next = 31;
                 }
+            } else if self.game_map == 31 || self.game_map == 32 {
+                self.wminfo.next = 15;
             } else {
-                if self.game_map == 31 || self.game_map == 32 {
-                    self.wminfo.next = 15;
-                } else {
-                    self.wminfo.next = self.game_map;
-                }
+                self.wminfo.next = self.game_map;
             }
         } else if self.level.as_ref().unwrap().secret_exit {
             // go to secret level

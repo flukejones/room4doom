@@ -10,7 +10,7 @@ pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut dyn Pix
     let height = pixels.size().height();
 
     let row_count: i32 = 16;
-    let block_size = height as i32 / row_count;
+    let block_size = height / row_count;
 
     let x_start = (pixels.size().width() / 2) - block_size * row_count / 2;
     let y_start = (pixels.size().height() / 2) - block_size * row_count / 2;
@@ -40,7 +40,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
             let colour = pals[0].0[*p];
 
             pixels.set_pixel(
-                (xs + x) as usize,              // - (image.left_offset as i32),
+                xs + x,                         // - (image.left_offset as i32),
                 (ys + y) + c.y_offset as usize, // - image.top_offset as i32 - 30,
                 (colour.r, colour.g, colour.b, 255),
             );
@@ -62,7 +62,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut dyn 
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
             pixels.set_pixel(
-                (xs + x) as usize,            // - (image.left_offset as i32),
+                xs + x,                       // - (image.left_offset as i32),
                 ys + y + c.y_offset as usize, // - image.top_offset as i32 - 30,
                 (colour.r, colour.g, colour.b, 255),
             );

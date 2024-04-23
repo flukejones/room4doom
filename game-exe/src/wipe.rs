@@ -32,7 +32,7 @@ impl Wipe {
         draw_buf: &mut dyn PixelBuffer, // Draw to this buffer
     ) -> bool {
         let mut done = true;
-        let f = (disp_buf.size().height() / 200) as i32;
+        let f = disp_buf.size().height() / 200;
         for x in 0..self.width as usize {
             if self.y[x] < 0 {
                 // This is the offset to start with, sort of like a timer

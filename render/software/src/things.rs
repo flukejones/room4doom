@@ -236,7 +236,7 @@ impl SoftwareRenderer {
         }
         // Catches certain orientations
         if vis.x1 > x1 {
-            vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
+            vis.start_frac += vis.x_iscale * (vis.x1 - x1);
         }
 
         vis.patch = patch_index;
@@ -461,7 +461,7 @@ impl SoftwareRenderer {
         }
 
         if vis.x1 > x1 {
-            vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
+            vis.start_frac += vis.x_iscale * (vis.x1 - x1);
         }
 
         let clip_bottom = vec![0i32; pixels.size().width_usize()];
@@ -545,55 +545,54 @@ impl SoftwareRenderer {
                 }
                 let index = (ds.maskedtexturecol + x) as usize;
 
-                if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.r_data.visplane_render.openings[index] != i32::MAX
-                        && seg.sidedef.midtexture.is_some()
-                    {
-                        let texture_column = pic_data.wall_pic_column(
-                            unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                            self.r_data.visplane_render.openings[index].abs() as usize,
-                        );
+                if index != usize::MAX
+                    && ds.sprbottomclip.is_some()
+                    && ds.sprtopclip.is_some()
+                    && self.r_data.visplane_render.openings[index] != i32::MAX
+                    && seg.sidedef.midtexture.is_some()
+                {
+                    let texture_column = pic_data.wall_pic_column(
+                        unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
+                        self.r_data.visplane_render.openings[index].unsigned_abs() as usize,
+                    );
 
-                        let mut mceilingclip = self.r_data.visplane_render.openings
-                            [(ds.sprtopclip.unwrap() + x as f32) as usize];
-                        let mut mfloorclip = self.r_data.visplane_render.openings
-                            [(ds.sprbottomclip.unwrap() + x as f32) as usize];
-                        if mceilingclip >= pixels.size().height() {
-                            mceilingclip = pixels.size().height();
-                        }
-                        if mfloorclip < 0 {
-                            mfloorclip = 0;
-                        }
-
-                        // calculate unclipped screen coordinates for post
-                        let sprtopscreen =
-                            pixels.size().half_height_f32() - dc_texturemid * spryscale;
-                        let mut top = sprtopscreen as i32; // TODO: possible glitch
-                        let mut bottom = top + 1 + (spryscale * texture_column.len() as f32) as i32;
-
-                        if bottom >= mfloorclip {
-                            bottom = mfloorclip - 1;
-                        }
-                        if top <= mceilingclip {
-                            top = mceilingclip + 1;
-                        }
-
-                        draw_masked_column(
-                            texture_column,
-                            pic_data.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
-                            false,
-                            1.0 / spryscale,
-                            x,
-                            dc_texturemid,
-                            top,
-                            bottom,
-                            pic_data,
-                            pixels,
-                        );
-
-                        self.r_data.visplane_render.openings[index] = i32::MAX;
-                    } else {
+                    let mut mceilingclip = self.r_data.visplane_render.openings
+                        [(ds.sprtopclip.unwrap() + x as f32) as usize];
+                    let mut mfloorclip = self.r_data.visplane_render.openings
+                        [(ds.sprbottomclip.unwrap() + x as f32) as usize];
+                    if mceilingclip >= pixels.size().height() {
+                        mceilingclip = pixels.size().height();
                     }
+                    if mfloorclip < 0 {
+                        mfloorclip = 0;
+                    }
+
+                    // calculate unclipped screen coordinates for post
+                    let sprtopscreen = pixels.size().half_height_f32() - dc_texturemid * spryscale;
+                    let mut top = sprtopscreen as i32; // TODO: possible glitch
+                    let mut bottom = top + 1 + (spryscale * texture_column.len() as f32) as i32;
+
+                    if bottom >= mfloorclip {
+                        bottom = mfloorclip - 1;
+                    }
+                    if top <= mceilingclip {
+                        top = mceilingclip + 1;
+                    }
+
+                    draw_masked_column(
+                        texture_column,
+                        pic_data.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
+                        false,
+                        1.0 / spryscale,
+                        x,
+                        dc_texturemid,
+                        top,
+                        bottom,
+                        pic_data,
+                        pixels,
+                    );
+
+                    self.r_data.visplane_render.openings[index] = i32::MAX;
                 }
                 spryscale += rw_scalestep;
             }
@@ -628,7 +627,7 @@ fn draw_masked_column(
             continue;
         }
         let c = pal[colourmap[texture_column[select]]];
-        pixels.set_pixel(dc_x as usize, n as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, n as usize, (c.r, c.g, c.b, 255));
         frac += fracstep;
     }
 }

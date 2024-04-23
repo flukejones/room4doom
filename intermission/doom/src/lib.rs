@@ -349,7 +349,7 @@ impl MachinationTrait for Intermission {
     }
 
     fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
-        let scale = (buffer.size().height() / 200) as i32;
+        let scale = buffer.size().height() / 200;
 
         // TODO: stats and next are two different screens.
         match self.state {
