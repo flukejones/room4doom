@@ -467,8 +467,7 @@ impl SegRender {
         if self.bottomfrac.is_sign_negative() {
             return;
         }
-
-        // R_RenderSegLoop
+        // yl is the pixel location, it is the result of converting the topfrac to int
         let mut yl: f32;
         let mut yh: f32;
         let mut top;
@@ -485,6 +484,8 @@ impl SegRender {
             }
 
             // The yl and yh blocks are what affect wall clipping the most. You can make shorter/taller.
+            // topfrac here is calulated in previous function and is the
+            // starting point that topstep is added to
             yl = self.topfrac.floor();
             if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
@@ -492,14 +493,13 @@ impl SegRender {
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
-                // Magic float. Prevents incorrect ceiling in e1m3, and missing ceiling in
-                // other maps. Too high == missing, too low == ceiling where it shouldn't be
-                bottom = yl; // + 0.001;
+                bottom = yl;
 
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top <= bottom {
+                    // was a plane selection already set?
                     let ceil = rdata.visplane_render.ceilingplane;
                     rdata.visplane_render.visplanes[ceil].top[clip_index] = top;
                     rdata.visplane_render.visplanes[ceil].bottom[clip_index] = bottom;
