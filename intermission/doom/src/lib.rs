@@ -5,8 +5,8 @@ use crate::defs::{
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, RenderTarget, Scancode,
-    WBPlayerStruct, WBStartStruct,
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WBPlayerStruct,
+    WBStartStruct,
 };
 use log::warn;
 use wad::{
@@ -241,7 +241,7 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl PixelBuffer) {
+    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut dyn PixelBuffer) {
         if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
             return;
         }
@@ -348,41 +348,20 @@ impl MachinationTrait for Intermission {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut RenderTarget) {
-        let scale = (buffer.height() / 200) as i32;
+    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+        let scale = (buffer.size().height() / 200) as i32;
 
         // TODO: stats and next are two different screens.
-        match buffer.render_type() {
-            gamestate_traits::RenderType::Software => {
-                let pixels = unsafe { buffer.software_unchecked() };
-                match self.state {
-                    State::StatCount => {
-                        self.draw_stats_pixels(scale, pixels);
-                    }
-                    State::NextLoc => {
-                        self.draw_next_loc_pixels(scale, pixels);
-                    }
-                    State::None => {
-                        self.draw_no_state(scale, pixels);
-                    }
-                }
+        match self.state {
+            State::StatCount => {
+                self.draw_stats_pixels(scale, buffer);
             }
-            gamestate_traits::RenderType::SoftOpenGL => {
-                let pixels = unsafe { buffer.soft_opengl_unchecked() };
-                match self.state {
-                    State::StatCount => {
-                        self.draw_stats_pixels(scale, pixels);
-                    }
-                    State::NextLoc => {
-                        self.draw_next_loc_pixels(scale, pixels);
-                    }
-                    State::None => {
-                        self.draw_no_state(scale, pixels);
-                    }
-                }
+            State::NextLoc => {
+                self.draw_next_loc_pixels(scale, buffer);
             }
-            gamestate_traits::RenderType::OpenGL => todo!(),
-            gamestate_traits::RenderType::Vulkan => todo!(),
+            State::None => {
+                self.draw_no_state(scale, buffer);
+            }
         }
     }
 }

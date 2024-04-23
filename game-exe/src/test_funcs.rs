@@ -7,13 +7,13 @@ use render_target::PixelBuffer;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
 pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut dyn PixelBuffer) {
-    let height = pixels.height();
+    let height = pixels.size().height();
 
     let row_count: i32 = 16;
     let block_size = height as i32 / row_count;
 
-    let x_start = (pixels.width() / 2) as i32 - block_size * row_count / 2;
-    let y_start = (pixels.height() / 2) as i32 - block_size * row_count / 2;
+    let x_start = (pixels.size().width() / 2) - block_size * row_count / 2;
+    let y_start = (pixels.size().height() / 2) - block_size * row_count / 2;
 
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
@@ -31,8 +31,8 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
     let image = WadPatch::from_lump(lump);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = (pixels.width() - image.width as usize) / 2;
-    let ys = (pixels.height() - image.height as usize) / 2;
+    let xs = (pixels.size().width_usize() - image.width as usize) / 2;
+    let ys = (pixels.size().height_usize() - image.height as usize) / 2;
 
     let mut x = 0;
     for c in image.columns.iter() {
@@ -40,8 +40,8 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
             let colour = pals[0].0[*p];
 
             pixels.set_pixel(
-                (xs + x) as usize,                       // - (image.left_offset as i32),
-                ((ys + y) as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
+                (xs + x) as usize,              // - (image.left_offset as i32),
+                (ys + y) + c.y_offset as usize, // - image.top_offset as i32 - 30,
                 (colour.r, colour.g, colour.b, 255),
             );
         }
@@ -54,16 +54,16 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
 pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut dyn PixelBuffer) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = (pixels.width() - image.width as usize) / 2;
-    let ys = (pixels.height() - image.height as usize) / 2;
+    let xs = (pixels.size().width_usize() - image.width as usize) / 2;
+    let ys = (pixels.size().height_usize() - image.height as usize) / 2;
 
     let mut x = 0;
     for c in image.columns.iter() {
         for (y, p) in c.pixels.iter().enumerate() {
             let colour = pals[0].0[*p];
             pixels.set_pixel(
-                (xs + x) as usize,                       // - (image.left_offset as i32),
-                ((ys + y) as i32 + c.y_offset) as usize, // - image.top_offset as i32 - 30,
+                (xs + x) as usize,            // - (image.left_offset as i32),
+                ys + y + c.y_offset as usize, // - image.top_offset as i32 - 30,
                 (colour.r, colour.g, colour.b, 255),
             );
         }
@@ -78,8 +78,8 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut d
     let height = texture.data[0].len();
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((pixels.width() - width) / 2) as i32;
-    let ys = ((pixels.height() - height) / 2) as i32;
+    let xs = (pixels.size().width_usize() - width) / 2;
+    let ys = (pixels.size().height_usize() - height) / 2;
     let pal = pals[0].0;
 
     for (x_pos, column) in texture.data.iter().enumerate() {
@@ -88,11 +88,7 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut d
                 continue;
             }
             let colour = pal[*idx];
-            pixels.set_pixel(
-                (xs + x_pos as i32) as usize,
-                (ys + y_pos as i32) as usize,
-                (colour.r, colour.g, colour.b, 255),
-            );
+            pixels.set_pixel(xs + x_pos, ys + y_pos, (colour.r, colour.g, colour.b, 255));
         }
     }
 }
@@ -100,8 +96,8 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut d
 pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut dyn PixelBuffer) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    let xs = ((pixels.width() - 64) / 2) as i32;
-    let ys = ((pixels.height() - 64) / 2) as i32;
+    let xs = (pixels.size().width_usize() - 64) / 2;
+    let ys = (pixels.size().height_usize() - 64) / 2;
     let pal = pals[0].0;
 
     for (y, col) in flat.data.chunks(64).enumerate() {
@@ -110,11 +106,7 @@ pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut dyn Pix
                 continue;
             }
             let colour = pal[*px as usize];
-            pixels.set_pixel(
-                (xs + x as i32) as usize,
-                (ys + y as i32) as usize,
-                (colour.r, colour.g, colour.b, 255),
-            );
+            pixels.set_pixel(xs + x, ys + y, (colour.r, colour.g, colour.b, 255));
         }
     }
 }

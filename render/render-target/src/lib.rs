@@ -31,66 +31,101 @@ pub enum RenderType {
 }
 
 pub trait PixelBuffer {
-    fn width(&self) -> usize;
-    fn height(&self) -> usize;
-    fn half_width(&self) -> usize;
-    fn half_height(&self) -> usize;
+    fn size(&self) -> &BufferSize;
     fn clear(&mut self);
     fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8));
-    fn read_softbuf_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
-    fn read_softbuf_pixels(&mut self) -> &mut [u8];
+    fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
+    fn read_pixels(&mut self) -> &mut [u8];
 }
 
-/// A structure holding display data
-pub struct SoftFramebuffer {
+pub struct BufferSize {
     width: usize,
     height: usize,
-    half_width: usize,
-    half_height: usize,
-    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
-    buffer: Vec<u8>,
-    crop_rect: Rect,
-    tex_creator: TextureCreator<WindowContext>,
+    width_i32: i32,
+    height_i32: i32,
+    width_f32: f32,
+    height_f32: f32,
+    half_width: i32,
+    half_height: i32,
+    half_width_f32: f32,
+    half_height_f32: f32,
 }
 
-impl SoftFramebuffer {
-    fn new(width: usize, height: usize, canvas: &Canvas<Window>) -> Self {
-        let wsize = canvas.window().drawable_size();
-        let ratio = wsize.1 as f32 * 1.333;
-        let xp = (wsize.0 as f32 - ratio) / 2.0;
-
-        let tex_creator = canvas.texture_creator();
-        Self {
-            width,
-            height,
-            half_width: width / 2,
-            half_height: height / 2,
-            buffer: vec![0; (width * height) * CHANNELS],
-            crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
-            tex_creator,
-        }
-    }
-}
-
-impl PixelBuffer for SoftFramebuffer {
+impl BufferSize {
     #[inline]
-    fn width(&self) -> usize {
+    pub const fn width(&self) -> i32 {
+        self.width_i32
+    }
+    #[inline]
+    pub const fn height(&self) -> i32 {
+        self.height_i32
+    }
+    #[inline]
+    pub const fn half_width(&self) -> i32 {
+        self.half_width
+    }
+    #[inline]
+    pub const fn half_height(&self) -> i32 {
+        self.half_height
+    }
+
+    #[inline]
+    pub const fn width_usize(&self) -> usize {
         self.width
     }
-
     #[inline]
-    fn height(&self) -> usize {
+    pub const fn height_usize(&self) -> usize {
         self.height
     }
 
     #[inline]
-    fn half_width(&self) -> usize {
-        self.half_width
+    pub const fn width_f32(&self) -> f32 {
+        self.width_f32
     }
-
     #[inline]
-    fn half_height(&self) -> usize {
-        self.half_height
+    pub const fn height_f32(&self) -> f32 {
+        self.height_f32
+    }
+    #[inline]
+    pub const fn half_width_f32(&self) -> f32 {
+        self.half_width_f32
+    }
+    #[inline]
+    pub const fn half_height_f32(&self) -> f32 {
+        self.half_height_f32
+    }
+}
+
+pub struct Buffer {
+    size: BufferSize,
+    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
+    buffer: Vec<u8>,
+}
+
+impl Buffer {
+    fn new(width: usize, height: usize) -> Self {
+        Self {
+            size: BufferSize {
+                width,
+                height,
+                width_i32: width as i32,
+                height_i32: height as i32,
+                half_width: width as i32 / 2,
+                half_height: height as i32 / 2,
+                width_f32: width as f32,
+                height_f32: height as f32,
+                half_width_f32: width as f32 / 2.0,
+                half_height_f32: height as f32 / 2.0,
+            },
+            buffer: vec![0; (width * height) * CHANNELS],
+        }
+    }
+}
+
+impl PixelBuffer for Buffer {
+    #[inline]
+    fn size(&self) -> &BufferSize {
+        &self.size
     }
 
     #[inline]
@@ -101,11 +136,11 @@ impl PixelBuffer for SoftFramebuffer {
     #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8)) {
         // Shitty safeguard. Need to find actual cause of fail
-        if x >= self.width || y >= self.height {
+        if x >= self.size.width || y >= self.size.height {
             return;
         }
 
-        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
+        let pos = y * (self.size.width * CHANNELS) + x * CHANNELS;
         self.buffer[pos] = rgba.0;
         self.buffer[pos + 1] = rgba.1;
         self.buffer[pos + 2] = rgba.2;
@@ -114,8 +149,8 @@ impl PixelBuffer for SoftFramebuffer {
 
     /// Read the colour of a single pixel at X|Y
     #[inline]
-    fn read_softbuf_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
+    fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
+        let pos = y * (self.size.width * CHANNELS) + x * CHANNELS;
         (
             self.buffer[pos],
             self.buffer[pos + 1],
@@ -126,18 +161,33 @@ impl PixelBuffer for SoftFramebuffer {
 
     /// Read the full buffer
     #[inline]
-    fn read_softbuf_pixels(&mut self) -> &mut [u8] {
+    fn read_pixels(&mut self) -> &mut [u8] {
         &mut self.buffer
     }
 }
 
 /// A structure holding display data
+pub struct SoftFramebuffer {
+    crop_rect: Rect,
+    tex_creator: TextureCreator<WindowContext>,
+}
+
+impl SoftFramebuffer {
+    fn new(canvas: &Canvas<Window>) -> Self {
+        let wsize = canvas.window().drawable_size();
+        let ratio = wsize.1 as f32 * 1.333;
+        let xp = (wsize.0 as f32 - ratio) / 2.0;
+
+        let tex_creator = canvas.texture_creator();
+        Self {
+            crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
+            tex_creator,
+        }
+    }
+}
+
+/// A structure holding display data
 pub struct SoftOpenGL {
-    width: usize,
-    height: usize,
-    half_width: usize,
-    half_height: usize,
-    buffer: Vec<u8>,
     gl_texture: Texture,
     screen_shader: Box<dyn ShaderDraw>,
 }
@@ -148,11 +198,6 @@ impl SoftOpenGL {
         gl_texture.set_image(None, width as u32, height as u32, golem::ColorFormat::RGBA);
 
         Self {
-            width,
-            height,
-            half_width: width / 2,
-            half_height: height / 2,
-            buffer: vec![0; (width * height) * CHANNELS],
             gl_texture,
             screen_shader: match screen_shader {
                 Shaders::Basic => Box::new(Basic::new(gl_ctx)),
@@ -173,72 +218,13 @@ impl SoftOpenGL {
         self.gl_texture.set_magnification(TextureFilter::Linear)
     }
 
-    pub fn copy_softbuf_to_gl_texture(&mut self) {
+    pub fn copy_softbuf_to_gl_texture(&mut self, buffer: &Buffer) {
         self.gl_texture.set_image(
-            Some(&self.buffer),
-            self.width as u32,
-            self.height as u32,
+            Some(&buffer.buffer),
+            buffer.size.width as u32,
+            buffer.size.height as u32,
             ColorFormat::RGBA,
         );
-    }
-}
-
-impl PixelBuffer for SoftOpenGL {
-    #[inline]
-    fn width(&self) -> usize {
-        self.width
-    }
-
-    #[inline]
-    fn height(&self) -> usize {
-        self.height
-    }
-
-    #[inline]
-    fn half_width(&self) -> usize {
-        self.half_width
-    }
-
-    #[inline]
-    fn half_height(&self) -> usize {
-        self.half_height
-    }
-
-    #[inline]
-    fn clear(&mut self) {
-        self.buffer.iter_mut().for_each(|n| *n = 0);
-    }
-
-    #[inline]
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8)) {
-        // Shitty safeguard. Need to find actual cause of fail
-        if x >= self.width || y >= self.height {
-            return;
-        }
-
-        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
-        self.buffer[pos] = rgba.0;
-        self.buffer[pos + 1] = rgba.1;
-        self.buffer[pos + 2] = rgba.2;
-        self.buffer[pos + 3] = rgba.3;
-    }
-
-    /// Read the colour of a single pixel at X|Y
-    #[inline]
-    fn read_softbuf_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        let pos = y * (self.width * CHANNELS) + x * CHANNELS;
-        (
-            self.buffer[pos],
-            self.buffer[pos + 1],
-            self.buffer[pos + 2],
-            self.buffer[pos + 3],
-        )
-    }
-
-    /// Read the full buffer
-    #[inline]
-    fn read_softbuf_pixels(&mut self) -> &mut [u8] {
-        &mut self.buffer
     }
 }
 
@@ -247,6 +233,7 @@ pub struct RenderTarget {
     width: usize,
     height: usize,
     render_type: RenderType,
+    buffer: Buffer,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     software: Option<SoftFramebuffer>,
     soft_opengl: Option<SoftOpenGL>,
@@ -258,25 +245,22 @@ impl RenderTarget {
             width,
             height,
             render_type: RenderType::Software,
+            buffer: Buffer::new(width, height),
             software: None,
             soft_opengl: None,
         }
     }
 
+    // TODO: should we return the pixelbuffer directly?
     pub fn pixel_buffer(&mut self) -> &mut dyn PixelBuffer {
-        match self.render_type {
-            RenderType::Software => self.software.as_mut().unwrap(),
-            RenderType::SoftOpenGL => self.soft_opengl.as_mut().unwrap(),
-            RenderType::OpenGL => todo!(),
-            RenderType::Vulkan => todo!(),
-        }
+        &mut self.buffer
     }
 
     pub fn with_software(mut self, canvas: &Canvas<Window>) -> Self {
         if self.soft_opengl.is_some() {
             panic!("Rendering already set up for software-opengl");
         }
-        self.software = Some(SoftFramebuffer::new(self.width, self.height, canvas));
+        self.software = Some(SoftFramebuffer::new(canvas));
         self.render_type = RenderType::Software;
         self
     }
@@ -346,7 +330,7 @@ impl RenderTarget {
             RenderType::SoftOpenGL => {
                 let ogl = unsafe { self.soft_opengl.as_mut().unwrap_unchecked() };
                 // shader.shader.clear();
-                ogl.copy_softbuf_to_gl_texture();
+                ogl.copy_softbuf_to_gl_texture(&self.buffer);
                 ogl.screen_shader.draw(&ogl.gl_texture).unwrap();
                 sdl_canvas.window().gl_swap_window();
             }
@@ -356,7 +340,7 @@ impl RenderTarget {
                 let render_buffer = unsafe { self.software.as_mut().unwrap_unchecked() };
                 let texc = &render_buffer.tex_creator;
                 let surf = surface::Surface::from_data(
-                    &mut render_buffer.buffer,
+                    &mut self.buffer.buffer,
                     w,
                     h,
                     4 * w,

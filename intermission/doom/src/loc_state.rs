@@ -26,7 +26,7 @@ impl Intermission {
         lv: usize,
         patch: &WadPatch,
         scale: i32,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         let ep = self.level_info.epsd as usize;
         let point = MAP_POINTS[ep][lv];
@@ -37,8 +37,8 @@ impl Intermission {
         self.draw_patch_pixels(patch, x * scale, y * scale, pixels);
     }
 
-    pub(super) fn draw_enter_level_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
-        let half = buffer.width() as i32 / 2;
+    pub(super) fn draw_enter_level_pixels(&self, scale: i32, buffer: &mut dyn PixelBuffer) {
+        let half = buffer.size().width() / 2;
         let mut y = TITLE_Y * scale;
         self.draw_patch_pixels(
             &self.patches.enter,
@@ -51,7 +51,7 @@ impl Intermission {
         self.draw_patch_pixels(patch, half - patch.width as i32 * scale / 2, y, buffer);
     }
 
-    pub(super) fn draw_next_loc_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
+    pub(super) fn draw_next_loc_pixels(&self, scale: i32, buffer: &mut dyn PixelBuffer) {
         // Background
         self.draw_patch_pixels(self.get_bg(), 0, 0, buffer);
         self.draw_animated_bg_pixels(scale, buffer);

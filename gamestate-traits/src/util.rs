@@ -1,5 +1,5 @@
 use crate::MachinationTrait;
-use render_target::{PixelBuffer, RenderTarget};
+use render_target::PixelBuffer;
 use std::mem::MaybeUninit;
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
@@ -40,9 +40,9 @@ pub fn draw_num_pixels(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl MachinationTrait,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut dyn PixelBuffer,
 ) -> i32 {
-    let f = (pixels.height() / 200) as i32;
+    let f = (pixels.size().height() / 200) as i32;
     let width = nums[0].width as i32 * f;
     let digits: Vec<u32> = p
         .to_string()
@@ -72,19 +72,8 @@ pub fn draw_num(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl MachinationTrait,
-    buffer: &mut RenderTarget,
+    buffer: &mut dyn PixelBuffer,
 ) -> i32 {
     // TODO: remove duplicated functionality
-    match buffer.render_type() {
-        render_target::RenderType::Software => {
-            let pixels = unsafe { buffer.software_unchecked() };
-            draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
-        }
-        render_target::RenderType::SoftOpenGL => {
-            let pixels = unsafe { buffer.soft_opengl_unchecked() };
-            draw_num_pixels(p, x, y, pad, nums, drawer, pixels)
-        }
-        render_target::RenderType::OpenGL => todo!(),
-        render_target::RenderType::Vulkan => todo!(),
-    }
+    draw_num_pixels(p, x, y, pad, nums, drawer, buffer)
 }

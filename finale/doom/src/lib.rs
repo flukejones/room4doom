@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, RenderTarget, Scancode, TICRATE,
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, TICRATE,
 };
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::{
@@ -41,10 +41,10 @@ impl Finale {
         }
     }
 
-    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
-        let f = (pixels.height() / 200) as i32;
-        self.screen_width = pixels.width() as i32;
-        self.screen_height = pixels.height() as i32;
+    fn draw_pixels(&mut self, pixels: &mut dyn PixelBuffer) {
+        let f = pixels.size().height() / 200;
+        self.screen_width = pixels.size().width();
+        self.screen_height = pixels.size().height();
 
         let pal = &self.palette;
         for sx in (0..self.screen_width).step_by(64) {
@@ -153,18 +153,7 @@ impl MachinationTrait for Finale {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut RenderTarget) {
-        match buffer.render_type() {
-            gamestate_traits::RenderType::Software => {
-                let pixels = unsafe { buffer.software_unchecked() };
-                self.draw_pixels(pixels);
-            }
-            gamestate_traits::RenderType::SoftOpenGL => {
-                let pixels = unsafe { buffer.soft_opengl_unchecked() };
-                self.draw_pixels(pixels);
-            }
-            gamestate_traits::RenderType::OpenGL => todo!(),
-            gamestate_traits::RenderType::Vulkan => todo!(),
-        }
+    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+        self.draw_pixels(buffer);
     }
 }

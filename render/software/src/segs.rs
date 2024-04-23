@@ -120,7 +120,7 @@ impl SegRender {
         player: &Player,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         // Keep original Doom behaviour here
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
@@ -134,7 +134,7 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start < 0.0 || pixels.width() as f32 <= start || start > stop {
+        if start < 0.0 || pixels.size().width_f32() <= start || start > stop {
             // return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
@@ -156,16 +156,16 @@ impl SegRender {
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // TODO: doublecheck the angles and bounds
-        let visangle = mobj.angle + screen_to_x_view(start, pixels.width() as f32);
+        let visangle = mobj.angle + screen_to_x_view(start, pixels.size().width_f32());
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
             self.rw_distance,
             mobj.angle,
-            pixels.width() as f32,
+            pixels.size().width_f32(),
         );
 
-        let visangle = mobj.angle + screen_to_x_view(stop, pixels.width() as f32);
+        let visangle = mobj.angle + screen_to_x_view(stop, pixels.size().width_f32());
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -180,7 +180,7 @@ impl SegRender {
                 self.rw_normalangle,
                 self.rw_distance,
                 mobj.angle,
-                pixels.width() as f32,
+                pixels.size().width_f32(),
             );
 
             self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
@@ -363,7 +363,7 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        let half_height = pixels.half_height() as f32; // TODO: hmmm, - 0.5;
+        let half_height = pixels.size().half_height_f32(); // TODO: hmmm, - 0.5;
         self.topstep = -(self.worldtop * self.rw_scalestep);
         self.topfrac = half_height - (self.worldtop * self.rw_scale);
 
@@ -399,7 +399,7 @@ impl SegRender {
             );
         }
 
-        self.doubled = pixels.height() > 200;
+        self.doubled = pixels.size().height() > 200;
         self.render_seg_loop(seg, player.viewheight, rdata, pic_data, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
@@ -459,7 +459,7 @@ impl SegRender {
         view_height: f32,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         // TODO: yh/bottomfrac is sometimes negative?
         if self.bottomfrac.is_sign_negative() {
@@ -525,7 +525,8 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.width() as f32);
+                angle =
+                    self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.size().width_f32());
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance).abs() as usize;
 
                 dc_iscale = 1.0 / self.rw_scale;
@@ -665,11 +666,11 @@ pub fn draw_column(
     yh: i32,
     pic_data: &PicData,
     doubled: bool,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut dyn PixelBuffer,
 ) {
     let pal = pic_data.palette();
     let dc_x = dc_x as usize;
-    let mut frac = dc_texturemid + (yl - pixels.half_height() as i32) as f32 * fracstep;
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height()) as f32 * fracstep;
 
     for n in yl..=yh {
         let mut select = if doubled {

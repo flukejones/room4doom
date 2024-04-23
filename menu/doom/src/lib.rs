@@ -3,9 +3,7 @@
 //! with the rest of the game it ends up being fairly generic - you could make this
 //! fully generic with a little work, or use it as the basis for a different menu.
 
-use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, PixelBuffer, RenderTarget, Scancode, Skill,
-};
+use gamestate_traits::{GameMode, GameTraits, MachinationTrait, PixelBuffer, Scancode, Skill};
 use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::{
@@ -334,8 +332,8 @@ impl MenuDoom {
             .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 
-    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
-        let f = (pixels.height() / 200) as i32;
+    fn draw_pixels(&mut self, pixels: &mut dyn PixelBuffer) {
+        let f = pixels.size().height() / 200;
 
         if self.active || self.in_help {
             let active = &self.menus[self.current_menu as usize];
@@ -528,18 +526,7 @@ impl MachinationTrait for MenuDoom {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut RenderTarget) {
-        match buffer.render_type() {
-            gamestate_traits::RenderType::Software => {
-                let pixels = unsafe { buffer.software_unchecked() };
-                self.draw_pixels(pixels)
-            }
-            gamestate_traits::RenderType::SoftOpenGL => {
-                let pixels = unsafe { buffer.soft_opengl_unchecked() };
-                self.draw_pixels(pixels)
-            }
-            gamestate_traits::RenderType::OpenGL => todo!(),
-            gamestate_traits::RenderType::Vulkan => todo!(),
-        }
+    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+        self.draw_pixels(buffer)
     }
 }

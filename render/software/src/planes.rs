@@ -188,7 +188,7 @@ pub fn make_spans(
     plane: &Visplane,
     span_start: &mut [f32],
     pic_data: &PicData,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut dyn PixelBuffer,
 ) {
     while t1 < t2 && t1 <= b1 {
         map_plane(
@@ -241,20 +241,20 @@ fn map_plane(
     extra_light: i32,
     plane: &Visplane,
     pic_data: &PicData,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut dyn PixelBuffer,
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
-    let dy = y - pixels.half_height() as f32; // OK
-    let yslope = pixels.half_width() as f32 / dy.abs(); // OK
+    let dy = y - pixels.size().half_height_f32(); // OK
+    let yslope = pixels.size().half_width_f32() / dy.abs(); // OK
     let distance = planeheight * yslope; // OK
     let ds_xstep = distance * plane.basexscale;
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = screen_to_x_view(x1, pixels.width() as f32).cos();
+    let distscale = screen_to_x_view(x1, pixels.size().width_f32()).cos();
     let length = distance * (1.0 / distscale);
-    let angle = plane.view_angle + screen_to_x_view(x1, pixels.width() as f32);
+    let angle = plane.view_angle + screen_to_x_view(x1, pixels.size().width_f32());
     let ds_xfrac = viewxy.x + angle.cos() * length;
     let ds_yfrac = -viewxy.y - angle.sin() * length;
 
@@ -279,7 +279,7 @@ fn draw(
     ds_x1: f32,
     ds_x2: f32,
     pic_data: &PicData,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut dyn PixelBuffer,
 ) {
     let pal = pic_data.palette();
     // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {

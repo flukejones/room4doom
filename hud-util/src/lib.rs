@@ -1,4 +1,4 @@
-use gamestate_traits::{MachinationTrait, PixelBuffer, RenderTarget, RenderType};
+use gamestate_traits::{MachinationTrait, PixelBuffer};
 use log::warn;
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
@@ -117,11 +117,11 @@ impl HUDString {
         mut x: i32,
         mut y: i32,
         machination: &impl MachinationTrait,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) -> Option<()> {
-        let f = (pixels.height() / 200) as i32;
-        let width = pixels.width() as i32;
-        let height = pixels.height() as i32;
+        let f = (pixels.size().height() / 200) as i32;
+        let width = pixels.size().width();
+        let height = pixels.size().height();
         let start_x = x;
 
         for (i, ch) in self.data.chars().enumerate() {
@@ -176,20 +176,9 @@ impl HUDString {
         x: i32,
         y: i32,
         machination: &impl MachinationTrait,
-        pixels: &mut RenderTarget,
+        pixels: &mut dyn PixelBuffer,
     ) -> Option<()> {
-        match pixels.render_type() {
-            RenderType::Software => {
-                let pixels = unsafe { pixels.software_unchecked() };
-                self.draw_pixels(x, y, machination, pixels);
-            }
-            RenderType::SoftOpenGL => {
-                let pixels = unsafe { pixels.soft_opengl_unchecked() };
-                self.draw_pixels(x, y, machination, pixels);
-            }
-            RenderType::OpenGL => todo!(),
-            RenderType::Vulkan => todo!(),
-        }
+        self.draw_pixels(x, y, machination, pixels);
         Some(())
     }
 }

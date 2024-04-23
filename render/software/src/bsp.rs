@@ -63,15 +63,14 @@ impl PlayRenderer for SoftwareRenderer {
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        pixels: &mut RenderTarget,
+        buffer: &mut RenderTarget,
     ) {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
-        match pixels.render_type() {
+        match buffer.render_type() {
             render_target::RenderType::Software => {
-                let pixels = unsafe { pixels.software_unchecked() };
-                self.clear(player, pixels.width() as f32);
+                self.clear(player, buffer.pixel_buffer().size().width_f32());
                 // TODO: netupdate
                 let mut count = 0;
                 self.checked_sectors.clear();
@@ -79,17 +78,23 @@ impl PlayRenderer for SoftwareRenderer {
                 pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
                 pic_data.set_player_palette(player);
 
-                self.render_bsp_node(map, player, map.start_node(), pic_data, pixels, &mut count);
+                self.render_bsp_node(
+                    map,
+                    player,
+                    map.start_node(),
+                    pic_data,
+                    buffer.pixel_buffer(),
+                    &mut count,
+                );
                 trace!("BSP traversals for render: {count}");
                 // TODO: netupdate again
-                self.draw_planes(player, pic_data, pixels);
+                self.draw_planes(player, pic_data, buffer.pixel_buffer());
                 // TODO: netupdate again
-                self.draw_masked(player, pic_data, pixels);
+                self.draw_masked(player, pic_data, buffer.pixel_buffer());
                 // TODO: netupdate again
             }
             render_target::RenderType::SoftOpenGL => {
-                let pixels = unsafe { pixels.soft_opengl_unchecked() };
-                self.clear(player, pixels.width() as f32);
+                self.clear(player, buffer.pixel_buffer().size().width_f32());
                 // TODO: netupdate
                 let mut count = 0;
                 self.checked_sectors.clear();
@@ -97,12 +102,19 @@ impl PlayRenderer for SoftwareRenderer {
                 pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
                 pic_data.set_player_palette(player);
 
-                self.render_bsp_node(map, player, map.start_node(), pic_data, pixels, &mut count);
+                self.render_bsp_node(
+                    map,
+                    player,
+                    map.start_node(),
+                    pic_data,
+                    buffer.pixel_buffer(),
+                    &mut count,
+                );
                 trace!("BSP traversals for render: {count}");
                 // TODO: netupdate again
-                self.draw_planes(player, pic_data, pixels);
+                self.draw_planes(player, pic_data, buffer.pixel_buffer());
                 // TODO: netupdate again
-                self.draw_masked(player, pic_data, pixels);
+                self.draw_masked(player, pic_data, buffer.pixel_buffer());
                 // TODO: netupdate again
             }
             _ => {
@@ -146,14 +158,14 @@ impl SoftwareRenderer {
     }
 
     /// Doom function name `R_DrawPlanes`
-    fn draw_planes(&mut self, player: &Player, pic_data: &PicData, pixels: &mut impl PixelBuffer) {
+    fn draw_planes(&mut self, player: &Player, pic_data: &PicData, pixels: &mut dyn PixelBuffer) {
         let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
         let basexscale = self.r_data.visplane_render.basexscale;
         let baseyscale = self.r_data.visplane_render.baseyscale;
         let visplanes = &mut self.r_data.visplane_render;
-        let sky_doubled = pixels.height() != 200;
+        let sky_doubled = pixels.size().height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
             if plane.minx > plane.maxx {
@@ -162,7 +174,7 @@ impl SoftwareRenderer {
 
             if plane.picnum == pic_data.sky_num() {
                 let colourmap = pic_data.colourmap(0);
-                let sky_mid = pixels.height() / 2 - down_shift; // shift down by 6 pixels
+                let sky_mid = pixels.size().height() / 2 - down_shift; // shift down by 6 pixels
                 let skytex = pic_data.sky_pic();
 
                 for x in plane.minx as i32..=plane.maxx as i32 {
@@ -170,7 +182,7 @@ impl SoftwareRenderer {
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
                         let angle = (view_angle.rad().to_degrees()
-                            + screen_to_x_view(x as f32, pixels.width() as f32).to_degrees()
+                            + screen_to_x_view(x as f32, pixels.size().width_f32()).to_degrees()
                             + 360.0)
                             * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
@@ -202,7 +214,7 @@ impl SoftwareRenderer {
             plane.baseyscale = baseyscale;
             plane.view_angle = view_angle;
 
-            let mut span_start = vec![0.0; pixels.width()];
+            let mut span_start = vec![0.0; pixels.size().width_usize()];
             for x in plane.minx as i32..=plane.maxx as i32 {
                 let mut step = x - 1;
                 if step < 0 {
@@ -233,7 +245,7 @@ impl SoftwareRenderer {
         seg: &'a Segment,
         front_sector: &'a Sector,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
@@ -283,8 +295,8 @@ impl SoftwareRenderer {
         angle1 += FRAC_PI_2;
         angle2 += FRAC_PI_2;
 
-        let x1 = angle_to_screen(pixels.half_width() as f32, angle1);
-        let x2 = angle_to_screen(pixels.half_width() as f32, angle2);
+        let x1 = angle_to_screen(pixels.size().half_width_f32(), angle1);
+        let x2 = angle_to_screen(pixels.size().half_width_f32(), angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -332,7 +344,7 @@ impl SoftwareRenderer {
         player: &Player,
         subsect: &SubSector,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         let skynum = pic_data.sky_num();
         // TODO: planes for floor & ceiling
@@ -359,7 +371,7 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, pixels.width() as u32, pic_data);
+        self.add_sprites(player, front_sector, pixels.size().width() as u32, pic_data);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
@@ -386,7 +398,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         object: &Player,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         let mut next;
 
@@ -491,7 +503,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         object: &Player,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
     ) {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -582,7 +594,7 @@ impl SoftwareRenderer {
         player: &Player,
         node_id: u16,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut dyn PixelBuffer,
         count: &mut usize,
     ) {
         *count += 1;
@@ -606,7 +618,7 @@ impl SoftwareRenderer {
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.half_width() as f32) {
+        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.size().half_width_f32()) {
             self.render_bsp_node(
                 map,
                 player,

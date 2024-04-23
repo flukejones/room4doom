@@ -3,7 +3,7 @@ use gamestate_traits::{GameTraits, PixelBuffer};
 use log::info;
 
 impl Intermission {
-    pub(super) fn draw_no_state(&mut self, scale: i32, pixels: &mut impl PixelBuffer) {
+    pub(super) fn draw_no_state(&mut self, scale: i32, pixels: &mut dyn PixelBuffer) {
         self.pointer_on = true;
         self.draw_next_loc_pixels(scale, pixels);
     }

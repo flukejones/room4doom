@@ -1,4 +1,4 @@
-use gamestate_traits::{GameTraits, MachinationTrait, RenderTarget, Scancode, TICRATE};
+use gamestate_traits::{GameTraits, MachinationTrait, PixelBuffer, Scancode, TICRATE};
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::{lumps::WadPalette, WadData};
 
@@ -62,8 +62,8 @@ impl Messages {
         }
     }
 
-    pub fn draw_wrapped(&self, machination: &impl MachinationTrait, buffer: &mut RenderTarget) {
-        let f = (buffer.height() / 200) as i32;
+    pub fn draw_wrapped(&self, machination: &impl MachinationTrait, buffer: &mut dyn PixelBuffer) {
+        let f = (buffer.size().height() / 200) as i32;
 
         let x = 10;
         let mut y = 2;
@@ -127,9 +127,9 @@ impl MachinationTrait for Messages {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut RenderTarget) {
-        self.screen_width = buffer.width() as i32;
-        self.screen_height = buffer.height() as i32;
+    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+        self.screen_width = buffer.size().width();
+        self.screen_height = buffer.size().height();
         self.draw_wrapped(self, buffer);
     }
 }

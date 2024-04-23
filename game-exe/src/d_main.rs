@@ -260,10 +260,10 @@ pub fn d_doom_loop(
     Ok(())
 }
 
-fn draw_title_pixels(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
+fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     let mut xtmp = 0;
     let mut ytmp = 0;
-    let f = draw_buf.height() / 200;
+    let f = draw_buf.size().height() / 200;
     for c in game.title.columns.iter() {
         for n in 0..f {
             for p in c.pixels.iter() {
@@ -283,21 +283,6 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
                 xtmp += 1;
             }
         }
-    }
-}
-
-fn draw_title(game: &mut Game, draw_buf: &mut RenderTarget) {
-    match draw_buf.render_type() {
-        gamestate_traits::RenderType::Software => {
-            let pixels = unsafe { draw_buf.software_unchecked() };
-            draw_title_pixels(game, pixels);
-        }
-        gamestate_traits::RenderType::SoftOpenGL => {
-            let pixels = unsafe { draw_buf.soft_opengl_unchecked() };
-            draw_title_pixels(game, pixels);
-        }
-        gamestate_traits::RenderType::OpenGL => todo!(),
-        gamestate_traits::RenderType::Vulkan => todo!(),
     }
 }
 
@@ -347,39 +332,24 @@ fn d_display(
             }
         }
         // Fake crosshair
-        match draw_buf.render_type() {
-            gamestate_traits::RenderType::Software => {
-                let pixels = unsafe { draw_buf.software_unchecked() };
-                pixels.set_pixel(
-                    disp_buf.width() / 2,
-                    disp_buf.height() / 2,
-                    (200, 14, 14, 255),
-                );
-            }
-            gamestate_traits::RenderType::SoftOpenGL => {
-                let pixels = unsafe { draw_buf.soft_opengl_unchecked() };
-                pixels.set_pixel(
-                    disp_buf.width() / 2,
-                    disp_buf.height() / 2,
-                    (200, 14, 14, 255),
-                );
-            }
-            gamestate_traits::RenderType::OpenGL => todo!(),
-            gamestate_traits::RenderType::Vulkan => todo!(),
-        }
+        draw_buf.pixel_buffer().set_pixel(
+            disp_buf.width() / 2,
+            disp_buf.height() / 2,
+            (200, 14, 14, 255),
+        );
     }
 
     match game.gamestate {
         GameState::Level => {
             // TODO: Automap draw
-            machines.statusbar.draw(draw_buf);
-            machines.hud_msgs.draw(draw_buf);
+            machines.statusbar.draw(draw_buf.pixel_buffer());
+            machines.hud_msgs.draw(draw_buf.pixel_buffer());
         }
-        GameState::Intermission => machines.intermission.draw(draw_buf),
-        GameState::Finale => machines.finale.draw(draw_buf),
+        GameState::Intermission => machines.intermission.draw(draw_buf.pixel_buffer()),
+        GameState::Finale => machines.finale.draw(draw_buf.pixel_buffer()),
         GameState::Demo => {
             // TODO: we're clearing here to make the menu visible (for now)
-            draw_title(game, draw_buf);
+            draw_title_pixels(game, draw_buf.pixel_buffer());
             // TODO: D_PageDrawer();
         }
         _ => {}
@@ -387,9 +357,9 @@ fn d_display(
 
     // menus go directly to the screen
     // draw_buf.clear();
-    menu.draw(draw_buf); // menu is drawn even on top of everything
-                         // net update does i/o and buildcmds...
-                         // TODO: NetUpdate(); // send out any new accumulation
+    menu.draw(draw_buf.pixel_buffer()); // menu is drawn even on top of everything
+                                        // net update does i/o and buildcmds...
+                                        // TODO: NetUpdate(); // send out any new accumulation
 
     if !wipe {
         mem::swap(disp_buf, draw_buf);
@@ -403,7 +373,7 @@ fn d_display(
     loop {
         let mut done = false;
         timestep.run_this(|_| {
-            done = wipe.do_melt(disp_buf, draw_buf);
+            done = wipe.do_melt(disp_buf.pixel_buffer(), draw_buf.pixel_buffer());
             disp_buf.blit(canvas);
         });
 
