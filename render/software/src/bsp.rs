@@ -150,9 +150,9 @@ impl SoftwareRenderer {
         let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
-        let basexscale = self.r_data.visplanes.basexscale;
-        let baseyscale = self.r_data.visplanes.baseyscale;
-        let visplanes = &mut self.r_data.visplanes;
+        let basexscale = self.r_data.visplane_render.basexscale;
+        let baseyscale = self.r_data.visplane_render.baseyscale;
+        let visplanes = &mut self.r_data.visplane_render;
         let sky_doubled = pixels.height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
         for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
@@ -337,7 +337,7 @@ impl SoftwareRenderer {
         let skynum = pic_data.sky_num();
         // TODO: planes for floor & ceiling
         if subsect.sector.floorheight <= player.viewz && subsect.sector.floorpic != usize::MAX {
-            self.r_data.visplanes.floorplane = self.r_data.visplanes.find_plane(
+            self.r_data.visplane_render.floorplane = self.r_data.visplane_render.find_plane(
                 subsect.sector.floorheight,
                 subsect.sector.floorpic,
                 skynum,
@@ -349,7 +349,7 @@ impl SoftwareRenderer {
             || subsect.sector.ceilingpic == pic_data.sky_num())
             && subsect.sector.ceilingpic != usize::MAX
         {
-            self.r_data.visplanes.ceilingplane = self.r_data.visplanes.find_plane(
+            self.r_data.visplane_render.ceilingplane = self.r_data.visplane_render.find_plane(
                 subsect.sector.ceilingheight,
                 subsect.sector.ceilingpic,
                 skynum,

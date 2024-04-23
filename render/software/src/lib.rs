@@ -31,7 +31,7 @@ pub(crate) struct RenderData {
     /// index to drawsegs
     /// Used in r_segs and r_things
     pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
-    pub visplanes: VisPlaneRender,
+    pub visplane_render: VisPlaneRender,
 }
 
 impl RenderData {
@@ -40,7 +40,7 @@ impl RenderData {
             rw_angle1: Angle::default(),
             drawsegs: Vec::with_capacity(MAXDRAWSEGS),
             ds_p: 0,
-            visplanes: VisPlaneRender::new(screen_width, screen_height),
+            visplane_render: VisPlaneRender::new(screen_width, screen_height),
             portal_clip: PortalClip::new(screen_width, screen_height),
         }
     }
@@ -50,7 +50,7 @@ impl RenderData {
         self.drawsegs.clear();
         self.ds_p = 0;
         self.rw_angle1 = Angle::default();
-        self.visplanes.clear_planes(view_angle);
+        self.visplane_render.clear_planes(view_angle);
     }
 }
 

@@ -329,10 +329,10 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (rdata.visplanes.lastopening - self.rw_x) as i32;
+            self.maskedtexturecol = (rdata.visplane_render.lastopening - self.rw_x) as i32;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
-            rdata.visplanes.lastopening += self.rw_stopx - self.rw_x;
+            rdata.visplane_render.lastopening += self.rw_stopx - self.rw_x;
             // }
         }
 
@@ -386,17 +386,19 @@ impl SegRender {
 
         // render it
         if self.markceiling {
-            rdata.visplanes.ceilingplane =
-                rdata
-                    .visplanes
-                    .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.ceilingplane);
+            rdata.visplane_render.ceilingplane = rdata.visplane_render.check_plane(
+                self.rw_x,
+                self.rw_stopx,
+                rdata.visplane_render.ceilingplane,
+            );
         }
 
         if self.markfloor {
-            rdata.visplanes.floorplane =
-                rdata
-                    .visplanes
-                    .check_plane(self.rw_x, self.rw_stopx, rdata.visplanes.floorplane);
+            rdata.visplane_render.floorplane = rdata.visplane_render.check_plane(
+                self.rw_x,
+                self.rw_stopx,
+                rdata.visplane_render.floorplane,
+            );
         }
 
         self.doubled = pixels.height() > 200;
@@ -411,14 +413,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                let last = rdata.visplanes.lastopening as usize;
-                rdata.visplanes.openings[last + i] = *n;
+                let last = rdata.visplane_render.lastopening as usize;
+                rdata.visplane_render.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some(rdata.visplanes.lastopening - start);
-            rdata.visplanes.lastopening += self.rw_stopx - start;
+            ds_p.sprtopclip = Some(rdata.visplane_render.lastopening - start);
+            rdata.visplane_render.lastopening += self.rw_stopx - start;
         }
 
         if (ds_p.silhouette & SIL_BOTTOM != 0 || self.maskedtexture) && ds_p.sprbottomclip.is_none()
@@ -430,14 +432,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                let last = rdata.visplanes.lastopening as usize;
-                rdata.visplanes.openings[last + i] = *n;
+                let last = rdata.visplane_render.lastopening as usize;
+                rdata.visplane_render.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some(rdata.visplanes.lastopening - start);
-            rdata.visplanes.lastopening += self.rw_stopx - start;
+            ds_p.sprbottomclip = Some(rdata.visplane_render.lastopening - start);
+            rdata.visplane_render.lastopening += self.rw_stopx - start;
         }
 
         if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
@@ -481,9 +483,9 @@ impl SegRender {
                 // TODO: shouldn't be happening, early out?
                 return;
             }
-            // yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
-            // Whaaaat?
-            yl = self.topfrac.ceil();
+
+            // The yl and yh blocks are what affect wall clipping the most. You can make shorter/taller.
+            yl = self.topfrac.floor();
             if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
@@ -498,9 +500,9 @@ impl SegRender {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top <= bottom {
-                    let ceil = rdata.visplanes.ceilingplane;
-                    rdata.visplanes.visplanes[ceil].top[clip_index] = top;
-                    rdata.visplanes.visplanes[ceil].bottom[clip_index] = bottom - 1.0;
+                    let ceil = rdata.visplane_render.ceilingplane;
+                    rdata.visplane_render.visplanes[ceil].top[clip_index] = top;
+                    rdata.visplane_render.visplanes[ceil].bottom[clip_index] = bottom;
                 }
             }
 
@@ -517,9 +519,9 @@ impl SegRender {
                     top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
                 if top <= bottom {
-                    let floor = rdata.visplanes.floorplane;
-                    rdata.visplanes.visplanes[floor].top[clip_index] = top + 1.0;
-                    rdata.visplanes.visplanes[floor].bottom[clip_index] = bottom;
+                    let floor = rdata.visplane_render.floorplane;
+                    rdata.visplane_render.visplanes[floor].top[clip_index] = top + 1.0;
+                    rdata.visplane_render.visplanes[floor].bottom[clip_index] = bottom;
                 }
             }
 
@@ -634,7 +636,8 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    rdata.visplanes.openings[(self.maskedtexturecol + self.rw_x as i32) as usize] =
+                    rdata.visplane_render.openings
+                        [(self.maskedtexturecol + self.rw_x as i32) as usize] =
                         texture_column as f32;
                 }
             }
@@ -682,6 +685,9 @@ pub fn draw_column(
         select %= texture_column.len();
 
         let tc = texture_column[select];
+        if tc > colourmap.len() - 1 {
+            return;
+        }
         let cm = colourmap[tc];
         let c = pal[cm];
         pixels.set_pixel(dc_x, n, (c.r, c.g, c.b, 255));

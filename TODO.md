@@ -27,6 +27,7 @@
 ## BUGS
 
 - [ ] E1M5 lamps are on window height not floor
+- [x] E2M1 after second teleport there is a missing plane line at top of floor drop
 - [ ] Aim/shoot tries to hit low enemy even if portal blocks view
 - [x] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()`on an`Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
 - [x] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`

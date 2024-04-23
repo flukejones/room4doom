@@ -358,14 +358,14 @@ impl SoftwareRenderer {
 
             for r in r1 as i32..=r2 as i32 {
                 if clip_bottom[r as usize] == -2.0 && seg.sprbottomclip.is_some() {
-                    clip_bottom[r as usize] = self.r_data.visplanes.openings
+                    clip_bottom[r as usize] = self.r_data.visplane_render.openings
                         [(seg.sprbottomclip.unwrap() + r as f32) as usize];
                     if clip_bottom[r as usize] < 0.0 {
                         clip_bottom[r as usize] = 0.0;
                     }
                 }
                 if clip_top[r as usize] == -2.0 && seg.sprtopclip.is_some() {
-                    clip_top[r as usize] = self.r_data.visplanes.openings
+                    clip_top[r as usize] = self.r_data.visplane_render.openings
                         [(seg.sprtopclip.unwrap() + r as f32) as usize];
                     if clip_top[r as usize] >= pixels.height() as f32 {
                         clip_top[r as usize] = pixels.height() as f32;
@@ -547,17 +547,17 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.r_data.visplanes.openings[index] != f32::MAX
+                    if self.r_data.visplane_render.openings[index] != f32::MAX
                         && seg.sidedef.midtexture.is_some()
                     {
                         let texture_column = pic_data.wall_pic_column(
                             unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                            self.r_data.visplanes.openings[index].abs() as usize,
+                            self.r_data.visplane_render.openings[index].abs() as usize,
                         );
 
-                        let mut mceilingclip = self.r_data.visplanes.openings
+                        let mut mceilingclip = self.r_data.visplane_render.openings
                             [(ds.sprtopclip.unwrap() + x as f32) as usize];
-                        let mut mfloorclip = self.r_data.visplanes.openings
+                        let mut mfloorclip = self.r_data.visplane_render.openings
                             [(ds.sprbottomclip.unwrap() + x as f32) as usize];
                         if mceilingclip >= pixels.height() as f32 {
                             mceilingclip = pixels.height() as f32;
@@ -593,7 +593,7 @@ impl SoftwareRenderer {
                             pixels,
                         );
 
-                        self.r_data.visplanes.openings[index] = f32::MAX;
+                        self.r_data.visplane_render.openings[index] = f32::MAX;
                     } else {
                     }
                 }
