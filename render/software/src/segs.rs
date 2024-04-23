@@ -213,7 +213,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight + texture_column.len() as f32;
+                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
                     self.rw_midtexturemid = vtop - player.viewz;
                 }
             }
@@ -307,7 +307,7 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
-                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
                     self.rw_toptexturemid = vtop - player.viewz;
                 }
             }
@@ -678,7 +678,7 @@ pub fn draw_column(
         } else {
             frac as i32
         } as usize;
-        select %= texture_column.len();
+        select %= texture_column.len() - 1;
 
         let tc = texture_column[select];
         if tc > colourmap.len() - 1 {
