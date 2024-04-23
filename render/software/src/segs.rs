@@ -308,7 +308,7 @@ impl SegRender {
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
-                    self.rw_toptexturemid = vtop - player.viewz;
+                    self.rw_toptexturemid = vtop - player.viewz - 1.0;
                 }
             }
 
@@ -681,7 +681,7 @@ pub fn draw_column(
         select %= texture_column.len() - 1;
 
         let tc = texture_column[select];
-        if tc > colourmap.len() - 1 {
+        if tc >= colourmap.len() {
             return;
         }
         let cm = colourmap[tc];
