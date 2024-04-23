@@ -19,11 +19,11 @@ pub struct VisPlaneRender {
     pub ceilingplane: usize,
 
     /// Stores the column number of the texture required for this opening
-    pub openings: Vec<f32>,
+    pub openings: Vec<i32>,
     pub lastopening: f32,
 
-    pub floorclip: Vec<f32>,
-    pub ceilingclip: Vec<f32>,
+    pub floorclip: Vec<i32>,
+    pub ceilingclip: Vec<i32>,
 
     pub basexscale: f32,
     pub baseyscale: f32,
@@ -42,10 +42,10 @@ impl VisPlaneRender {
             lastvisplane: 0,
             floorplane: 0,
             ceilingplane: 0,
-            openings: vec![f32::MAX; screen_width * 128], // TODO: find a good limit
+            openings: vec![i32::MAX; screen_width * 128], // TODO: find a good limit
             lastopening: 0.0,
-            floorclip: vec![screen_height as f32; screen_width],
-            ceilingclip: vec![-1.0; screen_width],
+            floorclip: vec![screen_height as i32; screen_width],
+            ceilingclip: vec![-1; screen_width],
             basexscale: 0.0,
             baseyscale: 0.0,
             screen_width: screen_width as f32,
@@ -58,8 +58,8 @@ impl VisPlaneRender {
     /// At begining of frame.
     pub fn clear_planes(&mut self, view_angle: Angle) {
         // opening / clipping determination
-        self.floorclip.fill(self.screen_height);
-        self.ceilingclip.fill(-1.0);
+        self.floorclip.fill(self.screen_height as i32);
+        self.ceilingclip.fill(-1);
         for p in self.visplanes.iter_mut() {
             p.clear();
         }
@@ -110,7 +110,7 @@ impl VisPlaneRender {
         check.minx = self.screen_width;
         check.maxx = 0.0;
         for t in &mut check.top {
-            *t = f32::MAX;
+            *t = i32::MAX;
         }
 
         self.lastvisplane
@@ -145,7 +145,7 @@ impl VisPlaneRender {
                 // Use the same plane
                 return plane_idx;
             }
-            if plane.top[i as usize] != f32::MAX {
+            if plane.top[i as usize] != i32::MAX {
                 break;
             }
         }
@@ -168,7 +168,7 @@ impl VisPlaneRender {
         plane.maxx = stop;
 
         for t in &mut plane.top {
-            *t = 0.0;
+            *t = 0;
         }
 
         self.lastvisplane

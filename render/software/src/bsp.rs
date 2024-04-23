@@ -193,10 +193,10 @@ impl SoftwareRenderer {
             }
 
             if plane.maxx as usize + 1 < plane.top.len() {
-                plane.top[plane.maxx as usize + 1] = f32::MAX;
+                plane.top[plane.maxx as usize + 1] = i32::MAX;
             }
             if plane.minx as usize > 0 {
-                plane.top[plane.minx as usize - 1] = f32::MAX;
+                plane.top[plane.minx as usize - 1] = i32::MAX;
             }
             plane.basexscale = basexscale;
             plane.baseyscale = baseyscale;
@@ -210,10 +210,10 @@ impl SoftwareRenderer {
                 }
                 make_spans(
                     x as f32,
-                    plane.top[step as usize],
-                    plane.bottom[step as usize],
-                    plane.top[x as usize],
-                    plane.bottom[x as usize],
+                    plane.top[step as usize] as f32,
+                    plane.bottom[step as usize] as f32,
+                    plane.top[x as usize] as f32,
+                    plane.bottom[x as usize] as f32,
                     mobj.xy,
                     player.viewz,
                     player.extralight,

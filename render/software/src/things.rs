@@ -253,8 +253,8 @@ impl SoftwareRenderer {
     fn draw_vissprite(
         &self,
         vis: &VisSprite,
-        clip_bottom: &[f32],
-        clip_top: &[f32],
+        clip_bottom: &[i32],
+        clip_top: &[i32],
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
@@ -276,18 +276,17 @@ impl SoftwareRenderer {
                 break;
             }
 
-            let sprtopscreen = pixels.height() as f32 / 2.0 - dc_texmid * spryscale;
+            let mut top = (pixels.height() as f32 / 2.0 - dc_texmid * spryscale) as i32;
             let texture_column = &patch.data[tex_column];
 
-            let mut top = sprtopscreen;
-            let mut bottom = top + (spryscale * texture_column.len() as f32);
+            let mut bottom = top + (spryscale * texture_column.len() as f32) as i32;
 
             if bottom >= clip_bottom[x as usize] {
-                bottom = clip_bottom[x as usize] - 1.0;
+                bottom = clip_bottom[x as usize] - 1;
             }
 
             if top <= clip_top[x as usize] {
-                top = clip_top[x as usize] + 1.0;
+                top = clip_top[x as usize] + 1;
             }
 
             if top <= bottom {
@@ -317,8 +316,8 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
-        let mut clip_bottom = vec![-2f32; pixels.width()];
-        let mut clip_top = vec![-2f32; pixels.width()];
+        let mut clip_bottom = vec![-2i32; pixels.width()];
+        let mut clip_top = vec![-2i32; pixels.width()];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
@@ -357,29 +356,29 @@ impl SoftwareRenderer {
             }
 
             for r in r1 as i32..=r2 as i32 {
-                if clip_bottom[r as usize] == -2.0 && seg.sprbottomclip.is_some() {
+                if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
                     clip_bottom[r as usize] = self.r_data.visplane_render.openings
                         [(seg.sprbottomclip.unwrap() + r as f32) as usize];
-                    if clip_bottom[r as usize] < 0.0 {
-                        clip_bottom[r as usize] = 0.0;
+                    if clip_bottom[r as usize] < 0 {
+                        clip_bottom[r as usize] = 0;
                     }
                 }
-                if clip_top[r as usize] == -2.0 && seg.sprtopclip.is_some() {
+                if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
                     clip_top[r as usize] = self.r_data.visplane_render.openings
                         [(seg.sprtopclip.unwrap() + r as f32) as usize];
-                    if clip_top[r as usize] >= pixels.height() as f32 {
-                        clip_top[r as usize] = pixels.height() as f32;
+                    if clip_top[r as usize] >= pixels.height() as i32 {
+                        clip_top[r as usize] = pixels.height() as i32;
                     }
                 }
             }
         }
 
         for x in vis.x1 as i32..=vis.x2 as i32 {
-            if clip_bottom[x as usize] == -2.0 {
-                clip_bottom[x as usize] = pixels.height() as f32;
+            if clip_bottom[x as usize] == -2 {
+                clip_bottom[x as usize] = pixels.height() as i32;
             }
-            if clip_top[x as usize] == -2.0 {
-                clip_top[x as usize] = -1.0;
+            if clip_top[x as usize] == -2 {
+                clip_top[x as usize] = -1;
             }
         }
 
@@ -465,8 +464,8 @@ impl SoftwareRenderer {
             vis.start_frac += vis.x_iscale * (vis.x1 - x1) as f32;
         }
 
-        let clip_bottom = vec![0f32; pixels.width()];
-        let clip_top = vec![pixels.height() as f32; pixels.width()];
+        let clip_bottom = vec![0i32; pixels.width()];
+        let clip_top = vec![pixels.height() as i32; pixels.width()];
         self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, pixels)
     }
 
@@ -547,7 +546,7 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x) as usize;
 
                 if index != usize::MAX && ds.sprbottomclip.is_some() && ds.sprtopclip.is_some() {
-                    if self.r_data.visplane_render.openings[index] != f32::MAX
+                    if self.r_data.visplane_render.openings[index] != i32::MAX
                         && seg.sidedef.midtexture.is_some()
                     {
                         let texture_column = pic_data.wall_pic_column(
@@ -559,25 +558,23 @@ impl SoftwareRenderer {
                             [(ds.sprtopclip.unwrap() + x as f32) as usize];
                         let mut mfloorclip = self.r_data.visplane_render.openings
                             [(ds.sprbottomclip.unwrap() + x as f32) as usize];
-                        if mceilingclip >= pixels.height() as f32 {
-                            mceilingclip = pixels.height() as f32;
+                        if mceilingclip >= pixels.height() as i32 {
+                            mceilingclip = pixels.height() as i32;
                         }
-                        if mfloorclip < 0.0 {
-                            mfloorclip = 0.0;
+                        if mfloorclip < 0 {
+                            mfloorclip = 0;
                         }
 
                         // calculate unclipped screen coordinates for post
-                        // pixels.height() / 2 - 1 required to prevent vis from going over the span
-                        let sprtopscreen =
-                            (pixels.height() / 2 - 1) as f32 - dc_texturemid * spryscale;
-                        let mut top = sprtopscreen;
-                        let mut bottom = top + (spryscale * texture_column.len() as f32);
+                        let sprtopscreen = (pixels.height() / 2) as f32 - dc_texturemid * spryscale;
+                        let mut top = sprtopscreen as i32; // TODO: possible glitch
+                        let mut bottom = top + 1 + (spryscale * texture_column.len() as f32) as i32;
 
                         if bottom >= mfloorclip {
-                            bottom = mfloorclip - 1.0;
+                            bottom = mfloorclip - 1;
                         }
                         if top <= mceilingclip {
-                            top = mceilingclip + 1.0;
+                            top = mceilingclip + 1;
                         }
 
                         draw_masked_column(
@@ -593,7 +590,7 @@ impl SoftwareRenderer {
                             pixels,
                         );
 
-                        self.r_data.visplane_render.openings[index] = f32::MAX;
+                        self.r_data.visplane_render.openings[index] = i32::MAX;
                     } else {
                     }
                 }
@@ -611,14 +608,14 @@ fn draw_masked_column(
     fracstep: f32,
     dc_x: i32,
     dc_texturemid: f32,
-    yl: f32,
-    yh: f32,
+    yl: i32,
+    yh: i32,
     pic_data: &PicData,
     pixels: &mut impl PixelBuffer,
 ) {
     let pal = &pic_data.palette();
-    let mut frac = dc_texturemid + (yl - (pixels.height() / 2) as f32) * fracstep;
-    for n in yl as usize..=yh.ceil() as usize {
+    let mut frac = dc_texturemid + ((yl - pixels.height() as i32 / 2) as f32) * fracstep;
+    for n in yl..=yh {
         let select = frac as usize;
         if select >= texture_column.len() {
             return;
