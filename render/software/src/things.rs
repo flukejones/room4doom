@@ -279,7 +279,7 @@ impl SoftwareRenderer {
             let mut top = (pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) as i32;
             let texture_column = &patch.data[tex_column];
 
-            let mut bottom = top + (spryscale * texture_column.len() as f32) as i32;
+            let mut bottom = top + (spryscale * (texture_column.len() - 1) as f32) as i32;
 
             if bottom >= clip_bottom[x as usize] {
                 bottom = clip_bottom[x as usize] - 1;
@@ -454,7 +454,7 @@ impl SoftwareRenderer {
 
         if flip != 0 {
             vis.x_iscale = -pspriteiscale;
-            vis.start_frac = (patch.data[0].len() - 1) as f32;
+            vis.start_frac = patch.data[0].len() as f32;
         } else {
             vis.x_iscale = pspriteiscale;
             vis.start_frac = 0.0;
@@ -527,7 +527,7 @@ impl SoftwareRenderer {
                 };
 
                 let texture_column = pic_data.wall_pic_column(texnum, 0);
-                dc_texturemid += texture_column.len() as f32 - player.viewz - 1.0;
+                dc_texturemid += (texture_column.len() - 1) as f32 - player.viewz;
             } else {
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
                     frontsector.ceilingheight
