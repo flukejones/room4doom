@@ -1,6 +1,6 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
-    segs::{draw_column, draw_floor_column},
+    segs::{draw_column, draw_flat_column},
     utilities::screen_to_x_view,
 };
 use gameplay::{
@@ -9,7 +9,10 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::{
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
+    time::Instant,
+};
 
 const MAX_SEGS: usize = 64;
 const MAX_VIS_SPRITES: usize = 128 * 2;
@@ -71,59 +74,30 @@ impl PlayRenderer for SoftwareRenderer {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
-        match buffer.render_type() {
-            render_target::RenderType::Software => {
-                self.clear(player, buffer.pixel_buffer().size().width_f32());
-                // TODO: netupdate
-                let mut count = 0;
-                self.checked_sectors.clear();
+        self.clear(buffer.pixel_buffer().size().width_f32());
+        let mut count = 0;
+        self.checked_sectors.clear();
+        // TODO: netupdate
 
-                pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
-                pic_data.set_player_palette(player);
+        pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
+        pic_data.set_player_palette(player);
 
-                self.render_bsp_node(
-                    map,
-                    player,
-                    map.start_node(),
-                    pic_data,
-                    buffer.pixel_buffer(),
-                    &mut count,
-                );
-                trace!("BSP traversals for render: {count}");
-                // TODO: netupdate again
-                self.draw_planes(player, pic_data, buffer.pixel_buffer());
-                // TODO: netupdate again
-                self.draw_masked(player, pic_data, buffer.pixel_buffer());
-                // TODO: netupdate again
-            }
-            render_target::RenderType::SoftOpenGL => {
-                self.clear(player, buffer.pixel_buffer().size().width_f32());
-                // TODO: netupdate
-                let mut count = 0;
-                self.checked_sectors.clear();
-
-                pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
-                pic_data.set_player_palette(player);
-
-                self.render_bsp_node(
-                    map,
-                    player,
-                    map.start_node(),
-                    pic_data,
-                    buffer.pixel_buffer(),
-                    &mut count,
-                );
-                trace!("BSP traversals for render: {count}");
-                // TODO: netupdate again
-                self.draw_planes(player, pic_data, buffer.pixel_buffer());
-                // TODO: netupdate again
-                self.draw_masked(player, pic_data, buffer.pixel_buffer());
-                // TODO: netupdate again
-            }
-            _ => {
-                panic!("Not a valid renderer for software mode")
-            }
-        }
+        self.render_bsp_node(
+            map,
+            player,
+            map.start_node(),
+            pic_data,
+            buffer.pixel_buffer(),
+            &mut count,
+        );
+        trace!("BSP traversals for render: {count}");
+        // TODO: netupdate again
+        let now = Instant::now();
+        self.draw_planes(player, pic_data, buffer.pixel_buffer());
+        dbg!(now.elapsed());
+        // TODO: netupdate again
+        self.draw_masked(player, pic_data, buffer.pixel_buffer());
+        // TODO: netupdate again
     }
 }
 
@@ -147,15 +121,14 @@ impl SoftwareRenderer {
         }
     }
 
-    fn clear(&mut self, player: &Player, screen_width: f32) {
-        let view_angle = unsafe { player.mobj_unchecked().angle };
+    fn clear(&mut self, screen_width: f32) {
         for vis in self.vissprites.iter_mut() {
             vis.clear();
         }
         self.next_vissprite = 0;
 
         self.clear_clip_segs(screen_width);
-        self.r_data.clear_data(view_angle);
+        self.r_data.clear_data();
         // No need to recreate or clear as it is fully overwritten each frame
         // self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
@@ -207,19 +180,19 @@ impl SoftwareRenderer {
                 continue;
             }
 
+            let plane_height = (plane.height - player.viewz).abs();
+
             let texture = pic_data.get_flat(plane.picnum);
             for x_start in plane.minx as i32..=plane.maxx as i32 {
                 let dc_yl = plane.top[x_start as usize];
                 let dc_yh = plane.bottom[x_start as usize];
                 if dc_yl <= dc_yh {
                     // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-                    draw_floor_column(
+                    draw_flat_column(
                         texture,
                         mobj.xy,
-                        player.viewz,
-                        plane.height,
-                        plane.lightlevel,
-                        player.extralight,
+                        plane_height,
+                        (plane.lightlevel >> 4) + player.extralight,
                         x_start as f32,
                         mobj.angle,
                         dc_yl,

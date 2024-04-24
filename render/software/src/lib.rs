@@ -45,18 +45,18 @@ impl RenderData {
         }
     }
 
-    pub(crate) fn clear_data(&mut self, view_angle: Angle) {
+    pub(crate) fn clear_data(&mut self) {
         self.portal_clip.clear();
         self.drawsegs.clear();
         self.ds_p = 0;
         self.rw_angle1 = Angle::default();
-        self.visplane_render.clear_planes(view_angle);
+        self.visplane_render.clear_planes();
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use gameplay::Angle;
+    
 
     use crate::{defs::Visplane, portals::PortalClip, RenderData};
 
@@ -75,6 +75,6 @@ mod tests {
     #[test]
     fn default_render_data() {
         let mut rd = RenderData::new(640, 400);
-        rd.clear_data(Angle::default());
+        rd.clear_data();
     }
 }

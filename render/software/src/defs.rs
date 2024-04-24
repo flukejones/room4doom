@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr::NonNull};
 
-use gameplay::{Angle, Segment};
+use gameplay::{Segment};
 
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;
@@ -77,10 +77,6 @@ pub struct Visplane {
     pub top: Vec<i32>,
     /// See above.
     pub bottom: Vec<i32>,
-
-    pub basexscale: f32,
-    pub baseyscale: f32,
-    pub view_angle: Angle,
 }
 
 impl Debug for Visplane {
@@ -129,9 +125,6 @@ impl Visplane {
             maxx: 0.0,
             top: vec![i32::MAX; screen_width + 1],
             bottom: vec![0; screen_width + 1],
-            basexscale: 0.0,
-            baseyscale: 0.0,
-            view_angle: Angle::default(),
         }
     }
 }

@@ -1,6 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
 
-use gameplay::Angle;
 
 use super::defs::Visplane;
 
@@ -22,9 +20,6 @@ pub struct VisPlaneRender {
     pub floorclip: Vec<i32>,
     pub ceilingclip: Vec<i32>,
 
-    pub basexscale: f32,
-    pub baseyscale: f32,
-
     screen_width: f32,
     half_screen_width: f32,
     screen_height: f32,
@@ -43,8 +38,6 @@ impl VisPlaneRender {
             lastopening: 0.0,
             floorclip: vec![screen_height as i32; screen_width],
             ceilingclip: vec![-1; screen_width],
-            basexscale: 0.0,
-            baseyscale: 0.0,
             screen_width: screen_width as f32,
             half_screen_width: screen_width as f32 / 2.0,
             screen_height: screen_height as f32,
@@ -53,7 +46,7 @@ impl VisPlaneRender {
 
     /// R_ClearPlanes
     /// At begining of frame.
-    pub fn clear_planes(&mut self, view_angle: Angle) {
+    pub fn clear_planes(&mut self) {
         // opening / clipping determination
         self.floorclip.fill(self.screen_height as i32);
         self.ceilingclip.fill(-1);
@@ -65,10 +58,6 @@ impl VisPlaneRender {
         self.lastopening = 0.;
         self.floorplane = 0;
         self.ceilingplane = 0;
-
-        // left to right mapping
-        self.basexscale = (view_angle - FRAC_PI_2).cos() / self.half_screen_width;
-        self.baseyscale = -((view_angle - FRAC_PI_2).sin() / self.half_screen_width);
     }
 
     /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
