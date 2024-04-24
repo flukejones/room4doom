@@ -176,7 +176,7 @@ impl VisPlaneRender {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn make_spans(
+pub fn draw_plane_spans(
     x: f32,
     mut t1: f32,
     mut b1: f32,
@@ -252,8 +252,8 @@ fn map_plane(
     let ds_ystep = distance * plane.baseyscale;
 
     // distance * distscale[i]
-    let distscale = screen_to_x_view(x1, pixels.size().width_f32()).cos();
-    let length = distance * (1.0 / distscale);
+    let distscale = 1.0 / screen_to_x_view(x1, pixels.size().width_f32()).cos();
+    let length = distance * distscale;
     let angle = plane.view_angle + screen_to_x_view(x1, pixels.size().width_f32());
     let ds_xfrac = viewxy.x + angle.cos() * length;
     let ds_yfrac = -viewxy.y - angle.sin() * length;

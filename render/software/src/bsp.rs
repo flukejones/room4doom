@@ -1,5 +1,9 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
-use crate::{planes::make_spans, segs::draw_column, utilities::screen_to_x_view};
+use crate::{
+    planes::draw_plane_spans,
+    segs::{draw_column, draw_floor_column},
+    utilities::screen_to_x_view,
+};
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
     SubSector, IS_SSECTOR_MASK,
@@ -204,36 +208,28 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            if plane.maxx as usize + 1 < plane.top.len() {
-                plane.top[plane.maxx as usize + 1] = i32::MAX;
-            }
-            if plane.minx as usize > 0 {
-                plane.top[plane.minx as usize - 1] = i32::MAX;
-            }
-            plane.basexscale = basexscale;
-            plane.baseyscale = baseyscale;
-            plane.view_angle = view_angle;
+            let colourmap = pic_data.colourmap(0);
 
-            let mut span_start = vec![0.0; pixels.size().width_usize()];
-            for x in plane.minx as i32..=plane.maxx as i32 {
-                let mut step = x - 1;
-                if step < 0 {
-                    step = 0;
+            let texture = pic_data.get_flat(plane.picnum);
+            for x_start in plane.minx as i32..=plane.maxx as i32 {
+                let dc_yl = plane.top[x_start as usize];
+                let dc_yh = plane.bottom[x_start as usize];
+                if dc_yl <= dc_yh {
+                    // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
+                    draw_floor_column(
+                        texture,
+                        colourmap,
+                        mobj.xy,
+                        player.viewz,
+                        plane.height,
+                        x_start as f32,
+                        mobj.angle,
+                        dc_yl,
+                        dc_yh,
+                        pic_data,
+                        pixels,
+                    );
                 }
-                make_spans(
-                    x as f32,
-                    plane.top[step as usize] as f32,
-                    plane.bottom[step as usize] as f32,
-                    plane.top[x as usize] as f32,
-                    plane.bottom[x as usize] as f32,
-                    mobj.xy,
-                    player.viewz,
-                    player.extralight,
-                    plane,
-                    &mut span_start,
-                    pic_data,
-                    pixels,
-                )
             }
         }
     }

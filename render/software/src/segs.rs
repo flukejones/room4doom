@@ -1,5 +1,6 @@
 use crate::utilities::screen_to_x_view;
-use gameplay::{Angle, LineDefFlags, PicData, Player, Segment};
+use gameplay::{Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
+use glam::Vec2;
 use render_target::PixelBuffer;
 use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
 
@@ -41,7 +42,7 @@ pub(crate) struct SegRender {
     //
     rw_normalangle: Angle,
     // regular wall
-    rw_x: f32,
+    rw_startx: f32,
     rw_stopx: f32,
     rw_centerangle: Angle,
     rw_offset: f32,
@@ -84,7 +85,7 @@ impl SegRender {
             bottomtexture: false,
             midtexture: false,
             rw_normalangle: Angle::default(),
-            rw_x: 0.0,
+            rw_startx: 0.0,
             rw_stopx: 0.0,
             rw_centerangle: Angle::default(),
             rw_offset: 0.0,
@@ -169,7 +170,7 @@ impl SegRender {
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
-        self.rw_x = ds_p.x1;
+        self.rw_startx = ds_p.x1;
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1.0;
 
@@ -327,10 +328,10 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (rdata.visplane_render.lastopening - self.rw_x) as i32;
+            self.maskedtexturecol = (rdata.visplane_render.lastopening - self.rw_startx) as i32;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
-            rdata.visplane_render.lastopening += self.rw_stopx - self.rw_x;
+            rdata.visplane_render.lastopening += self.rw_stopx - self.rw_startx;
             // }
         }
 
@@ -385,7 +386,7 @@ impl SegRender {
         // render it
         if self.markceiling {
             rdata.visplane_render.ceilingplane = rdata.visplane_render.check_plane(
-                self.rw_x,
+                self.rw_startx,
                 self.rw_stopx,
                 rdata.visplane_render.ceilingplane,
             );
@@ -393,7 +394,7 @@ impl SegRender {
 
         if self.markfloor {
             rdata.visplane_render.floorplane = rdata.visplane_render.check_plane(
-                self.rw_x,
+                self.rw_startx,
                 self.rw_stopx,
                 rdata.visplane_render.floorplane,
             );
@@ -474,8 +475,8 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
 
-        while self.rw_x.floor() < self.rw_stopx.ceil() {
-            let clip_index = self.rw_x as usize;
+        while self.rw_startx.floor() < self.rw_stopx.ceil() {
+            let clip_index = self.rw_startx as usize;
             if rdata.portal_clip.floorclip[clip_index] < 0 {
                 // TODO: shouldn't be happening, early out?
                 return;
@@ -525,8 +526,8 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle =
-                    self.rw_centerangle + screen_to_x_view(self.rw_x, pixels.size().width_f32());
+                angle = self.rw_centerangle
+                    + screen_to_x_view(self.rw_startx, pixels.size().width_f32());
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance).abs() as usize;
 
                 dc_iscale = 1.0 / self.rw_scale;
@@ -544,7 +545,7 @@ impl SegRender {
                             self.rw_scale,
                         ),
                         dc_iscale,
-                        self.rw_x,
+                        self.rw_startx,
                         self.rw_midtexturemid,
                         yl,
                         yh,
@@ -578,7 +579,7 @@ impl SegRender {
                                     self.rw_scale,
                                 ),
                                 dc_iscale,
-                                self.rw_x,
+                                self.rw_startx,
                                 self.rw_toptexturemid,
                                 yl,
                                 mid + 1,
@@ -617,7 +618,7 @@ impl SegRender {
                                     self.rw_scale,
                                 ),
                                 dc_iscale,
-                                self.rw_x,
+                                self.rw_startx,
                                 self.rw_bottomtexturemid,
                                 mid - 1,
                                 yh,
@@ -636,12 +637,12 @@ impl SegRender {
 
                 if self.maskedtexture {
                     rdata.visplane_render.openings
-                        [(self.maskedtexturecol + self.rw_x as i32) as usize] =
+                        [(self.maskedtexturecol + self.rw_startx as i32) as usize] =
                         texture_column as i32;
                 }
             }
 
-            self.rw_x += 1.0;
+            self.rw_startx += 1.0;
             self.rw_scale += self.rw_scalestep;
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
@@ -688,5 +689,54 @@ pub fn draw_column(
         let c = pal[cm];
         pixels.set_pixel(dc_x, n as usize, (c.r, c.g, c.b, 255));
         frac += fracstep;
+    }
+}
+
+pub fn draw_floor_column(
+    texture: &FlatPic,
+    colourmap: &[usize],
+    viewxy: Vec2,
+    viewz: f32,
+    plane_height: f32,
+    dc_x: f32,
+    angle: Angle,
+    yl: i32,
+    yh: i32,
+    pic_data: &PicData,
+    pixels: &mut dyn PixelBuffer,
+) {
+    let plane_height = (plane_height - viewz).abs(); // OKKKK
+    let basexscale = (angle - FRAC_PI_2).cos() / pixels.size().half_width_f32();
+    let baseyscale = -((angle - FRAC_PI_2).sin() / pixels.size().half_height_f32());
+    let angle = angle + screen_to_x_view(dc_x, pixels.size().width_f32()); // OKKKK
+    let distscale = 1.0 / screen_to_x_view(dc_x as f32, pixels.size().width_f32()).cos(); // OKKKK
+
+    let pal = pic_data.palette();
+    for next_y in yl..=yh {
+        let dy = next_y as f32 - pixels.size().half_height_f32(); // OKKKK
+        let yslope = pixels.size().half_width_f32() / dy.abs() as f32; // OK
+        let distance = plane_height * yslope; // OK
+        let ds_xstep = distance * basexscale;
+        let ds_ystep = distance * baseyscale;
+
+        let length = distance * distscale;
+        let ds_xfrac = viewxy.x + angle.cos() * length;
+        let ds_yfrac = -viewxy.y - angle.sin() * length;
+
+        // dbg!(ds_yfrac, yfrac);
+        let mut x_step = (ds_xfrac + ds_xstep).abs() as usize;
+        let mut y_step = (ds_yfrac + ds_ystep).abs() as usize;
+
+        if y_step >= texture.data[0].len() {
+            y_step %= texture.data[0].len() - 1;
+        }
+
+        if x_step >= texture.data.len() {
+            x_step %= texture.data.len() - 1;
+        }
+
+        let px = colourmap[texture.data[x_step][y_step] as usize];
+        let c = pal[px];
+        pixels.set_pixel(dc_x as usize, next_y as usize, (c.r, c.g, c.b, 255));
     }
 }
