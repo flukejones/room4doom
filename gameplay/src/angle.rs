@@ -1,6 +1,6 @@
 use glam::Vec2;
 use std::{
-    f32::consts::PI,
+    f32::consts::{PI, TAU},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
@@ -18,14 +18,14 @@ impl Angle {
     fn inner_wrap(&mut self) {
         if self.0 < 0.0 {
             self.0 += 2.0 * PI;
-        } else if self.0 >= 2.0 * PI {
+        } else if self.0 >= TAU {
             self.0 -= 2.0 * PI;
         }
     }
 
     //pub fn as_degrees(&self) -> i32 { (self.0 * 180.0 / PI) as i32 }
 
-    pub fn rad(&self) -> f32 {
+    pub const fn rad(&self) -> f32 {
         self.0
     }
 

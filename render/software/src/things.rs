@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    f32::consts::{FRAC_PI_2, PI},
+    f32::consts::{FRAC_PI_2, TAU},
 };
 
 use gameplay::{
@@ -17,7 +17,7 @@ const FF_FRAMEMASK: u32 = 0x7fff;
 /// Offset in radians for player view rotation during frame rotation select
 const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
 /// Divisor for selecting which frame rotation to use
-const FRAME_ROT_SELECT: f32 = 8.0 / (PI * 2.0);
+const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct VisSprite {

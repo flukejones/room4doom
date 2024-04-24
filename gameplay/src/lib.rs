@@ -8,7 +8,7 @@
 #![allow(clippy::new_without_default)]
 
 use std::{
-    f32::consts::PI,
+    f32::consts::{TAU},
     fmt::{self, Debug},
     ops::{Deref, DerefMut},
 };
@@ -200,9 +200,9 @@ impl<T: Debug> Debug for DPtr<T> {
 
 pub fn radian_range(rad: f32) -> f32 {
     if rad < 0.0 {
-        return rad + 2.0 * PI;
-    } else if rad >= 2.0 * PI {
-        return rad - 2.0 * PI;
+        return rad + TAU;
+    } else if rad >= TAU {
+        return rad - TAU;
     }
     rad
 }

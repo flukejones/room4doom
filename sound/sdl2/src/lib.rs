@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    f32::consts::PI,
+    f32::consts::{TAU},
     fmt::Debug,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -202,7 +202,7 @@ impl<'a> Snd<'a> {
         let (y, x) = point_to_angle_2(sx, sy, self.listener.x, self.listener.y).sin_cos();
         let mut angle = angle_between(self.listener.angle, x, y);
         if angle.is_sign_negative() {
-            angle += PI * 2.0;
+            angle += TAU;
         }
         360.0 - angle.to_degrees()
     }

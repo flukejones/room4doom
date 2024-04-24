@@ -10,7 +10,7 @@ use gameplay::{
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU},
     time::Instant,
 };
 
@@ -157,10 +157,10 @@ impl SoftwareRenderer {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let angle = (view_angle.rad().to_degrees()
-                            + screen_to_x_view(x as f32, pixels.size().width_f32()).to_degrees()
-                            + 360.0)
-                            * 2.8444; // 2.8444 seems to give the corect skybox width
+                        let screen_x_degress =
+                            screen_to_x_view(x as f32, pixels.size().width_f32());
+                        let angle =
+                            (view_angle.rad() + screen_x_degress + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
                         // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
                         draw_column(
@@ -180,6 +180,7 @@ impl SoftwareRenderer {
                 continue;
             }
 
+            let total_light = (plane.lightlevel >> 4) + player.extralight;
             let plane_height = (plane.height - player.viewz).abs();
             let texture = pic_data.get_flat(plane.picnum);
             for x_start in plane.minx as i32..=plane.maxx as i32 {
@@ -191,7 +192,7 @@ impl SoftwareRenderer {
                         texture,
                         mobj.xy,
                         plane_height,
-                        (plane.lightlevel >> 4) + player.extralight,
+                        total_light,
                         x_start as f32,
                         mobj.angle,
                         dc_yl,

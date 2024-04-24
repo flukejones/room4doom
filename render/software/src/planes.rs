@@ -1,5 +1,3 @@
-
-
 use super::defs::Visplane;
 
 pub const MAXVISPLANES: usize = 1024;
@@ -21,7 +19,6 @@ pub struct VisPlaneRender {
     pub ceilingclip: Vec<i32>,
 
     screen_width: f32,
-    half_screen_width: f32,
     screen_height: f32,
 }
 
@@ -39,7 +36,6 @@ impl VisPlaneRender {
             floorclip: vec![screen_height as i32; screen_width],
             ceilingclip: vec![-1; screen_width],
             screen_width: screen_width as f32,
-            half_screen_width: screen_width as f32 / 2.0,
             screen_height: screen_height as f32,
         }
     }

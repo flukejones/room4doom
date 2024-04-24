@@ -146,7 +146,7 @@ where
 mod tests {
     use std::{
         error::Error,
-        f32::consts::PI,
+        f32::consts::{FRAC_PI_2},
         fmt::Display,
         sync::mpsc::{channel, Receiver, Sender},
     };
@@ -256,7 +256,7 @@ mod tests {
             uid: 42,
             x: 0.3,
             y: 0.3,
-            angle: PI / 2.0,
+            angle: FRAC_PI_2,
         })
         .unwrap();
         tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();
@@ -273,7 +273,7 @@ mod tests {
             uid: 42,
             x: 0.3,
             y: 0.3,
-            angle: PI / 2.0,
+            angle: FRAC_PI_2,
         })
         .unwrap();
         tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();
