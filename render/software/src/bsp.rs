@@ -1,6 +1,7 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
-    segs::{draw_column, draw_flat_column},
+    planes::draw_doom_style_flats,
+    segs::{draw_column_style_flats, draw_wall_column},
     utilities::screen_to_x_view,
 };
 use gameplay::{
@@ -58,6 +59,7 @@ pub struct SoftwareRenderer {
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
     pub(super) _debug: bool,
+    pub(super) new_floors: bool,
 
     /// Used for checking if a sector has been worked on when iterating over
     pub(super) checked_sectors: Vec<u32>,
@@ -82,6 +84,7 @@ impl PlayRenderer for SoftwareRenderer {
         pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
         pic_data.set_player_palette(player);
 
+        self.seg_renderer.clear();
         self.render_bsp_node(
             map,
             player,
@@ -92,9 +95,9 @@ impl PlayRenderer for SoftwareRenderer {
         );
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        let now = Instant::now();
+        let now1 = Instant::now();
         self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        dbg!(now.elapsed());
+        println!("draw_spans time: {:?}", now1.elapsed());
         // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
@@ -102,10 +105,10 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(screen_width: usize, screen_height: usize, debug: bool) -> Self {
+    pub fn new(screen_width: usize, screen_height: usize, new_floors: bool, debug: bool) -> Self {
         Self {
             r_data: RenderData::new(screen_width, screen_height),
-            seg_renderer: SegRender::new(),
+            seg_renderer: SegRender::new(screen_width, screen_height),
             new_end: 0,
             solidsegs: vec![
                 ClipRange {
@@ -115,6 +118,7 @@ impl SoftwareRenderer {
                 MAX_SEGS
             ],
             _debug: debug,
+            new_floors,
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
             next_vissprite: 0,
@@ -163,7 +167,7 @@ impl SoftwareRenderer {
                             (view_angle.rad() + screen_x_degress + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
                         // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-                        draw_column(
+                        draw_wall_column(
                             texture_column,
                             colourmap,
                             0.94,
@@ -180,26 +184,56 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            let total_light = (plane.lightlevel >> 4) + player.extralight;
-            let plane_height = (plane.height - player.viewz).abs();
-            let texture = pic_data.get_flat(plane.picnum);
-            for x_start in plane.minx as i32..=plane.maxx as i32 {
-                let dc_yl = plane.top[x_start as usize];
-                let dc_yh = plane.bottom[x_start as usize];
-                if dc_yl <= dc_yh {
-                    // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-                    draw_flat_column(
-                        texture,
+            if !self.new_floors {
+                let angle = mobj.angle - FRAC_PI_2;
+                let basexscale = angle.cos() / pixels.size().half_width_f32();
+                let baseyscale = -(angle.sin() / pixels.size().half_height_f32());
+                let mut span_start = vec![0.0; pixels.size().width_usize()];
+                for x in plane.minx as i32..=plane.maxx as i32 {
+                    let mut step = x - 1;
+                    if step < 0 {
+                        step = 0;
+                    }
+                    draw_doom_style_flats(
+                        x as f32,
+                        plane.top[step as usize],
+                        plane.bottom[step as usize],
+                        plane.top[x as usize],
+                        plane.bottom[x as usize],
+                        basexscale,
+                        baseyscale,
                         mobj.xy,
-                        plane_height,
-                        total_light,
-                        x_start as f32,
+                        player.viewz,
                         mobj.angle,
-                        dc_yl,
-                        dc_yh,
+                        player.extralight,
+                        plane,
+                        &mut span_start,
                         pic_data,
                         pixels,
-                    );
+                    )
+                }
+            } else {
+                let total_light = (plane.lightlevel >> 4) + player.extralight;
+                let plane_height = (plane.height - player.viewz).abs();
+                let texture = pic_data.get_flat(plane.picnum);
+                for x_start in plane.minx as i32..=plane.maxx as i32 {
+                    let dc_yl = plane.top[x_start as usize];
+                    let dc_yh = plane.bottom[x_start as usize];
+                    if dc_yl <= dc_yh {
+                        // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
+                        draw_column_style_flats(
+                            texture,
+                            mobj.xy,
+                            plane_height,
+                            total_light,
+                            x_start as f32,
+                            mobj.angle,
+                            dc_yl,
+                            dc_yh,
+                            pic_data,
+                            pixels,
+                        );
+                    }
                 }
             }
         }

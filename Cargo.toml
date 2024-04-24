@@ -66,7 +66,7 @@ serde = { version = "1.0", features = ["serde_derive"] }
 [profile.release]
 lto = true
 debug = false
-opt-level = "z"
+opt-level = 3
 panic = "abort"
 strip = true
 codegen-units = 1
@@ -76,6 +76,7 @@ debug = true
 opt-level = 3
 
 [profile.bench]
-debug = false
+lto = true
+debug = true
 opt-level = 3
 codegen-units = 1

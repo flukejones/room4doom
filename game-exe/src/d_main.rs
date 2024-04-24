@@ -43,18 +43,26 @@ pub fn d_doom_loop(
     // TODO: switch 320x200 | 640x400 on option
     let screen_width = if options.double.is_some() && options.double.unwrap() {
         640
+        // window.size().0 as usize
     } else {
         320
     };
     let screen_height = if options.double.is_some() && options.double.unwrap() {
         400
+        // window.size().1 as usize
     } else {
         200
     };
+    if game.options.new_planes {
+        info!("Using new column based floor/ceilings");
+    } else {
+        info!("Using old span based floor/ceilings");
+    }
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
         screen_width,
         screen_height,
+        game.options.new_planes,
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 

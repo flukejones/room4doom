@@ -68,13 +68,16 @@ pub(crate) struct SegRender {
     worldhigh: f32,
     worldlow: f32,
 
+    /// Stores the column number of the texture required for this opening
+    pub(super) openings: Vec<i32>,
+    lastopening: f32,
     /// Light level for the wall
     wall_lights: i32,
     doubled: bool,
 }
 
 impl SegRender {
-    pub fn new() -> Self {
+    pub fn new(screen_width: usize, screen_height: usize) -> Self {
         Self {
             segtextured: false,
             markfloor: false,
@@ -108,8 +111,14 @@ impl SegRender {
             worldhigh: 0.0,
             worldlow: 0.0,
             wall_lights: 0,
+            openings: vec![i32::MAX; screen_width * screen_height], // TODO: find a good limit
+            lastopening: 0.0,
             doubled: false,
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.lastopening = 0.0;
     }
 
     /// R_StoreWallRange - r_segs
@@ -328,10 +337,10 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (rdata.visplane_render.lastopening - self.rw_startx) as i32;
+            self.maskedtexturecol = (self.lastopening - self.rw_startx) as i32;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
-            rdata.visplane_render.lastopening += self.rw_stopx - self.rw_startx;
+            self.lastopening += self.rw_stopx - self.rw_startx;
             // }
         }
 
@@ -412,14 +421,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                let last = rdata.visplane_render.lastopening as usize;
-                rdata.visplane_render.openings[last + i] = *n;
+                let last = self.lastopening as usize;
+                self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprtopclip = Some(rdata.visplane_render.lastopening - start);
-            rdata.visplane_render.lastopening += self.rw_stopx - start;
+            ds_p.sprtopclip = Some(self.lastopening - start);
+            self.lastopening += self.rw_stopx - start;
         }
 
         if (ds_p.silhouette & SIL_BOTTOM != 0 || self.maskedtexture) && ds_p.sprbottomclip.is_none()
@@ -431,14 +440,14 @@ impl SegRender {
                 .skip(start as usize)
                 .enumerate()
             {
-                let last = rdata.visplane_render.lastopening as usize;
-                rdata.visplane_render.openings[last + i] = *n;
+                let last = self.lastopening as usize;
+                self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
                 }
             }
-            ds_p.sprbottomclip = Some(rdata.visplane_render.lastopening - start);
-            rdata.visplane_render.lastopening += self.rw_stopx - start;
+            ds_p.sprbottomclip = Some(self.lastopening - start);
+            self.lastopening += self.rw_stopx - start;
         }
 
         if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
@@ -536,7 +545,7 @@ impl SegRender {
             if self.midtexture {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
-                    draw_column(
+                    draw_wall_column(
                         texture_column,
                         pic_data.wall_light_colourmap(
                             &seg.v1,
@@ -570,7 +579,7 @@ impl SegRender {
                     if mid >= yl {
                         if let Some(top_tex) = seg.sidedef.toptexture {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
-                            draw_column(
+                            draw_wall_column(
                                 texture_column,
                                 pic_data.wall_light_colourmap(
                                     &seg.v1,
@@ -609,7 +618,7 @@ impl SegRender {
                     if mid <= yh {
                         if let Some(bot_tex) = seg.sidedef.bottomtexture {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
-                            draw_column(
+                            draw_wall_column(
                                 texture_column,
                                 pic_data.wall_light_colourmap(
                                     &seg.v1,
@@ -636,8 +645,7 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    rdata.visplane_render.openings
-                        [(self.maskedtexturecol + self.rw_startx as i32) as usize] =
+                    self.openings[(self.maskedtexturecol + self.rw_startx as i32) as usize] =
                         texture_column as i32;
                 }
             }
@@ -657,7 +665,7 @@ impl SegRender {
 ///  will always have constant z depth.
 /// Thus a special case loop for very fast rendering can
 ///  be used. It has also been used with Wolfenstein 3D.
-pub fn draw_column(
+pub fn draw_wall_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
@@ -692,7 +700,7 @@ pub fn draw_column(
     }
 }
 
-pub fn draw_flat_column(
+pub fn draw_column_style_flats(
     texture: &FlatPic,
     viewxy: Vec2,
     plane_height: f32,

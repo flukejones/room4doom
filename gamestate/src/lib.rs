@@ -66,6 +66,7 @@ pub struct DoomOptions {
     pub autostart: bool,
     pub hi_res: bool,
     pub verbose: log::LevelFilter,
+    pub new_planes: bool,
 }
 
 impl Default for DoomOptions {
@@ -85,6 +86,7 @@ impl Default for DoomOptions {
             autostart: Default::default(),
             hi_res: true,
             verbose: log::LevelFilter::Info,
+            new_planes: true,
         }
     }
 }

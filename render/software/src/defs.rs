@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr::NonNull};
 
-use gameplay::{Segment};
+use gameplay::Segment;
 
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;

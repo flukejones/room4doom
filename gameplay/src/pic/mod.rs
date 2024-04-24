@@ -478,14 +478,6 @@ impl PicData {
             light_level = self.light_scale.len() as i32 - 1;
         }
 
-        if v1.y == v2.y {
-            if light_level > 1 {
-                light_level -= 1;
-            }
-        } else if (v1.x == v2.x) && light_level < 15 {
-            light_level += 1;
-        }
-
         let colourmap = self.colourmap_for_scale(wall_scale);
         &self.light_scale[light_level as usize][colourmap]
     }

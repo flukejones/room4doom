@@ -9,7 +9,7 @@ fn player_dist_to_screen(screen_width: f32) -> f32 {
 
 pub fn screen_to_x_view(x: f32, screen_width: f32) -> f32 {
     ((screen_width / 2.0 - x) / player_dist_to_screen(screen_width)).atan()
-    // CLASSIC_SCREEN_X_TO_VIEW[x as usize].to_radians()
+    //CLASSIC_SCREEN_X_TO_VIEW[x as usize].to_radians()
 }
 
 #[allow(clippy::excessive_precision)]

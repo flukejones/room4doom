@@ -40,7 +40,7 @@ impl RenderData {
             rw_angle1: Angle::default(),
             drawsegs: Vec::with_capacity(MAXDRAWSEGS),
             ds_p: 0,
-            visplane_render: VisPlaneRender::new(screen_width, screen_height),
+            visplane_render: VisPlaneRender::new(screen_width),
             portal_clip: PortalClip::new(screen_width, screen_height),
         }
     }
@@ -56,7 +56,6 @@ impl RenderData {
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::{defs::Visplane, portals::PortalClip, RenderData};
 
