@@ -694,10 +694,11 @@ pub fn draw_column(
 
 pub fn draw_floor_column(
     texture: &FlatPic,
-    colourmap: &[usize],
     viewxy: Vec2,
     viewz: f32,
     plane_height: f32,
+    plane_light: i32,
+    extra_light: i32,
     dc_x: f32,
     angle: Angle,
     yl: i32,
@@ -705,25 +706,28 @@ pub fn draw_floor_column(
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
 ) {
-    let plane_height = (plane_height - viewz).abs(); // OKKKK
+    let plane_height = (plane_height - viewz).abs();
     let basexscale = (angle - FRAC_PI_2).cos() / pixels.size().half_width_f32();
     let baseyscale = -((angle - FRAC_PI_2).sin() / pixels.size().half_height_f32());
-    let angle = angle + screen_to_x_view(dc_x, pixels.size().width_f32()); // OKKKK
-    let distscale = 1.0 / screen_to_x_view(dc_x as f32, pixels.size().width_f32()).cos(); // OKKKK
+    let angle = angle + screen_to_x_view(dc_x, pixels.size().width_f32());
+    let distscale = 1.0 / screen_to_x_view(dc_x, pixels.size().width_f32()).cos();
+    let cos = angle.cos();
+    let sin = angle.sin();
+
+    let light = (plane_light >> 4) + extra_light;
 
     let pal = pic_data.palette();
     for next_y in yl..=yh {
-        let dy = next_y as f32 - pixels.size().half_height_f32(); // OKKKK
-        let yslope = pixels.size().half_width_f32() / dy.abs() as f32; // OK
-        let distance = plane_height * yslope; // OK
+        let dy = next_y as f32 - pixels.size().half_height_f32();
+        let yslope = pixels.size().half_width_f32() / dy.abs();
+        let distance = plane_height * yslope;
         let ds_xstep = distance * basexscale;
         let ds_ystep = distance * baseyscale;
 
         let length = distance * distscale;
-        let ds_xfrac = viewxy.x + angle.cos() * length;
-        let ds_yfrac = -viewxy.y - angle.sin() * length;
+        let ds_xfrac = viewxy.x + cos * length;
+        let ds_yfrac = -viewxy.y - sin * length;
 
-        // dbg!(ds_yfrac, yfrac);
         let mut x_step = (ds_xfrac + ds_xstep).abs() as usize;
         let mut y_step = (ds_yfrac + ds_ystep).abs() as usize;
 
@@ -735,6 +739,7 @@ pub fn draw_floor_column(
             x_step %= texture.data.len() - 1;
         }
 
+        let colourmap = pic_data.flat_light_colourmap(light, distance);
         let px = colourmap[texture.data[x_step][y_step] as usize];
         let c = pal[px];
         pixels.set_pixel(dc_x as usize, next_y as usize, (c.r, c.g, c.b, 255));

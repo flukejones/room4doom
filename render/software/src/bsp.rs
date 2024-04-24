@@ -1,6 +1,5 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
-    planes::draw_plane_spans,
     segs::{draw_column, draw_floor_column},
     utilities::screen_to_x_view,
 };
@@ -166,8 +165,8 @@ impl SoftwareRenderer {
         let mobj = unsafe { player.mobj_unchecked() };
         let view_angle = mobj.angle;
 
-        let basexscale = self.r_data.visplane_render.basexscale;
-        let baseyscale = self.r_data.visplane_render.baseyscale;
+        // let basexscale = self.r_data.visplane_render.basexscale;
+        // let baseyscale = self.r_data.visplane_render.baseyscale;
         let visplanes = &mut self.r_data.visplane_render;
         let sky_doubled = pixels.size().height() != 200;
         let down_shift = if sky_doubled { 12 } else { 6 };
@@ -208,8 +207,6 @@ impl SoftwareRenderer {
                 continue;
             }
 
-            let colourmap = pic_data.colourmap(0);
-
             let texture = pic_data.get_flat(plane.picnum);
             for x_start in plane.minx as i32..=plane.maxx as i32 {
                 let dc_yl = plane.top[x_start as usize];
@@ -218,10 +215,11 @@ impl SoftwareRenderer {
                     // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
                     draw_floor_column(
                         texture,
-                        colourmap,
                         mobj.xy,
                         player.viewz,
                         plane.height,
+                        plane.lightlevel,
+                        player.extralight,
                         x_start as f32,
                         mobj.angle,
                         dc_yl,

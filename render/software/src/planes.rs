@@ -1,9 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use crate::utilities::screen_to_x_view;
-use gameplay::{Angle, FlatPic, PicData};
-use glam::Vec2;
-use render_target::PixelBuffer;
+use gameplay::Angle;
 
 use super::defs::Visplane;
 
@@ -70,7 +67,6 @@ impl VisPlaneRender {
         self.ceilingplane = 0;
 
         // left to right mapping
-        // TODO: angle = (viewangle - ANG90) >> ANGLETOFINESHIFT;
         self.basexscale = (view_angle - FRAC_PI_2).cos() / self.half_screen_width;
         self.baseyscale = -((view_angle - FRAC_PI_2).sin() / self.half_screen_width);
     }
@@ -172,145 +168,5 @@ impl VisPlaneRender {
         }
 
         self.lastvisplane
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn draw_plane_spans(
-    x: f32,
-    mut t1: f32,
-    mut b1: f32,
-    mut t2: f32,
-    mut b2: f32,
-    viewxy: Vec2,
-    viewz: f32,
-    extra_light: i32,
-    plane: &Visplane,
-    span_start: &mut [f32],
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-) {
-    while t1 < t2 && t1 <= b1 {
-        map_plane(
-            t1,
-            span_start[t1 as usize], // TODO: check if need floor
-            x - 1.0,
-            viewxy,
-            viewz,
-            extra_light,
-            plane,
-            pic_data,
-            pixels,
-        );
-        t1 += 1.0;
-    }
-
-    while b1 > b2 && b1 >= t1 {
-        map_plane(
-            b1,
-            span_start[b1 as usize],
-            x - 1.0,
-            viewxy,
-            viewz,
-            extra_light,
-            plane,
-            pic_data,
-            pixels,
-        );
-        b1 -= 1.0;
-    }
-
-    while t2 < t1 && t2 <= b2 {
-        span_start[t2 as usize] = x;
-        t2 += 1.0;
-    }
-
-    while b2 > b1 && b2 >= t2 {
-        span_start[b2 as usize] = x;
-        b2 -= 1.0;
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn map_plane(
-    y: f32,
-    x1: f32,
-    x2: f32,
-    viewxy: Vec2,
-    viewz: f32,
-    extra_light: i32,
-    plane: &Visplane,
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-) {
-    let planeheight = (plane.height - viewz).abs();
-    // TODO: maybe cache?
-    let dy = y - pixels.size().half_height_f32(); // OK
-    let yslope = pixels.size().half_width_f32() / dy.abs(); // OK
-    let distance = planeheight * yslope; // OK
-    let ds_xstep = distance * plane.basexscale;
-    let ds_ystep = distance * plane.baseyscale;
-
-    // distance * distscale[i]
-    let distscale = 1.0 / screen_to_x_view(x1, pixels.size().width_f32()).cos();
-    let length = distance * distscale;
-    let angle = plane.view_angle + screen_to_x_view(x1, pixels.size().width_f32());
-    let ds_xfrac = viewxy.x + angle.cos() * length;
-    let ds_yfrac = -viewxy.y - angle.sin() * length;
-
-    // let flat = texture_data.texture_column(plane.picnum, ds_xfrac as i32);
-    let flat = pic_data.get_flat(plane.picnum);
-    let light = (plane.lightlevel >> 4) + extra_light;
-    let colourmap = pic_data.flat_light_colourmap(light, distance);
-
-    draw(
-        flat, colourmap, ds_xstep, ds_ystep, ds_xfrac, ds_yfrac, y, x1, x2, pic_data, pixels,
-    );
-}
-
-fn draw(
-    texture: &FlatPic,
-    colourmap: &[usize],
-    ds_xstep: f32,
-    ds_ystep: f32,
-    mut ds_xfrac: f32,
-    mut ds_yfrac: f32,
-    ds_y: f32,
-    ds_x1: f32,
-    ds_x2: f32,
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-) {
-    let pal = pic_data.palette();
-    // for s in self.ds_x1.round() as i32..=self.ds_x2.round() as i32 {
-    for s in ds_x1 as i32..=ds_x2 as i32 {
-        let mut x = ds_xfrac.abs() as usize & 0xff;
-        let mut y = ds_yfrac.abs() as usize & 0xff;
-
-        if y >= texture.data[0].len() {
-            y %= texture.data[0].len();
-        }
-
-        if x >= texture.data.len() {
-            x %= texture.data.len();
-        }
-
-        let px = colourmap[texture.data[x][y] as usize];
-        let c = pal[px];
-        pixels.set_pixel(s as usize, ds_y as usize, (c.r, c.g, c.b, 255));
-
-        ds_xfrac += ds_xstep;
-        ds_yfrac += ds_ystep;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::defs::Visplane;
-
-    #[test]
-    fn default_vis_plane_render() {
-        let mut rd = Visplane::new(320);
-        rd.clear();
     }
 }
