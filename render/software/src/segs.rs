@@ -485,7 +485,7 @@ impl SegRender {
             // The yl and yh blocks are what affect wall clipping the most. You can make shorter/taller.
             // topfrac here is calulated in previous function and is the
             // starting point that topstep is added to
-            yl = self.topfrac.floor() as i32;
+            yl = self.topfrac.floor() as i32 + 1;
             if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1;
             }
@@ -719,10 +719,10 @@ pub fn draw_flat_column(
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = -viewxy.y - sin * length;
 
-        let x_step = ds_xfrac.abs() as usize % (texture.data.len() - 1);
-        let y_step = ds_yfrac.abs() as usize % (texture.data[0].len() - 1);
+        let x_step = ds_xfrac.abs() as usize % (texture.data.len());
+        let y_step = ds_yfrac.abs() as usize % (texture.data[0].len());
 
-        let colourmap = pic_data.flat_light_colourmap(total_light, distance);
+        let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32);
         let px = colourmap[texture.data[x_step][y_step] as usize];
         let c = pal[px];
         pixels.set_pixel(dc_x as usize, next_y as usize, (c.r, c.g, c.b, 255));

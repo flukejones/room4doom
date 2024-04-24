@@ -509,12 +509,12 @@ impl PicData {
     //     &self.light_scale[light_level][colourmap]
     // }
 
-    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: f32) -> &[usize] {
+    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: u32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let mut dist = wall_scale as u32 >> 4;
+        let mut dist = wall_scale >> 4;
 
         if dist >= MAXLIGHTZ as u32 - 1 {
             dist = MAXLIGHTZ as u32 - 1;

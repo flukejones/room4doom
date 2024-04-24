@@ -181,7 +181,6 @@ impl SoftwareRenderer {
             }
 
             let plane_height = (plane.height - player.viewz).abs();
-
             let texture = pic_data.get_flat(plane.picnum);
             for x_start in plane.minx as i32..=plane.maxx as i32 {
                 let dc_yl = plane.top[x_start as usize];
