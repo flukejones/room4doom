@@ -1,7 +1,7 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     planes::draw_doom_style_flats,
-    segs::{draw_column_style_flats, draw_wall_column},
+    segs::{draw_column_style_flats, draw_sky_column, draw_wall_column},
     utilities::screen_to_x_view,
 };
 use gameplay::{
@@ -95,9 +95,9 @@ impl PlayRenderer for SoftwareRenderer {
         );
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        let now1 = Instant::now();
+        // let now1 = Instant::now();
         self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        println!("draw_spans time: {:?}", now1.elapsed());
+        // println!("draw_spans time: {:?}", now1.elapsed());
         // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
@@ -167,7 +167,7 @@ impl SoftwareRenderer {
                             (view_angle.rad() + screen_x_degress + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
                         // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-                        draw_wall_column(
+                        draw_sky_column(
                             texture_column,
                             colourmap,
                             0.94,

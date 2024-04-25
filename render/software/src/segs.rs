@@ -551,19 +551,13 @@ impl SegRender {
                     let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
                     draw_wall_column(
                         texture_column,
-                        pic_data.wall_light_colourmap(
-                            &seg.v1,
-                            &seg.v2,
-                            self.wall_lights,
-                            self.rw_scale,
-                        ),
+                        pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
                         dc_iscale,
                         self.rw_startx,
                         self.rw_midtexturemid,
                         yl,
                         yh,
                         pic_data,
-                        false,
                         pixels,
                     );
                 };
@@ -585,19 +579,13 @@ impl SegRender {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
-                                pic_data.wall_light_colourmap(
-                                    &seg.v1,
-                                    &seg.v2,
-                                    self.wall_lights,
-                                    self.rw_scale,
-                                ),
+                                pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.rw_startx,
                                 self.rw_toptexturemid,
                                 yl,
                                 mid,
                                 pic_data,
-                                false,
                                 pixels,
                             );
                         }
@@ -624,19 +612,13 @@ impl SegRender {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
-                                pic_data.wall_light_colourmap(
-                                    &seg.v1,
-                                    &seg.v2,
-                                    self.wall_lights,
-                                    self.rw_scale,
-                                ),
+                                pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.rw_startx,
                                 self.rw_bottomtexturemid,
                                 mid,
                                 yh,
                                 pic_data,
-                                false,
                                 pixels,
                             );
                         }
@@ -678,7 +660,6 @@ pub fn draw_wall_column(
     yl: f32,
     yh: f32,
     pic_data: &PicData,
-    doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
@@ -687,16 +668,8 @@ pub fn draw_wall_column(
     let pal = pic_data.palette();
     for y in yl as i32..=yh as i32 {
         let mut select = frac.abs() as usize;
-        if doubled {
-            select /= 2;
-        }
-        // select = select & 127;
         select %= texture_column.len();
-
         let tc = texture_column[select];
-        // if tc >= colourmap.len() {
-        //     return;
-        // }
         let cm = colourmap[tc];
         let c = pal[cm];
         pixels.set_pixel(dc_x, y as usize, (c.r, c.g, c.b, 255));
@@ -739,5 +712,36 @@ pub fn draw_column_style_flats(
         pixels.set_pixel(dc_x, y, (c.r, c.g, c.b, 255));
 
         yl += 1.0;
+    }
+}
+
+/// Mostly duped code, but done for opts
+pub fn draw_sky_column(
+    texture_column: &[usize],
+    colourmap: &[usize],
+    fracstep: f32,
+    dc_x: f32,
+    dc_texturemid: f32,
+    yl: f32,
+    yh: f32,
+    pic_data: &PicData,
+    doubled: bool,
+    pixels: &mut dyn PixelBuffer,
+) {
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+
+    let dc_x = dc_x as usize;
+    let pal = pic_data.palette();
+    for y in yl as i32..=yh as i32 {
+        let mut select = frac.abs() as usize;
+        if doubled {
+            select /= 2;
+        }
+        select %= texture_column.len();
+        let tc = texture_column[select];
+        let cm = colourmap[tc];
+        let c = pal[cm];
+        pixels.set_pixel(dc_x, y as usize, (c.r, c.g, c.b, 255));
+        frac += fracstep;
     }
 }

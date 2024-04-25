@@ -463,13 +463,7 @@ impl PicData {
 
     /// Get the correct colourmapping for a light level. The colourmap is indexed by the Y coordinate
     /// of a texture column.
-    pub fn wall_light_colourmap(
-        &self,
-        v1: &Vec2,
-        v2: &Vec2,
-        light_level: i32,
-        wall_scale: f32,
-    ) -> &[usize] {
+    pub fn wall_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }

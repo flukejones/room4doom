@@ -581,7 +581,7 @@ impl SoftwareRenderer {
 
                     draw_masked_column(
                         texture_column,
-                        pic_data.wall_light_colourmap(&seg.v1, &seg.v2, wall_lights, spryscale),
+                        pic_data.wall_light_colourmap(wall_lights, spryscale),
                         false,
                         1.0 / spryscale,
                         x,
