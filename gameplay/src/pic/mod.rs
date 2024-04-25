@@ -335,6 +335,7 @@ impl PicData {
             for c in patch.columns.iter() {
                 if c.y_offset == 255 {
                     x_pos += 1;
+                    continue;
                 }
                 if x_pos == texture.width as i32 {
                     break;
@@ -501,7 +502,7 @@ impl PicData {
     //     &self.light_scale[light_level][colourmap]
     // }
 
-    pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: u32) -> &[usize] {
+    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: u32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
@@ -512,9 +513,9 @@ impl PicData {
             dist = MAXLIGHTZ as u32 - 1;
         }
 
-        // if light_level >= self.zlight_scale.len() as i32 {
-        //     light_level = self.zlight_scale.len() as i32 - 1;
-        // }
+        if light_level >= self.zlight_scale.len() as i32 {
+            light_level = self.zlight_scale.len() as i32 - 1;
+        }
 
         &self.zlight_scale[light_level as usize][dist as usize]
     }
