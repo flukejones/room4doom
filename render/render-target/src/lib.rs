@@ -34,7 +34,8 @@ pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
     fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]);
-    fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
+    fn read_pixel(&self, x: usize, y: usize) -> [u8; 4];
+    fn unsafe_read_pixel(&self, x: usize, y: usize) -> &[u8; 4];
     fn read_pixels(&mut self) -> &mut [u8];
 }
 
@@ -148,14 +149,17 @@ impl PixelBuffer for Buffer {
 
     /// Read the colour of a single pixel at X|Y
     #[inline]
-    fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
+    fn read_pixel(&self, x: usize, y: usize) -> [u8; 4] {
         let pos = y * self.stride + x * CHANNELS;
-        (
-            self.buffer[pos],
-            self.buffer[pos + 1],
-            self.buffer[pos + 2],
-            self.buffer[pos + 3],
-        )
+        let mut slice = [0u8; 4];
+        slice.copy_from_slice(&self.buffer[pos..pos + 4]);
+        slice
+    }
+
+    #[inline]
+    fn unsafe_read_pixel(&self, x: usize, y: usize) -> &[u8; 4] {
+        let pos = y * self.stride + x * CHANNELS;
+        unsafe { &*(self.buffer[pos..pos + 4].as_ptr() as *const [u8; 4]) }
     }
 
     /// Read the full buffer

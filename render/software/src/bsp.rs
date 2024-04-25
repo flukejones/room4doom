@@ -93,9 +93,9 @@ impl PlayRenderer for SoftwareRenderer {
         );
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        // let now1 = Instant::now();
+        let now1 = Instant::now();
         self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        // println!("draw_spans time: {:?}", now1.elapsed());
+        println!("draw_spans time: {:?}", now1.elapsed());
         // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
