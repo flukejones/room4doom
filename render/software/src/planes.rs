@@ -128,7 +128,7 @@ impl VisPlaneRender {
                 // Use the same plane
                 return plane_idx;
             }
-            if plane.top[i as usize] != i32::MAX {
+            if plane.top[i as usize] != f32::MAX {
                 break;
             }
         }
@@ -161,10 +161,10 @@ impl VisPlaneRender {
 #[allow(clippy::too_many_arguments)]
 pub fn draw_doom_style_flats(
     x: f32,
-    mut t1: i32,
-    mut b1: i32,
-    mut t2: i32,
-    mut b2: i32,
+    mut t1: f32,
+    mut b1: f32,
+    mut t2: f32,
+    mut b2: f32,
     basexscale: f32,
     baseyscale: f32,
     viewxy: Vec2,
@@ -191,7 +191,7 @@ pub fn draw_doom_style_flats(
             pic_data,
             pixels,
         );
-        t1 += 1;
+        t1 += 1.0;
     }
 
     while b1 > b2 && b1 >= t1 {
@@ -209,23 +209,23 @@ pub fn draw_doom_style_flats(
             pic_data,
             pixels,
         );
-        b1 -= 1;
+        b1 -= 1.0;
     }
 
     while t2 < t1 && t2 <= b2 {
         span_start[t2 as usize] = x;
-        t2 += 1;
+        t2 += 1.0;
     }
 
     while b2 > b1 && b2 >= t2 {
         span_start[b2 as usize] = x;
-        b2 -= 1;
+        b2 -= 1.0;
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn map_plane(
-    y: i32,
+    y: f32,
     x1: f32,
     x2: f32,
     basexscale: f32,
@@ -240,7 +240,7 @@ fn map_plane(
 ) {
     let planeheight = (plane.height - viewz).abs();
     // TODO: maybe cache?
-    let dy = y as f32 - pixels.size().half_height_f32(); // OK
+    let dy = y - pixels.size().half_height_f32(); // OK
     let yslope = pixels.size().half_width_f32() / dy.abs(); // OK
     let distance = planeheight * yslope; // OK
     let ds_xstep = distance * basexscale;
@@ -285,7 +285,7 @@ fn draw(
         y %= texture.data[0].len();
         x %= texture.data.len();
 
-        let px = colourmap[texture.data[x][y] as usize];
+        let px = colourmap[texture.data[x][y]];
         let c = pal[px];
         pixels.set_pixel(s as usize, ds_y, (c.r, c.g, c.b, 255));
 

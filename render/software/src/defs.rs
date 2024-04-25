@@ -36,7 +36,7 @@ pub struct DrawSeg {
     pub sprbottomclip: Option<f32>,
 
     /// Keeps an index that is used to index in to `openings`
-    pub maskedtexturecol: i32,
+    pub maskedtexturecol: f32,
 }
 
 impl DrawSeg {
@@ -53,7 +53,7 @@ impl DrawSeg {
             tsilheight: 0.0,
             sprtopclip: None,
             sprbottomclip: None,
-            maskedtexturecol: 0,
+            maskedtexturecol: 0.0,
         }
     }
 }
@@ -74,9 +74,9 @@ pub struct Visplane {
     pub maxx: f32,
     /// Here lies the rub for all
     ///  dynamic resize/change of resolution.
-    pub top: Vec<i32>,
+    pub top: Vec<f32>,
     /// See above.
-    pub bottom: Vec<i32>,
+    pub bottom: Vec<f32>,
 }
 
 impl Debug for Visplane {
@@ -123,8 +123,8 @@ impl Visplane {
             lightlevel: 0,
             minx: 0.0,
             maxx: 0.0,
-            top: vec![i32::MAX; screen_width + 1],
-            bottom: vec![0; screen_width + 1],
+            top: vec![f32::MAX; screen_width + 1],
+            bottom: vec![0.0; screen_width + 1],
         }
     }
 }
@@ -137,7 +137,7 @@ impl Visplane {
         self.picnum = 0;
         self.minx = 0.0;
         self.maxx = 0.0;
-        self.top.fill(i32::MAX);
-        self.bottom.fill(i32::MIN);
+        self.top.fill(f32::MAX);
+        self.bottom.fill(f32::MIN);
     }
 }

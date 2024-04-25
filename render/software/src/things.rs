@@ -253,8 +253,8 @@ impl SoftwareRenderer {
     fn draw_vissprite(
         &self,
         vis: &VisSprite,
-        clip_bottom: &[i32],
-        clip_top: &[i32],
+        clip_bottom: &[f32],
+        clip_top: &[f32],
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
@@ -270,23 +270,23 @@ impl SoftwareRenderer {
             pic_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
-        for x in vis.x1.ceil() as i32..=vis.x2.floor() as i32 {
+        for x in vis.x1.ceil() as usize..=vis.x2.floor() as usize {
             let tex_column = (frac) as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
 
-            let mut top = (pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) as i32 + 1;
+            let mut top = (pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) + 1.0;
             let texture_column = &patch.data[tex_column];
 
-            let mut bottom = top + (spryscale * texture_column.len() as f32) as i32;
+            let mut bottom = top + (spryscale * texture_column.len() as f32);
 
-            if bottom >= clip_bottom[x as usize] {
-                bottom = clip_bottom[x as usize] - 1;
+            if bottom >= clip_bottom[x] {
+                bottom = clip_bottom[x] - 1.0;
             }
 
-            if top <= clip_top[x as usize] {
-                top = clip_top[x as usize] + 1;
+            if top <= clip_top[x] {
+                top = clip_top[x] + 1.0;
             }
 
             if top <= bottom {
@@ -316,15 +316,15 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
-        let mut clip_bottom = vec![-2i32; pixels.size().width_usize()];
-        let mut clip_top = vec![-2i32; pixels.size().width_usize()];
+        let mut clip_bottom = vec![-2.0; pixels.size().width_usize()];
+        let mut clip_top = vec![-2.0; pixels.size().width_usize()];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
                 || seg.x2 < vis.x1
-                || (seg.silhouette == 0 && seg.maskedtexturecol == 0)
+                || (seg.silhouette == 0 && seg.maskedtexturecol == 0.0)
             {
                 continue;
             }
@@ -347,7 +347,7 @@ impl SoftwareRenderer {
                             .point_on_side(&Vec2::new(vis.gx, vis.gy))
                             == 0)
                 {
-                    if seg.maskedtexturecol != -1 {
+                    if seg.maskedtexturecol != -1.0 {
                         self.render_masked_seg_range(player, seg, r1, r2, pic_data, pixels);
                     }
                     // seg is behind sprite
@@ -355,30 +355,30 @@ impl SoftwareRenderer {
                 }
             }
 
-            for r in r1 as i32..=r2 as i32 {
-                if clip_bottom[r as usize] == -2 && seg.sprbottomclip.is_some() {
-                    clip_bottom[r as usize] = self.seg_renderer.openings
+            for r in r1 as usize..=r2 as usize {
+                if clip_bottom[r] == -2.0 && seg.sprbottomclip.is_some() {
+                    clip_bottom[r] = self.seg_renderer.openings
                         [(seg.sprbottomclip.unwrap() + r as f32) as usize];
-                    if clip_bottom[r as usize] < 0 {
-                        clip_bottom[r as usize] = 0;
+                    if clip_bottom[r] < 0.0 {
+                        clip_bottom[r] = 0.0;
                     }
                 }
-                if clip_top[r as usize] == -2 && seg.sprtopclip.is_some() {
-                    clip_top[r as usize] =
+                if clip_top[r] == -2.0 && seg.sprtopclip.is_some() {
+                    clip_top[r] =
                         self.seg_renderer.openings[(seg.sprtopclip.unwrap() + r as f32) as usize];
-                    if clip_top[r as usize] >= pixels.size().height() {
-                        clip_top[r as usize] = pixels.size().height();
+                    if clip_top[r] >= pixels.size().height_f32() {
+                        clip_top[r] = pixels.size().height_f32();
                     }
                 }
             }
         }
 
-        for x in vis.x1 as i32..=vis.x2 as i32 {
-            if clip_bottom[x as usize] == -2 {
-                clip_bottom[x as usize] = pixels.size().height();
+        for x in vis.x1 as usize..=vis.x2 as usize {
+            if clip_bottom[x] == -2.0 {
+                clip_bottom[x] = pixels.size().height_f32();
             }
-            if clip_top[x as usize] == -2 {
-                clip_top[x as usize] = -1;
+            if clip_top[x] == -2.0 {
+                clip_top[x] = -1.0;
             }
         }
 
@@ -464,8 +464,8 @@ impl SoftwareRenderer {
             vis.start_frac += vis.x_iscale * (vis.x1 - x1);
         }
 
-        let clip_bottom = vec![0i32; pixels.size().width_usize()];
-        let clip_top = vec![pixels.size().height(); pixels.size().width_usize()];
+        let clip_bottom = vec![0.0; pixels.size().width_usize()];
+        let clip_top = vec![pixels.size().height_f32(); pixels.size().width_usize()];
         self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, pixels)
     }
 
@@ -538,45 +538,45 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1 as i32..=x2 as i32 {
-                if ds.maskedtexturecol + x < 0 {
+            for x in x1 as usize..=x2 as usize {
+                if ds.maskedtexturecol + (x as f32) < 0.0 {
                     spryscale += rw_scalestep;
                     continue;
                 }
-                let index = (ds.maskedtexturecol + x) as usize;
+                let index = (ds.maskedtexturecol + x as f32) as usize;
 
                 if index != usize::MAX
                     && ds.sprbottomclip.is_some()
                     && ds.sprtopclip.is_some()
-                    && self.seg_renderer.openings[index] != i32::MAX
+                    && self.seg_renderer.openings[index] != f32::MAX
                     && seg.sidedef.midtexture.is_some()
                 {
                     let texture_column = pic_data.wall_pic_column(
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                        self.seg_renderer.openings[index].unsigned_abs() as usize,
+                        self.seg_renderer.openings[index].abs() as usize,
                     );
 
                     let mut mceilingclip =
                         self.seg_renderer.openings[(ds.sprtopclip.unwrap() + x as f32) as usize];
                     let mut mfloorclip =
                         self.seg_renderer.openings[(ds.sprbottomclip.unwrap() + x as f32) as usize];
-                    if mceilingclip >= pixels.size().height() {
-                        mceilingclip = pixels.size().height();
+                    if mceilingclip >= pixels.size().height_f32() {
+                        mceilingclip = pixels.size().height_f32();
                     }
-                    if mfloorclip < 0 {
-                        mfloorclip = 0;
+                    if mfloorclip < 0.0 {
+                        mfloorclip = 0.0;
                     }
 
                     // calculate unclipped screen coordinates for post
                     let sprtopscreen = pixels.size().half_height_f32() - dc_texturemid * spryscale;
-                    let mut top = sprtopscreen as i32; // TODO: possible glitch
-                    let mut bottom = top + 1 + (spryscale * texture_column.len() as f32) as i32;
+                    let mut top = sprtopscreen; // TODO: possible glitch
+                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32);
 
                     if bottom >= mfloorclip {
-                        bottom = mfloorclip - 1;
+                        bottom = mfloorclip - 1.0;
                     }
                     if top <= mceilingclip {
-                        top = mceilingclip + 1;
+                        top = mceilingclip + 1.0;
                     }
 
                     draw_masked_column(
@@ -592,7 +592,7 @@ impl SoftwareRenderer {
                         pixels,
                     );
 
-                    self.seg_renderer.openings[index] = i32::MAX;
+                    self.seg_renderer.openings[index] = f32::MAX;
                 }
                 spryscale += rw_scalestep;
             }
@@ -606,17 +606,16 @@ fn draw_masked_column(
     colourmap: &[usize],
     fuzz: bool,
     fracstep: f32,
-    dc_x: i32,
+    dc_x: usize,
     dc_texturemid: f32,
-    yl: i32,
-    yh: i32,
+    yl: f32,
+    yh: f32,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
 ) {
     let pal = pic_data.palette();
-    let dc_x = dc_x as usize;
-    let mut frac = dc_texturemid + ((yl - pixels.size().half_height()) as f32) * fracstep;
-    for n in yl..=yh {
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    for y in yl as usize..=yh as usize {
         let select = frac as usize;
         if select >= texture_column.len() {
             return;
@@ -627,7 +626,7 @@ fn draw_masked_column(
             continue;
         }
         let c = pal[colourmap[texture_column[select]]];
-        pixels.set_pixel(dc_x, n as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y, (c.r, c.g, c.b, 255));
         frac += fracstep;
     }
 }

@@ -34,7 +34,7 @@ pub(crate) struct SegRender {
     markceiling: bool,
     maskedtexture: bool,
     /// Index in to `openings` array
-    maskedtexturecol: i32,
+    maskedtexturecol: f32,
     // Texture exists?
     toptexture: bool,
     bottomtexture: bool,
@@ -69,7 +69,7 @@ pub(crate) struct SegRender {
     worldlow: f32,
 
     /// Stores the column number of the texture required for this opening
-    pub(super) openings: Vec<i32>,
+    pub(super) openings: Vec<f32>,
     lastopening: f32,
     /// Light level for the wall
     wall_lights: i32,
@@ -83,7 +83,7 @@ impl SegRender {
             markfloor: false,
             markceiling: false,
             maskedtexture: false,
-            maskedtexturecol: -1,
+            maskedtexturecol: -1.0,
             toptexture: false,
             bottomtexture: false,
             midtexture: false,
@@ -111,7 +111,7 @@ impl SegRender {
             worldhigh: 0.0,
             worldlow: 0.0,
             wall_lights: 0,
-            openings: vec![i32::MAX; screen_width * screen_height], // TODO: find a good limit
+            openings: vec![f32::MAX; screen_width * screen_height], // TODO: find a good limit
             lastopening: 0.0,
             doubled: false,
         }
@@ -210,7 +210,7 @@ impl SegRender {
         self.toptexture = false;
         self.bottomtexture = false;
         self.maskedtexture = false;
-        self.maskedtexturecol = -1;
+        self.maskedtexturecol = -1.0;
 
         if seg.backsector.is_none() {
             self.markfloor = true;
@@ -223,7 +223,7 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = seg.sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight + texture_column.len() as f32 - 1.0;
+                    let vtop = frontsector.floorheight + texture_column.len() as f32;
                     self.rw_midtexturemid = vtop - player.viewz;
                 }
             }
@@ -317,8 +317,8 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = seg.sidedef.toptexture {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
-                    let vtop = backsector.ceilingheight + texture_column.len() as f32 - 1.0;
-                    self.rw_toptexturemid = vtop - player.viewz - 1.0;
+                    let vtop = backsector.ceilingheight + texture_column.len() as f32;
+                    self.rw_toptexturemid = vtop - player.viewz;
                 }
             }
 
@@ -337,7 +337,7 @@ impl SegRender {
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             // Set the indexes in to visplanes.openings
-            self.maskedtexturecol = (self.lastopening - self.rw_startx) as i32;
+            self.maskedtexturecol = self.lastopening - self.rw_startx;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
             self.lastopening += self.rw_stopx - self.rw_startx;
@@ -476,17 +476,17 @@ impl SegRender {
             return;
         }
         // yl is the pixel location, it is the result of converting the topfrac to int
-        let mut yl: i32;
-        let mut yh: i32;
-        let mut top: i32;
-        let mut bottom: i32;
-        let mut mid: i32;
+        let mut yl: f32;
+        let mut yh: f32;
+        let mut top: f32;
+        let mut bottom: f32;
+        let mut mid: f32;
         let mut angle;
         let mut texture_column = 0;
 
-        while self.rw_startx.floor() < self.rw_stopx.ceil() {
+        while self.rw_startx < self.rw_stopx.ceil() {
             let clip_index = self.rw_startx as usize;
-            if rdata.portal_clip.floorclip[clip_index] < 0 {
+            if rdata.portal_clip.floorclip[clip_index] < 0.0 {
                 // TODO: shouldn't be happening, early out?
                 return;
             }
@@ -494,41 +494,41 @@ impl SegRender {
             // The yl and yh blocks are what affect wall clipping the most. You can make shorter/taller.
             // topfrac here is calulated in previous function and is the
             // starting point that topstep is added to
-            yl = self.topfrac.floor() as i32 + 1;
-            if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1 {
-                yl = rdata.portal_clip.ceilingclip[clip_index] + 1;
+            yl = self.topfrac.floor();
+            if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
+                yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
             if self.markceiling {
-                top = rdata.portal_clip.ceilingclip[clip_index] + 1;
+                top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl;
 
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
-                    bottom = rdata.portal_clip.floorclip[clip_index] - 1;
+                    bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top <= bottom {
                     // was a plane selection already set?
                     let ceil = rdata.visplane_render.ceilingplane;
                     rdata.visplane_render.visplanes[ceil].top[clip_index] = top;
-                    rdata.visplane_render.visplanes[ceil].bottom[clip_index] = bottom - 1;
+                    rdata.visplane_render.visplanes[ceil].bottom[clip_index] = bottom - 1.0;
                 }
             }
 
-            yh = self.bottomfrac.floor() as i32;
-            if yh >= rdata.portal_clip.floorclip[clip_index] - 1 {
-                yh = rdata.portal_clip.floorclip[clip_index] - 1;
+            yh = self.bottomfrac.floor();
+            if yh >= rdata.portal_clip.floorclip[clip_index] - 1.0 {
+                yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
             }
 
             if self.markfloor {
                 top = yh;
-                bottom = rdata.portal_clip.floorclip[clip_index] - 1;
+                bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
 
                 if top <= rdata.portal_clip.ceilingclip[clip_index] {
-                    top = rdata.portal_clip.ceilingclip[clip_index] + 1;
+                    top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
                 if top <= bottom {
                     let floor = rdata.visplane_render.floorplane;
-                    rdata.visplane_render.visplanes[floor].top[clip_index] = top + 1;
+                    rdata.visplane_render.visplanes[floor].top[clip_index] = top + 1.0;
                     rdata.visplane_render.visplanes[floor].bottom[clip_index] = bottom;
                 }
             }
@@ -564,16 +564,16 @@ impl SegRender {
                     );
                 };
 
-                rdata.portal_clip.ceilingclip[clip_index] = view_height as i32;
-                rdata.portal_clip.floorclip[clip_index] = -1;
+                rdata.portal_clip.ceilingclip[clip_index] = view_height;
+                rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
-                    mid = self.pixhigh.floor() as i32;
+                    mid = self.pixhigh.floor();
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[clip_index] {
-                        mid = rdata.portal_clip.floorclip[clip_index] - 1;
+                        mid = rdata.portal_clip.floorclip[clip_index] - 1.0;
                     }
 
                     if mid >= yl {
@@ -591,7 +591,7 @@ impl SegRender {
                                 self.rw_startx,
                                 self.rw_toptexturemid,
                                 yl,
-                                mid + 1,
+                                mid,
                                 pic_data,
                                 false,
                                 pixels,
@@ -600,19 +600,19 @@ impl SegRender {
 
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
                     } else {
-                        rdata.portal_clip.ceilingclip[clip_index] = yl - 1;
+                        rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                     }
                 } else if self.markceiling {
-                    rdata.portal_clip.ceilingclip[clip_index] = yl - 1;
+                    rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                 }
 
                 if self.bottomtexture {
                     // floor vs ceil affects how things align in slightly off ways
-                    mid = (self.pixlow + 1.0).floor() as i32;
+                    mid = (self.pixlow + 1.0).floor();
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[clip_index] {
-                        mid = rdata.portal_clip.ceilingclip[clip_index] + 1;
+                        mid = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                     }
 
                     if mid <= yh {
@@ -629,7 +629,7 @@ impl SegRender {
                                 dc_iscale,
                                 self.rw_startx,
                                 self.rw_bottomtexturemid,
-                                mid - 1,
+                                mid - 1.0,
                                 yh,
                                 pic_data,
                                 false,
@@ -638,15 +638,15 @@ impl SegRender {
                         }
                         rdata.portal_clip.floorclip[clip_index] = mid;
                     } else {
-                        rdata.portal_clip.floorclip[clip_index] = yh + 1;
+                        rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                     }
                 } else if self.markfloor {
-                    rdata.portal_clip.floorclip[clip_index] = yh + 1;
+                    rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                 }
 
                 if self.maskedtexture {
-                    self.openings[(self.maskedtexturecol + self.rw_startx as i32) as usize] =
-                        texture_column as i32;
+                    self.openings[(self.maskedtexturecol + self.rw_startx) as usize] =
+                        texture_column as f32;
                 }
             }
 
@@ -671,23 +671,22 @@ pub fn draw_wall_column(
     fracstep: f32,
     dc_x: f32,
     dc_texturemid: f32,
-    yl: i32,
-    yh: i32,
+    yl: f32,
+    yh: f32,
     pic_data: &PicData,
     doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
-    let pal = pic_data.palette();
-    let dc_x = dc_x as usize;
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height()) as f32 * fracstep;
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
 
-    for n in yl..=yh {
-        let mut select = if doubled {
-            frac as i32 / 2
-        } else {
-            frac as i32
-        } as usize;
-        select %= texture_column.len() - 1;
+    let dc_x = dc_x as usize;
+    let pal = pic_data.palette();
+    for y in yl as i32..=yh as i32 {
+        let mut select = frac.abs() as usize;
+        if doubled {
+            select /= 2;
+        }
+        select %= texture_column.len();
 
         let tc = texture_column[select];
         if tc >= colourmap.len() {
@@ -695,7 +694,7 @@ pub fn draw_wall_column(
         }
         let cm = colourmap[tc];
         let c = pal[cm];
-        pixels.set_pixel(dc_x, n as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y as usize, (c.r, c.g, c.b, 255));
         frac += fracstep;
     }
 }
@@ -707,8 +706,8 @@ pub fn draw_column_style_flats(
     total_light: i32,
     dc_x: f32,
     angle: Angle,
-    yl: i32,
-    yh: i32,
+    mut yl: f32,
+    yh: f32,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
 ) {
@@ -717,9 +716,10 @@ pub fn draw_column_style_flats(
     let cos = angle.cos();
     let sin = angle.sin();
 
+    let dc_x = dc_x as usize;
     let pal = pic_data.palette();
-    for next_y in yl..=yh {
-        let dy = next_y as f32 - pixels.size().half_height_f32();
+    for y in yl as usize..=yh as usize {
+        let dy = yl - pixels.size().half_height_f32();
         let yslope = pixels.size().half_width_f32() / dy.abs();
         let distance = plane_height * yslope;
 
@@ -731,8 +731,10 @@ pub fn draw_column_style_flats(
         let y_step = ds_yfrac.abs() as usize % (texture.data[0].len());
 
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32);
-        let px = colourmap[texture.data[x_step][y_step] as usize];
+        let px = colourmap[texture.data[x_step][y_step]];
         let c = pal[px];
-        pixels.set_pixel(dc_x as usize, next_y as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y, (c.r, c.g, c.b, 255));
+
+        yl += 1.0;
     }
 }

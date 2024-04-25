@@ -44,7 +44,7 @@ const RADIATIONPAL: usize = 13;
 #[derive(Debug)]
 pub struct FlatPic {
     pub name: String,
-    pub data: [[u8; 64]; 64],
+    pub data: [[usize; 64]; 64],
 }
 
 #[derive(Debug)]
@@ -297,7 +297,7 @@ impl PicData {
                         outofbounds = true;
                         break;
                     }
-                    flat.data[x][y] = *px;
+                    flat.data[x][y] = *px as usize;
                 }
             }
             if outofbounds {
@@ -501,7 +501,7 @@ impl PicData {
     //     &self.light_scale[light_level][colourmap]
     // }
 
-    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: u32) -> &[usize] {
+    pub fn flat_light_colourmap(&self, light_level: i32, wall_scale: u32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
@@ -512,9 +512,9 @@ impl PicData {
             dist = MAXLIGHTZ as u32 - 1;
         }
 
-        if light_level >= self.zlight_scale.len() as i32 {
-            light_level = self.zlight_scale.len() as i32 - 1;
-        }
+        // if light_level >= self.zlight_scale.len() as i32 {
+        //     light_level = self.zlight_scale.len() as i32 - 1;
+        // }
 
         &self.zlight_scale[light_level as usize][dist as usize]
     }
