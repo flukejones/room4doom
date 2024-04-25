@@ -28,12 +28,6 @@ const SOUND_DIR: &str = "room4doom/sound/";
 const TIMIDITY_CFG: &str = "timidity.cfg";
 const BASE_DIR: &str = "room4doom/";
 
-pub enum ResolutionType {
-    Single,
-    Double,
-    Custom,
-}
-
 /// CLI options for the game-exe
 #[derive(Debug, Clone, Options)]
 pub struct CLIOptions {
@@ -105,10 +99,6 @@ pub struct CLIOptions {
     pub shader: Option<Shaders>,
     #[options(meta = "", help = "Rendering type <software, softopengl>")]
     pub music_type: Option<MusicType>,
-    #[options(
-        help = "switch between old Doom spans, or the new column based spans (floors/ceilings)"
-    )]
-    pub new_planes: Option<bool>,
 }
 
 impl From<CLIOptions> for DoomOptions {
@@ -128,7 +118,6 @@ impl From<CLIOptions> for DoomOptions {
             warp: g.map != 0 || g.episode != 0,
             hi_res: g.double.unwrap_or(true),
             verbose: g.verbose,
-            new_planes: g.new_planes.unwrap_or(true),
             ..DoomOptions::default()
         }
     }

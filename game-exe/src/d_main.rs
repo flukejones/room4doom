@@ -53,16 +53,11 @@ pub fn d_doom_loop(
     } else {
         200
     };
-    if game.options.new_planes {
-        info!("Using new column based floor/ceilings");
-    } else {
-        info!("Using old span based floor/ceilings");
-    }
+
     // TODO: implement an openGL or Vulkan renderer
     let mut renderer = SoftwareRenderer::new(
         screen_width,
         screen_height,
-        game.options.new_planes,
         matches!(options.verbose, log::LevelFilter::Debug),
     );
 

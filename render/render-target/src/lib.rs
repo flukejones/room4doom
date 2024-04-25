@@ -33,7 +33,7 @@ pub enum RenderType {
 pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8));
+    fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8]);
     fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
     fn read_pixels(&mut self) -> &mut [u8];
 }

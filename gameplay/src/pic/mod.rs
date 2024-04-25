@@ -326,14 +326,14 @@ impl PicData {
 
     /// Build a texture out of patches and return it
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
-        let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
+        let mut compose = vec![vec![0; texture.height as usize]; texture.width as usize];
 
         for patch_pos in &texture.patches {
             let patch = &patches[patch_pos.patch_index];
             // draw patch
             let mut x_pos = patch_pos.origin_x;
             for c in patch.columns.iter() {
-                if c.y_offset == 255 {
+                if c.y_offset == 255 || x_pos < 0 {
                     x_pos += 1;
                     continue;
                 }
@@ -343,7 +343,7 @@ impl PicData {
 
                 for (y, p) in c.pixels.iter().enumerate() {
                     let y_pos = y as i32 + patch_pos.origin_y + c.y_offset;
-                    if y_pos >= 0 && y_pos < texture.height as i32 && x_pos >= 0 {
+                    if y_pos >= 0 && y_pos < texture.height as i32 {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
                 }

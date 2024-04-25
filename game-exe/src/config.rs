@@ -88,7 +88,6 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
-    pub new_planes: bool,
     pub renderer: RenderType,
     pub shader: Option<Shaders>,
     pub sfx_vol: i32,
@@ -133,7 +132,6 @@ impl UserConfig {
             fullscreen: true,
             sfx_vol: 80,
             mus_vol: 70,
-            new_planes: true,
             ..UserConfig::default()
         };
         info!("Created default user config file");
@@ -213,14 +211,6 @@ impl UserConfig {
             }
         } else {
             cli.music_type = Some(self.music_type);
-        }
-
-        if let Some(f) = cli.new_planes {
-            if f != self.new_planes {
-                self.new_planes = f;
-            }
-        } else {
-            cli.new_planes = Some(self.new_planes);
         }
     }
 }
