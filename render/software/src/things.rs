@@ -626,7 +626,7 @@ fn draw_masked_column(
             continue;
         }
         let c = pal[colourmap[texture_column[select]]];
-        pixels.set_pixel(dc_x, y, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y, &c.0);
         frac += fracstep;
     }
 }

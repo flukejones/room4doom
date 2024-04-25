@@ -33,7 +33,7 @@ pub enum RenderType {
 pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8]);
+    fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]);
     fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8);
     fn read_pixels(&mut self) -> &mut [u8];
 }
@@ -100,6 +100,7 @@ pub struct Buffer {
     size: BufferSize,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     buffer: Vec<u8>,
+    stride: usize,
 }
 
 impl Buffer {
@@ -118,6 +119,7 @@ impl Buffer {
                 half_height_f32: height as f32 / 2.0,
             },
             buffer: vec![0; (width * height) * CHANNELS],
+            stride: width * CHANNELS,
         }
     }
 }
@@ -134,23 +136,20 @@ impl PixelBuffer for Buffer {
     }
 
     #[inline]
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: (u8, u8, u8, u8)) {
+    fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]) {
         // Shitty safeguard. Need to find actual cause of fail
         if x >= self.size.width || y >= self.size.height {
             return;
         }
 
-        let pos = y * (self.size.width * CHANNELS) + x * CHANNELS;
-        self.buffer[pos] = rgba.0;
-        self.buffer[pos + 1] = rgba.1;
-        self.buffer[pos + 2] = rgba.2;
-        self.buffer[pos + 3] = rgba.3;
+        let pos = y * self.stride + x * CHANNELS;
+        self.buffer[pos..pos + 4].copy_from_slice(rgba);
     }
 
     /// Read the colour of a single pixel at X|Y
     #[inline]
     fn read_pixel(&self, x: usize, y: usize) -> (u8, u8, u8, u8) {
-        let pos = y * (self.size.width * CHANNELS) + x * CHANNELS;
+        let pos = y * self.stride + x * CHANNELS;
         (
             self.buffer[pos],
             self.buffer[pos + 1],

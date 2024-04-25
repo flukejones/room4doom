@@ -12,15 +12,11 @@ pub struct WadFlat {
 /// Used in a `WadPalette`. Each component byte is stored in the palette in
 /// sequence of Red-Green-Blue
 #[derive(Debug, Copy, Clone, Default)]
-pub struct WadColour {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
+pub struct WadColour(pub [u8; 4]);
 
 impl WadColour {
     pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
+        Self([r, g, b, 255])
     }
 }
 

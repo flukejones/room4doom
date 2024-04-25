@@ -569,21 +569,21 @@ mod tests {
 
         let palettes: Vec<WadPalette> = wad.playpal_iter().collect();
 
-        assert_eq!(palettes[0].0[0].r, 0);
-        assert_eq!(palettes[0].0[0].g, 0);
-        assert_eq!(palettes[0].0[0].b, 0);
+        assert_eq!(palettes[0].0[0].0[0], 0);
+        assert_eq!(palettes[0].0[0].0[1], 0);
+        assert_eq!(palettes[0].0[0].0[2], 0);
 
-        assert_eq!(palettes[0].0[1].r, 31);
-        assert_eq!(palettes[0].0[1].g, 23);
-        assert_eq!(palettes[0].0[1].b, 11);
+        assert_eq!(palettes[0].0[1].0[0], 31);
+        assert_eq!(palettes[0].0[1].0[1], 23);
+        assert_eq!(palettes[0].0[1].0[2], 11);
 
-        assert_eq!(palettes[0].0[119].r, 67);
-        assert_eq!(palettes[0].0[119].g, 147);
-        assert_eq!(palettes[0].0[119].b, 55);
+        assert_eq!(palettes[0].0[119].0[0], 67);
+        assert_eq!(palettes[0].0[119].0[1], 147);
+        assert_eq!(palettes[0].0[119].0[2], 55);
 
-        assert_eq!(palettes[4].0[119].r, 150);
-        assert_eq!(palettes[4].0[119].g, 82);
-        assert_eq!(palettes[4].0[119].b, 31);
+        assert_eq!(palettes[4].0[119].0[0], 150);
+        assert_eq!(palettes[4].0[119].0[1], 82);
+        assert_eq!(palettes[4].0[119].0[2], 31);
     }
 
     #[test]

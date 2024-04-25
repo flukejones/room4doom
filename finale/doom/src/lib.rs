@@ -52,7 +52,7 @@ impl Finale {
                 for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
                     for (x, c) in col.iter().enumerate() {
                         let c = &pal.0[*c as usize];
-                        pixels.set_pixel(sx as usize + x, sy as usize + y, (c.r, c.g, c.b, 255));
+                        pixels.set_pixel(sx as usize + x, sy as usize + y, &c.0);
                     }
                 }
             }

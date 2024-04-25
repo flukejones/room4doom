@@ -17,11 +17,11 @@ pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut dyn Pix
 
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
-    for (i, c) in pals[pal_num].0.iter().enumerate() {
+    for (i, colour) in pals[pal_num].0.iter().enumerate() {
         pixels.set_pixel(
             (i as i32 % row_count * block_size + x_start) as usize,
             (i as i32 / row_count * block_size + y_start) as usize,
-            (c.r, c.g, c.b, 255),
+            &colour.0,
         );
     }
 }
@@ -42,7 +42,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
             pixels.set_pixel(
                 xs + x,                         // - (image.left_offset as i32),
                 (ys + y) + c.y_offset as usize, // - image.top_offset as i32 - 30,
-                (colour.r, colour.g, colour.b, 255),
+                &colour.0,
             );
         }
         if c.y_offset == 255 {
@@ -64,7 +64,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut dyn 
             pixels.set_pixel(
                 xs + x,                       // - (image.left_offset as i32),
                 ys + y + c.y_offset as usize, // - image.top_offset as i32 - 30,
-                (colour.r, colour.g, colour.b, 255),
+                &colour.0,
             );
         }
         if c.y_offset == 255 {
@@ -88,7 +88,7 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut d
                 continue;
             }
             let colour = pal[*idx];
-            pixels.set_pixel(xs + x_pos, ys + y_pos, (colour.r, colour.g, colour.b, 255));
+            pixels.set_pixel(xs + x_pos, ys + y_pos, &colour.0);
         }
     }
 }
@@ -106,7 +106,7 @@ pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut dyn Pix
                 continue;
             }
             let colour = pal[*px as usize];
-            pixels.set_pixel(xs + x, ys + y, (colour.r, colour.g, colour.b, 255));
+            pixels.set_pixel(xs + x, ys + y, &colour.0);
         }
     }
 }

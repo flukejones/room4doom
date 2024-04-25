@@ -112,7 +112,7 @@ pub trait MachinationTrait {
                         pixels.set_pixel(
                             (x + xtmp - n) as usize,              // - (image.left_offset as i32),
                             (y + ytmp + c.y_offset * f) as usize, // - image.top_offset as i32 - 30,
-                            (colour.r, colour.g, colour.b, 255),
+                            &colour.0,
                         );
                         ytmp += 1;
                     }

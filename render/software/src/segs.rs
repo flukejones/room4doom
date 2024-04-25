@@ -672,7 +672,7 @@ pub fn draw_wall_column(
         let tc = texture_column[select];
         let cm = colourmap[tc];
         let c = pal[cm];
-        pixels.set_pixel(dc_x, y as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y as usize, &c.0);
         frac += fracstep;
     }
 }
@@ -709,7 +709,7 @@ pub fn draw_column_style_flats(
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32);
         let px = colourmap[texture.data[x_step][y_step]];
         let c = pal[px];
-        pixels.set_pixel(dc_x, y, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y, &c.0);
 
         yl += 1.0;
     }
@@ -741,7 +741,7 @@ pub fn draw_sky_column(
         let tc = texture_column[select];
         let cm = colourmap[tc];
         let c = pal[cm];
-        pixels.set_pixel(dc_x, y as usize, (c.r, c.g, c.b, 255));
+        pixels.set_pixel(dc_x, y as usize, &c.0);
         frac += fracstep;
     }
 }

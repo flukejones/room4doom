@@ -266,7 +266,7 @@ pub fn d_doom_loop(
 fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     let mut xtmp = 0;
     let mut ytmp = 0;
-    let f = draw_buf.size().height() / 200;
+    let f = draw_buf.size().height() / draw_buf.size().width();
     for c in game.title.columns.iter() {
         for n in 0..f {
             for p in c.pixels.iter() {
@@ -275,7 +275,7 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
                     draw_buf.set_pixel(
                         (xtmp - n) as usize,              // - (image.left_offset as i32),
                         (ytmp + c.y_offset * f) as usize, // - image.top_offset as i32 - 30,
-                        (colour.r, colour.g, colour.b, 255),
+                        &colour.0,
                     );
                     ytmp += 1;
                 }
@@ -338,7 +338,7 @@ fn d_display(
         draw_buf.pixel_buffer().set_pixel(
             disp_buf.width() / 2,
             disp_buf.height() / 2,
-            (200, 14, 14, 255),
+            &[200, 14, 14, 255],
         );
     }
 
