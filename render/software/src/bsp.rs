@@ -232,6 +232,7 @@ impl SoftwareRenderer {
                             dc_yh,
                             pic_data,
                             pixels,
+                            &self.seg_renderer.yslope,
                         );
                     }
                 }

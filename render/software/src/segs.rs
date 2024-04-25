@@ -73,7 +73,7 @@ pub(crate) struct SegRender {
     lastopening: f32,
     /// Light level for the wall
     wall_lights: i32,
-    doubled: bool,
+    pub yslope: Vec<f32>,
 }
 
 impl SegRender {
@@ -113,7 +113,12 @@ impl SegRender {
             wall_lights: 0,
             openings: vec![f32::MAX; screen_width * screen_height], // TODO: find a good limit
             lastopening: 0.0,
-            doubled: false,
+            yslope: (0..=screen_height)
+                .map(|y| {
+                    let dy = y as f32 - screen_height as f32 / 2.0;
+                    screen_width as f32 / 2.0 / dy.abs()
+                })
+                .collect(),
         }
     }
 
@@ -409,7 +414,6 @@ impl SegRender {
             );
         }
 
-        self.doubled = pixels.size().height() > 200;
         self.render_seg_loop(seg, player.viewheight, rdata, pic_data, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
@@ -711,6 +715,7 @@ pub fn draw_column_style_flats(
     yh: f32,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
+    yslope: &[f32],
 ) {
     let angle = angle + screen_to_x_view(dc_x, pixels.size().width_f32());
     let distscale = 1.0 / screen_to_x_view(dc_x, pixels.size().width_f32()).cos();
@@ -720,16 +725,13 @@ pub fn draw_column_style_flats(
     let dc_x = dc_x as usize;
     let pal = pic_data.palette();
     for y in yl as usize..=yh as usize {
-        let dy = yl - pixels.size().half_height_f32();
-        let yslope = pixels.size().half_width_f32() / dy.abs();
-        let distance = plane_height * yslope;
-
+        let distance = plane_height * yslope[y];
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = -viewxy.y - sin * length;
 
-        let x_step = ds_xfrac.abs() as usize % (texture.data.len());
-        let y_step = ds_yfrac.abs() as usize % (texture.data[0].len());
+        let x_step = ds_xfrac.abs() as usize % texture.data.len();
+        let y_step = ds_yfrac.abs() as usize % texture.data[0].len();
 
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32);
         let px = colourmap[texture.data[x_step][y_step]];
