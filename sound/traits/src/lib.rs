@@ -146,7 +146,7 @@ where
 mod tests {
     use std::{
         error::Error,
-        f32::consts::{FRAC_PI_2},
+        f32::consts::FRAC_PI_2,
         fmt::Display,
         sync::mpsc::{channel, Receiver, Sender},
     };

@@ -14,7 +14,6 @@ mod sprites;
 
 use std::mem::{size_of, size_of_val};
 
-use glam::Vec2;
 use log::{debug, warn};
 use wad::{
     lumps::{WadColour, WadPalette, WadPatch, WadTexture},
@@ -326,7 +325,7 @@ impl PicData {
 
     /// Build a texture out of patches and return it
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
-        let mut compose = vec![vec![0; texture.height as usize]; texture.width as usize];
+        let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
 
         for patch_pos in &texture.patches {
             let patch = &patches[patch_pos.patch_index];

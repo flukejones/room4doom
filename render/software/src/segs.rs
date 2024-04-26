@@ -161,12 +161,12 @@ impl SegRender {
         // mark the segment as visible for automap
         linedef.flags |= LineDefFlags::Mapped as u32;
 
-        self.rw_normalangle = seg.angle + FRAC_PI_2;
+        self.rw_normalangle = seg.angle + FRAC_PI_2; // widescreen: Leave as is
         let mut offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
 
         let mobj = unsafe { player.mobj_unchecked() };
 
-        let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad());
+        let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
@@ -670,6 +670,9 @@ pub fn draw_wall_column(
         let mut select = frac.abs() as usize;
         select %= texture_column.len();
         let tc = texture_column[select];
+        if tc == usize::MAX {
+            continue;
+        }
         let cm = colourmap[tc];
         let c = pal[cm];
         pixels.set_pixel(dc_x, y as usize, &c.0);
@@ -739,6 +742,9 @@ pub fn draw_sky_column(
         }
         select %= texture_column.len();
         let tc = texture_column[select];
+        if tc == usize::MAX {
+            continue;
+        }
         let cm = colourmap[tc];
         let c = pal[cm];
         pixels.set_pixel(dc_x, y as usize, &c.0);

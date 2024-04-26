@@ -8,7 +8,7 @@
 #![allow(clippy::new_without_default)]
 
 use std::{
-    f32::consts::{TAU},
+    f32::consts::TAU,
     fmt::{self, Debug},
     ops::{Deref, DerefMut},
 };

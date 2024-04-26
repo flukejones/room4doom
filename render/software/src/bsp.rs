@@ -1,7 +1,7 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     segs::{draw_column_style_flats, draw_sky_column},
-    utilities::screen_to_x_view,
+    utilities::{angle_to_screen, screen_to_x_view, vertex_angle_to_object, FOV_HALF},
 };
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
@@ -9,10 +9,7 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
-use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU},
-    time::Instant,
-};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const MAX_SEGS: usize = 64;
 const MAX_VIS_SPRITES: usize = 128 * 2;
@@ -83,6 +80,7 @@ impl PlayRenderer for SoftwareRenderer {
         pic_data.set_player_palette(player);
 
         self.seg_renderer.clear();
+        // let now1 = Instant::now();
         self.render_bsp_node(
             map,
             player,
@@ -91,11 +89,12 @@ impl PlayRenderer for SoftwareRenderer {
             buffer.pixel_buffer(),
             &mut count,
         );
+        // println!("bsp time: {:?}", now1.elapsed());
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        let now1 = Instant::now();
+        // let now1 = Instant::now();
         self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        println!("draw_spans time: {:?}", now1.elapsed());
+        // println!("draw_spans time: {:?}", now1.elapsed());
         // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
@@ -218,30 +217,30 @@ impl SoftwareRenderer {
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
-        let angle = mobj.angle;
+        let viewangle = mobj.angle;
 
         if !seg.is_facing_point(&mobj.xy) {
             return;
         }
 
-        let clipangle = Angle::new(FRAC_PI_4);
-        // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj);
-        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj);
+        let clipangle = Angle::new(FOV_HALF); // widescreen: Leave as is
+        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
+        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad().abs();
         if span >= PI {
+            // widescreen: Leave as is
             return;
         }
 
         // Global angle needed by segcalc.
-        self.r_data.rw_angle1 = angle1;
+        self.r_data.rw_angle1 = angle1; // widescreen: Leave as is
 
-        angle1 -= angle;
-        angle2 -= angle;
+        angle1 -= viewangle; // widescreen: Leave as is
+        angle2 -= viewangle; // widescreen: Leave as is
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= FRAC_PI_2 {
+        if tspan.rad() >= 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -260,15 +259,14 @@ impl SoftwareRenderer {
             }
             angle2 = -clipangle;
         }
-
-        angle1 += FRAC_PI_2;
-        angle2 += FRAC_PI_2;
+        // OK down to here
 
         let x1 = angle_to_screen(pixels.size().half_width_f32(), angle1);
         let x2 = angle_to_screen(pixels.size().half_width_f32(), angle2);
 
         // Does not cross a pixel?
-        if x1 == x2 {
+        if x1 >= x2 || x1 < 0.0 {
+            // println!("bad: {angle1:?} > {FRAC_PI_2}, {angle2:?}");
             return;
         }
 
@@ -684,7 +682,7 @@ impl SoftwareRenderer {
             }
         }
 
-        let clipangle = Angle::new(FRAC_PI_4);
+        let clipangle = Angle::new(FOV_HALF);
         // Reset to correct angles
         let mut angle1 = vertex_angle_to_object(&v1, mobj);
         let mut angle2 = vertex_angle_to_object(&v2, mobj);
@@ -699,7 +697,7 @@ impl SoftwareRenderer {
         angle2 -= view_angle;
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= FRAC_PI_2 {
+        if tspan.rad() >= clipangle.rad() * 2.0 {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -719,8 +717,6 @@ impl SoftwareRenderer {
             angle2 = -clipangle;
         }
 
-        angle1 += FRAC_PI_2;
-        angle2 += FRAC_PI_2;
         let x1 = angle_to_screen(half_screen_width, angle1);
         let mut x2 = angle_to_screen(half_screen_width, angle2);
 
@@ -740,26 +736,6 @@ impl SoftwareRenderer {
         }
         true
     }
-}
-
-// TODO: this is a source of issues
-fn angle_to_screen(half_screen_width: f32, angle: Angle) -> f32 {
-    // int t = FixedMul(finetangent[i], FocalLengthX);
-    // t = (centerxfrac - t + FRACUNIT-1) >> FRACBITS;
-    // let focal = half_screen_width; // / (FRAC_PI_4).tan();
-    let mut radian = angle.rad();
-    radian -= FRAC_PI_2;
-    (half_screen_width - (radian.tan() + 0.0000001) * half_screen_width).ceil()
-    // radian -= FRAC_PI_2;
-    // let r = focal - (radian.tan() * focal) + 0.9;
-    // r.floor().clamp(0.0, screen_width)
-}
-
-/// R_PointToAngle
-fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
-    let x = vertex.x - mobj.xy.x;
-    let y = vertex.y - mobj.xy.y;
-    Angle::new(y.atan2(x))
 }
 
 #[cfg(test)]

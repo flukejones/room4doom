@@ -171,6 +171,8 @@ impl SoftwareRenderer {
         let gyt = tr_y * view_cos;
         let mut tx = -(gyt + gxt);
 
+        // let x1 = (half_screen_width + tx * x_scale) - 1.0;
+
         // too far off the side?
         if tx.abs() as i32 > (tz.abs() as i32) << 2 {
             return true;

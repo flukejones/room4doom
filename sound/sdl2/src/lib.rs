@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    f32::consts::{TAU},
+    f32::consts::TAU,
     fmt::Debug,
     sync::mpsc::{channel, Receiver, Sender},
 };
