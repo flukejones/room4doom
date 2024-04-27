@@ -9,7 +9,7 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::f32::consts::{PI, TAU};
 
 const MAX_SEGS: usize = 64;
 const MAX_VIS_SPRITES: usize = 128 * 2;
@@ -240,7 +240,7 @@ impl SoftwareRenderer {
         angle2 -= viewangle; // widescreen: Leave as is
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= 2.0 * clipangle.rad() {
+        if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -250,7 +250,7 @@ impl SoftwareRenderer {
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() >= 2.0 * clipangle.rad() {
+        if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
 
             // Totally off the left edge?
@@ -261,11 +261,19 @@ impl SoftwareRenderer {
         }
         // OK down to here
 
-        let x1 = angle_to_screen(pixels.size().half_width_f32(), angle1);
-        let x2 = angle_to_screen(pixels.size().half_width_f32(), angle2);
+        let x1 = angle_to_screen(
+            pixels.size().half_width_f32(),
+            pixels.size().width_f32(),
+            angle1,
+        );
+        let x2 = angle_to_screen(
+            pixels.size().half_width_f32(),
+            pixels.size().width_f32(),
+            angle2,
+        );
 
         // Does not cross a pixel?
-        if x1 >= x2 || x1 < 0.0 {
+        if x1 == x2 {
             // println!("bad: {angle1:?} > {FRAC_PI_2}, {angle2:?}");
             return;
         }
@@ -585,7 +593,13 @@ impl SoftwareRenderer {
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
         //if node.point_in_bounds(&v, side ^ 1) {
-        if self.bb_extents_in_fov(node, mobj, side ^ 1, pixels.size().half_width_f32()) {
+        if self.bb_extents_in_fov(
+            node,
+            mobj,
+            side ^ 1,
+            pixels.size().half_width_f32(),
+            pixels.size().width_f32(),
+        ) {
             self.render_bsp_node(
                 map,
                 player,
@@ -606,6 +620,7 @@ impl SoftwareRenderer {
         mobj: &MapObject,
         side: usize,
         half_screen_width: f32,
+        screen_width: f32,
     ) -> bool {
         let view_angle = mobj.angle;
         // BOXTOP = 0
@@ -717,8 +732,8 @@ impl SoftwareRenderer {
             angle2 = -clipangle;
         }
 
-        let x1 = angle_to_screen(half_screen_width, angle1);
-        let mut x2 = angle_to_screen(half_screen_width, angle2);
+        let x1 = angle_to_screen(half_screen_width, screen_width, angle1);
+        let mut x2 = angle_to_screen(half_screen_width, screen_width, angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {

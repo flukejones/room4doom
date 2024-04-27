@@ -353,7 +353,7 @@ impl RenderTarget {
                 .as_texture(texc)
                 .unwrap();
                 sdl_canvas
-                    .copy(&surf, None, Some(render_buffer.crop_rect))
+                    .copy(&surf, None, None) //Some(render_buffer.crop_rect))
                     .unwrap();
                 sdl_canvas.present();
             }

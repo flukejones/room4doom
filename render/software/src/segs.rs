@@ -149,7 +149,7 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start < 0.0 || pixels.size().width_f32() <= start || start > stop {
+        if start < 0.0 || start >= pixels.size().width_f32() || start > stop {
             // return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
@@ -188,7 +188,7 @@ impl SegRender {
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1.0;
 
-        if stop > start {
+        if stop >= start {
             // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
                 visangle,

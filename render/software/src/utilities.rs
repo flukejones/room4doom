@@ -3,11 +3,11 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
-pub const FOV: f32 = FRAC_PI_2;
+pub const FOV: f32 = FRAC_PI_2 + 0.17453289; // 0.5235988; // 0.34906578; //0.17453289;
 pub const FOV_HALF: f32 = FOV / 2.0;
 
 fn player_dist_to_screen(screen_width: f32) -> f32 {
-    screen_width / 2.0 / FOV_HALF.tan()
+    (screen_width / 2.0) / FOV_HALF.tan()
 }
 
 pub fn screen_to_x_view(x: f32, screen_width: f32) -> f32 {
@@ -25,15 +25,14 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
-// TODO: this is a source of issues
-// pub fn angle_to_screen(half_screen_width: f32, angle: Angle) -> f32 {
-//     let focal = half_screen_width / (FRAC_PI_4).tan();
-//     let r = focal - (angle.tan() * focal);
-//     r.floor().clamp(0.0, half_screen_width * 2.0)
-// }
-// widescreen: maybe fixed now?
-pub fn angle_to_screen(half_screen_width: f32, angle: Angle) -> f32 {
-    (half_screen_width - (angle.rad().tan() + 0.0000001) * half_screen_width).ceil()
+// The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
+pub fn angle_to_screen(half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
+    let focal = player_dist_to_screen(screen_width);
+    let t = angle.tan() * focal;
+    let t = half_screen_width - t + 0.1;
+    // t.clamp(0.0, screen_width).round()
+    // t.round()
+    t.floor()
 }
 
 /// R_PointToAngle
