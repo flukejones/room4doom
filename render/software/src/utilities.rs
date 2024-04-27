@@ -29,10 +29,9 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 pub fn angle_to_screen(half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
     let focal = player_dist_to_screen(screen_width);
     let t = angle.tan() * focal;
-    let t = half_screen_width - t + 0.1;
-    // t.clamp(0.0, screen_width).round()
-    // t.round()
-    t.floor()
+    let t = half_screen_width - t;
+    t.clamp(0.0, screen_width).floor()
+    // t.floor()
 }
 
 /// R_PointToAngle

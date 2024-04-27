@@ -227,7 +227,7 @@ impl SoftwareRenderer {
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
 
-        let span = (angle1 - angle2).rad().abs();
+        let span = (angle1 - angle2).rad();
         if span >= PI {
             // widescreen: Leave as is
             return;
@@ -242,9 +242,7 @@ impl SoftwareRenderer {
         let mut tspan = angle1 + clipangle;
         if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
-
-            // Totally off the left edge?
-            if tspan.rad() >= span {
+            if tspan.rad() > span {
                 return;
             }
             angle1 = clipangle;
@@ -252,8 +250,6 @@ impl SoftwareRenderer {
         tspan = clipangle - angle2;
         if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
-
-            // Totally off the left edge?
             if tspan.rad() >= span {
                 return;
             }
@@ -274,6 +270,7 @@ impl SoftwareRenderer {
 
         // Does not cross a pixel?
         if x1 == x2 {
+            // || x2 < x1 || x1 < 0.0 {
             // println!("bad: {angle1:?} > {FRAC_PI_2}, {angle2:?}");
             return;
         }
@@ -714,8 +711,6 @@ impl SoftwareRenderer {
         let mut tspan = angle1 + clipangle;
         if tspan.rad() >= clipangle.rad() * 2.0 {
             tspan -= 2.0 * clipangle.rad();
-
-            // Totally off the left edge?
             if tspan.rad() >= span.rad() {
                 return false;
             }
@@ -724,8 +719,6 @@ impl SoftwareRenderer {
         tspan = clipangle - angle2;
         if tspan.rad() >= 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
-
-            // Totally off the left edge?
             if tspan.rad() >= span.rad() {
                 return false;
             }

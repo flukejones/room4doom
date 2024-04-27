@@ -1,5 +1,5 @@
 use crate::utilities::screen_to_x_view;
-use gameplay::{Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
+use gameplay::{log::warn, Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
 use glam::Vec2;
 use render_target::PixelBuffer;
 use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
@@ -139,6 +139,7 @@ impl SegRender {
     ) {
         // Keep original Doom behaviour here
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
+            warn!("Maxxed out drawsegs");
             return;
         }
 
@@ -149,7 +150,7 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start < 0.0 || start >= pixels.size().width_f32() || start > stop {
+        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
             // return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
