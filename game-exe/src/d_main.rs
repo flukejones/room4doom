@@ -42,14 +42,14 @@ pub fn d_doom_loop(
 ) -> Result<(), Box<dyn Error>> {
     // TODO: switch 320x200 | 640x400 on option
     let screen_width = if options.double.is_some() && options.double.unwrap() {
-        // 640
-        window.size().0 as usize
+        640
+        // window.size().0 as usize
     } else {
         320
     };
     let screen_height = if options.double.is_some() && options.double.unwrap() {
-        // 400
-        window.size().1 as usize
+        400
+        // window.size().1 as usize
     } else {
         200
     };

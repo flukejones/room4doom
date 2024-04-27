@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
-pub const FOV: f32 = FRAC_PI_2 + 0.17453289; // 0.5235988; // 0.34906578; //0.17453289;
+pub const FOV: f32 = FRAC_PI_2; // 0.17453289; // 0.5235988; // 0.34906578; //0.17453289;
 pub const FOV_HALF: f32 = FOV / 2.0;
 
 fn player_dist_to_screen(screen_width: f32) -> f32 {

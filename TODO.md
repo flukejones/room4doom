@@ -1,5 +1,9 @@
 # TODO
 
+- [x] Widescreen
+  - [ ] Add aspect ratio selection + auto for display res
+  - [ ] Add display res selection
+  - [ ] Add draw res selection maybe? As opposed to low/hi res
 - [x] Convert static arrays in much of the renderer structs to Vec since at high res they
       can potentially overflow the stack
 - [ ] Wad mobj flags a different to in-game info flags...
