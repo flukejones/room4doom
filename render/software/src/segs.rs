@@ -687,10 +687,9 @@ pub fn draw_wall_column(
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
 ) {
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-
     let dc_x = dc_x as usize;
     let pal = pic_data.palette();
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
     for y in yl as i32..=yh as i32 {
         let mut select = frac.abs() as usize;
         select %= texture_column.len();

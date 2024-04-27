@@ -278,10 +278,9 @@ impl SoftwareRenderer {
                 break;
             }
 
-            let mut top = (pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) + 1.0;
             let texture_column = &patch.data[tex_column];
-
-            let mut bottom = top + (spryscale * texture_column.len() as f32);
+            let mut top = ((pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) + 1.0).ceil();
+            let mut bottom = top + (spryscale * texture_column.len() as f32).floor();
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1.0;
@@ -571,8 +570,8 @@ impl SoftwareRenderer {
 
                     // calculate unclipped screen coordinates for post
                     let sprtopscreen = pixels.size().half_height_f32() - dc_texturemid * spryscale;
-                    let mut top = sprtopscreen; // TODO: possible glitch
-                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32);
+                    let mut top = sprtopscreen.ceil(); // TODO: possible glitch
+                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32).floor();
 
                     if bottom >= mfloorclip {
                         bottom = mfloorclip - 1.0;
