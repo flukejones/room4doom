@@ -1,7 +1,7 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     segs::{draw_column_style_flats, draw_sky_column},
-    utilities::{angle_to_screen, screen_to_x_view, vertex_angle_to_object, FOV_HALF},
+    utilities::{angle_to_screen, screen_to_x_view, vertex_angle_to_object},
 };
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
@@ -102,10 +102,16 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(screen_width: usize, screen_height: usize, debug: bool) -> Self {
+    pub fn new(
+        fov: f32,
+        widescreen: bool,
+        screen_width: usize,
+        screen_height: usize,
+        debug: bool,
+    ) -> Self {
         Self {
             r_data: RenderData::new(screen_width, screen_height),
-            seg_renderer: SegRender::new(screen_width, screen_height),
+            seg_renderer: SegRender::new(fov, widescreen, screen_width, screen_height),
             new_end: 0,
             solidsegs: vec![
                 ClipRange {
@@ -157,8 +163,11 @@ impl SoftwareRenderer {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let screen_x_degress =
-                            screen_to_x_view(x as f32, pixels.size().width_f32());
+                        let screen_x_degress = screen_to_x_view(
+                            self.seg_renderer.fov,
+                            x as f32,
+                            pixels.size().half_width_f32(),
+                        );
                         let angle =
                             (view_angle.rad() + screen_x_degress + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
@@ -200,6 +209,7 @@ impl SoftwareRenderer {
                         pic_data,
                         pixels,
                         &self.seg_renderer.yslope,
+                        self.seg_renderer.fov,
                     );
                 }
             }
@@ -223,7 +233,7 @@ impl SoftwareRenderer {
             return;
         }
 
-        let clipangle = Angle::new(FOV_HALF); // widescreen: Leave as is
+        let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
 
@@ -258,11 +268,13 @@ impl SoftwareRenderer {
         // OK down to here
 
         let x1 = angle_to_screen(
+            self.seg_renderer.fov,
             pixels.size().half_width_f32(),
             pixels.size().width_f32(),
             angle1,
         );
         let x2 = angle_to_screen(
+            self.seg_renderer.fov,
             pixels.size().half_width_f32(),
             pixels.size().width_f32(),
             angle2,
@@ -694,7 +706,7 @@ impl SoftwareRenderer {
             }
         }
 
-        let clipangle = Angle::new(FOV_HALF);
+        let clipangle = Angle::new(self.seg_renderer.fov_half);
         // Reset to correct angles
         let mut angle1 = vertex_angle_to_object(&v1, mobj);
         let mut angle2 = vertex_angle_to_object(&v2, mobj);
@@ -725,8 +737,18 @@ impl SoftwareRenderer {
             angle2 = -clipangle;
         }
 
-        let x1 = angle_to_screen(half_screen_width, screen_width, angle1);
-        let mut x2 = angle_to_screen(half_screen_width, screen_width, angle2);
+        let x1 = angle_to_screen(
+            self.seg_renderer.fov,
+            half_screen_width,
+            screen_width,
+            angle1,
+        );
+        let mut x2 = angle_to_screen(
+            self.seg_renderer.fov,
+            half_screen_width,
+            screen_width,
+            angle2,
+        );
 
         // Does not cross a pixel?
         if x1 == x2 {

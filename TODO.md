@@ -1,6 +1,8 @@
 # TODO
 
 - [x] Widescreen
+  - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
+  - [ ] Adjust all sprites to correct aspect of screen
   - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection
   - [ ] Add draw res selection maybe? As opposed to low/hi res

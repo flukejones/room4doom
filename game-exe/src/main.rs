@@ -99,6 +99,8 @@ pub struct CLIOptions {
     pub shader: Option<Shaders>,
     #[options(meta = "", help = "Rendering type <software, softopengl>")]
     pub music_type: Option<MusicType>,
+    #[options(meta = "", help = "Set a custom field-of-view")]
+    pub fov: Option<u32>,
 }
 
 impl From<CLIOptions> for DoomOptions {
@@ -118,6 +120,7 @@ impl From<CLIOptions> for DoomOptions {
             warp: g.map != 0 || g.episode != 0,
             hi_res: g.double.unwrap_or(true),
             verbose: g.verbose,
+            fov: (g.fov.unwrap_or(90) as f32).to_radians(),
             ..DoomOptions::default()
         }
     }

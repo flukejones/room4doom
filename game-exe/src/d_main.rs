@@ -55,12 +55,8 @@ pub fn d_doom_loop(
     };
 
     // TODO: implement an openGL or Vulkan renderer
-    let mut renderer = SoftwareRenderer::new(
-        screen_width,
-        screen_height,
-        matches!(options.verbose, log::LevelFilter::Debug),
-    );
-
+    // TODO: check res aspect and set widescreen or no
+    let mut widescreen = false;
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
@@ -73,6 +69,7 @@ pub fn d_doom_loop(
 
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
+            widescreen = true;
             render_buffer = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
             render_buffer2 = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
         }
@@ -87,6 +84,14 @@ pub fn d_doom_loop(
         crate::config::RenderType::OpenGL => todo!(),
         crate::config::RenderType::Vulkan => todo!(),
     }
+
+    let mut renderer = SoftwareRenderer::new(
+        game.options.fov,
+        widescreen,
+        screen_width,
+        screen_height,
+        matches!(options.verbose, log::LevelFilter::Debug),
+    );
 
     info!("Using {render_type:?}");
 

@@ -22,7 +22,7 @@
 pub mod game_impl;
 pub mod machination;
 
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, f32::consts::FRAC_PI_2, rc::Rc, time::Duration};
 
 use crate::machination::Machinations;
 use gameplay::{
@@ -65,6 +65,7 @@ pub struct DoomOptions {
     pub map: i32,
     pub autostart: bool,
     pub hi_res: bool,
+    pub fov: f32,
     pub verbose: log::LevelFilter,
 }
 
@@ -84,6 +85,7 @@ impl Default for DoomOptions {
             warp: false,
             autostart: Default::default(),
             hi_res: true,
+            fov: FRAC_PI_2,
             verbose: log::LevelFilter::Info,
         }
     }

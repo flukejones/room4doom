@@ -3,15 +3,20 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
-pub const FOV: f32 = FRAC_PI_2; // 0.17453289; // 0.5235988; // 0.34906578; //0.17453289;
-pub const FOV_HALF: f32 = FOV / 2.0;
-
-fn player_dist_to_screen(screen_width: f32) -> f32 {
-    (screen_width / 2.0) / FOV_HALF.tan()
+fn fov_delta(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
+    (screen_width / (screen_height / (fov * 0.82).tan())).atan() - fov
 }
 
-pub fn screen_to_x_view(x: f32, screen_width: f32) -> f32 {
-    ((screen_width / 2.0 - x) / player_dist_to_screen(screen_width)).atan()
+pub fn fov_adjusted(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
+    fov - fov_delta(fov, screen_width, screen_height)
+}
+
+fn player_dist_to_screen(fov: f32, screen_width_half: f32) -> f32 {
+    screen_width_half / (fov / 2.0).tan()
+}
+
+pub fn screen_to_x_view(fov: f32, x: f32, screen_width_half: f32) -> f32 {
+    ((screen_width_half - x) / player_dist_to_screen(fov, screen_width_half)).atan()
 }
 
 /// R_PointToDist
@@ -26,8 +31,8 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 }
 
 // The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
-pub fn angle_to_screen(half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
-    let focal = player_dist_to_screen(screen_width);
+pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
+    let focal = player_dist_to_screen(fov, half_screen_width);
     let t = angle.tan() * focal;
     let t = half_screen_width - t;
     t.clamp(0.0, screen_width).floor()

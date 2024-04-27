@@ -88,6 +88,7 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
+    pub fov: u32,
     pub renderer: RenderType,
     pub shader: Option<Shaders>,
     pub sfx_vol: i32,
@@ -130,6 +131,7 @@ impl UserConfig {
             height: 480,
             hi_res: true,
             fullscreen: true,
+            fov: 90,
             sfx_vol: 80,
             mus_vol: 70,
             ..UserConfig::default()
@@ -211,6 +213,14 @@ impl UserConfig {
             }
         } else {
             cli.music_type = Some(self.music_type);
+        }
+
+        if let Some(f) = cli.fov {
+            if f != self.fov {
+                self.fov = f;
+            }
+        } else {
+            cli.fov = Some(self.fov);
         }
     }
 }
