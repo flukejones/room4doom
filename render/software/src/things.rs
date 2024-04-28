@@ -195,10 +195,14 @@ impl SoftwareRenderer {
             flip = sprite_frame.flip[0];
         }
 
-        tx -= patch.left_offset as f32;
+        if flip > 0 {
+            tx -= (patch.data.len() - patch.left_offset as usize) as f32;
+        } else {
+            tx -= patch.left_offset as f32;
+        }
 
-        // TODO: Sets position. Need to pull in to a function or set of static vars
         let centerx = screen_width as f32 / 2.0;
+        // Projection does the X scaling in wide
         let x_scale = self.projection / tz;
 
         let x1 = (centerx + tx * x_scale) - 1.0;
@@ -207,14 +211,15 @@ impl SoftwareRenderer {
         }
 
         tx += patch.data.len() as f32;
-        let x2 = centerx + (tx + screen_width as f32) * x_scale;
+        let x2 = centerx + tx * x_scale;
         if x2 < 0.0 {
             return true;
         }
 
+        let fov_scale = self.fov_scale;
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
-        vis.scale = x_scale;
+        vis.scale = x_scale * fov_scale; // Note: increase Y
         vis.gx = thing.xy.x;
         vis.gy = thing.xy.y;
         vis.gz = thing.z;
@@ -234,6 +239,8 @@ impl SoftwareRenderer {
             vis.start_frac = 0.0;
             vis.x_iscale = iscale;
         }
+        vis.x_iscale /= fov_scale; // Note: proportion to x_scale
+
         // Catches certain orientations
         if vis.x1 > x1 {
             vis.start_frac += vis.x_iscale * (vis.x1 - x1);
@@ -271,8 +278,9 @@ impl SoftwareRenderer {
             pic_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
+        let xfrac = vis.x_iscale * self.fov_scale; // proportional to x1..x2
         for x in vis.x1.ceil() as usize..=vis.x2.floor() as usize {
-            let tex_column = (frac) as usize;
+            let tex_column = frac as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
@@ -304,7 +312,7 @@ impl SoftwareRenderer {
                 );
             }
 
-            frac += vis.x_iscale;
+            frac += xfrac;
         }
     }
 
@@ -426,13 +434,14 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
-        let x1 = pixels.size().half_width_f32() + (tx * pspritescale);
+        let x_offset = pspritescale / self.fov_scale;
+        let x1 = pixels.size().half_width_f32() + (tx * x_offset);
 
         if x1 >= pixels.size().width_f32() {
             return;
         }
         tx += patch.data.len() as f32;
-        let x2 = (pixels.size().half_width_f32()) as f32 + (tx * pspritescale) - 1.0;
+        let x2 = pixels.size().half_width_f32() + tx * x_offset;
 
         if x2 < 0.0 {
             return;
@@ -615,7 +624,7 @@ fn draw_masked_column(
 ) {
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as usize..=yh as usize {
+    for y in (yl) as usize..=yh as usize {
         let select = frac as usize;
         if select >= texture_column.len() {
             return;
