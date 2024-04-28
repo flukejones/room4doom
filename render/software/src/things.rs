@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    f32::consts::{FRAC_PI_2, TAU},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, TAU},
 };
 
 use gameplay::{
@@ -9,6 +9,8 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
+
+use crate::utilities::{fov_adjusted, player_dist_to_screen};
 
 use super::{bsp::SoftwareRenderer, defs::DrawSeg};
 
@@ -104,6 +106,7 @@ impl SoftwareRenderer {
         player: &Player,
         sector: &'a Sector,
         screen_width: u32,
+        screen_height: u32,
         pic_data: &PicData,
     ) {
         // Need to track sectors as we recurse through BSP as the BSP
@@ -123,7 +126,14 @@ impl SoftwareRenderer {
         // }
 
         sector.run_func_on_thinglist(|thing| {
-            self.project_sprite(player, thing, light_level, screen_width, pic_data)
+            self.project_sprite(
+                player,
+                thing,
+                light_level,
+                screen_width,
+                screen_height,
+                pic_data,
+            )
         });
     }
 
@@ -136,12 +146,14 @@ impl SoftwareRenderer {
         &mut self.vissprites[curr]
     }
 
+    // R_ProjectSprite
     fn project_sprite(
         &mut self,
         player: &Player,
         thing: &MapObject,
         light_level: i32,
         screen_width: u32,
+        screen_height: u32,
         pic_data: &PicData,
     ) -> bool {
         if thing.player().is_some() {
@@ -155,24 +167,14 @@ impl SoftwareRenderer {
         // transform the origin point
         let tr_x = thing.xy.x - player_mobj.xy.x;
         let tr_y = thing.xy.y - player_mobj.xy.y;
-        let gxt = tr_x * view_cos;
-        let gyt = -(tr_y * view_sin);
-        let tz = gxt - gyt;
+        let tz = (tr_x * view_cos) + (tr_y * view_sin);
 
         // Is it behind the view?
         if tz < 4.0 {
             return true; // keep checking
         }
 
-        let half_screen_width = screen_width as f32 / 2.0;
-        let x_scale = half_screen_width / tz;
-
-        let gxt = -(tr_x * view_sin);
-        let gyt = tr_y * view_cos;
-        let mut tx = -(gyt + gxt);
-
-        // let x1 = (half_screen_width + tx * x_scale) - 1.0;
-
+        let mut tx = (tr_x * view_sin) - (tr_y * view_cos);
         // too far off the side?
         if tx.abs() as i32 > (tz.abs() as i32) << 2 {
             return true;
@@ -203,13 +205,26 @@ impl SoftwareRenderer {
         }
 
         tx -= patch.left_offset as f32;
-        let x1 = (half_screen_width + tx * x_scale) - 1.0;
+
+        let fov = fov_adjusted(
+            90f32.to_radians(),
+            screen_width as f32,
+            screen_height as f32,
+        );
+
+        // TODO: Sets position. Need to pull in to a function or set of static vars
+        let centerx = screen_width as f32 / 2.0;
+        let fovscale = (fov / 2.0).tan();
+        let projection = centerx / fovscale; // fovscale should be near 0.82 for 16:10
+        let x_scale = projection / tz;
+
+        let x1 = (centerx + tx * x_scale) - 1.0;
         if x1 > screen_width as f32 {
             return true;
         }
 
         tx += patch.data.len() as f32;
-        let x2 = half_screen_width + tx * x_scale;
+        let x2 = centerx + (tx + screen_width as f32) * x_scale;
         if x2 < 0.0 {
             return true;
         }
@@ -433,7 +448,7 @@ impl SoftwareRenderer {
             return;
         }
         tx += patch.data.len() as f32;
-        let x2 = ((pixels.size().width() / 2) as f32 + (tx * pspritescale)) - 1.0;
+        let x2 = (pixels.size().half_width_f32()) as f32 + (tx * pspritescale) - 1.0;
 
         if x2 < 0.0 {
             return;

@@ -355,7 +355,13 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, pixels.size().width() as u32, pic_data);
+        self.add_sprites(
+            player,
+            front_sector,
+            pixels.size().width() as u32,
+            pixels.size().height() as u32,
+            pic_data,
+        );
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
