@@ -82,22 +82,7 @@ pub(crate) struct SegRender {
 }
 
 impl SegRender {
-    pub fn new(fov_: f32, widescreen: bool, screen_width: usize, screen_height: usize) -> Self {
-        let mut fov = if widescreen {
-            fov_adjusted(fov_, screen_width as f32, screen_height as f32)
-        } else {
-            fov_
-        };
-        if fov.to_degrees() > 135.0 {
-            fov = 135f32.to_radians();
-        } else if fov.to_degrees() < 45.0 {
-            fov = 45f32.to_radians();
-        }
-        info!(
-            "FOV {} adjusted for screen is {}",
-            fov_.to_degrees(),
-            fov.to_degrees()
-        );
+    pub fn new(fov: f32, screen_width: usize, screen_height: usize) -> Self {
         Self {
             segtextured: false,
             markfloor: false,

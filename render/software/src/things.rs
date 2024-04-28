@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, TAU},
+    f32::consts::{FRAC_PI_2, TAU},
 };
 
 use gameplay::{
@@ -106,7 +106,6 @@ impl SoftwareRenderer {
         player: &Player,
         sector: &'a Sector,
         screen_width: u32,
-        screen_height: u32,
         pic_data: &PicData,
     ) {
         // Need to track sectors as we recurse through BSP as the BSP
@@ -126,14 +125,7 @@ impl SoftwareRenderer {
         // }
 
         sector.run_func_on_thinglist(|thing| {
-            self.project_sprite(
-                player,
-                thing,
-                light_level,
-                screen_width,
-                screen_height,
-                pic_data,
-            )
+            self.project_sprite(player, thing, light_level, screen_width, pic_data)
         });
     }
 
@@ -153,7 +145,6 @@ impl SoftwareRenderer {
         thing: &MapObject,
         light_level: i32,
         screen_width: u32,
-        screen_height: u32,
         pic_data: &PicData,
     ) -> bool {
         if thing.player().is_some() {
@@ -206,17 +197,9 @@ impl SoftwareRenderer {
 
         tx -= patch.left_offset as f32;
 
-        let fov = fov_adjusted(
-            90f32.to_radians(),
-            screen_width as f32,
-            screen_height as f32,
-        );
-
         // TODO: Sets position. Need to pull in to a function or set of static vars
         let centerx = screen_width as f32 / 2.0;
-        let fovscale = (fov / 2.0).tan();
-        let projection = centerx / fovscale; // fovscale should be near 0.82 for 16:10
-        let x_scale = projection / tz;
+        let x_scale = self.projection / tz;
 
         let x1 = (centerx + tx * x_scale) - 1.0;
         if x1 > screen_width as f32 {
@@ -267,6 +250,7 @@ impl SoftwareRenderer {
         true
     }
 
+    // R_DrawSprite
     fn draw_vissprite(
         &self,
         vis: &VisSprite,
@@ -277,10 +261,10 @@ impl SoftwareRenderer {
     ) {
         let patch = pic_data.sprite_patch(vis.patch);
 
+        let spryscale = vis.scale;
         let dc_iscale = vis.x_iscale.abs();
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
-        let spryscale = vis.scale;
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
             pic_data.colourmap(33)
         } else {
@@ -294,7 +278,7 @@ impl SoftwareRenderer {
             }
 
             let texture_column = &patch.data[tex_column];
-            let mut top = ((pixels.size().height_f32() / 2.0 - dc_texmid * spryscale) + 1.0).ceil();
+            let mut top = ((pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0).ceil();
             let mut bottom = top + (spryscale * texture_column.len() as f32).floor();
 
             if bottom >= clip_bottom[x] {

@@ -1,11 +1,12 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     segs::{draw_column_style_flats, draw_sky_column},
-    utilities::{angle_to_screen, screen_to_x_view, vertex_angle_to_object},
+    utilities::{angle_to_screen, fov_adjusted, screen_to_x_view, vertex_angle_to_object},
 };
 use gameplay::{
-    log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
-    SubSector, IS_SSECTOR_MASK,
+    log::{info, trace},
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
+    IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
@@ -58,6 +59,10 @@ pub struct SoftwareRenderer {
 
     /// Used for checking if a sector has been worked on when iterating over
     pub(super) checked_sectors: Vec<u32>,
+
+    pub fov: f32,
+    pub fov_scale: f32,
+    pub projection: f32,
 }
 
 impl PlayRenderer for SoftwareRenderer {
@@ -103,15 +108,34 @@ impl PlayRenderer for SoftwareRenderer {
 
 impl SoftwareRenderer {
     pub fn new(
-        fov: f32,
+        fov_: f32,
         widescreen: bool,
         screen_width: usize,
         screen_height: usize,
         debug: bool,
     ) -> Self {
+        let mut fov = if widescreen {
+            fov_adjusted(fov_, screen_width as f32, screen_height as f32)
+        } else {
+            fov_
+        };
+        if fov.to_degrees() > 135.0 {
+            fov = 135f32.to_radians();
+        } else if fov.to_degrees() < 45.0 {
+            fov = 45f32.to_radians();
+        }
+        info!(
+            "FOV {} adjusted for screen is {}",
+            fov_.to_degrees(),
+            fov.to_degrees()
+        );
+        let fov_scale = (fov / 2.0).tan();
+        let centerx = screen_width as f32 / 2.0;
+        let projection = centerx / fov_scale;
+
         Self {
             r_data: RenderData::new(screen_width, screen_height),
-            seg_renderer: SegRender::new(fov, widescreen, screen_width, screen_height),
+            seg_renderer: SegRender::new(fov, screen_width, screen_height),
             new_end: 0,
             solidsegs: vec![
                 ClipRange {
@@ -124,6 +148,9 @@ impl SoftwareRenderer {
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
             next_vissprite: 0,
+            fov,
+            fov_scale,
+            projection,
         }
     }
 
@@ -355,13 +382,7 @@ impl SoftwareRenderer {
 
         let front_sector = &subsect.sector;
 
-        self.add_sprites(
-            player,
-            front_sector,
-            pixels.size().width() as u32,
-            pixels.size().height() as u32,
-            pic_data,
-        );
+        self.add_sprites(player, front_sector, pixels.size().width() as u32, pic_data);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
