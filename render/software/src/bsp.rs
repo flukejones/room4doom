@@ -309,8 +309,6 @@ impl SoftwareRenderer {
 
         // Does not cross a pixel?
         if x1 == x2 {
-            // || x2 < x1 || x1 < 0.0 {
-            // println!("bad: {angle1:?} > {FRAC_PI_2}, {angle2:?}");
             return;
         }
 

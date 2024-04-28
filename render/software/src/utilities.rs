@@ -36,7 +36,6 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
     let t = angle.tan() * focal;
     let t = half_screen_width - t;
     t.clamp(0.0, screen_width).floor()
-    // t.floor()
 }
 
 /// R_PointToAngle

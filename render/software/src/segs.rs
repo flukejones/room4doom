@@ -1,8 +1,5 @@
-use crate::utilities::{fov_adjusted, screen_to_x_view};
-use gameplay::{
-    log::{info, warn},
-    Angle, FlatPic, LineDefFlags, PicData, Player, Segment,
-};
+use crate::utilities::screen_to_x_view;
+use gameplay::{log::warn, Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
 use glam::Vec2;
 use render_target::PixelBuffer;
 use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
@@ -157,8 +154,7 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
-            // return;
+        if start < 0.0 || start > pixels.size().width_f32() {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -198,7 +194,7 @@ impl SegRender {
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1.0;
 
-        if stop >= start {
+        if stop > start {
             // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
                 visangle,

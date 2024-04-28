@@ -1,5 +1,7 @@
 # TODO
 
+- [ ] Check textures are correctly sized an aligned
+- [ ] Find the cause of missing draw columns in large maps like e6m6
 - [x] Widescreen
   - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
   - [ ] Adjust all sprites to correct aspect of screen
