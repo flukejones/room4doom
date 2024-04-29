@@ -19,7 +19,7 @@ use crate::{
     doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
     level::Level,
     thinker::{Think, Thinker, ThinkerData},
-    Skill,
+    DPtr, Sector, Skill,
 };
 use glam::Vec2;
 use log::{debug, error, info};
@@ -774,12 +774,22 @@ impl MapObject {
     ///
     /// Doom function name `P_ThingHeightClip`
     fn height_clip(&mut self) -> bool {
-        let on_floor = self.z == self.floorz;
+        // NOTE: older code here was doing a full BSP walk with p_check_position().
+        // This was wrong and inefficient as map objects that move will set their new
+        // subsector themselves. Any object spawned sets their own subsector on spawn.
+        // let mut ctrl = SubSectorMinMax::default();
+        // self.p_check_position(self.xy, &mut ctrl);
+        let sect = unsafe { (*self.subsector).sector.clone() };
+        if !self.height_clip_ext_sector(sect) {
+            return false;
+        }
+        true
+    }
 
-        let mut ctrl = SubSectorMinMax::default();
-        self.p_check_position(self.xy, &mut ctrl);
-        self.floorz = ctrl.min_floor_z;
-        self.ceilingz = ctrl.max_ceil_z;
+    fn height_clip_ext_sector(&mut self, sector: DPtr<Sector>) -> bool {
+        let on_floor = self.z == sector.floorheight;
+        self.floorz = sector.floorheight;
+        self.ceilingz = sector.ceilingheight;
 
         if on_floor {
             self.z = self.floorz;
@@ -790,15 +800,23 @@ impl MapObject {
         if self.ceilingz - self.floorz < self.height {
             return false;
         }
-
         true
     }
 
     /// PIT_ChangeSector
     ///
     /// Returns true to indicate checking should continue
-    pub(crate) fn pit_change_sector(&mut self, no_fit: &mut bool, crush_change: bool) -> bool {
-        if self.height_clip() {
+    pub(crate) fn pit_change_sector(
+        &mut self,
+        ext_sector: Option<DPtr<Sector>>,
+        no_fit: &mut bool,
+        crush_change: bool,
+    ) -> bool {
+        if let Some(ext) = ext_sector {
+            if self.height_clip_ext_sector(ext) {
+                return true;
+            }
+        } else if self.height_clip() {
             return true;
         }
 

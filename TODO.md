@@ -40,8 +40,9 @@
 - [x] Clipping under sprites (like hanging things)
 - [x] Step over sprites that are short
 - [ ] Floating blood? Likely to be a float error
+- [x] Prevent player getting stuck in door if standing next to when close (change_sector() needs to check object radius is crossing over segs)
 - [-] Monster rotations when walking towards off-by-one? Unsure
-- [ ] E1M5 lamps are on window height not floor
+- [x] E1M5 lamps are on window height not floor (they get raised by the lifting floor in other sector: Note: something with height clipping height_clip() and floorz)
 - [x] E2M1 after second teleport there is a missing plane line at top of floor drop
 - [ ] Aim/shoot tries to hit low enemy even if portal blocks view
 - [x] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()`on an`Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
@@ -51,9 +52,8 @@
 - [x] Revenant rockets head off in wrong direction
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [ ] angle_to_screen has an impact on sizing and scale
+- [x] angle_to_screen has an impact on sizing and scale (note: needed a float tweak and floor())
 - [ ] Fix the types in texture module
-- [ ] The fix for players stuck in doors is causing floaty blood
 
 ## IMPROVEMENTS
 

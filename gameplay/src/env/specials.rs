@@ -164,7 +164,7 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
     // initiates the position check on itself
     sector.run_mut_func_on_thinglist(|thing| {
         trace!("Thing type {:?} is in affected sector", thing.kind);
-        thing.pit_change_sector(&mut no_fit, crunch)
+        thing.pit_change_sector(None, &mut no_fit, crunch)
     });
     sector.validcount = valid;
 
@@ -182,12 +182,12 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
                             "Thing type {:?} is in affected neightbouring sector",
                             thing.kind
                         );
-                        hit = thing.pit_change_sector(&mut no_fit, crunch);
+                        hit = thing.pit_change_sector(Some(sector.clone()), &mut no_fit, crunch);
                         break;
                     }
                 }
                 if !hit {
-                    thing.pit_change_sector(&mut no_fit, crunch);
+                    thing.pit_change_sector(None, &mut no_fit, crunch);
                 }
                 true
             });
