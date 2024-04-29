@@ -131,6 +131,13 @@ impl SegRender {
     }
 
     /// R_StoreWallRange - r_segs
+    /// This is called by the BSP clipping functions. The incoming `start` and `stop`
+    /// have alredy been `.floor()`ed by `angle_to_screen()` function called on the
+    /// segs during BSP traversal.
+    ///
+    /// # Note
+    ///
+    /// This can be a source of bugs such as missing clip ranges
     pub fn store_wall_range(
         &mut self,
         start: f32,
@@ -154,9 +161,9 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        // if start < 0.0 || start > pixels.size().width_f32() {
-        //     panic!("Bad R_RenderWallRange: {} to {}", start, stop);
-        // }
+        if start < 0.0 || start > pixels.size().width_f32() {
+            panic!("Bad R_RenderWallRange: {} to {}", start, stop);
+        }
 
         // These need only be locally defined to make some things easier
         let sidedef = seg.sidedef.clone();
@@ -194,7 +201,7 @@ impl SegRender {
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1.0;
 
-        if stop >= start {
+        if stop > start {
             // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
                 visangle,
@@ -378,7 +385,7 @@ impl SegRender {
             self.markfloor = false;
         }
 
-        if frontsector.ceilingheight < player.viewz && frontsector.ceilingpic != pic_data.sky_num()
+        if frontsector.ceilingheight <= player.viewz && frontsector.ceilingpic != pic_data.sky_num()
         {
             // below view plane
             self.markceiling = false;
@@ -513,10 +520,10 @@ impl SegRender {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl;
 
-                if bottom >= rdata.portal_clip.floorclip[clip_index] {
-                    bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
+                if bottom > rdata.portal_clip.floorclip[clip_index] {
+                    bottom = rdata.portal_clip.floorclip[clip_index]; // Maybe not - 1.0
                 }
-                if top <= bottom {
+                if top < bottom {
                     // was a plane selection already set?
                     let ceil = rdata.visplane_render.ceilingplane;
                     rdata.visplane_render.visplanes[ceil].top[clip_index] = top;
@@ -533,10 +540,10 @@ impl SegRender {
                 top = yh;
                 bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
 
-                if top <= rdata.portal_clip.ceilingclip[clip_index] {
-                    top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
+                if top < rdata.portal_clip.ceilingclip[clip_index] {
+                    top = rdata.portal_clip.ceilingclip[clip_index]; // + 1.0;
                 }
-                if top <= bottom {
+                if top < bottom {
                     let floor = rdata.visplane_render.floorplane;
                     rdata.visplane_render.visplanes[floor].top[clip_index] = top + 1.0;
                     rdata.visplane_render.visplanes[floor].bottom[clip_index] = bottom;

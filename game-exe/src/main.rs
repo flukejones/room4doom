@@ -97,7 +97,10 @@ pub struct CLIOptions {
         help = "Screen shader <cgwg, lottes, lottesbasic>, not used with Software renderer"
     )]
     pub shader: Option<Shaders>,
-    #[options(meta = "", help = "Rendering type <software, softopengl>")]
+    #[options(
+        meta = "",
+        help = "Music type <fluidsynth, timidity(default)>. Unfinished "
+    )]
     pub music_type: Option<MusicType>,
     #[options(meta = "", help = "Set a custom field-of-view")]
     pub fov: Option<u32>,

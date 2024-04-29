@@ -190,13 +190,13 @@ impl SoftwareRenderer {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let screen_x_degress = screen_to_x_view(
+                        let screen_x_degrees = screen_to_x_view(
                             self.seg_renderer.fov,
                             x as f32,
                             pixels.size().half_width_f32(),
                         );
                         let angle =
-                            (view_angle.rad() + screen_x_degress + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
+                            (view_angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
                         // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
                         draw_sky_column(

@@ -58,9 +58,12 @@ impl DrawSeg {
     }
 }
 
+/// The range of columns on the screen clipped against
 #[derive(Copy, Clone)]
 pub struct ClipRange {
+    /// Leftmost starting pixel/column
     pub first: f32,
+    /// Rightmost ending pixel/column
     pub last: f32,
 }
 

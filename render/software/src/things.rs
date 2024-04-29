@@ -10,8 +10,6 @@ use gameplay::{
 use glam::Vec2;
 use render_target::PixelBuffer;
 
-use crate::utilities::{fov_adjusted, player_dist_to_screen};
-
 use super::{bsp::SoftwareRenderer, defs::DrawSeg};
 
 const FF_FULLBRIGHT: u32 = 0x8000;
