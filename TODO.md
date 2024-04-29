@@ -34,6 +34,7 @@
 
 ## BUGS
 
+- [ ] Floating blood?
 - [ ] E1M5 lamps are on window height not floor
 - [x] E2M1 after second teleport there is a missing plane line at top of floor drop
 - [ ] Aim/shoot tries to hit low enemy even if portal blocks view

@@ -94,7 +94,7 @@ impl WadPatch {
                 offset += 1;
                 let len = data[offset] as i32;
                 offset += 1;
-                columns.push(WadPatchCol {
+                let column = WadPatchCol {
                     y_offset,
                     pixels: (0..len)
                         .map(|_| {
@@ -102,7 +102,8 @@ impl WadPatch {
                             data[offset] as usize
                         })
                         .collect(),
-                });
+                };
+                columns.push(column);
 
                 offset += 2;
             }

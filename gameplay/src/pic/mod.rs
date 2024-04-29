@@ -326,13 +326,17 @@ impl PicData {
     /// Build a texture out of patches and return it
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
         let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
-
-        for patch_pos in &texture.patches {
-            let patch = &patches[patch_pos.patch_index];
+        for wad_tex_patch in texture.patches.iter() {
+            let wad_patch = &patches[wad_tex_patch.patch_index];
             // draw patch
-            let mut x_pos = patch_pos.origin_x;
-            for c in patch.columns.iter() {
-                if c.y_offset == 255 || x_pos < 0 {
+            let mut x_pos = wad_tex_patch.origin_x;
+            if x_pos.is_negative() {
+                // OG Doom sets the start to 0 if less than 0
+                // skip = x_pos.abs() as usize;
+                x_pos = 0;
+            }
+            for c in wad_patch.columns.iter() {
+                if c.y_offset == 255 {
                     x_pos += 1;
                     continue;
                 }
@@ -341,7 +345,7 @@ impl PicData {
                 }
 
                 for (y, p) in c.pixels.iter().enumerate() {
-                    let y_pos = y as i32 + patch_pos.origin_y + c.y_offset;
+                    let y_pos = y as i32 + wad_tex_patch.origin_y + c.y_offset;
                     if y_pos >= 0 && y_pos < texture.height as i32 {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
@@ -546,7 +550,7 @@ impl PicData {
         let texture = &self.walls[self.wall_translation[texture]];
 
         if texture_column >= texture.data.len() {
-            texture_column &= texture.data.len() - 1; // texture.data.len() as i32 - 1;
+            texture_column &= texture.data.len() - 1;
         }
 
         &texture.data[texture_column]
