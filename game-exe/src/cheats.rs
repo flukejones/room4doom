@@ -2,7 +2,7 @@
 
 use gameplay::{
     english,
-    log::{debug, warn},
+    log::{debug},
     GameMission, PlayerCheat, Skill, WeaponType,
 };
 use gamestate::Game;
