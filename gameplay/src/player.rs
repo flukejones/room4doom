@@ -118,6 +118,12 @@ pub struct PlayerStatus {
     /// For screen flashing (red or bright).
     pub damagecount: i32,
     pub bonuscount: i32,
+    pub attacked_from: Angle,
+    pub own_angle: Angle,
+    pub attacked_angle_count: u32,
+    /// Bit flags, for cheats and debug.
+    /// See cheat_t, above.
+    pub cheats: u32,
 }
 
 impl Default for PlayerStatus {
@@ -136,6 +142,10 @@ impl Default for PlayerStatus {
             backpack: false,
             damagecount: 0,
             bonuscount: 0,
+            attacked_from: Default::default(),
+            own_angle: Default::default(),
+            attacked_angle_count: 0,
+            cheats: 0,
         };
         tmp.ammo[AmmoType::Clip as usize] = 50;
         tmp.maxammo.copy_from_slice(&MAX_AMMO);
@@ -173,10 +183,6 @@ pub struct Player {
 
     /// Is wp_nochange if not changing.
     pub pendingweapon: WeaponType,
-
-    /// Bit flags, for cheats and debug.
-    /// See cheat_t, above.
-    pub cheats: u32,
 
     /// Refired shots are less accurate.
     pub refire: i32,
@@ -231,7 +237,6 @@ impl Player {
             onground: true,
             status: PlayerStatus::default(),
             powers: [0; PowerType::NumPowers as usize],
-            cheats: 0,
             refire: 0,
 
             killcount: 0,
@@ -569,7 +574,7 @@ impl Player {
                 }
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
                 11 => {
-                    self.cheats &= !(PlayerCheat::Godmode as u32);
+                    self.status.cheats &= !(PlayerCheat::Godmode as u32);
                     if level.level_time & 0x1f == 0 {
                         debug!("End of episode damage!");
                         mobj.p_take_damage(None, None, false, 20);
@@ -876,7 +881,7 @@ impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            if self.cheats & PlayerCheat::Noclip as u32 != 0 {
+            if self.status.cheats & PlayerCheat::Noclip as u32 != 0 {
                 mobj.flags |= MapObjFlag::Noclip as u32;
             } else {
                 mobj.flags &= !(MapObjFlag::Noclip as u32);
@@ -989,6 +994,10 @@ impl Player {
 
         if self.status.bonuscount != 0 {
             self.status.bonuscount -= 1;
+        }
+
+        if self.status.attacked_angle_count != 0 {
+            self.status.attacked_angle_count -= 1;
         }
 
         // Setting the colourmaps

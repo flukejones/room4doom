@@ -773,20 +773,12 @@ impl MapObject {
     /// If the thing doesn't fit, the z will be set to the lowest value and false will be returned.
     ///
     /// Doom function name `P_ThingHeightClip`
-    fn height_clip(&mut self) -> bool {
+    fn height_clip_ext_sector(&mut self, sector: DPtr<Sector>) -> bool {
         // NOTE: older code here was doing a full BSP walk with p_check_position().
         // This was wrong and inefficient as map objects that move will set their new
         // subsector themselves. Any object spawned sets their own subsector on spawn.
         // let mut ctrl = SubSectorMinMax::default();
         // self.p_check_position(self.xy, &mut ctrl);
-        let sect = unsafe { (*self.subsector).sector.clone() };
-        if !self.height_clip_ext_sector(sect) {
-            return false;
-        }
-        true
-    }
-
-    fn height_clip_ext_sector(&mut self, sector: DPtr<Sector>) -> bool {
         let on_floor = self.z == sector.floorheight;
         self.floorz = sector.floorheight;
         self.ceilingz = sector.ceilingheight;
@@ -816,8 +808,11 @@ impl MapObject {
             if self.height_clip_ext_sector(ext) {
                 return true;
             }
-        } else if self.height_clip() {
-            return true;
+        } else {
+            let ext = unsafe { (*self.subsector).sector.clone() };
+            if self.height_clip_ext_sector(ext) {
+                return true;
+            }
         }
 
         if self.health <= 0 {

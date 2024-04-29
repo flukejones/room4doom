@@ -57,7 +57,7 @@
 
 ## IMPROVEMENTS
 
-- [ ] Statusbar doomguy face attacked-from-angle
+- [x] Statusbar doomguy face attacked-from-angle
 - [ ] Make responders use ticcmds to ensure they are generic
 - [ ] Analyse the game further to allow more use of `unwrap_unchecked()` where we know for sure the data is initialised and valid.
 - [ ] The Thinker data access methods really should return `Option<T>`
@@ -67,7 +67,7 @@
   - let target = unsafe { (\*target).object_mut().mobj() };// make a shortcut for this
 - [ ] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
       . It's (currently) not possible to "step" on top of another object
-- [ ] Step over things if higher
+- [x] Step over things if higher
 - [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
 ## Graphics

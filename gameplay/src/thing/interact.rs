@@ -107,6 +107,8 @@ impl MapObject {
 
         let special = unsafe { (*self.subsector).sector.special };
         let mobj_health = self.health;
+        let self_pos = self.xy;
+        let self_ang = self.angle;
         if let Some(player) = self.player_mut() {
             // end of game-exe hell hack
             if special == 11 && damage >= mobj_health {
@@ -114,7 +116,7 @@ impl MapObject {
             }
             // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
             if damage < 1000
-                && (player.cheats & PlayerCheat::Godmode as u32 != 0
+                && (player.status.cheats & PlayerCheat::Godmode as u32 != 0
                     || player.powers[PowerType::Invulnerability as usize] != 0)
             {
                 return;
@@ -142,6 +144,9 @@ impl MapObject {
             }
 
             if let Some(source) = source.as_mut() {
+                player.status.attacked_from = point_to_angle_2(self_pos, source.xy);
+                player.status.own_angle = self_ang;
+                player.status.attacked_angle_count = 6;
                 player.attacker = Some(*source);
             }
 

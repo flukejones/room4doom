@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+
 use crate::PlayerStatus;
 use gamestate_traits::{m_random, WeaponType, TICRATE};
 use wad::{
@@ -151,18 +153,41 @@ impl DoomguyFace {
 
         // being attacked
         if self.priority < 8 {
-            // if status.damagecount != 0 {
-            //     self.priority = 7;
-            //
-            //     if self.old_health - status.health >= MUCH_PAIN {
-            //         self.count = TURNCOUNT;
-            //         self.index = self.calc_pain_offset(status) + OUCHOFFSET;
-            //     } else {
-            //         // TODO: else show angle
-            //         self.count = TURNCOUNT;
-            //         self.index = self.calc_pain_offset(status) + RAMPAGEOFFSET;
-            //     }
-            // }
+            if status.damagecount != 0 {
+                self.priority = 7;
+                if self.old_health - status.health >= MUCH_PAIN {
+                    self.count = TURN_TICS;
+                    self.index = self.calc_pain_offset(status) + OUCH_OFFSET;
+                } else {
+                    // TODO: else show angle
+                    // if status.attacked_angle_count != 0 {}
+                    let i;
+                    let diffang;
+                    if status.attacked_from.rad() > status.own_angle.rad() {
+                        // whether right or left
+                        diffang = status.attacked_from.rad() - status.own_angle.rad();
+                        i = diffang > PI;
+                    } else {
+                        // whether left or right
+                        diffang = status.own_angle.rad() - status.attacked_from.rad();
+                        i = diffang <= PI;
+                    }
+
+                    self.count = TURN_TICS;
+                    self.index = self.calc_pain_offset(status);
+
+                    if diffang > PI - FRAC_PI_4 {
+                        // head-on
+                        self.index += RAMPAGE_OFFSET;
+                    } else if i {
+                        // turn face right
+                        self.index += TURN_OFFSET + 1;
+                    } else {
+                        // turn face left
+                        self.index += TURN_OFFSET;
+                    }
+                }
+            }
         }
 
         if self.priority < 7 {
@@ -201,9 +226,9 @@ impl DoomguyFace {
 
         // if (self.priority < 5) {
         //     // TODO invulnerability
-        //     if ((plyr->cheats & CF_GODMODE) || plyr->powers[pw_invulnerability]) {
+        //     if (status.cheats & CF_GODMODE) || plyr->powers[pw_invulnerability]) {
         //         self.priority = 4;
-        //
+
         //         self.index = ST_GODFACE;
         //         self.count = 1;
         //     }
