@@ -554,7 +554,10 @@ impl SegRender {
             if self.segtextured {
                 angle = self.rw_centerangle
                     + screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance).abs() as usize;
+                // TODO: horizontal position of texture isn't quite right
+                texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
+                    .abs()
+                    .floor() as usize;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }

@@ -37,7 +37,9 @@
 
 ## BUGS
 
-- [ ] Floating blood?
+- [x] Clipping under sprites (like hanging things)
+- [x] Step over sprites that are short
+- [ ] Floating blood? Likely to be a float error
 - [-] Monster rotations when walking towards off-by-one? Unsure
 - [ ] E1M5 lamps are on window height not floor
 - [x] E2M1 after second teleport there is a missing plane line at top of floor drop

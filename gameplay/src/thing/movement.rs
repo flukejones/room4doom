@@ -96,7 +96,6 @@ impl MapObject {
             }
 
             if self.momz < 0.0 {
-                // TODO: is the gravity correct? (FRACUNIT == GRAVITY)
                 if self.player.is_some() && self.momz < -1.0 * 8.0 {
                     // Squat down.
                     // Decrease viewheight for a moment
@@ -205,10 +204,10 @@ impl MapObject {
                     self.p_slide_move();
                 } else if self.flags & MapObjFlag::Missile as u32 != 0 {
                     if let Some(line) = ctrl.sky_line {
-                        // if line.frontsector.ceilingpic == self.level().sky_num() {
-                        //     self.remove();
-                        //     return;
-                        // }
+                        if line.frontsector.ceilingpic == self.level().sky_num() {
+                            self.remove();
+                            return;
+                        }
                         if let Some(back) = line.backsector.as_ref() {
                             if back.ceilingpic == self.level().sky_num() {
                                 self.remove();
@@ -392,7 +391,7 @@ impl MapObject {
             // Check things in subsectors
             if !ssect
                 .sector
-                .run_mut_func_on_thinglist(|thing| self.pit_check_thing(thing, endpoint))
+                .run_mut_func_on_thinglist(|thing| self.pit_check_thing(thing, endpoint, ctrl))
             {
                 return false;
             }
@@ -412,7 +411,12 @@ impl MapObject {
     /// Thing is generally the target.
     ///
     /// Function is intended to function similar to `PIT_CheckThing`
-    fn pit_check_thing(&mut self, thing: &mut MapObject, endpoint: Vec2) -> bool {
+    fn pit_check_thing(
+        &mut self,
+        thing: &mut MapObject,
+        endpoint: Vec2,
+        ctrl: &mut SubSectorMinMax,
+    ) -> bool {
         if thing.flags
             & (MapObjFlag::Solid as u32 | MapObjFlag::Special as u32 | MapObjFlag::Shootable as u32)
             == 0
@@ -443,6 +447,7 @@ impl MapObject {
             return false;
         }
 
+        // Special mssile handling
         if self.flags & MapObjFlag::Missile as u32 != 0 {
             if self.z > thing.z + thing.height {
                 return true; // over
@@ -490,6 +495,21 @@ impl MapObject {
             return solid;
         }
 
+        if thing.flags & MapObjFlag::Solid as u32 == MapObjFlag::Solid as u32 {
+            // Already over it?
+            if self.z >= thing.z + thing.height {
+                // Step over it?
+                if thing.z + thing.height - self.z > 24.0 {
+                    return false;
+                }
+                ctrl.min_floor_z = thing.z + thing.height;
+                return true; // over
+            }
+            if self.z + thing.height <= thing.z {
+                return true; // under
+            }
+        }
+        // final failsafe
         thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32
     }
 
