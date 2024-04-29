@@ -1,10 +1,10 @@
 # TODO
 
-- [ ] Check textures are correctly sized an aligned
+- [x] Check textures are correctly sized an aligned
 - [ ] Find the cause of missing draw columns in large maps like e6m6
 - [x] Widescreen
   - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
-  - [ ] Adjust all sprites to correct aspect of screen
+  - [x] Adjust all sprites to correct aspect of screen
   - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection
   - [ ] Add draw res selection maybe? As opposed to low/hi res
@@ -25,12 +25,14 @@
 - [ ] Demo playback
 - [ ] Save/load game
 - [ ] Sound:
-  - [ ] Verify positional sound
-  - [ ] Verify distance and cutoff
-  - [ ] Check the volumes (had to divide midi track vol in half)
+  - [x] Verify positional sound
+  - [x] Verify distance and cutoff
+  - [x] Check the volumes (had to divide midi track vol in half)
   - [ ] Add the pitch shift
   - [ ] Maybe use the `usefulness` field..
+  - [ ] Channels all play?
   - [ ] OPL2 emulation (a lot of work here)
+  - [ ] Load music from extra wads
 
 ## BUGS
 
