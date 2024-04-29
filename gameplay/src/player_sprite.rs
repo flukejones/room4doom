@@ -299,7 +299,7 @@ pub(crate) fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
 
 pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
     let mut damage = (p_random() % 10 + 1) as f32;
-    if player.powers[PowerType::Strength as usize] != 0 {
+    if player.status.powers[PowerType::Strength as usize] != 0 {
         damage *= 10.0;
     }
 

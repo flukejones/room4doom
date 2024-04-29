@@ -563,9 +563,9 @@ pub(crate) trait Think {
         }
     }
 
-    fn set_thinker_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
-        self.thinker_mut().func = func
-    }
+    // fn set_thinker_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
+    //     self.thinker_mut().func = func
+    // }
 
     /// impl of this trait function should return true *if* the thinker + object are to be removed
     ///

@@ -376,9 +376,9 @@ impl PicData {
         let mut damagecount = player.status.damagecount;
         let berkers;
 
-        if player.powers[PowerType::Strength as usize] != 0 {
+        if player.status.powers[PowerType::Strength as usize] != 0 {
             // slowly fade the berzerk out
-            berkers = 12 - (player.powers[PowerType::Strength as usize] >> 6);
+            berkers = 12 - (player.status.powers[PowerType::Strength as usize] >> 6);
 
             if berkers > damagecount {
                 damagecount = berkers;
@@ -397,8 +397,8 @@ impl PicData {
                 self.use_pallette = NUMBONUSPALS - 1;
             }
             self.use_pallette += STARTBONUSPALS;
-        } else if player.powers[PowerType::IronFeet as usize] > 4 * 32
-            || player.powers[PowerType::IronFeet as usize] & 8 != 0
+        } else if player.status.powers[PowerType::IronFeet as usize] > 4 * 32
+            || player.status.powers[PowerType::IronFeet as usize] & 8 != 0
         {
             self.use_pallette = RADIATIONPAL;
         } else {

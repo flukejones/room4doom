@@ -6,26 +6,6 @@ use gamestate::Game;
 use render_target::PixelBuffer;
 use wad::lumps::{WadFlat, WadPalette, WadPatch};
 
-pub(crate) fn palette_test(pal_num: usize, game: &mut Game, pixels: &mut dyn PixelBuffer) {
-    let height = pixels.size().height();
-
-    let row_count: i32 = 16;
-    let block_size = height / row_count;
-
-    let x_start = (pixels.size().width() / 2) - block_size * row_count / 2;
-    let y_start = (pixels.size().height() / 2) - block_size * row_count / 2;
-
-    let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
-
-    for (i, colour) in pals[pal_num].0.iter().enumerate() {
-        pixels.set_pixel(
-            (i as i32 % row_count * block_size + x_start) as usize,
-            (i as i32 / row_count * block_size + y_start) as usize,
-            &colour.0,
-        );
-    }
-}
-
 pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) {
     let lump = game.wad_data.get_lump(name).unwrap();
     let image = WadPatch::from_lump(lump);

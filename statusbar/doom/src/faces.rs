@@ -1,7 +1,7 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f32::consts::{FRAC_PI_4, PI};
 
 use crate::PlayerStatus;
-use gamestate_traits::{m_random, WeaponType, TICRATE};
+use gamestate_traits::{m_random, PlayerCheat, PowerType, WeaponType, TICRATE};
 use wad::{
     lumps::{WadPatch, WAD_PATCH},
     WadData,
@@ -152,40 +152,38 @@ impl DoomguyFace {
         }
 
         // being attacked
-        if self.priority < 8 {
-            if status.damagecount != 0 {
-                self.priority = 7;
-                if self.old_health - status.health >= MUCH_PAIN {
-                    self.count = TURN_TICS;
-                    self.index = self.calc_pain_offset(status) + OUCH_OFFSET;
+        if self.priority < 8 && status.damagecount != 0 {
+            self.priority = 7;
+            if self.old_health - status.health >= MUCH_PAIN {
+                self.count = TURN_TICS;
+                self.index = self.calc_pain_offset(status) + OUCH_OFFSET;
+            } else {
+                // TODO: else show angle
+                // if status.attacked_angle_count != 0 {}
+                let i;
+                let diffang;
+                if status.attacked_from.rad() > status.own_angle.rad() {
+                    // whether right or left
+                    diffang = status.attacked_from.rad() - status.own_angle.rad();
+                    i = diffang > PI;
                 } else {
-                    // TODO: else show angle
-                    // if status.attacked_angle_count != 0 {}
-                    let i;
-                    let diffang;
-                    if status.attacked_from.rad() > status.own_angle.rad() {
-                        // whether right or left
-                        diffang = status.attacked_from.rad() - status.own_angle.rad();
-                        i = diffang > PI;
-                    } else {
-                        // whether left or right
-                        diffang = status.own_angle.rad() - status.attacked_from.rad();
-                        i = diffang <= PI;
-                    }
+                    // whether left or right
+                    diffang = status.own_angle.rad() - status.attacked_from.rad();
+                    i = diffang <= PI;
+                }
 
-                    self.count = TURN_TICS;
-                    self.index = self.calc_pain_offset(status);
+                self.count = TURN_TICS;
+                self.index = self.calc_pain_offset(status);
 
-                    if diffang > PI - FRAC_PI_4 {
-                        // head-on
-                        self.index += RAMPAGE_OFFSET;
-                    } else if i {
-                        // turn face right
-                        self.index += TURN_OFFSET + 1;
-                    } else {
-                        // turn face left
-                        self.index += TURN_OFFSET;
-                    }
+                if diffang > PI - FRAC_PI_4 {
+                    // head-on
+                    self.index += RAMPAGE_OFFSET;
+                } else if i {
+                    // turn face right
+                    self.index += TURN_OFFSET + 1;
+                } else {
+                    // turn face left
+                    self.index += TURN_OFFSET;
                 }
             }
         }
@@ -224,15 +222,11 @@ impl DoomguyFace {
             }
         }
 
-        // if (self.priority < 5) {
-        //     // TODO invulnerability
-        //     if (status.cheats & CF_GODMODE) || plyr->powers[pw_invulnerability]) {
-        //         self.priority = 4;
-
-        //         self.index = ST_GODFACE;
-        //         self.count = 1;
-        //     }
-        // }
+        if self.priority < 5 && (status.cheats & PlayerCheat::Godmode as u32 != 0 || status.powers[PowerType::Invulnerability as usize] != 0) {
+            self.priority = 4;
+            self.index = IMMORTAL_FACE;
+            self.count = 1;
+        }
 
         // look left or look right if the facecount has timed out
         if self.count == 0 {

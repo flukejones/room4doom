@@ -117,7 +117,7 @@ impl MapObject {
             // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
             if damage < 1000
                 && (player.status.cheats & PlayerCheat::Godmode as u32 != 0
-                    || player.powers[PowerType::Invulnerability as usize] != 0)
+                    || player.status.powers[PowerType::Invulnerability as usize] != 0)
             {
                 return;
             }

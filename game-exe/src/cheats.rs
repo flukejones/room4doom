@@ -1,6 +1,10 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
-use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill};
+use gameplay::{
+    english,
+    log::{debug, warn},
+    GameMission, PlayerCheat, Skill, WeaponType,
+};
 use gamestate::Game;
 use gamestate_traits::{
     sdl2::keyboard::{Keycode, Scancode},
@@ -110,6 +114,16 @@ impl Cheats {
                     *k = true;
                 }
                 player.message = Some(english::STSTR_KFAADDED);
+            } else if self.choppers.check(key) {
+                let player = &mut game.players[game.consoleplayer];
+                player.status.weaponowned[WeaponType::Chainsaw as usize] = true;
+                player.pendingweapon = WeaponType::Chainsaw;
+                player.status.cheats &= PlayerCheat::Godmode as u32;
+                if let Some(mobj) = player.mobj_mut() {
+                    mobj.health = 100;
+                }
+                player.status.health = 100;
+                player.message = Some(english::STSTR_CHOPPERS);
             } else if (game.game_mission() == GameMission::Doom && self.noclip.check(key))
                 || (game.game_mission() != GameMission::Doom && self.commercial_noclip.check(key))
             {

@@ -115,6 +115,8 @@ pub struct PlayerStatus {
     pub ammo: [u32; AmmoType::NumAmmo as usize],
     pub maxammo: [u32; AmmoType::NumAmmo as usize],
     pub(crate) backpack: bool,
+    /// Power ups. invinc and invis are tic counters.
+    pub powers: [i32; PowerType::NumPowers as usize],
     /// For screen flashing (red or bright).
     pub damagecount: i32,
     pub bonuscount: i32,
@@ -140,6 +142,7 @@ impl Default for PlayerStatus {
             ammo: Default::default(),
             maxammo: Default::default(),
             backpack: false,
+            powers: [0; PowerType::NumPowers as usize],
             damagecount: 0,
             bonuscount: 0,
             attacked_from: Default::default(),
@@ -174,9 +177,6 @@ pub struct Player {
     pub(crate) onground: bool,
 
     pub status: PlayerStatus,
-
-    /// Power ups. invinc and invis are tic counters.
-    pub(crate) powers: [i32; PowerType::NumPowers as usize],
 
     /// Frags, kills of other players.
     pub frags: [i32; MAXPLAYERS],
@@ -236,7 +236,6 @@ impl Player {
             bob: 1.0,
             onground: true,
             status: PlayerStatus::default(),
-            powers: [0; PowerType::NumPowers as usize],
             refire: 0,
 
             killcount: 0,
@@ -325,7 +324,7 @@ impl Player {
         for card in self.status.cards.iter_mut() {
             *card = false;
         }
-        for power in self.powers.iter_mut() {
+        for power in self.status.powers.iter_mut() {
             *power = 0;
         }
 
@@ -541,7 +540,7 @@ impl Player {
             match sector.special {
                 // HELLSLIME DAMAGE
                 5 => {
-                    if self.powers[PowerType::IronFeet as usize] == 0
+                    if self.status.powers[PowerType::IronFeet as usize] == 0
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Hell-slime damage!");
@@ -550,7 +549,7 @@ impl Player {
                 }
                 // NUKAGE DAMAGE
                 7 => {
-                    if self.powers[PowerType::IronFeet as usize] == 0
+                    if self.status.powers[PowerType::IronFeet as usize] == 0
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Nukage damage!");
@@ -559,7 +558,7 @@ impl Player {
                 }
                 // SUPER HELLSLIME DAMAGE | STROBE HURT
                 16 | 4 => {
-                    if (self.powers[PowerType::IronFeet as usize] == 0 || p_random() < 5)
+                    if (self.status.powers[PowerType::IronFeet as usize] == 0 || p_random() < 5)
                         && level.level_time & 0x1f == 0
                     {
                         debug!("Super hell-slime damage!");
@@ -718,33 +717,33 @@ impl Player {
     pub(crate) fn give_power(&mut self, power: PowerType) -> bool {
         match power {
             PowerType::Invulnerability => {
-                self.powers[power as usize] = PowerDuration::Invulnerability as i32;
+                self.status.powers[power as usize] = PowerDuration::Invulnerability as i32;
                 return true;
             }
             PowerType::Strength => {
                 self.give_body(100);
-                self.powers[power as usize] = 1;
+                self.status.powers[power as usize] = 1;
                 return true;
             }
             PowerType::Invisibility => {
-                self.powers[power as usize] = PowerDuration::Invisibility as i32;
+                self.status.powers[power as usize] = PowerDuration::Invisibility as i32;
                 return true;
             }
             PowerType::IronFeet => {
-                self.powers[power as usize] = PowerDuration::IronFeet as i32;
+                self.status.powers[power as usize] = PowerDuration::IronFeet as i32;
                 return true;
             }
             PowerType::Infrared => {
-                self.powers[power as usize] = PowerDuration::Infrared as i32;
+                self.status.powers[power as usize] = PowerDuration::Infrared as i32;
                 return true;
             }
             _ => {}
         }
 
-        if self.powers[power as usize] != 0 {
+        if self.status.powers[power as usize] != 0 {
             return false; // Already got it
         }
-        self.powers[power as usize] = 1;
+        self.status.powers[power as usize] = 1;
 
         true
     }
@@ -922,7 +921,7 @@ impl Player {
             if new_weapon == WeaponType::Fist
                 && self.status.weaponowned[WeaponType::Chainsaw as usize]
                 && !(self.status.readyweapon == WeaponType::Chainsaw
-                    && self.powers[PowerType::Strength as usize] == 0)
+                    && self.status.powers[PowerType::Strength as usize] == 0)
             {
                 new_weapon = WeaponType::Chainsaw;
             }
@@ -961,26 +960,26 @@ impl Player {
         self.move_player_sprites();
 
         // Powers and timers
-        if self.powers[PowerType::Strength as usize] != 0 {
+        if self.status.powers[PowerType::Strength as usize] != 0 {
             // Strength counts up to diminish fade.
-            self.powers[PowerType::Strength as usize] += 1;
+            self.status.powers[PowerType::Strength as usize] += 1;
         }
 
-        if self.powers[PowerType::Invulnerability as usize] != 0 {
-            self.powers[PowerType::Invulnerability as usize] -= 1;
+        if self.status.powers[PowerType::Invulnerability as usize] != 0 {
+            self.status.powers[PowerType::Invulnerability as usize] -= 1;
         }
 
-        if self.powers[PowerType::Infrared as usize] != 0 {
-            self.powers[PowerType::Infrared as usize] -= 1;
+        if self.status.powers[PowerType::Infrared as usize] != 0 {
+            self.status.powers[PowerType::Infrared as usize] -= 1;
         }
 
-        if self.powers[PowerType::IronFeet as usize] != 0 {
-            self.powers[PowerType::IronFeet as usize] -= 1;
+        if self.status.powers[PowerType::IronFeet as usize] != 0 {
+            self.status.powers[PowerType::IronFeet as usize] -= 1;
         }
 
-        if self.powers[PowerType::Invisibility as usize] != 0 {
-            self.powers[PowerType::Invisibility as usize] -= 1;
-            if self.powers[PowerType::Invisibility as usize] == 0 {
+        if self.status.powers[PowerType::Invisibility as usize] != 0 {
+            self.status.powers[PowerType::Invisibility as usize] -= 1;
+            if self.status.powers[PowerType::Invisibility as usize] == 0 {
                 if let Some(mobj) = self.mobj_mut() {
                     mobj.flags &= !(MapObjFlag::Shadow as u32);
                 }
@@ -1001,8 +1000,8 @@ impl Player {
         }
 
         // Setting the colourmaps
-        let invulnerability = self.powers[PowerType::Invulnerability as usize];
-        let infrared = self.powers[PowerType::Infrared as usize];
+        let invulnerability = self.status.powers[PowerType::Invulnerability as usize];
+        let infrared = self.status.powers[PowerType::Infrared as usize];
         if invulnerability != 0 {
             if invulnerability > 4 * 32 || (invulnerability & 8 != 0) {
                 self.fixedcolormap = INVERSECOLORMAP;

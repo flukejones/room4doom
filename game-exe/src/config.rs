@@ -157,10 +157,10 @@ impl UserConfig {
         info!("Checking CLI options");
 
         if !cli.iwad.is_empty() && cli.iwad != self.iwad {
-            self.iwad = cli.iwad.clone();
+            cli.iwad.clone_into(&mut self.iwad);
             info!("IWAD changed to: {}", &cli.iwad);
         } else {
-            cli.iwad = self.iwad.clone();
+            self.iwad.clone_into(&mut cli.iwad);
         }
 
         if cli.width != 0 && cli.width != self.width {
