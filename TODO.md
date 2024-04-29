@@ -5,6 +5,7 @@
 - [x] Widescreen
   - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
   - [x] Adjust all sprites to correct aspect of screen
+  - [ ] Adjust lightmaps to match
   - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection
   - [ ] Add draw res selection maybe? As opposed to low/hi res
@@ -37,6 +38,7 @@
 ## BUGS
 
 - [ ] Floating blood?
+- [-] Monster rotations when walking towards off-by-one? Unsure
 - [ ] E1M5 lamps are on window height not floor
 - [x] E2M1 after second teleport there is a missing plane line at top of floor drop
 - [ ] Aim/shoot tries to hit low enemy even if portal blocks view

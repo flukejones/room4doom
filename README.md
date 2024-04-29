@@ -113,15 +113,14 @@ to achieve here.
 
 ## Screenshots
 
-**Comparison:**
+**Comparison: room4doom vs DOS 486DX2**
 
-![](./misc/compare/e1m1-room.png)
-![](./misc/compare/e1m1-doom.png)
+![](./misc/compare/room4doom.png)
+![](./misc/compare/doom-486.png)
 
-**SI6IL**
+**Widescreen double-res**
 
-![](./misc/compare/e5m7-room.png)
-![](./misc/compare/e5m7-doom.png)
+![](./misc/compare/widescreen-double-res.png)
 
 # License change
 
