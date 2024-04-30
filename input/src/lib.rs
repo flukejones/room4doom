@@ -159,16 +159,8 @@ impl InputEvents {
             cmd.angleturn -= (mousex * 0x8) as i16;
         }
 
-        if forward > MAXPLMOVE {
-            forward = MAXPLMOVE;
-        } else if forward < -MAXPLMOVE {
-            forward = -MAXPLMOVE;
-        }
-        if side > MAXPLMOVE {
-            side = MAXPLMOVE;
-        } else if side < -MAXPLMOVE {
-            side = -MAXPLMOVE;
-        }
+        forward = forward.clamp(-MAXPLMOVE, MAXPLMOVE);
+        side = side.clamp(-MAXPLMOVE, MAXPLMOVE);
 
         cmd.forwardmove += forward as i8;
         cmd.sidemove += side as i8;

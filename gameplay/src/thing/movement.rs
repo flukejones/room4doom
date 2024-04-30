@@ -156,17 +156,8 @@ impl MapObject {
             return;
         }
 
-        if self.momxy.x > MAXMOVE {
-            self.momxy.x = MAXMOVE;
-        } else if self.momxy.x < -MAXMOVE {
-            self.momxy.x = -MAXMOVE;
-        }
-
-        if self.momxy.y > MAXMOVE {
-            self.momxy.y = MAXMOVE;
-        } else if self.momxy.y < -MAXMOVE {
-            self.momxy.y = -MAXMOVE;
-        }
+        self.momxy.x = self.momxy.x.clamp(-MAXMOVE, MAXMOVE);
+        self.momxy.y = self.momxy.y.clamp(-MAXMOVE, MAXMOVE);
 
         // This whole loop is a bit crusty. It consists of looping over progressively smaller
         // moves until we either hit 0, or get a move. Because the whole game-exe is 2D we can
@@ -706,9 +697,11 @@ impl MapObject {
     fn blocking_intercept(&mut self, intercept: &Intercept) {
         if intercept.frac < self.best_slide.best_slide_frac {
             self.best_slide.second_slide_frac = self.best_slide.best_slide_frac;
-            self.best_slide.second_slide_line = self.best_slide.best_slide_line.clone();
+            self.best_slide
+                .second_slide_line
+                .clone_from(&self.best_slide.best_slide_line);
             self.best_slide.best_slide_frac = intercept.frac;
-            self.best_slide.best_slide_line = intercept.line.clone();
+            self.best_slide.best_slide_line.clone_from(&intercept.line);
         }
     }
 

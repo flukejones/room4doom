@@ -102,7 +102,7 @@ pub struct Intercept {
 
 impl PartialOrd for Intercept {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.frac.partial_cmp(&other.frac)
+        Some(self.cmp(other))
     }
 }
 

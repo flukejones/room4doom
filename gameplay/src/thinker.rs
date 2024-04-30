@@ -434,10 +434,7 @@ impl Thinker {
     }
 
     pub fn is_mobj(&self) -> bool {
-        match self.data {
-            ThinkerData::MapObject(_) => true,
-            _ => false,
-        }
+        matches!(self.data, ThinkerData::MapObject(_))
     }
 
     /// Get inner `MapObject` data as ref. Panics if the inner is not actually `MapObject`
