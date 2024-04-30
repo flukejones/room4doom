@@ -779,7 +779,7 @@ impl MapObject {
         // subsector themselves. Any object spawned sets their own subsector on spawn.
         // let mut ctrl = SubSectorMinMax::default();
         // self.p_check_position(self.xy, &mut ctrl);
-        let on_floor = self.z == sector.floorheight;
+        let on_floor = self.z == self.floorz;
         self.floorz = sector.floorheight;
         self.ceilingz = sector.ceilingheight;
 

@@ -176,15 +176,12 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
             }
             next.run_mut_func_on_thinglist(|thing| {
                 let mut hit = false;
-                for line in &sector.lines {
-                    if circle_line_collide(thing.xy, thing.radius, line.v1, line.v2) {
-                        trace!(
-                            "Thing type {:?} is in affected neightbouring sector",
-                            thing.kind
-                        );
-                        hit = thing.pit_change_sector(Some(sector.clone()), &mut no_fit, crunch);
-                        break;
-                    }
+                if circle_line_collide(thing.xy, thing.radius, line.v1, line.v2) {
+                    trace!(
+                        "Thing type {:?} is in affected neightbouring sector",
+                        thing.kind
+                    );
+                    hit = thing.pit_change_sector(Some(sector.clone()), &mut no_fit, crunch);
                 }
                 if !hit {
                     thing.pit_change_sector(None, &mut no_fit, crunch);
