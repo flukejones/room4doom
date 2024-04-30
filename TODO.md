@@ -81,6 +81,8 @@
 
 ## DONE
 
+- [x] BFG spray
+- [x] Pain elemental attacks and die
 - [x] Archvile attacks and chase
 - [ ] Archvile raise the dead
 - [ ] Pain elemental attacks and die

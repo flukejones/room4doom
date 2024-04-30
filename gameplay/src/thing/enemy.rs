@@ -11,7 +11,7 @@ use std::{
     ptr,
 };
 
-use log::{trace};
+use log::trace;
 use sound_traits::SfxName;
 
 use crate::{

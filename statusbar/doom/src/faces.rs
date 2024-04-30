@@ -222,7 +222,10 @@ impl DoomguyFace {
             }
         }
 
-        if self.priority < 5 && (status.cheats & PlayerCheat::Godmode as u32 != 0 || status.powers[PowerType::Invulnerability as usize] != 0) {
+        if self.priority < 5
+            && (status.cheats & PlayerCheat::Godmode as u32 != 0
+                || status.powers[PowerType::Invulnerability as usize] != 0)
+        {
             self.priority = 4;
             self.index = IMMORTAL_FACE;
             self.count = 1;

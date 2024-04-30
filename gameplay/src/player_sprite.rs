@@ -1,6 +1,6 @@
 //! Doom source name `p_pspr`
 
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use log::error;
 use sound_traits::SfxName;
@@ -12,7 +12,7 @@ use crate::{
     thing::MapObject,
     tic_cmd::TIC_CMD_BUTTONS,
     utilities::{p_random, point_to_angle_2},
-    PlayerState, WeaponType,
+    MapObjKind, PlayerState, WeaponType,
 };
 
 const LOWERSPEED: f32 = 6.0;
@@ -81,7 +81,7 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
         return;
     }
 
-    // TODO: TEMPORARY
+    //  the missile launcher and bfg do not auto fire
     if player.cmd.buttons & TIC_CMD_BUTTONS.bt_attack != 0 {
         if !player.status.attackdown
             || (player.status.readyweapon != WeaponType::Missile
@@ -285,8 +285,28 @@ pub(crate) fn a_bfgsound(player: &mut Player, _pspr: &mut PspDef) {
     player.start_sound(SfxName::Bfg);
 }
 
-pub(crate) fn a_bfgspray(_player: &mut MapObject) {
-    error!("TODO: a_bfgspray not implemented");
+pub(crate) fn a_bfgspray(player: &mut MapObject) {
+    for i in 0..40 {
+        // From left to right
+        let angle = player.angle - FRAC_PI_4 + (FRAC_PI_2 / 40.0) * i as f32;
+        let mut bsp_trace = player.get_shoot_bsp_trace(MISSILERANGE);
+        let old_angle = player.angle;
+        player.angle = angle;
+        let aim = player.aim_line_attack(MISSILERANGE, &mut bsp_trace);
+        player.angle = old_angle;
+        if let Some(aim) = aim {
+            let mut lt = aim.line_target;
+            let level = unsafe { &mut *player.level };
+            let z = lt.z as i32 + ((lt.height as i32) >> 2);
+            MapObject::spawn_map_object(lt.xy.x, lt.xy.y, z, MapObjKind::MT_EXTRABFG, level);
+
+            let mut damage = 0;
+            for _ in 0..15 {
+                damage += (p_random() & 7) + 1;
+            }
+            lt.p_take_damage(Some(player), None, false, damage);
+        }
+    }
 }
 
 pub(crate) fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
