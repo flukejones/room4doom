@@ -6,6 +6,10 @@
 - [x] Widescreen
   - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
   - [x] Adjust all sprites to correct aspect of screen
+  - [x] apply ratio scaling to scale_from_view_angle()
+  - [x] apply ratio scaling to draw_column_style_flats() distscale var
+  - [x] apply ratio scaling to projection in bsp module
+  - [x] apply ratio scaling to fov_scale in bsp module
   - [ ] Adjust lightmaps to match
   - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection

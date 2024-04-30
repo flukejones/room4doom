@@ -2,7 +2,11 @@
 //! run all tics then display the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
-use std::{error::Error, mem};
+use std::{
+    error::Error,
+    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    mem,
+};
 
 use finale_doom::Finale;
 use gameplay::{
@@ -32,6 +36,11 @@ use crate::{
     CLIOptions,
 };
 
+fn fov_adjusted(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
+    let delta = (screen_width / 2.0 / (screen_height / (fov * 0.82).tan())).atan();
+    (FRAC_PI_4 - (fov + delta)).abs() - 1f32.to_radians()
+}
+
 /// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
     mut game: Game,
@@ -40,19 +49,18 @@ pub fn d_doom_loop(
     gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
+    // scale width to match height 200 or 400. Scale the height first?
     // TODO: switch 320x200 | 640x400 on option
-    let screen_width = if options.double.is_some() && options.double.unwrap() {
-        640
-        // window.size().0 as usize
-    } else {
-        320
-    };
-    let screen_height = if options.double.is_some() && options.double.unwrap() {
-        400
-        // window.size().1 as usize
-    } else {
-        200
-    };
+    let fov = game.options.fov;
+    let r = window.size().0 as f32 / window.size().1 as f32;
+    let mut screen_height = 400;
+    let mut screen_width = (400.0 * r) as usize;
+    if options.double.is_some() && options.double.unwrap() {
+        screen_width *= 2;
+        screen_height *= 2;
+    }
+    let v_dist = screen_height as f32 / 2.0 / (fov * 0.82 / 2.0).tan();
+    let h_fov = 2.0 * (screen_width as f32 / 2.0 / v_dist).atan() - 0.3f32.to_radians();
 
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
@@ -86,7 +94,7 @@ pub fn d_doom_loop(
     }
 
     let mut renderer = SoftwareRenderer::new(
-        game.options.fov,
+        h_fov,
         widescreen,
         screen_width,
         screen_height,

@@ -76,6 +76,7 @@ pub(crate) struct SegRender {
     pub yslope: Vec<f32>,
     pub fov: f32,
     pub fov_half: f32,
+    pub wide_ratio: f32,
 }
 
 impl SegRender {
@@ -123,6 +124,7 @@ impl SegRender {
                 .collect(),
             fov,
             fov_half: fov / 2.0,
+            wide_ratio: screen_height as f32 / screen_width as f32 * 1.6,
         }
     }
 
@@ -182,18 +184,28 @@ impl SegRender {
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // TODO: doublecheck the angles and bounds
-        let visangle =
-            mobj.angle + screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
+        let visangle = mobj.angle
+            + screen_to_x_view(
+                self.fov,
+                start,
+                pixels.size().half_width_f32(),
+                pixels.size().half_height_f32(),
+            );
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
             self.rw_distance,
             mobj.angle,
             pixels.size().width_f32(),
-        );
+        ) * self.wide_ratio;
 
-        let visangle =
-            mobj.angle + screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
+        let visangle = mobj.angle
+            + screen_to_x_view(
+                self.fov,
+                stop,
+                pixels.size().half_width_f32(),
+                pixels.size().half_height_f32(),
+            );
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -209,7 +221,7 @@ impl SegRender {
                 self.rw_distance,
                 mobj.angle,
                 pixels.size().width_f32(),
-            );
+            ) * self.wide_ratio;
 
             self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
             ds_p.scalestep = self.rw_scalestep;
@@ -553,7 +565,12 @@ impl SegRender {
             let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle = self.rw_centerangle
-                    + screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
+                    + screen_to_x_view(
+                        self.fov,
+                        self.rw_startx,
+                        pixels.size().half_width_f32(),
+                        pixels.size().half_height_f32(),
+                    );
                 // TODO: horizontal position of texture isn't quite right
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
                     .abs()
@@ -708,9 +725,24 @@ pub fn draw_column_style_flats(
     pixels: &mut dyn PixelBuffer,
     yslope: &[f32],
     fov: f32,
+    wide_ratio: f32,
 ) {
-    let angle = angle + screen_to_x_view(fov, dc_x, pixels.size().half_width_f32());
-    let distscale = 1.0 / screen_to_x_view(fov, dc_x, pixels.size().half_width_f32()).cos();
+    let angle = angle
+        + screen_to_x_view(
+            fov,
+            dc_x,
+            pixels.size().half_width_f32(),
+            pixels.size().half_height_f32(),
+        );
+    let distscale = 1.0
+        / screen_to_x_view(
+            fov,
+            dc_x,
+            pixels.size().half_width_f32(),
+            pixels.size().half_height_f32(),
+        )
+        .cos()
+        * wide_ratio;
     let cos = angle.cos();
     let sin = angle.sin();
 

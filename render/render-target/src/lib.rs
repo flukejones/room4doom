@@ -178,12 +178,13 @@ pub struct SoftFramebuffer {
 impl SoftFramebuffer {
     fn new(canvas: &Canvas<Window>) -> Self {
         let wsize = canvas.window().drawable_size();
-        let ratio = wsize.1 as f32 * 1.333;
-        let xp = (wsize.0 as f32 - ratio) / 2.0;
+        // let ratio = wsize.1 as f32 * 1.333;
+        // let xp = (wsize.0 as f32 - ratio) / 2.0;
 
         let tex_creator = canvas.texture_creator();
         Self {
-            crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
+            // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
+            crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
             tex_creator,
         }
     }
@@ -353,7 +354,7 @@ impl RenderTarget {
                 .as_texture(texc)
                 .unwrap();
                 sdl_canvas
-                    .copy(&surf, None, None) //Some(render_buffer.crop_rect))
+                    .copy(&surf, None, Some(render_buffer.crop_rect))
                     .unwrap();
                 sdl_canvas.present();
             }
