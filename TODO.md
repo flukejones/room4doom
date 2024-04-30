@@ -9,10 +9,10 @@
   - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection
   - [ ] Add draw res selection maybe? As opposed to low/hi res
-- [x] Convert static arrays in much of the renderer structs to Vec since at high res they
-      can potentially overflow the stack
+  - [ ] Menus and HUD scaling + ratio correction
+- [x] Convert static arrays in much of the renderer structs to Vec since at high res they can potentially overflow the stack
+- [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
-- [ ] Statusbar doomguy face god-mode
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
 
 ## FUNCTIONALITY
@@ -81,6 +81,9 @@
 
 ## DONE
 
+- [x] Doom 2 boss brain thing
+  - [x] Can't target it, probably because it's not visible? There's that thing in front?
+- [x] Statusbar doomguy face god-mode
 - [x] BFG spray
 - [x] Pain elemental attacks and die
 - [x] Archvile attacks and chase

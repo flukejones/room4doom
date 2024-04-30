@@ -360,7 +360,7 @@ fn add_thing_intercept(
     thing.valid_count = valid_count;
 
     // Diagonals are too unrealiable for first check so use
-    // circle/line collision check
+    // Use the seg check to limit the range
     if !circle_seg_collide(thing.xy, thing.radius, trace.xy, trace.xy + trace.dxy) {
         return true;
     }
