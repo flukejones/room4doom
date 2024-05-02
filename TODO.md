@@ -11,10 +11,10 @@
   - [x] apply ratio scaling to projection in bsp module
   - [x] apply ratio scaling to fov_scale in bsp module
   - [ ] Adjust lightmaps to match
-  - [ ] Add aspect ratio selection + auto for display res
   - [ ] Add display res selection
   - [ ] Add draw res selection maybe? As opposed to low/hi res
   - [ ] Menus and HUD scaling + ratio correction
+  - [ ] FOV setting, will require figuring out better thing scaling
 - [x] Convert static arrays in much of the renderer structs to Vec since at high res they can potentially overflow the stack
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...

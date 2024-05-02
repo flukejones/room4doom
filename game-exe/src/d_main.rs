@@ -2,7 +2,7 @@
 //! run all tics then display the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
-use std::{error::Error, f32::consts::FRAC_PI_4, mem};
+use std::{error::Error, f32::consts::FRAC_PI_2, mem};
 
 use finale_doom::Finale;
 use gameplay::{
@@ -32,11 +32,6 @@ use crate::{
     CLIOptions,
 };
 
-fn fov_adjusted(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
-    let delta = (screen_width / 2.0 / (screen_height / (fov * 0.82).tan())).atan();
-    (FRAC_PI_4 - (fov + delta)).abs() - 1f32.to_radians()
-}
-
 /// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
     mut game: Game,
@@ -45,19 +40,7 @@ pub fn d_doom_loop(
     gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
-    // scale width to match height 200 or 400. Scale the height first?
-    // TODO: switch 320x200 | 640x400 on option
-    let fov = game.options.fov;
-    let r = window.size().0 as f32 / window.size().1 as f32;
-    let mut screen_height = 400;
-    let mut screen_width = (400.0 * r) as usize;
-    if options.double.is_some() && options.double.unwrap() {
-        screen_width *= 2;
-        screen_height *= 2;
-    }
-    let v_dist = screen_height as f32 / 2.0 / (fov * 0.82 / 2.0).tan();
-    let h_fov = 2.0 * (screen_width as f32 / 2.0 / v_dist).atan() - 0.3f32.to_radians();
-
+    let screen_ratio = window.size().0 as f32 / window.size().1 as f32;
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
     let mut render_buffer: RenderTarget;
@@ -70,18 +53,28 @@ pub fn d_doom_loop(
         .build()
         .unwrap();
 
+    let fov = FRAC_PI_2;
+    let mut buf_height = 200;
+    let mut buf_width = (buf_height as f32 * screen_ratio) as usize;
+    if options.double.is_some() && options.double.unwrap() {
+        buf_width *= 2;
+        buf_height *= 2;
+    }
+    let v_dist = buf_height as f32 / 2.0 / (fov * 0.82 / 2.0).tan();
+    let h_fov = 2.0 * (buf_width as f32 / 2.0 / v_dist).atan() - 0.3f32.to_radians();
+
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
-            render_buffer = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
-            render_buffer2 = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
+            render_buffer = RenderTarget::new(buf_width, buf_height).with_software(&canvas);
+            render_buffer2 = RenderTarget::new(buf_width, buf_height).with_software(&canvas);
         }
         crate::config::RenderType::SoftOpenGL => {
             let shader = options.shader.unwrap_or_default();
             render_type = RenderType::SoftOpenGL;
             render_buffer =
-                RenderTarget::new(screen_width, screen_height).with_gl(&canvas, &gl_ctx, shader);
+                RenderTarget::new(buf_width, buf_height).with_gl(&canvas, &gl_ctx, shader);
             render_buffer2 =
-                RenderTarget::new(screen_width, screen_height).with_gl(&canvas, &gl_ctx, shader);
+                RenderTarget::new(buf_width, buf_height).with_gl(&canvas, &gl_ctx, shader);
         }
         crate::config::RenderType::OpenGL => todo!(),
         crate::config::RenderType::Vulkan => todo!(),
@@ -90,8 +83,8 @@ pub fn d_doom_loop(
     let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
     let mut renderer = SoftwareRenderer::new(
         h_fov,
-        screen_width,
-        screen_height,
+        buf_width,
+        buf_height,
         matches!(verbose, log::LevelFilter::Debug),
     );
 

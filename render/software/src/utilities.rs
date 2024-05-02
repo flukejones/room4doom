@@ -3,14 +3,6 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
-fn fov_horiz_delta(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
-    (screen_height / 2.0 / (screen_width / (fov * 0.82).tan())).atan() - fov
-}
-
-pub fn fov_horiz_adjusted(fov: f32, screen_width: f32, screen_height: f32) -> f32 {
-    fov - fov_horiz_delta(fov, screen_width, screen_height)
-}
-
 fn player_dist_to_screen(fov: f32, screen_width_half: f32) -> f32 {
     screen_width_half / (fov / 2.0).tan()
 }

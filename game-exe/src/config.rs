@@ -88,7 +88,6 @@ pub struct UserConfig {
     pub height: u32,
     pub fullscreen: bool,
     pub hi_res: bool,
-    pub fov: u32,
     pub renderer: RenderType,
     pub shader: Option<Shaders>,
     pub sfx_vol: i32,
@@ -107,6 +106,7 @@ impl UserConfig {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path.clone())
             .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
         let mut buf = String::new();
@@ -131,15 +131,14 @@ impl UserConfig {
             height: 480,
             hi_res: true,
             fullscreen: true,
-            fov: 90,
             sfx_vol: 80,
             mus_vol: 70,
             ..UserConfig::default()
         };
         info!("Created default user config file");
         // Should be okay to unwrap this as is since it is a Default
-        let json = toml::to_string(&config).unwrap();
-        file.write_all(json.as_bytes())
+        let data = toml::to_string(&config).unwrap();
+        file.write_all(data.as_bytes())
             .unwrap_or_else(|_| panic!("Could not write {:?}", get_cfg_file()));
         info!("Saved user config to {:?}", get_cfg_file());
         config
@@ -147,8 +146,8 @@ impl UserConfig {
 
     pub fn write(&self) {
         let mut file = File::create(get_cfg_file()).expect("Couldn't overwrite config");
-        let json = toml::to_string_pretty(self).expect("Parse config to JSON failed");
-        file.write_all(json.as_bytes())
+        let data = toml::to_string_pretty(self).expect("Parse config to JSON failed");
+        file.write_all(data.as_bytes())
             .unwrap_or_else(|err| error!("Could not write config: {}", err));
     }
 
@@ -213,14 +212,6 @@ impl UserConfig {
             }
         } else {
             cli.music_type = Some(self.music_type);
-        }
-
-        if let Some(f) = cli.fov {
-            if f != self.fov {
-                self.fov = f;
-            }
-        } else {
-            cli.fov = Some(self.fov);
         }
     }
 }

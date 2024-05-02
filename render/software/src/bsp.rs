@@ -9,7 +9,7 @@ use gameplay::{
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::f32::consts::{PI, TAU};
 
 const MAX_SEGS: usize = 64;
 const MAX_VIS_SPRITES: usize = 128 * 2;
@@ -109,20 +109,20 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(fov: f32, screen_width: usize, screen_height: usize, debug: bool) -> Self {
-        let wide_ratio = screen_height as f32 / screen_width as f32 * 320. / 200.;
+    pub fn new(fov: f32, buf_width: usize, buf_height: usize, debug: bool) -> Self {
+        let wide_ratio = buf_height as f32 / buf_width as f32 * 320. / 200.;
         // Find the canonical FOV of OG Doom
         // const v_dist = 200.0 / (FRAC_PI_2 * 0.82 / 2.0).tan();
         // let h_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians(); == 100degrees
         let og_fov = 100.150536f32.to_radians();
         let scale_ratio = og_fov / fov;
-        let centerx = screen_width as f32 / 2.0;
+        let centerx = buf_width as f32 / 2.0;
         let fov_scale = (fov / 2.0 * wide_ratio / scale_ratio).tan();
         let projection = centerx / fov_scale * wide_ratio;
 
         Self {
-            r_data: RenderData::new(screen_width, screen_height),
-            seg_renderer: SegRender::new(fov, screen_width, screen_height),
+            r_data: RenderData::new(buf_width, buf_height),
+            seg_renderer: SegRender::new(fov, buf_width, buf_height),
             new_end: 0,
             solidsegs: vec![
                 ClipRange {
