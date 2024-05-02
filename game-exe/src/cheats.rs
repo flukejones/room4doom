@@ -1,10 +1,6 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
-use gameplay::{
-    english,
-    log::{debug},
-    GameMission, PlayerCheat, Skill, WeaponType,
-};
+use gameplay::{english, log::debug, GameMission, PlayerCheat, Skill, WeaponType};
 use gamestate::Game;
 use gamestate_traits::{
     sdl2::keyboard::{Keycode, Scancode},
