@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] P_TeleportMove
 - [x] Check textures are correctly sized an aligned
 - [ ] Find the cause of missing draw columns in large maps like e6m6
 - [x] Widescreen
@@ -81,16 +82,24 @@
 
 ## DONE
 
-- [x] Doom 2 boss brain thing
-  - [x] Can't target it, probably because it's not visible? There's that thing in front?
 - [x] Statusbar doomguy face god-mode
 - [x] BFG spray
 - [x] Pain elemental attacks and die
 - [x] Archvile attacks and chase
-- [ ] Archvile raise the dead
-- [ ] Pain elemental attacks and die
-- [ ] Doom 2 boss brain thing
-  - [x] Can't target it, probably because it's not visible? There's that thing in front?
+- [x] Archvile raise the dead
+- [x] Clipping under sprites (like hanging things)
+- [x] Step over sprites that are short
+- [x] Prevent player getting stuck in door if standing next to when close (change_sector() needs to check object radius is crossing over segs)
+- [x] E1M5 lamps are on window height not floor (they get raised by the lifting floor in other sector: Note: something with height clipping height_clip() and floorz)
+- [x] E2M1 after second teleport there is a missing plane line at top of floor drop
+- [x] Doom 2 M13 `thread '<unnamed>' panicked at 'called `Result::unwrap()`on an`Err` value: "Parameter 'size' is invalid"', sound/sdl2/src/lib.rs:344:74`
+- [x] M30 `thread 'main' panicked at 'attempt to divide by zero', /home/luke/Projects/room4doom/intermission/doom/src/lib.rs:257:40`
+- [x] Step over things if higher
+- [x] e2m8 `thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:401:21`
+- [x] Revenant rockets head off in wrong direction
+- [x] angle_to_screen has an impact on sizing and scale (note: needed a float tweak and floor())
+- [x] Statusbar doomguy face attacked-from-angle
+- [x] Screen wipe
 - [x] Shade screen with red palettes for increased damage (not the "took damage" flash)
 - [x] Player sprite isn't rendered with 'static' if player is invisible
 - [x] Chaingun guy doesn't do burst-fire (shoots, but not sustained) (remove invalid state set)
