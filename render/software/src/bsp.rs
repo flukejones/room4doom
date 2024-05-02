@@ -111,9 +111,11 @@ impl PlayRenderer for SoftwareRenderer {
 impl SoftwareRenderer {
     pub fn new(fov: f32, buf_width: usize, buf_height: usize, debug: bool) -> Self {
         let wide_ratio = buf_height as f32 / buf_width as f32 * 320. / 200.;
-        // Find the canonical FOV of OG Doom
-        // const v_dist = 200.0 / (FRAC_PI_2 * 0.82 / 2.0).tan();
-        // let h_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians(); == 100degrees
+        // Find the canonical FOV of OG Doom.
+        // TODO: This needs to be inversely proportional to the actual FOV so
+        // that custom fov can be used
+        // let v_dist = 200.0 / (fov * 0.82 / 2.0).tan();
+        // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// == 100degrees
         let og_fov = 100.150536f32.to_radians();
         let scale_ratio = og_fov / fov;
         let centerx = buf_width as f32 / 2.0;
