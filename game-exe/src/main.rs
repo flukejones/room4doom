@@ -1,23 +1,23 @@
 mod cheats;
+mod cli;
 mod config;
 mod d_main;
 mod test_funcs;
 mod timestep;
 mod wipe;
 
+use cli::*;
 use config::MusicType;
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
-use render_target::shaders::Shaders;
 use std::{env::set_var, error::Error, fs::File, io::Write, path::PathBuf};
 
 use d_main::d_doom_loop;
 use env_logger::fmt::Color;
-use gamestate::{DoomOptions, Game};
-use gumdrop::Options;
+use gamestate::Game;
 
 use crate::config::UserConfig;
-use gameplay::{log, Skill};
+use gameplay::log;
 use input::Input;
 use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
 
@@ -27,107 +27,6 @@ use wad::WadData;
 const SOUND_DIR: &str = "room4doom/sound/";
 const TIMIDITY_CFG: &str = "timidity.cfg";
 const BASE_DIR: &str = "room4doom/";
-
-/// CLI options for the game-exe
-#[derive(Debug, Clone, Options)]
-pub struct CLIOptions {
-    #[options(
-        help = "verbose level: off, error, warn, info, debug",
-        default = "info"
-    )]
-    pub verbose: log::LevelFilter,
-    #[options(no_short, meta = "", help = "path to game-exe WAD")]
-    pub iwad: String,
-    #[options(free, help = "path to patch WAD")]
-    pub pwad: Vec<String>,
-    #[options(meta = "", help = "resolution width in pixels", default = "0")]
-    pub width: u32,
-    #[options(meta = "", help = "resolution height in pixels", default = "0")]
-    pub height: u32,
-    #[options(meta = "", help = "fullscreen?")]
-    pub fullscreen: Option<bool>,
-    #[options(meta = "", help = "double-resolution?")]
-    pub double: Option<bool>,
-
-    #[options(help = "Disable monsters")]
-    pub no_monsters: bool,
-    // #[options(help = "Monsters respawn after being killed")]
-    // pub respawn_parm: bool,
-    // #[options(help = "Monsters move faster")]
-    // pub fast_parm: bool,
-    // #[options(
-    //     no_short,
-    //     help = "Developer mode. F1 saves a screenshot in the current working directory"
-    // )]
-    // pub dev_parm: bool,
-    // #[options(
-    //     meta = "",
-    //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.  Weapons do not stay in place and all items respawn after 30 seconds"
-    // )]
-    // pub deathmatch: u8,
-    // pub autostart: bool,
-    #[options(
-        meta = "",
-        help = "Set the game-exe skill, 0-4 (0: easiest, 4: hardest)"
-    )]
-    pub skill: Skill,
-    #[options(meta = "", help = "Select episode", default = "0")]
-    pub episode: i32,
-    #[options(meta = "", help = "Select level in episode", default = "0")]
-    pub map: i32,
-    #[options(help = "game-exe options help")]
-    pub help: bool,
-
-    #[options(help = "palette test, cycles through palette display")]
-    pub palette_test: bool,
-    #[options(meta = "", help = "image test, pass the sprite name to render")]
-    pub image_test: Option<String>,
-    #[options(help = "image test, cycle through the patches for texture compose")]
-    pub image_cycle_test: bool,
-    #[options(help = "texture compose test, cycle through the composable textures")]
-    pub texture_test: bool,
-    #[options(help = "flat texture test, cycle through the floor/ceiling flats")]
-    pub flats_test: bool,
-    #[options(help = "sprite test, cycle through the sprites")]
-    pub sprites_test: bool,
-    #[options(meta = "", help = "Rendering type <software, softopengl>")]
-    pub rendering: Option<config::RenderType>,
-    #[options(
-        meta = "",
-        help = "Screen shader <cgwg, lottes, lottesbasic>, not used with Software renderer"
-    )]
-    pub shader: Option<Shaders>,
-    #[options(
-        meta = "",
-        help = "Music type <fluidsynth, timidity(default)>. Unfinished "
-    )]
-    pub music_type: Option<MusicType>,
-    #[options(meta = "", help = "Set a custom field-of-view")]
-    pub fov: Option<u32>,
-}
-
-impl From<CLIOptions> for DoomOptions {
-    fn from(g: CLIOptions) -> Self {
-        DoomOptions {
-            iwad: g.iwad,
-            pwad: g.pwad,
-            no_monsters: g.no_monsters,
-            // respawn_parm: g.respawn_parm,
-            // fast_parm: g.fast_parm,
-            // dev_parm: g.dev_parm,
-            // deathmatch: g.deathmatch,
-            // autostart: g.autostart,
-            skill: g.skill,
-            episode: g.episode,
-            map: g.map,
-            warp: g.map != 0 || g.episode != 0,
-            hi_res: g.double.unwrap_or(true),
-            verbose: g.verbose,
-            fov: (g.fov.unwrap_or(90) as f32).to_radians(),
-            ..DoomOptions::default()
-        }
-    }
-}
 
 fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
     if music_type == MusicType::FluidSynth {
@@ -158,7 +57,7 @@ fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
 
 /// The main `game-exe` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut options = CLIOptions::parse_args_default_or_exit();
+    let mut options: CLIOptions = argh::from_env();
 
     let mut logger = env_logger::Builder::new();
     logger
@@ -174,20 +73,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
             style.set_color(colour);
 
-            if options.verbose == log::Level::Debug {
-                writeln!(
-                    buf,
-                    "{}: {}: {}",
-                    style.value(record.level()),
-                    record.target(),
-                    record.args()
-                )
+            if let Some(level) = options.verbose {
+                if level == log::Level::Debug {
+                    writeln!(
+                        buf,
+                        "{}: {}: {}",
+                        style.value(record.level()),
+                        record.target(),
+                        record.args()
+                    )
+                } else {
+                    //record.target().split("::").last().unwrap_or("")
+                    writeln!(buf, "{}: {}", style.value(record.level()), record.args())
+                }
             } else {
-                //record.target().split("::").last().unwrap_or("")
                 writeln!(buf, "{}: {}", style.value(record.level()), record.args())
             }
         })
-        .filter(None, options.verbose)
+        .filter(None, options.verbose.unwrap_or(log::LevelFilter::Warn))
         .init();
 
     let mut user_config = UserConfig::load();
@@ -203,7 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     user_config.write();
 
     let mut window = video_ctx
-        .window("ROOM for DOOM", options.width, options.height)
+        .window("ROOM for DOOM", user_config.width, user_config.height)
         .allow_highdpi()
         .position_centered()
         .opengl()
@@ -219,7 +122,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let gl_attr = video_ctx.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
 
-    let wad = WadData::new(options.iwad.clone().into());
+    let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
     let game = Game::new(
@@ -232,7 +135,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            let mode = if matches!(options.width, 320 | 640) {
+            let mode = if matches!(user_config.width, 320 | 640) {
                 info!("Fullscreen mode is 320x200 or 640x400");
                 sdl2::video::FullscreenType::Desktop
             } else {

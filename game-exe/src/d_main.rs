@@ -2,11 +2,7 @@
 //! run all tics then display the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
-use std::{
-    error::Error,
-    f32::consts::{FRAC_PI_2, FRAC_PI_4},
-    mem,
-};
+use std::{error::Error, f32::consts::FRAC_PI_4, mem};
 
 use finale_doom::Finale;
 use gameplay::{
@@ -64,7 +60,6 @@ pub fn d_doom_loop(
 
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
-    let mut widescreen = false;
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
@@ -77,7 +72,6 @@ pub fn d_doom_loop(
 
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
-            widescreen = true;
             render_buffer = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
             render_buffer2 = RenderTarget::new(screen_width, screen_height).with_software(&canvas);
         }
@@ -93,12 +87,12 @@ pub fn d_doom_loop(
         crate::config::RenderType::Vulkan => todo!(),
     }
 
+    let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
     let mut renderer = SoftwareRenderer::new(
         h_fov,
-        widescreen,
         screen_width,
         screen_height,
-        matches!(options.verbose, log::LevelFilter::Debug),
+        matches!(verbose, log::LevelFilter::Debug),
     );
 
     info!("Using {render_type:?}");
@@ -343,6 +337,9 @@ fn d_display(
                 } else {
                     let player = &game.players[game.consoleplayer];
                     let mut pic_data = level.pic_data.borrow_mut();
+                    if game.options.dev_parm {
+                        draw_buf.pixel_buffer().clear_with_colour(&[0, 164, 0, 255]);
+                    }
                     rend.render_player_view(player, level, &mut pic_data, draw_buf);
                 }
             }

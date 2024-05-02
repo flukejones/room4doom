@@ -2,7 +2,6 @@
 
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
-use log::error;
 use sound_traits::SfxName;
 
 use crate::{

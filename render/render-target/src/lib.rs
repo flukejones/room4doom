@@ -33,6 +33,7 @@ pub enum RenderType {
 pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
+    fn clear_with_colour(&mut self, colour: &[u8; 4]);
     fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]);
     fn read_pixel(&self, x: usize, y: usize) -> [u8; 4];
     fn unsafe_read_pixel(&self, x: usize, y: usize) -> &[u8; 4];
@@ -133,7 +134,16 @@ impl PixelBuffer for Buffer {
 
     #[inline]
     fn clear(&mut self) {
-        self.buffer.iter_mut().for_each(|n| *n = 0);
+        self.buffer
+            .chunks_mut(4)
+            .for_each(|n| n.copy_from_slice(&[0, 0, 0, 255]));
+    }
+
+    #[inline]
+    fn clear_with_colour(&mut self, colour: &[u8; 4]) {
+        self.buffer
+            .chunks_mut(4)
+            .for_each(|n| n.copy_from_slice(colour));
     }
 
     #[inline]

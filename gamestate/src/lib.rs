@@ -50,7 +50,6 @@ pub const DESC_ULTIMATE: &str = "The Ultimate DOOM";
 pub const DESC_COMMERCIAL: &str = "DOOM 2: Hell on Earth";
 
 /// Options specific to Doom gameplay
-#[derive(Debug)]
 pub struct DoomOptions {
     pub iwad: String,
     pub pwad: Vec<String>,

@@ -15,7 +15,7 @@ fn player_dist_to_screen(fov: f32, screen_width_half: f32) -> f32 {
     screen_width_half / (fov / 2.0).tan()
 }
 
-pub fn screen_to_x_view(fov: f32, x: f32, screen_width_half: f32, screen_height_half: f32) -> f32 {
+pub fn screen_to_x_view(fov: f32, x: f32, screen_width_half: f32) -> f32 {
     ((screen_width_half - x) / player_dist_to_screen(fov, screen_width_half)).atan()
 }
 
@@ -32,13 +32,7 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 
 // The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
 // The out value if floored and clamped to the screen width min/max.
-pub fn angle_to_screen(
-    fov: f32,
-    half_screen_width: f32,
-    screen_width: f32,
-    half_screen_height: f32,
-    angle: Angle,
-) -> f32 {
+pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
     let focal = player_dist_to_screen(fov, half_screen_width);
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that two

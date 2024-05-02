@@ -148,11 +148,11 @@ pub(crate) struct Animation {
     // following must be initialized to zero before use!
     // next value of bcnt (used in conjunction with period)
     pub next_tic: i32,
-    // last drawn animation frame
+    // last drawn animation frame (Doom II)
     pub last_drawn: i32,
     // next frame number to animate
     pub counter: i32,
-    // used by RANDOM and LEVEL when animating
+    // used by RANDOM and LEVEL when animating (Doom II)
     pub state: i32,
 }
 

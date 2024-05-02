@@ -19,7 +19,7 @@ members = [
     "hud-messages/doom",
     "finale/doom",
 ]
-default-members = ["game-exe"]
+default-members = ["game-exe", "multigen"]
 resolver = "2"
 
 [workspace.package]
@@ -47,10 +47,14 @@ render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer", "bundled"] }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
+    "mixer",
+    "bundled",
+] }
 #sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
-gumdrop = "~0.8"
+argh = "0.1.12"
+sarge = "*"
 
 log = "*"
 env_logger = { version = "^0.10" }

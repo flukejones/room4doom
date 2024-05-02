@@ -19,7 +19,7 @@ use crate::{
     doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
     level::Level,
     thinker::{Think, Thinker, ThinkerData},
-    DPtr, Sector, Skill,
+    Skill,
 };
 use glam::Vec2;
 use log::{debug, error, info};

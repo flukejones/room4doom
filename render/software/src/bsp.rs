@@ -63,7 +63,7 @@ pub struct SoftwareRenderer {
     /// Mostly used in thing drawing only
     pub fov_scale: f32,
     pub projection: f32,
-    /// Mostly used in thing drawing only
+    /// Mostly used in thing drawing only. But is the same as in segs drawing
     pub wide_ratio: f32,
 }
 
@@ -109,18 +109,15 @@ impl PlayRenderer for SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    pub fn new(
-        fov: f32,
-        widescreen: bool,
-        screen_width: usize,
-        screen_height: usize,
-        debug: bool,
-    ) -> Self {
-        let wide_ratio = screen_height as f32 / screen_width as f32 * 1.6;
-        let s = FRAC_PI_2 / (fov - 10.5f32.to_radians()); // Why 11?
-        dbg!(s);
+    pub fn new(fov: f32, screen_width: usize, screen_height: usize, debug: bool) -> Self {
+        let wide_ratio = screen_height as f32 / screen_width as f32 * 320. / 200.;
+        // Find the canonical FOV of OG Doom
+        // const v_dist = 200.0 / (FRAC_PI_2 * 0.82 / 2.0).tan();
+        // let h_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians(); == 100degrees
+        let og_fov = 100.150536f32.to_radians();
+        let scale_ratio = og_fov / fov;
         let centerx = screen_width as f32 / 2.0;
-        let fov_scale = (fov / 2.0 * wide_ratio / s).tan(); // (fov / 2.0 * 0.82).tan();
+        let fov_scale = (fov / 2.0 * wide_ratio / scale_ratio).tan();
         let projection = centerx / fov_scale * wide_ratio;
 
         Self {
@@ -185,7 +182,6 @@ impl SoftwareRenderer {
                             self.seg_renderer.fov,
                             x as f32,
                             pixels.size().half_width_f32(),
-                            pixels.size().half_height_f32(),
                         );
                         let angle =
                             (view_angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
@@ -291,14 +287,12 @@ impl SoftwareRenderer {
             self.seg_renderer.fov,
             pixels.size().half_width_f32(),
             pixels.size().width_f32(),
-            pixels.size().half_height_f32(),
             angle1,
         );
         let x2 = angle_to_screen(
             self.seg_renderer.fov,
             pixels.size().half_width_f32(),
             pixels.size().width_f32(),
-            pixels.size().half_height_f32(),
             angle2,
         );
 
@@ -628,7 +622,6 @@ impl SoftwareRenderer {
             side ^ 1,
             pixels.size().half_width_f32(),
             pixels.size().width_f32(),
-            pixels.size().half_height_f32(),
         ) {
             self.render_bsp_node(
                 map,
@@ -651,7 +644,6 @@ impl SoftwareRenderer {
         side: usize,
         half_screen_width: f32,
         screen_width: f32,
-        half_screen_height: f32,
     ) -> bool {
         let view_angle = mobj.angle;
         // BOXTOP = 0
@@ -763,14 +755,12 @@ impl SoftwareRenderer {
             self.seg_renderer.fov,
             half_screen_width,
             screen_width,
-            half_screen_height,
             angle1,
         );
         let mut x2 = angle_to_screen(
             self.seg_renderer.fov,
             half_screen_width,
             screen_width,
-            half_screen_height,
             angle2,
         );
 

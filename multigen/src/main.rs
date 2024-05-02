@@ -5,7 +5,7 @@ use crate::{
     parse_info::{info_to_string, state_to_string},
     strings::*,
 };
-use gumdrop::Options;
+use argh::FromArgs;
 use std::{
     collections::HashMap,
     error::Error,
@@ -39,21 +39,22 @@ enum LineState {
     None,
 }
 
-#[derive(Debug, Clone, Options)]
+/// Turn a mapinfo file in to rust
+#[derive(Debug, Clone, FromArgs)]
 struct CLIOptions {
-    #[options(no_short, meta = "", help = "path to info data")]
+    /// path to info data
+    #[argh(option)]
     info: PathBuf,
-    #[options(no_short, meta = "", help = "path to write generated files to")]
+    /// path to write generated files to
+    #[argh(option)]
     out: PathBuf,
-    #[options(help = "game-exe options help")]
-    help: bool,
 }
 
 pub type InfoType = HashMap<String, String>;
 pub type InfoGroupType = HashMap<String, InfoType>;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let options = CLIOptions::parse_args_default_or_exit();
+    let options: CLIOptions = argh::from_env();
     let data = read_file(options.info);
 
     // Lines starting with:

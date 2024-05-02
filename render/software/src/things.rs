@@ -115,13 +115,6 @@ impl SoftwareRenderer {
         self.checked_sectors.push(sector.num);
 
         let light_level = (sector.lightlevel >> 4) + player.extralight;
-
-        // TODO: sprite lights
-        // let sprite_light;
-        // if light_level < 0 {
-
-        // }
-
         sector.run_func_on_thinglist(|thing| {
             self.project_sprite(player, thing, light_level, screen_width, pic_data)
         });
