@@ -41,9 +41,9 @@ pub struct Level {
     pub respawn_monsters: bool,
     pub level_time: u32,
     /// Required for the thing controller (Boss check)
-    pub episode: i32,
+    pub episode: usize,
     /// Required for the thing controller (Boss check)
-    pub game_map: i32,
+    pub game_map: usize,
     /// This needs to be synced with `Game`
     pub game_tic: u32,
     /// The `Things` for player start locations
@@ -104,8 +104,8 @@ impl Level {
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         skill: Skill,
-        episode: i32,
-        map: i32,
+        episode: usize,
+        map: usize,
         game_mode: GameMode,
         switch_list: Vec<usize>,
         pic_data: Rc<RefCell<PicData>>,

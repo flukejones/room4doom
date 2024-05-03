@@ -282,7 +282,7 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
                 let colour = game.pic_data.borrow().palette()[*p];
                 for _ in 0..f {
                     draw_buf.set_pixel(
-                        (xtmp - n) as usize, // - (image.left_offset as i32),
+                        (xtmp - n) as usize,              // - (image.left_offset as i32),
                         (ytmp + c.y_offset * f) as usize, /* - image.top_offset as i32 - 30, */
                         &colour.0,
                     );

@@ -103,6 +103,15 @@ impl From<i32> for Skill {
     }
 }
 
+impl From<usize> for Skill {
+    fn from(w: usize) -> Self {
+        if w > Skill::Nightmare as usize {
+            panic!("{} is not a variant of Skill", w);
+        }
+        unsafe { std::mem::transmute(w as i32) }
+    }
+}
+
 impl FromStr for Skill {
     type Err = DoomArgError;
 

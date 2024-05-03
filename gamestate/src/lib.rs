@@ -75,8 +75,8 @@ pub struct DoomOptions {
     pub deathmatch: u8,
     pub skill: Skill,
     pub warp: bool,
-    pub episode: i32,
-    pub map: i32,
+    pub episode: usize,
+    pub map: usize,
     pub autostart: bool,
     pub hi_res: bool,
     pub verbose: log::LevelFilter,
@@ -170,8 +170,8 @@ pub struct Game {
     pub gamestate: GameState,
     game_skill: Skill,
     respawn_monsters: bool,
-    game_episode: i32,
-    game_map: i32,
+    game_episode: usize,
+    game_map: usize,
     pub game_tic: u32,
 
     /// If non-zero, exit the level after this number of minutes.
@@ -436,7 +436,7 @@ impl Game {
         self.game_action = GameAction::None;
     }
 
-    fn init_new(&mut self, skill: Skill, mut episode: i32, mut map: i32) {
+    fn init_new(&mut self, skill: Skill, mut episode: usize, mut map: usize) {
         debug!("Entered init_new");
 
         if self.paused {
@@ -640,9 +640,9 @@ impl Game {
         }
 
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
-        self.wminfo.epsd = self.game_episode - 1;
+        self.wminfo.episode = self.game_episode - 1;
         self.wminfo.last = self.game_map;
-        dbg!(self.wminfo.epsd);
+        dbg!(self.wminfo.episode);
 
         if !matches!(self.game_mode, GameMode::Commercial) {
             if self.game_map == 8 {
@@ -712,7 +712,7 @@ impl Game {
 
     fn start_finale(&mut self) {
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
-        self.wminfo.epsd = self.game_episode;
+        self.wminfo.episode = self.game_episode;
         self.wminfo.last = self.game_map;
 
         self.gamestate = GameState::Finale;

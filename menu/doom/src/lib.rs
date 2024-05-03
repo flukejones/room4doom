@@ -30,7 +30,7 @@ struct MenuItem {
     /// The name of the patch in the wad to draw for this item
     patch: String,
     /// A function pointer to the 'logic' that drives this menu item
-    logic: fn(&mut MenuDoom, i32, &mut dyn GameTraits),
+    logic: fn(&mut MenuDoom, usize, &mut dyn GameTraits),
     /// The `char` which activates this item (as a capital letter)
     hotkey: char,
 }
@@ -39,7 +39,7 @@ impl MenuItem {
     fn new(
         status: Status,
         patch: impl ToString,
-        logic: fn(&mut MenuDoom, i32, &mut (dyn GameTraits)),
+        logic: fn(&mut MenuDoom, usize, &mut (dyn GameTraits)),
         hotkey: char,
     ) -> Self {
         Self {
@@ -125,7 +125,7 @@ enum MenuIndex {
     ReadThis2,
 }
 
-fn place_holder(_: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {}
+fn place_holder(_: &mut MenuDoom, _: usize, _: &mut dyn GameTraits) {}
 
 type Patches = HashMap<String, WadPatch>;
 
@@ -148,7 +148,7 @@ pub struct MenuDoom {
     patches: Patches,
     palette: WadPalette,
     /// Track the episode selected by episode menu
-    episode: i32,
+    episode: usize,
     which_skull: usize,
     skull_anim_counter: i32,
 }
@@ -363,7 +363,7 @@ impl MenuDoom {
     }
 }
 
-fn sel_new_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
+fn sel_new_game(menu: &mut MenuDoom, _: usize, game: &mut dyn GameTraits) {
     if game.get_mode() == GameMode::Commercial {
         menu.current_menu = MenuIndex::Skill;
         return;
@@ -371,28 +371,28 @@ fn sel_new_game(menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::Episodes;
 }
 
-fn sel_readthis(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
+fn sel_readthis(menu: &mut MenuDoom, _: usize, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis1;
 }
 
-fn sel_readthis1(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
+fn sel_readthis1(menu: &mut MenuDoom, _: usize, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::ReadThis2;
 }
 
-fn sel_readthis2(menu: &mut MenuDoom, _: i32, _: &mut dyn GameTraits) {
+fn sel_readthis2(menu: &mut MenuDoom, _: usize, _: &mut dyn GameTraits) {
     menu.current_menu = MenuIndex::TopLevel;
 }
 
-fn sel_quit_game(_menu: &mut MenuDoom, _: i32, game: &mut dyn GameTraits) {
+fn sel_quit_game(_menu: &mut MenuDoom, _: usize, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 
-fn sel_episode(menu: &mut MenuDoom, choice: i32, _game: &mut dyn GameTraits) {
+fn sel_episode(menu: &mut MenuDoom, choice: usize, _game: &mut dyn GameTraits) {
     menu.episode = choice;
     menu.current_menu = MenuIndex::Skill;
 }
 
-fn sel_skill(menu: &mut MenuDoom, choice: i32, game: &mut dyn GameTraits) {
+fn sel_skill(menu: &mut MenuDoom, choice: usize, game: &mut dyn GameTraits) {
     menu.exit_menu(game);
     let skill = Skill::from(choice);
     game.defered_init_new(skill, menu.episode + 1, 1);
@@ -495,7 +495,7 @@ impl MachinationTrait for MenuDoom {
                     let logic = self.menus[idx].items[last_on].logic;
 
                     if status != Status::NoCursor {
-                        (logic)(self, last_on as i32, game);
+                        (logic)(self, last_on, game);
                         game.start_sound(SfxName::Pistol);
                     }
                     return true;

@@ -118,7 +118,7 @@ fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     false
 }
 
-fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: i32) {
+fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: usize) {
     // monsters don't stomp things except on boss level
     if this_thing.player().is_none() && game_map != 30 {
         return;

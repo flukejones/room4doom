@@ -74,7 +74,7 @@ impl MachinationTrait for Finale {
 
         if game.get_mode() != GameMode::Commercial {
             game.change_music(MusTrack::Victor);
-            match game.level_end_info().epsd + 1 {
+            match game.level_end_info().episode + 1 {
                 1 => {
                     name = "FLOOR4_8";
                     self.text.replace(E1TEXT.to_ascii_uppercase());

@@ -171,29 +171,29 @@ impl Intermission {
     }
 
     pub(crate) fn get_this_level_name(&self) -> &WadPatch {
-        let ep = if self.level_info.epsd as usize >= self.level_names.len() {
+        let ep = if self.level_info.episode >= self.level_names.len() {
             self.level_names.len() - 1
         } else {
-            self.level_info.epsd as usize
+            self.level_info.episode
         };
-        &self.level_names[ep][self.level_info.last as usize - 1]
+        &self.level_names[ep][self.level_info.last - 1]
     }
 
     pub(crate) fn get_enter_level_name(&self) -> &WadPatch {
-        let ep = if self.level_info.epsd as usize >= self.level_names.len() {
+        let ep = if self.level_info.episode >= self.level_names.len() {
             self.level_names.len() - 1
         } else {
-            self.level_info.epsd as usize
+            self.level_info.episode
         };
-        &self.level_names[ep][self.level_info.next as usize]
+        &self.level_names[ep][self.level_info.next]
     }
 
     fn init_animated_bg(&mut self) {
-        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+        if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
 
-        for anim in self.animations[self.level_info.epsd as usize].iter_mut() {
+        for anim in self.animations[self.level_info.episode].iter_mut() {
             anim.counter = -1;
             // Next time to draw?
             match anim.kind {
@@ -211,11 +211,11 @@ impl Intermission {
     }
 
     fn update_animated_bg(&mut self) {
-        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+        if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
 
-        for (i, anim) in self.animations[self.level_info.epsd as usize]
+        for (i, anim) in self.animations[self.level_info.episode]
             .iter_mut()
             .enumerate()
         {
@@ -239,7 +239,7 @@ impl Intermission {
                     }
                     AnimType::Level => {
                         if !(self.state == State::StatCount && i == 7)
-                            && self.level_info.next == anim.data1
+                            && self.level_info.next == anim.data1 as usize
                         {
                             anim.counter += 1;
                             if anim.counter == anim.num_of {
@@ -254,11 +254,11 @@ impl Intermission {
     }
 
     fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut dyn PixelBuffer) {
-        if self.mode == GameMode::Commercial || self.level_info.epsd > 2 {
+        if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
 
-        for anim in self.animations[self.level_info.epsd as usize].iter() {
+        for anim in self.animations[self.level_info.episode].iter() {
             if anim.counter >= 0 {
                 self.draw_patch_pixels(
                     &anim.patches[anim.counter as usize],
@@ -300,7 +300,7 @@ impl MachinationTrait for Intermission {
 
         self.player_info = game.player_end_info().clone();
         self.level_info = game.level_end_info().clone();
-        self.current_bg = self.level_info.epsd as usize;
+        self.current_bg = self.level_info.episode;
 
         // TODO: deathmatch stuff
         self.init_stats();

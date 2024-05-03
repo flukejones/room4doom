@@ -28,7 +28,7 @@ impl Intermission {
         scale: i32,
         pixels: &mut dyn PixelBuffer,
     ) {
-        let ep = self.level_info.epsd as usize;
+        let ep = self.level_info.episode as usize;
         let point = MAP_POINTS[ep][lv];
 
         let x = point.0 - patch.left_offset as i32;
@@ -57,7 +57,7 @@ impl Intermission {
         self.draw_animated_bg_pixels(scale, buffer);
 
         // Location stuff only for episodes 1-3
-        if self.mode != GameMode::Commercial && self.level_info.epsd <= 2 {
+        if self.mode != GameMode::Commercial && self.level_info.episode <= 2 {
             let last = if self.level_info.last == 8 {
                 self.level_info.next - 1
             } else {

@@ -47,7 +47,7 @@ pub enum GameState {
 /// Universal game traits. To be implemented by the Game
 pub trait GameTraits {
     /// Helper to start a new game, e.g, from menus
-    fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32);
+    fn defered_init_new(&mut self, skill: Skill, episode: usize, map: usize);
 
     /// A lot of things in Doom are dependant on knowing which of the game
     /// releases is currently being played. Commercial (Doom II) contains

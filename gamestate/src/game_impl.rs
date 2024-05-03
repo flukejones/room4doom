@@ -14,7 +14,7 @@ impl GameTraits for Game {
     /// we should set the action so that the right sequences are run. Unsure
     /// of impact of changing game-exe vars beyong action here, probably
     /// nothing.
-    fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32) {
+    fn defered_init_new(&mut self, skill: Skill, episode: usize, map: usize) {
         self.game_skill = skill;
         self.game_episode = episode;
         self.game_map = map;

@@ -88,14 +88,13 @@ pub struct WBPlayerStruct {
 /// parms for world level / intermission
 #[derive(Default, Clone)]
 pub struct WBStartStruct {
-    /// episode # (0-2)
-    pub epsd: i32,
-    pub map: i32,
+    pub episode: usize,
+    pub map: usize,
     /// if true, splash the secret level
     pub didsecret: bool,
     /// previous and next levels, origin 0
-    pub last: i32,
-    pub next: i32,
+    pub last: usize,
+    pub next: usize,
     pub maxkills: i32,
     pub maxitems: i32,
     pub maxsecret: i32,
@@ -103,7 +102,7 @@ pub struct WBStartStruct {
     /// the par time
     pub partime: i32,
     /// index of this player in game-exe
-    pub pnum: i32,
+    pub pnum: usize,
     pub plyr: [WBPlayerStruct; MAXPLAYERS],
 }
 

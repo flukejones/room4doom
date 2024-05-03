@@ -117,7 +117,7 @@ impl Intermission {
             buffer,
         );
 
-        if self.level_info.epsd < 3 {
+        if self.level_info.episode < 3 {
             self.draw_patch_pixels(&self.patches.par, width / 2 + time_x, time_y, buffer);
             self.draw_time(
                 self.level_info.partime as u32,

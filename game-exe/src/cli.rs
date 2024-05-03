@@ -48,10 +48,10 @@ pub struct CLIOptions {
     pub skill: Option<Skill>,
     /// select episode
     #[argh(option)]
-    pub episode: Option<i32>,
+    pub episode: Option<usize>,
     /// select level in episode. If Doom II the episode is ignored
     #[argh(option)]
-    pub map: Option<i32>,
+    pub map: Option<usize>,
 
     /// palette test, cycles through palette display
     #[argh(option, default = "false")]
