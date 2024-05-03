@@ -4,28 +4,19 @@
 
 use log::{debug, error, warn};
 use sound_traits::SfxName;
-use std::{
-    fmt::{self, Formatter},
-    ptr::null_mut,
-};
+use std::fmt::{self, Formatter};
+use std::ptr::null_mut;
 
-use crate::{
-    doom_def::{Card, TICRATE},
-    lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK},
-    level::{
-        map_defs::{LineDef, Sector},
-        Level,
-    },
-    thing::MapObject,
-    thinker::{Think, Thinker, ThinkerData},
-    DPtr,
-    LineDefFlags,
-};
+use crate::doom_def::{Card, TICRATE};
+use crate::lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK};
+use crate::level::map_defs::{LineDef, Sector};
+use crate::level::Level;
+use crate::thing::MapObject;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use crate::{DPtr, LineDefFlags};
 
-use crate::env::{
-    specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult},
-    switch::start_sector_sound,
-};
+use crate::env::specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
+use crate::env::switch::start_sector_sound;
 
 const VDOOR: f32 = 2.0;
 const VDOORWAIT: i32 = 150;

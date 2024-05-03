@@ -4,33 +4,19 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxName;
 
-use crate::{
-    angle::Angle,
-    doom_def::{
-        ActFn,
-        AmmoType,
-        Card,
-        PowerDuration,
-        PowerType,
-        WeaponType,
-        BFGCELLS,
-        CLIP_AMMO,
-        MAXHEALTH,
-        MAXPLAYERS,
-        MAX_AMMO,
-        VIEWHEIGHT,
-        WEAPON_INFO,
-    },
-    info::{SpriteNum, StateNum, STATES},
-    level::Level,
-    pic::INVERSECOLORMAP,
-    player_sprite::{PspDef, WEAPONBOTTOM},
-    thing::{enemy::noise_alert, MapObjFlag, MapObject, BONUSADD},
-    tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2},
-    GameMode,
-    Skill,
+use crate::angle::Angle;
+use crate::doom_def::{
+    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
 };
+use crate::info::{SpriteNum, StateNum, STATES};
+use crate::level::Level;
+use crate::pic::INVERSECOLORMAP;
+use crate::player_sprite::{PspDef, WEAPONBOTTOM};
+use crate::thing::enemy::noise_alert;
+use crate::thing::{MapObjFlag, MapObject, BONUSADD};
+use crate::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
+use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
+use crate::{GameMode, Skill};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;

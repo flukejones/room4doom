@@ -5,28 +5,15 @@
 pub mod util;
 
 pub use gameplay::{
-    m_random,
-    AmmoType,
-    Card,
-    GameMode,
-    PlayerCheat,
-    PlayerStatus,
-    PowerType,
-    Skill,
-    WBPlayerStruct,
-    WBStartStruct,
-    WeaponType,
-    TICRATE,
-    WEAPON_INFO,
+    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO
 };
 pub use render_target::{PixelBuffer, RenderType};
-pub use sdl2::{self, keyboard::Scancode};
+pub use sdl2::keyboard::Scancode;
+pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};
 
-use wad::{
-    lumps::{WadPalette, WadPatch},
-    WadData,
-};
+use wad::lumps::{WadPalette, WadPatch};
+use wad::WadData;
 
 /// The current state of the game-exe: whether we are playing, gazing at the
 /// intermission screen, the game-exe final animation, or a demo.

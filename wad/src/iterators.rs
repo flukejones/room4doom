@@ -1,6 +1,7 @@
 use log::debug;
 
-use crate::{lumps::*, Lump, MapLump, WadData};
+use crate::lumps::*;
+use crate::{Lump, MapLump, WadData};
 use std::marker::PhantomData;
 
 /// An iterator to iter over all items between start and end (exclusive),
@@ -540,7 +541,8 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::{lumps::*, wad::WadData};
+    use crate::lumps::*;
+    use crate::wad::WadData;
 
     #[test]
     fn things_iter() {

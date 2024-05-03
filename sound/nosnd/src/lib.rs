@@ -1,8 +1,6 @@
-use std::{
-    error::Error,
-    fmt::Display,
-    sync::mpsc::{channel, Receiver, Sender},
-};
+use std::error::Error;
+use std::fmt::Display;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use log::info;
 

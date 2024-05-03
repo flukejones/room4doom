@@ -5,18 +5,13 @@ use std::f32::consts::FRAC_PI_2;
 use glam::Vec2;
 use sound_traits::SfxName;
 
-use crate::{
-    doom_def::{MAXRADIUS, MELEERANGE},
-    env::specials::shoot_special_line,
-    info::{StateNum, MOBJINFO},
-    level::{map_data::BSPTrace, map_defs::LineDef},
-    utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ},
-    Angle,
-    DPtr,
-    LineDefFlags,
-    MapObjKind,
-    MapObject,
-};
+use crate::doom_def::{MAXRADIUS, MELEERANGE};
+use crate::env::specials::shoot_special_line;
+use crate::info::{StateNum, MOBJINFO};
+use crate::level::map_data::BSPTrace;
+use crate::level::map_defs::LineDef;
+use crate::utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ};
+use crate::{Angle, DPtr, LineDefFlags, MapObjKind, MapObject};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 

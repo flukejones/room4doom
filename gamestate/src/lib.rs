@@ -24,35 +24,22 @@
 pub mod game_impl;
 pub mod machination;
 
-use std::{cell::RefCell, rc::Rc, time::Duration};
-
 use crate::machination::Machinations;
+use gameplay::log::{debug, info, trace, warn};
+use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    log,
-    log::{debug, info, trace, warn},
-    m_clear_random,
-    spawn_specials,
-    tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    update_specials,
-    GameAction,
-    GameMission,
-    GameMode,
-    Level,
-    MapObject,
-    PicAnimation,
-    PicData,
-    Player,
-    PlayerState,
-    Skill,
-    Switches,
-    WBStartStruct,
-    MAXPLAYERS,
+    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS
 };
-use gamestate_traits::{sdl2::AudioSubsystem, GameState, GameTraits, MachinationTrait};
+use gamestate_traits::sdl2::AudioSubsystem;
+use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use sound_nosnd::SndServerTx;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
 // use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
-use wad::{lumps::WadPatch, WadData};
+use wad::lumps::WadPatch;
+use wad::WadData;
 
 pub const BACKUPTICS: usize = 12;
 /// Description of the unregistered shareware release

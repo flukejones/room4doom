@@ -4,17 +4,13 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use sound_traits::SfxName;
 
-use crate::{
-    doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO},
-    info::{State, StateNum, STATES},
-    player::{Player, PsprNum},
-    thing::MapObject,
-    tic_cmd::TIC_CMD_BUTTONS,
-    utilities::{p_random, point_to_angle_2},
-    MapObjKind,
-    PlayerState,
-    WeaponType,
-};
+use crate::doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO};
+use crate::info::{State, StateNum, STATES};
+use crate::player::{Player, PsprNum};
+use crate::thing::MapObject;
+use crate::tic_cmd::TIC_CMD_BUTTONS;
+use crate::utilities::{p_random, point_to_angle_2};
+use crate::{MapObjKind, PlayerState, WeaponType};
 
 const LOWERSPEED: f32 = 6.0;
 const RAISESPEED: f32 = 6.0;

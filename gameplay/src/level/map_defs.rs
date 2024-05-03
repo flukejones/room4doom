@@ -1,9 +1,7 @@
-use crate::{
-    angle::Angle,
-    thing::MapObject,
-    thinker::{Thinker, ThinkerData},
-    DPtr,
-};
+use crate::angle::Angle;
+use crate::thing::MapObject;
+use crate::thinker::{Thinker, ThinkerData};
+use crate::DPtr;
 use glam::Vec2;
 use log::error;
 

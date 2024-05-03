@@ -1,15 +1,15 @@
 use crate::utilities::screen_to_x_view;
-use gameplay::{log::warn, Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
+use gameplay::log::warn;
+use gameplay::{Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
 use glam::Vec2;
 use render_target::PixelBuffer;
-use std::{f32::consts::FRAC_PI_2, ptr::NonNull};
+use std::f32::consts::FRAC_PI_2;
+use std::ptr::NonNull;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
-use super::{
-    defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP},
-    RenderData,
-};
+use super::defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP};
+use super::RenderData;
 
 //const HEIGHTUNIT: f32 = 0.062485;
 

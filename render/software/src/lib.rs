@@ -1,4 +1,6 @@
-use self::{defs::DrawSeg, planes::VisPlaneRender, portals::PortalClip};
+use self::defs::DrawSeg;
+use self::planes::VisPlaneRender;
+use self::portals::PortalClip;
 use defs::MAXDRAWSEGS;
 use gameplay::Angle;
 
@@ -58,7 +60,9 @@ impl RenderData {
 #[cfg(test)]
 mod tests {
 
-    use crate::{defs::Visplane, portals::PortalClip, RenderData};
+    use crate::defs::Visplane;
+    use crate::portals::PortalClip;
+    use crate::RenderData;
 
     #[test]
     fn default_portal_clip() {

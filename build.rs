@@ -1,4 +1,5 @@
-use std::{env, path::PathBuf};
+use std::env;
+use std::path::PathBuf;
 
 fn main() {
     // #[cfg(all(target_os = "macos", feature = "sdl2-bundled"))]

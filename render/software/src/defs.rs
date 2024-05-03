@@ -1,4 +1,5 @@
-use std::{fmt::Debug, ptr::NonNull};
+use std::fmt::Debug;
+use std::ptr::NonNull;
 
 use gameplay::Segment;
 

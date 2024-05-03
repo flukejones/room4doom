@@ -1,9 +1,7 @@
 use gamestate_traits::{MachinationTrait, PixelBuffer};
 use log::warn;
-use wad::{
-    lumps::{WadPatch, WAD_PATCH},
-    WadData,
-};
+use wad::lumps::{WadPatch, WAD_PATCH};
+use wad::WadData;
 
 const FONT_START: u8 = b'!';
 const FONT_END: u8 = b'_';

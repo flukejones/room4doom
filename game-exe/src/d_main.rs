@@ -2,19 +2,18 @@
 //! to run all tics then display the result. Handling of actual game-exe state
 //! is done withing the `Game` object.
 
-use std::{error::Error, mem};
+use std::error::Error;
+use std::mem;
 
 use finale_doom::Finale;
-use gameplay::{
-    log::{self, error, info},
-    MapObject,
-};
-use gamestate::{machination::Machinations, Game};
-use gamestate_traits::{
-    sdl2::{keyboard::Scancode, render::Canvas, video::Window},
-    GameState,
-    MachinationTrait,
-};
+use gameplay::log::{self, error, info};
+use gameplay::MapObject;
+use gamestate::machination::Machinations;
+use gamestate::Game;
+use gamestate_traits::sdl2::keyboard::Scancode;
+use gamestate_traits::sdl2::render::Canvas;
+use gamestate_traits::sdl2::video::Window;
+use gamestate_traits::{GameState, MachinationTrait};
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -25,13 +24,11 @@ use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::lumps::{WadFlat, WadPatch};
 
-use crate::{
-    cheats::Cheats,
-    test_funcs::{flat_select_test, image_test, patch_select_test, texture_select_test},
-    timestep::TimeStep,
-    wipe::Wipe,
-    CLIOptions,
-};
+use crate::cheats::Cheats;
+use crate::test_funcs::{flat_select_test, image_test, patch_select_test, texture_select_test};
+use crate::timestep::TimeStep;
+use crate::wipe::Wipe;
+use crate::CLIOptions;
 
 /// Used to set correct buffer width for screen dimensions matching the OD Doom
 /// height

@@ -6,14 +6,14 @@ pub mod shaders;
 
 use gameplay::{Level, PicData, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
-use sdl2::{
-    pixels,
-    rect::Rect,
-    render::{Canvas, TextureCreator},
-    surface,
-    video::{Window, WindowContext},
-};
-use shaders::{basic::Basic, cgwg_crt::Cgwgcrt, lottes_crt::LottesCRT, ShaderDraw, Shaders};
+use sdl2::rect::Rect;
+use sdl2::render::{Canvas, TextureCreator};
+use sdl2::video::{Window, WindowContext};
+use sdl2::{pixels, surface};
+use shaders::basic::Basic;
+use shaders::cgwg_crt::Cgwgcrt;
+use shaders::lottes_crt::LottesCRT;
+use shaders::{ShaderDraw, Shaders};
 
 const CHANNELS: usize = 4;
 

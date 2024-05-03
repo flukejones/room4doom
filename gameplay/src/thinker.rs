@@ -1,23 +1,17 @@
-use std::{
-    alloc::{alloc, dealloc, Layout},
-    fmt::{self, Debug},
-    mem::{align_of, size_of},
-    ptr::{self, null_mut},
-};
+use std::alloc::{alloc, dealloc, Layout};
+use std::fmt::{self, Debug};
+use std::mem::{align_of, size_of};
+use std::ptr::{self, null_mut};
 
 use log::{debug, error};
 
-use crate::{
-    env::{
-        ceiling::CeilingMove,
-        doors::VerticalDoor,
-        floor::FloorMove,
-        lights::{FireFlicker, Glow, LightFlash, StrobeFlash},
-        platforms::Platform,
-    },
-    level::Level,
-    thing::MapObject,
-};
+use crate::env::ceiling::CeilingMove;
+use crate::env::doors::VerticalDoor;
+use crate::env::floor::FloorMove;
+use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
+use crate::env::platforms::Platform;
+use crate::level::Level;
+use crate::thing::MapObject;
 
 #[derive(PartialEq, PartialOrd)]
 pub struct TestObject {
@@ -623,18 +617,17 @@ impl ThinkerData {
 mod tests {
     use wad::WadData;
 
-    use crate::{
-        doom_def::GameMode,
-        level::{map_data::MapData, Level},
-        thinker::{Think, Thinker},
-        PicData,
-        Player,
-        Skill,
-        MAXPLAYERS,
-    };
+    use crate::doom_def::GameMode;
+    use crate::level::map_data::MapData;
+    use crate::level::Level;
+    use crate::thinker::{Think, Thinker};
+    use crate::{PicData, Player, Skill, MAXPLAYERS};
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
-    use std::{cell::RefCell, ptr::null_mut, rc::Rc, sync::mpsc::channel};
+    use std::cell::RefCell;
+    use std::ptr::null_mut;
+    use std::rc::Rc;
+    use std::sync::mpsc::channel;
 
     #[test]
     fn bad_stuff() {

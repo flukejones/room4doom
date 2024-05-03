@@ -7,26 +7,17 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxName;
 
-use crate::{
-    doom_def::TICRATE,
-    env::{
-        specials::{
-            find_highest_floor_surrounding,
-            find_lowest_floor_surrounding,
-            move_plane,
-            PlaneResult,
-        },
-        switch::start_sector_sound,
-    },
-    level::{
-        map_defs::{LineDef, Sector},
-        Level,
-    },
-    thing::MapObject,
-    thinker::{Think, Thinker, ThinkerData},
-    utilities::p_random,
-    DPtr,
+use crate::doom_def::TICRATE;
+use crate::env::specials::{
+    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult
 };
+use crate::env::switch::start_sector_sound;
+use crate::level::map_defs::{LineDef, Sector};
+use crate::level::Level;
+use crate::thing::MapObject;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use crate::utilities::p_random;
+use crate::DPtr;
 
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;

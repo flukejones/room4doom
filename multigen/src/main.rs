@@ -1,18 +1,14 @@
 pub mod parse_info;
 pub mod strings;
 
-use crate::{
-    parse_info::{info_to_string, state_to_string},
-    strings::*,
-};
+use crate::parse_info::{info_to_string, state_to_string};
+use crate::strings::*;
 use argh::FromArgs;
-use std::{
-    collections::HashMap,
-    error::Error,
-    fs::OpenOptions,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::collections::HashMap;
+use std::error::Error;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
 // pub struct State {
 //     /// Sprite to use

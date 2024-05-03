@@ -1,4 +1,5 @@
-use crate::{info::StateNum, MapObject, Player, PspDef};
+use crate::info::StateNum;
+use crate::{MapObject, Player, PspDef};
 use std::fmt;
 
 /// Do not know where this is set

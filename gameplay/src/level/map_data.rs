@@ -1,18 +1,17 @@
-use std::{f32::consts::FRAC_PI_2, time::Instant};
+use std::f32::consts::FRAC_PI_2;
+use std::time::Instant;
 
-use crate::{
-    angle::Angle,
-    level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
-    log::info,
-    utilities::{bam_to_radian, circle_line_collide},
-    DPtr,
-    PicData,
-};
+use crate::angle::Angle;
+use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
+use crate::log::info;
+use crate::utilities::{bam_to_radian, circle_line_collide};
+use crate::{DPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
 use log::warn;
-use wad::{lumps::*, WadData};
+use wad::lumps::*;
+use wad::WadData;
 
 pub const IS_SSECTOR_MASK: u16 = 0x8000;
 
@@ -714,11 +713,9 @@ impl BSPTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        angle::Angle,
-        level::map_data::{BSPTrace, MapData},
-        PicData,
-    };
+    use crate::angle::Angle;
+    use crate::level::map_data::{BSPTrace, MapData};
+    use crate::PicData;
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;

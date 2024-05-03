@@ -2,10 +2,8 @@ use std::f32::consts::{FRAC_PI_4, PI};
 
 use crate::PlayerStatus;
 use gamestate_traits::{m_random, PlayerCheat, PowerType, WeaponType, TICRATE};
-use wad::{
-    lumps::{WadPatch, WAD_PATCH},
-    WadData,
-};
+use wad::lumps::{WadPatch, WAD_PATCH};
+use wad::WadData;
 
 const PAIN_FACES: usize = 5;
 const STRAIGHT_FACES: usize = 3;

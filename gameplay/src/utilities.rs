@@ -3,15 +3,11 @@
 
 use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
-use crate::{
-    angle::Angle,
-    level::{
-        map_data::BSPTrace,
-        map_defs::{BBox, LineDef, SlopeType},
-        Level,
-    },
-    DPtr,
-};
+use crate::angle::Angle;
+use crate::level::map_data::BSPTrace;
+use crate::level::map_defs::{BBox, LineDef, SlopeType};
+use crate::level::Level;
+use crate::DPtr;
 use glam::Vec2;
 
 // const FRACBITS: i32 = 16;

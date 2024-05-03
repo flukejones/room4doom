@@ -1,24 +1,15 @@
-use std::{
-    cmp,
-    f32::consts::{FRAC_PI_2, TAU},
-};
+use std::cmp;
+use std::f32::consts::{FRAC_PI_2, TAU};
 
+use gameplay::log::warn;
 use gameplay::{
-    log::warn,
-    p_random,
-    point_to_angle_2,
-    LineDefFlags,
-    MapObjFlag,
-    MapObject,
-    PicData,
-    Player,
-    PspDef,
-    Sector,
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
 
-use super::{bsp::SoftwareRenderer, defs::DrawSeg};
+use super::bsp::SoftwareRenderer;
+use super::defs::DrawSeg;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;

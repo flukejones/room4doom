@@ -1,7 +1,8 @@
 //! Gameplay speed control. It attempts to mimic/limit progression to
 //! the 30 tics per second Doom used.
 
-use std::{fmt, time::Instant};
+use std::fmt;
+use std::time::Instant;
 
 const MS_PER_UPDATE: f32 = 28.57;
 

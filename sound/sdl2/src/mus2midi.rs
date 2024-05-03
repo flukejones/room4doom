@@ -412,12 +412,10 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        env::set_var,
-        fs::File,
-        io::{Read, Write},
-        time::Duration,
-    };
+    use std::env::set_var;
+    use std::fs::File;
+    use std::io::{Read, Write};
+    use std::time::Duration;
 
     use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
     use wad::WadData;

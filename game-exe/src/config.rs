@@ -7,12 +7,10 @@ use input::config::InputConfig;
 use render_target::shaders::Shaders;
 use serde::{Deserialize, Serialize};
 use sound_sdl2::timidity::GusMemSize;
-use std::{
-    fs::{create_dir, File, OpenOptions},
-    io::{Read, Write},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::fs::{create_dir, File, OpenOptions};
+use std::io::{Read, Write};
+use std::path::PathBuf;
+use std::str::FromStr;
 
 const LOG_TAG: &str = "UserConfig";
 

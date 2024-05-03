@@ -1,10 +1,8 @@
 use crate::MachinationTrait;
 use render_target::PixelBuffer;
 use std::mem::MaybeUninit;
-use wad::{
-    lumps::{WadPatch, WAD_PATCH},
-    WadData,
-};
+use wad::lumps::{WadPatch, WAD_PATCH};
+use wad::WadData;
 
 /// Pattern like `WINUM` or `STTNUM`
 pub fn get_num_sprites(pattern: &str, start: usize, wad: &WadData) -> [WadPatch; 10] {

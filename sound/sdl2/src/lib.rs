@@ -1,21 +1,18 @@
-use std::{
-    error::Error,
-    f32::consts::TAU,
-    fmt::Debug,
-    sync::mpsc::{channel, Receiver, Sender},
-};
+use std::error::Error;
+use std::f32::consts::TAU;
+use std::fmt::Debug;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use glam::Vec2;
 use log::{debug, info};
-use sdl2::{
-    audio::{AudioCVT, AudioFormat},
-    mixer::{Chunk, InitFlag, Music, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS},
-    AudioSubsystem,
-};
+use sdl2::audio::{AudioCVT, AudioFormat};
+use sdl2::mixer::{Chunk, InitFlag, Music, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS};
+use sdl2::AudioSubsystem;
 use sound_traits::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic, MUS_DATA};
 use wad::WadData;
 
-use crate::{info::SFX_INFO_BASE, mus2midi::read_mus_to_midi};
+use crate::info::SFX_INFO_BASE;
+use crate::mus2midi::read_mus_to_midi;
 
 mod info;
 pub mod mus2midi;

@@ -1,11 +1,9 @@
 //! Traits and interface structs/enums required for a generalised `SoundServer`
 //! to play music and sound effects.
 
-use std::{
-    fmt::Debug,
-    sync::mpsc::{Receiver, Sender},
-    time::Duration,
-};
+use std::fmt::Debug;
+use std::sync::mpsc::{Receiver, Sender};
+use std::time::Duration;
 
 mod sounds;
 pub use sounds::*;
@@ -146,12 +144,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        error::Error,
-        f32::consts::FRAC_PI_2,
-        fmt::Display,
-        sync::mpsc::{channel, Receiver, Sender},
-    };
+    use std::error::Error;
+    use std::f32::consts::FRAC_PI_2;
+    use std::fmt::Display;
+    use std::sync::mpsc::{channel, Receiver, Sender};
 
     use crate::{InitResult, SoundAction, SoundServer, SoundServerTic};
 

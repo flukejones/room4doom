@@ -5,20 +5,14 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxName;
 
-use crate::{
-    level::{
-        map_defs::{LineDef, Sector},
-        Level,
-    },
-    thing::MapObject,
-    thinker::{Think, Thinker, ThinkerData},
-    DPtr,
-};
+use crate::level::map_defs::{LineDef, Sector};
+use crate::level::Level;
+use crate::thing::MapObject;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use crate::DPtr;
 
-use crate::env::{
-    specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult},
-    switch::start_sector_sound,
-};
+use crate::env::specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult};
+use crate::env::switch::start_sector_sound;
 
 const CEILSPEED: f32 = 1.0;
 

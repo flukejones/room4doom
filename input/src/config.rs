@@ -1,4 +1,5 @@
-use sdl2::{keyboard::Scancode as Sc, mouse::MouseButton as Mb};
+use sdl2::keyboard::Scancode as Sc;
+use sdl2::mouse::MouseButton as Mb;
 use serde::{de, Deserialize, Serialize, Serializer};
 
 fn serialize_scancode<S>(sc: &Sc, s: S) -> Result<S::Ok, S::Error>

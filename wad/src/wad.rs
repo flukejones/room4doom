@@ -1,4 +1,7 @@
-use std::{fmt, fs::File, io::prelude::*, path::PathBuf, str};
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::PathBuf;
+use std::{fmt, str};
 
 /// Used as an index to find a specific lump, typically combined
 /// with an offset for example: find the index for lump named "E1M1"
@@ -310,9 +313,13 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Read, path::PathBuf};
+    use std::fs::File;
+    use std::io::Read;
+    use std::path::PathBuf;
 
-    use crate::{lumps::WadPatch, wad::WadData, MapLump};
+    use crate::lumps::WadPatch;
+    use crate::wad::WadData;
+    use crate::MapLump;
 
     fn read_file(file_path: PathBuf) -> Vec<u8> {
         let mut file =

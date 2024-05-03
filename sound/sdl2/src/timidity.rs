@@ -2,7 +2,8 @@
 //! `DMXGUSC` from the Wad data.
 
 use serde::{Deserialize, Serialize};
-use std::{num::ParseIntError, path::PathBuf};
+use std::num::ParseIntError;
+use std::path::PathBuf;
 
 use log::warn;
 use wad::WadData;
@@ -142,7 +143,9 @@ pub fn make_timidity_cfg(
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Write, path::PathBuf};
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::PathBuf;
 
     use wad::WadData;
 

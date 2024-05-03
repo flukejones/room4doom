@@ -2,15 +2,10 @@ use std::ptr;
 
 use glam::Vec2;
 
-use crate::{
-    info::MapObjKind,
-    level::map_defs::LineDef,
-    thinker::ThinkerData,
-    DPtr,
-    Level,
-    MapObject,
-    Sector,
-};
+use crate::info::MapObjKind;
+use crate::level::map_defs::LineDef;
+use crate::thinker::ThinkerData;
+use crate::{DPtr, Level, MapObject, Sector};
 
 use crate::thing::MapObjFlag;
 

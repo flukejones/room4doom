@@ -11,28 +11,25 @@ use sound_traits::SfxName;
 pub(crate) mod enemy;
 mod shooting;
 
-use std::{fmt::Debug, ptr::null_mut};
+use std::fmt::Debug;
+use std::ptr::null_mut;
 
 use self::movement::SubSectorMinMax;
 
-use crate::{
-    doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER},
-    level::Level,
-    thinker::{Think, Thinker, ThinkerData},
-    Skill,
-};
+use crate::doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER};
+use crate::level::Level;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use crate::Skill;
 use glam::Vec2;
 use log::{debug, error, info};
 use wad::lumps::WadThing;
 
-use crate::{
-    angle::Angle,
-    doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT},
-    info::{MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES},
-    level::map_defs::SubSector,
-    player::{Player, PlayerState},
-    utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide},
-};
+use crate::angle::Angle;
+use crate::doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};
+use crate::info::{MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES};
+use crate::level::map_defs::SubSector;
+use crate::player::{Player, PlayerState};
+use crate::utilities::{p_random, p_subrandom, point_to_angle_2, BestSlide};
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]

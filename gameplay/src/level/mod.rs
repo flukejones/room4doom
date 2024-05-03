@@ -9,24 +9,22 @@ pub mod map_data;
 pub mod map_defs;
 pub mod node;
 
-use std::{cell::RefCell, ptr, rc::Rc};
+use std::cell::RefCell;
+use std::ptr;
+use std::rc::Rc;
 
 use log::info;
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
-use wad::{lumps::WadThing, WadData};
+use wad::lumps::WadThing;
+use wad::WadData;
 
-use crate::{
-    doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS},
-    env::platforms::{PlatStatus, Platform},
-    level::map_data::MapData,
-    pic::Button,
-    thinker::ThinkerAlloc,
-    DPtr,
-    PicData,
-    Player,
-    Skill,
-};
+use crate::doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS};
+use crate::env::platforms::{PlatStatus, Platform};
+use crate::level::map_data::MapData;
+use crate::pic::Button;
+use crate::thinker::ThinkerAlloc;
+use crate::{DPtr, PicData, Player, Skill};
 
 use self::map_defs::LineDef;
 

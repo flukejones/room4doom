@@ -1,8 +1,6 @@
 use glam::Vec2;
-use std::{
-    f32::consts::{PI, TAU},
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-};
+use std::f32::consts::{PI, TAU};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Angle(f32);

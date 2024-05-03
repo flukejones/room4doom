@@ -6,34 +6,22 @@
 //!
 //! Doom source name `p_enemy`
 
-use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
-    ptr,
-};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::ptr;
 
 use log::trace;
 use sound_traits::SfxName;
 
+use crate::doom_def::{MISSILERANGE, SKULLSPEED};
+use crate::env::doors::{ev_do_door, DoorKind};
+use crate::env::floor::{ev_do_floor, FloorKind};
+use crate::info::{StateNum, MOBJINFO};
+use crate::level::map_defs::{LineDef, SlopeType};
+use crate::thing::{MapObjFlag, MapObject, MoveDir};
+use crate::thinker::{Thinker, ThinkerData};
+use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
-    doom_def::{MISSILERANGE, SKULLSPEED},
-    env::{
-        doors::{ev_do_door, DoorKind},
-        floor::{ev_do_floor, FloorKind},
-    },
-    info::{StateNum, MOBJINFO},
-    level::map_defs::{LineDef, SlopeType},
-    teleport_move,
-    thing::{MapObjFlag, MapObject, MoveDir},
-    thinker::{Thinker, ThinkerData},
-    utilities::{p_random, point_to_angle_2, PortalZ},
-    Angle,
-    DPtr,
-    GameMode,
-    LineDefFlags,
-    MapObjKind,
-    Sector,
-    Skill,
-    MAXPLAYERS,
+    teleport_move, Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS
 };
 
 use super::movement::SubSectorMinMax;

@@ -4,43 +4,26 @@
 //!
 //! Doom source name `p_spec`
 
-use std::ptr;
-
-use crate::thing::MapObject;
-
-use crate::{
-    env::{
-        ceiling::{ev_do_ceiling, CeilKind},
-        doors::{ev_do_door, DoorKind},
-        floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
-        lights::{
-            ev_start_light_strobing,
-            ev_turn_light_on,
-            ev_turn_tag_lights_off,
-            FireFlicker,
-            Glow,
-            LightFlash,
-            StrobeFlash,
-            FASTDARK,
-            SLOWDARK,
-        },
-        platforms::{ev_do_platform, ev_stop_platform, PlatKind},
-        switch::{change_switch_texture, start_sector_sound},
-        teleport::teleport,
-    },
-    info::MapObjKind,
-    level::{
-        flags::LineDefFlags,
-        map_defs::{LineDef, Sector},
-        Level,
-    },
-    pic::{ButtonWhere, PicAnimation},
-    utilities::circle_line_collide,
-    DPtr,
-    PicData,
+use crate::env::ceiling::{ev_do_ceiling, CeilKind};
+use crate::env::doors::{ev_do_door, DoorKind};
+use crate::env::floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
+use crate::env::lights::{
+    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow, LightFlash, StrobeFlash, FASTDARK, SLOWDARK
 };
+use crate::env::platforms::{ev_do_platform, ev_stop_platform, PlatKind};
+use crate::env::switch::{change_switch_texture, start_sector_sound};
+use crate::env::teleport::teleport;
+use crate::info::MapObjKind;
+use crate::level::flags::LineDefFlags;
+use crate::level::map_defs::{LineDef, Sector};
+use crate::level::Level;
+use crate::pic::{ButtonWhere, PicAnimation};
+use crate::thing::MapObject;
+use crate::utilities::circle_line_collide;
+use crate::{DPtr, PicData};
 use log::{debug, error, trace};
 use sound_traits::SfxName;
+use std::ptr;
 
 pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {

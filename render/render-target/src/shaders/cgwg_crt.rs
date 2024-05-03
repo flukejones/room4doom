@@ -1,7 +1,8 @@
 use std::f32::consts::FRAC_PI_4;
 
 use gameplay::glam::{Mat4, Vec3};
-use golem::{Dimension::*, *};
+use golem::Dimension::*;
+use golem::*;
 
 use super::{ShaderDraw, GL_QUAD, GL_QUAD_INDICES};
 

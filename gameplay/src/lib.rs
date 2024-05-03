@@ -9,11 +9,9 @@
 // #![feature(const_fn_floating_point_arithmetic)]
 #![allow(clippy::new_without_default)]
 
-use std::{
-    f32::consts::TAU,
-    fmt::{self, Debug},
-    ops::{Deref, DerefMut},
-};
+use std::f32::consts::TAU;
+use std::fmt::{self, Debug};
+use std::ops::{Deref, DerefMut};
 
 #[cfg(null_check)]
 use std::panic;
@@ -35,40 +33,26 @@ pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{
-    AmmoType,
-    Card,
-    GameAction,
-    GameMission,
-    GameMode,
-    PowerType,
-    WeaponType,
-    DOOM_VERSION,
-    MAXPLAYERS,
-    TICRATE,
-    WEAPON_INFO,
+    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION, MAXPLAYERS, TICRATE, WEAPON_INFO
 };
-pub use env::{
-    specials::{spawn_specials, update_specials},
-    teleport::teleport_move,
-};
+pub use env::specials::{spawn_specials, update_specials};
+pub use env::teleport::teleport_move;
 pub use info::MapObjKind;
 pub use lang::english;
-pub use level::{
-    flags::LineDefFlags,
-    map_data::{MapData, IS_SSECTOR_MASK},
-    map_defs::{Node, Sector, Segment, SubSector},
-    Level,
-};
+pub use level::flags::LineDefFlags;
+pub use level::map_data::{MapData, IS_SSECTOR_MASK};
+pub use level::map_defs::{Node, Sector, Segment, SubSector};
+pub use level::Level;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WBPlayerStruct, WBStartStruct};
 pub use player_sprite::PspDef;
-use std::{error::Error, str::FromStr};
+use std::error::Error;
+use std::str::FromStr;
 pub use thing::{MapObjFlag, MapObject};
 pub use utilities::{m_clear_random, m_random, p_random, point_to_angle_2};
 
 // re-export
-pub use glam;
-pub use log;
+pub use {glam, log};
 
 #[derive(Debug)]
 pub enum DoomArgError {
