@@ -647,7 +647,7 @@ mod tests {
 
     #[test]
     fn texture1_header_0() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let lump = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(lump.name, "TEXTURE1");
         assert_eq!(lump.data.len(), 9234);
@@ -715,7 +715,7 @@ mod tests {
 
     #[test]
     fn pnames_array() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let lump = wad.find_lump_or_panic("PNAMES");
         assert_eq!(lump.name, "PNAMES");
         assert_eq!(lump.data.len(), 2804);
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     #[ignore = "Registered Doom only"]
     fn texture2_header() {
-        let wad = WadData::new("../doom.wad".into());
+        let wad = WadData::new("../../doom.wad".into());
         let lump = wad.find_lump_or_panic("TEXTURE2");
         assert_eq!(lump.name, "TEXTURE2");
         assert_eq!(lump.data.len(), 8036);

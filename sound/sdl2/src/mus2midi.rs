@@ -534,10 +534,10 @@ mod tests {
         assert_eq!(mus2mid[2833], e1m2[2833]);
     }
 
-    #[ignore = "CI doesn't have a sound device"]
     #[test]
+    #[ignore = "CI doesn't have a sound device"]
     fn play_midi_basic() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M8").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();
@@ -569,12 +569,12 @@ mod tests {
         std::thread::sleep(Duration::from_secs(10));
     }
 
-    #[ignore = "CI doesn't have a sound device"]
     #[test]
+    #[ignore = "CI doesn't have a sound device"]
     fn play_midi() {
         set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
         set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M1").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();

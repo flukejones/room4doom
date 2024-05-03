@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn test_tracing_bsp() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
         let origin = Vec2::new(710.0, -3400.0); // left corner from start
@@ -799,7 +799,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_things() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
@@ -826,7 +826,7 @@ mod tests {
     #[test]
     #[allow(clippy::float_cmp)]
     fn check_e1m1_lump_pointers() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
@@ -862,7 +862,7 @@ mod tests {
 
     #[test]
     fn check_e1m1_linedefs() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
@@ -886,7 +886,7 @@ mod tests {
     #[test]
     #[allow(clippy::float_cmp)]
     fn check_e1m1_sectors() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
@@ -905,7 +905,7 @@ mod tests {
     #[test]
     #[allow(clippy::float_cmp)]
     fn check_e1m1_sidedefs() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
@@ -921,7 +921,7 @@ mod tests {
     #[test]
     #[allow(clippy::float_cmp)]
     fn check_e1m1_segments() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
 
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
@@ -948,7 +948,7 @@ mod tests {
 
     #[test]
     fn find_vertex_using_bsptree() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new("../../doom1.wad".into());
         let mut map = MapData::new("E1M1".to_owned());
         map.load(&PicData::default(), &wad);
 
