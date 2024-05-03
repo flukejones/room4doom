@@ -1,9 +1,9 @@
 [package]
 name = "wad"
-version = "1.1.0"
-authors = ["Luke Jones <luke@ljones.dev>"]
-edition = "2021"
-license = "MPL-2.0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 log.workspace = true
