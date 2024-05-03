@@ -207,10 +207,10 @@ impl SoftwareRenderer {
             return true;
         }
 
-        let fov_scale = self.fov_scale;
+        let y_scale = self.y_scale;
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
-        vis.scale = x_scale * fov_scale; // Note: increase Y
+        vis.scale = x_scale * y_scale; // Note: increase Y
         vis.gx = thing.xy.x;
         vis.gy = thing.xy.y;
         vis.gz = thing.z;
@@ -230,7 +230,7 @@ impl SoftwareRenderer {
             vis.start_frac = 0.0;
             vis.x_iscale = iscale;
         }
-        vis.x_iscale /= fov_scale; // Note: proportion to x_scale
+        vis.x_iscale /= y_scale; // Note: proportion to x_scale
 
         // Catches certain orientations
         if vis.x1 > x1 {
@@ -269,7 +269,7 @@ impl SoftwareRenderer {
             pic_data.sprite_light_colourmap(vis.light_level, vis.scale)
         };
 
-        let xfrac = vis.x_iscale * self.fov_scale; // proportional to x1..x2
+        let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
         for x in vis.x1.ceil() as usize..=vis.x2.floor() as usize {
             let tex_column = frac as usize;
             if tex_column >= patch.data.len() {
@@ -425,7 +425,7 @@ impl SoftwareRenderer {
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
-        let x_offset = pspritescale / self.fov_scale;
+        let x_offset = pspritescale / self.y_scale;
         let x1 = pixels.size().half_width_f32() + (tx * x_offset);
 
         if x1 >= pixels.size().width_f32() {

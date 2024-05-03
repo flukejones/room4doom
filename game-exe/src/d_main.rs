@@ -2,7 +2,7 @@
 //! run all tics then display the result. Handling of actual game-exe state is done
 //! withing the `Game` object.
 
-use std::{error::Error, f32::consts::FRAC_PI_2, mem};
+use std::{error::Error, mem};
 
 use finale_doom::Finale;
 use gameplay::{
@@ -32,6 +32,19 @@ use crate::{
     CLIOptions,
 };
 
+/// Used to set correct buffer width for screen dimensions matching the OD Doom height
+fn buffer_dimensions(width: f32, height: f32, double: bool) -> (usize, usize) {
+    let screen_ratio = width / height;
+    let mut buf_height = 200;
+
+    let mut buf_width = (buf_height as f32 * screen_ratio) as i32;
+    if double {
+        buf_width *= 2;
+        buf_height *= 2;
+    }
+    (buf_width as usize, buf_height)
+}
+
 /// Never returns until `game.running` is set to false
 pub fn d_doom_loop(
     mut game: Game,
@@ -40,12 +53,14 @@ pub fn d_doom_loop(
     gl_ctx: golem::Context,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let screen_ratio = window.size().0 as f32 / window.size().1 as f32;
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
+    let double = options.double.is_some() && options.double.unwrap();
+    let (buf_width, buf_height) =
+        buffer_dimensions(window.size().0 as f32, window.size().1 as f32, double);
     let mut canvas = window
         .into_canvas()
         .present_vsync()
@@ -53,15 +68,7 @@ pub fn d_doom_loop(
         .build()
         .unwrap();
 
-    let fov = FRAC_PI_2;
-    let mut buf_height = 200;
-    let mut buf_width = (buf_height as f32 * screen_ratio) as usize;
-    if options.double.is_some() && options.double.unwrap() {
-        buf_width *= 2;
-        buf_height *= 2;
-    }
-    let v_dist = buf_height as f32 / 2.0 / (fov * 0.82 / 2.0).tan();
-    let h_fov = 2.0 * (buf_width as f32 / 2.0 / v_dist).atan() - 0.3f32.to_radians();
+    let fov = 90f32.to_radians();
 
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
@@ -82,7 +89,7 @@ pub fn d_doom_loop(
 
     let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
     let mut renderer = SoftwareRenderer::new(
-        h_fov,
+        fov,
         buf_width,
         buf_height,
         matches!(verbose, log::LevelFilter::Debug),

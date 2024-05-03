@@ -1,7 +1,10 @@
 use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     segs::{draw_column_style_flats, draw_sky_column},
-    utilities::{angle_to_screen, screen_to_x_view, vertex_angle_to_object},
+    utilities::{
+        angle_to_screen, corrected_fov_for_height, projection, screen_to_x_view,
+        vertex_angle_to_object, y_scale,
+    },
 };
 use gameplay::{
     log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
@@ -59,12 +62,10 @@ pub struct SoftwareRenderer {
     /// Used for checking if a sector has been worked on when iterating over
     pub(super) checked_sectors: Vec<u32>,
 
-    pub fov: f32,
     /// Mostly used in thing drawing only
-    pub fov_scale: f32,
+    pub y_scale: f32,
+    /// Mostly used in thing drawing only
     pub projection: f32,
-    /// Mostly used in thing drawing only. But is the same as in segs drawing
-    pub wide_ratio: f32,
 }
 
 impl PlayRenderer for SoftwareRenderer {
@@ -110,17 +111,9 @@ impl PlayRenderer for SoftwareRenderer {
 
 impl SoftwareRenderer {
     pub fn new(fov: f32, buf_width: usize, buf_height: usize, debug: bool) -> Self {
-        let wide_ratio = buf_height as f32 / buf_width as f32 * 320. / 200.;
-        // Find the canonical FOV of OG Doom.
-        // TODO: This needs to be inversely proportional to the actual FOV so
-        // that custom fov can be used
-        // let v_dist = 200.0 / (fov * 0.82 / 2.0).tan();
-        // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// == 100degrees
-        let og_fov = 100.150536f32.to_radians();
-        let scale_ratio = og_fov / fov;
-        let centerx = buf_width as f32 / 2.0;
-        let fov_scale = (fov / 2.0 * wide_ratio / scale_ratio).tan();
-        let projection = centerx / fov_scale * wide_ratio;
+        let fov = corrected_fov_for_height(fov, buf_width as f32, buf_height as f32);
+        let projection = projection(fov, buf_width as f32 / 2.0);
+        let y_scale = y_scale(fov, buf_width as f32, buf_height as f32);
 
         Self {
             r_data: RenderData::new(buf_width, buf_height),
@@ -137,10 +130,8 @@ impl SoftwareRenderer {
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
             next_vissprite: 0,
-            fov,
-            fov_scale,
+            y_scale,
             projection,
-            wide_ratio,
         }
     }
 

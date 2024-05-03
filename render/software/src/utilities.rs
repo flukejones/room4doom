@@ -3,12 +3,32 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
-fn player_dist_to_screen(fov: f32, screen_width_half: f32) -> f32 {
-    screen_width_half / (fov / 2.0).tan()
+/// Find a new fov for the width of buffer proportional to the OG Doom height
+pub fn corrected_fov_for_height(fov: f32, width: f32, height: f32) -> f32 {
+    let v_dist = height / 2.0 / (fov * 0.82 / 2.0).tan();
+    2.0 * (width / 2.0 / v_dist).atan() - 0.3f32.to_radians()
+}
+
+/// A scaling factor generally applied to the sprite rendering to get the
+/// height proportions right
+pub fn y_scale(fov: f32, buf_width: f32, buf_height: f32) -> f32 {
+    // Find the canonical FOV of OG Doom.
+    // TODO: This needs to be inversely proportional to the actual FOV so
+    // that custom fov can be used
+    // let v_dist = 200.0 / (fov * 0.82 / 2.0).tan();
+    // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// == 100degrees
+    let og_fov = 100.150536f32.to_radians();
+    let fov_ratio = og_fov / fov;
+    let wide_ratio = buf_height / buf_width * 320. / 200.;
+    (fov / 2.0 * wide_ratio / fov_ratio).tan()
+}
+
+pub fn projection(fov: f32, screen_width_half: f32) -> f32 {
+    screen_width_half / (fov / 2.0 - 0.3f32.to_radians()).tan()
 }
 
 pub fn screen_to_x_view(fov: f32, x: f32, screen_width_half: f32) -> f32 {
-    ((screen_width_half - x) / player_dist_to_screen(fov, screen_width_half)).atan()
+    ((screen_width_half - x) / projection(fov, screen_width_half)).atan()
 }
 
 /// R_PointToDist
@@ -25,7 +45,7 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 // The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
 // The out value if floored and clamped to the screen width min/max.
 pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
-    let focal = player_dist_to_screen(fov, half_screen_width);
+    let focal = projection(fov, half_screen_width);
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that two
     // values straddling a line may go one way or the other
