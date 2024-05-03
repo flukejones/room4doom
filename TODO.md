@@ -1,9 +1,20 @@
 # TODO
 
-- [ ] P_TeleportMove
-- [x] Check textures are correctly sized an aligned
-- [ ] Find the cause of missing draw columns in large maps like e6m6
-- [x] Widescreen
+## BUGS
+
+- [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping
+- [-] Monster rotations when walking towards off-by-one? Unsure
+- [ ] Aim/shoot tries to hit low enemy even if portal blocks view
+- [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
+- [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
+- [-] Demons shouldn't open locked doors (Actual Doom isue)
+- [x] Fix the types in texture module
+
+## Graphics
+
+- [ ] OpenGL renderer
+- [ ] Vulkan renderer
+- [x] Widescreen (software)
   - [x] Correct FOV for proper 4:3 scale drawing (segs/flats)
   - [x] Adjust all sprites to correct aspect of screen
   - [x] apply ratio scaling to scale_from_view_angle()
@@ -12,19 +23,29 @@
   - [x] apply ratio scaling to fov_scale in bsp module
   - [ ] Adjust lightmaps to match
   - [ ] Add display res selection
-  - [ ] Add draw res selection maybe? As opposed to low/hi res
   - [ ] Menus and HUD scaling + ratio correction
-  - [ ] FOV setting, will require figuring out better thing scaling
+
+## GAMEPLAY STUFF
+
+- [ ] P_TeleportMove teleport_move
+- [x] Check textures are correctly sized an aligned
+- [x] Find the cause of missing draw columns in large maps like e6m6 (float precision in `angle_to_screen()`)
 - [x] Convert static arrays in much of the renderer structs to Vec since at high res they can potentially overflow the stack
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
+- [-] Really need swept-volume collisions (done half-arsed)
+- [-] P_KillMobj (target/source stuff)
+- [-] P_UpdateSpecials (todo: level timer)
 
-## FUNCTIONALITY
+## CORE/FEATURE FUNCTIONALITY
 
 - [-] Menu screens (partial. Other functionality required before completion)
-- [-] Intermissions and finale (intermission has no animated text. Finale needs cast for Doom II, and bunny for Doom)
+- [x] Intermissions and finale
+  - [ ] Bunny screen
+  - [ ] Doom II cast
 - [-] HUD (Done except for multiplayer chat)
+  - [ ] Show "Found a secret" message
 - [ ] Automap
 - [x] Status bar
 - [ ] Demo playback
@@ -37,17 +58,7 @@
   - [ ] Maybe use the `usefulness` field..
   - [ ] Channels all play?
   - [ ] OPL2 emulation (a lot of work here)
-  - [ ] Load music from extra wads
-
-## BUGS
-
-- [ ] Floating blood? Likely to be a float error
-- [-] Monster rotations when walking towards off-by-one? Unsure
-- [ ] Aim/shoot tries to hit low enemy even if portal blocks view
-- [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
-- [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
-- [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [ ] Fix the types in texture module
+  - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
 
 ## IMPROVEMENTS
 
@@ -62,13 +73,6 @@
       . It's (currently) not possible to "step" on top of another object
 - [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
-## Graphics
-
-- [ ] Graphics options config in config file
-- [ ] Add a _true_ software renderer using the OG fixed-point style of DOOM
-- [ ] OpenGL renderer
-- [ ] Vulkan renderer
-
 ## BOOM stuff to consider
 
 - [ ] Lump name `SWITCHES`, extend the switch list
@@ -77,12 +81,6 @@
 - [ ] New linedef flag, bit 9, PassThru, that allows one push to activate several functions simultaneously.
 - [ ] Generalized linedef types added in range 2F80H - 7FFFH
 - [ ] Generalized sector types using bits 5-11 of the sector type field
-
-## PARTIAL-COMPLETE
-
-- [-] Really need swept-volume collisions (done half-arsed)
-- [-] P_KillMobj (target/source stuff)
-- [-] P_UpdateSpecials (todo: level timer)
 
 ## DONE
 
