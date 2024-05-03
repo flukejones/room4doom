@@ -1,82 +1,61 @@
 # ROOM - Rusty Doom
 
-This is a personal project to rewrite Doom C in Rust. Where possible I try to keep the original
-Doom behaviour intact, while also making some improvements. I am also trying to document everything
-as I go along.
+This is a personal project to rewrite Doom C in Rust. Where possible I try to keep the Doom behaviour intact, while also making some improvements. I am also trying to document everything as I go along.
 
 I originally started by following along with [https://github.com/amroibrahim/DIYDoom](https://github.com/amroibrahim/DIYDoom)
 
 Take a look at how [I progressed through](https://ljones.dev/blog/room4doom-20220529/)
 
-Be warned that because the initial code is transliterated as much as possible from the Doom C except
-where that causes issues, many things may not be optimal or idiomatic rust. There will be things like
-dodgy casts, unrequired `as` casts, unused fields or args, lots of `unsafe` blocks etc. The main thing
-I tried to do was bring up the game to a fully playable state _fast_, and _then_ begin to optimise,
-refactor, or redesign components - it is much easier to do when you have a working playable state to
-begin with that can be used for play-testing and such.
+Be warned that because the initial code is transliterated as much as possible from the Doom C except where that causes issues, many things may not be optimal or idiomatic rust. There will be things like dodgy casts, unrequired `as` casts, unused fields or args, lots of `unsafe` blocks etc. The main thing
+I tried to do was bring up the game to a fully playable state _fast_, and _then_ begin to optimise, refactor, or redesign components - it is much easier to do when you have a working playable state to begin with that can be used for play-testing and such.
 
-The code can dramatically change as I learn new or better ways to do things.
+The code will dramatically change pver time.
 
 ## Goals
 
-Not sure. I started this as a personal project to pretty much try and rewrite Doom in Rust only.
-But, as time went on and I learned more of the engine I saw more areas I could improve, or things
-that would maybe work well as split-out crates (gameplay for example). I think the final goal boils
-down to the following points:
-
-- Try to be as close as possible to original Doom source
-- But try to improve things where possible while somehow keeping classic behaviour
-- Compartmentalise the engine in to crates where possible, such that:
-  - Sound is independant
-  - Rendering (each renderer/drawer; player view, status, hud etc) and be swapped out
-  - Expose the minimal possible API to gameplay crate such that it could be used
-    on its own to drive Doom, with all non-gamplay (read, level loaded and playing)
-    related stuff is delegated out
+- To retain the classic Doom look with a software renderer
+- To retain the classic Doom gameplay as much as possible
+- Identify and split out individual systems as crates for easy changing
 - Boom improvements compatibility
-- Add an example isometric renderer
-- Hi-Res mode
-- Widescreen modes
 
 And maybe write a book on all I've learned about writing a Doom engine.
 
-### Implemented (so far):
+## CORE/FEATURE FUNCTIONALITY
 
-- Software rendering
-- Menus (not all items complete though)
-- HUD + statusbar (improved)
-- Intermission and finales.
-- Lighting (diminished, animated)
-- Movers (environment things, like doors, platforms)
-- Thinkers (used for the above + demons)
-- Thinker states and changing
-- Sprites
-- Input
-- Cheats (partial for debugging)
-- CLI options (use `--help`)
-- Basic surface shaders (ROOM renders to a surface that a shader can manipulate)
-- Sound
-- Music
-- Shooting
-- Item pickup and use
-- 99% of gameplay (Need to do Doom II boss and pain elemental then it's done)
+- [x] All gameplay features for Doom and Doom II
+- [x] Status bar (face, health, armour, keys, ammo, cheats)
+- [x] Powerup/damage palette effects
+- [x] Thinkers for all things
+- [-] HUD (Done except for multiplayer chat)
+  - [ ] Show "Found a secret" message
+- [-] Menu screens (partial. New game, quit)
+- [x] Intermissions and finale
+  - [x] Stats
+  - [x] Episode end text
+  - [ ] Bunny screen
+  - [ ] Doom II cast
+- [ ] Automap
+- [ ] Demo playback
+- [ ] Save/load game
+- [-] Sound:
+  - [x] Verify positional sound
+  - [x] Verify distance and cutoff
+  - [x] Check the volumes (had to divide midi track vol in half)
+  - [ ] Add the pitch shift
+  - [ ] Maybe use the `usefulness` field..
+  - [ ] OPL2 emulation (a lot of work here)
+  - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
+- [x] CLI options (use `--help`)
+
+See the **[TODO](./TODO.md)** for more.
 
 **Some of the improvements I've made (so far):**
 
 - BSP used for collisions (Doom used the blockmap)
 - BSP used for aiming, shooting, and LoS (Doom used the blockmap)
 - Floats instead of fixed-point (this may cause slight behaviour changes)
-- Hi-Res mode
-
-## TODO:
-
-I keep a list of things to do in [TODO](./TODO.md). It's worth looking at I guess because
-it serves sort of as a list of major points of interest, a kinda-sorta changelog, and a
-snapshot of where the engine state is right now.
-
-**Functionality TODO:**
-
-- Automap
-- Save/load game
+- Basic surface shaders (ROOM renders to a surface that a shader can manipulate)
+- Hi-Res and widescreen
 
 ## Building
 

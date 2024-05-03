@@ -35,23 +35,27 @@
 
 ## CORE/FEATURE FUNCTIONALITY
 
-- [-] Menu screens (partial. Other functionality required before completion)
-- [x] Intermissions and finale
-  - [ ] Bunny screen
-  - [ ] Doom II cast
+- [x] All gameplay features for Doom and Doom II
+- [x] Status bar (face, health, armour, keys, ammo, cheats)
+- [x] Powerup/damage palette effects
+- [x] Thinkers for all things
 - [-] HUD (Done except for multiplayer chat)
   - [ ] Show "Found a secret" message
+- [-] Menu screens (partial. New game, quit)
+- [x] Intermissions and finale
+  - [x] Stats
+  - [x] Episode end text
+  - [ ] Bunny screen
+  - [ ] Doom II cast
 - [ ] Automap
-- [x] Status bar
 - [ ] Demo playback
 - [ ] Save/load game
-- [ ] Sound:
+- [-] Sound:
   - [x] Verify positional sound
   - [x] Verify distance and cutoff
   - [x] Check the volumes (had to divide midi track vol in half)
   - [ ] Add the pitch shift
   - [ ] Maybe use the `usefulness` field..
-  - [ ] Channels all play?
   - [ ] OPL2 emulation (a lot of work here)
   - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
 
