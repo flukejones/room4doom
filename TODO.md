@@ -4,11 +4,10 @@
 
 - [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping
 - [-] Monster rotations when walking towards off-by-one? Unsure
-- [ ] Aim/shoot tries to hit low enemy even if portal blocks view
+- [-] Aim/shoot tries to hit low enemy even if portal blocks view
 - [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [x] Fix the types in texture module
 
 ## Graphics
 
@@ -27,16 +26,12 @@
 
 ## GAMEPLAY STUFF
 
-- [ ] P_TeleportMove teleport_move
-- [x] Check textures are correctly sized an aligned
-- [x] Find the cause of missing draw columns in large maps like e6m6 (float precision in `angle_to_screen()`)
-- [x] Convert static arrays in much of the renderer structs to Vec since at high res they can potentially overflow the stack
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
 - [-] Really need swept-volume collisions (done half-arsed)
 - [-] P_KillMobj (target/source stuff)
-- [-] P_UpdateSpecials (todo: level timer)
+- [x] P_UpdateSpecials (todo: level timer)
 
 ## CORE/FEATURE FUNCTIONALITY
 
@@ -84,6 +79,11 @@
 
 ## DONE
 
+- [x] Fix the types in texture module
+- [x] P_TeleportMove teleport_move
+- [x] Check textures are correctly sized an aligned
+- [x] Find the cause of missing draw columns in large maps like e6m6 (float precision in `angle_to_screen()`)
+- [x] Convert static arrays in much of the renderer structs to Vec since at high res they can potentially overflow the stack
 - [x] Statusbar doomguy face god-mode
 - [x] BFG spray
 - [x] Pain elemental attacks and die

@@ -882,14 +882,18 @@ pub fn spawn_specials(level: &mut Level) {
 
 /// Doom function name `P_UpdateSpecials`
 pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_data: &mut PicData) {
-    // TODO: level timer
-    //if level.level_time
+    // Used mostly for deathmatch as far as I know
+    if level.level_timer && level.level_time == 0 {
+        // exit
+        level.do_exit_level();
+    }
 
     // Flats and wall texture animations (switching between series)
     for anim in animations {
         anim.update(pic_data, level.level_time as usize);
     }
 
+    // Animate switches
     for b in level.button_list.iter_mut() {
         if b.timer != 0 {
             b.timer -= 1;

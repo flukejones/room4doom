@@ -35,10 +35,16 @@ use self::map_defs::LineDef;
 /// it makes it easier for all involved thinkers and functions to
 /// work with the data, as much of it is interlinked.
 pub struct Level {
+    /// All the data required to build and display a level
     pub map_data: MapData,
+    /// Thinkers are objects that are not static, like enemies, switches,
+    /// platforms, lights etc
     pub thinkers: ThinkerAlloc,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
+    // Used mostly for deathmatch as far as I know
+    pub level_timer: bool,
+    /// Time spent in level
     pub level_time: u32,
     /// Required for the thing controller (Boss check)
     pub episode: usize,
@@ -137,6 +143,7 @@ impl Level {
             game_skill: skill,
             respawn_monsters,
             level_time: 0,
+            level_timer: false,
             episode,
             game_map: map,
             game_tic: 0,

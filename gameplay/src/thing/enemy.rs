@@ -22,6 +22,7 @@ use crate::{
     },
     info::{StateNum, MOBJINFO},
     level::map_defs::{LineDef, SlopeType},
+    teleport_move,
     thing::{MapObjFlag, MapObject, MoveDir},
     thinker::{Thinker, ThinkerData},
     utilities::{p_random, point_to_angle_2, PortalZ},
@@ -503,7 +504,7 @@ pub(crate) fn a_spawnfly(actor: &mut MapObject) {
         if new_critter.look_for_players(true) {
             new_critter.set_state(new_critter.info.seestate);
         }
-        // TODO: P_TeleportMove
+        teleport_move(xy, new_critter, level);
         actor.remove();
     }
 }

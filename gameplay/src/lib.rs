@@ -47,7 +47,10 @@ pub use doom_def::{
     TICRATE,
     WEAPON_INFO,
 };
-pub use env::specials::{spawn_specials, update_specials};
+pub use env::{
+    specials::{spawn_specials, update_specials},
+    teleport::teleport_move,
+};
 pub use info::MapObjKind;
 pub use lang::english;
 pub use level::{

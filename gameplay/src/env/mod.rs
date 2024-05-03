@@ -8,4 +8,4 @@ pub(crate) mod lights;
 pub(crate) mod platforms;
 pub(crate) mod specials;
 pub(crate) mod switch;
-mod teleport;
+pub(crate) mod teleport;

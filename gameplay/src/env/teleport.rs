@@ -98,7 +98,7 @@ pub fn teleport(
 }
 
 /// Doom function nam `P_TeleportMove`
-fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
+pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
     let new_subsect = unsafe { &mut *level.map_data.point_in_subsector_raw(xy) };
     let floorz = new_subsect.sector.floorheight;
     let ceilzz = new_subsect.sector.ceilingheight;
