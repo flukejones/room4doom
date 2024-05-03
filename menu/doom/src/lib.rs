@@ -1,7 +1,8 @@
 //! A menu `Machination` as used by Doom. This loads and uses the Doom assets to
-//! display the menu but because it uses `MachinationTrait` for the actual interaction
-//! with the rest of the game it ends up being fairly generic - you could make this
-//! fully generic with a little work, or use it as the basis for a different menu.
+//! display the menu but because it uses `MachinationTrait` for the actual
+//! interaction with the rest of the game it ends up being fairly generic - you
+//! could make this fully generic with a little work, or use it as the basis for
+//! a different menu.
 
 use gamestate_traits::{GameMode, GameTraits, MachinationTrait, PixelBuffer, Scancode, Skill};
 use sound_traits::SfxName;
@@ -50,8 +51,8 @@ impl MenuItem {
     }
 }
 
-/// A title item, such as the DOOM logo. Typically drawn at the top of the menu but
-/// you could draw it anywhere you want really.
+/// A title item, such as the DOOM logo. Typically drawn at the top of the menu
+/// but you could draw it anywhere you want really.
 #[derive(Clone)]
 struct Title {
     /// The name of the patch in the wad to draw for this item
@@ -160,7 +161,8 @@ impl MenuDoom {
                 MenuIndex::TopLevel,
                 vec![Title::new("M_DOOM", 92, 2)], // Header item and position
                 97,                                // Sub-items starting X
-                64, // First item start Y (is incremented by LINEHEIGHT
+                64,                                /* First item start Y (is incremented by
+                                                    * LINEHEIGHT */
                 vec![
                     MenuItem::new(Status::Ok, "M_NGAME", sel_new_game, 'N'),
                     MenuItem::new(Status::Ok, "M_OPTION", place_holder, 'O'),

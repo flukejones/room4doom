@@ -1,6 +1,6 @@
-//! The main loop driver. The primary function is the main loop which attempts to
-//! run all tics then display the result. Handling of actual game-exe state is done
-//! withing the `Game` object.
+//! The main loop driver. The primary function is the main loop which attempts
+//! to run all tics then display the result. Handling of actual game-exe state
+//! is done withing the `Game` object.
 
 use std::{error::Error, mem};
 
@@ -12,7 +12,8 @@ use gameplay::{
 use gamestate::{machination::Machinations, Game};
 use gamestate_traits::{
     sdl2::{keyboard::Scancode, render::Canvas, video::Window},
-    GameState, MachinationTrait,
+    GameState,
+    MachinationTrait,
 };
 use hud_doom::Messages;
 use input::Input;
@@ -32,7 +33,8 @@ use crate::{
     CLIOptions,
 };
 
-/// Used to set correct buffer width for screen dimensions matching the OD Doom height
+/// Used to set correct buffer width for screen dimensions matching the OD Doom
+/// height
 fn buffer_dimensions(width: f32, height: f32, double: bool) -> (usize, usize) {
     let screen_ratio = width / height;
     let mut buf_height = 200;
@@ -280,8 +282,8 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
                 let colour = game.pic_data.borrow().palette()[*p];
                 for _ in 0..f {
                     draw_buf.set_pixel(
-                        (xtmp - n) as usize,              // - (image.left_offset as i32),
-                        (ytmp + c.y_offset * f) as usize, // - image.top_offset as i32 - 30,
+                        (xtmp - n) as usize, // - (image.left_offset as i32),
+                        (ytmp + c.y_offset * f) as usize, /* - image.top_offset as i32 - 30, */
                         &colour.0,
                     );
                     ytmp += 1;
@@ -297,9 +299,10 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
 }
 
 /// Does a bunch of stuff in Doom...
-/// `pixels` is the buffer that is always drawn, so drawing in to `pixels2` then flipping
-/// ensures the buffer is drawn. But if we draw in to `pixels2` and don't flip, we can
-/// do the screen-melt by progressively drawing from `pixels2` to `pixels`.
+/// `pixels` is the buffer that is always drawn, so drawing in to `pixels2` then
+/// flipping ensures the buffer is drawn. But if we draw in to `pixels2` and
+/// don't flip, we can do the screen-melt by progressively drawing from
+/// `pixels2` to `pixels`.
 ///
 /// D_Display
 #[allow(clippy::too_many_arguments)]
@@ -437,7 +440,8 @@ fn process_events(
     >,
     cheats: &mut Cheats,
 ) {
-    // required for cheats and menu so they don't receive multiple key-press fo same key
+    // required for cheats and menu so they don't receive multiple key-press fo same
+    // key
     let callback = |sc: Scancode| {
         if game.level.is_some() {
             cheats.check_input(sc, game);

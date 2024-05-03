@@ -40,7 +40,7 @@ const GL_QUAD: [f32; 16] = [
     -1.0, -1.0, 0.0, 1.0, // bottom left
     1.0, -1.0, 1.0, 1.0, // bottom right
     1.0, 1.0, 1.0, 0.0, // top right
-    -1.0, 1.0, 0.0, 0.0, // top left
+    -1.0, 1.0, 0.0, 0.0, /* top left */
 ];
 
 const GL_QUAD_INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];

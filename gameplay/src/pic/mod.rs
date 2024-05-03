@@ -82,8 +82,9 @@ pub struct PicData {
     //
     sprite_patches: Vec<SpritePic>,
     sprite_defs: Vec<SpriteDef>,
-    /// The pallette to be used. Can be set with `set_pallette()` or `set_player_palette()`,
-    /// typically done on frame start to set effects like take-damage.
+    /// The pallette to be used. Can be set with `set_pallette()` or
+    /// `set_player_palette()`, typically done on frame start to set effects
+    /// like take-damage.
     use_pallette: usize,
     double_res: bool,
 }
@@ -185,7 +186,8 @@ impl PicData {
                         // let j = MAXLIGHTSCALE - j;
                         let mut level = startmap - j / 2;
                         // let scale = (160 / (j + 1)) as f32;
-                        // let mut level = startmap - (scale / 2.0) as i32;
+                        // let mut level = startmap - (scale / 2.0) as
+                        // i32;
                         if level < 0 {
                             level = 0;
                         }
@@ -199,7 +201,8 @@ impl PicData {
             .collect()
     }
 
-    /// A non-zero value is the the colourmap number forced to use for all light-levels
+    /// A non-zero value is the the colourmap number forced to use for all
+    /// light-levels
     pub fn set_fixed_lightscale(&mut self, colourmap: usize) {
         self.use_fixed_colourmap = colourmap
     }
@@ -410,8 +413,8 @@ impl PicData {
         }
     }
 
-    /// Get the number of the flat used for the sky texture. Sectors using this number
-    /// for the flat will be rendered with the skybox.
+    /// Get the number of the flat used for the sky texture. Sectors using this
+    /// number for the flat will be rendered with the skybox.
     pub fn sky_num(&self) -> usize {
         self.sky_num
     }
@@ -464,8 +467,8 @@ impl PicData {
         colourmap as usize
     }
 
-    /// Get the correct colourmapping for a light level. The colourmap is indexed by the Y coordinate
-    /// of a texture column.
+    /// Get the correct colourmapping for a light level. The colourmap is
+    /// indexed by the Y coordinate of a texture column.
     pub fn wall_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
@@ -495,8 +498,8 @@ impl PicData {
         &self.light_scale[light_level][colourmap]
     }
 
-    // pub fn light_colourmap(&self, light_level: usize, colourmap: usize) -> &[usize] {
-    //     &self.light_scale[light_level][colourmap]
+    // pub fn light_colourmap(&self, light_level: usize, colourmap: usize) ->
+    // &[usize] {     &self.light_scale[light_level][colourmap]
     // }
 
     pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: u32) -> &[usize] {

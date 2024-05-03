@@ -53,10 +53,11 @@ pub enum MapObjFlag {
     Justhit = 64,
     /// Will take at least one step before attacking.
     Justattacked = 128,
-    /// On level spawning (initial position), hang from ceiling instead of stand on floor.
+    /// On level spawning (initial position), hang from ceiling instead of stand
+    /// on floor.
     Spawnceiling = 256,
-    /// Don't apply gravity (every tic), that is, object will float, keeping current height
-    ///  or changing it actively.
+    /// Don't apply gravity (every tic), that is, object will float, keeping
+    /// current height  or changing it actively.
     Nogravity = 512,
     /// This allows jumps from high places.
     Dropoff = 0x400,
@@ -66,23 +67,31 @@ pub enum MapObjFlag {
     Noclip = 0x1000,
     /// Player: keep info about sliding along walls.
     Slide = 0x2000,
-    /// Allow moves to any height, no gravity. For active floaters, e.g. cacodemons, pain elementals.
+    /// Allow moves to any height, no gravity. For active floaters, e.g.
+    /// cacodemons, pain elementals.
     Float = 0x4000,
     /// Don't cross lines ??? or look at heights on teleport.
     Teleport = 0x8000,
-    /// Don't hit same species, explode on block. Player missiles as well as fireballs of various kinds.
+    /// Don't hit same species, explode on block. Player missiles as well as
+    /// fireballs of various kinds.
     Missile = 0x10000,
-    /// Dropped by a demon, not level spawned. E.g. ammo clips dropped by dying former humans.
+    /// Dropped by a demon, not level spawned. E.g. ammo clips dropped by dying
+    /// former humans.
     Dropped = 0x20000,
-    /// Use fuzzy draw (shadow demons or spectres),  temporary player invisibility powerup.
+    /// Use fuzzy draw (shadow demons or spectres),  temporary player
+    /// invisibility powerup.
     Shadow = 0x40000,
-    /// Flag: don't bleed when shot (use puff),  barrels and shootable furniture shall not bleed.
+    /// Flag: don't bleed when shot (use puff),  barrels and shootable furniture
+    /// shall not bleed.
     Noblood = 0x80000,
-    /// Don't stop moving halfway off a step, that is, have dead bodies slide down all the way.
+    /// Don't stop moving halfway off a step, that is, have dead bodies slide
+    /// down all the way.
     Corpse = 0x100000,
-    /// Floating to a height for a move, ??? don't auto float to target's height.
+    /// Floating to a height for a move, ??? don't auto float to target's
+    /// height.
     Infloat = 0x200000,
-    /// On kill, count this enemy object towards intermission kill total. Happy gathering.
+    /// On kill, count this enemy object towards intermission kill total. Happy
+    /// gathering.
     Countkill = 0x400000,
     /// On picking up, count this item object towards intermission item total.
     Countitem = 0x800000,
@@ -90,16 +99,18 @@ pub enum MapObjFlag {
     Skullfly = 0x1000000,
     /// Don't spawn this object in death match mode (e.g. key cards).
     Notdmatch = 0x2000000,
-    /// Player sprites in multiplayer modes are modified using an internal color lookup table
-    /// for re-indexing. If 0x4 0x8 or 0xc, use a translation table for player colormaps
-    Translation = 0xc000000,
+    /// Player sprites in multiplayer modes are modified using an internal color
+    /// lookup table for re-indexing. If 0x4 0x8 or 0xc, use a translation
+    /// table for player colormaps
+    Translation = 0xC000000,
     /// Hmm ???.
     Transshift = 26,
 }
 
 pub struct MapObject {
     /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
-    /// out of the `Thinker` then you must update sector thing lists and self linked list
+    /// out of the `Thinker` then you must update sector thing lists and self
+    /// linked list
     pub(crate) thinker: *mut Thinker,
     /// Specific to Doom II. These are pointers to targets that the
     /// final boss shoots demon spawn cubes towards. It is expected that
@@ -163,8 +174,9 @@ pub struct MapObject {
     /// If >0, the target will be chased
     /// no matter what (even if shot)
     pub(crate) threshold: i32,
-    /// Additional info record for player avatars only. Only valid if type == MT_PLAYER.
-    /// RUST: If this is not `None` then the pointer is guaranteed to point to a player
+    /// Additional info record for player avatars only. Only valid if type ==
+    /// MT_PLAYER. RUST: If this is not `None` then the pointer is
+    /// guaranteed to point to a player
     player: Option<*mut Player>,
     /// Player number last looked for, 1-4 (does not start at 0)
     lastlook: i32,
@@ -172,8 +184,8 @@ pub struct MapObject {
     spawn_point: Option<WadThing>,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
-    /// Every map object needs a link to the level structure to read various level
-    /// elements and possibly change some (sector links for example).
+    /// Every map object needs a link to the level structure to read various
+    /// level elements and possibly change some (sector links for example).
     pub(crate) level: *mut Level,
 }
 
@@ -346,8 +358,8 @@ impl MapObject {
             player.reborn();
         }
 
-        // Doom spawns this in it's memory manager then passes a pointer back. As fasr as I can see
-        // the Player object owns this.
+        // Doom spawns this in it's memory manager then passes a pointer back. As fasr
+        // as I can see the Player object owns this.
         let mobj = MapObject::spawn_map_object(
             mthing.x as f32,
             mthing.y as f32,
@@ -496,7 +508,8 @@ impl MapObject {
         }
     }
 
-    /// A thinker for metal spark/puff, typically used for gun-strikes against walls or non-fleshy things.
+    /// A thinker for metal spark/puff, typically used for gun-strikes against
+    /// walls or non-fleshy things.
     pub(crate) fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
         let mobj = unsafe { &mut *mobj };
@@ -628,8 +641,9 @@ impl MapObject {
 
     /// P_SpawnMobj
     ///
-    /// The callee is expected to handle adding the thinker with P_AddThinker, and
-    /// inserting in to the level thinker container (differently to doom).
+    /// The callee is expected to handle adding the thinker with P_AddThinker,
+    /// and inserting in to the level thinker container (differently to
+    /// doom).
     pub(crate) fn spawn_map_object(
         x: f32,
         y: f32,
@@ -768,9 +782,10 @@ impl MapObject {
         self.thinker_mut().mark_remove();
     }
 
-    /// Takes a valid thing and adjusts the thing->floorz, thing->ceilingz, and possibly thing->z.
-    /// This is called for all nearby monsters whenever a sector changes height.
-    /// If the thing doesn't fit, the z will be set to the lowest value and false will be returned.
+    /// Takes a valid thing and adjusts the thing->floorz, thing->ceilingz, and
+    /// possibly thing->z. This is called for all nearby monsters whenever a
+    /// sector changes height. If the thing doesn't fit, the z will be set
+    /// to the lowest value and false will be returned.
     ///
     /// Doom function name `P_ThingHeightClip`
     fn height_clip(&mut self) -> bool {
@@ -848,7 +863,7 @@ impl MapObject {
                 sfx,
                 self.xy.x,
                 self.xy.y,
-                self as *const Self as usize, // pointer cast as a UID
+                self as *const Self as usize, /* pointer cast as a UID */
             )
         }
     }

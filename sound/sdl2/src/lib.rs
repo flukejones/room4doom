@@ -26,7 +26,7 @@ mod test_sdl2;
 
 const MAX_DIST: f32 = 1666.0;
 const MIXER_CHANNELS: i32 = 32;
-const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1a];
+const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1A];
 const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
 
 pub type SndServerRx = Receiver<SoundAction<SfxName, usize>>;
@@ -67,8 +67,9 @@ where
 }
 
 struct SfxInfo {
-    /// Up to 6-character name. In the Lump the names are typically prefixed by `DS` or `DP`, so
-    /// the full Lump name is 8-char, while the name here has the prefix striped off.
+    /// Up to 6-character name. In the Lump the names are typically prefixed by
+    /// `DS` or `DP`, so the full Lump name is 8-char, while the name here
+    /// has the prefix striped off.
     _name: String,
     /// Priority of sound
     priority: i32,
@@ -97,7 +98,8 @@ impl SfxInfo {
     }
 }
 
-/// `to_fmt` is almost always going to be `AudioFormat::S16LSB`, `to_rate` typically `44_100`.
+/// `to_fmt` is almost always going to be `AudioFormat::S16LSB`, `to_rate`
+/// typically `44_100`.
 fn lump_sfx_to_chunk(
     raw_lump: Vec<u8>,
     to_fmt: AudioFormat,
@@ -110,7 +112,8 @@ fn lump_sfx_to_chunk(
 
     Chunk::from_raw_buffer(fixed.into_boxed_slice()).map(|mut c| {
         // Set base volume
-        c.set_volume(64); // TODO: figure out the best chunk base volume. Default is 128
+        c.set_volume(64); // TODO: figure out the best chunk base
+                          // volume. Default is 128
         c
     })
 }

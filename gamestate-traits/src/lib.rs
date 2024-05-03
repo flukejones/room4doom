@@ -1,11 +1,23 @@
-//! Exposes an API of sorts that allows crates for things like statusbar and intermission
-//! screens to get certain information they require or cause a gamestate change.
+//! Exposes an API of sorts that allows crates for things like statusbar and
+//! intermission screens to get certain information they require or cause a
+//! gamestate change.
 
 pub mod util;
 
 pub use gameplay::{
-    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill,
-    WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO,
+    m_random,
+    AmmoType,
+    Card,
+    GameMode,
+    PlayerCheat,
+    PlayerStatus,
+    PowerType,
+    Skill,
+    WBPlayerStruct,
+    WBStartStruct,
+    WeaponType,
+    TICRATE,
+    WEAPON_INFO,
 };
 pub use render_target::{PixelBuffer, RenderType};
 pub use sdl2::{self, keyboard::Scancode};
@@ -16,18 +28,19 @@ use wad::{
     WadData,
 };
 
-/// The current state of the game-exe: whether we are playing, gazing at the intermission screen,
-/// the game-exe final animation, or a demo.
+/// The current state of the game-exe: whether we are playing, gazing at the
+/// intermission screen, the game-exe final animation, or a demo.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameState {
     ForceWipe = -1,
-    /// The state the game will spend most of its time in is `GameState::Level` as this
-    /// is where all of the actual gameplay happens (including net + deathmatch play).
+    /// The state the game will spend most of its time in is `GameState::Level`
+    /// as this is where all of the actual gameplay happens (including net +
+    /// deathmatch play).
     Level,
     Intermission,
     Finale,
-    /// The second most seen state is `GameState::Demo` which plays back recorded demos
-    /// and is the default startup mode.
+    /// The second most seen state is `GameState::Demo` which plays back
+    /// recorded demos and is the default startup mode.
     Demo,
 }
 
@@ -36,10 +49,10 @@ pub trait GameTraits {
     /// Helper to start a new game, e.g, from menus
     fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32);
 
-    /// A lot of things in Doom are dependant on knowing which of the game releases
-    /// is currently being played. Commercial (Doom II) contains demons that Doom
-    /// doesn't have, and Doom contains intermission screens that Doom II doesn't
-    /// have (for example).
+    /// A lot of things in Doom are dependant on knowing which of the game
+    /// releases is currently being played. Commercial (Doom II) contains
+    /// demons that Doom doesn't have, and Doom contains intermission
+    /// screens that Doom II doesn't have (for example).
     fn get_mode(&self) -> GameMode;
 
     /// Ask the game to load this save
@@ -48,7 +61,8 @@ pub trait GameTraits {
     /// Ask the game to save to this slot with this name
     fn save_game(&mut self, name: String, slot: usize);
 
-    /// Pauses the game-loop (generally stops gameplay input and thinkers running)
+    /// Pauses the game-loop (generally stops gameplay input and thinkers
+    /// running)
     fn toggle_pause_game(&mut self);
 
     /// Exit the game (there will be no confirmation)
@@ -60,7 +74,8 @@ pub trait GameTraits {
     /// Change to or play this music track
     fn change_music(&self, music: MusTrack);
 
-    /// Tell the game that the level is completed and the next level or state should begin
+    /// Tell the game that the level is completed and the next level or state
+    /// should begin
     fn level_done(&mut self);
 
     fn finale_done(&mut self);
@@ -110,8 +125,9 @@ pub trait MachinationTrait {
                     let colour = self.get_palette().0[*p];
                     for _ in 0..f {
                         pixels.set_pixel(
-                            (x + xtmp - n) as usize,              // - (image.left_offset as i32),
-                            (y + ytmp + c.y_offset * f) as usize, // - image.top_offset as i32 - 30,
+                            (x + xtmp - n) as usize, // - (image.left_offset as i32),
+                            (y + ytmp + c.y_offset * f) as usize, /* - image.top_offset as i32 -
+                                                                   *   30, */
                             &colour.0,
                         );
                         ytmp += 1;

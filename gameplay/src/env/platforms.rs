@@ -1,4 +1,5 @@
-//! Platform movement thinker: raise and lower. Can be crushers and can be repeating movements.
+//! Platform movement thinker: raise and lower. Can be crushers and can be
+//! repeating movements.
 //!
 //! Doom source name `p_plats`
 
@@ -10,7 +11,10 @@ use crate::{
     doom_def::TICRATE,
     env::{
         specials::{
-            find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
+            find_highest_floor_surrounding,
+            find_lowest_floor_surrounding,
+            move_plane,
+            PlaneResult,
         },
         switch::start_sector_sound,
     },

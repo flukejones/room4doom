@@ -1,3 +1,4 @@
+//! @generated
 //! THIS FILE IS GENERATED WITH MULTIGEN
 //!
 //! Contains all Map Object info, States and State numbers, and Sprite names/indexing.

@@ -25,13 +25,21 @@ use crate::{
     thing::{MapObjFlag, MapObject, MoveDir},
     thinker::{Thinker, ThinkerData},
     utilities::{p_random, point_to_angle_2, PortalZ},
-    Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS,
+    Angle,
+    DPtr,
+    GameMode,
+    LineDefFlags,
+    MapObjKind,
+    Sector,
+    Skill,
+    MAXPLAYERS,
 };
 
 use super::movement::SubSectorMinMax;
 
 /// This was only ever called with the player as the target, so it never follows
-/// the original comment stating that if a monster yells it alerts surrounding monsters
+/// the original comment stating that if a monster yells it alerts surrounding
+/// monsters
 pub(crate) fn noise_alert(target: &mut MapObject) {
     let vc = unsafe {
         (*target.level).valid_count += 1;
@@ -239,8 +247,8 @@ pub(crate) fn a_look(actor: &mut MapObject) {
             _ => actor.info.seesound,
         };
 
-        // if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG {
-        //     // TODO: FULL VOLUME!
+        // if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG
+        // {     // TODO: FULL VOLUME!
         //     actor.start_sound(sound);
         // } else {
         //     actor.start_sound(sound);

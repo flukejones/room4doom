@@ -1,5 +1,5 @@
 pub const FILE_HEADER_STR: &str = r#"//! THIS FILE IS GENERATED WITH MULTIGEN
-//!
+//! @generated
 //! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
 "#;
 

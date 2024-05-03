@@ -1,5 +1,6 @@
-//! A generic `PixelBuf` that can be drawn to and is blitted to screen by the game,
-//! and a generic `PlayRenderer` for rendering the players view of the level.
+//! A generic `PixelBuf` that can be drawn to and is blitted to screen by the
+//! game, and a generic `PlayRenderer` for rendering the players view of the
+//! level.
 
 pub mod shaders;
 
@@ -18,11 +19,12 @@ const CHANNELS: usize = 4;
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
-    /// Purely software. Typically used with blitting a framebuffer maintained in memory
-    /// directly to screen using SDL2
+    /// Purely software. Typically used with blitting a framebuffer maintained
+    /// in memory directly to screen using SDL2
     #[default]
     Software,
-    /// Software framebuffer blitted to screen using OpenGL (and can use shaders)
+    /// Software framebuffer blitted to screen using OpenGL (and can use
+    /// shaders)
     SoftOpenGL,
     /// OpenGL
     OpenGL,

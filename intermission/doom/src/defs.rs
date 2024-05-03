@@ -101,7 +101,7 @@ pub(crate) const MAP_POINTS: [[(i32, i32); 9]; 3] = [
         (166, 55),  // location of level 5 (CJ)
         (71, 56),   // location of level 6 (CJ)
         (135, 29),  // location of level 7 (CJ)
-        (71, 24),   // location of level 8 (CJ)
+        (71, 24),   /* location of level 8 (CJ) */
     ],
     [
         (254, 25),  // location of level 0 (CJ)
@@ -112,7 +112,7 @@ pub(crate) const MAP_POINTS: [[(i32, i32); 9]; 3] = [
         (133, 130), // location of level 5 (CJ)
         (208, 136), // location of level 6 (CJ)
         (148, 140), // location of level 7 (CJ)
-        (235, 158), // location of level 8 (CJ)
+        (235, 158), /* location of level 8 (CJ) */
     ],
     [
         (156, 168), // location of level 0 (CJ)
@@ -123,7 +123,7 @@ pub(crate) const MAP_POINTS: [[(i32, i32); 9]; 3] = [
         (279, 23),  // location of level 5 (CJ)
         (198, 48),  // location of level 6 (CJ)
         (140, 25),  // location of level 7 (CJ)
-        (281, 136), // location of level 8 (CJ)
+        (281, 136), /* location of level 8 (CJ) */
     ],
 ];
 

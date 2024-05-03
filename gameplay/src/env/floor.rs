@@ -18,8 +18,12 @@ use crate::{
 
 use crate::env::{
     specials::{
-        find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
-        find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
+        find_highest_floor_surrounding,
+        find_lowest_ceiling_surrounding,
+        find_lowest_floor_surrounding,
+        find_next_highest_floor,
+        get_next_sector,
+        move_plane,
         PlaneResult,
     },
     switch::start_sector_sound,

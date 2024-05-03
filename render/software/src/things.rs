@@ -4,8 +4,16 @@ use std::{
 };
 
 use gameplay::{
-    log::warn, p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player,
-    PspDef, Sector,
+    log::warn,
+    p_random,
+    point_to_angle_2,
+    LineDefFlags,
+    MapObjFlag,
+    MapObject,
+    PicData,
+    Player,
+    PspDef,
+    Sector,
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
@@ -13,7 +21,7 @@ use render_target::PixelBuffer;
 use super::{bsp::SoftwareRenderer, defs::DrawSeg};
 
 const FF_FULLBRIGHT: u32 = 0x8000;
-const FF_FRAMEMASK: u32 = 0x7fff;
+const FF_FRAMEMASK: u32 = 0x7FFF;
 /// Offset in radians for player view rotation during frame rotation select
 const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
 /// Divisor for selecting which frame rotation to use
@@ -419,7 +427,8 @@ impl SoftwareRenderer {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
         }
         // TODO: WARN: SHT2 has no frames
-        // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0', render/software/src/things.rs:423:21
+        // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is
+        // 0', render/software/src/things.rs:423:21
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
         let patch = pic_data.sprite_patch(frame.lump[0] as usize);
         let flip = frame.flip[0];

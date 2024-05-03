@@ -1,5 +1,5 @@
-//! Traits and interface structs/enums required for a generalised `SoundServer` to
-//! play music and sound effects.
+//! Traits and interface structs/enums required for a generalised `SoundServer`
+//! to play music and sound effects.
 
 use std::{
     fmt::Debug,
@@ -53,17 +53,18 @@ pub enum SoundAction<S: Debug + Copy, M: Debug> {
     Shutdown,
 }
 
-/// A sound server implementing `SoundServer` must also implement `SoundServerTic`
-/// typically by a one-liner: `impl SoundServerTic<SndFx> for Snd {}`
+/// A sound server implementing `SoundServer` must also implement
+/// `SoundServerTic` typically by a one-liner: `impl SoundServerTic<SndFx> for
+/// Snd {}`
 pub trait SoundServer<S, M, E>
 where
     S: Debug + Copy,
     M: Debug,
     E: std::error::Error,
 {
-    /// Start up all sound stuff and grab the `Sender` channel for cloning, and an
-    /// `AtomicBool` to stop sound and deinitialise devices etc in preparation for
-    /// game-exe exit.
+    /// Start up all sound stuff and grab the `Sender` channel for cloning, and
+    /// an `AtomicBool` to stop sound and deinitialise devices etc in
+    /// preparation for game-exe exit.
     fn init(&mut self) -> InitResult<S, M, E>;
 
     /// Playback a sound
@@ -114,8 +115,9 @@ where
     M: Debug,
     E: std::error::Error,
 {
-    /// Will be called every period on a thread containing `SoundServer`, returns
-    /// `true` if the thread should continue running, else `false` if it should exit.
+    /// Will be called every period on a thread containing `SoundServer`,
+    /// returns `true` if the thread should continue running, else `false`
+    /// if it should exit.
     fn tic(&mut self) -> bool {
         if let Ok(sound) = self.get_rx().recv_timeout(Duration::from_micros(500)) {
             match sound {

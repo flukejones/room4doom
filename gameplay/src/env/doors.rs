@@ -18,7 +18,8 @@ use crate::{
     },
     thing::MapObject,
     thinker::{Think, Thinker, ThinkerData},
-    DPtr, LineDefFlags,
+    DPtr,
+    LineDefFlags,
 };
 
 use crate::env::{

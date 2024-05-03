@@ -3,25 +3,28 @@ use log::debug;
 use crate::{lumps::*, Lump, MapLump, WadData};
 use std::marker::PhantomData;
 
-/// An iterator to iter over all items between start and end (exclusive), skipping zero-sized lumps.
-/// This is good for iterating over flats for example, as each `LumpInfo` also contains the name
-/// of the flat and is in order.
+/// An iterator to iter over all items between start and end (exclusive),
+/// skipping zero-sized lumps. This is good for iterating over flats for
+/// example, as each `LumpInfo` also contains the name of the flat and is in
+/// order.
 ///
-/// When used via the iterator methods such as for flats, with pwads added, then the
-/// iteration returns each flat in each *chunk* if there are multiple, in reverse order.
+/// When used via the iterator methods such as for flats, with pwads added, then
+/// the iteration returns each flat in each *chunk* if there are multiple, in
+/// reverse order.
 ///
 /// Wad loading order iwad->pwad1->pwad2 results in:
 /// - iter over flats in pwad2
 /// - iter over flats in pwad1
 /// - iter over flats in iwad
 ///
-/// It is the responsibility of the user to dedup the iteration results for Doom.
+/// It is the responsibility of the user to dedup the iteration results for
+/// Doom.
 pub struct LumpIter<'a, T, F: Fn(&Lump) -> T> {
     /// Index to all the starting points. The first is the index to the
     /// starting point in the last pwad, then the next wad etc.
     start_lumps: Vec<usize>,
-    /// Index to all the end points, paired with `start_lumps`. The first is the index to the
-    /// starting point in the last pwad, then the next wad etc.
+    /// Index to all the end points, paired with `start_lumps`. The first is the
+    /// index to the starting point in the last pwad, then the next wad etc.
     end_lumps: Vec<usize>,
     lumps: &'a [Lump],
     /// Index to the current start+end
@@ -47,7 +50,8 @@ where
             self.current_start += 1;
         }
 
-        // Skip empty. Good for iterating over two groups of patches with markers between
+        // Skip empty. Good for iterating over two groups of patches with markers
+        // between
         while self.lumps[*start].data.is_empty() {
             *start += 1;
             if start == end && self.current_start >= len {
@@ -264,8 +268,8 @@ impl WadData {
         }
     }
 
-    /// Producer for the base texture data. This returns `WadTexture` which includes data
-    /// on how the patches are put together to form a texture.
+    /// Producer for the base texture data. This returns `WadTexture` which
+    /// includes data on how the patches are put together to form a texture.
     pub fn texture_iter(
         &self,
         name: &str,
@@ -516,7 +520,7 @@ impl WadData {
                             info.read_i16(ofs + 8),  // top
                             info.read_i16(ofs + 10), // bottom
                             info.read_i16(ofs + 12), // left
-                            info.read_i16(ofs + 14), // right
+                            info.read_i16(ofs + 14), /* right */
                         ],
                         [
                             info.read_i16(ofs + 16),

@@ -10,12 +10,12 @@ const MIDI_HEAD: [u8; 12] = [
     b'M', b'T', b'h', b'd', // Main header
     0x00, 0x00, 0x00, 0x06, // Header size
     0x00, 0x00, // MIDI type (0)
-    0x00, 0x01, // Number of tracks
+    0x00, 0x01, /* Number of tracks */
 ];
 
 const MIDI_HEAD2: [u8; 8] = [
     b'M', b'T', b'r', b'k', // Start of track
-    0x00, 0x00, 0x00, 0x00, // Placeholder for track length
+    0x00, 0x00, 0x00, 0x00, /* Placeholder for track length */
 ];
 
 const TRANSLATE: [u8; 15] = [
@@ -33,7 +33,7 @@ const TRANSLATE: [u8; 15] = [
     123, // all notes off
     126, // mono
     127, // poly
-    121, // reset all controllers
+    121, /* reset all controllers */
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -119,7 +119,7 @@ impl EventByte {
         Self {
             last: (byte & 0x80) == 0x80,
             kind: MusEventType::from(byte & 0x70),
-            channel: (byte & 0xf),
+            channel: (byte & 0xF),
         }
     }
 }
@@ -146,7 +146,7 @@ impl MusEvent {
             delay,
             kind: byte.kind,
             channel: byte.channel,
-            data1: data & 0x7f,
+            data1: data & 0x7F,
             data2: 0,
             volume: channels[byte.channel as usize],
         }
@@ -161,7 +161,7 @@ impl MusEvent {
             *marker += 1;
             // TODO: reverse the division once correct volume is found
             // Set base volume
-            channels[byte.channel as usize] = (buf[*marker] & 0x7f) / 5;
+            channels[byte.channel as usize] = (buf[*marker] & 0x7F) / 5;
         }
 
         let delay = read_delay(buf, marker, byte.last);
@@ -170,7 +170,7 @@ impl MusEvent {
             delay,
             kind: byte.kind,
             channel: byte.channel,
-            data1: data & 0x7f,
+            data1: data & 0x7F,
             data2: 0,
             volume: channels[byte.channel as usize],
         }
@@ -195,7 +195,7 @@ impl MusEvent {
     fn read_system_event(buf: &[u8], marker: &mut usize) -> Self {
         let byte = EventByte::read(buf, marker);
         *marker += 1;
-        let data = buf[*marker] & 0x7f;
+        let data = buf[*marker] & 0x7F;
         if !(10..=15).contains(&data) {
             panic!("MUS data contained invalid system event: {}", data);
         }
@@ -214,13 +214,13 @@ impl MusEvent {
     fn read_controller(buf: &[u8], marker: &mut usize, channels: &mut [u8; 16]) -> Self {
         let byte = EventByte::read(buf, marker);
         *marker += 1;
-        let data1 = buf[*marker] & 0x7f;
+        let data1 = buf[*marker] & 0x7F;
         if data1 > 9 {
             panic!("MUS data contained invalid controller event: {}", data1);
         }
 
         *marker += 1;
-        let data2 = buf[*marker] & 0x7f;
+        let data2 = buf[*marker] & 0x7F;
         let delay = read_delay(buf, marker, byte.last);
 
         if data1 == 3 {
@@ -294,8 +294,8 @@ impl MusEvent {
                 }
             }
             MusEventType::ScoreEnd => {
-                out.push(0xff);
-                out.push(0x2f);
+                out.push(0xFF);
+                out.push(0x2F);
                 out.push(0);
             }
             MusEventType::EndOfMeasure => {}
@@ -314,7 +314,7 @@ fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
     while byte & 0x80 != 0 {
         *marker += 1;
         byte = buf[*marker];
-        delay = (delay as u16 * 128 + (byte as u16 & 0x7f)) as u8;
+        delay = (delay as u16 * 128 + (byte as u16 & 0x7F)) as u8;
     }
     delay
 }
@@ -367,7 +367,7 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
         out.push(i);
     }
     // tempo
-    let tmp = [0, 0xff, 0x51, 0x03, 0x0f, 0x42, 0x40];
+    let tmp = [0, 0xFF, 0x51, 0x03, 0x0F, 0x42, 0x40];
     for i in tmp {
         out.push(i);
     }
@@ -381,15 +381,15 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
             // up a u32 "buffer", then a second loop to do a similar bitshift.
             let tmp_delay = (delay as u32) * 4;
             if tmp_delay >= 0x20_0000 {
-                out.push(((tmp_delay & 0xfe0_0000) >> 21) as u8 | 0x80);
+                out.push(((tmp_delay & 0xFE0_0000) >> 21) as u8 | 0x80);
             }
             if tmp_delay >= 0x4000 {
-                out.push(((tmp_delay & 0x1f_c000) >> 14) as u8 | 0x80);
+                out.push(((tmp_delay & 0x1F_C000) >> 14) as u8 | 0x80);
             }
             if tmp_delay >= 0x80 {
-                out.push(((tmp_delay & 0x3f80) >> 7) as u8 | 0x80);
+                out.push(((tmp_delay & 0x3F80) >> 7) as u8 | 0x80);
             }
-            out.push(tmp_delay as u8 & 0x7f);
+            out.push(tmp_delay as u8 & 0x7F);
         }
 
         // write the event
@@ -442,7 +442,7 @@ mod tests {
                 channel: 0,
                 data1: 0,
                 data2: 48,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -454,7 +454,7 @@ mod tests {
                 channel: 0,
                 data1: 3,
                 data2: 0,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -466,7 +466,7 @@ mod tests {
                 channel: 1,
                 data1: 3,
                 data2: 0,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -478,7 +478,7 @@ mod tests {
                 channel: 1,
                 data1: 4,
                 data2: 114,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -490,7 +490,7 @@ mod tests {
                 channel: 2,
                 data1: 0,
                 data2: 37,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -502,7 +502,7 @@ mod tests {
                 channel: 0,
                 data1: 3,
                 data2: 93,
-                volume: 0,
+                volume: 0
             }
         );
 
@@ -514,7 +514,7 @@ mod tests {
                 channel: 0,
                 data1: 3,
                 data2: 126,
-                volume: 0,
+                volume: 0
             }
         );
     }

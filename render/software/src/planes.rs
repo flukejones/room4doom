@@ -54,7 +54,8 @@ impl VisPlaneRender {
         self.visplanes = tmp;
     }
 
-    /// Find a plane matching height, picnum, light level. Otherwise return a new plane.
+    /// Find a plane matching height, picnum, light level. Otherwise return a
+    /// new plane.
     pub fn find_plane(
         &mut self,
         mut height: f32,

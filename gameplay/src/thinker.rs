@@ -47,8 +47,8 @@ impl Think for TestObject {
     }
 }
 
-/// A custom allocation for `Thinker` objects. This intends to keep them in a contiguous
-/// zone of memory.
+/// A custom allocation for `Thinker` objects. This intends to keep them in a
+/// contiguous zone of memory.
 pub struct ThinkerAlloc {
     /// The main AllocPool buffer
     buf_ptr: *mut Thinker,
@@ -75,9 +75,11 @@ impl Drop for ThinkerAlloc {
 }
 
 impl ThinkerAlloc {
-    /// Allocate a new block of `Thinker`. On creation the entire memory block is initialised with
-    /// the inner data as `ThinkerData::Free`. This means raw pointers to a `Thinker` are always valid
-    /// as long as `ThinkerAlloc` never moves. Accessor methods are available to get the inner data.
+    /// Allocate a new block of `Thinker`. On creation the entire memory block
+    /// is initialised with the inner data as `ThinkerData::Free`. This
+    /// means raw pointers to a `Thinker` are always valid as long as
+    /// `ThinkerAlloc` never moves. Accessor methods are available to get the
+    /// inner data.
     ///
     /// # Safety
     /// Once allocated the owner of this `ThinkerAlloc` must not move.
@@ -150,8 +152,8 @@ impl ThinkerAlloc {
         true
     }
 
-    /// Iterates through the list of thinkers until either the closure returns true
-    /// or the end is reached.
+    /// Iterates through the list of thinkers until either the closure returns
+    /// true or the end is reached.
     pub(crate) fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
     where
         F: Fn(&Thinker) -> bool,
@@ -174,8 +176,8 @@ impl ThinkerAlloc {
         }
     }
 
-    /// Iterates through the list of thinkers until either the closure returns true
-    /// or the end is reached.
+    /// Iterates through the list of thinkers until either the closure returns
+    /// true or the end is reached.
     ///
     /// # This is worse than the `find_thinker()` as there can be side effects
     pub(crate) fn find_thinker_mut<F>(&self, mut finder: F) -> Option<&mut Thinker>
@@ -239,7 +241,8 @@ impl ThinkerAlloc {
         panic!("No more thinker slots");
     }
 
-    /// Push a Thinker to the `ThinkerAlloc`. Returns a mutable ref to the Thinker.
+    /// Push a Thinker to the `ThinkerAlloc`. Returns a mutable ref to the
+    /// Thinker.
     pub(crate) fn push<T: Think>(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
         if self.len == self.capacity {
             return None;
@@ -287,8 +290,8 @@ impl ThinkerAlloc {
         }
     }
 
-    /// Removes the entry at index. Sets both func + object to None values to indicate
-    /// the slot is "empty".
+    /// Removes the entry at index. Sets both func + object to None values to
+    /// indicate the slot is "empty".
     pub(crate) fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker: {:?}", thinker);
         unsafe {
@@ -315,8 +318,8 @@ impl ThinkerAlloc {
     }
 }
 
-/// All map object thinkers need to be registered here. If the object has pointees then these must be dealt
-/// with before setting `ObjectType::Remove`.
+/// All map object thinkers need to be registered here. If the object has
+/// pointees then these must be dealt with before setting `ObjectType::Remove`.
 #[repr(C)]
 #[allow(clippy::large_enum_variant)]
 pub enum ThinkerData {
@@ -357,25 +360,28 @@ impl Debug for ThinkerData {
     }
 }
 
-/// Thinkers *must* be contained in a structure that has **stable** memory locations.
-/// In Doom this is managed by Doom's custom allocator `z_malloc`, where each location in memory
-/// also has a pointer to the locations 'owner'. When Doom does a defrag or any op
-/// that moves memory locations it also runs through the owners and updates their
-/// pointers. This isn't done in the Rust version as that introduces a lot of overhead
-/// and makes various things harder to do or harder to prove correct (if using unsafe).
+/// Thinkers *must* be contained in a structure that has **stable** memory
+/// locations. In Doom this is managed by Doom's custom allocator `z_malloc`,
+/// where each location in memory also has a pointer to the locations 'owner'.
+/// When Doom does a defrag or any op that moves memory locations it also runs
+/// through the owners and updates their pointers. This isn't done in the Rust
+/// version as that introduces a lot of overhead and makes various things harder
+/// to do or harder to prove correct (if using unsafe).
 ///
-/// Another way to manager Thinkers in a volatile container like a Vec is to use `self.function`
-/// to mark for removal (same as Doom), then iterate over the container and only
-/// run thinkers not marked for removal, then remove marked thinkers after cycle.
-/// This method would have a big impact on iter speed though as there may be many
-/// 'dead' thinkers and it would also impact the order of thinkers, which then means
-/// recorded demo playback may be quite different to OG Doom.
+/// Another way to manager Thinkers in a volatile container like a Vec is to use
+/// `self.function` to mark for removal (same as Doom), then iterate over the
+/// container and only run thinkers not marked for removal, then remove marked
+/// thinkers after cycle. This method would have a big impact on iter speed
+/// though as there may be many 'dead' thinkers and it would also impact the
+/// order of thinkers, which then means recorded demo playback may be quite
+/// different to OG Doom.
 ///
-/// Inserting the `Thinker` in to the game-exe is done in p_tick.c with `P_RunThinkers`.
+/// Inserting the `Thinker` in to the game-exe is done in p_tick.c with
+/// `P_RunThinkers`.
 ///
-/// The LinkedList style serves to give the Objects a way to find the next/prev of
-/// its neighbours and more, without having to pass in a ref to the Thinker container,
-/// or iterate over possible blank spots in memory.
+/// The LinkedList style serves to give the Objects a way to find the next/prev
+/// of its neighbours and more, without having to pass in a ref to the Thinker
+/// container, or iterate over possible blank spots in memory.
 pub struct Thinker {
     prev: *mut Thinker,
     next: *mut Thinker,
@@ -418,8 +424,8 @@ impl Thinker {
         }
     }
 
-    /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then it should be
-    /// marked for removal
+    /// Run the `ThinkerType`'s `think()`. If the `think()` returns false then
+    /// it should be marked for removal
     pub fn think(&mut self, level: &mut Level) -> bool {
         (self.func)(self, level)
     }
@@ -437,7 +443,8 @@ impl Thinker {
         matches!(self.data, ThinkerData::MapObject(_))
     }
 
-    /// Get inner `MapObject` data as ref. Panics if the inner is not actually `MapObject`
+    /// Get inner `MapObject` data as ref. Panics if the inner is not actually
+    /// `MapObject`
     pub fn mobj(&self) -> &MapObject {
         if let ThinkerData::MapObject(ref obj) = self.data {
             obj
@@ -446,7 +453,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `MapObject` data as mut. Panics if the inner is not actually `MapObject`
+    /// Get inner `MapObject` data as mut. Panics if the inner is not actually
+    /// `MapObject`
     pub fn mobj_mut(&mut self) -> &mut MapObject {
         if let ThinkerData::MapObject(ref mut obj) = self.data {
             obj
@@ -455,7 +463,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `TestObject` data as mut. Panics if the inner is not actually `TestObject`
+    /// Get inner `TestObject` data as mut. Panics if the inner is not actually
+    /// `TestObject`
     pub fn test_mut(&mut self) -> Option<&mut TestObject> {
         if let ThinkerData::TestObject(obj) = &mut self.data {
             Some(obj)
@@ -465,7 +474,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `VerticalDoor` data as mut. Panics if the inner is not actually `VerticalDoor`
+    /// Get inner `VerticalDoor` data as mut. Panics if the inner is not
+    /// actually `VerticalDoor`
     pub fn vdoor_mut(&mut self) -> &mut VerticalDoor {
         if let ThinkerData::VerticalDoor(obj) = &mut self.data {
             obj
@@ -474,7 +484,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `CeilingMove` data as mut. Panics if the inner is not actually `CeilingMove`
+    /// Get inner `CeilingMove` data as mut. Panics if the inner is not actually
+    /// `CeilingMove`
     pub fn ceiling_mut(&mut self) -> &mut CeilingMove {
         if let ThinkerData::CeilingMove(obj) = &mut self.data {
             obj
@@ -483,7 +494,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `FloorMove` data as mut. Panics if the inner is not actually `FloorMove`
+    /// Get inner `FloorMove` data as mut. Panics if the inner is not actually
+    /// `FloorMove`
     pub fn floor_mut(&mut self) -> &mut FloorMove {
         if let ThinkerData::FloorMove(obj) = &mut self.data {
             obj
@@ -492,7 +504,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `Platform` data as mut. Panics if the inner is not actually `Platform`
+    /// Get inner `Platform` data as mut. Panics if the inner is not actually
+    /// `Platform`
     pub fn platform_mut(&mut self) -> &mut Platform {
         if let ThinkerData::Platform(obj) = &mut self.data {
             obj
@@ -501,7 +514,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `LightFlash` data as mut. Panics if the inner is not actually `LightFlash`
+    /// Get inner `LightFlash` data as mut. Panics if the inner is not actually
+    /// `LightFlash`
     pub fn light_flash_mut(&mut self) -> &mut LightFlash {
         if let ThinkerData::LightFlash(obj) = &mut self.data {
             obj
@@ -510,7 +524,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `StrobeFlash` data as mut. Panics if the inner is not actually `StrobeFlash`
+    /// Get inner `StrobeFlash` data as mut. Panics if the inner is not actually
+    /// `StrobeFlash`
     pub fn strobe_flash_mut(&mut self) -> &mut StrobeFlash {
         if let ThinkerData::StrobeFlash(obj) = &mut self.data {
             obj
@@ -519,7 +534,8 @@ impl Thinker {
         }
     }
 
-    /// Get inner `FireFlicker` data as mut. Panics if the inner is not actually `FireFlicker`
+    /// Get inner `FireFlicker` data as mut. Panics if the inner is not actually
+    /// `FireFlicker`
     pub fn fire_flick_mut(&mut self) -> &mut FireFlicker {
         if let ThinkerData::FireFlicker(obj) = &mut self.data {
             obj
@@ -550,7 +566,8 @@ impl Debug for Thinker {
 
 /// Every map object should implement this trait
 pub(crate) trait Think {
-    /// Creating a thinker should be the last step in new objects as `Thinker` takes ownership
+    /// Creating a thinker should be the last step in new objects as `Thinker`
+    /// takes ownership
     fn create_thinker(object: ThinkerData, func: fn(&mut Thinker, &mut Level) -> bool) -> Thinker {
         Thinker {
             prev: null_mut(),
@@ -560,22 +577,26 @@ pub(crate) trait Think {
         }
     }
 
-    // fn set_thinker_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool) {
-    //     self.thinker_mut().func = func
+    // fn set_thinker_action(&mut self, func: fn(&mut Thinker, &mut Level) -> bool)
+    // {     self.thinker_mut().func = func
     // }
 
-    /// impl of this trait function should return true *if* the thinker + object are to be removed
+    /// impl of this trait function should return true *if* the thinker + object
+    /// are to be removed
     ///
-    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls only one function
-    /// on the object and Null is used to track if the map object should be removed.
+    /// Functionally this is Acp1, but in Doom when used with a Thinker it calls
+    /// only one function on the object and Null is used to track if the map
+    /// object should be removed.
     ///
     /// **NOTE:**
     ///
-    /// The impl of `think()` on type will need to cast `ThinkerType` with `object.bad_mut()`.
+    /// The impl of `think()` on type will need to cast `ThinkerType` with
+    /// `object.bad_mut()`.
     fn think(thinker: &mut Thinker, level: &mut Level) -> bool;
 
-    /// Implementer must store the pointer to the conatining Thinker. This method exists mostly
-    /// to force remembering to actually ref the Thinker or not.
+    /// Implementer must store the pointer to the conatining Thinker. This
+    /// method exists mostly to force remembering to actually ref the
+    /// Thinker or not.
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
 
     fn thinker_mut(&mut self) -> &mut Thinker;
@@ -606,7 +627,10 @@ mod tests {
         doom_def::GameMode,
         level::{map_data::MapData, Level},
         thinker::{Think, Thinker},
-        PicData, Player, Skill, MAXPLAYERS,
+        PicData,
+        Player,
+        Skill,
+        MAXPLAYERS,
     };
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};

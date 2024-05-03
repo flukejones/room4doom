@@ -2,7 +2,13 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, TICRATE,
+    GameMode,
+    GameTraits,
+    MachinationTrait,
+    MusTrack,
+    PixelBuffer,
+    Scancode,
+    TICRATE,
 };
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::{

@@ -1,11 +1,23 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY,
+    animations,
+    AnimType,
+    Animation,
+    Patches,
+    State,
+    MAP_POINTS,
+    SHOW_NEXT_LOC_DELAY,
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WBPlayerStruct,
+    GameMode,
+    GameTraits,
+    MachinationTrait,
+    MusTrack,
+    PixelBuffer,
+    Scancode,
+    WBPlayerStruct,
     WBStartStruct,
 };
 use log::warn;

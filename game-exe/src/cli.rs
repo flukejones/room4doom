@@ -36,11 +36,12 @@ pub struct CLIOptions {
     // pub respawn_parm: bool,
     // /// Monsters move faster
     // pub fast_parm: bool,
-    /// developer mode. Screen is cleared with green colour for seg/flat drawing leak checks
+    /// developer mode. Screen is cleared with green colour for seg/flat drawing
+    /// leak checks
     #[argh(option, default = "false")]
     pub dev_parm: bool,
-    //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.  Weapons do not stay in place and all items respawn after 30 seconds"
-    // pub deathmatch: u8,
+    //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.
+    // Weapons do not stay in place and all items respawn after 30 seconds" pub deathmatch: u8,
     // pub autostart: bool,
     /// set the game-exe skill, 0-4 (0: easiest, 4: hardest)
     #[argh(option)]
@@ -73,7 +74,8 @@ pub struct CLIOptions {
     /// rendering type <software, softopengl>
     #[argh(option)]
     pub rendering: Option<config::RenderType>,
-    /// screen shader <cgwg, lottes, lottesbasic>, not used with Software renderer
+    /// screen shader <cgwg, lottes, lottesbasic>, not used with Software
+    /// renderer
     #[argh(option)]
     pub shader: Option<Shaders>,
     /// music type <fluidsynth, timidity(default)>. Unfinished

@@ -1,12 +1,20 @@
 //! A custom statusbar to show the players status during gameplay.
 //!
-//! Displays things like ammo count, weapons owned, key/skulls owned, health and so on.
+//! Displays things like ammo count, weapons owned, key/skulls owned, health and
+//! so on.
 
 use faces::DoomguyFace;
 use gamestate_traits::{
     util::{draw_num_pixels, get_num_sprites, get_st_key_sprites},
-    AmmoType, GameMode, GameTraits, MachinationTrait, PixelBuffer, PlayerStatus, Scancode,
-    WeaponType, WEAPON_INFO,
+    AmmoType,
+    GameMode,
+    GameTraits,
+    MachinationTrait,
+    PixelBuffer,
+    PlayerStatus,
+    Scancode,
+    WeaponType,
+    WEAPON_INFO,
 };
 use std::collections::HashMap;
 use wad::{

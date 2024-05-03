@@ -16,7 +16,8 @@ pub fn y_scale(fov: f32, buf_width: f32, buf_height: f32) -> f32 {
     // TODO: This needs to be inversely proportional to the actual FOV so
     // that custom fov can be used
     // let v_dist = 200.0 / (fov * 0.82 / 2.0).tan();
-    // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// == 100degrees
+    // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// ==
+    // 100degrees
     let og_fov = 100.150536f32.to_radians();
     let fov_ratio = og_fov / fov;
     let wide_ratio = buf_height / buf_width * 320. / 200.;
@@ -47,8 +48,8 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
     let focal = projection(fov, half_screen_width);
     let t = angle.tan() * focal;
-    // The root cause of missing columns is this. It must be tipped a little so that two
-    // values straddling a line may go one way or the other
+    // The root cause of missing columns is this. It must be tipped a little so that
+    // two values straddling a line may go one way or the other
     let t = (half_screen_width - t + 0.9).floor();
     t.clamp(0.0, screen_width)
 }

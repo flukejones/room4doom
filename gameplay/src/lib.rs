@@ -1,8 +1,10 @@
-//! The gameplay crate is purely gameplay. It loads a level from the wad, all definitions, and level state.
+//! The gameplay crate is purely gameplay. It loads a level from the wad, all
+//! definitions, and level state.
 //!
-//! The `Gameplay` is very self contained, such that it really only expects input, the player thinkers to be
-//! run, and the MapObject thinkers to be run. Theowner of the `Gameplay` is then expected to get what is
-//! required to display the results from the exposed public API.
+//! The `Gameplay` is very self contained, such that it really only expects
+//! input, the player thinkers to be run, and the MapObject thinkers to be run.
+//! Theowner of the `Gameplay` is then expected to get what is required to
+//! display the results from the exposed public API.
 
 // #![feature(const_fn_floating_point_arithmetic)]
 #![allow(clippy::new_without_default)]
@@ -33,8 +35,17 @@ pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{
-    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
-    MAXPLAYERS, TICRATE, WEAPON_INFO,
+    AmmoType,
+    Card,
+    GameAction,
+    GameMission,
+    GameMode,
+    PowerType,
+    WeaponType,
+    DOOM_VERSION,
+    MAXPLAYERS,
+    TICRATE,
+    WEAPON_INFO,
 };
 pub use env::specials::{spawn_specials, update_specials};
 pub use info::MapObjKind;
@@ -107,8 +118,8 @@ impl FromStr for Skill {
     }
 }
 
-/// Functions purely as a safe fn wrapper around a `NonNull` because we know that
-/// the Map structure is not going to change under us
+/// Functions purely as a safe fn wrapper around a `NonNull` because we know
+/// that the Map structure is not going to change under us
 pub struct DPtr<T: Debug> {
     inner: *mut T,
 }

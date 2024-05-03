@@ -7,8 +7,19 @@ use sound_traits::SfxName;
 use crate::{
     angle::Angle,
     doom_def::{
-        ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO,
-        MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
+        ActFn,
+        AmmoType,
+        Card,
+        PowerDuration,
+        PowerType,
+        WeaponType,
+        BFGCELLS,
+        CLIP_AMMO,
+        MAXHEALTH,
+        MAXPLAYERS,
+        MAX_AMMO,
+        VIEWHEIGHT,
+        WEAPON_INFO,
     },
     info::{SpriteNum, StateNum, STATES},
     level::Level,
@@ -17,7 +28,8 @@ use crate::{
     thing::{enemy::noise_alert, MapObjFlag, MapObject, BONUSADD},
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
     utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2},
-    GameMode, Skill,
+    GameMode,
+    Skill,
 };
 
 /// 16 pixels of bob
@@ -96,7 +108,8 @@ pub struct WBStartStruct {
 }
 
 /// Contains the players current status such as attacking, loadout, health. This
-/// is also used by the statusbar to show the player what their current status is.
+/// is also used by the statusbar to show the player what their current status
+/// is.
 #[derive(Debug, Clone)]
 pub struct PlayerStatus {
     /// True if button down last tic.
@@ -313,7 +326,7 @@ impl Player {
                     sfx,
                     mobj.xy.x,
                     mobj.xy.y,
-                    self as *const Self as usize, // pointer cast as a UID
+                    self as *const Self as usize, /* pointer cast as a UID */
                 )
             }
         }
@@ -400,11 +413,13 @@ impl Player {
             }
 
             // Need to shunt finesine left by 13 bits?
-            // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) & FINEMASK;`
+            // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) &
+            // FINEMASK;`
             let mut bob = 0.0;
             if self.head_bob {
                 let angle = (level_time as f32 / 3.0).sin(); // Controls frequency (3.0 seems ideal)
-                bob = self.bob / 3.0 * angle; // Controls depth of bob (2.0 is original)
+                bob = self.bob / 3.0 * angle; // Controls depth of bob (2.0 is
+                                              // original)
             }
 
             // move viewheight
@@ -541,7 +556,7 @@ impl Player {
                 // HELLSLIME DAMAGE
                 5 => {
                     if self.status.powers[PowerType::IronFeet as usize] == 0
-                        && level.level_time & 0x1f == 0
+                        && level.level_time & 0x1F == 0
                     {
                         debug!("Hell-slime damage!");
                         mobj.p_take_damage(None, None, false, 10);
@@ -550,7 +565,7 @@ impl Player {
                 // NUKAGE DAMAGE
                 7 => {
                     if self.status.powers[PowerType::IronFeet as usize] == 0
-                        && level.level_time & 0x1f == 0
+                        && level.level_time & 0x1F == 0
                     {
                         debug!("Nukage damage!");
                         mobj.p_take_damage(None, None, false, 5);
@@ -559,7 +574,7 @@ impl Player {
                 // SUPER HELLSLIME DAMAGE | STROBE HURT
                 16 | 4 => {
                     if (self.status.powers[PowerType::IronFeet as usize] == 0 || p_random() < 5)
-                        && level.level_time & 0x1f == 0
+                        && level.level_time & 0x1F == 0
                     {
                         debug!("Super hell-slime damage!");
                         mobj.p_take_damage(None, None, false, 20);
@@ -574,7 +589,7 @@ impl Player {
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
                 11 => {
                     self.status.cheats &= !(PlayerCheat::Godmode as u32);
-                    if level.level_time & 0x1f == 0 {
+                    if level.level_time & 0x1F == 0 {
                         debug!("End of episode damage!");
                         mobj.p_take_damage(None, None, false, 20);
                     }
@@ -868,14 +883,15 @@ impl Player {
     //     unsafe { (*(self.thing.unwrap())).xy }
     // }
 
-    // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut BSPTrace) -> Option<AimResult>{
-    //     unsafe { (*(self.thing.unwrap())).aim_line_attack(distance, bsp_trace) }
-    // }
+    // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut
+    // BSPTrace) -> Option<AimResult>{     unsafe {
+    // (*(self.thing.unwrap())).aim_line_attack(distance, bsp_trace) } }
 }
 
 /// P_PlayerThink
 /// The Doom source has the thinker in a specific location in the object structs
-/// which enables a cast to t_thinker. We can't do that in rust so need to use the trait.
+/// which enables a cast to t_thinker. We can't do that in rust so need to use
+/// the trait.
 impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
         if let Some(mobj) = self.mobj {
@@ -889,7 +905,7 @@ impl Player {
             let cmd = &mut self.cmd;
             if mobj.flags & MapObjFlag::Justattacked as u32 != 0 {
                 cmd.angleturn = 0;
-                cmd.forwardmove = (0xc800 / 512) as i8;
+                cmd.forwardmove = (0xC800 / 512) as i8;
                 cmd.sidemove = 0;
                 mobj.flags &= !(MapObjFlag::Justattacked as u32);
             }

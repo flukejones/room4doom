@@ -30,11 +30,12 @@ fn get_cfg_file() -> PathBuf {
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, Serialize, Deserialize)]
 pub enum RenderType {
-    /// Purely software. Typically used with blitting a framebuffer maintained in memory
-    /// directly to screen using SDL2
+    /// Purely software. Typically used with blitting a framebuffer maintained
+    /// in memory directly to screen using SDL2
     #[default]
     Software,
-    /// Software framebuffer blitted to screen using OpenGL (and can use shaders)
+    /// Software framebuffer blitted to screen using OpenGL (and can use
+    /// shaders)
     SoftOpenGL,
     /// OpenGL
     OpenGL,

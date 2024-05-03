@@ -63,7 +63,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // - `S_` are `StateNum::S_*`, and `State`
     //
     // An `S_` is unique and should accumulate in order
-    // `S_` line order: statename  sprite  frame tics action nextstate [optional1] [optional2]
+    // `S_` line order: statename  sprite  frame tics action nextstate [optional1]
+    // [optional2]
     //
     // SfxName are pre-determined?
 

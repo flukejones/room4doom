@@ -175,8 +175,8 @@ impl InputEvents {
         // if (sendsave)
         // {
         //     sendsave = false;
-        //     cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot << BTS_SAVESHIFT);
-        // }
+        //     cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot <<
+        // BTS_SAVESHIFT); }
         self.reset_mouse_delta();
 
         cmd
@@ -202,20 +202,22 @@ impl Input {
         }
     }
 
-    /// The way this is set up to work is that for each `game tick`, a fresh set of events is
-    /// gathered and stored. This results in a constant stream of events as long as an input is
-    /// active/pressed. The event is released only once the key is up.
+    /// The way this is set up to work is that for each `game tick`, a fresh set
+    /// of events is gathered and stored. This results in a constant stream
+    /// of events as long as an input is active/pressed. The event is
+    /// released only once the key is up.
     ///
-    /// `key_once_callback` is a provision to allow for functions where you don't want a continuous
-    /// fast stream of "key pressed" by calling only on key-down event via SDL. This callback can
-    /// return a bool - typically to signify that an event was taken.
+    /// `key_once_callback` is a provision to allow for functions where you
+    /// don't want a continuous fast stream of "key pressed" by calling only
+    /// on key-down event via SDL. This callback can return a bool -
+    /// typically to signify that an event was taken.
     ///
-    /// The results of the `update` are valid until the next `update` whereupon they are refreshed.
+    /// The results of the `update` are valid until the next `update` whereupon
+    /// they are refreshed.
     ///
-    /// **rust-sdl2** provides an `event_iter()`, but this isn't very useful unless we perform
-    /// all the required actions in the same block that it is called in. It has the potential
-    /// to cause delays in proccessing
-    ///
+    /// **rust-sdl2** provides an `event_iter()`, but this isn't very useful
+    /// unless we perform all the required actions in the same block that it
+    /// is called in. It has the potential to cause delays in proccessing
     pub fn update(&mut self, mut key_once_callback: impl FnMut(Sc) -> bool) -> bool {
         let mut cb_res = false;
         while let Some(event) = self.pump.poll_event() {

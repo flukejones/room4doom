@@ -25,8 +25,8 @@ impl MusData {
     }
 }
 
-/// Requires the user to initialise the data for each `MusData`. This is unsafe and
-/// should be done as part of the startup code.
+/// Requires the user to initialise the data for each `MusData`. This is unsafe
+/// and should be done as part of the startup code.
 pub static mut MUS_DATA: [MusData; 68] = [
     MusData::new(""),
     MusData::new("e1m1"),
@@ -107,7 +107,7 @@ pub const EPISODE4_MUS: [MusTrack; 9] = [
     MusTrack::E2M4, // Romero	 e4m6
     MusTrack::E2M6, // J.Anderson e4m7 CHIRON.WAD
     MusTrack::E2M5, // Shawn      e4m8
-    MusTrack::E1M9, // Tim        e4m9
+    MusTrack::E1M9, /* Tim        e4m9 */
 ];
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Ord, Copy, Clone)]

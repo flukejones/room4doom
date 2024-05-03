@@ -2,13 +2,27 @@ use super::{defs::ClipRange, segs::SegRender, things::VisSprite, RenderData};
 use crate::{
     segs::{draw_column_style_flats, draw_sky_column},
     utilities::{
-        angle_to_screen, corrected_fov_for_height, projection, screen_to_x_view,
-        vertex_angle_to_object, y_scale,
+        angle_to_screen,
+        corrected_fov_for_height,
+        projection,
+        screen_to_x_view,
+        vertex_angle_to_object,
+        y_scale,
     },
 };
 use gameplay::{
-    log::trace, Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment,
-    SubSector, IS_SSECTOR_MASK,
+    log::trace,
+    Angle,
+    Level,
+    MapData,
+    MapObject,
+    Node,
+    PicData,
+    Player,
+    Sector,
+    Segment,
+    SubSector,
+    IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
@@ -33,9 +47,9 @@ const MAX_VIS_SPRITES: usize = 128 * 2;
 // sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
 // sector_t *backsector;
 
-/// We store most of what is needed for rendering in various functions here to avoid
-/// having to pass too many things in args through multiple function calls. This
-/// is due to the Doom C relying a fair bit on global state.
+/// We store most of what is needed for rendering in various functions here to
+/// avoid having to pass too many things in args through multiple function
+/// calls. This is due to the Doom C relying a fair bit on global state.
 ///
 /// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
 ///
@@ -43,8 +57,9 @@ const MAX_VIS_SPRITES: usize = 128 * 2;
 ///
 /// - R_DrawSprite, r_things.c
 /// - R_DrawMasked, r_things.c
-/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
-///                               it then inserts/incs pointer to next drawseg in the array when finished
+/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses
+///   *one* entry through ds_p it then inserts/incs pointer to next drawseg in
+///   the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 pub struct SoftwareRenderer {
     /// index in to self.solidsegs
@@ -179,7 +194,8 @@ impl SoftwareRenderer {
                         let angle =
                             (view_angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
-                        // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
+                        // TODO: there is a flaw in this for loop where the sigil II sky causes a
+                        // crash
                         draw_sky_column(
                             texture_column,
                             colourmap,
@@ -485,8 +501,9 @@ impl SoftwareRenderer {
     }
 
     /// R_ClipPassWallSegment - r_bsp
-    /// Clips the given range of columns, but does not includes it in the clip list.
-    /// Does handle windows, e.g. LineDefs with upper and lower texture
+    /// Clips the given range of columns, but does not includes it in the clip
+    /// list. Does handle windows, e.g. LineDefs with upper and lower
+    /// texture
     fn clip_portal_seg(
         &mut self,
         first: f32,

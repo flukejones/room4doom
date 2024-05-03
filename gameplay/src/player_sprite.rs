@@ -11,7 +11,9 @@ use crate::{
     thing::MapObject,
     tic_cmd::TIC_CMD_BUTTONS,
     utilities::{p_random, point_to_angle_2},
-    MapObjKind, PlayerState, WeaponType,
+    MapObjKind,
+    PlayerState,
+    WeaponType,
 };
 
 const LOWERSPEED: f32 = 6.0;

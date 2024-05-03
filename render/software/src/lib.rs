@@ -12,16 +12,17 @@ mod utilities;
 
 pub use bsp::SoftwareRenderer;
 
-/// We store most of what is needed for rendering in various functions here to avoid
-/// having to pass too many things in args through multiple function calls. This
-/// is due to the Doom C relying a fair bit on global state.
+/// We store most of what is needed for rendering in various functions here to
+/// avoid having to pass too many things in args through multiple function
+/// calls. This is due to the Doom C relying a fair bit on global state.
 ///
 /// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
 /// ----------------------------------------------------------------------------
 /// - R_DrawSprite, r_things.c
 /// - R_DrawMasked, r_things.c
-/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses *one* entry through ds_p
-///                               it then inserts/incs pointer to next drawseg in the array when finished
+/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses
+///   *one* entry through ds_p it then inserts/incs pointer to next drawseg in
+///   the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 pub(crate) struct RenderData {
     pub rw_angle1: Angle,

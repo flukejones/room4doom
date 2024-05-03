@@ -24,8 +24,8 @@ use super::{
 /// to be rendered.
 pub(crate) struct SegRender {
     /// Current segment, e.g, `curline` in Doom src. We can use this to get the
-    /// `sector_t *frontsector;` `sector_t *backsector;` shared variables between
-    /// `r_bsp.c` and `r_seg.c`.
+    /// `sector_t *frontsector;` `sector_t *backsector;` shared variables
+    /// between `r_bsp.c` and `r_seg.c`.
 
     /// True if any of the segs textures might be visible.
     segtextured: bool,
@@ -133,9 +133,9 @@ impl SegRender {
     }
 
     /// R_StoreWallRange - r_segs
-    /// This is called by the BSP clipping functions. The incoming `start` and `stop`
-    /// have alredy been `.floor()`ed by `angle_to_screen()` function called on the
-    /// segs during BSP traversal.
+    /// This is called by the BSP clipping functions. The incoming `start` and
+    /// `stop` have alredy been `.floor()`ed by `angle_to_screen()` function
+    /// called on the segs during BSP traversal.
     ///
     /// # Note
     ///
@@ -510,9 +510,9 @@ impl SegRender {
                 return;
             }
 
-            // The yl and yh blocks are what affect wall clipping the most. You can make shorter/taller.
-            // topfrac here is calulated in previous function and is the
-            // starting point that topstep is added to
+            // The yl and yh blocks are what affect wall clipping the most. You can make
+            // shorter/taller. topfrac here is calulated in previous function
+            // and is the starting point that topstep is added to
             yl = self.topfrac.ceil() + 1.0;
             if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
@@ -662,7 +662,8 @@ impl SegRender {
     }
 }
 
-/// Provides an easy way to draw a column in an `dc_x` location, starting and ending at `yl` and `yh`
+/// Provides an easy way to draw a column in an `dc_x` location, starting and
+/// ending at `yl` and `yh`
 
 /// A column is a vertical slice/span from a wall texture that,
 ///  given the DOOM style restrictions on the view orientation,

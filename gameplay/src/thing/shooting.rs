@@ -11,7 +11,11 @@ use crate::{
     info::{StateNum, MOBJINFO},
     level::{map_data::BSPTrace, map_defs::LineDef},
     utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ},
-    Angle, DPtr, LineDefFlags, MapObjKind, MapObject,
+    Angle,
+    DPtr,
+    LineDefFlags,
+    MapObjKind,
+    MapObject,
 };
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -38,9 +42,10 @@ impl MapObject {
 
     pub(crate) fn get_shoot_bsp_trace(&self, distance: f32) -> BSPTrace {
         let xy2 = self.xy + self.angle.unit() * distance;
-        // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
-        // demons might overlap from a subsector that isn't caught otherwise (for example demon
-        // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
+        // Use a radius for shooting to enable a sort of swept volume to capture more
+        // subsectors as demons might overlap from a subsector that isn't caught
+        // otherwise (for example demon might be in one subsector but overlap
+        // with radius in to a subsector the bullet passes through).
         let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
@@ -78,8 +83,8 @@ impl MapObject {
         aim_traverse.result()
     }
 
-    /// `shoot_line_attack` is preceeded by `aim_line_attack` in many cases, so the `BSPTrace` can be
-    /// shared between the two.
+    /// `shoot_line_attack` is preceeded by `aim_line_attack` in many cases, so
+    /// the `BSPTrace` can be shared between the two.
     pub(crate) fn shoot_line_attack(
         &mut self,
         attack_range: f32,
@@ -220,7 +225,8 @@ impl MapObject {
         }
     }
 
-    /// Try to attack along a line using the previous `AimResult` and `BSPTrace`.
+    /// Try to attack along a line using the previous `AimResult` and
+    /// `BSPTrace`.
     pub(crate) fn line_attack(
         &mut self,
         damage: f32,
@@ -236,12 +242,14 @@ impl MapObject {
         }
     }
 
-    /// Get a `BSPTrace` for the selected point. It uses the shooters radius to get visibility as opposed to
-    /// using the victims radius (this should be changed to the reverse).
+    /// Get a `BSPTrace` for the selected point. It uses the shooters radius to
+    /// get visibility as opposed to using the victims radius (this should
+    /// be changed to the reverse).
     pub(crate) fn get_sight_bsp_trace(&self, xy2: Vec2) -> BSPTrace {
-        // Use a radius for shooting to enable a sort of swept volume to capture more subsectors as
-        // demons might overlap from a subsector that isn't caught otherwise (for example demon
-        // might be in one subsector but overlap with radius in to a subsector the bullet passes through).
+        // Use a radius for shooting to enable a sort of swept volume to capture more
+        // subsectors as demons might overlap from a subsector that isn't caught
+        // otherwise (for example demon might be in one subsector but overlap
+        // with radius in to a subsector the bullet passes through).
         let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, self.radius);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
@@ -274,7 +282,8 @@ impl MapObject {
         )
     }
 
-    /// Iterate through the available live players and check if there is a LOS to one.
+    /// Iterate through the available live players and check if there is a LOS
+    /// to one.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
         let mut see = 0;
         let stop = (self.lastlook - 1) & 3;
@@ -322,8 +331,9 @@ impl MapObject {
         }
     }
 
-    /// Check if there is a clear line of sight to the selected target object. This checks teh '2D top-down'
-    /// nature of Doom, followed by the Z (height) axis.
+    /// Check if there is a clear line of sight to the selected target object.
+    /// This checks teh '2D top-down' nature of Doom, followed by the Z
+    /// (height) axis.
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
         let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
         self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)
@@ -450,7 +460,8 @@ impl SubSectTraverse {
         }
     }
 
-    /// Returns false if the intercept blocks the target. Does not require `self.attack_range` to be set.
+    /// Returns false if the intercept blocks the target. Does not require
+    /// `self.attack_range` to be set.
     fn check_traverse(&mut self, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // Check if solid line and stop

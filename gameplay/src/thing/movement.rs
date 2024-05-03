@@ -21,9 +21,17 @@ use crate::{
         map_defs::{BBox, LineDef, SlopeType},
     },
     utilities::{
-        box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
+        box_on_line_side,
+        p_random,
+        path_traverse,
+        BestSlide,
+        Intercept,
+        PortalZ,
+        FRACUNIT_DIV4,
     },
-    DPtr, MapObjKind, MapObject,
+    DPtr,
+    MapObjKind,
+    MapObject,
 };
 
 use super::MapObjFlag;
@@ -159,19 +167,22 @@ impl MapObject {
         self.momxy.x = self.momxy.x.clamp(-MAXMOVE, MAXMOVE);
         self.momxy.y = self.momxy.y.clamp(-MAXMOVE, MAXMOVE);
 
-        // This whole loop is a bit crusty. It consists of looping over progressively smaller
-        // moves until we either hit 0, or get a move. Because the whole game-exe is 2D we can
-        // use modern 2D collision detection where if there is a seg/wall penetration then we
-        // move the player back by the penetration amount. This would also make the "slide" stuff
+        // This whole loop is a bit crusty. It consists of looping over progressively
+        // smaller moves until we either hit 0, or get a move. Because the whole
+        // game-exe is 2D we can use modern 2D collision detection where if
+        // there is a seg/wall penetration then we move the player back by the
+        // penetration amount. This would also make the "slide" stuff
         // a lot easier (but perhaps not as accurate to Doom classic?)
         // Oh yeah, this would also remove:
         //  - linedef BBox,
         //  - BBox checks (these are AABB)
         //  - the need to store line slopes
-        // TODO: The above stuff, refactor the collisions and movement to use modern techniques
+        // TODO: The above stuff, refactor the collisions and movement to use modern
+        // techniques
 
         // P_XYMovement
-        // `p_try_move` will apply the move if it is valid, and do specials, explodes etc
+        // `p_try_move` will apply the move if it is valid, and do specials, explodes
+        // etc
         let mut xmove = self.momxy.x;
         let mut ymove = self.momxy.y;
         let mut ptryx;
@@ -251,8 +262,9 @@ impl MapObject {
             } else if let Some(player) = self.player_mut() {
                 if player.cmd.forwardmove == 0 && player.cmd.sidemove == 0 {
                     // if in a walking frame, stop moving
-                    // TODO: What the everliving fuck is C doing here? You can't just subtract the states array
-                    // if ((player.mo.state - states) - PLAY_RUN1) < 4 {
+                    // TODO: What the everliving fuck is C doing here? You can't just subtract the
+                    // states array if ((player.mo.state - states) - PLAY_RUN1)
+                    // < 4 {
                     self.set_state(StateNum::PLAY);
                     // }
                     self.momxy = Vec2::default();
@@ -263,7 +275,8 @@ impl MapObject {
         }
     }
 
-    /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern collision
+    /// P_TryMove, merged with P_CheckPosition and using a more verbose/modern
+    /// collision
     pub(crate) fn p_try_move(
         &mut self,
         ptryx: f32,
@@ -365,8 +378,9 @@ impl MapObject {
         //
         // The p_try_move calls check collisions -> p_check_position -> pit_check_line
         // A single BSP trace varies from 5 to 15 recursions.
-        // Regular Doom maps have 4 to 100 or so lines in a sector, with average recursion of 10-15 deep
-        // SIGIL wad has 4000+ lines per map (approx), with average recursion of 15-40 deep
+        // Regular Doom maps have 4 to 100 or so lines in a sector, with average
+        // recursion of 10-15 deep SIGIL wad has 4000+ lines per map (approx),
+        // with average recursion of 15-40 deep
         //
         // subsectors crossed = average 2
         // lines per subsector = average 4
@@ -762,8 +776,8 @@ impl MapObject {
         let line_angle = Angle::from_vector(line.delta);
         // if side == 1 {
         //     //line_angle += FRAC_PI_2;
-        //     line_angle = Angle::from_vector(Vec2::new(line.delta.x * -1.0, line.delta.y * -1.0));
-        // }
+        //     line_angle = Angle::from_vector(Vec2::new(line.delta.x * -1.0,
+        // line.delta.y * -1.0)); }
 
         let move_angle = Angle::from_vector(*slide_move);
         // if move_angle.rad() > FRAC_PI_2 {
@@ -950,7 +964,8 @@ impl MapObject {
     }
 
     /// Try to move in current direction. If blocked by a wall or other actor it
-    /// returns false, otherwise tries to open a door if the block is one, and continue.
+    /// returns false, otherwise tries to open a door if the block is one, and
+    /// continue.
     pub(crate) fn try_walk(&mut self) -> bool {
         if !self.do_move() {
             return false;

@@ -1,7 +1,8 @@
-//! The data that makes up an entire level, along with functions to record state,
-//! or get ref/mutable-ref to parts of it.
+//! The data that makes up an entire level, along with functions to record
+//! state, or get ref/mutable-ref to parts of it.
 //!
-//! Some of the state is mirrored from the overall game-exe state, or ref by pointer.
+//! Some of the state is mirrored from the overall game-exe state, or ref by
+//! pointer.
 
 pub mod flags;
 pub mod map_data;
@@ -21,7 +22,10 @@ use crate::{
     level::map_data::MapData,
     pic::Button,
     thinker::ThinkerAlloc,
-    DPtr, PicData, Player, Skill,
+    DPtr,
+    PicData,
+    Player,
+    Skill,
 };
 
 use self::map_defs::LineDef;
@@ -183,8 +187,8 @@ impl Level {
     }
 
     /// # Safety
-    /// The platform *must* be live. For example do not call `.mark_remove()` before
-    /// `remove_active_platform()`.
+    /// The platform *must* be live. For example do not call `.mark_remove()`
+    /// before `remove_active_platform()`.
     pub(super) unsafe fn remove_active_platform(&mut self, plat: &mut Platform) {
         let mut index = self.active_platforms.len() + 1;
         for (i, p) in self.active_platforms.iter().enumerate() {

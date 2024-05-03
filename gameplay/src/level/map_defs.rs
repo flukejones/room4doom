@@ -159,7 +159,8 @@ impl Sector {
     /// Add this thing to the sectors thing list
     ///
     /// # Safety
-    /// The `Thinker` pointer *must* be valid, and the `Thinker` must not be `Free` or `Remove`
+    /// The `Thinker` pointer *must* be valid, and the `Thinker` must not be
+    /// `Free` or `Remove`
     pub unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
         if matches!((*thing).data(), ThinkerData::Free | ThinkerData::Remove) {
             error!("add_to_thinglist() tried to add a Thinker that was Free or Remove");
@@ -312,8 +313,8 @@ impl std::fmt::Debug for LineDef {
 
 impl LineDef {
     pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y - self.v1.y)*(v.x - self.v1.x);
-        // // dbg!(r);
+        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
+        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
         // if r.is_sign_positive() {
         //     return 1; // Back side
         // }
@@ -368,8 +369,8 @@ impl Segment {
     }
 
     pub fn point_on_side(&self, v: &Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y - self.v1.y)*(v.x - self.v1.x);
-        // // dbg!(r);
+        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
+        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
         // if r.is_sign_positive() {
         //     return 1; // Back side
         // }
@@ -409,11 +410,12 @@ pub struct Node {
     /// - [1][0] == left box, top-left
     /// - [1][1] == left box, bottom-right
     pub bounding_boxes: [[Vec2; 2]; 2],
-    /// The node children. Doom uses a clever trick where if one node is selected
-    /// then the other can also be checked with the same/minimal code by inverting
-    /// the last bit
+    /// The node children. Doom uses a clever trick where if one node is
+    /// selected then the other can also be checked with the same/minimal
+    /// code by inverting the last bit
     pub child_index: [u16; 2],
-    /// The parent of this node. Additional property to allow reversing up a BSP tree.
+    /// The parent of this node. Additional property to allow reversing up a BSP
+    /// tree.
     pub parent: u16,
 }
 
@@ -432,7 +434,8 @@ mod tests {
 
     #[test]
     fn line_side_problem() {
-        // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y == -2944.0
+        // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y ==
+        // -2944.0
         let v1 = Vec2::new(832.0, -2944.0);
         let v2 = Vec2::new(968.0, -2880.0);
 

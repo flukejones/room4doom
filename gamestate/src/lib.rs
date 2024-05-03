@@ -1,4 +1,5 @@
-//! Game state, fairly self-descriptive but bares expanding on in a little more detail.
+//! Game state, fairly self-descriptive but bares expanding on in a little more
+//! detail.
 //!
 //! The state of the game can be a few states only:
 //!
@@ -8,16 +9,17 @@
 //! - screen wipe
 //!
 //! The game state can be changed by a few actions - these are more concretely
-//! defined as trait functions in `GameTraits`, where the exposed functions trigger
-//! an action from `GameAction`. When an action is set it takes effect on the next tic.
+//! defined as trait functions in `GameTraits`, where the exposed functions
+//! trigger an action from `GameAction`. When an action is set it takes effect
+//! on the next tic.
 //!
 //! Note that the primary state is either demo-play or level-play.
 //!
-//! The active game state also determines which `Machinations` are run, and the order
-//! in which they run - these are such things as intermission screens or statusbars
-//! during gameplay. In the case of a statusbar for example it ticks only during the
-//! `GameState::Level` state, and draws to the buffer after the player view is drawn.
-//!
+//! The active game state also determines which `Machinations` are run, and the
+//! order in which they run - these are such things as intermission screens or
+//! statusbars during gameplay. In the case of a statusbar for example it ticks
+//! only during the `GameState::Level` state, and draws to the buffer after the
+//! player view is drawn.
 
 pub mod game_impl;
 pub mod machination;
@@ -28,10 +30,23 @@ use crate::machination::Machinations;
 use gameplay::{
     log,
     log::{debug, info, trace, warn},
-    m_clear_random, spawn_specials,
+    m_clear_random,
+    spawn_specials,
     tic_cmd::{TicCmd, TIC_CMD_BUTTONS},
-    update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData,
-    Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS,
+    update_specials,
+    GameAction,
+    GameMission,
+    GameMode,
+    Level,
+    MapObject,
+    PicAnimation,
+    PicData,
+    Player,
+    PlayerState,
+    Skill,
+    Switches,
+    WBStartStruct,
+    MAXPLAYERS,
 };
 use gamestate_traits::{sdl2::AudioSubsystem, GameState, GameTraits, MachinationTrait};
 use sound_nosnd::SndServerTx;
@@ -127,8 +142,8 @@ pub struct Game {
     /// Contains the full wad file. Wads are tiny in terms of today's memory use
     /// so it doesn't hurt to store the full file in ram. May change later.
     pub wad_data: WadData,
-    /// The complete `Level` data encompassing the everything everywhere all at once...
-    /// (if loaded).
+    /// The complete `Level` data encompassing the everything everywhere all at
+    /// once... (if loaded).
     pub level: Option<Level>,
     /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
     /// access to change animations + translation tables.
@@ -612,8 +627,8 @@ impl Game {
         // TODO: viewactive = true;
     }
 
-    /// Cleanup, re-init, and set up for next level or episode. Also sets up info
-    /// that can be displayed on the intermission screene.
+    /// Cleanup, re-init, and set up for next level or episode. Also sets up
+    /// info that can be displayed on the intermission screene.
     fn do_completed(&mut self) {
         self.game_action = GameAction::None;
 
@@ -705,10 +720,10 @@ impl Game {
         self.game_action = GameAction::None;
     }
 
-    /// The ticker which controls the state the game-exe is in. For example the game-exe could be
-    /// in menu mode, demo play, intermission (`GameState`). A state may also be
-    /// running other functions that can change the game-exe state or cause an action
-    /// through `GameAction`.
+    /// The ticker which controls the state the game-exe is in. For example the
+    /// game-exe could be in menu mode, demo play, intermission
+    /// (`GameState`). A state may also be running other functions that can
+    /// change the game-exe state or cause an action through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
     pub fn ticker<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
@@ -795,9 +810,9 @@ impl Game {
                     //     if (!savedescription[0])
                     //         strcpy(savedescription, "NET GAME");
                     //     savegameslot =
-                    //         (players[i].cmd.buttons & BTS_SAVEMASK) >> BTS_SAVESHIFT;
-                    //     gameaction = ga_savegame;
-                    //     break;
+                    //         (players[i].cmd.buttons & BTS_SAVEMASK) >>
+                    // BTS_SAVESHIFT;     gameaction =
+                    // ga_savegame;     break;
                 }
             }
         }
@@ -832,9 +847,10 @@ impl Game {
         }
     }
 
-    /// Gameplay ticker. Updates the game-exe level state along with all thinkers inside
-    /// that level. Also watches for `TicCmd` that initiate another action or state such
-    /// as pausing in menus, demo recording, save/load.
+    /// Gameplay ticker. Updates the game-exe level state along with all
+    /// thinkers inside that level. Also watches for `TicCmd` that initiate
+    /// another action or state such as pausing in menus, demo recording,
+    /// save/load.
     ///
     /// Doom function name `P_Ticker`
     fn p_ticker(&mut self) {

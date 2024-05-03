@@ -13,7 +13,8 @@ use crate::{
     player::{PlayerCheat, PlayerState},
     thing::MapObjFlag,
     utilities::{p_random, point_to_angle_2},
-    MapObject, Skill,
+    MapObject,
+    Skill,
 };
 
 pub const BONUSADD: i32 = 6;
@@ -25,8 +26,9 @@ impl MapObject {
     ///   Can be `None` for slime, goo etc.
     /// - Source is the thing to target after taking damage. Should be None for
     ///   things that can't be targetted (environmental).
-    /// - Source and inflictor are the same for melee attacks, if this is the case
-    ///   then only `source` should be set, and `source_is_inflictor` set to true.
+    /// - Source and inflictor are the same for melee attacks, if this is the
+    ///   case then only `source` should be set, and `source_is_inflictor` set
+    ///   to true.
     ///
     /// Relative to the original source, `target` is `self`.
     ///
@@ -152,7 +154,8 @@ impl MapObject {
 
             player.status.damagecount += damage;
             if player.status.damagecount > 100 {
-                player.status.damagecount = 100; // teleport stomp does 10k points...
+                player.status.damagecount = 100; // teleport stomp does 10k
+                                                 // points...
             }
             // Tactile feedback thing removed here
         }

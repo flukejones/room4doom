@@ -21,8 +21,8 @@ impl WadColour {
 }
 
 /// There are typically 14 palettes available during gameplay. These range from
-/// regular colours to increasing shades of red for player damage, some specials,
-/// and some transparency effects.
+/// regular colours to increasing shades of red for player damage, some
+/// specials, and some transparency effects.
 #[derive(Debug, Copy, Clone)]
 pub struct WadPalette(pub [WadColour; 256]);
 
@@ -41,8 +41,8 @@ impl Default for WadPalette {
 /// Specifically to help create static arrays of `WadPatch`
 pub const WAD_PATCH: WadPatch = WadPatch::default();
 
-/// The key component of textures. Some textures may use a patch as-is, and some may
-/// use a group of these in differing layouts to compose unique textures.
+/// The key component of textures. Some textures may use a patch as-is, and some
+/// may use a group of these in differing layouts to compose unique textures.
 #[derive(Debug, Clone)]
 pub struct WadPatch {
     pub name: String,
@@ -52,9 +52,9 @@ pub struct WadPatch {
     pub height: u16,
     pub left_offset: i16,
     pub top_offset: i16,
-    /// A series of columns, there can be multiple `WadPatchCol` in a single column.
-    /// Each `WadPatchCol` used contains an y-offset, and a series of indexes in to
-    /// the 256 byte palette.
+    /// A series of columns, there can be multiple `WadPatchCol` in a single
+    /// column. Each `WadPatchCol` used contains an y-offset, and a series
+    /// of indexes in to the 256 byte palette.
     pub columns: Vec<WadPatchCol>,
 }
 
@@ -70,8 +70,8 @@ impl WadPatch {
         }
     }
 
-    /// Create a patch from lump data. The data must be that which is associated with the
-    /// patch, e.g, `wad.file_data[lump.handle]`
+    /// Create a patch from lump data. The data must be that which is associated
+    /// with the patch, e.g, `wad.file_data[lump.handle]`
     pub fn from_lump(lump: &Lump) -> Self {
         let data = &lump.data;
         let width = i16::from_le_bytes([data[0], data[1]]) as u16;
@@ -120,9 +120,9 @@ impl WadPatch {
     }
 }
 
-/// A column of pixels. Each `pixel` is an index in to the palette to fetch colour.
-/// There can be multiple of `WadPatchCol` in a column, and the column itself is
-/// ended only when `y_offset` is `0xFF`.
+/// A column of pixels. Each `pixel` is an index in to the palette to fetch
+/// colour. There can be multiple of `WadPatchCol` in a column, and the column
+/// itself is ended only when `y_offset` is `0xFF`.
 #[derive(Debug, Clone)]
 pub struct WadPatchCol {
     /// Determines where on the column the pixel stream starts.
@@ -133,7 +133,8 @@ pub struct WadPatchCol {
 }
 
 /// Contains all the data required to compose a full texture from a series of
-/// patches. The definition here does not include all the bytes as some are not used.
+/// patches. The definition here does not include all the bytes as some are not
+/// used.
 #[derive(Debug, Clone)]
 pub struct WadTexture {
     /// Texture name
@@ -154,8 +155,8 @@ pub struct WadTexPatch {
     pub origin_x: i32,
     /// Top start position
     pub origin_y: i32,
-    /// Index in to the `WadPatch` array if collected via iterator. This is in the order
-    /// that it is stored in the wad.
+    /// Index in to the `WadPatch` array if collected via iterator. This is in
+    /// the order that it is stored in the wad.
     pub patch_index: usize,
 }
 
@@ -233,8 +234,8 @@ impl WadVertex {
 ///
 /// A Linedef will always have at least one side. This first side is referred to
 /// as either front or right. If you imagine a linedef starting from the bottom
-/// of the screen travelling upwards then the right side of this line is the first
-/// valid side (and is the front).
+/// of the screen travelling upwards then the right side of this line is the
+/// first valid side (and is the front).
 #[derive(Debug, Clone)]
 pub struct WadLineDef {
     /// The line starts from this point
@@ -429,11 +430,13 @@ impl WadSector {
             ceil_height,
             floor_tex: str::from_utf8(floor_tex)
                 .unwrap_or_else(|_| panic!("Invalid floor tex name: {:?}", floor_tex))
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts
+                // later
                 .to_owned(),
             ceil_tex: str::from_utf8(ceil_tex)
                 .expect("Invalid ceiling tex name")
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts
+                // later
                 .to_owned(),
             light_level,
             kind,
@@ -501,7 +504,8 @@ impl WadSideDef {
                         );
                     })
                     .unwrap_or_default()
-                    .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                    .trim_end_matches('\u{0}') // better to address this early to avoid many
+                    // casts later
                     .to_owned()
             },
             lower_tex: if lower_tex[0] == b'-' {
@@ -515,23 +519,26 @@ impl WadSideDef {
                         );
                     })
                     .unwrap_or_default()
-                    .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                    .trim_end_matches('\u{0}') // better to address this early to avoid many
+                    // casts later
                     .to_owned()
             },
             middle_tex: str::from_utf8(middle_tex)
                 .expect("Invalid middle_tex name")
-                .trim_end_matches('\u{0}') // better to address this early to avoid many casts later
+                .trim_end_matches('\u{0}') // better to address this early to avoid many casts
+                // later
                 .to_owned(),
             sector,
         }
     }
 }
 
-/// The base node structure as parsed from the WAD records. What is stored in the WAD
-/// is the splitting line used for splitting the level/node (starts with the level then
-/// consecutive nodes, aiming for an even split if possible), a box which encapsulates
-/// the left and right regions of the split, and the index numbers for left and right
-/// children of the node; the index is in to the array built from this lump.
+/// The base node structure as parsed from the WAD records. What is stored in
+/// the WAD is the splitting line used for splitting the level/node (starts with
+/// the level then consecutive nodes, aiming for an even split if possible), a
+/// box which encapsulates the left and right regions of the split, and the
+/// index numbers for left and right children of the node; the index is in to
+/// the array built from this lump.
 ///
 /// **The last node is the root node**
 ///
@@ -563,9 +570,9 @@ pub struct WadNode {
     pub dy: i16,
     /// Coordinates of the bounding boxes:
     pub bounding_boxes: [[i16; 4]; 2],
-    /// The node children. Doom uses a clever trick where if one node is selected
-    /// then the other can also be checked with the same/minimal code by inverting
-    /// the last bit
+    /// The node children. Doom uses a clever trick where if one node is
+    /// selected then the other can also be checked with the same/minimal
+    /// code by inverting the last bit
     pub child_index: [u16; 2],
 }
 
@@ -590,22 +597,25 @@ impl WadNode {
     }
 }
 
-/// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses to simplify
-/// collision-detection between moving things and walls.
+/// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses
+/// to simplify collision-detection between moving things and walls.
 ///
 /// Each "block" is 128 square.
 #[derive(Debug, Clone)]
 pub struct WadBlockMap {
-    /// Leftmost X coord, this is 16.16 fixed point, doing an `((i as i32)<<16) as f32` will convert
+    /// Leftmost X coord, this is 16.16 fixed point, doing an `((i as i32)<<16)
+    /// as f32` will convert
     pub x_origin: i16,
-    /// Bottommost Y coord, this is 16.16 fixed point, doing an `((i as i32)<<16) as f32` will convert
+    /// Bottommost Y coord, this is 16.16 fixed point, doing an `((i as
+    /// i32)<<16) as f32` will convert
     pub y_origin: i16,
     /// Width
     pub width: i16,
     /// Height
     pub height: i16,
-    /// The line index is used by converting a local X.Y coordinate in to an offset in to this array.
-    /// The number at that location is then the index number in to the linedefs array.
+    /// The line index is used by converting a local X.Y coordinate in to an
+    /// offset in to this array. The number at that location is then the
+    /// index number in to the linedefs array.
     pub line_indexes: Vec<i16>,
     /// Blockmap Index start
     pub blockmap_offset: usize,
@@ -780,6 +790,7 @@ mod tests {
             .to_owned();
         assert_eq!(name.as_str(), "WOODSKUL");
 
-        //assert_eq!(lump.offset as i32 + tex_offsets[0], lump.offset as i32 + 4);
+        //assert_eq!(lump.offset as i32 + tex_offsets[0], lump.offset as i32 +
+        // 4);
     }
 }

@@ -14,8 +14,15 @@ use crate::{
         doors::{ev_do_door, DoorKind},
         floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind},
         lights::{
-            ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
-            LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
+            ev_start_light_strobing,
+            ev_turn_light_on,
+            ev_turn_tag_lights_off,
+            FireFlicker,
+            Glow,
+            LightFlash,
+            StrobeFlash,
+            FASTDARK,
+            SLOWDARK,
         },
         platforms::{ev_do_platform, ev_stop_platform, PlatKind},
         switch::{change_switch_texture, start_sector_sound},
@@ -29,7 +36,8 @@ use crate::{
     },
     pic::{ButtonWhere, PicAnimation},
     utilities::circle_line_collide,
-    DPtr, PicData,
+    DPtr,
+    PicData,
 };
 use log::{debug, error, trace};
 use sound_traits::SfxName;
@@ -195,7 +203,8 @@ fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
     no_fit
 }
 
-/// The result of raising a plane. `PastDest` = stop, `Crushed` = should crush all in sector
+/// The result of raising a plane. `PastDest` = stop, `Crushed` = should crush
+/// all in sector
 #[derive(Debug, Clone, Copy)]
 pub enum PlaneResult {
     Ok,
@@ -347,7 +356,8 @@ pub fn move_plane(
     PlaneResult::Ok
 }
 
-/// Trigger various actions when a line is crossed which has a non-zero special attached
+/// Trigger various actions when a line is crossed which has a non-zero special
+/// attached
 ///
 /// Doom function name is `P_CrossSpecialLine`
 pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapObject) {

@@ -26,7 +26,8 @@ pub static DOOM_VERSION: u8 = 109;
 pub const MAXPLAYERS: usize = 4;
 pub const MAX_DEATHMATCH_STARTS: usize = 10;
 
-/// Game mode handling - identify IWAD version to handle IWAD dependend animations etc.
+/// Game mode handling - identify IWAD version to handle IWAD dependend
+/// animations etc.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GameMode {
     /// DOOM 1 shareware, E1, M9
@@ -58,7 +59,8 @@ pub enum GameMission {
 pub enum GameAction {
     /// No action required
     None,
-    /// Load a game level (requires a level number and episode to be set beforehand)
+    /// Load a game level (requires a level number and episode to be set
+    /// beforehand)
     LoadLevel,
     /// Resets the entire game state and starts a new level/episode
     NewGame,
@@ -77,7 +79,8 @@ pub enum GameAction {
 /// Deaf monsters/do not react to sound.
 pub static MTF_AMBUSH: i16 = 8;
 
-/// A single flag used to determine if the thing options are multiplayer of singleplayer enabled.
+/// A single flag used to determine if the thing options are multiplayer of
+/// singleplayer enabled.
 pub const MTF_SINGLE_PLAYER: i16 = 16;
 
 /// Key cards.
@@ -92,7 +95,8 @@ pub enum Card {
     NumCards,
 }
 
-/// The defined weapons, including a marker indicating user has not changed weapon.
+/// The defined weapons, including a marker indicating user has not changed
+/// weapon.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum WeaponType {
     Fist,
@@ -189,7 +193,8 @@ pub enum PowerType {
     NumPowers,
 }
 
-/// Power up durations: how many seconds till expiration, assuming TICRATE is 35 ticks/second.
+/// Power up durations: how many seconds till expiration, assuming TICRATE is 35
+/// ticks/second.
 #[derive(Copy, Clone)]
 pub enum PowerDuration {
     Invulnerability = (30 * TICRATE) as isize,
@@ -299,13 +304,15 @@ pub const WEAPON_INFO: [WeaponInfo; 9] = [
     },
 ];
 
-/// Function-pointer container used by `MapObject` states and `Player` states in the
-/// auto-generated `info.rs`.
+/// Function-pointer container used by `MapObject` states and `Player` states in
+/// the auto-generated `info.rs`.
 #[derive(Clone)]
 pub enum ActFn {
-    /// Pointer to a function that operates on `MapObject`'s. Much of the gamplay uses this (items, monsters etc)
+    /// Pointer to a function that operates on `MapObject`'s. Much of the
+    /// gamplay uses this (items, monsters etc)
     A(fn(&mut MapObject)),
-    /// Pointer to a function that operates on the `Player`, usually also requiring a sprite definition
+    /// Pointer to a function that operates on the `Player`, usually also
+    /// requiring a sprite definition
     P(fn(&mut Player, &mut PspDef)),
     /// For a state with no action
     N,

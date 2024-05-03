@@ -9,10 +9,11 @@ impl GameTraits for Game {
     /// Can be called by the startup code or the menu task,
     /// consoleplayer, displayplayer, playeringame[] should be set.
     ///
-    /// This appears to be defered because the function call can happen at any time
-    /// in the game-exe. So rather than just abruptly stop everything we should set
-    /// the action so that the right sequences are run. Unsure of impact of
-    /// changing game-exe vars beyong action here, probably nothing.
+    /// This appears to be defered because the function call can happen at any
+    /// time in the game-exe. So rather than just abruptly stop everything
+    /// we should set the action so that the right sequences are run. Unsure
+    /// of impact of changing game-exe vars beyong action here, probably
+    /// nothing.
     fn defered_init_new(&mut self, skill: Skill, episode: i32, map: i32) {
         self.game_skill = skill;
         self.game_episode = episode;

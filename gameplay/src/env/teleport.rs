@@ -3,7 +3,12 @@ use std::ptr;
 use glam::Vec2;
 
 use crate::{
-    info::MapObjKind, level::map_defs::LineDef, thinker::ThinkerData, DPtr, Level, MapObject,
+    info::MapObjKind,
+    level::map_defs::LineDef,
+    thinker::ThinkerData,
+    DPtr,
+    Level,
+    MapObject,
     Sector,
 };
 

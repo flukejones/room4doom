@@ -1,4 +1,5 @@
-//! Many helper functions related to traversing the map, crossing or finding lines.
+//! Many helper functions related to traversing the map, crossing or finding
+//! lines.
 
 use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
@@ -307,7 +308,8 @@ pub fn traverse_intercepts(
 
 /// Check the line and add the intercept if valid
 ///
-/// `line_to_line` is for "perfect" line-to-line collision (shot trace, use line etc)
+/// `line_to_line` is for "perfect" line-to-line collision (shot trace, use line
+/// etc)
 pub fn add_line_intercepts(
     trace: Trace,
     line: DPtr<LineDef>,
@@ -373,7 +375,9 @@ fn add_thing_intercept(
     let dl = Trace::new(v1, v2 - v1);
     let frac = intercept_vector(trace, dl);
 
-    // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}", thing.kind, trace.xy.x, trace.xy.y, thing.xy.x, thing.xy.y, thing.radius, frac);
+    // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}",
+    // thing.kind, trace.xy.x, trace.xy.y, thing.xy.x, thing.xy.y, thing.radius,
+    // frac);
 
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
@@ -403,8 +407,8 @@ pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
 
 /// Returns the fractional intercept point along the first divline.
 ///
-/// The lines can be pictured as arg1 being an infinite plane, and arg2 being the line
-/// to check if intersected by the plane.
+/// The lines can be pictured as arg1 being an infinite plane, and arg2 being
+/// the line to check if intersected by the plane.
 ///
 /// P_InterceptVector
 fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
@@ -488,7 +492,8 @@ mod tests {
     use super::bam_to_radian;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
-    // use crate::play::utilities::{circle_point_intersect, circle_to_line_intercept_basic};
+    // use crate::play::utilities::{circle_point_intersect,
+    // circle_to_line_intercept_basic};
 
     // #[test]
     // fn circle_vec2_intersect() {
@@ -514,11 +519,12 @@ mod tests {
     //     let origin = Vec2::new(5.0, 7.0);
     //     let point1 = Vec2::new(1.0, 3.0);
     //     let point2 = Vec2::new(7.0, 20.0);
-    //     assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_some());
+    //     assert!(circle_to_line_intercept_basic(origin, r, point1,
+    // point2).is_some());
 
     //     let r = 2.0;
-    //     assert!(circle_to_line_intercept_basic(origin, r, point1, point2).is_none());
-    // }
+    //     assert!(circle_to_line_intercept_basic(origin, r, point1,
+    // point2).is_none()); }
 
     // #[test]
     // fn test_line_line_intersection() {

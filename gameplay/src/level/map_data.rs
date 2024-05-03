@@ -5,7 +5,8 @@ use crate::{
     level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector},
     log::info,
     utilities::{bam_to_radian, circle_line_collide},
-    DPtr, PicData,
+    DPtr,
+    PicData,
 };
 use glam::Vec2;
 #[cfg(Debug)]
@@ -27,8 +28,8 @@ pub struct MapExtents {
 }
 
 /// A `Map` contains everything required for building the actual level the
-/// player will see in-game-exe, such as the data to build a level, the textures used,
-/// `Things`, `Sounds` and others.
+/// player will see in-game-exe, such as the data to build a level, the textures
+/// used, `Things`, `Sounds` and others.
 ///
 /// `nodes`, `subsectors`, and `segments` are what get used most to render the
 /// basic level
@@ -38,8 +39,9 @@ pub struct MapExtents {
 /// segfault
 pub struct MapData {
     name: String,
-    /// Things will be linked to/from each other in many ways, which means this array may
-    /// never be resized or it will invalidate references and pointers
+    /// Things will be linked to/from each other in many ways, which means this
+    /// array may never be resized or it will invalidate references and
+    /// pointers
     things: Vec<WadThing>,
     pub linedefs: Vec<LineDef>,
     pub sectors: Vec<Sector>,
@@ -396,8 +398,9 @@ impl MapData {
         self.fix_vertices();
     }
 
-    /// Get a raw pointer to the subsector a point is in. This is mostly used to update
-    /// an objects location so that sector effects can work on objects.
+    /// Get a raw pointer to the subsector a point is in. This is mostly used to
+    /// update an objects location so that sector effects can work on
+    /// objects.
     ///
     /// Doom function name  `R_PointInSubsector`
     pub fn point_in_subsector_raw(&mut self, point: Vec2) -> *mut SubSector {
@@ -429,21 +432,22 @@ impl MapData {
     }
 
     /// Remove slime trails. killough 10/98
-    ///
     // Slime trails are inherent to Doom's coordinate system -- i.e. there is
-    /// nothing that a node builder can do to prevent slime trails ALL of the time,
-    /// because it's a product of the integer coordinate system, and just because
-    /// two lines pass through exact integer coordinates, doesn't necessarily mean
-    /// that they will intersect at integer coordinates. Thus we must allow for
-    /// fractional coordinates if we are to be able to split segs with node lines,
-    /// as a node builder must do when creating a BSP tree.
+    /// nothing that a node builder can do to prevent slime trails ALL of the
+    /// time, because it's a product of the integer coordinate system, and
+    /// just because two lines pass through exact integer coordinates,
+    /// doesn't necessarily mean that they will intersect at integer
+    /// coordinates. Thus we must allow for fractional coordinates if we are
+    /// to be able to split segs with node lines, as a node builder must do
+    /// when creating a BSP tree.
     ///
-    /// A wad file does not allow fractional coordinates, so node builders are out
-    /// of luck except that they can try to limit the number of splits (they might
-    /// also be able to detect the degree of roundoff error and try to avoid splits
-    /// with a high degree of roundoff error). But we can use fractional coordinates
-    /// here, inside the engine. It's like the difference between square inches and
-    /// square miles, in terms of granularity.
+    /// A wad file does not allow fractional coordinates, so node builders are
+    /// out of luck except that they can try to limit the number of splits
+    /// (they might also be able to detect the degree of roundoff error and
+    /// try to avoid splits with a high degree of roundoff error). But we
+    /// can use fractional coordinates here, inside the engine. It's like
+    /// the difference between square inches and square miles, in terms of
+    /// granularity.
     ///
     /// For each vertex of every seg, check to see whether it's also a vertex of
     /// the linedef associated with the seg (i.e, it's an endpoint). If it's not
@@ -461,11 +465,12 @@ impl MapData {
     /// (x0,y0) is the vertex being moved, and (x1,y1)-(x1+dx,y1+dy) is the
     /// reference linedef.
     ///
-    /// Segs corresponding to orthogonal linedefs (exactly vertical or horizontal
-    /// linedefs), which comprise at least half of all linedefs in most wads, don't
-    /// need to be considered, because they almost never contribute to slime trails
-    /// (because then any roundoff error is parallel to the linedef, which doesn't
-    /// cause slime). Skipping simple orthogonal lines lets the code finish quicker.
+    /// Segs corresponding to orthogonal linedefs (exactly vertical or
+    /// horizontal linedefs), which comprise at least half of all linedefs
+    /// in most wads, don't need to be considered, because they almost never
+    /// contribute to slime trails (because then any roundoff error is
+    /// parallel to the linedef, which doesn't cause slime). Skipping simple
+    /// orthogonal lines lets the code finish quicker.
     ///
     /// Please note: This section of code is not interchangable with TeamTNT's
     /// code which attempts to fix the same problem.
@@ -566,8 +571,8 @@ pub struct BSPTrace {
 }
 
 impl BSPTrace {
-    /// Setup the trace for a line trace. Use `find_line_intercepts()` to find all
-    /// intersections.
+    /// Setup the trace for a line trace. Use `find_line_intercepts()` to find
+    /// all intersections.
     pub fn new_line(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
         let forward = Angle::from_vector(endpoint - origin);
         let back = Angle::from_vector(origin - endpoint);
@@ -596,8 +601,8 @@ impl BSPTrace {
         }
     }
 
-    /// Do the BSP trace. The type of trace done is determined by if the trace was set up
-    /// with `BSPTrace::new_line` or `BSPTrace::new_radius`.
+    /// Do the BSP trace. The type of trace done is determined by if the trace
+    /// was set up with `BSPTrace::new_line` or `BSPTrace::new_radius`.
     pub fn find_intercepts(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
         match self.trace_type {
             BSPTraceType::Line => self.find_line_inner(node_id, map, count),
@@ -846,8 +851,8 @@ mod tests {
         assert_eq!(segments[0].v1.x as i32, 1552);
         assert_eq!(segments[0].v2.x as i32, 1552);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
-        // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5 lightlevel:160
-        // assert_eq!(
+        // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5
+        // lightlevel:160 assert_eq!(
         //     segments[0].linedef.front_sidedef.sector.ceilingpic,
         //     "CEIL3_5"
         // );

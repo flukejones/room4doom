@@ -29,7 +29,7 @@ impl Wipe {
     fn do_melt_pixels(
         &mut self,
         disp_buf: &mut dyn PixelBuffer, // Display from this buffer
-        draw_buf: &mut dyn PixelBuffer, // Draw to this buffer
+        draw_buf: &mut dyn PixelBuffer, /* Draw to this buffer */
     ) -> bool {
         let mut done = true;
         let f = disp_buf.size().height() / 200;
@@ -70,7 +70,7 @@ impl Wipe {
     pub(crate) fn do_melt(
         &mut self,
         disp_buf: &mut dyn PixelBuffer, // Display from this buffer
-        draw_buf: &mut dyn PixelBuffer, // Draw to this buffer
+        draw_buf: &mut dyn PixelBuffer, /* Draw to this buffer */
     ) -> bool {
         self.do_melt_pixels(disp_buf, draw_buf)
     }
