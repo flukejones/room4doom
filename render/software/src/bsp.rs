@@ -586,7 +586,7 @@ impl SoftwareRenderer {
         &mut self,
         map: &MapData,
         player: &Player,
-        node_id: u16,
+        node_id: u32,
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
         count: &mut usize,

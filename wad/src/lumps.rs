@@ -552,6 +552,44 @@ impl WadSideDef {
     }
 }
 
+pub enum ExtendedNodeType {
+    XNOD,
+    XGLN,
+    XGL2,
+    ZNOD,
+    ZGLN,
+    ZGL2,
+}
+
+impl ExtendedNodeType {
+    pub fn is_uncompressed(&self) -> bool {
+        matches!(
+            self,
+            ExtendedNodeType::XGL2 | ExtendedNodeType::XGLN | ExtendedNodeType::XNOD
+        )
+    }
+
+    pub fn is_gl(&self) -> bool {
+        matches!(
+            self,
+            ExtendedNodeType::XGL2
+                | ExtendedNodeType::XGLN
+                | ExtendedNodeType::ZGL2
+                | ExtendedNodeType::ZGLN
+        )
+    }
+}
+
+pub enum NodeLumpType {
+    /// Original Doom style NODES table, use the standard parser
+    OGDoom,
+    /// Extended NODES, typically this means the subsectors and segments tables
+    /// are empty as all the data is contained here. You should then check if
+    /// the table is compressed (with zlib) or uncompressed, and further check
+    /// if GL or GL2 style
+    Extended(ExtendedNodeType),
+}
+
 /// The base node structure as parsed from the WAD records. What is stored in
 /// the WAD is the splitting line used for splitting the level/node (starts with
 /// the level then consecutive nodes, aiming for an even split if possible), a
@@ -561,24 +599,29 @@ impl WadSideDef {
 ///
 /// **The last node is the root node**
 ///
+/// `WadXNode` is almsot the same as `WadXNode`
+///
 /// The data in the WAD lump is structured as follows:
 ///
-/// | Field Size | Data Type                            | Content                                          |
-/// |------------|--------------------------------------|--------------------------------------------------|
-/// | 0x00-0x03  | Partition line x coordinate          | X coordinate of the splitter                     |
-/// | 0x02-0x03  | Partition line y coordinate          | Y coordinate of the splitter                     |
-/// | 0x04-0x05  | Change in x to end of partition line | The amount to move in X to reach end of splitter |
-/// | 0x06-0x07  | Change in y to end of partition line | The amount to move in Y to reach end of splitter |
-/// | 0x08-0x09  | Right (Front) box top                | First corner of front box (Y coordinate)         |
-/// | 0x0A-0x0B  | Right (Front)  box bottom            | Second corner of front box (Y coordinate)        |
-/// | 0x0C-0x0D  | Right (Front)  box left              | First corner of front box (X coordinate)         |
-/// | 0x0E-0x0F  | Right (Front)  box right             | Second corner of front box (X coordinate)        |
-/// | 0x10-0x11  | Left (Back) box top                  | First corner of back box (Y coordinate)          |
-/// | 0x12-0x13  | Left (Back)  box bottom              | Second corner of back box (Y coordinate)         |
-/// | 0x14-0x15  | Left (Back)  box left                | First corner of back box (X coordinate)          |
-/// | 0x16-0x17  | Left (Back)  box right               | Second corner of back box (X coordinate)         |
-/// | 0x18-0x19  | Right (Front) child index            | Index of the front child + sub-sector indicator  |
-/// | 0x1A-0x1B  | Left (Back)  child index             | Index of the back child + sub-sector indicator   |
+/// | Field Size | Data Type | Content                                          |
+/// |------------|-----------|--------------------------------------------------|
+/// | 0x00-0x01  | i16       | X coordinate of the partition split              |
+/// | 0x02-0x03  | i16       | Y coordinate of the partition split              |
+/// | 0x04-0x05  | i16       | dX. The amount to move in X to reach end of split |
+/// | 0x06-0x07  | i16       | dY. The amount to move in Y to reach end of split |
+/// | 0x08-0x09  | i16       | First corner of front box (Y coordinate)         |
+/// | 0x0A-0x0B  | i16       | Second corner of front box (Y coordinate)        |
+/// | 0x0C-0x0D  | i16       | First corner of front box (X coordinate)         |
+/// | 0x0E-0x0F  | i16       | Second corner of front box (X coordinate)        |
+/// | 0x10-0x11  | i16       | First corner of back box (Y coordinate)          |
+/// | 0x12-0x13  | i16       | Second corner of back box (Y coordinate)         |
+/// | 0x14-0x15  | i16       | First corner of back box (X coordinate)          |
+/// | 0x16-0x17  | i16       | Second corner of back box (X coordinate)         |
+/// | 0x18..     | u16 or u32 | Index of the front child + sub-sector indicator |
+/// | ...        | u16 or u32 | Index of the back child + sub-sector indicator  |
+///
+/// The child index can be either u16 or u32 depending on if the node is
+/// Original Doom style, or the ZDoom extended node style
 #[derive(Debug, Clone)]
 pub struct WadNode {
     /// Where the line used for splitting the level starts
@@ -592,7 +635,7 @@ pub struct WadNode {
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
     /// code by inverting the last bit
-    pub child_index: [u16; 2],
+    pub child_index: [u32; 2],
 }
 
 impl WadNode {
@@ -602,8 +645,8 @@ impl WadNode {
         dx: i16,
         dy: i16,
         bounding_boxes: [[i16; 4]; 2],
-        right_child_id: u16,
-        left_child_id: u16,
+        right_child_id: u32,
+        left_child_id: u32,
     ) -> WadNode {
         WadNode {
             x,
@@ -615,6 +658,45 @@ impl WadNode {
         }
     }
 }
+
+impl WadBlockMap {
+    pub fn new(
+        x_origin: i16,
+        y_origin: i16,
+        width: i16,
+        height: i16,
+        lines: Vec<i16>,
+        blockmap_idx: usize,
+    ) -> WadBlockMap {
+        WadBlockMap {
+            x_origin,
+            y_origin,
+            width,
+            height,
+            line_indexes: lines,
+            blockmap_offset: blockmap_idx,
+        }
+    }
+}
+
+/// The data in the WAD lump is structured as follows:
+///
+/// Note: a 16:16 fixed point number is stored in 4 bytes.
+///
+/// | Field Size   | Type    | Content                                                       |
+/// |--------------|---------|---------------------------------------------------------------|
+/// | 0x00-0x03    | str     | 4 bytes of UTF 8 making up the lump signature, such as `XNOD` |
+/// | 0x04-0x07    | u32     | Number of vertices from the VERTEXES lump                     |
+/// | 0x08-0x11    | u32     | The `N` additional vertices that follow from here             |
+/// | 8-byte chunk | Vertex  | fixed,fixed Vertex: 16:16 fixed-point (x,y). Repeated `N` times from above |
+/// | 4-bytes      | u32     | Subsector count                                               |
+/// | 4-byte chunk | u32     | Subsector N: Seg count for this subsector                     |
+/// | 4-bytes      | u32     | Segs count                                                    |
+/// | 11-byte chunk| Segment | Seg N: New layout: `u32`:Vertex 1, `u32`Vertex 2, `u16`:Line, `u8`:Side |
+/// | 4-byte chunk | u32     | Node count                                                    |
+/// | 32-byte chunk| Node    | Node N: Same as vanilla except child ref are u32              |
+#[derive(Debug, Clone)]
+pub struct WadExtendedMap {}
 
 /// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses
 /// to simplify collision-detection between moving things and walls.
@@ -638,26 +720,6 @@ pub struct WadBlockMap {
     pub line_indexes: Vec<i16>,
     /// Blockmap Index start
     pub blockmap_offset: usize,
-}
-
-impl WadBlockMap {
-    pub fn new(
-        x_origin: i16,
-        y_origin: i16,
-        width: i16,
-        height: i16,
-        lines: Vec<i16>,
-        blockmap_idx: usize,
-    ) -> WadBlockMap {
-        WadBlockMap {
-            x_origin,
-            y_origin,
-            width,
-            height,
-            line_indexes: lines,
-            blockmap_offset: blockmap_idx,
-        }
-    }
 }
 
 #[cfg(test)]

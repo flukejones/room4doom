@@ -116,7 +116,7 @@ impl SegRender {
             wall_lights: 0,
             openings: vec![f32::MAX; screen_width * screen_height], // TODO: find a good limit
             lastopening: 0.0,
-            yslope: (0..=screen_height)
+            yslope: (0..=screen_height + 1)
                 .map(|y| {
                     let dy = y as f32 - screen_height as f32 / 2.0;
                     screen_width as f32 / 2.0 / dy.abs()
@@ -722,6 +722,9 @@ pub fn draw_column_style_flats(
     let dc_x = dc_x as usize;
     let pal = pic_data.palette();
     for y in yl as usize..=yh as usize {
+        if y >= yslope.len() {
+            break;
+        }
         let distance = plane_height * yslope[y];
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;

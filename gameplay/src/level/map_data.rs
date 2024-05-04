@@ -13,7 +13,7 @@ use log::warn;
 use wad::lumps::*;
 use wad::WadData;
 
-pub const IS_SSECTOR_MASK: u16 = 0x8000;
+pub const IS_SSECTOR_MASK: u32 = 0x8000;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
@@ -49,7 +49,7 @@ pub struct MapData {
     segments: Vec<Segment>,
     extents: MapExtents,
     nodes: Vec<Node>,
-    start_node: u16,
+    start_node: u32,
 }
 
 impl MapData {
@@ -157,7 +157,7 @@ impl MapData {
     }
 
     #[inline]
-    pub fn start_node(&self) -> u16 {
+    pub fn start_node(&self) -> u32 {
         self.start_node
     }
 
@@ -353,6 +353,7 @@ impl MapData {
                 }
             })
             .collect();
+        // assert!(self.subsectors().len() != 0);
         info!("{}: Loaded subsectors", self.name);
 
         // NODES
@@ -383,17 +384,23 @@ impl MapData {
 
         for (i, wn) in wad.node_iter(&self.name).enumerate() {
             if wn.child_index[0] & IS_SSECTOR_MASK == 0 {
-                dbg!(wn.child_index[0] & IS_SSECTOR_MASK);
-                dbg!(wn.child_index[0]);
-                self.nodes[wn.child_index[0] as usize].parent = i as u16;
+                if (wn.child_index[0] as usize) <= self.nodes.len() {
+                    self.nodes[wn.child_index[0] as usize].parent = i as u16;
+                } else {
+                    // warn!("Invalid node");
+                }
             }
             if wn.child_index[1] & IS_SSECTOR_MASK == 0 {
-                self.nodes[wn.child_index[1] as usize].parent = i as u16;
+                if (wn.child_index[1] as usize) <= self.nodes.len() {
+                    self.nodes[wn.child_index[1] as usize].parent = i as u16;
+                } else {
+                    // warn!("Invalid node");
+                }
             }
         }
         info!("{}: Mapped bsp node children", self.name);
 
-        self.start_node = (self.nodes.len() - 1) as u16;
+        self.start_node = (self.nodes.len() - 1) as u32;
         self.set_extents();
         self.set_scale();
         self.fix_vertices();
@@ -566,7 +573,7 @@ pub struct BSPTrace {
     pub endpoint: Vec2,
     endpoint_left: Vec2,
     endpoint_right: Vec2,
-    pub nodes: Vec<u16>,
+    pub nodes: Vec<u32>,
     /// If it is a line_trace. If not then it is a radius trace.
     trace_type: BSPTraceType,
 }
@@ -604,7 +611,7 @@ impl BSPTrace {
 
     /// Do the BSP trace. The type of trace done is determined by if the trace
     /// was set up with `BSPTrace::new_line` or `BSPTrace::new_radius`.
-    pub fn find_intercepts(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+    pub fn find_intercepts(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         match self.trace_type {
             BSPTraceType::Line => self.find_line_inner(node_id, map, count),
             BSPTraceType::Radius => self.find_radius_inner(node_id, map, count),
@@ -617,7 +624,7 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
-    fn find_line_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+    fn find_line_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
             let node = node_id & !IS_SSECTOR_MASK;
@@ -668,7 +675,7 @@ impl BSPTrace {
         }
     }
 
-    fn find_radius_inner(&mut self, node_id: u16, map: &MapData, count: &mut u32) {
+    fn find_radius_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         *count += 1;
 
         if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
@@ -708,7 +715,7 @@ impl BSPTrace {
     }
 
     /// List of indexes to subsectors the trace intercepted
-    pub fn intercepted_subsectors(&self) -> &[u16] {
+    pub fn intercepted_subsectors(&self) -> &[u32] {
         &self.nodes
     }
 }

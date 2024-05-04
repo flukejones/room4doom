@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info, warn};
 
 use crate::lumps::*;
 use crate::{Lump, MapLump, WadData};
@@ -500,6 +500,32 @@ impl WadData {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
         let item_size = 28;
 
+        let check = [
+            info.read_i16(0) as u8,
+            info.read_i16(1) as u8,
+            info.read_i16(2) as u8,
+            info.read_i16(3) as u8,
+        ];
+        if check[0] == b'Z' {
+            warn!("NODES is a compressed zdoom style");
+            if check[1..] == [b'N', b'O', b'D'] {
+                panic!("Can't parse ZNOD style nodes with the Vanilla parser, the node lump type should be checked first");
+            } else if check[1..] == [b'G', b'L', b'N'] {
+                panic!("Can't parse ZGLN style nodes with the Vanilla parser, the node lump type should be checked first");
+            } else if check[1..] == [b'G', b'L', b'2'] {
+                panic!("Can't parse ZGL2 style nodes with the Vanilla parser, the node lump type should be checked first");
+            }
+        } else if check[0] == b'X' {
+            warn!("NODES is a compressed zdoom style");
+            if check[1..] == [b'N', b'O', b'D'] {
+                panic!("Can't parse XNOD style nodes with the Vanilla parser, the node lump type should be checked first");
+            } else if check[1..] == [b'G', b'L', b'N'] {
+                panic!("Can't parse XGLN style nodes with the Vanilla parser, the node lump type should be checked first");
+            } else if check[1..] == [b'G', b'L', b'2'] {
+                panic!("Can't parse XGL2 style nodes with the Vanilla parser, the node lump type should be checked first");
+            }
+        }
+
         OffsetIter {
             item_size,
             item_count: info.data.len() / item_size,
@@ -507,10 +533,10 @@ impl WadData {
             current: 0,
             transformer: move |ofs| {
                 WadNode::new(
-                    info.read_i16(ofs),
-                    info.read_i16(ofs + 2),
-                    info.read_i16(ofs + 4),
-                    info.read_i16(ofs + 6),
+                    info.read_i16(ofs),     // X
+                    info.read_i16(ofs + 2), // Y
+                    info.read_i16(ofs + 4), // DX
+                    info.read_i16(ofs + 6), // DY
                     [
                         [
                             info.read_i16(ofs + 8),  // top
@@ -519,14 +545,14 @@ impl WadData {
                             info.read_i16(ofs + 14), /* right */
                         ],
                         [
-                            info.read_i16(ofs + 16),
-                            info.read_i16(ofs + 18),
-                            info.read_i16(ofs + 20),
-                            info.read_i16(ofs + 22),
+                            info.read_i16(ofs + 16), // top
+                            info.read_i16(ofs + 18), // bottom
+                            info.read_i16(ofs + 20), // left
+                            info.read_i16(ofs + 22), // right
                         ],
                     ],
-                    info.read_u16(ofs + 24),
-                    info.read_u16(ofs + 26),
+                    info.read_u16(ofs + 24) as u32, // right child index
+                    info.read_u16(ofs + 26) as u32, // left child index
                 )
             },
             _phantom: Default::default(),

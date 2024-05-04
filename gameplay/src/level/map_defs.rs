@@ -411,7 +411,7 @@ pub struct Node {
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
     /// code by inverting the last bit
-    pub child_index: [u16; 2],
+    pub child_index: [u32; 2],
     /// The parent of this node. Additional property to allow reversing up a BSP
     /// tree.
     pub parent: u16,
