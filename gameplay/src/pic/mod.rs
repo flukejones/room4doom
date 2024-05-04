@@ -228,13 +228,29 @@ impl PicData {
     fn init_wall_pics(wad: &WadData) -> (Vec<WallPic>, usize) {
         print!(".");
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
+        // Need to include flats
+        let pnames: Vec<String> = wad.pnames_iter().collect();
+        let mut sorted: Vec<WadPatch> = Vec::with_capacity(pnames.len());
+        for name in &pnames {
+            let mut log = true;
+            for patch in &patches {
+                if &patch.name == name {
+                    sorted.push(patch.clone());
+                    log = false;
+                    break;
+                }
+            }
+            if log {
+                warn!("Mising: {name}");
+            }
+        }
         print!(".");
         // info!("Init wall textures.");
         let mut skytexture = 0;
         let mut texture_alloc_size = 0;
 
         let mut pic_func = |(i, tex)| {
-            let pic = Self::build_wall_pic(tex, &patches);
+            let pic = Self::build_wall_pic(tex, &sorted);
             if pic.name == "SKY1" {
                 print!(".");
                 skytexture = i;

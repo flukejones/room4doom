@@ -102,15 +102,17 @@ fn lump_sfx_to_chunk(
     to_fmt: AudioFormat,
     to_rate: i32,
 ) -> Result<Chunk, String> {
-    let rate = i16::from_le_bytes([raw_lump[2], raw_lump[3]]) as i32;
+    let mut rate = i16::from_le_bytes([raw_lump[2], raw_lump[3]]) as i32;
+    if rate <= 0 {
+        rate = to_rate;
+    }
     let len = i32::from_le_bytes([raw_lump[4], raw_lump[5], raw_lump[6], raw_lump[7]]);
     let converter = AudioCVT::new(AudioFormat::U8, 1, rate, to_fmt, 2, to_rate)?;
     let fixed = converter.convert(raw_lump[7..len as usize].to_vec());
 
     Chunk::from_raw_buffer(fixed.into_boxed_slice()).map(|mut c| {
         // Set base volume
-        c.set_volume(64); // TODO: figure out the best chunk base
-                          // volume. Default is 128
+        c.set_volume(64);
         c
     })
 }
@@ -151,7 +153,7 @@ impl<'a> Snd<'a> {
                 let name = format!("DS{}", s.name.to_ascii_uppercase());
                 if let Some(lump) = wad.get_lump(&name) {
                     let chunk = lump_sfx_to_chunk(lump.data.clone(), AudioFormat::S16LSB, 44_100)
-                        .expect("{name} failed to parse");
+                        .expect(&format!("{name} failed to parse"));
                     SfxInfo::new(s.name.to_string(), s.priority, Some(chunk))
                 } else {
                     debug!("{name} is missing");

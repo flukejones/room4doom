@@ -40,27 +40,26 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len = self.start_lumps.len() - 1;
-
-        let start = &mut self.start_lumps[self.current_start];
-        let end = &mut self.end_lumps[self.current_start];
-
-        if start >= end && self.current_start >= len {
-            return None;
-        } else if start == end {
-            self.current_start += 1;
-        }
+        let mut start = &mut self.start_lumps[self.current_start];
+        let mut end = self.end_lumps[self.current_start];
 
         // Skip empty. Good for iterating over two groups of patches with markers
         // between
-        while self.lumps[*start].data.is_empty() {
-            *start += 1;
-            if start == end && self.current_start >= len {
-                return None;
-            } else if start == end {
-                self.current_start += 1;
+        loop {
+            if *start < self.lumps.len() - 1 && self.lumps[*start].data.is_empty() {
+                *start += 1;
+                if *start >= end && self.current_start < self.end_lumps.len() - 1 {
+                    self.current_start += 1;
+                    start = &mut self.start_lumps[self.current_start];
+                    end = self.end_lumps[self.current_start];
+                    // *start += 1; // skip the next byte as it will be a marker
+                }
+            } else {
                 break;
             }
+        }
+        if self.current_start >= self.end_lumps.len() - 1 && *start >= end {
+            return None;
         }
 
         let item = (self.transformer)(&self.lumps[*start]);
@@ -97,39 +96,44 @@ where
     }
 }
 
-/// Requires a list of patch names, typically from `PNAMES`
-pub struct PatchIter<'a> {
-    names: Vec<String>,
-    current: usize,
-    wad: &'a WadData,
-    _phantom: PhantomData<WadPatch>,
-}
-
-impl<'a> Iterator for PatchIter<'a> {
-    type Item = WadPatch;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.names.len() {
-            let lump = self.wad.find_lump_or_panic(&self.names[self.current]);
-            let patch = WadPatch::from_lump(lump);
-
-            // cycle through and check until we find one
-            self.current += 1;
-            for n in self.current..self.names.len() {
-                if !self.wad.lump_exists(&self.names[n]) {
-                    self.current += 1;
-                } else {
-                    break;
-                }
+impl WadData {
+    pub fn patches_iter(&self) -> LumpIter<WadPatch, impl Fn(&Lump) -> WadPatch + '_> {
+        let mut starts = Vec::new();
+        let mut ends = Vec::new();
+        for (i, info) in self.lumps.iter().enumerate() {
+            if info.name == "P1_START" {
+                starts.push(i);
+            } else if info.name.contains("P2_START") {
+                starts.push(i);
+            } else if info.name.contains("P3_START") {
+                starts.push(i);
+            } else if info.name.contains("PP_START") {
+                starts.push(i);
             }
 
-            return Some(patch);
+            if info.name == "P1_END" {
+                ends.push(i);
+            } else if info.name.contains("P2_END") {
+                ends.push(i);
+            } else if info.name.contains("P3_END") {
+                ends.push(i);
+            } else if info.name.contains("PP_END") {
+                ends.push(i);
+            }
         }
-        None
-    }
-}
+        if starts.is_empty() {
+            panic!("Could not find patches");
+        }
 
-impl WadData {
+        LumpIter {
+            end_lumps: ends,
+            lumps: &self.lumps,
+            start_lumps: starts,
+            current_start: 0,
+            transformer: move |lump| WadPatch::from_lump(lump),
+        }
+    }
+
     pub fn flats_iter(&self) -> LumpIter<WadFlat, impl Fn(&Lump) -> WadFlat + '_> {
         let mut starts = Vec::new();
         let mut ends = Vec::new();
@@ -253,18 +257,9 @@ impl WadData {
                 std::str::from_utf8(&n)
                     .expect("Invalid lump name")
                     .trim_end_matches('\u{0}')
-                    .to_owned()
+                    .trim_end()
+                    .to_ascii_uppercase()
             },
-            _phantom: Default::default(),
-        }
-    }
-
-    /// Iterate over patches in order determined by PNAME lump
-    pub fn patches_iter(&self) -> PatchIter {
-        PatchIter {
-            names: self.pnames_iter().collect(),
-            current: 0,
-            wad: self,
             _phantom: Default::default(),
         }
     }
@@ -546,7 +541,7 @@ mod tests {
 
     #[test]
     fn things_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let mut iter = wad.thing_iter("E1M1");
         // All verified with SLADE
 
@@ -569,7 +564,7 @@ mod tests {
 
     #[test]
     fn palette_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let count = wad.playpal_iter().count();
         assert_eq!(count, 14);
 
@@ -594,7 +589,7 @@ mod tests {
 
     #[test]
     fn pnames_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let mut iter = wad.pnames_iter();
         // All verified with SLADE
 
@@ -612,7 +607,7 @@ mod tests {
 
     #[test]
     fn texture_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let mut iter = wad.texture_iter("TEXTURE1");
         // All verified with SLADE
 
@@ -636,7 +631,7 @@ mod tests {
 
     #[test]
     fn patches_doom1_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         assert_eq!(wad.patches_iter().count(), 163);
     }
 
@@ -688,7 +683,7 @@ mod tests {
 
     #[test]
     fn patches_doom1_tex19() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let iter: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         let patch = &iter[19];
 
@@ -706,7 +701,7 @@ mod tests {
 
     #[test]
     fn colormap_iter() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let mut iter = wad.colourmap_iter();
         // All verified with SLADE
 
@@ -743,7 +738,7 @@ mod tests {
 
     #[test]
     fn flats_doom1() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let lump = wad.find_lump_or_panic("NUKAGE3");
         assert_eq!(lump.name, "NUKAGE3");
         assert_eq!(wad.flats_iter().count(), 54);

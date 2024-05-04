@@ -238,6 +238,7 @@ impl WadData {
             name: str::from_utf8(&n)
                 .expect("Invalid lump name")
                 .trim_end_matches('\u{0}')
+                .trim_end()
                 .to_ascii_uppercase(), /* better to address this early to
                                         * avoid many casts later */
         }
@@ -340,20 +341,27 @@ mod tests {
 
     #[test]
     fn load_wad() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         assert_eq!(wad.lumps.len(), 1243);
     }
 
     #[test]
     fn read_header() {
-        let wad = read_file("../../doom1.wad".into());
+        let wad = read_file("../doom1.wad".into());
         let header = WadData::read_header(&wad);
         assert_eq!(header.wad_type(), "IWAD");
     }
 
     #[test]
+    fn read_header_sunder() {
+        let wad = read_file("../sunder.wad".into());
+        let header = WadData::read_header(&wad);
+        assert_eq!(header.wad_type(), "PWAD");
+    }
+
+    #[test]
     fn read_single_dir() {
-        let wad = read_file("../../doom1.wad".into());
+        let wad = read_file("../doom1.wad".into());
         let header = WadData::read_header(&wad);
         let dir = WadData::read_dir_data((header.dir_offset) as usize, &wad);
         dbg!(&dir);
@@ -361,13 +369,13 @@ mod tests {
 
     #[test]
     fn read_all_dirs() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
 
         for i in 0..18 {
             dbg!("{:?}", &wad.lumps[i]);
         }
 
-        let file = read_file("../../doom1.wad".into());
+        let file = read_file("../doom1.wad".into());
         let header = WadData::read_header(&file);
 
         assert_eq!(wad.lumps.len(), header.dir_count as usize);
@@ -375,21 +383,21 @@ mod tests {
 
     #[test]
     fn find_e1m1_things() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Things);
         assert_eq!(things_lump.name, "THINGS");
     }
 
     #[test]
     fn find_e1m2_vertexes() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let things_lump = wad.find_lump_for_map_or_panic("E1M2", MapLump::Vertexes);
         assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
     }
 
     #[test]
     fn find_texture_lump() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let _tex = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(_tex.name, "TEXTURE1");
         assert_eq!(_tex.data.len(), 9234);
@@ -397,7 +405,7 @@ mod tests {
 
     #[test]
     fn find_playpal_lump() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let pal_lump = wad.find_lump_or_panic("PLAYPAL");
         assert_eq!(pal_lump.name, "PLAYPAL");
         assert_eq!(pal_lump.data.len(), 10752);
@@ -405,7 +413,7 @@ mod tests {
 
     #[test]
     fn check_image_patch() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         let lump = wad.find_lump_or_panic("WALL01_7");
         assert_eq!(lump.name, "WALL01_7");
         assert_eq!(lump.data.len(), 1304);
@@ -427,7 +435,7 @@ mod tests {
         assert_eq!(header.wad_type(), "PWAD");
         assert_eq!(header.wad_type(), "PWAD");
 
-        let mut wad = WadData::new("../../doom.wad".into());
+        let mut wad = WadData::new("../doom.wad".into());
         assert_eq!(wad.lumps.len(), 2306);
         wad.add_file("../sigil.wad".into());
         assert_eq!(wad.lumps.len(), 2452);
@@ -449,9 +457,43 @@ mod tests {
         assert_eq!(next.flags, 7);
     }
 
+    #[test]
+    fn load_sunder() {
+        let file = read_file("../sunder.wad".into());
+        let header = WadData::read_header(&file);
+        assert_eq!(header.wad_type(), "PWAD");
+        assert_eq!(header.wad_type(), "PWAD");
+
+        let wad = WadData::new("../sunder.wad".into());
+        assert_eq!(wad.lumps.len(), 2530);
+
+        let things_lump = wad.find_lump_for_map_or_panic("MAP10", MapLump::Vertexes);
+        assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
+
+        let things_lump = wad.find_lump_for_map_or_panic("MAP13", MapLump::Vertexes);
+        assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
+
+        let pnames = wad.find_lump_or_panic("PNAMES");
+        assert_eq!(pnames.name, "PNAMES");
+        let pnames_collect: Vec<String> = wad.pnames_iter().collect();
+        // This is a flat
+        assert!(pnames_collect.contains(&String::from("BODIES")));
+
+        let patches: Vec<WadPatch> = wad.patches_iter().collect();
+        // let mut iter = wad.thing_iter("MAP10");
+        // All verified with SLADE
+
+        // let next = iter.next().unwrap();
+        // assert_eq!(next.x, -208);
+        // assert_eq!(next.y, 72);
+        // assert_eq!(next.angle, 270);
+        // assert_eq!(next.kind, 2001);
+        // assert_eq!(next.flags, 7);
+    }
+
     // #[test]
     // fn find_e1m1_blockmap() {
-    //     let wad = WadData::new("../../doom1.wad".into());
+    //     let wad = WadData::new("../doom1.wad".into());
     //     let things_lump = wad.find_lump_for_map_or_panic("E1M1",
     // MapLump::Blockmap);     assert_eq!(things_lump.name, "BLOCKMAP");
 
