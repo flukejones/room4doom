@@ -34,7 +34,7 @@ pub(crate) fn noise_alert(target: &mut MapObject) {
         (*target.level).valid_count += 1;
         (*target.level).valid_count
     };
-    let sect = unsafe { (*target.subsector).sector.clone() };
+    let sect = target.subsector.sector.clone();
     sound_flood(sect, vc, 0, target);
 }
 
@@ -200,29 +200,27 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 pub(crate) fn a_look(actor: &mut MapObject) {
     actor.threshold = 0;
     // TODO: any shot will wake up
-    unsafe {
-        // if let Some(target) = actor.target {
-        //     let target = &*target;
-        //     if target.health <= 0 {
-        //         actor.set_state(actor.info.spawnstate);
-        //         return;
-        //     }
-        // }
+    // if let Some(target) = actor.target {
+    //     let target = &*target;
+    //     if target.health <= 0 {
+    //         actor.set_state(actor.info.spawnstate);
+    //         return;
+    //     }
+    // }
 
-        if let Some(target) = (*actor.subsector).sector.sound_target() {
-            if target.flags & MapObjFlag::Shootable as u32 != 0 {
-                actor.target = (*actor.subsector).sector.sound_target_raw();
+    let ss = actor.subsector.clone();
+    if let Some(target) = ss.sector.sound_target() {
+        if target.flags & MapObjFlag::Shootable as u32 != 0 {
+            actor.target = actor.subsector.sector.sound_target_raw();
 
-                if actor.flags & MapObjFlag::Ambush as u32 != 0 && !actor.check_sight_target(target)
-                {
-                    return;
-                }
-            } else if !actor.look_for_players(false) {
+            if actor.flags & MapObjFlag::Ambush as u32 != 0 && !actor.check_sight_target(target) {
                 return;
             }
         } else if !actor.look_for_players(false) {
             return;
         }
+    } else if !actor.look_for_players(false) {
+        return;
     }
 
     if actor.info.seesound != SfxName::None {
@@ -319,8 +317,8 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         return;
     };
 
-    let sidedef = unsafe { (*actor.subsector).sector.lines[0].front_sidedef.clone() };
-    let sector = unsafe { (*actor.subsector).sector.clone() };
+    let sidedef = actor.subsector.sector.lines[0].front_sidedef.clone();
+    let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
         v1: Default::default(),
@@ -542,33 +540,32 @@ fn vile_raise_check(actor: &mut MapObject, obj: &mut MapObject) -> bool {
 pub(crate) fn a_vilechase(actor: &mut MapObject) {
     if actor.movedir != MoveDir::None {
         // look for corpses
-        unsafe {
-            if !(*actor.subsector).sector.run_mut_func_on_thinglist(|obj| {
-                // Check corpses are within radius
-                if !vile_raise_check(actor, obj) {
-                    // found one so raise it
-                    let last_target = actor.target.take();
-                    actor.target = Some(obj.thinker);
-                    a_facetarget(actor);
-                    actor.target = last_target;
+        let mut ss = actor.subsector.clone();
+        if !ss.sector.run_mut_func_on_thinglist(|obj| {
+            // Check corpses are within radius
+            if !vile_raise_check(actor, obj) {
+                // found one so raise it
+                let last_target = actor.target.take();
+                actor.target = Some(obj.thinker);
+                a_facetarget(actor);
+                actor.target = last_target;
 
-                    actor.set_state(StateNum::VILE_HEAL1);
-                    actor.start_sound(SfxName::Slop);
-                    // info = corpsehit->info;
+                actor.set_state(StateNum::VILE_HEAL1);
+                actor.start_sound(SfxName::Slop);
+                // info = corpsehit->info;
 
-                    obj.set_state(obj.info.raisestate);
-                    obj.height *= 2.0;
-                    obj.flags = obj.info.flags;
-                    obj.health = obj.info.spawnhealth;
-                    obj.target = None;
-                    return false;
-                }
-                true
-            }) {
-                // found a corpse so return
-                trace!("Archvile found a corpse to raise");
-                return;
+                obj.set_state(obj.info.raisestate);
+                obj.height *= 2.0;
+                obj.flags = obj.info.flags;
+                obj.health = obj.info.spawnhealth;
+                obj.target = None;
+                return false;
             }
+            true
+        }) {
+            // found a corpse so return
+            trace!("Archvile found a corpse to raise");
+            return;
         }
     }
 
@@ -994,8 +991,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         return;
     };
 
-    let sidedef = unsafe { (*actor.subsector).sector.lines[0].front_sidedef.clone() };
-    let sector = unsafe { (*actor.subsector).sector.clone() };
+    let sidedef = actor.subsector.sector.lines[0].front_sidedef.clone();
+    let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
         v1: Default::default(),

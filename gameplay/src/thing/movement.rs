@@ -224,7 +224,7 @@ impl MapObject {
             return; // no friction when airborne
         }
 
-        let floorheight = unsafe { (*self.subsector).sector.floorheight };
+        let floorheight = self.subsector.sector.floorheight;
 
         if self.flags & MapObjFlag::Corpse as u32 != 0 {
             // do not stop sliding
@@ -350,11 +350,9 @@ impl MapObject {
 
         // The base floor / ceiling is from the subsector
         // that contains the point.
-        unsafe {
-            ctrl.min_floor_z = (*newsubsec).sector.floorheight;
-            ctrl.max_dropoff = (*newsubsec).sector.floorheight;
-            ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
-        }
+        ctrl.min_floor_z = (*newsubsec).sector.floorheight;
+        ctrl.max_dropoff = (*newsubsec).sector.floorheight;
+        ctrl.max_ceil_z = (*newsubsec).sector.ceilingheight;
 
         if self.flags & MapObjFlag::Noclip as u32 != 0 {
             return true;

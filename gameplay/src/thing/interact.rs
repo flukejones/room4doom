@@ -104,7 +104,7 @@ impl MapObject {
             }
         }
 
-        let special = unsafe { (*self.subsector).sector.special };
+        let special = self.subsector.sector.special;
         let mobj_health = self.health;
         let self_pos = self.xy;
         let self_ang = self.angle;

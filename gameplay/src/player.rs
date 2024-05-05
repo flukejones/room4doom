@@ -531,7 +531,7 @@ impl Player {
     fn in_special_sector(&mut self, level: &mut Level) {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let mut sector = unsafe { (*mobj.subsector).sector.clone() };
+            let mut sector = mobj.subsector.sector.clone();
 
             if mobj.z != sector.floorheight {
                 return;

@@ -390,7 +390,7 @@ impl SoftwareRenderer {
         pixels: &mut dyn PixelBuffer,
     ) {
         if let Some(mobj) = player.mobj() {
-            let light = unsafe { (*mobj.subsector).sector.lightlevel };
+            let light = mobj.subsector.sector.lightlevel;
             let light = (light >> 4) + player.extralight;
 
             for sprite in player.psprites.iter() {

@@ -191,7 +191,8 @@ impl Sector {
         if let Some(prev) = thing.mobj().s_prev {
             (*prev).mobj_mut().s_next = thing.mobj_mut().s_next;
         } else {
-            (*thing.mobj().subsector).sector.thinglist = thing.mobj().s_next;
+            let mut ss = thing.mobj().subsector.clone();
+            ss.sector.thinglist = thing.mobj().s_next;
         }
     }
 
@@ -292,7 +293,7 @@ pub struct LineDef {
     // if == validcount, already checked
     pub valid_count: usize,
     // thinker_t for reversable actions
-    // TODO: void*	specialdata: Option<DPtr<Thinker>>,
+    // TODO: void*	specialdata: Option<MapPtr<Thinker>>,
 }
 
 impl std::fmt::Debug for LineDef {

@@ -19,9 +19,9 @@ use self::movement::SubSectorMinMax;
 use crate::doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER};
 use crate::level::Level;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::Skill;
+use crate::{MapPtr, Skill};
 use glam::Vec2;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use wad::lumps::WadThing;
 
 use crate::angle::Angle;
@@ -107,16 +107,16 @@ pub enum MapObjFlag {
 pub struct MapObject {
     /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
     /// out of the `Thinker` then you must update sector thing lists and self
-    /// linked list
-    pub(crate) thinker: *mut Thinker,
+    /// linked list. This is a pointer to the `Thinker` storage.
+    pub(super) thinker: *mut Thinker,
     /// Specific to Doom II. These are pointers to targets that the
     /// final boss shoots demon spawn cubes towards. It is expected that
     /// because these are level items they will never shift their memory
     /// location. The raw pointers here are to map entities that never
     /// move/delete themselves.
-    pub(crate) boss_targets: Vec<*mut Thinker>,
+    pub(super) boss_targets: Vec<*mut Thinker>,
     /// Specific to Doom II. The current target (spawn point for demons)
-    pub(crate) boss_target_on: usize,
+    pub(super) boss_target_on: usize,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -127,12 +127,17 @@ pub struct MapObject {
     pub sprite: SpriteNum,
     /// might be ORed with FF_FULLBRIGHT
     pub frame: u32,
-    /// Link to the next `Thinker` in this sector
-    pub(crate) s_next: Option<*mut Thinker>,
+    /// Link to the next `Thinker` in this sector. You can think of this as a
+    /// separate Linked List to the `Thinker` linked list used in storage. I
+    /// does mean that you will need to unlink an object both here, and in the
+    /// Thinker storage if removing one.
+    pub(super) s_next: Option<*mut Thinker>,
     /// Link to the previous `Thinker` in this sector
-    pub(crate) s_prev: Option<*mut Thinker>,
-    /// The subsector this object is currently in
-    pub subsector: *mut SubSector,
+    pub(super) s_prev: Option<*mut Thinker>,
+    /// The subsector this object is currently in. When a map object is spawned
+    /// `set_thing_position()` is called which then sets this to a valid
+    /// subsector, making this safe in 99% of cases.
+    pub subsector: MapPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
     pub(crate) floorz: f32,
     pub(crate) ceilingz: f32,
@@ -258,7 +263,7 @@ impl MapObject {
             tracer: None,
             s_next: None,
             s_prev: None,
-            subsector: null_mut(),
+            subsector: unsafe { MapPtr::new_null() },
             state,
             info,
             kind,
@@ -672,14 +677,16 @@ impl MapObject {
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
                     // Now that we have a subsector this is safe
-                    thing.floorz = (*thing.subsector).sector.floorheight;
-                    thing.ceilingz = (*thing.subsector).sector.ceilingheight;
+                    thing.floorz = thing.subsector.sector.floorheight;
+                    thing.ceilingz = thing.subsector.sector.ceilingheight;
 
                     if z == ONFLOORZ {
                         thing.z = thing.floorz;
                     } else if z == ONCEILINGZ {
                         thing.z = thing.ceilingz - info.height;
                     }
+                } else {
+                    warn!("Thing {:?} didn't get a subsector", kind);
                 }
                 return thing;
             }
@@ -738,9 +745,8 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn unset_thing_position(&mut self) {
         if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
-            (*self.subsector)
-                .sector
-                .remove_from_thinglist(self.thinker_mut());
+            let mut ss = self.subsector.clone();
+            ss.sector.remove_from_thinglist(self.thinker_mut());
         }
     }
 
@@ -750,12 +756,11 @@ impl MapObject {
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn set_thing_position(&mut self) {
         let level = &mut *self.level;
-        let subsector = level.map_data.point_in_subsector_raw(self.xy);
-        self.subsector = subsector;
-
+        let mut subsector = level.map_data.point_in_subsector_raw(self.xy);
         if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
-            (*subsector).sector.add_to_thinglist(self.thinker)
+            subsector.sector.add_to_thinglist(self.thinker)
         }
+        self.subsector = subsector;
     }
 
     /// P_RemoveMobj

@@ -15,6 +15,7 @@ use std::ops::{Deref, DerefMut};
 
 #[cfg(null_check)]
 use std::panic;
+use std::ptr::null_mut;
 
 mod angle;
 mod doom_def;
@@ -132,6 +133,24 @@ pub struct MapPtr<T: Debug> {
 impl<T: Debug> MapPtr<T> {
     fn new(t: &mut T) -> MapPtr<T> {
         MapPtr { inner: t as *mut _ }
+    }
+
+    /// This should only ever be used in cases where the `MapPtr` itself will be
+    /// replaced.
+    ///
+    /// # Safety
+    ///
+    /// Either replace the `MapPtr` with a valid type before use, or check null
+    /// status with `is_null()` (it will always be null as there is no way to
+    /// set the internal pointer).
+    ///
+    /// Test builds should be run with `null_check` feature occasionally.
+    unsafe fn new_null() -> MapPtr<T> {
+        MapPtr { inner: null_mut() }
+    }
+
+    fn is_null(&self) -> bool {
+        self.inner.is_null()
     }
 }
 

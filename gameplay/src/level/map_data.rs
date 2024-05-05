@@ -411,7 +411,7 @@ impl MapData {
     /// objects.
     ///
     /// Doom function name  `R_PointInSubsector`
-    pub fn point_in_subsector_raw(&mut self, point: Vec2) -> *mut SubSector {
+    pub fn point_in_subsector_raw(&mut self, point: Vec2) -> MapPtr<SubSector> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
@@ -422,7 +422,7 @@ impl MapData {
             node_id = node.child_index[side];
         }
 
-        &mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize] as *mut _
+        MapPtr::new(&mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize])
     }
 
     pub fn point_in_subsector(&mut self, point: Vec2) -> &SubSector {
