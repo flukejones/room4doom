@@ -5,13 +5,13 @@ use glam::Vec2;
 use crate::info::MapObjKind;
 use crate::level::map_defs::LineDef;
 use crate::thinker::ThinkerData;
-use crate::{DPtr, Level, MapObject, Sector};
+use crate::{Level, MapObject, MapPtr, Sector};
 
 use crate::thing::MapObjFlag;
 
 /// Doom function name `EV_Teleport`
 pub fn teleport(
-    line: DPtr<LineDef>,
+    line: MapPtr<LineDef>,
     side: usize,
     thing: &mut MapObject,
     level: &mut Level,

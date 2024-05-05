@@ -552,6 +552,7 @@ impl WadSideDef {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtendedNodeType {
     XNOD,
     XGLN,
@@ -580,6 +581,7 @@ impl ExtendedNodeType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeLumpType {
     /// Original Doom style NODES table, use the standard parser
     OGDoom,
@@ -598,8 +600,6 @@ pub enum NodeLumpType {
 /// the array built from this lump.
 ///
 /// **The last node is the root node**
-///
-/// `WadXNode` is almsot the same as `WadXNode`
 ///
 /// The data in the WAD lump is structured as follows:
 ///
@@ -696,7 +696,15 @@ impl WadBlockMap {
 /// | 4-byte chunk | u32     | Node count                                                    |
 /// | 32-byte chunk| Node    | Node N: Same as vanilla except child ref are u32              |
 #[derive(Debug, Clone)]
-pub struct WadExtendedMap {}
+pub struct WadExtendedMap {
+    pub node_type: ExtendedNodeType,
+    pub vertexes: Vec<WadVertex>,
+    /// The start seg for a subsector inferred from being first in the count
+    pub subsectors: Vec<WadSubSector>,
+    /// The angle and other parts can be recalculated using the new data layout
+    pub segments: Vec<WadSegment>,
+    pub nodes: Vec<WadNode>,
+}
 
 /// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses
 /// to simplify collision-detection between moving things and walls.

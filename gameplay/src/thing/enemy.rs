@@ -21,7 +21,7 @@ use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
-    teleport_move, Angle, DPtr, GameMode, LineDefFlags, MapObjKind, Sector, Skill, MAXPLAYERS
+    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS
 };
 
 use super::movement::SubSectorMinMax;
@@ -39,7 +39,7 @@ pub(crate) fn noise_alert(target: &mut MapObject) {
 }
 
 fn sound_flood(
-    mut sector: DPtr<Sector>,
+    mut sector: MapPtr<Sector>,
     valid_count: usize,
     sound_blocks: i32,
     target: &mut MapObject,
@@ -337,7 +337,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         backsector: None,
         valid_count: 0,
     };
-    ev_do_door(DPtr::new(&mut junk), DoorKind::BlazeOpen, level);
+    ev_do_door(MapPtr::new(&mut junk), DoorKind::BlazeOpen, level);
 }
 
 pub(crate) fn a_hoof(actor: &mut MapObject) {
@@ -1016,26 +1016,26 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     if mode == GameMode::Commercial && map == 7 {
         if actor.kind == MapObjKind::MT_FATSO {
             junk.tag = 666;
-            ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+            ev_do_floor(MapPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
             return;
         }
         if actor.kind == MapObjKind::MT_BABY {
             junk.tag = 667;
-            ev_do_floor(DPtr::new(&mut junk), FloorKind::RaiseToTexture, level);
+            ev_do_floor(MapPtr::new(&mut junk), FloorKind::RaiseToTexture, level);
             return;
         }
     } else if episode == 1 {
         junk.tag = 666;
-        ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+        ev_do_floor(MapPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
         return;
     } else if episode == 4 {
         if map == 6 {
             junk.tag = 666;
-            ev_do_door(DPtr::new(&mut junk), DoorKind::BlazeOpen, level);
+            ev_do_door(MapPtr::new(&mut junk), DoorKind::BlazeOpen, level);
             return;
         } else if map == 8 {
             junk.tag = 666;
-            ev_do_floor(DPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
+            ev_do_floor(MapPtr::new(&mut junk), FloorKind::LowerFloorToLowest, level);
             return;
         }
     }

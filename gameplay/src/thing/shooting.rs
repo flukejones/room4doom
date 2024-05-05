@@ -11,7 +11,7 @@ use crate::info::{StateNum, MOBJINFO};
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::LineDef;
 use crate::utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ};
-use crate::{Angle, DPtr, LineDefFlags, MapObjKind, MapObject};
+use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
@@ -415,7 +415,7 @@ impl MapObject {
 #[derive(Clone)]
 pub(crate) struct AimResult {
     pub aimslope: f32,
-    pub line_target: DPtr<MapObject>,
+    pub line_target: MapPtr<MapObject>,
 }
 
 struct SubSectTraverse {

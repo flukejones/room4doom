@@ -2,7 +2,7 @@ use log::info;
 
 use crate::doom_def::GameMode;
 use crate::level::map_defs::LineDef;
-use crate::{DPtr, PicData};
+use crate::{MapPtr, PicData};
 
 #[derive(Debug)]
 pub enum ButtonWhere {
@@ -13,7 +13,7 @@ pub enum ButtonWhere {
 
 #[derive(Debug)]
 pub struct Button {
-    pub line: DPtr<LineDef>,
+    pub line: MapPtr<LineDef>,
     pub bwhere: ButtonWhere,
     pub texture: usize,
     pub timer: u32,

@@ -16,13 +16,13 @@ use crate::lang::english::{PD_BLUEO, PD_REDO, PD_YELLOWO};
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::LineDef;
 use crate::pic::{Button, ButtonWhere};
-use crate::DPtr;
+use crate::MapPtr;
 
 const BUTTONTIME: u32 = 35;
 
 /// Doom function name `P_StartButton`
 pub fn start_button(
-    line: DPtr<LineDef>,
+    line: MapPtr<LineDef>,
     bwhere: ButtonWhere,
     texture: usize,
     timer: u32,
@@ -69,7 +69,7 @@ pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx
 
 /// Doom function name `P_ChangeSwitchTexture`
 pub fn change_switch_texture(
-    mut line: DPtr<LineDef>,
+    mut line: MapPtr<LineDef>,
     use_again: bool,
     switch_list: &[usize],
     button_list: &mut Vec<Button>,
@@ -137,7 +137,7 @@ pub fn change_switch_texture(
 /// P_UseSpecialLine
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
-pub fn p_use_special_line(_side: i32, line: DPtr<LineDef>, thing: &mut MapObject) -> bool {
+pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObject) -> bool {
     //  Switches that other things can activate
     if thing.player().is_none() {
         // never open secret doors

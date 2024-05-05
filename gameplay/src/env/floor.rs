@@ -10,7 +10,7 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::DPtr;
+use crate::MapPtr;
 
 use crate::env::specials::{
     find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane, PlaneResult
@@ -61,7 +61,7 @@ pub enum StairKind {
 
 pub struct FloorMove {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub kind: FloorKind,
     pub speed: f32,
     pub crush: bool,
@@ -72,7 +72,7 @@ pub struct FloorMove {
 }
 
 /// EV_DoFloor
-pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> bool {
+pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) -> bool {
     let mut ret = false;
 
     for sector in level
@@ -86,11 +86,11 @@ pub fn ev_do_floor(line: DPtr<LineDef>, kind: FloorKind, level: &mut Level) -> b
         }
 
         // Because we need to break lifetimes...
-        let mut sec = DPtr::new(sector);
+        let mut sec = MapPtr::new(sector);
 
         let mut floor = FloorMove {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             kind,
             speed: FLOORSPEED,
             crush: false,
@@ -281,7 +281,7 @@ impl Think for FloorMove {
     }
 }
 
-pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) -> bool {
+pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level) -> bool {
     let mut ret = false;
     let mut speed;
     let mut height;
@@ -300,7 +300,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
 
         let mut floor = FloorMove {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             kind: FloorKind::LowerFloor,
             speed: FLOORSPEED,
             crush: false,
@@ -325,7 +325,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
         floor.destheight = height;
 
         // Because we need to break lifetimes...
-        let mut sec = DPtr::new(sector);
+        let mut sec = MapPtr::new(sector);
 
         let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
 
@@ -397,7 +397,7 @@ pub fn ev_build_stairs(line: DPtr<LineDef>, kind: StairKind, level: &mut Level) 
     ret
 }
 
-pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
+pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
     let mut ret = false;
 
     for sector in level
@@ -411,7 +411,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
         }
         ret = true;
 
-        if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), DPtr::new(sector)) {
+        if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), MapPtr::new(sector)) {
             for line in s2.lines.iter_mut() {
                 if line.flags & LineDefFlags::TwoSided as u32 == 0 {
                     continue;
@@ -446,7 +446,7 @@ pub fn ev_do_donut(line: DPtr<LineDef>, level: &mut Level) -> bool {
                     // spwan donut hole lowering
                     let floor = FloorMove {
                         thinker: null_mut(),
-                        sector: DPtr::new(sector),
+                        sector: MapPtr::new(sector),
                         kind: FloorKind::LowerFloor,
                         speed: FLOORSPEED / 2.0,
                         crush: false,

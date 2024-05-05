@@ -20,12 +20,12 @@ use crate::level::Level;
 use crate::pic::{ButtonWhere, PicAnimation};
 use crate::thing::MapObject;
 use crate::utilities::circle_line_collide;
-use crate::{DPtr, PicData};
+use crate::{MapPtr, PicData};
 use log::{debug, error, trace};
 use sound_traits::SfxName;
 use std::ptr;
 
-pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr<Sector>> {
+pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<MapPtr<Sector>> {
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {
         return None;
     }
@@ -38,7 +38,7 @@ pub fn get_next_sector(line: DPtr<LineDef>, sector: DPtr<Sector>) -> Option<DPtr
 }
 
 /// P_FindMinSurroundingLight
-pub fn find_min_light_surrounding(sec: DPtr<Sector>, max: i32) -> i32 {
+pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: i32) -> i32 {
     let mut min = max;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -51,7 +51,7 @@ pub fn find_min_light_surrounding(sec: DPtr<Sector>, max: i32) -> i32 {
     min
 }
 
-pub fn find_max_light_surrounding(sec: DPtr<Sector>, mut max: i32) -> i32 {
+pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: i32) -> i32 {
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
             if other.lightlevel > max {
@@ -64,7 +64,7 @@ pub fn find_max_light_surrounding(sec: DPtr<Sector>, mut max: i32) -> i32 {
 }
 
 /// P_FindLowestCeilingSurrounding
-pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
+pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> f32 {
     let mut height = f32::MAX;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -78,7 +78,7 @@ pub fn find_lowest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
 }
 
 /// P_FindHighestCeilingSurrounding
-pub fn find_highest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
+pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> f32 {
     let mut height = 0.0;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -92,7 +92,7 @@ pub fn find_highest_ceiling_surrounding(sec: DPtr<Sector>) -> f32 {
 }
 
 /// P_FindLowestFloorSurrounding
-pub fn find_lowest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
+pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> f32 {
     let mut floor = sec.floorheight;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -106,7 +106,7 @@ pub fn find_lowest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
 }
 
 /// P_FindHighestFloorSurrounding
-pub fn find_highest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
+pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> f32 {
     let mut floor = f32::MIN;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -120,7 +120,7 @@ pub fn find_highest_floor_surrounding(sec: DPtr<Sector>) -> f32 {
 }
 
 /// P_FindNextHighestFloor
-pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
+pub fn find_next_highest_floor(sec: MapPtr<Sector>, current: f32) -> f32 {
     let mut height = current;
     let mut height_list = Vec::new();
 
@@ -148,7 +148,7 @@ pub fn find_next_highest_floor(sec: DPtr<Sector>, current: f32) -> f32 {
 }
 
 /// P_ChangeSector
-fn change_sector(mut sector: DPtr<Sector>, crunch: bool) -> bool {
+fn change_sector(mut sector: MapPtr<Sector>, crunch: bool) -> bool {
     let mut no_fit = false;
     let valid = sector.validcount + 1;
     // The call to pit_change_sector relies on the mobj doing height_clip() which
@@ -196,7 +196,7 @@ pub enum PlaneResult {
 }
 
 pub fn move_plane(
-    mut sector: DPtr<Sector>,
+    mut sector: MapPtr<Sector>,
     speed: f32,
     dest: f32,
     crush: bool,
@@ -343,7 +343,7 @@ pub fn move_plane(
 /// attached
 ///
 /// Doom function name is `P_CrossSpecialLine`
-pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     //  Triggers that other things can activate
@@ -733,7 +733,7 @@ pub fn cross_special_line(side: usize, mut line: DPtr<LineDef>, thing: &mut MapO
 /// Actions for when a thing shoots a special line
 ///
 /// Doom function name `P_ShootSpecialLine`
-pub fn shoot_special_line(line: DPtr<LineDef>, thing: &mut MapObject) {
+pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
     if thing.level.is_null() {
@@ -858,7 +858,7 @@ pub fn spawn_specials(level: &mut Level) {
 
     for line in level_iter.map_data.linedefs.iter_mut() {
         if line.special == 48 {
-            level.line_special_list.push(DPtr::new(line));
+            level.line_special_list.push(MapPtr::new(line));
         }
     }
 }

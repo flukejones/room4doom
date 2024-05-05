@@ -112,7 +112,8 @@ pub struct MapObject {
     /// Specific to Doom II. These are pointers to targets that the
     /// final boss shoots demon spawn cubes towards. It is expected that
     /// because these are level items they will never shift their memory
-    /// location.
+    /// location. The raw pointers here are to map entities that never
+    /// move/delete themselves.
     pub(crate) boss_targets: Vec<*mut Thinker>,
     /// Specific to Doom II. The current target (spawn point for demons)
     pub(crate) boss_target_on: usize,

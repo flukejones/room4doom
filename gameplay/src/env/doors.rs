@@ -13,7 +13,7 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::{DPtr, LineDefFlags};
+use crate::{LineDefFlags, MapPtr};
 
 use crate::env::specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
 use crate::env::switch::start_sector_sound;
@@ -36,7 +36,7 @@ pub enum DoorKind {
 
 pub struct VerticalDoor {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub kind: DoorKind,
     pub topheight: f32,
     pub speed: f32,
@@ -207,7 +207,7 @@ impl Think for VerticalDoor {
 
 /// EV_DoDoor
 /// Can affect multiple sectors via the sector tag
-pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> bool {
+pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut Level) -> bool {
     let mut ret = false;
     for sector in level
         .map_data
@@ -219,12 +219,12 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
             continue;
         }
         // Because we need to break lifetimes...
-        let mut sec = DPtr::new(sector);
+        let mut sec = MapPtr::new(sector);
 
         ret = true;
         let mut door = VerticalDoor {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             kind,
             topheight: 0.0,
             speed: VDOORSPEED,
@@ -285,7 +285,7 @@ pub fn ev_do_door(line: DPtr<LineDef>, kind: DoorKind, level: &mut Level) -> boo
     ret
 }
 
-pub fn ev_vertical_door(mut line: DPtr<LineDef>, thing: &mut MapObject, level: &mut Level) {
+pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level: &mut Level) {
     if let Some(player) = thing.player_mut() {
         match line.special {
             26 | 32 => {

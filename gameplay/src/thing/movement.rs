@@ -19,7 +19,7 @@ use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{
     box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4
 };
-use crate::{DPtr, MapObjKind, MapObject};
+use crate::{MapObjKind, MapObject, MapPtr};
 
 use super::MapObjFlag;
 
@@ -42,8 +42,8 @@ pub struct SubSectorMinMax {
     pub min_floor_z: f32,
     pub max_ceil_z: f32,
     max_dropoff: f32,
-    sky_line: Option<DPtr<LineDef>>,
-    spec_hits: Vec<DPtr<LineDef>>,
+    sky_line: Option<MapPtr<LineDef>>,
+    spec_hits: Vec<MapPtr<LineDef>>,
 }
 
 impl MapObject {
@@ -555,7 +555,7 @@ impl MapObject {
         let portal = PortalZ::new(ld);
         if portal.top_z < ctrl.max_ceil_z {
             ctrl.max_ceil_z = portal.top_z;
-            ctrl.sky_line = Some(DPtr::new(ld));
+            ctrl.sky_line = Some(MapPtr::new(ld));
         }
         // Find the highest floor point (for steps etc)
         if portal.bottom_z > ctrl.min_floor_z {
@@ -568,14 +568,14 @@ impl MapObject {
 
         if ld.special != 0 {
             for l in ctrl.spec_hits.iter() {
-                let ptr = DPtr::new(ld);
+                let ptr = MapPtr::new(ld);
                 if l.inner as usize != ptr.inner as usize {
                     ctrl.spec_hits.push(ptr);
                     break;
                 }
             }
             if ctrl.spec_hits.is_empty() {
-                ctrl.spec_hits.push(DPtr::new(ld));
+                ctrl.spec_hits.push(MapPtr::new(ld));
             }
         }
 

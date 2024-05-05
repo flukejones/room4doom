@@ -1,7 +1,7 @@
 use crate::angle::Angle;
 use crate::thing::MapObject;
 use crate::thinker::{Thinker, ThinkerData};
-use crate::DPtr;
+use crate::MapPtr;
 use glam::Vec2;
 use log::error;
 
@@ -43,7 +43,7 @@ pub struct Sector {
 
     // thinker_t for reversable actions
     pub specialdata: Option<*mut Thinker>,
-    pub lines: Vec<DPtr<LineDef>>,
+    pub lines: Vec<MapPtr<LineDef>>,
 
     // thing that made a sound (or null)
     sound_target: Option<*mut Thinker>,
@@ -222,7 +222,7 @@ pub struct SideDef {
     pub midtexture: Option<usize>,
 
     // Sector the SideDef is facing.
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
 }
 
 #[derive(Debug, Default)]
@@ -282,12 +282,12 @@ pub struct LineDef {
     // To aid move clipping.
     pub slopetype: SlopeType,
 
-    pub front_sidedef: DPtr<SideDef>,
-    pub back_sidedef: Option<DPtr<SideDef>>,
+    pub front_sidedef: MapPtr<SideDef>,
+    pub back_sidedef: Option<MapPtr<SideDef>>,
 
     // Front and back sector.
-    pub frontsector: DPtr<Sector>,
-    pub backsector: Option<DPtr<Sector>>,
+    pub frontsector: MapPtr<Sector>,
+    pub backsector: Option<MapPtr<Sector>>,
 
     // if == validcount, already checked
     pub valid_count: usize,
@@ -345,12 +345,12 @@ pub struct Segment {
 
     pub angle: Angle,
 
-    pub sidedef: DPtr<SideDef>,
+    pub sidedef: MapPtr<SideDef>,
     /// The Linedef this segment travels along
-    pub linedef: DPtr<LineDef>,
+    pub linedef: MapPtr<LineDef>,
 
-    pub frontsector: DPtr<Sector>,
-    pub backsector: Option<DPtr<Sector>>,
+    pub frontsector: MapPtr<Sector>,
+    pub backsector: Option<MapPtr<Sector>>,
 }
 
 impl Segment {
@@ -389,7 +389,7 @@ impl Segment {
 
 #[derive(Debug)]
 pub struct SubSector {
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
     pub seg_count: i16,
     /// The `Segment` to start with

@@ -26,6 +26,7 @@
 
 ## GAMEPLAY STUFF
 
+- [ ] Nightmare respawn
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO

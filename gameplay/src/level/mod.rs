@@ -24,7 +24,7 @@ use crate::env::platforms::{PlatStatus, Platform};
 use crate::level::map_data::MapData;
 use crate::pic::Button;
 use crate::thinker::ThinkerAlloc;
-use crate::{DPtr, PicData, Player, Skill};
+use crate::{MapPtr, PicData, Player, Skill};
 
 use self::map_defs::LineDef;
 
@@ -73,7 +73,7 @@ pub struct Level {
     pub(super) switch_list: Vec<usize>,
     /// List of used buttons. Typically these buttons or switches are timed.
     pub(super) button_list: Vec<Button>,
-    pub(super) line_special_list: Vec<DPtr<LineDef>>,
+    pub(super) line_special_list: Vec<MapPtr<LineDef>>,
     /// Need access to texture data for a few things
     pub pic_data: Rc<RefCell<PicData>>,
     /// Some stuff needs to know the game-exe mode (e.g, switching weapons)

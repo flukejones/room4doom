@@ -5,7 +5,7 @@ use crate::angle::Angle;
 use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
 use crate::log::info;
 use crate::utilities::{bam_to_radian, circle_line_collide};
-use crate::{DPtr, PicData};
+use crate::{MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
@@ -227,7 +227,7 @@ impl MapData {
                     midtexture: tex_order
                         .iter()
                         .position(|n| n.name == s.middle_tex.to_ascii_uppercase()),
-                    sector: DPtr::new(sector),
+                    sector: MapPtr::new(sector),
                 }
             })
             .collect();
@@ -240,11 +240,11 @@ impl MapData {
                 let v1 = vertexes[l.start_vertex as usize];
                 let v2 = vertexes[l.end_vertex as usize];
 
-                let front = DPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
+                let front = MapPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
 
                 let back_side = {
                     l.back_sidedef
-                        .map(|index| DPtr::new(&mut self.sidedefs[index as usize]))
+                        .map(|index| MapPtr::new(&mut self.sidedefs[index as usize]))
                 };
 
                 let back_sector = {
@@ -287,9 +287,9 @@ impl MapData {
         // Now map sectors to lines
         for line in self.linedefs.iter_mut() {
             let mut sector = line.frontsector.clone();
-            sector.lines.push(DPtr::new(line));
+            sector.lines.push(MapPtr::new(line));
             if let Some(mut sector) = line.backsector.clone() {
-                sector.lines.push(DPtr::new(line));
+                sector.lines.push(MapPtr::new(line));
             }
         }
         info!("{}: Mapped linedefs to sectors", self.name);
@@ -333,7 +333,7 @@ impl MapData {
                     offset: s.offset as f32,
                     angle: Angle::new(angle),
                     sidedef: side,
-                    linedef: DPtr::new(linedef),
+                    linedef: MapPtr::new(linedef),
                     frontsector,
                     backsector,
                 }

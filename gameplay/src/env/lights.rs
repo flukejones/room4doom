@@ -6,7 +6,7 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::DPtr;
+use crate::MapPtr;
 
 use crate::env::specials::{
     find_max_light_surrounding, find_min_light_surrounding, get_next_sector
@@ -34,7 +34,7 @@ pub const SLOWDARK: i32 = 35;
 
 pub struct FireFlicker {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
@@ -46,10 +46,10 @@ impl FireFlicker {
         sector.special = 0;
         let light = FireFlicker {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             count: 4,
             max_light: sector.lightlevel,
-            min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel) + 16,
+            min_light: find_min_light_surrounding(MapPtr::new(sector), sector.lightlevel) + 16,
         };
 
         let thinker =
@@ -108,7 +108,7 @@ impl Think for FireFlicker {
 
 pub struct LightFlash {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub count: i32,
     pub max_light: i32,
     pub min_light: i32,
@@ -122,10 +122,10 @@ impl LightFlash {
         sector.special = 0;
         let light = LightFlash {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             count: (p_random() & 64) + 1,
             max_light: sector.lightlevel,
-            min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel),
+            min_light: find_min_light_surrounding(MapPtr::new(sector), sector.lightlevel),
             max_time: 64,
             min_time: 7,
         };
@@ -185,7 +185,7 @@ impl Think for LightFlash {
 
 pub struct StrobeFlash {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub count: i32,
     pub min_light: i32,
     pub max_light: i32,
@@ -199,9 +199,9 @@ impl StrobeFlash {
         sector.special = 0;
         let mut light = StrobeFlash {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             count: if in_sync { (p_random() & 7) + 1 } else { 1 },
-            min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel),
+            min_light: find_min_light_surrounding(MapPtr::new(sector), sector.lightlevel),
             max_light: sector.lightlevel,
             dark_time: fast_or_slow,
             bright_time: STROBEBRIGHT,
@@ -267,7 +267,7 @@ impl Think for StrobeFlash {
 
 pub struct Glow {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub min_light: i32,
     pub max_light: i32,
     pub direction: i32,
@@ -279,9 +279,9 @@ impl Glow {
         sector.special = 0;
         let light = Glow {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             max_light: sector.lightlevel,
-            min_light: find_min_light_surrounding(DPtr::new(sector), sector.lightlevel),
+            min_light: find_min_light_surrounding(MapPtr::new(sector), sector.lightlevel),
             direction: -1,
         };
 
@@ -346,7 +346,7 @@ impl Think for Glow {
 }
 
 /// Doom function name `EV_LightTurnOn`
-pub fn ev_turn_light_on(line: DPtr<LineDef>, mut bright: i32, level: &mut Level) {
+pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: i32, level: &mut Level) {
     for sector in level
         .map_data
         .sectors_mut()
@@ -354,7 +354,7 @@ pub fn ev_turn_light_on(line: DPtr<LineDef>, mut bright: i32, level: &mut Level)
         .filter(|s| s.tag == line.tag)
     {
         // Because we need to break lifetimes...
-        let sec = DPtr::new(sector);
+        let sec = MapPtr::new(sector);
 
         // bright = 0 means to search
         // for highest light level
@@ -367,7 +367,7 @@ pub fn ev_turn_light_on(line: DPtr<LineDef>, mut bright: i32, level: &mut Level)
 }
 
 /// Doom function name `EV_TurnTagLightsOff`
-pub fn ev_turn_tag_lights_off(line: DPtr<LineDef>, level: &mut Level) {
+pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut Level) {
     let mut min;
     for sector in level
         .map_data
@@ -375,7 +375,7 @@ pub fn ev_turn_tag_lights_off(line: DPtr<LineDef>, level: &mut Level) {
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
-        let sec = DPtr::new(sector);
+        let sec = MapPtr::new(sector);
         min = sector.lightlevel;
 
         for line in sector.lines.iter_mut() {
@@ -392,7 +392,7 @@ pub fn ev_turn_tag_lights_off(line: DPtr<LineDef>, level: &mut Level) {
 }
 
 /// Doom function name `EV_StartLightStrobing`
-pub fn ev_start_light_strobing(line: DPtr<LineDef>, level: &mut Level) {
+pub fn ev_start_light_strobing(line: MapPtr<LineDef>, level: &mut Level) {
     let level_ptr = unsafe { &mut *(level as *mut Level) };
     for sector in level
         .map_data

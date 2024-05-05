@@ -1,4 +1,4 @@
-use log::{debug, info, warn};
+use log::{debug, warn};
 
 use crate::lumps::*;
 use crate::{Lump, MapLump, WadData};

@@ -114,19 +114,28 @@ impl FromStr for Skill {
     }
 }
 
-/// Functions purely as a safe fn wrapper around a `NonNull` because we know
-/// that the Map structure is not going to change under us
-pub struct DPtr<T: Debug> {
+/// This exists to allow breaking the rules of borrows and in some cases
+/// lifetimes.
+///
+/// Where you will see it used most is in references to the map
+/// structure - things like linkng segs with lines, subsectors etc, the maps in
+/// Doom are very self-referential with a need to be able to follow any
+/// subsector to any other, from any line or seg.
+///
+/// It is also for allowing thinkers (e.g, Doors, Lights) to keep a mutable
+/// reference to Sectors or lines they need to control (without having to jump
+/// through flaming hoops).
+pub struct MapPtr<T: Debug> {
     inner: *mut T,
 }
 
-impl<T: Debug> DPtr<T> {
-    fn new(t: &mut T) -> DPtr<T> {
-        DPtr { inner: t as *mut _ }
+impl<T: Debug> MapPtr<T> {
+    fn new(t: &mut T) -> MapPtr<T> {
+        MapPtr { inner: t as *mut _ }
     }
 }
 
-impl<T: Debug> PartialEq for DPtr<T> {
+impl<T: Debug> PartialEq for MapPtr<T> {
     fn eq(&self, other: &Self) -> bool {
         #[cfg(null_check)]
         if self.inner.is_null() {
@@ -136,17 +145,17 @@ impl<T: Debug> PartialEq for DPtr<T> {
     }
 }
 
-impl<T: Debug> Clone for DPtr<T> {
-    fn clone(&self) -> DPtr<T> {
+impl<T: Debug> Clone for MapPtr<T> {
+    fn clone(&self) -> MapPtr<T> {
         #[cfg(null_check)]
         if self.inner.is_null() {
             panic!("NULL");
         }
-        DPtr { inner: self.inner }
+        MapPtr { inner: self.inner }
     }
 }
 
-impl<T: Debug> Deref for DPtr<T> {
+impl<T: Debug> Deref for MapPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -158,7 +167,7 @@ impl<T: Debug> Deref for DPtr<T> {
     }
 }
 
-impl<T: Debug> DerefMut for DPtr<T> {
+impl<T: Debug> DerefMut for MapPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         #[cfg(null_check)]
         if self.inner.is_null() {
@@ -168,7 +177,7 @@ impl<T: Debug> DerefMut for DPtr<T> {
     }
 }
 
-impl<T: Debug> AsRef<T> for DPtr<T> {
+impl<T: Debug> AsRef<T> for MapPtr<T> {
     fn as_ref(&self) -> &T {
         #[cfg(null_check)]
         if self.inner.is_null() {
@@ -178,7 +187,7 @@ impl<T: Debug> AsRef<T> for DPtr<T> {
     }
 }
 
-impl<T: Debug> AsMut<T> for DPtr<T> {
+impl<T: Debug> AsMut<T> for MapPtr<T> {
     fn as_mut(&mut self) -> &mut T {
         #[cfg(null_check)]
         if self.inner.is_null() {
@@ -189,7 +198,7 @@ impl<T: Debug> AsMut<T> for DPtr<T> {
 }
 
 #[cfg(null_check)]
-impl<T: Debug> Drop for DPtr<T> {
+impl<T: Debug> Drop for MapPtr<T> {
     fn drop(&mut self) {
         if self.inner.is_null() {
             panic!("Can not drop DPtr with an inner null");
@@ -197,7 +206,7 @@ impl<T: Debug> Drop for DPtr<T> {
     }
 }
 
-impl<T: Debug> Debug for DPtr<T> {
+impl<T: Debug> Debug for MapPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ptr->{:?}->{:#?}", self.inner, unsafe {
             self.inner.as_ref()

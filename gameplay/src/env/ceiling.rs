@@ -9,7 +9,7 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::DPtr;
+use crate::MapPtr;
 
 use crate::env::specials::{find_highest_ceiling_surrounding, move_plane, PlaneResult};
 use crate::env::switch::start_sector_sound;
@@ -28,7 +28,7 @@ pub enum CeilKind {
 
 pub struct CeilingMove {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub kind: CeilKind,
     pub bottomheight: f32,
     pub topheight: f32,
@@ -44,7 +44,7 @@ pub struct CeilingMove {
 // TODO: track activeceilings
 
 /// EV_DoFloor
-pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilKind, level: &mut Level) -> bool {
+pub fn ev_do_ceiling(line: MapPtr<LineDef>, kind: CeilKind, level: &mut Level) -> bool {
     let mut ret = false;
 
     if matches!(
@@ -65,11 +65,11 @@ pub fn ev_do_ceiling(line: DPtr<LineDef>, kind: CeilKind, level: &mut Level) -> 
         }
 
         // Because we need to break lifetimes...
-        let mut sec = DPtr::new(sector);
+        let mut sec = MapPtr::new(sector);
 
         let mut ceiling = CeilingMove {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             kind,
             speed: CEILSPEED,
             crush: false,

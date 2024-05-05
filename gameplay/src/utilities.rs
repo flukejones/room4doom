@@ -7,7 +7,7 @@ use crate::angle::Angle;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::level::Level;
-use crate::DPtr;
+use crate::MapPtr;
 use glam::Vec2;
 
 // const FRACBITS: i32 = 16;
@@ -93,8 +93,8 @@ impl Trace {
 #[derive(Default, Clone, PartialEq)]
 pub struct Intercept {
     pub frac: f32,
-    pub line: Option<DPtr<LineDef>>,
-    pub thing: Option<DPtr<MapObject>>,
+    pub line: Option<MapPtr<LineDef>>,
+    pub thing: Option<MapPtr<MapObject>>,
 }
 
 impl PartialOrd for Intercept {
@@ -121,8 +121,8 @@ impl Eq for Intercept {}
 pub struct BestSlide {
     pub best_slide_frac: f32,
     pub second_slide_frac: f32,
-    pub best_slide_line: Option<DPtr<LineDef>>,
-    pub second_slide_line: Option<DPtr<LineDef>>,
+    pub best_slide_line: Option<MapPtr<LineDef>>,
+    pub second_slide_line: Option<MapPtr<LineDef>>,
 }
 
 impl BestSlide {
@@ -308,7 +308,7 @@ pub fn traverse_intercepts(
 /// etc)
 pub fn add_line_intercepts(
     trace: Trace,
-    line: DPtr<LineDef>,
+    line: MapPtr<LineDef>,
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
@@ -383,7 +383,7 @@ fn add_thing_intercept(
     intercepts.push(Intercept {
         frac,
         line: None,
-        thing: Some(DPtr::new(thing)),
+        thing: Some(MapPtr::new(thing)),
     });
     true
 }

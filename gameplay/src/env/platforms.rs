@@ -17,7 +17,7 @@ use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::utilities::p_random;
-use crate::DPtr;
+use crate::MapPtr;
 
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;
@@ -41,7 +41,7 @@ pub enum PlatKind {
 
 pub struct Platform {
     pub thinker: *mut Thinker,
-    pub sector: DPtr<Sector>,
+    pub sector: MapPtr<Sector>,
     pub speed: f32,
     pub low: f32,
     pub high: f32,
@@ -54,11 +54,16 @@ pub struct Platform {
     pub kind: PlatKind,
 }
 
-pub fn ev_stop_platform(line: DPtr<LineDef>, level: &mut Level) {
+pub fn ev_stop_platform(line: MapPtr<LineDef>, level: &mut Level) {
     level.stop_platform(line.tag);
 }
 
-pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &mut Level) -> bool {
+pub fn ev_do_platform(
+    line: MapPtr<LineDef>,
+    kind: PlatKind,
+    amount: i32,
+    level: &mut Level,
+) -> bool {
     let mut ret = false;
 
     if matches!(kind, PlatKind::PerpetualRaise) {
@@ -79,11 +84,11 @@ pub fn ev_do_platform(line: DPtr<LineDef>, kind: PlatKind, amount: i32, level: &
         ret = true;
 
         // Because we need to break lifetimes...
-        let mut sec = DPtr::new(sector);
+        let mut sec = MapPtr::new(sector);
 
         let mut platform = Platform {
             thinker: null_mut(),
-            sector: DPtr::new(sector),
+            sector: MapPtr::new(sector),
             speed: PLATSPEED,
             low: 0.0,
             high: 0.0,
