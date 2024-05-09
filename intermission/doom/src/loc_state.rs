@@ -28,7 +28,7 @@ impl Intermission {
         scale: i32,
         pixels: &mut dyn PixelBuffer,
     ) {
-        let ep = self.level_info.episode as usize;
+        let ep = self.level_info.episode;
         let point = MAP_POINTS[ep][lv];
 
         let x = point.0 - patch.left_offset as i32;
@@ -65,7 +65,7 @@ impl Intermission {
             };
 
             for i in 0..last {
-                self.draw_on_lnode(i as usize, &self.yah_patches[2], scale, buffer);
+                self.draw_on_lnode(i, &self.yah_patches[2], scale, buffer);
             }
 
             if self.level_info.didsecret {
@@ -73,7 +73,7 @@ impl Intermission {
             }
 
             if self.pointer_on {
-                let next_level = self.level_info.next as usize;
+                let next_level = self.level_info.next;
                 self.draw_on_lnode(next_level, &self.yah_patches[self.yah_idx], scale, buffer);
             }
         }

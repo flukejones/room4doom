@@ -10,4 +10,4 @@ build = "../../build.rs"
 gameplay.workspace = true
 golem.workspace = true
 sdl2.workspace = true
-serde.workspace = true
+nanoserde.workspace = true

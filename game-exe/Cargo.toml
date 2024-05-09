@@ -35,8 +35,7 @@ wad.workspace = true
 # utility deps
 env_logger.workspace = true
 dirs.workspace = true
-toml.workspace = true
-serde.workspace = true
+nanoserde.workspace = true
 
 #[dev-dependencies]
 #cargo-husky.workspace = true

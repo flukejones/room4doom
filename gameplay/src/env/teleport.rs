@@ -32,12 +32,10 @@ pub fn teleport(
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
                 if let ThinkerData::MapObject(ref mobj) = thinker.data() {
-                    unsafe {
-                        if mobj.kind == MapObjKind::MT_TELEPORTMAN
-                            && ptr::eq((*mobj.subsector).sector.as_ref(), sector)
-                        {
-                            return true;
-                        }
+                    if mobj.kind == MapObjKind::MT_TELEPORTMAN
+                        && ptr::eq(mobj.subsector.sector.as_ref(), sector)
+                    {
+                        return true;
                     }
                 }
                 false
@@ -94,7 +92,7 @@ pub fn teleport(
 
 /// Doom function nam `P_TeleportMove`
 pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool {
-    let new_subsect = unsafe { &mut *level.map_data.point_in_subsector_raw(xy) };
+    let new_subsect = &mut *level.map_data.point_in_subsector_raw(xy);
     let floorz = new_subsect.sector.floorheight;
     let ceilzz = new_subsect.sector.ceilingheight;
 

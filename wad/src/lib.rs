@@ -45,4 +45,4 @@ pub mod iterators;
 /// need to be parsed in to. Parsing is done via the `wad` module
 pub mod lumps;
 
-//pub mod nodes;
+pub mod compat;

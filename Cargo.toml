@@ -62,8 +62,9 @@ sarge = "*"
 log = "*"
 env_logger = { version = "^0.10" }
 dirs = "~5.0"
-toml = "0.7"
-serde = { version = "1.0", features = ["serde_derive"] }
+nanoserde = { git = "https://github.com/flukejones/nanoserde.git", default-features = false, features = [
+    "ron",
+] }
 
 #[workspace.dependencies.cargo-husky]
 #version = "1"

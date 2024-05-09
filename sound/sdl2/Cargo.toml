@@ -14,4 +14,4 @@ wad.workspace = true
 sound-traits.workspace = true
 log.workspace = true
 glam.workspace = true
-serde.workspace = true
+nanoserde.workspace = true

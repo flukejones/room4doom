@@ -1,14 +1,14 @@
 //! Configuration data for timidity to emulate GUS. Reads either `DMXGUS` or
 //! `DMXGUSC` from the Wad data.
 
-use serde::{Deserialize, Serialize};
+use nanoserde::{DeRon, SerRon};
 use std::num::ParseIntError;
 use std::path::PathBuf;
 
 use log::warn;
 use wad::WadData;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, DeRon, SerRon)]
 pub enum GusMemSize {
     M256Kb,
     M512Kb,

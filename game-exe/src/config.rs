@@ -4,8 +4,8 @@ use crate::{CLIOptions, BASE_DIR};
 use dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
+use nanoserde::{DeRon, SerRon};
 use render_target::shaders::Shaders;
-use serde::{Deserialize, Serialize};
 use sound_sdl2::timidity::GusMemSize;
 use std::fs::{create_dir, File, OpenOptions};
 use std::io::{Read, Write};
@@ -26,7 +26,7 @@ fn get_cfg_file() -> PathBuf {
     dir
 }
 
-#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]
 pub enum RenderType {
     /// Purely software. Typically used with blitting a framebuffer maintained
     /// in memory directly to screen using SDL2
@@ -58,7 +58,7 @@ impl FromStr for RenderType {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum MusicType {
     FluidSynth,
     #[default]
@@ -80,7 +80,7 @@ impl FromStr for MusicType {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, DeRon, SerRon)]
 pub struct UserConfig {
     pub iwad: String,
     pub width: u32,
@@ -113,7 +113,7 @@ impl UserConfig {
             if read_len == 0 {
                 return UserConfig::create_default(&mut file);
             } else {
-                if let Ok(data) = toml::from_str(&buf) {
+                if let Ok(data) = UserConfig::deserialize_ron(&buf) {
                     info!(target: LOG_TAG, "Loaded user config file");
                     return data;
                 }
@@ -136,7 +136,7 @@ impl UserConfig {
         };
         info!("Created default user config file");
         // Should be okay to unwrap this as is since it is a Default
-        let data = toml::to_string(&config).unwrap();
+        let data = config.serialize_ron();
         file.write_all(data.as_bytes())
             .unwrap_or_else(|_| panic!("Could not write {:?}", get_cfg_file()));
         info!("Saved user config to {:?}", get_cfg_file());
@@ -145,7 +145,7 @@ impl UserConfig {
 
     pub fn write(&self) {
         let mut file = File::create(get_cfg_file()).expect("Couldn't overwrite config");
-        let data = toml::to_string_pretty(self).expect("Parse config to JSON failed");
+        let data = self.serialize_ron();
         file.write_all(data.as_bytes())
             .unwrap_or_else(|err| error!("Could not write config: {}", err));
     }

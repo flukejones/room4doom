@@ -153,7 +153,7 @@ impl<'a> Snd<'a> {
                 let name = format!("DS{}", s.name.to_ascii_uppercase());
                 if let Some(lump) = wad.get_lump(&name) {
                     let chunk = lump_sfx_to_chunk(lump.data.clone(), AudioFormat::S16LSB, 44_100)
-                        .expect(&format!("{name} failed to parse"));
+                        .unwrap_or_else(|_| panic!("{name} failed to parse"));
                     SfxInfo::new(s.name.to_string(), s.priority, Some(chunk))
                 } else {
                     debug!("{name} is missing");

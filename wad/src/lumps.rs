@@ -2,6 +2,7 @@ use std::str;
 
 use log::error;
 
+use crate::compat::NodeLumpType;
 use crate::Lump;
 
 pub struct WadFlat {
@@ -552,46 +553,6 @@ impl WadSideDef {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExtendedNodeType {
-    XNOD,
-    XGLN,
-    XGL2,
-    ZNOD,
-    ZGLN,
-    ZGL2,
-}
-
-impl ExtendedNodeType {
-    pub fn is_uncompressed(&self) -> bool {
-        matches!(
-            self,
-            ExtendedNodeType::XGL2 | ExtendedNodeType::XGLN | ExtendedNodeType::XNOD
-        )
-    }
-
-    pub fn is_gl(&self) -> bool {
-        matches!(
-            self,
-            ExtendedNodeType::XGL2
-                | ExtendedNodeType::XGLN
-                | ExtendedNodeType::ZGL2
-                | ExtendedNodeType::ZGLN
-        )
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NodeLumpType {
-    /// Original Doom style NODES table, use the standard parser
-    OGDoom,
-    /// Extended NODES, typically this means the subsectors and segments tables
-    /// are empty as all the data is contained here. You should then check if
-    /// the table is compressed (with zlib) or uncompressed, and further check
-    /// if GL or GL2 style
-    Extended(ExtendedNodeType),
-}
-
 /// The base node structure as parsed from the WAD records. What is stored in
 /// the WAD is the splitting line used for splitting the level/node (starts with
 /// the level then consecutive nodes, aiming for an even split if possible), a
@@ -657,6 +618,10 @@ impl WadNode {
             child_index: [right_child_id, left_child_id],
         }
     }
+
+    pub fn node_lump_type(bytes: &[u8; 4]) -> NodeLumpType {
+        NodeLumpType::node_lump_type(bytes)
+    }
 }
 
 impl WadBlockMap {
@@ -677,33 +642,6 @@ impl WadBlockMap {
             blockmap_offset: blockmap_idx,
         }
     }
-}
-
-/// The data in the WAD lump is structured as follows:
-///
-/// Note: a 16:16 fixed point number is stored in 4 bytes.
-///
-/// | Field Size   | Type    | Content                                                       |
-/// |--------------|---------|---------------------------------------------------------------|
-/// | 0x00-0x03    | str     | 4 bytes of UTF 8 making up the lump signature, such as `XNOD` |
-/// | 0x04-0x07    | u32     | Number of vertices from the VERTEXES lump                     |
-/// | 0x08-0x11    | u32     | The `N` additional vertices that follow from here             |
-/// | 8-byte chunk | Vertex  | fixed,fixed Vertex: 16:16 fixed-point (x,y). Repeated `N` times from above |
-/// | 4-bytes      | u32     | Subsector count                                               |
-/// | 4-byte chunk | u32     | Subsector N: Seg count for this subsector                     |
-/// | 4-bytes      | u32     | Segs count                                                    |
-/// | 11-byte chunk| Segment | Seg N: New layout: `u32`:Vertex 1, `u32`Vertex 2, `u16`:Line, `u8`:Side |
-/// | 4-byte chunk | u32     | Node count                                                    |
-/// | 32-byte chunk| Node    | Node N: Same as vanilla except child ref are u32              |
-#[derive(Debug, Clone)]
-pub struct WadExtendedMap {
-    pub node_type: ExtendedNodeType,
-    pub vertexes: Vec<WadVertex>,
-    /// The start seg for a subsector inferred from being first in the count
-    pub subsectors: Vec<WadSubSector>,
-    /// The angle and other parts can be recalculated using the new data layout
-    pub segments: Vec<WadSegment>,
-    pub nodes: Vec<WadNode>,
 }
 
 /// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses

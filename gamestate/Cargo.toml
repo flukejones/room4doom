@@ -15,5 +15,4 @@ menu-doom.workspace = true
 wad.workspace = true
 
 # utility deps
-toml.workspace = true
-serde.workspace = true
+nanoserde.workspace = true

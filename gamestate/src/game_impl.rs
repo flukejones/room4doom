@@ -54,14 +54,11 @@ impl GameTraits for Game {
     fn change_music(&self, mus: MusTrack) {
         let music = if mus == MusTrack::None {
             if self.game_mode == GameMode::Commercial {
-                MusTrack::Runnin as usize + self.game_map as usize - 1
+                MusTrack::Runnin as usize + self.game_map - 1
             } else if self.game_episode < 4 {
-                MusTrack::E1M1 as usize
-                    + (self.game_episode as usize - 1) * 9
-                    + self.game_map as usize
-                    - 1
+                MusTrack::E1M1 as usize + (self.game_episode - 1) * 9 + self.game_map - 1
             } else {
-                EPISODE4_MUS[self.game_map as usize - 1] as usize
+                EPISODE4_MUS[self.game_map - 1] as usize
             }
         } else {
             mus as usize

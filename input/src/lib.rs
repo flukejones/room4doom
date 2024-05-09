@@ -7,7 +7,7 @@ pub mod config;
 
 use std::collections::hash_set::HashSet;
 
-use crate::config::InputConfig;
+use config::InputConfigSdl;
 use gameplay::tic_cmd::*;
 use gameplay::WeaponType;
 use sdl2::event::Event;
@@ -70,7 +70,7 @@ impl InputEvents {
         self.mouse_delta = (state.0 * self.mouse_scale.0, state.1 * self.mouse_scale.1);
     }
 
-    pub fn build_tic_cmd(&mut self, cfg: &InputConfig) -> TicCmd {
+    pub fn build_tic_cmd(&mut self, cfg: &InputConfigSdl) -> TicCmd {
         let mut cmd = TicCmd::default();
 
         // cmd->consistancy = consistancy[consoleplayer][maketic % BACKUPTICS];
@@ -191,17 +191,17 @@ impl InputEvents {
 pub struct Input {
     pump: EventPump,
     pub events: InputEvents,
-    pub config: InputConfig,
+    pub config: InputConfigSdl,
     quit: bool,
 }
 
 impl Input {
-    pub fn new(mut pump: EventPump) -> Input {
+    pub fn new(mut pump: EventPump, config: InputConfigSdl) -> Input {
         pump.pump_events();
         Input {
             pump,
             events: InputEvents::new((10, 0)),
-            config: InputConfig::default(),
+            config,
             quit: false,
         }
     }

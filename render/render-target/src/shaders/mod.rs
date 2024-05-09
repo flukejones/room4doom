@@ -1,5 +1,5 @@
 use golem::{GolemError, Texture};
-use serde::{Deserialize, Serialize};
+use nanoserde::{DeRon, SerRon};
 use std::str::FromStr;
 
 pub mod basic;
@@ -7,7 +7,7 @@ pub mod cgwg_crt;
 pub mod lottes_crt;
 pub mod lottes_reduced;
 
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, DeRon, SerRon)]
 pub enum Shaders {
     Lottes,
     LottesBasic,

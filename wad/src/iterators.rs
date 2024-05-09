@@ -1,5 +1,6 @@
-use log::{debug, warn};
+use log::debug;
 
+use crate::compat::NodeLumpType;
 use crate::lumps::*;
 use crate::{Lump, MapLump, WadData};
 use std::marker::PhantomData;
@@ -130,7 +131,7 @@ impl WadData {
             lumps: &self.lumps,
             start_lumps: starts,
             current_start: 0,
-            transformer: move |lump| WadPatch::from_lump(lump),
+            transformer: WadPatch::from_lump,
         }
     }
 
@@ -500,30 +501,18 @@ impl WadData {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
         let item_size = 28;
 
-        let check = [
+        let bytes = [
             info.read_i16(0) as u8,
             info.read_i16(1) as u8,
             info.read_i16(2) as u8,
             info.read_i16(3) as u8,
         ];
-        if check[0] == b'Z' {
-            warn!("NODES is a compressed zdoom style");
-            if check[1..] == [b'N', b'O', b'D'] {
-                panic!("Can't parse ZNOD style nodes with the Vanilla parser, the node lump type should be checked first");
-            } else if check[1..] == [b'G', b'L', b'N'] {
-                panic!("Can't parse ZGLN style nodes with the Vanilla parser, the node lump type should be checked first");
-            } else if check[1..] == [b'G', b'L', b'2'] {
-                panic!("Can't parse ZGL2 style nodes with the Vanilla parser, the node lump type should be checked first");
-            }
-        } else if check[0] == b'X' {
-            warn!("NODES is a compressed zdoom style");
-            if check[1..] == [b'N', b'O', b'D'] {
-                panic!("Can't parse XNOD style nodes with the Vanilla parser, the node lump type should be checked first");
-            } else if check[1..] == [b'G', b'L', b'N'] {
-                panic!("Can't parse XGLN style nodes with the Vanilla parser, the node lump type should be checked first");
-            } else if check[1..] == [b'G', b'L', b'2'] {
-                panic!("Can't parse XGL2 style nodes with the Vanilla parser, the node lump type should be checked first");
-            }
+        let node_type = NodeLumpType::node_lump_type(&bytes);
+        if !matches!(node_type, NodeLumpType::OGDoom) {
+            panic!(
+                "Currently can't parse {:?} as WadNode, check with node_lump_type() and use compat",
+                node_type
+            );
         }
 
         OffsetIter {

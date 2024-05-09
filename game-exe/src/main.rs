@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let video_ctx = sdl_ctx.video()?;
 
     let events = sdl_ctx.event_pump()?;
-    let input = Input::new(events);
+    let input = Input::new(events, (&user_config.input).into());
 
     user_config.sync_cli(&mut options);
     user_config.write();
