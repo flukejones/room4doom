@@ -1,7 +1,7 @@
 use log::debug;
 
 use crate::compat::NodeLumpType;
-use crate::lumps::*;
+use crate::types::*;
 use crate::{Lump, MapLump, WadData};
 use std::marker::PhantomData;
 
@@ -360,7 +360,9 @@ impl WadData {
             item_count: info.data.len() / item_size,
             lump_offset: 0,
             current: 0,
-            transformer: move |ofs| WadVertex::new(info.read_i16(ofs), info.read_i16(ofs + 2)),
+            transformer: move |ofs| {
+                WadVertex::new(info.read_i16(ofs) as i32, info.read_i16(ofs + 2) as i32)
+            },
             _phantom: Default::default(),
         }
     }
@@ -468,10 +470,10 @@ impl WadData {
             current: 0,
             transformer: move |ofs| {
                 WadSegment::new(
-                    info.read_i16(ofs),
-                    info.read_i16(ofs + 2),
+                    info.read_i16(ofs) as i32,
+                    info.read_i16(ofs + 2) as i32,
                     info.read_i16(ofs + 4),
-                    info.read_i16(ofs + 6),
+                    info.read_i16(ofs + 6) as u16,
                     info.read_i16(ofs + 8),
                     info.read_i16(ofs + 10),
                 )
@@ -492,7 +494,9 @@ impl WadData {
             item_count: info.data.len() / item_size,
             lump_offset: 0,
             current: 0,
-            transformer: move |ofs| WadSubSector::new(info.read_i16(ofs), info.read_i16(ofs + 2)),
+            transformer: move |ofs| {
+                WadSubSector::new(info.read_i16(ofs) as u32, info.read_i16(ofs + 2) as u32)
+            },
             _phantom: Default::default(),
         }
     }
@@ -507,7 +511,7 @@ impl WadData {
             info.read_i16(2) as u8,
             info.read_i16(3) as u8,
         ];
-        let node_type = NodeLumpType::node_lump_type(&bytes);
+        let node_type = NodeLumpType::from_bytes(&bytes);
         if !matches!(node_type, NodeLumpType::OGDoom) {
             panic!(
                 "Currently can't parse {:?} as WadNode, check with node_lump_type() and use compat",
@@ -551,7 +555,7 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
-    use crate::lumps::*;
+    use crate::types::*;
     use crate::wad::WadData;
 
     #[test]
@@ -647,7 +651,7 @@ mod tests {
     #[test]
     fn patches_doom1_iter() {
         let wad = WadData::new("../doom1.wad".into());
-        assert_eq!(wad.patches_iter().count(), 163);
+        assert_eq!(wad.patches_iter().count(), 165);
     }
 
     #[test]

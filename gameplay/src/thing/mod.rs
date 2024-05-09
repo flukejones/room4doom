@@ -22,7 +22,7 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::{MapPtr, Skill};
 use glam::Vec2;
 use log::{debug, error, info, warn};
-use wad::lumps::WadThing;
+use wad::types::WadThing;
 
 use crate::angle::Angle;
 use crate::doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};

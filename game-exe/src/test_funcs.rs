@@ -4,7 +4,7 @@ use gameplay::WallPic;
 use gamestate::Game;
 
 use render_target::PixelBuffer;
-use wad::lumps::{WadFlat, WadPalette, WadPatch};
+use wad::types::{WadFlat, WadPalette, WadPatch};
 
 pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) {
     let lump = game.wad_data.get_lump(name).unwrap();

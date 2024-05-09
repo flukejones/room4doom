@@ -28,7 +28,9 @@ use crate::machination::Machinations;
 use gameplay::log::{debug, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS
+    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level,
+    MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct,
+    MAXPLAYERS,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
@@ -38,7 +40,7 @@ use std::rc::Rc;
 use std::time::Duration;
 // use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
-use wad::lumps::WadPatch;
+use wad::types::WadPatch;
 use wad::WadData;
 
 pub const BACKUPTICS: usize = 12;

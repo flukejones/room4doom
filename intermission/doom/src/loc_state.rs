@@ -1,6 +1,6 @@
 use crate::{Intermission, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
 use gamestate_traits::{GameMode, MachinationTrait, PixelBuffer};
-use wad::lumps::WadPatch;
+use wad::types::WadPatch;
 
 impl Intermission {
     pub(super) fn init_next_loc(&mut self) {

@@ -16,7 +16,7 @@ use std::rc::Rc;
 use log::info;
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
-use wad::lumps::WadThing;
+use wad::types::WadThing;
 use wad::WadData;
 
 use crate::doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS};

@@ -1,6 +1,6 @@
 use gamestate_traits::{MachinationTrait, PixelBuffer};
 use log::warn;
-use wad::lumps::{WadPatch, WAD_PATCH};
+use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;
 
 const FONT_START: u8 = b'!';
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn load_and_check_chars() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
         unsafe { load_char_patches(&wad) };
 
         let l = get_patch_for_char('!').unwrap();

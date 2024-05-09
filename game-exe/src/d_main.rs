@@ -22,7 +22,7 @@ use render_soft::SoftwareRenderer;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
-use wad::lumps::{WadFlat, WadPatch};
+use wad::types::{WadFlat, WadPatch};
 
 use crate::cheats::Cheats;
 use crate::test_funcs::{flat_select_test, image_test, patch_select_test, texture_select_test};

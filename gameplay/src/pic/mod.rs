@@ -15,7 +15,7 @@ mod sprites;
 use std::mem::{size_of, size_of_val};
 
 use log::{debug, warn};
-use wad::lumps::{WadColour, WadPalette, WadPatch, WadTexture};
+use wad::types::{WadColour, WadPalette, WadPatch, WadTexture};
 use wad::WadData;
 
 use crate::doom_def::{GameMode, PowerType};

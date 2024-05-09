@@ -1,5 +1,7 @@
 # TODO
 
+- [ ] Check that WadSubSector parse type is correct. Is it really i16?
+
 ## BUGS
 
 - [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping

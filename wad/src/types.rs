@@ -223,14 +223,17 @@ impl WadThing {
 /// |------------|-----------|--------------|
 /// |  0x00-0x01 |    i16    | X Coordinate |
 /// |  0x02-0x03 |    i16    | Y Coordinate |
+///
+/// **NOTE**: the x and y types are increased to i32 for extended node support.
+/// The parsing for OG Doom should still be using i16 size (and convert it).
 #[derive(Debug, Default, Clone)]
 pub struct WadVertex {
-    pub x: i16,
-    pub y: i16,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl WadVertex {
-    pub fn new(x: i16, y: i16) -> WadVertex {
+    pub fn new(x: i32, y: i32) -> WadVertex {
         WadVertex { x, y }
     }
 }
@@ -313,18 +316,20 @@ impl WadLineDef {
 /// |  0x10-0x11 |    i16    | Offset: this is the distance along the linedef this seg starts at |
 ///
 /// Each `Segment` record is 12 bytes
+///
+/// **NOTE**: some internal types are changed for extended node support.
 #[derive(Debug, Clone)]
 pub struct WadSegment {
     /// The line starts from this point
-    pub start_vertex: i16,
+    pub start_vertex: i32,
     /// The line ends at this point
-    pub end_vertex: i16,
+    pub end_vertex: i32,
     /// Binary Angle Measurement
     ///
     /// Degrees(0-360) = angle * 0.005493164
     pub angle: i16,
     /// The Linedef this segment travels along
-    pub linedef: i16,
+    pub linedef: u16,
     /// The `side`, 0 = front/right, 1 = back/left
     pub side: i16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
@@ -337,11 +342,11 @@ pub struct WadSegment {
 
 impl WadSegment {
     pub fn new(
-        start_vertex: i16,
-        end_vertex: i16,
+        start_vertex: i32,
+        end_vertex: i32,
         angle: i16,
-        linedef: i16,
-        direction: i16,
+        linedef: u16,
+        side: i16,
         offset: i16,
     ) -> WadSegment {
         WadSegment {
@@ -349,7 +354,7 @@ impl WadSegment {
             end_vertex,
             angle,
             linedef,
-            side: direction,
+            side,
             offset,
         }
     }
@@ -379,16 +384,18 @@ impl WadSegment {
 /// |  0x02-0x03 |    i16    | Index to the starting segment      |
 ///
 /// Each `SubSector` record is 4 bytes
+///
+/// **NOTE**: internal types changed for zdoom extended node compatibility
 #[derive(Debug, Clone)]
 pub struct WadSubSector {
     /// How many `Segment`s line this `SubSector`
-    pub seg_count: i16,
+    pub seg_count: u32,
     /// The `Segment` to start with
-    pub start_seg: i16,
+    pub start_seg: u32,
 }
 
 impl WadSubSector {
-    pub fn new(seg_count: i16, start_seg: i16) -> WadSubSector {
+    pub fn new(seg_count: u32, start_seg: u32) -> WadSubSector {
         WadSubSector {
             seg_count,
             start_seg,
@@ -620,7 +627,7 @@ impl WadNode {
     }
 
     pub fn node_lump_type(bytes: &[u8; 4]) -> NodeLumpType {
-        NodeLumpType::node_lump_type(bytes)
+        NodeLumpType::from_bytes(bytes)
     }
 }
 

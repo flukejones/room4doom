@@ -1,7 +1,7 @@
 use crate::MachinationTrait;
 use render_target::PixelBuffer;
 use std::mem::MaybeUninit;
-use wad::lumps::{WadPatch, WAD_PATCH};
+use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;
 
 /// Pattern like `WINUM` or `STTNUM`

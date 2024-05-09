@@ -413,7 +413,7 @@ mod tests {
     #[ignore = "CI doesn't have a sound device"]
     #[test]
     fn write_map_mus_data() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new("../doom1.wad".into());
 
         unsafe {
             for mus in MUS_DATA.iter_mut() {

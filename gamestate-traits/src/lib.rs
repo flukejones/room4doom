@@ -5,14 +5,15 @@
 pub mod util;
 
 pub use gameplay::{
-    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO
+    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill,
+    WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO,
 };
 pub use render_target::{PixelBuffer, RenderType};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};
 
-use wad::lumps::{WadPalette, WadPatch};
+use wad::types::{WadPalette, WadPatch};
 use wad::WadData;
 
 /// The current state of the game-exe: whether we are playing, gazing at the
@@ -114,7 +115,7 @@ pub trait MachinationTrait {
                         pixels.set_pixel(
                             (x + xtmp - n) as usize, // - (image.left_offset as i32),
                             (y + ytmp + c.y_offset * f) as usize, /* - image.top_offset as i32 -
-                                                                   *   30, */
+                                                      *   30, */
                             &colour.0,
                         );
                         ytmp += 1;

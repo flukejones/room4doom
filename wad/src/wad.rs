@@ -318,7 +318,7 @@ mod tests {
     use std::io::Read;
     use std::path::PathBuf;
 
-    use crate::lumps::WadPatch;
+    use crate::types::WadPatch;
     use crate::wad::WadData;
     use crate::MapLump;
 
@@ -353,6 +353,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "sunder.wad can't be included in git"]
     fn read_header_sunder() {
         let wad = read_file("../sunder.wad".into());
         let header = WadData::read_header(&wad);
@@ -458,6 +459,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "sunder.wad can't be included in git"]
     fn load_sunder() {
         let file = read_file("../sunder.wad".into());
         let header = WadData::read_header(&file);
@@ -479,7 +481,7 @@ mod tests {
         // This is a flat
         assert!(pnames_collect.contains(&String::from("BODIES")));
 
-        let patches: Vec<WadPatch> = wad.patches_iter().collect();
+        let _: Vec<WadPatch> = wad.patches_iter().collect();
         // let mut iter = wad.thing_iter("MAP10");
         // All verified with SLADE
 

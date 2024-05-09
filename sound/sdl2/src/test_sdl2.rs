@@ -6,7 +6,7 @@ use crate::Snd;
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_weapons_snd() {
-    let wad = WadData::new("../../doom1.wad".into());
+    let wad = WadData::new("../doom1.wad".into());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
@@ -57,7 +57,7 @@ fn play_weapons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_demons_snd() {
-    let wad = WadData::new("../../doom1.wad".into());
+    let wad = WadData::new("../doom1.wad".into());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
@@ -100,7 +100,7 @@ fn play_demons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_music() {
-    let wad = WadData::new("../../doom1.wad".into());
+    let wad = WadData::new("../doom1.wad".into());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();

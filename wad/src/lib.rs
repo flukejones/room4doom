@@ -34,15 +34,12 @@
 /// Bring only the WAD structs down to root level
 pub use crate::wad::*;
 
-/// The WAD structure and parser
+/// The WAD structure and parser, headers, lumps, wad stuff
 pub mod wad;
 
 pub mod iterators;
-/// A Lump is a chunk of data that starts at an offset in the WAD, and ends
-/// at a location that is `sizeof<record-in-lump> * num-of-entries`
-///
-/// The lump module contains the required structures that the lump records
-/// need to be parsed in to. Parsing is done via the `wad` module
-pub mod lumps;
+
+/// The specific types, these are contained within the Lumps
+pub mod types;
 
 pub mod compat;

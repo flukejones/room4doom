@@ -392,9 +392,9 @@ impl Segment {
 pub struct SubSector {
     pub sector: MapPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
-    pub seg_count: i16,
+    pub seg_count: u32,
     /// The `Segment` to start with
-    pub start_seg: i16,
+    pub start_seg: u32,
 }
 
 #[derive(Debug)]
