@@ -62,7 +62,7 @@ sarge = "*"
 log = "*"
 env_logger = { version = "^0.10" }
 dirs = "~5.0"
-nanoserde = { git = "https://github.com/flukejones/nanoserde.git", default-features = false, features = [
+nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
     "ron",
 ] }
 
