@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use self::defs::DrawSeg;
 use self::planes::VisPlaneRender;
 use self::portals::PortalClip;

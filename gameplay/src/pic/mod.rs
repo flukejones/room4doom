@@ -25,7 +25,7 @@ use crate::Player;
 
 use self::sprites::SpriteDef;
 
-const MAXLIGHTZ: i32 = 128;
+const MAXLIGHTZ: usize = 128;
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
@@ -64,7 +64,7 @@ pub struct PicData {
     colourmap: Vec<Vec<usize>>,
     light_scale: Vec<Vec<Vec<usize>>>,
     use_fixed_colourmap: usize,
-    zlight_scale: Vec<Vec<Vec<usize>>>,
+    pub zlight_scale: Vec<Vec<Vec<usize>>>,
     walls: Vec<WallPic>,
     /// Used in animations
     wall_translation: Vec<usize>,
@@ -227,20 +227,12 @@ impl PicData {
 
     fn init_wall_pics(wad: &WadData) -> (Vec<WallPic>, usize) {
         print!(".");
-        let patches: Vec<WadPatch> = wad.patches_iter().collect();
-        // Need to include flats
         let pnames: Vec<String> = wad.pnames_iter().collect();
         let mut sorted: Vec<WadPatch> = Vec::with_capacity(pnames.len());
         for name in &pnames {
-            let mut log = true;
-            for patch in &patches {
-                if &patch.name == name {
-                    sorted.push(patch.clone());
-                    log = false;
-                    break;
-                }
-            }
-            if log {
+            if let Some(lump) = wad.get_lump(name) {
+                sorted.push(WadPatch::from_lump(lump));
+            } else {
                 warn!("Mising: {name}");
             }
         }
@@ -517,11 +509,11 @@ impl PicData {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let dist = scale >> 4;
+        let mut dist = scale >> 4;
 
-        // if dist >= MAXLIGHTZ as u32 - 1 {
-        //     dist = MAXLIGHTZ as u32 - 1;
-        // }
+        if dist >= MAXLIGHTZ - 1 {
+            dist = MAXLIGHTZ - 1;
+        }
 
         if light_level >= self.zlight_scale.len() {
             light_level = self.zlight_scale.len() - 1;

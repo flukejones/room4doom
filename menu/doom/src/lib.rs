@@ -111,6 +111,10 @@ impl MenuSet {
             last_on: 0,
         }
     }
+
+    fn on(&self) -> &MenuItem {
+        &self.items[self.last_on]
+    }
 }
 
 /// Must match the order of `MenuDoom::menus` declaration
@@ -177,7 +181,7 @@ impl MenuDoom {
                 48,
                 63,
                 (1..=9)
-                    .map_while(|e| {
+                    .filter_map(|e| {
                         if wad.lump_exists(&format!("M_EPI{e}")) {
                             return Some(MenuItem::new(
                                 Status::Ok,
@@ -385,8 +389,15 @@ fn sel_quit_game(_menu: &mut MenuDoom, _: usize, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 
-fn sel_episode(menu: &mut MenuDoom, choice: usize, _game: &mut dyn GameTraits) {
-    menu.episode = choice;
+// TODO: kind of bad, should make a better method to set episode even if not sequential
+fn sel_episode(menu: &mut MenuDoom, _choice: usize, _game: &mut dyn GameTraits) {
+    menu.episode = menu
+        .get_current_menu()
+        .on()
+        .hotkey
+        .to_digit(10)
+        .unwrap_or_default() as usize
+        - 1;
     menu.current_menu = MenuIndex::Skill;
 }
 

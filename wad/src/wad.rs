@@ -428,17 +428,17 @@ mod tests {
         //assert_eq!(end, 255);
     }
 
-    #[test]
     #[ignore]
+    #[test]
     fn load_sigil() {
-        let file = read_file("../sigil.wad".into());
+        let file = read_file("/home/luke/DOOM/sigil.wad".into());
         let header = WadData::read_header(&file);
         assert_eq!(header.wad_type(), "PWAD");
         assert_eq!(header.wad_type(), "PWAD");
 
-        let mut wad = WadData::new("../doom.wad".into());
+        let mut wad = WadData::new("/home/luke/DOOM/doom.wad".into());
         assert_eq!(wad.lumps.len(), 2306);
-        wad.add_file("../sigil.wad".into());
+        wad.add_file("/home/luke/DOOM/sigil.wad".into());
         assert_eq!(wad.lumps.len(), 2452);
 
         let things_lump = wad.find_lump_for_map_or_panic("E3M2", MapLump::Vertexes);
@@ -446,6 +446,12 @@ mod tests {
 
         let things_lump = wad.find_lump_for_map_or_panic("E5M1", MapLump::Vertexes);
         assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
+
+        let pnames = wad.find_lump_or_panic("PNAMES");
+        assert_eq!(pnames.name, "PNAMES");
+        let pnames_collect: Vec<String> = wad.pnames_iter().collect();
+        // This is a flat
+        assert!(pnames_collect.contains(&String::from("SKY5")));
 
         let mut iter = wad.thing_iter("E5M1");
         // All verified with SLADE

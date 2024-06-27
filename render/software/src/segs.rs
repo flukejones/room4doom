@@ -719,6 +719,7 @@ pub fn draw_column_style_flats(
     let cos = angle.cos();
     let sin = angle.sin();
 
+    // let lm = &pic_data.zlight_scale[total_light];
     let pal = pic_data.palette();
     for y in yl..=yh {
         if y >= yslope_table.len() {
@@ -733,7 +734,8 @@ pub fn draw_column_style_flats(
         let y_step = ds_yfrac.abs() as usize % texture.data[0].len();
 
         // changed from `distance` to `length` to provide a radius light
-        let colourmap = pic_data.flat_light_colourmap(total_light, length as usize);
+        let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);
+        // let colourmap = &lm[distance as usize >> 4];
         let px = colourmap[texture.data[x_step][y_step]];
         let c = pal[px];
         pixels.set_pixel(dc_x, y, &c.0);

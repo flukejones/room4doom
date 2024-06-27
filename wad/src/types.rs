@@ -76,25 +76,25 @@ impl WadPatch {
     pub fn from_lump(lump: &Lump) -> Self {
         let data = &lump.data;
         let width = i16::from_le_bytes([data[0], data[1]]) as u16;
-        // // A flat was included as a pic?
-        // if width >= data.len() as u16 || data.len() == 4096 {
-        //     let x = (data.len() as f32).sqrt();
-        //     return Self {
-        //         name: lump.name.clone(),
-        //         width: x as u16,
-        //         height: x as u16,
-        //         left_offset: 0,
-        //         top_offset: 0,
-        //         columns: lump
-        //             .data
-        //             .chunks(x as usize)
-        //             .map(|c| WadPatchCol {
-        //                 y_offset: 0,
-        //                 pixels: c.iter().map(|n| *n as usize).collect(),
-        //             })
-        //             .collect(),
-        //     };
-        // }
+        // A flat was included as a pic?
+        if width >= data.len() as u16 || data.len() == 4096 {
+            let x = (data.len() as f32).sqrt();
+            return Self {
+                name: lump.name.clone(),
+                width: x as u16,
+                height: x as u16,
+                left_offset: 0,
+                top_offset: 0,
+                columns: lump
+                    .data
+                    .chunks(x as usize)
+                    .map(|c| WadPatchCol {
+                        y_offset: 0,
+                        pixels: c.iter().map(|n| *n as usize).collect(),
+                    })
+                    .collect(),
+            };
+        }
         let mut columns = Vec::new();
         for q in 0..width {
             let tmp = 8 + 4 * q as usize;
@@ -168,7 +168,7 @@ pub struct WadTexture {
     pub patches: Vec<WadTexPatch>,
 }
 
-/// Position of a patch, and which patch (via indexto PNAMES) to use.
+/// Position of a patch, and which patch (via index to PNAMES) to use.
 #[derive(Debug, Clone)]
 pub struct WadTexPatch {
     /// Left start position
