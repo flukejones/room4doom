@@ -211,7 +211,7 @@ pub struct SoftOpenGL {
 impl SoftOpenGL {
     fn new(width: usize, height: usize, gl_ctx: &Context, screen_shader: Shaders) -> Self {
         let mut gl_texture = Texture::new(gl_ctx).unwrap();
-        gl_texture.set_image(None, width as u32, height as u32, golem::ColorFormat::RGBA);
+        gl_texture.set_image(None, width as u32, height as u32, ColorFormat::RGBA);
 
         Self {
             gl_texture,

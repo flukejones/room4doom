@@ -62,7 +62,7 @@ pub fn d_doom_loop(
         buffer_dimensions(window.size().0 as f32, window.size().1 as f32, double);
     let mut canvas = window
         .into_canvas()
-        .present_vsync()
+        //        .present_vsync()
         .accelerated()
         .build()
         .unwrap();

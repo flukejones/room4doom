@@ -63,7 +63,7 @@ impl Cheats {
     /// Cheats skip the ticcmd system and directly affect a game-exe
     pub fn check_input(&mut self, sc: Scancode, game: &mut Game) {
         let key = if let Some(key) = Keycode::from_scancode(sc) {
-            key as u8 as char
+            key.into_i32() as u8 as char
         } else {
             return;
         };
