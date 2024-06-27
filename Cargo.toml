@@ -52,7 +52,7 @@ glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
     "mixer",
-    "bundled",
+    # "bundled",
 ] }
 #sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
@@ -82,6 +82,7 @@ codegen-units = 1
 [profile.dev]
 debug = true
 opt-level = 3
+codegen-units = 1
 
 [profile.bench]
 lto = true

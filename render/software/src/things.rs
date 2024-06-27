@@ -3,7 +3,8 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::warn;
 use gameplay::{
-    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
+    Sector,
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
@@ -133,7 +134,7 @@ impl SoftwareRenderer {
         &mut self,
         player: &Player,
         thing: &MapObject,
-        light_level: i32,
+        light_level: usize,
         screen_width: u32,
         pic_data: &PicData,
     ) -> bool {

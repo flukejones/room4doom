@@ -196,7 +196,7 @@ impl MapData {
                         warn!("Sectors: Did not find flat for {}", s.ceil_tex);
                         usize::MAX
                     }),
-                    s.light_level as i32,
+                    s.light_level as usize,
                     s.kind,
                     s.tag,
                 )

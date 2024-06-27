@@ -1,4 +1,4 @@
-use crate::utilities::screen_to_x_view;
+use crate::utilities::screen_to_angle;
 use gameplay::log::warn;
 use gameplay::{Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
 use glam::Vec2;
@@ -72,8 +72,9 @@ pub(crate) struct SegRender {
     pub(super) openings: Vec<f32>,
     lastopening: f32,
     /// Light level for the wall
-    wall_lights: i32,
+    wall_lights: usize,
     pub yslope: Vec<f32>,
+    pub screen_x: Vec<f32>,
     pub fov: f32,
     pub fov_half: f32,
     pub wide_ratio: f32,
@@ -121,6 +122,9 @@ impl SegRender {
                     let dy = y as f32 - screen_height as f32 / 2.0;
                     screen_width as f32 / 2.0 / dy.abs()
                 })
+                .collect(),
+            screen_x: (0..=screen_width + 1)
+                .map(|x| screen_to_angle(fov, x as f32, (screen_width / 2) as f32))
                 .collect(),
             fov,
             fov_half: fov / 2.0,
@@ -184,8 +188,7 @@ impl SegRender {
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // TODO: doublecheck the angles and bounds
-        let visangle =
-            mobj.angle + screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
+        let visangle = mobj.angle + self.screen_x[start as usize]; //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
@@ -194,8 +197,7 @@ impl SegRender {
             pixels.size().width_f32(),
         ) * self.wide_ratio;
 
-        let visangle =
-            mobj.angle + screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
+        let visangle = mobj.angle + self.screen_x[stop as usize]; //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -554,9 +556,8 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle
-                    + screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
-                // TODO: horizontal position of texture isn't quite right
+                angle = self.rw_centerangle + self.screen_x[self.rw_startx as usize]; // screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
+                                                                                      // TODO: horizontal position of texture isn't quite right
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
                     .abs()
                     .floor() as usize;
@@ -702,30 +703,28 @@ pub fn draw_column_style_flats(
     texture: &FlatPic,
     viewxy: Vec2,
     plane_height: f32,
-    total_light: i32,
-    dc_x: f32,
+    total_light: usize,
+    dc_x: usize,
+    screen_x: f32,
     angle: Angle,
-    mut yl: f32,
-    yh: f32,
+    mut yl: usize,
+    yh: usize,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
-    yslope: &[f32],
-    fov: f32,
+    yslope_table: &[f32],
     wide_ratio: f32,
 ) {
-    let angle = angle + screen_to_x_view(fov, dc_x, pixels.size().half_width_f32());
-    let distscale =
-        1.0 / screen_to_x_view(fov, dc_x, pixels.size().half_width_f32()).cos() * wide_ratio;
+    let angle = angle + screen_x;
+    let distscale = 1.0 / screen_x.cos() * wide_ratio;
     let cos = angle.cos();
     let sin = angle.sin();
 
-    let dc_x = dc_x as usize;
     let pal = pic_data.palette();
-    for y in yl as usize..=yh as usize {
-        if y >= yslope.len() {
+    for y in yl..=yh {
+        if y >= yslope_table.len() {
             break;
         }
-        let distance = plane_height * yslope[y];
+        let distance = plane_height * yslope_table[y];
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = -viewxy.y - sin * length;
@@ -733,12 +732,13 @@ pub fn draw_column_style_flats(
         let x_step = ds_xfrac.abs() as usize % texture.data.len();
         let y_step = ds_yfrac.abs() as usize % texture.data[0].len();
 
-        let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32);
+        // changed from `distance` to `length` to provide a radius light
+        let colourmap = pic_data.flat_light_colourmap(total_light, length as usize);
         let px = colourmap[texture.data[x_step][y_step]];
         let c = pal[px];
         pixels.set_pixel(dc_x, y, &c.0);
 
-        yl += 1.0;
+        yl += 1;
     }
 }
 

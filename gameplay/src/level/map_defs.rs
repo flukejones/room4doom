@@ -25,7 +25,7 @@ pub struct Sector {
     pub floorpic: usize,
     /// Is a tag or index to patch
     pub ceilingpic: usize,
-    pub lightlevel: i32,
+    pub lightlevel: usize,
     pub special: i16,
     pub tag: i16,
 
@@ -57,7 +57,7 @@ impl Sector {
         ceilingheight: f32,
         floorpic: usize,
         ceilingpic: usize,
-        lightlevel: i32,
+        lightlevel: usize,
         special: i16,
         tag: i16,
     ) -> Self {

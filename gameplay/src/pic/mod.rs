@@ -481,14 +481,14 @@ impl PicData {
 
     /// Get the correct colourmapping for a light level. The colourmap is
     /// indexed by the Y coordinate of a texture column.
-    pub fn wall_light_colourmap(&self, light_level: i32, wall_scale: f32) -> &[usize] {
+    pub fn wall_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
         let mut light_level = light_level;
-        if light_level >= self.light_scale.len() as i32 {
-            light_level = self.light_scale.len() as i32 - 1;
+        if light_level >= self.light_scale.len() {
+            light_level = self.light_scale.len() - 1;
         }
 
         let colourmap = self.colourmap_for_scale(wall_scale);
@@ -496,6 +496,7 @@ impl PicData {
     }
 
     /// Light may need right-shifting by 4
+    #[inline(always)]
     pub fn sprite_light_colourmap(&self, light_level: usize, scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
@@ -510,26 +511,23 @@ impl PicData {
         &self.light_scale[light_level][colourmap]
     }
 
-    // pub fn light_colourmap(&self, light_level: usize, colourmap: usize) ->
-    // &[usize] {     &self.light_scale[light_level][colourmap]
-    // }
-
-    pub fn flat_light_colourmap(&self, mut light_level: i32, wall_scale: u32) -> &[usize] {
+    #[inline(always)]
+    pub fn flat_light_colourmap(&self, mut light_level: usize, scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let mut dist = wall_scale >> 4;
+        let dist = scale >> 4;
 
-        if dist >= MAXLIGHTZ as u32 - 1 {
-            dist = MAXLIGHTZ as u32 - 1;
+        // if dist >= MAXLIGHTZ as u32 - 1 {
+        //     dist = MAXLIGHTZ as u32 - 1;
+        // }
+
+        if light_level >= self.zlight_scale.len() {
+            light_level = self.zlight_scale.len() - 1;
         }
 
-        if light_level >= self.zlight_scale.len() as i32 {
-            light_level = self.zlight_scale.len() as i32 - 1;
-        }
-
-        &self.zlight_scale[light_level as usize][dist as usize]
+        &self.zlight_scale[light_level][dist]
     }
 
     pub fn get_texture(&self, num: usize) -> &WallPic {

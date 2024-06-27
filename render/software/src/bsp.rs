@@ -4,8 +4,8 @@ use super::things::VisSprite;
 use super::RenderData;
 use crate::segs::{draw_column_style_flats, draw_sky_column};
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, screen_to_x_view,
-    vertex_angle_to_object, y_scale,
+    angle_to_screen, corrected_fov_for_height, projection, screen_to_angle, vertex_angle_to_object,
+    y_scale,
 };
 use gameplay::log::trace;
 use gameplay::{
@@ -174,7 +174,7 @@ impl SoftwareRenderer {
                     let dc_yl = plane.top[x as usize];
                     let dc_yh = plane.bottom[x as usize];
                     if dc_yl <= dc_yh {
-                        let screen_x_degrees = screen_to_x_view(
+                        let screen_x_degrees = screen_to_angle(
                             self.seg_renderer.fov,
                             x as f32,
                             pixels.size().half_width_f32(),
@@ -213,15 +213,15 @@ impl SoftwareRenderer {
                         texture,
                         mobj.xy,
                         plane_height,
-                        total_light,
-                        x_start as f32,
+                        total_light as usize,
+                        x_start as usize,
+                        self.seg_renderer.screen_x[x_start as usize],
                         mobj.angle,
-                        dc_yl,
-                        dc_yh,
+                        dc_yl as usize,
+                        dc_yh as usize,
                         pic_data,
                         pixels,
                         &self.seg_renderer.yslope,
-                        self.seg_renderer.fov,
                         self.seg_renderer.wide_ratio,
                     );
                 }

@@ -9,7 +9,7 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::MapPtr;
 
 use crate::env::specials::{
-    find_max_light_surrounding, find_min_light_surrounding, get_next_sector
+    find_max_light_surrounding, find_min_light_surrounding, get_next_sector,
 };
 use crate::utilities::p_random;
 
@@ -36,8 +36,8 @@ pub struct FireFlicker {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
     pub count: i32,
-    pub max_light: i32,
-    pub min_light: i32,
+    pub max_light: usize,
+    pub min_light: usize,
 }
 
 impl FireFlicker {
@@ -74,7 +74,7 @@ impl Think for FireFlicker {
             return false;
         }
 
-        let amount = (p_random() & 3) * 16;
+        let amount = ((p_random() & 3) * 16) as usize;
         if light.sector.lightlevel - amount < light.min_light {
             light.sector.lightlevel = light.min_light
         } else {
@@ -110,8 +110,8 @@ pub struct LightFlash {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
     pub count: i32,
-    pub max_light: i32,
-    pub min_light: i32,
+    pub max_light: usize,
+    pub min_light: usize,
     pub max_time: i32,
     pub min_time: i32,
 }
@@ -187,8 +187,8 @@ pub struct StrobeFlash {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
     pub count: i32,
-    pub min_light: i32,
-    pub max_light: i32,
+    pub min_light: usize,
+    pub max_light: usize,
     pub dark_time: i32,
     pub bright_time: i32,
 }
@@ -268,8 +268,8 @@ impl Think for StrobeFlash {
 pub struct Glow {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
-    pub min_light: i32,
-    pub max_light: i32,
+    pub min_light: usize,
+    pub max_light: usize,
     pub direction: i32,
 }
 
@@ -293,7 +293,7 @@ impl Glow {
     }
 }
 
-const GLOWSPEED: i32 = 8;
+const GLOWSPEED: usize = 8;
 
 impl Think for Glow {
     fn think(object: &mut Thinker, _level: &mut Level) -> bool {
@@ -346,7 +346,7 @@ impl Think for Glow {
 }
 
 /// Doom function name `EV_LightTurnOn`
-pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: i32, level: &mut Level) {
+pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: usize, level: &mut Level) {
     for sector in level
         .map_data
         .sectors_mut()

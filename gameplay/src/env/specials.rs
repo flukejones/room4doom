@@ -8,7 +8,8 @@ use crate::env::ceiling::{ev_do_ceiling, CeilKind};
 use crate::env::doors::{ev_do_door, DoorKind};
 use crate::env::floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
 use crate::env::lights::{
-    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow, LightFlash, StrobeFlash, FASTDARK, SLOWDARK
+    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow,
+    LightFlash, StrobeFlash, FASTDARK, SLOWDARK,
 };
 use crate::env::platforms::{ev_do_platform, ev_stop_platform, PlatKind};
 use crate::env::switch::{change_switch_texture, start_sector_sound};
@@ -38,7 +39,7 @@ pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<
 }
 
 /// P_FindMinSurroundingLight
-pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: i32) -> i32 {
+pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
     let mut min = max;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
@@ -51,7 +52,7 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: i32) -> i32 {
     min
 }
 
-pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: i32) -> i32 {
+pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize {
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
             if other.lightlevel > max {

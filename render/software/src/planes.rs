@@ -61,7 +61,7 @@ impl VisPlaneRender {
         mut height: f32,
         picnum: usize,
         skynum: usize,
-        mut light_level: i32,
+        mut light_level: usize,
     ) -> usize {
         if picnum == skynum {
             height = 0.0;

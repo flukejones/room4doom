@@ -6,7 +6,8 @@ use sound_traits::SfxName;
 
 use crate::angle::Angle;
 use crate::doom_def::{
-    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
+    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH,
+    MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
 };
 use crate::info::{SpriteNum, StateNum, STATES};
 use crate::level::Level;
@@ -196,7 +197,7 @@ pub struct Player {
     // Who did damage (NULL for floors/ceilings).
     pub(crate) attacker: Option<*mut MapObject>,
     /// So gun flashes light up areas.
-    pub extralight: i32,
+    pub extralight: usize,
 
     /// Can be set to REDCOLORMAP for pain, etc.
     /// 0 = off.
