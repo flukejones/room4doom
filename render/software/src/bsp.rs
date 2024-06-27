@@ -14,8 +14,8 @@ use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::f32::consts::PI;
 
-const MAX_SEGS: usize = 64;
-const MAX_VIS_SPRITES: usize = 128 * 3;
+const MAX_SEGS: usize = 32;
+const MAX_VIS_SPRITES: usize = 256;
 
 // Need to sort out what is shared and what is not so that a data struct
 // can be organised along with method/ownsership
@@ -147,85 +147,6 @@ impl SoftwareRenderer {
         // No need to recreate or clear as it is fully overwritten each frame
         // self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
-
-    /// Doom function name `R_DrawPlanes`
-    // fn draw_planes(&mut self, player: &Player, pic_data: &PicData, pixels: &mut dyn PixelBuffer) {
-    //     let mobj = unsafe { player.mobj_unchecked() };
-    //     let view_angle = mobj.angle;
-
-    //     let basexscale = self.r_data.visplane_render.basexscale;
-    //     let baseyscale = self.r_data.visplane_render.baseyscale;
-    //     let visplanes = &mut self.r_data.visplane_render;
-    //     let sky_doubled = pixels.size().height() != 200;
-    //     let down_shift = if sky_doubled { 12 } else { 6 };
-    //     for plane in &mut visplanes.visplanes[0..=visplanes.lastvisplane] {
-    //         if plane.minx > plane.maxx {
-    //             continue;
-    //         }
-
-    //         if plane.picnum == pic_data.sky_num() {
-    //             let colourmap = pic_data.colourmap(0);
-    //             let sky_mid = pixels.size().height() / 2 - down_shift; // shift down by 6 pixels
-    //             let skytex = pic_data.sky_pic();
-
-    //             for x in plane.minx as i32..=plane.maxx as i32 {
-    //                 let dc_yl = plane.top[x as usize];
-    //                 let dc_yh = plane.bottom[x as usize];
-    //                 if dc_yl <= dc_yh {
-    //                     let screen_x_degrees = screen_to_angle(
-    //                         self.seg_renderer.fov,
-    //                         x as f32,
-    //                         pixels.size().half_width_f32(),
-    //                     );
-    //                     let angle =
-    //                         (view_angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
-    //                     let texture_column = pic_data.wall_pic_column(skytex, angle.abs() as usize);
-    //                     // TODO: there is a flaw in this for loop where the sigil II sky causes a
-    //                     // crash
-    //                     draw_sky_column(
-    //                         texture_column,
-    //                         colourmap,
-    //                         0.94,
-    //                         x as f32,
-    //                         sky_mid as f32,
-    //                         dc_yl,
-    //                         dc_yh,
-    //                         pic_data,
-    //                         sky_doubled,
-    //                         pixels,
-    //                     );
-    //                 }
-    //             }
-    //             continue;
-    //         }
-
-    //     let total_light = (plane.lightlevel >> 4) + player.extralight;
-    //     let plane_height = (plane.height - player.viewz).abs();
-    //     let texture = pic_data.get_flat(plane.picnum);
-    //     for x_start in plane.minx as usize..=plane.maxx as usize {
-    //         let dc_yl = plane.top[x_start];
-    //         let dc_yh = plane.bottom[x_start];
-    //         if dc_yl <= dc_yh {
-    //             // TODO: there is a flaw in this for loop where the sigil II sky causes a crash
-    //             draw_column_style_flats(
-    //                 texture,
-    //                 mobj.xy,
-    //                 plane_height,
-    //                 total_light,
-    //                 x_start,
-    //                 self.seg_renderer.screen_x[x_start],
-    //                 mobj.angle,
-    //                 dc_yl as usize,
-    //                 dc_yh as usize,
-    //                 pic_data,
-    //                 pixels,
-    //                 &self.seg_renderer.yslope,
-    //                 self.seg_renderer.wide_ratio,
-    //             );
-    //         }
-    //     }
-    //     }
-    // }
 
     /// R_AddLine - r_bsp
     fn add_line<'a>(
@@ -608,8 +529,6 @@ impl SoftwareRenderer {
     }
 
     /// R_CheckBBox - r_bsp
-    ///
-    /// TODO: solidsegs list
     fn bb_extents_in_fov(
         &self,
         node: &Node,

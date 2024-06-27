@@ -364,7 +364,6 @@ impl SegRender {
 
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
-            // Set the indexes in to visplanes.openings
             self.maskedtexturecol = self.lastopening - self.rw_startx;
             ds_p.maskedtexturecol = self.maskedtexturecol;
 
