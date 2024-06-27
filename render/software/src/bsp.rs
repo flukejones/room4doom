@@ -471,7 +471,7 @@ impl SoftwareRenderer {
             return;
         }
 
-        while next != self.new_end && start < self.solidsegs.len() {
+        while next != self.new_end && start < self.solidsegs.len() - 1 {
             next += 1;
             start += 1;
             self.solidsegs[start] = self.solidsegs[next];
