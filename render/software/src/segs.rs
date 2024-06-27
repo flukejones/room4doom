@@ -29,9 +29,6 @@ pub(crate) struct SegRender {
 
     /// True if any of the segs textures might be visible.
     segtextured: bool,
-    /// False if the back side is the same plane.
-    markfloor: bool,
-    markceiling: bool,
     maskedtexture: bool,
     /// Index in to `openings` array
     maskedtexturecol: f32,
@@ -87,8 +84,6 @@ impl SegRender {
     pub fn new(fov: f32, screen_width: usize, screen_height: usize) -> Self {
         Self {
             segtextured: false,
-            markfloor: false,
-            markceiling: false,
             maskedtexture: false,
             maskedtexturecol: -1.0,
             toptexture: false,
@@ -241,8 +236,6 @@ impl SegRender {
         self.maskedtexturecol = -1.0;
 
         if seg.backsector.is_none() {
-            self.markfloor = true;
-            self.markceiling = true;
             // single sided line
             self.midtexture = seg.sidedef.midtexture.is_some();
 
@@ -310,35 +303,6 @@ impl SegRender {
                 self.worldtop = self.worldhigh;
             }
 
-            // Checks to see if panes need updating?
-            if self.worldlow != self.worldbottom
-                || backsector.floorpic != frontsector.floorpic
-                || backsector.lightlevel != frontsector.lightlevel
-            {
-                self.markfloor = true;
-            } else {
-                // same plane on both sides
-                self.markfloor = false;
-            }
-            //
-            if self.worldhigh != self.worldtop
-                || backsector.ceilingpic != frontsector.ceilingpic
-                || backsector.lightlevel != frontsector.lightlevel
-            {
-                self.markceiling = true;
-            } else {
-                // same plane on both sides
-                self.markceiling = false;
-            }
-
-            if backsector.ceilingheight <= frontsector.floorheight
-                || backsector.floorheight >= frontsector.ceilingheight
-            {
-                // closed door
-                self.markceiling = true;
-                self.markfloor = true;
-            }
-
             if self.worldhigh < self.worldtop {
                 self.toptexture = sidedef.toptexture.is_some();
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
@@ -384,20 +348,6 @@ impl SegRender {
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
-        }
-
-        // if a floor / ceiling plane is on the wrong side
-        //  of the view plane, it is definitely invisible
-        //  and doesn't need to be marked.
-        if frontsector.floorheight > player.viewz {
-            // above view plane
-            self.markfloor = false;
-        }
-
-        if frontsector.ceilingheight <= player.viewz && frontsector.ceilingpic != pic_data.sky_num()
-        {
-            // below view plane
-            self.markceiling = false;
         }
 
         let half_height = pixels.size().half_height_f32(); // TODO: hmmm, - 0.5;
@@ -517,7 +467,7 @@ impl SegRender {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
-            if self.markceiling {
+            {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl;
 
@@ -576,7 +526,7 @@ impl SegRender {
                 yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
             }
 
-            if self.markfloor {
+            {
                 top = yh;
                 bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
 
@@ -663,7 +613,7 @@ impl SegRender {
                     } else {
                         rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                     }
-                } else if self.markceiling {
+                } else {
                     rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
                 }
 
@@ -695,7 +645,7 @@ impl SegRender {
                     } else {
                         rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                     }
-                } else if self.markfloor {
+                } else {
                     rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                 }
 
