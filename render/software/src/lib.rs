@@ -1,14 +1,12 @@
 #![allow(clippy::too_many_arguments)]
 
 use self::defs::DrawSeg;
-use self::planes::VisPlaneRender;
 use self::portals::PortalClip;
 use defs::MAXDRAWSEGS;
 use gameplay::Angle;
 
 mod bsp;
 mod defs;
-mod planes;
 mod portals;
 mod segs;
 mod things;
@@ -36,7 +34,6 @@ pub(crate) struct RenderData {
     /// index to drawsegs
     /// Used in r_segs and r_things
     pub ds_p: usize, // Or, depending on place in code this can be skipped and a new
-    pub visplane_render: VisPlaneRender,
 }
 
 impl RenderData {
@@ -45,7 +42,6 @@ impl RenderData {
             rw_angle1: Angle::default(),
             drawsegs: Vec::with_capacity(MAXDRAWSEGS),
             ds_p: 0,
-            visplane_render: VisPlaneRender::new(screen_width),
             portal_clip: PortalClip::new(screen_width, screen_height),
         }
     }
@@ -55,26 +51,18 @@ impl RenderData {
         self.drawsegs.clear();
         self.ds_p = 0;
         self.rw_angle1 = Angle::default();
-        self.visplane_render.clear_planes();
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::defs::Visplane;
     use crate::portals::PortalClip;
     use crate::RenderData;
 
     #[test]
     fn default_portal_clip() {
         let mut rd = PortalClip::new(640, 400);
-        rd.clear();
-    }
-
-    #[test]
-    fn default_vis_plane_render() {
-        let mut rd = Visplane::new(320);
         rd.clear();
     }
 

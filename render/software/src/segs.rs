@@ -1,9 +1,9 @@
 use crate::utilities::screen_to_angle;
 use gameplay::log::warn;
-use gameplay::{Angle, FlatPic, LineDefFlags, PicData, Player, Segment};
+use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
 use render_target::PixelBuffer;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, TAU};
 use std::ptr::NonNull;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
@@ -78,6 +78,9 @@ pub(crate) struct SegRender {
     pub fov: f32,
     pub fov_half: f32,
     pub wide_ratio: f32,
+
+    sky_doubled: bool,
+    sky_mid: f32,
 }
 
 impl SegRender {
@@ -129,6 +132,9 @@ impl SegRender {
             fov,
             fov_half: fov / 2.0,
             wide_ratio: screen_height as f32 / screen_width as f32 * 1.6,
+
+            sky_doubled: screen_height != 200,
+            sky_mid: (screen_height / 2 - if screen_height != 200 { 12 } else { 6 }) as f32,
         }
     }
 
@@ -414,24 +420,7 @@ impl SegRender {
             }
         }
 
-        // render it
-        if self.markceiling {
-            rdata.visplane_render.ceilingplane = rdata.visplane_render.check_plane(
-                self.rw_startx,
-                self.rw_stopx,
-                rdata.visplane_render.ceilingplane,
-            );
-        }
-
-        if self.markfloor {
-            rdata.visplane_render.floorplane = rdata.visplane_render.check_plane(
-                self.rw_startx,
-                self.rw_stopx,
-                rdata.visplane_render.floorplane,
-            );
-        }
-
-        self.render_seg_loop(seg, player.viewheight, rdata, pic_data, pixels);
+        self.render_seg_loop(seg, player, mobj, rdata, pic_data, pixels);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -487,7 +476,8 @@ impl SegRender {
     fn render_seg_loop(
         &mut self,
         seg: &Segment,
-        view_height: f32,
+        player: &Player,
+        mobj: &MapObject,
         rdata: &mut RenderData,
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
@@ -504,6 +494,14 @@ impl SegRender {
         let mut mid: f32;
         let mut angle;
         let mut texture_column = 0;
+
+        let total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
+        let ceil_height = (seg.frontsector.ceilingheight - player.viewz).abs();
+        let ceil_tex = pic_data.get_flat(seg.frontsector.ceilingpic);
+        let floor_height = (seg.frontsector.floorheight - player.viewz).abs();
+        let floor_tex = pic_data.get_flat(seg.frontsector.floorpic);
+
+        let sky_colourmap = pic_data.colourmap(0);
 
         while self.rw_startx < self.rw_stopx.ceil() {
             let clip_index = self.rw_startx as usize;
@@ -527,11 +525,49 @@ impl SegRender {
                 if bottom > rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index]; // Maybe not - 1.0
                 }
+
                 if top < bottom {
-                    // was a plane selection already set?
-                    let ceil = rdata.visplane_render.ceilingplane;
-                    rdata.visplane_render.visplanes[ceil].top[clip_index] = top;
-                    rdata.visplane_render.visplanes[ceil].bottom[clip_index] = bottom - 1.0;
+                    if seg.frontsector.ceilingpic == pic_data.sky_num() {
+                        let screen_x_degrees = screen_to_angle(
+                            self.fov,
+                            self.rw_startx,
+                            pixels.size().half_width_f32(),
+                        );
+                        let sky_angle =
+                            (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
+                        let sky_column =
+                            pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as usize);
+
+                        draw_sky_column(
+                            sky_column,
+                            sky_colourmap,
+                            0.94,
+                            self.rw_startx,
+                            self.sky_mid,
+                            top,
+                            bottom,
+                            pic_data,
+                            self.sky_doubled,
+                            pixels,
+                        );
+                    } else {
+                        let x_start = self.rw_startx as usize;
+                        draw_column_style_flats(
+                            ceil_tex,
+                            mobj.xy,
+                            ceil_height,
+                            total_light,
+                            x_start,
+                            self.screen_x[x_start],
+                            mobj.angle,
+                            top as usize,
+                            bottom as usize,
+                            pic_data,
+                            pixels,
+                            &self.yslope,
+                            self.wide_ratio,
+                        );
+                    }
                 }
             }
 
@@ -548,9 +584,22 @@ impl SegRender {
                     top = rdata.portal_clip.ceilingclip[clip_index]; // + 1.0;
                 }
                 if top < bottom {
-                    let floor = rdata.visplane_render.floorplane;
-                    rdata.visplane_render.visplanes[floor].top[clip_index] = top + 1.0;
-                    rdata.visplane_render.visplanes[floor].bottom[clip_index] = bottom;
+                    let x_start = self.rw_startx as usize;
+                    draw_column_style_flats(
+                        floor_tex,
+                        mobj.xy,
+                        floor_height,
+                        total_light,
+                        x_start,
+                        self.screen_x[x_start],
+                        mobj.angle,
+                        top as usize,
+                        bottom as usize,
+                        pic_data,
+                        pixels,
+                        &self.yslope,
+                        self.wide_ratio,
+                    );
                 }
             }
 
@@ -581,7 +630,7 @@ impl SegRender {
                     );
                 };
 
-                rdata.portal_clip.ceilingclip[clip_index] = view_height;
+                rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
                 rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
                 if self.toptexture {
