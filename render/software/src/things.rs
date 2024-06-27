@@ -242,7 +242,7 @@ impl SoftwareRenderer {
             // full bright
             vis.light_level = 255;
         } else {
-            vis.light_level = light_level as usize;
+            vis.light_level = light_level;
         }
 
         true
@@ -396,7 +396,7 @@ impl SoftwareRenderer {
 
             for sprite in player.psprites.iter() {
                 if sprite.state.is_some() {
-                    self.draw_player_sprite(sprite, light as usize, mobj.flags, pic_data, pixels);
+                    self.draw_player_sprite(sprite, light, mobj.flags, pic_data, pixels);
                 }
             }
         }

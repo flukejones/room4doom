@@ -213,7 +213,7 @@ impl SoftwareRenderer {
                         texture,
                         mobj.xy,
                         plane_height,
-                        total_light as usize,
+                        total_light,
                         x_start as usize,
                         self.seg_renderer.screen_x[x_start as usize],
                         mobj.angle,

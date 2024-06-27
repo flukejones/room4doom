@@ -707,7 +707,7 @@ pub fn draw_column_style_flats(
     dc_x: usize,
     screen_x: f32,
     angle: Angle,
-    mut yl: usize,
+    yl: usize,
     yh: usize,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
@@ -737,8 +737,6 @@ pub fn draw_column_style_flats(
         let px = colourmap[texture.data[x_step][y_step]];
         let c = pal[px];
         pixels.set_pixel(dc_x, y, &c.0);
-
-        yl += 1;
     }
 }
 

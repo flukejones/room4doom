@@ -39,7 +39,7 @@ pub fn angle_between(listener_angle: f32, other_x: f32, other_y: f32) -> f32 {
     let (y, x) = listener_angle.sin_cos();
     let v1 = Vec2::new(x, y);
     let other = Vec2::new(other_x, other_y);
-    v1.angle_between(other)
+    v1.angle_to(other)
 }
 
 #[derive(Debug, Default, Clone, Copy)]

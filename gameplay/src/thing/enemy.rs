@@ -21,7 +21,7 @@ use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
-    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS
+    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS,
 };
 
 use super::movement::SubSectorMinMax;
@@ -119,7 +119,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
         let delta = actor
             .angle
             .unit()
-            .angle_between(Angle::from(actor.movedir).unit());
+            .angle_to(Angle::from(actor.movedir).unit());
         if delta > FRAC_PI_4 {
             actor.angle += FRAC_PI_4;
         } else if delta < -FRAC_PI_4 {
@@ -541,7 +541,7 @@ pub(crate) fn a_vilechase(actor: &mut MapObject) {
     if actor.movedir != MoveDir::None {
         // look for corpses
         let mut ss = actor.subsector.clone();
-        if !ss.sector.run_mut_func_on_thinglist(|obj| {
+        let res = ss.sector.run_mut_func_on_thinglist(|obj| {
             // Check corpses are within radius
             if !vile_raise_check(actor, obj) {
                 // found one so raise it
@@ -562,7 +562,8 @@ pub(crate) fn a_vilechase(actor: &mut MapObject) {
                 return false;
             }
             true
-        }) {
+        });
+        if !res {
             // found a corpse so return
             trace!("Archvile found a corpse to raise");
             return;

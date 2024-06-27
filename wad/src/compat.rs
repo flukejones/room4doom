@@ -119,7 +119,7 @@ impl WadExtendedMap {
 
         if let NodeLumpType::Extended(t) = node_type {
             if t.is_uncompressed() {
-                return Some(Self::parse_uncompressed(&lump, t));
+                return Some(Self::parse_uncompressed(lump, t));
             } else {
                 todo!("Compress zdoom nodes not supported yet")
             }

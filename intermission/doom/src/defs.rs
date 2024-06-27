@@ -38,10 +38,10 @@ impl Patches {
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
         ];
-        for n in 0..MAXPLAYERS {
+        (0..MAXPLAYERS).for_each(|n| {
             let lump = wad.get_lump(&format!("STPB{n}")).unwrap();
             players[n] = MaybeUninit::new(WadPatch::from_lump(lump));
-        }
+        });
 
         let mut bplayers: [MaybeUninit<WadPatch>; MAXPLAYERS] = [
             MaybeUninit::uninit(),

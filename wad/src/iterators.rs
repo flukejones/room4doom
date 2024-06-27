@@ -102,23 +102,19 @@ impl WadData {
         let mut starts = Vec::new();
         let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate() {
-            if info.name == "P1_START" {
-                starts.push(i);
-            } else if info.name.contains("P2_START") {
-                starts.push(i);
-            } else if info.name.contains("P3_START") {
-                starts.push(i);
-            } else if info.name.contains("PP_START") {
+            if info.name == "P1_START"
+                || info.name.contains("P2_START")
+                || info.name.contains("P3_START")
+                || info.name.contains("PP_START")
+            {
                 starts.push(i);
             }
 
-            if info.name == "P1_END" {
-                ends.push(i);
-            } else if info.name.contains("P2_END") {
-                ends.push(i);
-            } else if info.name.contains("P3_END") {
-                ends.push(i);
-            } else if info.name.contains("PP_END") {
+            if info.name == "P1_END"
+                || info.name.contains("P2_END")
+                || info.name.contains("P3_END")
+                || info.name.contains("PP_END")
+            {
                 ends.push(i);
             }
         }

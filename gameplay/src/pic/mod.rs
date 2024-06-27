@@ -492,7 +492,7 @@ impl PicData {
         }
 
         let colourmap = self.colourmap_for_scale(wall_scale);
-        &self.light_scale[light_level as usize][colourmap]
+        &self.light_scale[light_level][colourmap]
     }
 
     /// Light may need right-shifting by 4
