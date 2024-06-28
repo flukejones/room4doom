@@ -9,7 +9,7 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::MapPtr;
 
 use crate::env::specials::{
-    find_max_light_surrounding, find_min_light_surrounding, get_next_sector
+    find_max_light_surrounding, find_min_light_surrounding, get_next_sector,
 };
 use crate::utilities::p_random;
 
@@ -305,7 +305,9 @@ impl Think for Glow {
 
         match light.direction {
             -1 => {
-                light.sector.lightlevel -= GLOWSPEED;
+                if light.sector.lightlevel >= GLOWSPEED {
+                    light.sector.lightlevel -= GLOWSPEED;
+                }
                 if light.sector.lightlevel <= light.min_light {
                     light.sector.lightlevel += GLOWSPEED;
                     light.direction = 1;
@@ -314,7 +316,9 @@ impl Think for Glow {
             1 => {
                 light.sector.lightlevel += GLOWSPEED;
                 if light.sector.lightlevel >= light.max_light {
-                    light.sector.lightlevel -= GLOWSPEED;
+                    if light.sector.lightlevel >= GLOWSPEED {
+                        light.sector.lightlevel -= GLOWSPEED;
+                    }
                     light.direction = -1;
                 }
             }
