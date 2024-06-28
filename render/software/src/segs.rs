@@ -3,7 +3,7 @@ use gameplay::log::warn;
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
 use render_target::PixelBuffer;
-use std::f32::consts::{FRAC_PI_2, TAU};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use std::ptr::NonNull;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
@@ -384,6 +384,9 @@ impl SegRender {
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
+            if seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0 {
+                self.wall_lights -= 1;
+            }
         }
 
         // if a floor / ceiling plane is on the wrong side
@@ -494,7 +497,7 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
 
-        let total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
+        let flats_total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
         let ceil_height = (seg.frontsector.ceilingheight - player.viewz).abs();
         let ceil_tex = pic_data.get_flat(seg.frontsector.ceilingpic);
         let floor_height = (seg.frontsector.floorheight - player.viewz).abs();
@@ -555,7 +558,7 @@ impl SegRender {
                             ceil_tex,
                             mobj.xy,
                             ceil_height,
-                            total_light,
+                            flats_total_light,
                             x_start,
                             self.screen_x[x_start],
                             mobj.angle,
@@ -589,7 +592,7 @@ impl SegRender {
                         floor_tex,
                         mobj.xy,
                         floor_height,
-                        total_light,
+                        flats_total_light,
                         x_start,
                         self.screen_x[x_start],
                         mobj.angle,

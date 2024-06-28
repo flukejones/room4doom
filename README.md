@@ -46,6 +46,7 @@ And maybe write a book on all I've learned about writing a Doom engine.
   - [ ] OPL2 emulation (a lot of work here)
   - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
 - [x] CLI options (use `--help`)
+- [x] Nuked Visplanes from orbit. Code is now much faster and cleaner
 
 See the **[TODO](./TODO.md)** for more.
 

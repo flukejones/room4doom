@@ -112,7 +112,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut window = video_ctx
         .window("ROOM for DOOM", user_config.width, user_config.height)
         .fullscreen_desktop()
-        .position_centered()
         .opengl()
         .build()?;
     let _gl_ctx = window.gl_create_context()?;
@@ -139,7 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
+            window.set_fullscreen(sdl2::video::FullscreenType::True)?;
         } else {
             window.set_fullscreen(sdl2::video::FullscreenType::Off)?;
         }
