@@ -227,13 +227,25 @@ impl PicData {
 
     fn init_wall_pics(wad: &WadData) -> (Vec<WallPic>, usize) {
         print!(".");
+        let patches: Vec<WadPatch> = wad.patches_iter().collect();
+        // Need to include flats
         let pnames: Vec<String> = wad.pnames_iter().collect();
         let mut sorted: Vec<WadPatch> = Vec::with_capacity(pnames.len());
         for name in &pnames {
-            if let Some(lump) = wad.get_lump(name) {
-                sorted.push(WadPatch::from_lump(lump));
-            } else {
-                warn!("Mising: {name}");
+            let mut log = true;
+            for patch in &patches {
+                if &patch.name == name {
+                    sorted.push(patch.clone());
+                    log = false;
+                    break;
+                }
+            }
+            if log {
+                if let Some(lump) = wad.get_lump(name) {
+                    sorted.push(WadPatch::from_lump(lump));
+                } else {
+                    warn!("Mising: {name}");
+                }
             }
         }
         print!(".");
