@@ -50,7 +50,7 @@ const MAX_VIS_SPRITES: usize = 256;
 pub struct SoftwareRenderer {
     /// index in to self.solidsegs
     new_end: usize,
-    solidsegs: Vec<ClipRange>,
+    solidsegs: [ClipRange; MAX_SEGS],
     /// Visible sprite data, used for Z-ordered rendering of sprites
     pub(super) vissprites: [VisSprite; MAX_VIS_SPRITES],
     /// The next `VisSprite`, incremented during the filling in of `VisSprites`
@@ -89,7 +89,6 @@ impl PlayRenderer for SoftwareRenderer {
         pic_data.set_player_palette(player);
 
         self.seg_renderer.clear();
-        // let now1 = Instant::now();
         self.render_bsp_node(
             map,
             player,
@@ -98,12 +97,9 @@ impl PlayRenderer for SoftwareRenderer {
             buffer.pixel_buffer(),
             &mut count,
         );
-        // println!("bsp time: {:?}", now1.elapsed());
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        // let now1 = Instant::now();
         // self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        // println!("draw_spans time: {:?}", now1.elapsed());
         // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
@@ -120,13 +116,10 @@ impl SoftwareRenderer {
             r_data: RenderData::new(buf_width, buf_height),
             seg_renderer: SegRender::new(fov, buf_width, buf_height),
             new_end: 0,
-            solidsegs: vec![
-                ClipRange {
-                    first: 0.0,
-                    last: 0.0
-                };
-                MAX_SEGS
-            ],
+            solidsegs: [ClipRange {
+                first: 0.0,
+                last: 0.0,
+            }; MAX_SEGS],
             _debug: debug,
             checked_sectors: Vec::new(),
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],

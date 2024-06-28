@@ -4,12 +4,13 @@
 
 ## BUGS
 
+- [ ] Telefrags don't work
+- [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping
 - [-] Monster rotations when walking towards off-by-one? Unsure
 - [-] Aim/shoot tries to hit low enemy even if portal blocks view
-- [ ] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;`
+- [x] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;` -- Nuked it all with visplane removal
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
-- [-] Demons shouldn't open locked doors (Actual Doom isue)
 
 ## Graphics
 

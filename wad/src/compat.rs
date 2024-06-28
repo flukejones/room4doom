@@ -68,7 +68,8 @@ impl NodeLumpType {
             } else if bytes[1..] == [b'G', b'L', b'2'] {
                 Self::Extended(ExtendedNodeType::XGL2)
             } else {
-                panic!("Unknown Z<node> type")
+                warn!("Unknown X node type, using default");
+                Self::OGDoom
             };
         }
         Self::OGDoom
