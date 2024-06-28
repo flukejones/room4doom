@@ -272,7 +272,7 @@ pub fn d_doom_loop(
 fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     let mut xtmp = 0;
     let mut ytmp = 0;
-    let f = draw_buf.size().height() / 200;
+    let f = draw_buf.size().height() / draw_buf.size().width();
     for c in game.title.columns.iter() {
         for n in 0..f {
             for p in c.pixels.iter() {

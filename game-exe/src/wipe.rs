@@ -59,7 +59,7 @@ impl Wipe {
                 for c in 0..=self.height - self.y[x] - dy {
                     let y = self.height - c - dy;
                     let px = disp_buf.read_pixel(x, y as usize);
-                    disp_buf.set_pixel(x, (self.height - c) as usize, &px);
+                    disp_buf.set_pixel(x, (self.height - c - 1) as usize, &px);
                 }
                 done = false;
             }

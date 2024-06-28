@@ -473,7 +473,7 @@ impl PicData {
 
     /// Get the correct colourmapping for a light level. The colourmap is
     /// indexed by the Y coordinate of a texture column.
-    pub fn wall_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
+    pub fn vert_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
@@ -484,22 +484,13 @@ impl PicData {
         }
 
         let colourmap = self.colourmap_for_scale(wall_scale);
-        &self.light_scale[light_level][colourmap]
-    }
-
-    /// Light may need right-shifting by 4
-    #[inline(always)]
-    pub fn sprite_light_colourmap(&self, light_level: usize, scale: f32) -> &[usize] {
-        if self.use_fixed_colourmap != 0 {
-            return &self.colourmap[self.use_fixed_colourmap];
+        #[cfg(not(safety_check))]
+        unsafe {
+            self.light_scale
+                .get_unchecked(light_level)
+                .get_unchecked(colourmap)
         }
-
-        let mut light_level = light_level;
-        if light_level >= self.light_scale.len() {
-            light_level = self.light_scale.len() - 1;
-        }
-
-        let colourmap = self.colourmap_for_scale(scale);
+        #[cfg(safety_check)]
         &self.light_scale[light_level][colourmap]
     }
 
@@ -519,6 +510,13 @@ impl PicData {
             light_level = self.zlight_scale.len() - 1;
         }
 
+        #[cfg(not(safety_check))]
+        unsafe {
+            self.zlight_scale
+                .get_unchecked(light_level)
+                .get_unchecked(dist)
+        }
+        #[cfg(safety_check)]
         &self.zlight_scale[light_level][dist]
     }
 

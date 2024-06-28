@@ -14,7 +14,7 @@ use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::f32::consts::PI;
 
-const MAX_SEGS: usize = 32;
+const MAX_SEGS: usize = 128;
 const MAX_VIS_SPRITES: usize = 256;
 
 // Need to sort out what is shared and what is not so that a data struct

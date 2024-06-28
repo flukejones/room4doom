@@ -266,7 +266,7 @@ impl SoftwareRenderer {
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
             pic_data.colourmap(33)
         } else {
-            pic_data.sprite_light_colourmap(vis.light_level, vis.scale)
+            pic_data.vert_light_colourmap(vis.light_level, vis.scale)
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
@@ -582,7 +582,7 @@ impl SoftwareRenderer {
 
                     draw_masked_column(
                         texture_column,
-                        pic_data.wall_light_colourmap(wall_lights, spryscale),
+                        pic_data.vert_light_colourmap(wall_lights, spryscale),
                         false,
                         1.0 / spryscale,
                         x,
@@ -610,10 +610,13 @@ fn draw_masked_column(
     dc_x: usize,
     dc_texturemid: f32,
     yl: f32,
-    yh: f32,
+    mut yh: f32,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
 ) {
+    if yh >= pixels.size().height_f32() {
+        yh = pixels.size().height_f32() - 1.0;
+    }
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
     for y in (yl) as usize..=yh as usize {

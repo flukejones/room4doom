@@ -487,7 +487,7 @@ impl SegRender {
                         let sky_column =
                             pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as usize);
 
-                        draw_sky_column(
+                        draw_wall_column(
                             sky_column,
                             sky_colourmap,
                             0.94,
@@ -570,13 +570,14 @@ impl SegRender {
                     let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
                     draw_wall_column(
                         texture_column,
-                        pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
+                        pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                         dc_iscale,
                         self.rw_startx,
                         self.rw_midtexturemid,
                         yl,
                         yh,
                         pic_data,
+                        false,
                         pixels,
                     );
                 };
@@ -598,13 +599,14 @@ impl SegRender {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
-                                pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
+                                pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.rw_startx,
                                 self.rw_toptexturemid,
                                 yl,
                                 mid,
                                 pic_data,
+                                false,
                                 pixels,
                             );
                         }
@@ -631,13 +633,14 @@ impl SegRender {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
-                                pic_data.wall_light_colourmap(self.wall_lights, self.rw_scale),
+                                pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.rw_startx,
                                 self.rw_bottomtexturemid,
                                 mid,
                                 yh,
                                 pic_data,
+                                false,
                                 pixels,
                             );
                         }
@@ -663,42 +666,6 @@ impl SegRender {
     }
 }
 
-/// Provides an easy way to draw a column in an `dc_x` location, starting and
-/// ending at `yl` and `yh`
-
-/// A column is a vertical slice/span from a wall texture that,
-///  given the DOOM style restrictions on the view orientation,
-///  will always have constant z depth.
-/// Thus a special case loop for very fast rendering can
-///  be used. It has also been used with Wolfenstein 3D.
-pub fn draw_wall_column(
-    texture_column: &[usize],
-    colourmap: &[usize],
-    fracstep: f32,
-    dc_x: f32,
-    dc_texturemid: f32,
-    yl: f32,
-    yh: f32,
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-) {
-    let dc_x = dc_x as usize;
-    let pal = pic_data.palette();
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as i32..=yh as i32 {
-        let mut select = frac.abs() as usize;
-        select %= texture_column.len();
-        let tc = texture_column[select];
-        if tc == usize::MAX {
-            continue;
-        }
-        let cm = colourmap[tc];
-        let c = pal[cm];
-        pixels.set_pixel(dc_x, y as usize, &c.0);
-        frac += fracstep;
-    }
-}
-
 pub fn draw_column_style_flats(
     texture: &FlatPic,
     viewxy: Vec2,
@@ -708,12 +675,16 @@ pub fn draw_column_style_flats(
     screen_x: f32,
     angle: Angle,
     yl: usize,
-    yh: usize,
+    mut yh: usize,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
     yslope_table: &[f32],
     wide_ratio: f32,
 ) {
+    if yh >= pixels.size().height_usize() {
+        yh = pixels.size().height_usize() - 1;
+    }
+
     let angle = angle + screen_x;
     let distscale = 1.0 / screen_x.cos() * wide_ratio;
     let cos = angle.cos();
@@ -735,31 +706,49 @@ pub fn draw_column_style_flats(
 
         // changed from `distance` to `length` to provide a radius light
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);
-        // let colourmap = &lm[distance as usize >> 4];
-        let px = colourmap[texture.data[x_step][y_step]];
-        let c = pal[px];
-        pixels.set_pixel(dc_x, y, &c.0);
+        #[cfg(not(safety_check))]
+        unsafe {
+            let px =
+                *colourmap.get_unchecked(*texture.data.get_unchecked(x_step).get_unchecked(y_step));
+            let c = pal.get_unchecked(px);
+            pixels.set_pixel(dc_x, y, &c.0);
+        }
+        #[cfg(safety_check)]
+        {
+            let px = colourmap[texture.data[x_step][y_step]];
+            pixels.set_pixel(dc_x, y, &pal[px].0);
+        }
     }
 }
 
-/// Mostly duped code, but done for opts
-pub fn draw_sky_column(
+/// Provides an easy way to draw a column in an `dc_x` location, starting and
+/// ending at `yl` and `yh`
+
+/// A column is a vertical slice/span from a wall texture that,
+///  given the DOOM style restrictions on the view orientation,
+///  will always have constant z depth.
+/// Thus a special case loop for very fast rendering can
+///  be used. It has also been used with Wolfenstein 3D.
+pub fn draw_wall_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
     dc_x: f32,
     dc_texturemid: f32,
     yl: f32,
-    yh: f32,
+    mut yh: f32,
     pic_data: &PicData,
     doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    if yh >= pixels.size().height_f32() {
+        yh = pixels.size().height_f32() - 1.0;
+    }
 
     let dc_x = dc_x as usize;
     let pal = pic_data.palette();
-    for y in yl as i32..=yh as i32 {
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    for y in yl as usize..=yh as usize {
         let mut select = frac.abs() as usize;
         if doubled {
             select /= 2;
@@ -769,9 +758,55 @@ pub fn draw_sky_column(
         if tc == usize::MAX {
             continue;
         }
-        let cm = colourmap[tc];
-        let c = pal[cm];
-        pixels.set_pixel(dc_x, y as usize, &c.0);
+        #[cfg(not(safety_check))]
+        unsafe {
+            let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
+            pixels.set_pixel(dc_x, y, &c.0);
+        }
+        #[cfg(safety_check)]
+        {
+            pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
+        }
         frac += fracstep;
     }
 }
+
+// /// Mostly duped code, but done for opts
+// pub fn draw_sky_column(
+//     texture_column: &[usize],
+//     colourmap: &[usize],
+//     fracstep: f32,
+//     dc_x: f32,
+//     dc_texturemid: f32,
+//     yl: f32,
+//     yh: f32,
+//     pic_data: &PicData,
+//     doubled: bool,
+//     pixels: &mut dyn PixelBuffer,
+// ) {
+//     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+
+//     let dc_x = dc_x as usize;
+//     let pal = pic_data.palette();
+//     for y in yl as i32..=yh as i32 {
+//         let mut select = frac.abs() as usize;
+//         if doubled {
+//             select /= 2;
+//         }
+//         select %= texture_column.len();
+//         let tc = texture_column[select];
+//         if tc == usize::MAX {
+//             continue;
+//         }
+//         #[cfg(not(safety_check))]
+//         unsafe {
+//             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
+//             pixels.set_pixel(dc_x, y as usize, &c.0);
+//         }
+
+//         #[cfg(safety_check)]
+//         pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
+
+//         frac += fracstep;
+//     }
+// }
