@@ -124,7 +124,8 @@ impl SoftwareRenderer {
         let curr = self.next_vissprite;
         self.next_vissprite += 1;
         if curr == self.vissprites.len() {
-            panic!("Exhausted vissprite allocation");
+            // panic!("Exhausted vissprite allocation");
+            self.next_vissprite -= 1;
         }
         &mut self.vissprites[curr]
     }
