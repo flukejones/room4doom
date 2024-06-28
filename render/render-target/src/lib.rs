@@ -150,11 +150,10 @@ impl PixelBuffer for Buffer {
     #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]) {
         // Shitty safeguard. Need to find actual cause of fail
-        // #[cfg(safety_check)]
+        #[cfg(safety_check)]
         if x >= self.size.width || y >= self.size.height {
             dbg!(x, y);
             panic!();
-            return;
         }
 
         let pos = y * self.stride + x * CHANNELS;

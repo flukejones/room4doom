@@ -111,7 +111,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut window = video_ctx
         .window("ROOM for DOOM", user_config.width, user_config.height)
-        .allow_highdpi()
+        .fullscreen_desktop()
         .position_centered()
         .opengl()
         .build()?;
@@ -139,15 +139,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            let mode = if matches!(user_config.width, 320 | 640) {
-                info!("Fullscreen mode is 320x200 or 640x400");
-                sdl2::video::FullscreenType::Desktop
-            } else {
-                warn!("Fullscreen resolution isn't 320x200 or 640x400. Image will be stretched.");
-                // sdl2::video::FullscreenType::True
-                sdl2::video::FullscreenType::Desktop
-            };
-            window.set_fullscreen(mode)?;
+            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
+        } else {
+            window.set_fullscreen(sdl2::video::FullscreenType::Off)?;
         }
     }
     window.show();
