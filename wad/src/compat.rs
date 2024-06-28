@@ -1,9 +1,7 @@
 use log::warn;
 
-use crate::{
-    types::{WadNode, WadSegment, WadSubSector, WadVertex},
-    Lump, MapLump, WadData,
-};
+use crate::types::{WadNode, WadSegment, WadSubSector, WadVertex};
+use crate::{Lump, MapLump, WadData};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtendedNodeType {
@@ -97,7 +95,8 @@ pub struct WadExtendedMap {
     pub node_type: ExtendedNodeType,
     pub num_org_vertices: usize,
     /// These should be appended to the `VETEXES` lump
-    /// "When v >= OrgVerts, v- OrgVerts is the index of a vertex stored here", so just append to OrgVerts
+    /// "When v >= OrgVerts, v- OrgVerts is the index of a vertex stored here",
+    /// so just append to OrgVerts
     pub vertexes: Vec<WadVertex>,
     /// The start seg for a subsector inferred from being first in the count
     pub subsectors: Vec<WadSubSector>,

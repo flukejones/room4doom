@@ -834,7 +834,8 @@ pub fn draw_wall_column(
 //     doubled: bool,
 //     pixels: &mut dyn PixelBuffer,
 // ) {
-//     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+//     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) *
+// fracstep;
 
 //     let dc_x = dc_x as usize;
 //     let pal = pic_data.palette();

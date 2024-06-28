@@ -5,8 +5,7 @@
 pub mod util;
 
 pub use gameplay::{
-    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill,
-    WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO,
+    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO
 };
 pub use render_target::{PixelBuffer, RenderType};
 pub use sdl2::keyboard::Scancode;
@@ -114,8 +113,8 @@ pub trait MachinationTrait {
                     for _ in 0..f {
                         pixels.set_pixel(
                             (x + xtmp - n) as usize, // - (image.left_offset as i32),
-                            (y + ytmp + column.y_offset * f) as usize, /* - image.top_offset as i32 -
-                                                                        *   30, */
+                            (y + ytmp + column.y_offset * f) as usize, /* - image.top_offset as
+                                                                        *   i32 - 30, */
                             &colour.0,
                         );
                         ytmp += 1;

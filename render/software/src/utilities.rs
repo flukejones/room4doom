@@ -28,7 +28,8 @@ pub fn projection(fov: f32, screen_width_half: f32) -> f32 {
     screen_width_half / (fov / 2.0 - 0.3f32.to_radians()).tan()
 }
 
-/// Used to build a table for drawing process. The table cuts out a huge amount of math
+/// Used to build a table for drawing process. The table cuts out a huge amount
+/// of math
 pub fn screen_to_angle(fov: f32, x: f32, screen_width_half: f32) -> f32 {
     ((screen_width_half - x) / projection(fov, screen_width_half)).atan()
 }

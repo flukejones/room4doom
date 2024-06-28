@@ -9,7 +9,7 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::MapPtr;
 
 use crate::env::specials::{
-    find_max_light_surrounding, find_min_light_surrounding, get_next_sector,
+    find_max_light_surrounding, find_min_light_surrounding, get_next_sector
 };
 use crate::utilities::p_random;
 

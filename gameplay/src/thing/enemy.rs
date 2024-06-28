@@ -21,7 +21,7 @@ use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::{p_random, point_to_angle_2, PortalZ};
 use crate::{
-    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS,
+    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS
 };
 
 use super::movement::SubSectorMinMax;

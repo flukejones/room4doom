@@ -389,7 +389,8 @@ fn sel_quit_game(_menu: &mut MenuDoom, _: usize, game: &mut dyn GameTraits) {
     game.quit_game();
 }
 
-// TODO: kind of bad, should make a better method to set episode even if not sequential
+// TODO: kind of bad, should make a better method to set episode even if not
+// sequential
 fn sel_episode(menu: &mut MenuDoom, _choice: usize, _game: &mut dyn GameTraits) {
     menu.episode = menu
         .get_current_menu()
