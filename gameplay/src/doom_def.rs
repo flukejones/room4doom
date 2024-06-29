@@ -26,6 +26,7 @@ pub static DOOM_VERSION: u8 = 109;
 /// The maximum number of players, multiplayer/networking.
 pub const MAXPLAYERS: usize = 4;
 pub const MAX_DEATHMATCH_STARTS: usize = 10;
+pub const MAX_RESPAWNS: usize = 128;
 
 /// Game mode handling - identify IWAD version to handle IWAD dependend
 /// animations etc.

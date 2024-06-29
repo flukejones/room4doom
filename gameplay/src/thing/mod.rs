@@ -184,7 +184,7 @@ pub struct MapObject {
     /// Player number last looked for, 1-4 (does not start at 0)
     lastlook: i32,
     /// For nightmare respawn.
-    spawn_point: Option<WadThing>,
+    pub(crate) spawnpoint: WadThing,
     // Thing being chased/attacked for tracers.
     // struct mobj_s*	tracer;
     /// Every map object needs a link to the level structure to read various
@@ -258,7 +258,7 @@ impl MapObject {
             reactiontime,
             threshold: 0,
             lastlook: p_random() % MAXPLAYERS as i32,
-            spawn_point: None,
+            spawnpoint: WadThing::default(),
             target: None,
             tracer: None,
             s_next: None,
@@ -413,7 +413,7 @@ impl MapObject {
 
     /// P_SpawnMapThing
     pub fn p_spawn_map_thing(
-        mthing: &WadThing,
+        mthing: WadThing,
         no_monsters: bool,
         level: &mut Level,
         players: &mut [Player],
@@ -422,7 +422,7 @@ impl MapObject {
         // count deathmatch start positions
         if mthing.kind == 11 {
             if level.deathmatch_p.len() < level.deathmatch_starts.len() {
-                level.deathmatch_p.push(*mthing);
+                level.deathmatch_p.push(mthing);
             }
             return;
         }
@@ -430,9 +430,9 @@ impl MapObject {
         // check for players specially
         if mthing.kind <= 4 && mthing.kind != 0 {
             // save spots for respawning in network games
-            level.player_starts[(mthing.kind - 1) as usize] = Some(*mthing);
+            level.player_starts[(mthing.kind - 1) as usize] = Some(mthing);
             if !level.deathmatch {
-                MapObject::p_spawn_player(mthing, level, players, active_players);
+                MapObject::p_spawn_player(&mthing, level, players, active_players);
             }
             return;
         }
@@ -509,6 +509,8 @@ impl MapObject {
         if mthing.flags & MTF_AMBUSH != 0 {
             mobj.flags |= MapObjFlag::Ambush as u32;
         }
+
+        mobj.spawnpoint = mthing;
     }
 
     /// A thinker for metal spark/puff, typically used for gun-strikes against
@@ -765,19 +767,17 @@ impl MapObject {
 
     /// P_RemoveMobj
     pub(crate) fn remove(&mut self) {
-        // TODO: nightmare respawns
-        /*
-        if ((thing->flags & SPECIAL) && !(thing->flags & DROPPED) &&
-            (thing->type != MT_INV) && (thing->type != MT_INS)) {
-            itemrespawnque[iquehead] = thing->spawnpoint;
-            itemrespawntime[iquehead] = leveltime;
-            iquehead = (iquehead + 1) & (ITEMQUESIZE - 1);
-
-            // lose one off the end?
-            if (iquehead == iquetail)
-            iquetail = (iquetail + 1) & (ITEMQUESIZE - 1);
+        // Respawn specials for nightmare/deathmatch
+        if (self.flags & MapObjFlag::Special as u32 != 0
+            && self.flags & MapObjFlag::Dropped as u32 == 0)
+            && (self.kind != MapObjKind::MT_INV && self.kind != MapObjKind::MT_INS)
+            && (self.level().respawn_monsters || self.level().deathmatch)
+        {
+            let time = self.level().level_time;
+            let respawn = self.spawnpoint;
+            self.level_mut().respawn_queue.push_front((time, respawn));
         }
-        */
+
         unsafe {
             self.unset_thing_position();
         }
@@ -870,6 +870,49 @@ impl MapObject {
             )
         }
     }
+
+    /// P_NightmareRespawn
+    pub fn nightmare_respawn(&mut self) {
+        let xy = Vec2::new(self.spawnpoint.x as f32, self.spawnpoint.y as f32);
+        let mut ctrl = SubSectorMinMax::default();
+        if !self.p_check_position(xy, &mut ctrl) {
+            return;
+        }
+
+        let ss = self.level_mut().map_data.point_in_subsector(xy);
+        let floor = ss.sector.floorheight as i32;
+        let fog = unsafe {
+            &mut *MapObject::spawn_map_object(
+                xy.x,
+                xy.y,
+                floor,
+                MapObjKind::MT_TFOG,
+                self.level_mut(),
+            )
+        };
+        fog.start_sound(SfxName::Itmbk);
+
+        let mthing = self.spawnpoint;
+
+        let z = if self.info.flags & MapObjFlag::Spawnceiling as u32 != 0 {
+            ONCEILINGZ
+        } else {
+            ONFLOORZ
+        };
+
+        let thing = unsafe {
+            &mut *MapObject::spawn_map_object(xy.x, xy.y, z, self.kind, self.level_mut())
+        };
+        thing.angle = Angle::new((mthing.angle as f32).to_radians());
+        thing.spawnpoint = mthing;
+        thing.reactiontime = 18;
+        if mthing.flags & MTF_AMBUSH != 0 {
+            self.flags |= MapObjFlag::Ambush as u32;
+        }
+
+        self.remove();
+        dbg!();
+    }
 }
 
 impl Think for MapObject {
@@ -898,11 +941,13 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics < 0 && !this.set_state(this.state.next_state) {
+            if this.tics == 0 && !this.set_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {
-            // check for nightmare respawn
+            // The corpse is still hanging around like a bad smell since it
+            // is a thinker. So...
+            // check for nightmare respawn, which will remove *this* if good
             if this.flags & MapObjFlag::Countkill as u32 == 0 {
                 return false;
             }
@@ -920,7 +965,7 @@ impl Think for MapObject {
             if p_random() > 4 {
                 return false;
             }
-            // TODO: P_NightmareRespawn(thing);
+            this.nightmare_respawn();
         }
         false
     }
@@ -944,4 +989,24 @@ impl Think for MapObject {
         }
         unsafe { &*self.thinker }
     }
+}
+
+pub(crate) fn kind_from_doomednum(mthing: &WadThing) -> MapObjKind {
+    // find which type to spawn
+    let mut i = 0;
+    for n in 0..MapObjKind::Count as u16 {
+        if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
+            i = n;
+            break;
+        }
+    }
+
+    if i == MapObjKind::Count as u16 {
+        error!(
+            "P_SpawnMapThing: Unknown type {} at ({}, {})",
+            mthing.kind, mthing.x, mthing.y
+        );
+    }
+
+    MapObjKind::from(i)
 }

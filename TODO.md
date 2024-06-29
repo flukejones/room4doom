@@ -4,7 +4,8 @@
 
 ## BUGS
 
-- [ ] Telefrags don't work
+- [x] Telefrags don't work. Does work but ignored for demons
+  - [ ] Should demons move through each other?
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
 - [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping
 - [-] Monster rotations when walking towards off-by-one? Unsure
@@ -29,7 +30,10 @@
 
 ## GAMEPLAY STUFF
 
-- [ ] Nightmare respawn
+- [x] Nightmare respawn
+  - [x] P_RespawnSpecials()
+  - [x] Add to queue in P_RemoveMobj()
+  - [x] Respawn demons
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO

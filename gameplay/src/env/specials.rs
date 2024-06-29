@@ -4,6 +4,7 @@
 //!
 //! Doom source name `p_spec`
 
+use crate::doom_def::{ONCEILINGZ, ONFLOORZ};
 use crate::env::ceiling::{ev_do_ceiling, CeilKind};
 use crate::env::doors::{ev_do_door, DoorKind};
 use crate::env::floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
@@ -14,14 +15,15 @@ use crate::env::lights::{
 use crate::env::platforms::{ev_do_platform, ev_stop_platform, PlatKind};
 use crate::env::switch::{change_switch_texture, start_sector_sound};
 use crate::env::teleport::teleport;
-use crate::info::MapObjKind;
+use crate::info::{MapObjKind, MOBJINFO};
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::pic::{ButtonWhere, PicAnimation};
 use crate::thing::MapObject;
 use crate::utilities::circle_line_collide;
-use crate::{MapPtr, PicData};
+use crate::{p_random, teleport_move, Angle, MapObjFlag, MapPtr, PicData, TICRATE};
+use glam::Vec2;
 use log::{debug, error, trace};
 use sound_traits::SfxName;
 use std::ptr;
@@ -910,5 +912,62 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
         if line.front_sidedef.textureoffset == f32::MAX {
             line.front_sidedef.textureoffset = 0.0;
         }
+    }
+}
+
+/// P_RespawnSpecials
+pub fn respawn_specials(level: &mut Level) {
+    // only respawn items in deathmatch
+    if !level.deathmatch && !level.respawn_monsters {
+        return;
+    }
+
+    if let Some(mthing) = level.respawn_queue.back() {
+        // wait at least 30 seconds
+        if (level.level_time - mthing.0) / (TICRATE as u32) < 30 {
+            return;
+        }
+    } else {
+        return;
+    }
+
+    if let Some(mthing) = level.respawn_queue.pop_back() {
+        let xy = Vec2::new(mthing.1.x as f32, mthing.1.y as f32);
+
+        // spawn a teleport fog at the new spot
+        let ss = level.map_data.point_in_subsector(xy);
+        let floor = ss.sector.floorheight as i32;
+        let fog = unsafe {
+            &mut *MapObject::spawn_map_object(xy.x, xy.y, floor, MapObjKind::MT_TFOG, level)
+        };
+        fog.start_sound(SfxName::Itmbk);
+
+        let mut i = 0;
+        for n in 0..MapObjKind::Count as u16 {
+            if mthing.1.kind == MOBJINFO[n as usize].doomednum as i16 {
+                i = n;
+                break;
+            }
+        }
+
+        if i == MapObjKind::Count as u16 {
+            error!(
+                "P_SpawnMapThing: Unknown type {} at ({}, {})",
+                mthing.1.kind, mthing.1.x, mthing.1.y
+            );
+        }
+
+        let kind = MapObjKind::from(i);
+
+        let z = if MOBJINFO[i as usize].flags & MapObjFlag::Spawnceiling as u32 != 0 {
+            ONCEILINGZ
+        } else {
+            ONFLOORZ
+        };
+
+        // spawn it
+        let thing = unsafe { &mut *MapObject::spawn_map_object(xy.x, xy.y, z, kind, level) };
+        thing.angle = Angle::new((mthing.1.angle as f32).to_radians());
+        thing.spawnpoint = mthing.1;
     }
 }

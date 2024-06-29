@@ -10,6 +10,7 @@ pub mod map_defs;
 pub mod node;
 
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
 
@@ -19,7 +20,7 @@ use sound_traits::{SfxName, SoundAction};
 use wad::types::WadThing;
 use wad::WadData;
 
-use crate::doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS};
+use crate::doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS, MAX_RESPAWNS};
 use crate::env::platforms::{PlatStatus, Platform};
 use crate::level::map_data::MapData;
 use crate::pic::Button;
@@ -40,6 +41,7 @@ pub struct Level {
     pub thinkers: ThinkerAlloc,
     pub game_skill: Skill,
     pub respawn_monsters: bool,
+    pub respawn_queue: VecDeque<(u32, WadThing)>,
     // Used mostly for deathmatch as far as I know
     pub level_timer: bool,
     /// Time spent in level
@@ -118,7 +120,7 @@ impl Level {
         players: &mut [Player; MAXPLAYERS],
         sky_num: usize,
     ) -> Self {
-        let respawn_monsters = !matches!(skill, Skill::Nightmare);
+        let respawn_monsters = matches!(skill, Skill::Nightmare);
 
         let map_name = if game_mode == GameMode::Commercial {
             if map < 10 {
@@ -140,6 +142,7 @@ impl Level {
             thinkers: ThinkerAlloc::new(0),
             game_skill: skill,
             respawn_monsters,
+            respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
             level_time: 0,
             level_timer: false,
             episode,

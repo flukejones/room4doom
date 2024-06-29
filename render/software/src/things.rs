@@ -1,9 +1,10 @@
 use std::cmp;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
-use gameplay::log::warn;
+use gameplay::log::{error, warn};
 use gameplay::{
-    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
+    Sector,
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
@@ -165,6 +166,10 @@ impl SoftwareRenderer {
         // Find the sprite def to use
         let sprnum = thing.state.sprite;
         let sprite_def = pic_data.sprite_def(sprnum as usize);
+        if sprite_def.frames.is_empty() {
+            error!("No frames?, {:?}, {sprite_def:?}", thing.state);
+            return true;
+        }
 
         let frame = thing.frame & FF_FRAMEMASK;
         if frame & FF_FRAMEMASK > 28 {

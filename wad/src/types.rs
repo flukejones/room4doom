@@ -193,7 +193,7 @@ pub struct WadTexPatch {
 /// |  0x08-0x09 |    i16    | Flags      |
 ///
 /// Each `Thing` record is 10 bytes
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct WadThing {
     pub x: i16,
     pub y: i16,

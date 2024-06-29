@@ -28,9 +28,9 @@ use crate::machination::Machinations;
 use gameplay::log::{debug, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level,
-    MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct,
-    MAXPLAYERS,
+    log, m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction,
+    GameMission, GameMode, Level, MapObject, PicAnimation, PicData, Player, PlayerState, Skill,
+    Switches, WBStartStruct, MAXPLAYERS,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
@@ -416,7 +416,7 @@ impl Game {
         for i in 0..self.players.len() {
             self.player_in_game[i] = false;
         }
-        self.respawn_monsters = false;
+        self.respawn_monsters = matches!(self.game_skill, Skill::Nightmare);
         self.consoleplayer = 0;
         self.player_in_game[0] = true;
 
@@ -567,7 +567,7 @@ impl Game {
 
             for thing in &thing_list {
                 MapObject::p_spawn_map_thing(
-                    thing,
+                    *thing,
                     self.options.no_monsters,
                     level,
                     &mut self.players,
@@ -868,13 +868,12 @@ impl Game {
                 level.thinkers.run_thinkers(lev);
             }
 
-            // P_RespawnSpecials ();
-
             level.level_time += 1;
 
             let animations = &mut self.animations;
             let mut pic_data = self.pic_data.borrow_mut();
             update_specials(level, animations, &mut pic_data);
+            respawn_specials(level);
         }
     }
 }
