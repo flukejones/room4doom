@@ -103,7 +103,7 @@ pub trait MachinationTrait {
 
     /// Free method, requires `get_palette()` to be implemented
     fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut dyn PixelBuffer) {
-        let mut xtmp = 1;
+        let mut xtmp = 0;
         let mut ytmp = 0;
 
         let f = pixels.size().height() / 200;
@@ -112,11 +112,9 @@ pub trait MachinationTrait {
                 for p in column.pixels.iter() {
                     let colour = self.get_palette().0[*p];
                     for _ in 0..f {
-                        pixels.set_pixel(
-                            (x + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize,
-                            (y + ytmp + column.y_offset * f).unsigned_abs() as usize,
-                            &colour.0,
-                        );
+                        let x = (x + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize;
+                        let y = (y + ytmp + column.y_offset * f).unsigned_abs() as usize;
+                        pixels.set_pixel(x, y, &colour.0);
                         ytmp += 1;
                     }
                 }
