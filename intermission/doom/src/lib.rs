@@ -1,11 +1,12 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY
+    animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY,
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WBPlayerStruct, WBStartStruct
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WBPlayerStruct,
+    WBStartStruct,
 };
 use log::warn;
 use wad::types::{WadPalette, WadPatch};
@@ -309,18 +310,18 @@ impl MachinationTrait for Intermission {
                 game.change_music(MusTrack::Inter);
             }
 
-            self.player_info.skills = if self.level_info.maxkills > 0 {
-                (self.player_info.skills * 100) / self.level_info.maxkills
+            self.player_info.total_kills = if self.level_info.maxkills > 0 {
+                (self.player_info.total_kills * 100) / self.level_info.maxkills
             } else {
                 0
             };
-            self.player_info.sitems = if self.level_info.maxitems > 0 {
-                (self.player_info.sitems * 100) / self.level_info.maxitems
+            self.player_info.items_collected = if self.level_info.maxitems > 0 {
+                (self.player_info.items_collected * 100) / self.level_info.maxitems
             } else {
                 0
             };
-            self.player_info.ssecret = if self.level_info.maxsecret > 0 {
-                (self.player_info.ssecret * 100) / self.level_info.maxsecret
+            self.player_info.secrets_found = if self.level_info.maxsecret > 0 {
+                (self.player_info.secrets_found * 100) / self.level_info.maxsecret
             } else {
                 0
             };

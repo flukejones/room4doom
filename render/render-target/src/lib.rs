@@ -150,20 +150,20 @@ impl PixelBuffer for Buffer {
     #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]) {
         // Shitty safeguard. Need to find actual cause of fail
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         if x >= self.size.width || y >= self.size.height {
             dbg!(x, y);
             panic!();
         }
 
         let pos = y * self.stride + x * CHANNELS;
-        #[cfg(not(safety_check))]
+        #[cfg(not(feature = "safety_check"))]
         unsafe {
             self.buffer
                 .get_unchecked_mut(pos..pos + 4)
                 .copy_from_slice(rgba);
         }
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         self.buffer[pos..pos + 4].copy_from_slice(rgba);
     }
 

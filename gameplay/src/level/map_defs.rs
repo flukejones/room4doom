@@ -80,7 +80,7 @@ impl Sector {
         mut func: impl FnMut(&mut MapObject) -> bool,
     ) -> bool {
         if let Some(thing) = self.thinglist {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if thing.is_null() {
                 std::panic!("thinglist is null when it shouldn't be");
             }
@@ -98,7 +98,7 @@ impl Sector {
                     }
 
                     if let Some(next) = next {
-                        #[cfg(null_check)]
+                        #[cfg(feature = "null_check")]
                         if next.is_null() {
                             std::panic!("thinglist thing.s_next is null when it shouldn't be");
                         }
@@ -118,7 +118,7 @@ impl Sector {
 
     pub fn run_func_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
         if let Some(thing) = self.thinglist {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if thing.is_null() {
                 std::panic!("thinglist is null when it shouldn't be");
             }
@@ -136,7 +136,7 @@ impl Sector {
                     }
 
                     if let Some(next) = next {
-                        #[cfg(null_check)]
+                        #[cfg(feature = "null_check")]
                         if next.is_null() {
                             std::panic!("thinglist thing.s_next is null when it shouldn't be");
                         }

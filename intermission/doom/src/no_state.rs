@@ -21,13 +21,19 @@ impl Intermission {
 
         self.count -= 1;
         if self.count <= 0 {
-            info!("Player: Total Items: {}/{}", player.sitems, level.maxitems);
-            info!("Player: Total Kills: {}/{}", player.skills, level.maxkills);
+            info!(
+                "Player: Total Items: {}/{}",
+                player.items_collected, level.maxitems
+            );
+            info!(
+                "Player: Total Kills: {}/{}",
+                player.total_kills, level.maxkills
+            );
             info!(
                 "Player: Total Secrets: {}/{}",
-                player.ssecret, level.maxsecret
+                player.secrets_found, level.maxsecret
             );
-            info!("Player: Level Time: {}", player.stime);
+            info!("Player: Level Time: {}", player.level_time);
             game.level_done();
         }
     }

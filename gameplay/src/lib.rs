@@ -13,7 +13,7 @@ use std::f32::consts::TAU;
 use std::fmt::{self, Debug};
 use std::ops::{Deref, DerefMut};
 
-#[cfg(null_check)]
+#[cfg(feature = "null_check")]
 use std::panic;
 use std::ptr::null_mut;
 
@@ -34,7 +34,8 @@ pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{
-    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION, MAXPLAYERS, TICRATE, WEAPON_INFO
+    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
+    MAXPLAYERS, TICRATE, WEAPON_INFO,
 };
 pub use env::specials::{spawn_specials, update_specials};
 pub use env::teleport::teleport_move;
@@ -156,7 +157,7 @@ impl<T: Debug> MapPtr<T> {
 
 impl<T: Debug> PartialEq for MapPtr<T> {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -166,7 +167,7 @@ impl<T: Debug> PartialEq for MapPtr<T> {
 
 impl<T: Debug> Clone for MapPtr<T> {
     fn clone(&self) -> MapPtr<T> {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -178,7 +179,7 @@ impl<T: Debug> Deref for MapPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -188,7 +189,7 @@ impl<T: Debug> Deref for MapPtr<T> {
 
 impl<T: Debug> DerefMut for MapPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -198,7 +199,7 @@ impl<T: Debug> DerefMut for MapPtr<T> {
 
 impl<T: Debug> AsRef<T> for MapPtr<T> {
     fn as_ref(&self) -> &T {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -208,7 +209,7 @@ impl<T: Debug> AsRef<T> for MapPtr<T> {
 
 impl<T: Debug> AsMut<T> for MapPtr<T> {
     fn as_mut(&mut self) -> &mut T {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.inner.is_null() {
             panic!("NULL");
         }
@@ -216,7 +217,7 @@ impl<T: Debug> AsMut<T> for MapPtr<T> {
     }
 }
 
-#[cfg(null_check)]
+#[cfg(feature = "null_check")]
 impl<T: Debug> Drop for MapPtr<T> {
     fn drop(&mut self) {
         if self.inner.is_null() {

@@ -759,14 +759,14 @@ pub fn draw_column_style_flats(
 
         // changed from `distance` to `length` to provide a radius light
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);
-        #[cfg(not(safety_check))]
+        #[cfg(not(feature = "safety_check"))]
         unsafe {
             let px =
                 *colourmap.get_unchecked(*texture.data.get_unchecked(x_step).get_unchecked(y_step));
             let c = pal.get_unchecked(px);
             pixels.set_pixel(dc_x, y, &c.0);
         }
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         {
             let px = colourmap[texture.data[x_step][y_step]];
             pixels.set_pixel(dc_x, y, &pal[px].0);
@@ -811,12 +811,12 @@ pub fn draw_wall_column(
         if tc == usize::MAX {
             continue;
         }
-        #[cfg(not(safety_check))]
+        #[cfg(not(feature = "safety_check"))]
         unsafe {
             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
             pixels.set_pixel(dc_x, y, &c.0);
         }
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         {
             pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
         }
@@ -852,13 +852,13 @@ pub fn draw_wall_column(
 //         if tc == usize::MAX {
 //             continue;
 //         }
-//         #[cfg(not(safety_check))]
+//         #[cfg(not(feature= "safety_check"))]
 //         unsafe {
 //             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
 //             pixels.set_pixel(dc_x, y as usize, &c.0);
 //         }
 
-//         #[cfg(safety_check)]
+//         #[cfg(feature= "safety_check")]
 //         pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
 
 //         frac += fracstep;

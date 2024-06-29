@@ -85,7 +85,7 @@ impl Intermission {
         let mut lh = (3 * self.patches.nums[0].height / 2) as i32;
         self.draw_patch_pixels(&self.patches.kills, stats_x, stats_y, buffer);
         self.draw_percent(
-            self.player_info.skills as u32,
+            self.player_info.total_kills as u32,
             width - stats_x,
             stats_y,
             buffer,
@@ -94,7 +94,7 @@ impl Intermission {
         lh += lh;
         self.draw_patch_pixels(&self.patches.items, stats_x, stats_y + lh, buffer);
         self.draw_percent(
-            self.player_info.sitems as u32,
+            self.player_info.items_collected as u32,
             width - stats_x,
             stats_y + lh,
             buffer,
@@ -103,7 +103,7 @@ impl Intermission {
         lh += lh;
         self.draw_patch_pixels(&self.patches.sp_secret, stats_x, stats_y + lh, buffer);
         self.draw_percent(
-            self.player_info.ssecret as u32,
+            self.player_info.secrets_found as u32,
             width - stats_x,
             stats_y + lh,
             buffer,
@@ -111,7 +111,7 @@ impl Intermission {
 
         self.draw_patch_pixels(&self.patches.time, time_x, time_y, buffer);
         self.draw_time(
-            self.player_info.stime / TICRATE as u32,
+            self.player_info.level_time / TICRATE as u32,
             width / 2 - time_x,
             time_y,
             scale,

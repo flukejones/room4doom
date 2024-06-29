@@ -36,6 +36,7 @@
 - [-] Really need swept-volume collisions (done half-arsed)
 - [-] P_KillMobj (target/source stuff)
 - [x] P_UpdateSpecials (todo: level timer)
+- [ ] gameplay interact: needs access to `players[]`
 
 ## CORE/FEATURE FUNCTIONALITY
 
@@ -44,7 +45,7 @@
 - [x] Powerup/damage palette effects
 - [x] Thinkers for all things
 - [-] HUD (Done except for multiplayer chat)
-  - [ ] Show "Found a secret" message
+  - [x] Show "Found a secret" message
 - [-] Menu screens (partial. New game, quit)
 - [x] Intermissions and finale
   - [x] Stats

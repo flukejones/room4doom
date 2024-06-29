@@ -58,11 +58,11 @@ pub struct Level {
     /// Was the level set for deathmatch game-exe
     pub(super) deathmatch: bool,
     /// for intermission
-    pub totalkills: i32,
+    pub total_level_kills: i32,
     /// for intermission
-    pub totalitems: i32,
+    pub total_level_items: i32,
     /// for intermission
-    pub totalsecret: i32,
+    pub total_level_secrets: i32,
     /// To change the game-exe state via switches in the level
     pub game_action: Option<GameAction>,
     /// Record how the level was exited
@@ -149,9 +149,9 @@ impl Level {
             deathmatch_starts: [None; MAX_DEATHMATCH_STARTS],
             deathmatch_p: Vec::with_capacity(MAX_DEATHMATCH_STARTS),
             deathmatch: false,
-            totalkills: 0,
-            totalitems: 0,
-            totalsecret: 0,
+            total_level_kills: 0,
+            total_level_items: 0,
+            total_level_secrets: 0,
             game_action: None,
             secret_exit: false,
             valid_count: 0,

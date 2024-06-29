@@ -6,7 +6,8 @@ use sound_traits::SfxName;
 
 use crate::angle::Angle;
 use crate::doom_def::{
-    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
+    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH,
+    MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
 };
 use crate::info::{SpriteNum, StateNum, STATES};
 use crate::level::Level;
@@ -16,7 +17,7 @@ use crate::thing::enemy::noise_alert;
 use crate::thing::{MapObjFlag, MapObject, BONUSADD};
 use crate::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
-use crate::{GameMode, Skill};
+use crate::{english, GameMode, Skill};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
@@ -62,10 +63,14 @@ pub struct WBPlayerStruct {
     /// whether the player is in game-exe
     pub inn: bool,
     // Player stats, kills, collected items etc.
-    pub skills: i32,
-    pub sitems: i32,
-    pub ssecret: i32,
-    pub stime: u32,
+    /// skills
+    pub total_kills: i32,
+    /// sitems
+    pub items_collected: i32,
+    /// ssecret
+    pub secrets_found: i32,
+    /// stime
+    pub level_time: u32,
     pub frags: [i32; 4],
     /// current score on entry, modified on return
     pub score: i32,
@@ -186,11 +191,13 @@ pub struct Player {
     pub refire: i32,
 
     /// For intermission stats.
-    pub killcount: i32,
-    pub itemcount: i32,
-    pub secretcount: i32,
+    pub total_kills: i32,
+    pub items_collected: i32,
+    pub secrets_found: i32,
 
-    /// Hint messages.
+    /// HUD messages.
+    /// This doesn't need to be a queue as it's relatively impossible to
+    /// do more than one thing in a single frame
     pub message: Option<&'static str>,
 
     // Who did damage (NULL for floors/ceilings).
@@ -236,9 +243,9 @@ impl Player {
             status: PlayerStatus::default(),
             refire: 0,
 
-            killcount: 0,
-            itemcount: 0,
-            secretcount: 0,
+            total_kills: 0,
+            items_collected: 0,
+            secrets_found: 0,
 
             message: None,
 
@@ -339,14 +346,14 @@ impl Player {
 
     /// Doom function `G_PlayerReborn`, mostly.
     pub fn reborn(&mut self) {
-        let kill_count = self.killcount;
-        let item_count = self.itemcount;
-        let secret_count = self.secretcount;
+        let kill_count = self.total_kills;
+        let item_count = self.items_collected;
+        let secret_count = self.secrets_found;
 
         *self = Player::default();
-        self.killcount = kill_count;
-        self.itemcount = item_count;
-        self.secretcount = secret_count;
+        self.total_kills = kill_count;
+        self.items_collected = item_count;
+        self.secrets_found = secret_count;
 
         self.status = PlayerStatus::default();
         self.status.attackdown = true;
@@ -568,8 +575,9 @@ impl Player {
                 // SECRET SECTOR
                 9 => {
                     info!("Found secret!");
-                    self.secretcount += 1;
+                    self.secrets_found += 1;
                     sector.special = 0;
+                    self.message = Some(english::STSTR_FOUND_SECRET);
                 }
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
                 11 => {
@@ -860,17 +868,13 @@ impl Player {
         }
     }
 
-    // pub(crate) fn get_mobj_angle(&mut self) -> Angle {
-    //     unsafe { (*(self.thing.unwrap())).angle }
-    // }
-
-    // pub(crate) fn get_mobj_xy(&mut self) -> Vec2 {
-    //     unsafe { (*(self.thing.unwrap())).xy }
-    // }
-
-    // pub(crate) fn mobj_aim_line_attack(&self, distance: f32, bsp_trace: &mut
-    // BSPTrace) -> Option<AimResult>{     unsafe {
-    // (*(self.thing.unwrap())).aim_line_attack(distance, bsp_trace) } }
+    /// P_DropWeapon
+    pub(crate) fn drop_weapon(&mut self) {
+        self.set_psprite(
+            PsprNum::Weapon as usize,
+            WEAPON_INFO[self.status.readyweapon as usize].downstate,
+        );
+    }
 }
 
 /// P_PlayerThink

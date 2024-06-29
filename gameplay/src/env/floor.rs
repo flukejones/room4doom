@@ -13,7 +13,8 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::MapPtr;
 
 use crate::env::specials::{
-    find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane, PlaneResult
+    find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding,
+    find_next_highest_floor, get_next_sector, move_plane, PlaneResult,
 };
 use crate::env::switch::start_sector_sound;
 
@@ -225,7 +226,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
 impl Think for FloorMove {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let floor = object.floor_mut();
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if floor.thinker.is_null() {
             std::panic!("vdoor thinker was null");
         }
@@ -265,7 +266,7 @@ impl Think for FloorMove {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("NULL");
         }
@@ -273,7 +274,7 @@ impl Think for FloorMove {
     }
 
     fn thinker(&self) -> &Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("NULL");
         }

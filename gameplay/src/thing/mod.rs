@@ -272,7 +272,7 @@ impl MapObject {
     }
 
     pub(crate) fn level(&self) -> &Level {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.level.is_null() {
             std::panic!("MapObject level pointer was null");
         }
@@ -280,7 +280,7 @@ impl MapObject {
     }
 
     pub(crate) fn level_mut(&mut self) -> &mut Level {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.level.is_null() {
             std::panic!("MapObject level pointer was null");
         }
@@ -289,7 +289,7 @@ impl MapObject {
 
     pub fn player(&self) -> Option<&Player> {
         self.player.map(|p| unsafe {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if p.is_null() {
                 std::panic!("MapObject player pointer was null");
             }
@@ -299,7 +299,7 @@ impl MapObject {
 
     pub(crate) fn player_mut(&mut self) -> Option<&mut Player> {
         self.player.map(|p| unsafe {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if p.is_null() {
                 std::panic!("MapObject player pointer was null");
             }
@@ -309,7 +309,7 @@ impl MapObject {
 
     pub(crate) fn target(&self) -> Option<&MapObject> {
         self.target.map(|t| unsafe {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if t.is_null() {
                 std::panic!("MapObject target pointer was null");
             }
@@ -319,7 +319,7 @@ impl MapObject {
 
     pub(crate) fn target_mut(&mut self) -> Option<&mut MapObject> {
         self.target.map(|t| unsafe {
-            #[cfg(null_check)]
+            #[cfg(feature = "null_check")]
             if t.is_null() {
                 std::panic!("MapObject target pointer was null");
             }
@@ -498,10 +498,10 @@ impl MapObject {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
         if mobj.flags & MapObjFlag::Countkill as u32 != 0 {
-            level.totalkills += 1;
+            level.total_level_kills += 1;
         }
         if mobj.flags & MapObjFlag::Countitem as u32 != 0 {
-            level.totalitems += 1;
+            level.total_level_items += 1;
         }
 
         // TODO: check the angle is correct
@@ -875,7 +875,7 @@ impl MapObject {
 impl Think for MapObject {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let this = object.mobj_mut();
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if this.thinker.is_null() {
             std::panic!("MapObject thinker was null");
         }
@@ -930,7 +930,7 @@ impl Think for MapObject {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("MapObject thinker was null");
         }
@@ -938,7 +938,7 @@ impl Think for MapObject {
     }
 
     fn thinker(&self) -> &Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("MapObject thinker was null");
         }

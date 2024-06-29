@@ -130,7 +130,7 @@ pub fn ev_do_ceiling(line: MapPtr<LineDef>, kind: CeilKind, level: &mut Level) -
 impl Think for CeilingMove {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let ceiling = object.ceiling_mut();
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if object.ceiling.is_null() {
             std::panic!("ceiling thinker was null");
         }
@@ -223,7 +223,7 @@ impl Think for CeilingMove {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("ceiling thinker was null");
         }
@@ -231,7 +231,7 @@ impl Think for CeilingMove {
     }
 
     fn thinker(&self) -> &Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("ceiling thinker was null");
         }

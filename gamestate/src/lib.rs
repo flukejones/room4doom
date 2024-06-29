@@ -28,7 +28,9 @@ use crate::machination::Machinations;
 use gameplay::log::{debug, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level, MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct, MAXPLAYERS
+    log, m_clear_random, spawn_specials, update_specials, GameAction, GameMission, GameMode, Level,
+    MapObject, PicAnimation, PicData, Player, PlayerState, Skill, Switches, WBStartStruct,
+    MAXPLAYERS,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
@@ -528,9 +530,9 @@ impl Game {
                 }
             }
             // Player setup from P_SetupLevel
-            player.killcount = 0;
-            player.secretcount = 0;
-            player.itemcount = 0;
+            player.total_kills = 0;
+            player.secrets_found = 0;
+            player.items_collected = 0;
         }
 
         self.displayplayer = self.consoleplayer; // view the guy you are playing
@@ -671,19 +673,19 @@ impl Game {
             self.wminfo.next = self.game_map;
         }
 
-        self.wminfo.maxkills = self.level.as_ref().unwrap().totalkills;
-        self.wminfo.maxitems = self.level.as_ref().unwrap().totalitems;
-        self.wminfo.maxsecret = self.level.as_ref().unwrap().totalsecret;
+        self.wminfo.maxkills = self.level.as_ref().unwrap().total_level_kills;
+        self.wminfo.maxitems = self.level.as_ref().unwrap().total_level_items;
+        self.wminfo.maxsecret = self.level.as_ref().unwrap().total_level_secrets;
         self.wminfo.maxfrags = 0;
 
         // TODO: par times
 
         for (i, in_game) in self.player_in_game.iter().enumerate() {
             self.wminfo.plyr[i].inn = *in_game;
-            self.wminfo.plyr[i].skills = self.players[i].killcount;
-            self.wminfo.plyr[i].sitems = self.players[i].itemcount;
-            self.wminfo.plyr[i].ssecret = self.players[i].secretcount;
-            self.wminfo.plyr[i].stime = if let Some(level) = &self.level {
+            self.wminfo.plyr[i].total_kills = self.players[i].total_kills;
+            self.wminfo.plyr[i].items_collected = self.players[i].items_collected;
+            self.wminfo.plyr[i].secrets_found = self.players[i].secrets_found;
+            self.wminfo.plyr[i].level_time = if let Some(level) = &self.level {
                 level.level_time
             } else {
                 0

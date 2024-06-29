@@ -65,7 +65,7 @@ impl fmt::Debug for VerticalDoor {
 impl Think for VerticalDoor {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let door = object.vdoor_mut();
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if door.thinker.is_null() {
             std::panic!("NULL");
         }
@@ -189,7 +189,7 @@ impl Think for VerticalDoor {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("vdoor thinker was null");
         }
@@ -197,7 +197,7 @@ impl Think for VerticalDoor {
     }
 
     fn thinker(&self) -> &Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("vdoor thinker was null");
         }

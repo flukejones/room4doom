@@ -204,7 +204,7 @@ impl MapObject {
         if let Some(source) = source.as_mut() {
             if let Some(player) = source.player_mut() {
                 if self.flags & MapObjFlag::Countkill as u32 != 0 {
-                    player.killcount += 1;
+                    player.total_kills += 1;
                 }
 
                 if self.player.is_some() {
@@ -214,7 +214,10 @@ impl MapObject {
             }
         } else {
             // TODO: Need to increment killcount for first player
-            //players[0].killcount++;
+            if let Some(player) = self.player_mut() {
+                // TODO: players[0].killcount++; ??
+                player.total_kills += 1;
+            }
         }
 
         if let Some(player) = self.player_mut() {
@@ -226,8 +229,7 @@ impl MapObject {
             }
 
             player.player_state = PlayerState::Dead;
-            // TODO: P_DropWeapon(target->player);
-            error!("P_DropWeapon not implemented");
+            player.drop_weapon();
             // TODO: stop automap
         }
 
@@ -399,7 +401,7 @@ impl MapObject {
                         return;
                     }
                     player.message = Some(GOTINVUL);
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::PSTR => {
                     if !player.give_power(PowerType::Strength) {
@@ -409,7 +411,7 @@ impl MapObject {
                     if !(player.status.readyweapon == WeaponType::Fist) {
                         player.pendingweapon = WeaponType::Fist;
                     }
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::PINS => {
                     if !player.give_power(PowerType::Invisibility) {
@@ -417,28 +419,28 @@ impl MapObject {
                     }
                     self.flags |= MapObjFlag::Shadow as u32;
                     player.message = Some(GOTINVIS);
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::SUIT => {
                     if !player.give_power(PowerType::IronFeet) {
                         return;
                     }
                     player.message = Some(GOTSUIT);
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::PMAP => {
                     if !player.give_power(PowerType::Allmap) {
                         return;
                     }
                     player.message = Some(GOTMAP);
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
                 SpriteNum::PVIS => {
                     if !player.give_power(PowerType::Infrared) {
                         return;
                     }
                     player.message = Some(GOTVISOR);
-                    // TODO: sound = sfx_getpow;
+                    sound = SfxName::Getpow;
                 }
 
                 // Ammo
@@ -576,7 +578,7 @@ impl MapObject {
             self.health = player.status.health;
 
             if special.flags & MapObjFlag::Countitem as u32 != 0 {
-                player.itemcount += 1;
+                player.items_collected += 1;
             }
             special.remove();
             player.status.bonuscount += BONUSADD;

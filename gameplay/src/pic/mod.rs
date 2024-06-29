@@ -496,13 +496,13 @@ impl PicData {
         }
 
         let colourmap = self.colourmap_for_scale(wall_scale);
-        #[cfg(not(safety_check))]
+        #[cfg(not(feature = "safety_check"))]
         unsafe {
             self.light_scale
                 .get_unchecked(light_level)
                 .get_unchecked(colourmap)
         }
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         &self.light_scale[light_level][colourmap]
     }
 
@@ -522,13 +522,13 @@ impl PicData {
             light_level = self.zlight_scale.len() - 1;
         }
 
-        #[cfg(not(safety_check))]
+        #[cfg(not(feature = "safety_check"))]
         unsafe {
             self.zlight_scale
                 .get_unchecked(light_level)
                 .get_unchecked(dist)
         }
-        #[cfg(safety_check)]
+        #[cfg(feature = "safety_check")]
         &self.zlight_scale[light_level][dist]
     }
 

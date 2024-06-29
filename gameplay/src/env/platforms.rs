@@ -9,7 +9,7 @@ use sound_traits::SfxName;
 
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
-    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult
+    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult,
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::map_defs::{LineDef, Sector};
@@ -189,7 +189,7 @@ pub fn ev_do_platform(
 impl Think for Platform {
     fn think(object: &mut Thinker, level: &mut Level) -> bool {
         let platform = object.platform_mut();
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if platform.is_null() {
             std::panic!("platform thinker was null");
         }
@@ -278,7 +278,7 @@ impl Think for Platform {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("platform thinker was null");
         }
@@ -286,7 +286,7 @@ impl Think for Platform {
     }
 
     fn thinker(&self) -> &Thinker {
-        #[cfg(null_check)]
+        #[cfg(feature = "null_check")]
         if self.thinker.is_null() {
             std::panic!("platform thinker was null");
         }
