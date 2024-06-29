@@ -5,9 +5,9 @@
 ## BUGS
 
 - [x] Telefrags don't work. Does work but ignored for demons
-  - [ ] Should demons move through each other?
+  - [ ] Push demons apart if they are spawned together (teleports) or maybe prevent them teleporting if it's not clear?
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping
+- [x] Floating blood? Happens near doors and looks like an error between hi/lo clipping (can't reproduce since massive rework)
 - [-] Monster rotations when walking towards off-by-one? Unsure
 - [-] Aim/shoot tries to hit low enemy even if portal blocks view
 - [x] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;` -- Nuked it all with visplane removal
