@@ -505,7 +505,7 @@ impl SegRender {
 
         let sky_colourmap = pic_data.colourmap(0);
 
-        while self.rw_startx < self.rw_stopx.ceil() {
+        while self.rw_startx < self.rw_stopx.floor() {
             let clip_index = self.rw_startx as usize;
             if rdata.portal_clip.floorclip[clip_index] < 0.0 {
                 // TODO: shouldn't be happening, early out?
@@ -515,8 +515,8 @@ impl SegRender {
             // The yl and yh blocks are what affect wall clipping the most. You can make
             // shorter/taller. topfrac here is calulated in previous function
             // and is the starting point that topstep is added to
-            yl = self.topfrac.ceil() + 1.0;
-            if yl <= rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
+            yl = self.topfrac.floor() + 1.0;
+            if yl < rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
@@ -554,7 +554,7 @@ impl SegRender {
                         );
                     } else {
                         let x_start = self.rw_startx as usize;
-                        draw_column_style_flats(
+                        draw_flat_column(
                             ceil_tex,
                             mobj.xy,
                             ceil_height,
@@ -575,7 +575,7 @@ impl SegRender {
             }
 
             yh = self.bottomfrac.floor();
-            if yh >= rdata.portal_clip.floorclip[clip_index] - 1.0 {
+            if yh > rdata.portal_clip.floorclip[clip_index] - 1.0 {
                 yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
             }
 
@@ -588,7 +588,7 @@ impl SegRender {
                 }
                 if top < bottom {
                     let x_start = self.rw_startx as usize;
-                    draw_column_style_flats(
+                    draw_flat_column(
                         floor_tex,
                         mobj.xy,
                         floor_height,
@@ -719,7 +719,7 @@ impl SegRender {
     }
 }
 
-pub fn draw_column_style_flats(
+pub fn draw_flat_column(
     texture: &FlatPic,
     viewxy: Vec2,
     plane_height: f32,
