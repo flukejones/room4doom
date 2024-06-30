@@ -709,12 +709,11 @@ impl Game {
         self.game_action = GameAction::None;
 
         if self.game_mode == GameMode::Retail {
-            self.demo_sequence = (self.demo_sequence + 1) % 7;
+            self.demo_sequence = (self.demo_sequence + 1) % 3; //7;
         } else {
-            self.demo_sequence = (self.demo_sequence + 1) % 6;
+            self.demo_sequence = (self.demo_sequence + 1) % 3; //6;
         }
 
-        dbg!(self.demo_sequence);
         match self.demo_sequence {
             0 => {
                 if self.game_mode == GameMode::Commercial {
@@ -735,14 +734,16 @@ impl Game {
                         .expect("Title music failed");
                 }
             }
-            1 => self.defered_play_demo("demo1".into()),
-            2 => {
+            // 1 => self.defered_play_demo("demo1".into()),
+            1 => {
+                // 2 => {
                 self.page_tic = 200;
                 self.gamestate = GameState::DemoScreen;
                 self.page_name = "CREDIT";
             }
-            3 => self.defered_play_demo("demo2".into()),
-            4 => {
+            // 3 => self.defered_play_demo("demo2".into()),
+            2 => {
+                // 4 => {
                 self.gamestate = GameState::DemoScreen;
                 if self.game_mode == GameMode::Commercial {
                     self.page_tic = 35 * 11;
@@ -759,8 +760,8 @@ impl Game {
                     }
                 }
             }
-            5 => self.defered_play_demo("demo3".into()),
-            6 => self.defered_play_demo("demo4".into()),
+            // 5 => self.defered_play_demo("demo3".into()),
+            // 6 => self.defered_play_demo("demo4".into()),
             _ => {}
         }
     }

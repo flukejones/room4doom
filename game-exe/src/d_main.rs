@@ -367,7 +367,7 @@ fn d_display(
             if game.page_cache.name != game.page_name {
                 let lump = game
                     .wad_data
-                    .get_lump("TITLEPIC")
+                    .get_lump(game.page_name)
                     .expect("TITLEPIC missing");
                 game.page_cache = WadPatch::from_lump(lump);
             }
