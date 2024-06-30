@@ -283,9 +283,9 @@ impl MapObject {
         let mut see = 0;
         let stop = (self.lastlook - 1) & 3;
 
-        loop {
+        self.lastlook = (self.lastlook - 1) & 3;
+        for _ in 0..self.lastlook {
             self.lastlook = (self.lastlook - 1) & 3;
-
             if !self.level().player_in_game()[self.lastlook as usize] {
                 continue;
             }
@@ -324,6 +324,7 @@ impl MapObject {
                 .map(|m| m.thinker);
             return true;
         }
+        false
     }
 
     /// Check if there is a clear line of sight to the selected target object.

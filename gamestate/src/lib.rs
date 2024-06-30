@@ -670,7 +670,11 @@ impl Game {
                 self.check_demo_status();
                 return;
             }
+        } else {
+            self.check_demo_status();
+            return;
         }
+
         if let Some(byte) = self.demo_buffer.next() {
             cmd.forwardmove = byte as i8;
         }
