@@ -4,6 +4,7 @@
 
 ## BUGS
 
+- [ ] Demons don't wake on spawn when they should?
 - [x] Telefrags don't work. Does work but ignored for demons
   - [ ] Push demons apart if they are spawned together (teleports) or maybe prevent them teleporting if it's not clear?
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
@@ -59,7 +60,8 @@
   - [ ] Doom II cast
 - [ ] Automap
 - [x] Demo playback
-  - [ ] tic cmds are not deterministic due to movement and position being f32
+  - [ ] tic cmds are not deterministic due to movement and position being f32?
+        The movement speed and friction is correct. Lets look at the timing of cmds within the main loop
 - [ ] Save/load game
 - [-] Sound:
   - [x] Verify positional sound

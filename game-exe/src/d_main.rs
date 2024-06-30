@@ -278,9 +278,11 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
             for p in column.pixels.iter() {
                 let colour = game.pic_data.borrow().palette()[*p];
                 for _ in 0..f {
+                    let x = (xtmp - n) as usize;
+                    let y = (ytmp + column.y_offset * f) as usize;
                     draw_buf.set_pixel(
-                        (xtmp - n) as usize,                   // - (image.left_offset as i32),
-                        (ytmp + column.y_offset * f) as usize, /* - image.top_offset as i32 - 30, */
+                        x, // - (image.left_offset as i32),
+                        y, /* - image.top_offset as i32 - 30, */
                         &colour.0,
                     );
                     ytmp += 1;

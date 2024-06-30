@@ -35,7 +35,8 @@ And maybe write a book on all I've learned about writing a Doom engine.
   - [ ] Bunny screen
   - [ ] Doom II cast
 - [ ] Automap
-- [ ] Demo playback
+- [x] Demo playback
+  - It works but accuracy is fucked due to movement system using floats not fixedpoint
 - [ ] Save/load game
 - [-] Sound:
   - [x] Verify positional sound

@@ -23,9 +23,10 @@ use crate::{MapObjKind, MapObject, MapPtr};
 
 use super::MapObjFlag;
 
+pub const GRAVITY: f32 = 1.0;
 pub const MAXMOVE: f32 = 30.0;
-pub const STOPSPEED: f32 = 0.0625; // 0x1000
-pub const FRICTION: f32 = 0.90625; // 0xE800
+pub const STOPSPEED: f32 = 0.06250095; // 0x1000
+pub const FRICTION: f32 = 0.9062638; // 0xE800
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
@@ -114,9 +115,9 @@ impl MapObject {
             }
         } else if self.flags & MapObjFlag::Nogravity as u32 == 0 {
             if self.momz == 0.0 {
-                self.momz = -1.0 * 2.0;
+                self.momz = -GRAVITY * 2.0;
             } else {
-                self.momz -= 1.0;
+                self.momz -= GRAVITY;
             }
         }
 
@@ -151,9 +152,6 @@ impl MapObject {
             return;
         }
 
-        self.momxy.x = self.momxy.x.clamp(-MAXMOVE, MAXMOVE);
-        self.momxy.y = self.momxy.y.clamp(-MAXMOVE, MAXMOVE);
-
         // This whole loop is a bit crusty. It consists of looping over progressively
         // smaller moves until we either hit 0, or get a move. Because the whole
         // game-exe is 2D we can use modern 2D collision detection where if
@@ -164,12 +162,12 @@ impl MapObject {
         //  - linedef BBox,
         //  - BBox checks (these are AABB)
         //  - the need to store line slopes
-        // TODO: The above stuff, refactor the collisions and movement to use modern
-        // techniques
 
         // P_XYMovement
         // `p_try_move` will apply the move if it is valid, and do specials, explodes
         // etc
+        self.momxy.x = self.momxy.x.clamp(-MAXMOVE, MAXMOVE);
+        self.momxy.y = self.momxy.y.clamp(-MAXMOVE, MAXMOVE);
         let mut xmove = self.momxy.x;
         let mut ymove = self.momxy.y;
         let mut ptryx;

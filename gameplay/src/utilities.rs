@@ -1,6 +1,8 @@
 //! Many helper functions related to traversing the map, crossing or finding
 //! lines.
 
+use std::f32::consts::PI;
+
 use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
 use crate::angle::Angle;
@@ -10,20 +12,16 @@ use crate::level::Level;
 use crate::MapPtr;
 use glam::Vec2;
 
-// const FRACBITS: i32 = 16;
-// const FRACUNIT: f32 = (1 << FRACBITS) as f32;
-
-/// The Doom `FRACUNIT` is `1 << FRACBITS`
-pub const FRACUNIT: f32 = 65536.0; //(1 << FRACBITS) as f32;
-
-pub const FRACUNIT_DIV4: f32 = 0.25;
+const FRACBITS: i32 = 16;
+const FRACUNIT: f32 = (1 << FRACBITS) as f32;
+pub const FRACUNIT_DIV4: f32 = FRACUNIT / 4.0;
 
 /// Convert a Doom `fixed_t` fixed-point float to `f32`
 pub fn fixed_to_float(value: i32) -> f32 {
     value as f32 / FRACUNIT
 }
 
-const DEG_TO_RAD: f32 = 0.017453292; //PI / 180.0;
+const DEG_TO_RAD: f32 = PI / 180.0;
 
 /// Convert a BAM (Binary Angle Measure) to radians
 pub fn bam_to_radian(value: u32) -> f32 {
