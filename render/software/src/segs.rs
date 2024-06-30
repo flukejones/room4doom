@@ -384,7 +384,7 @@ impl SegRender {
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
-            if seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0 {
+            if (seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0) && self.wall_lights > 0 {
                 self.wall_lights -= 1;
             }
         }
