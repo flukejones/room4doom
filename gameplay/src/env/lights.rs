@@ -75,10 +75,16 @@ impl Think for FireFlicker {
         }
 
         let amount = ((p_random() & 3) * 16) as usize;
-        if light.sector.lightlevel - amount < light.min_light {
+        if light.sector.lightlevel >= amount && light.sector.lightlevel - amount < light.min_light {
             light.sector.lightlevel = light.min_light
         } else {
             light.sector.lightlevel = light.max_light - amount;
+        }
+        if light.sector.lightlevel >= amount {
+            light.sector.lightlevel = light.max_light - amount;
+        }
+        if light.sector.lightlevel < light.min_light {
+            light.sector.lightlevel = light.min_light
         }
         light.count = 4;
 
