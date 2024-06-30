@@ -11,6 +11,14 @@ I tried to do was bring up the game to a fully playable state _fast_, and _then_
 
 The code will dramatically change pver time.
 
+# 30/06/2024
+
+1. Visplanes have been nuked. This gives quite a large speedup but is still not optimal due to extra math and nested array lookup
+2. Demo playback was added. You will see the effects of the gameplay being in `f32` instead of fixedpoint.
+3. The rendering is all `f32`. And it is a separate crate, so changing gameplay to fixedpoint would mean only a play position conversion for rendering, and rendering stays `f32`.
+
+I may convert gameplay to fixedpoint.. I'm not sure. It'll be a huge amount of work and I'd have to add the tan/sin/cos tables or convert between radians and fixedpoint manually. Considering how little the gameplay actually does I can likely take some shortcuts.
+
 ## Goals
 
 - To retain the classic Doom look with a software renderer
