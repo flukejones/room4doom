@@ -19,7 +19,7 @@ The code will dramatically change pver time.
 
 I may convert gameplay to fixedpoint.. I'm not sure. It'll be a huge amount of work and I'd have to add the tan/sin/cos tables or convert between radians and fixedpoint manually. Considering how little the gameplay actually does I can likely take some shortcuts.
 
-Demos are commented out (but title pics run), if you want to see them, uncomment the lines in `gamestate` like `1 => self.defered_play_demo("demo1".into()),`.
+Demos are disabled by default. Use the CLI opts `-E, --enable-demos` to enable them (does not save option). See `--help` for more options.
 
 ## Goals
 

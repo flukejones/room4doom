@@ -9,31 +9,31 @@ use crate::config::{self, MusicType};
 #[derive(Debug, Clone, FromArgs)]
 pub struct CLIOptions {
     /// verbose level: off, error, warn, info, debug
-    #[argh(option)]
+    #[argh(option, short = 'v')]
     pub verbose: Option<log::LevelFilter>,
     /// path to game-exe WAD
-    #[argh(option, default = "Default::default()")]
+    #[argh(option, default = "Default::default()", short = 'i')]
     pub iwad: String,
     /// path to patch WAD
-    #[argh(option)]
+    #[argh(option, short = 'p')]
     pub pwad: Vec<String>,
     /// resolution width in pixels
-    #[argh(option, default = "0")]
+    #[argh(option, default = "0", short = 'w')]
     pub width: u32,
     /// resolution height in pixels
-    #[argh(option, default = "0")]
+    #[argh(option, default = "0", short = 'h')]
     pub height: u32,
     /// fullscreen?
-    #[argh(option)]
+    #[argh(option, short = 'f')]
     pub fullscreen: Option<bool>,
     /// set high-res is using software rendering
-    #[argh(switch)]
+    #[argh(switch, short = 'H')]
     pub hi_res: bool,
     /// set low-res is using software rendering, If used with hi-res switch then lo-res takes precedence
-    #[argh(switch)]
+    #[argh(switch, short = 'L')]
     pub lo_res: bool,
     /// disable monsters
-    #[argh(switch)]
+    #[argh(switch, short = 'n')]
     pub no_monsters: bool,
     // /// Monsters respawn after being killed
     // pub respawn_parm: bool,
@@ -47,24 +47,27 @@ pub struct CLIOptions {
     // Weapons do not stay in place and all items respawn after 30 seconds" pub deathmatch: u8,
     // pub autostart: bool,
     /// set the game-exe skill, 0-4 (0: easiest, 4: hardest)
-    #[argh(option)]
+    #[argh(option, short = 's')]
     pub skill: Option<Skill>,
     /// select episode
-    #[argh(option)]
+    #[argh(option, short = 'e')]
     pub episode: Option<usize>,
     /// select level in episode. If Doom II the episode is ignored
-    #[argh(option)]
+    #[argh(option, short = 'm')]
     pub map: Option<usize>,
     /// rendering type <software, softopengl>
-    #[argh(option)]
+    #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
     /// screen shader <cgwg, lottes, lottesbasic>, not used with Software
     /// renderer
-    #[argh(option)]
+    #[argh(option, short = 'S')]
     pub shader: Option<Shaders>,
     /// music type <fluidsynth, timidity(default)>. Unfinished
-    #[argh(option)]
+    #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,
+    /// enable demo playback (currently bad due to f32 used in movements)
+    #[argh(switch, short = 'E')]
+    pub enable_demos: bool,
 }
 
 impl From<CLIOptions> for DoomOptions {
@@ -84,6 +87,7 @@ impl From<CLIOptions> for DoomOptions {
             fast_parm: false,
             deathmatch: 0,
             autostart: false,
+            enable_demos: g.enable_demos,
         }
     }
 }

@@ -174,7 +174,6 @@ impl UserConfig {
         }
 
         let hi_res = cli.hi_res && !cli.lo_res;
-        dbg!(hi_res);
         if hi_res != self.hi_res {
             self.hi_res = hi_res;
         } else {
