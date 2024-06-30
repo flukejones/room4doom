@@ -222,7 +222,7 @@ pub fn d_doom_loop(
 
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
-            println!("{:?}", _fps);
+            // info!("{:?}", _fps);
 
             if options.palette_test {
                 if pal_num == 13 {
