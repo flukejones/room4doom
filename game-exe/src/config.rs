@@ -173,12 +173,12 @@ impl UserConfig {
             cli.height = self.height;
         }
 
-        if let Some(f) = cli.double {
-            if f != self.hi_res {
-                self.hi_res = f;
-            }
+        let hi_res = cli.hi_res && !cli.lo_res;
+        dbg!(hi_res);
+        if hi_res != self.hi_res {
+            self.hi_res = hi_res;
         } else {
-            cli.double = Some(self.hi_res);
+            cli.hi_res = self.hi_res;
         }
 
         if let Some(renderer) = cli.rendering {

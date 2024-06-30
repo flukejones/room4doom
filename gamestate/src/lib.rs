@@ -349,7 +349,7 @@ impl Game {
         // TODO: ST_Init ();
 
         let mut game_action = GameAction::None;
-        let gamestate = GameState::DemoScreen;
+        let gamestate = GameState::ForceWipe;
         if options.warp {
             game_action = GameAction::NewGame;
         }

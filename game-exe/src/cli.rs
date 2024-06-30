@@ -26,11 +26,14 @@ pub struct CLIOptions {
     /// fullscreen?
     #[argh(option)]
     pub fullscreen: Option<bool>,
-    /// double-resolution?
-    #[argh(option)]
-    pub double: Option<bool>,
+    /// set high-res is using software rendering
+    #[argh(switch)]
+    pub hi_res: bool,
+    /// set low-res is using software rendering, If used with hi-res switch then lo-res takes precedence
+    #[argh(switch)]
+    pub lo_res: bool,
     /// disable monsters
-    #[argh(option, default = "false")]
+    #[argh(switch)]
     pub no_monsters: bool,
     // /// Monsters respawn after being killed
     // pub respawn_parm: bool,
@@ -38,7 +41,7 @@ pub struct CLIOptions {
     // pub fast_parm: bool,
     /// developer mode. Screen is cleared with green colour for seg/flat drawing
     /// leak checks
-    #[argh(option, default = "false")]
+    #[argh(switch)]
     pub dev_parm: bool,
     //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.
     // Weapons do not stay in place and all items respawn after 30 seconds" pub deathmatch: u8,
@@ -52,25 +55,6 @@ pub struct CLIOptions {
     /// select level in episode. If Doom II the episode is ignored
     #[argh(option)]
     pub map: Option<usize>,
-
-    /// palette test, cycles through palette display
-    #[argh(option, default = "false")]
-    pub palette_test: bool,
-    /// image test, pass the sprite name to render
-    #[argh(option)]
-    pub image_test: Option<String>,
-    /// image test, cycle through the patches for texture compose
-    #[argh(option, default = "false")]
-    pub image_cycle_test: bool,
-    /// texture compose test, cycle through the composable textures
-    #[argh(option, default = "false")]
-    pub texture_test: bool,
-    /// flat texture test, cycle through the floor/ceiling flats
-    #[argh(option, default = "false")]
-    pub flats_test: bool,
-    /// sprite test, cycle through the sprites
-    #[argh(option, default = "false")]
-    pub sprites_test: bool,
     /// rendering type <software, softopengl>
     #[argh(option)]
     pub rendering: Option<config::RenderType>,
@@ -94,7 +78,7 @@ impl From<CLIOptions> for DoomOptions {
             episode: g.episode.unwrap_or_default(),
             map: g.map.unwrap_or_default(),
             warp: g.map.is_some() || g.episode.is_some(),
-            hi_res: g.double.unwrap_or(true),
+            hi_res: g.hi_res && !g.lo_res,
             verbose: g.verbose.unwrap_or(log::LevelFilter::Warn),
             respawn_parm: false,
             fast_parm: false,

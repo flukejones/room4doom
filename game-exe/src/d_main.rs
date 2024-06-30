@@ -22,10 +22,9 @@ use render_soft::SoftwareRenderer;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
-use wad::types::{WadFlat, WadPatch};
+use wad::types::WadPatch;
 
 use crate::cheats::Cheats;
-use crate::test_funcs::{flat_select_test, image_test, patch_select_test, texture_select_test};
 use crate::timestep::TimeStep;
 use crate::wipe::Wipe;
 use crate::CLIOptions;
@@ -57,7 +56,7 @@ pub fn d_doom_loop(
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
-    let double = options.double.is_some() && options.double.unwrap();
+    let double = options.hi_res;
     let (buf_width, buf_height) =
         buffer_dimensions(window.size().0 as f32, window.size().1 as f32, double);
     let mut canvas = window
@@ -105,30 +104,6 @@ pub fn d_doom_loop(
         buf.set_gl_filter().unwrap();
     }
 
-    let mut pal_num = 0;
-    let mut image_num = 0;
-    let mut tex_num = 0;
-    let mut flat_num = 0;
-    let mut sprite_num = 119;
-    let images: Option<Vec<WadPatch>> = if options.image_cycle_test || options.texture_test {
-        Some(game.wad_data.patches_iter().collect())
-    } else {
-        None
-    };
-    let flats: Option<Vec<WadFlat>> = if options.flats_test {
-        Some(game.wad_data.flats_iter().collect())
-    } else {
-        None
-    };
-    let sprites: Option<Vec<WadPatch>> = if options.sprites_test {
-        let sprites: Vec<WadPatch> = game.wad_data.sprites_iter().collect();
-        let image = &sprites[sprite_num];
-        info!("{}", image.name);
-        Some(sprites)
-    } else {
-        None
-    };
-
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
     menu.init(&game);
@@ -139,6 +114,11 @@ pub fn d_doom_loop(
         hud_msgs: Messages::new(&game.wad_data),
         finale: Finale::new(&game.wad_data),
     };
+
+    // Start demo playback and titlescreens +
+    if options.episode.is_none() && options.map.is_none() {
+        game.start_title();
+    }
 
     loop {
         if !game.running() {
@@ -184,85 +164,12 @@ pub fn d_doom_loop(
             &mut timestep,
         );
 
-        // if options.palette_test {
-        //     palette_test(pal_num, &mut game, &mut render_buffer);
-        // }
-
-        if let Some(name) = options.image_test.clone() {
-            image_test(
-                &name.to_ascii_uppercase(),
-                &game,
-                render_buffer.pixel_buffer(),
-            );
-        }
-        if options.image_cycle_test {
-            if let Some(images) = &images {
-                patch_select_test(&images[image_num], &game, render_buffer.pixel_buffer());
-            }
-        }
-        if options.flats_test {
-            if let Some(flats) = &flats {
-                flat_select_test(&flats[flat_num], &game, render_buffer.pixel_buffer());
-            }
-        }
-        if options.sprites_test {
-            if let Some(sprites) = &sprites {
-                patch_select_test(&sprites[sprite_num], &game, render_buffer.pixel_buffer());
-            }
-        }
-        if options.texture_test {
-            texture_select_test(
-                game.pic_data.borrow_mut().get_texture(tex_num),
-                &game,
-                render_buffer.pixel_buffer(),
-            );
-        }
-
-        render_buffer.blit(&mut canvas);
-
         // FPS rate updates every second
         if let Some(_fps) = timestep.frame_rate() {
             // info!("{:?}", _fps);
-
-            if options.palette_test {
-                if pal_num == 13 {
-                    pal_num = 0
-                } else {
-                    pal_num += 1;
-                }
-            }
-
-            if let Some(images) = &images {
-                image_num += 1;
-                if image_num == images.len() {
-                    image_num = 0;
-                }
-            }
-
-            if options.texture_test {
-                if tex_num < game.pic_data.borrow_mut().num_textures() - 1 {
-                    tex_num += 1;
-                } else {
-                    tex_num = 0;
-                }
-            }
-
-            if let Some(flats) = &flats {
-                flat_num += 1;
-                if flat_num == flats.len() {
-                    flat_num = 0;
-                }
-            }
-
-            if let Some(sprites) = &sprites {
-                sprite_num += 1;
-                if sprite_num == sprites.len() {
-                    sprite_num = 0;
-                }
-                let image = &sprites[sprite_num];
-                info!("{}", image.name);
-            }
         }
+
+        render_buffer.blit(&mut canvas);
     }
     game.snd_command.send(SoundAction::Shutdown).unwrap();
     // game.snd_thread.join().unwrap();

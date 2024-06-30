@@ -2,7 +2,6 @@ mod cheats;
 mod cli;
 mod config;
 mod d_main;
-mod test_funcs;
 mod timestep;
 mod wipe;
 
@@ -149,7 +148,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    game.start_title();
     d_doom_loop(game, input, window, gl_ctx, options)?;
     Ok(())
 }
