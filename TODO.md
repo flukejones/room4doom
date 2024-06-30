@@ -34,6 +34,7 @@
   - [x] P_RespawnSpecials()
   - [x] Add to queue in P_RemoveMobj()
   - [x] Respawn demons
+  - [ ] Adjust trooper/bruiser speeds (gamestate)
 - [ ] Limit skull count on map from elementals shooting them out
 - [ ] Wad mobj flags a different to in-game info flags...
 - [ ] Implement UMAPINFO support https://doomwiki.org/wiki/UMAPINFO
@@ -57,7 +58,8 @@
   - [ ] Bunny screen
   - [ ] Doom II cast
 - [ ] Automap
-- [ ] Demo playback
+- [x] Demo playback
+  - [ ] tic cmds are not deterministic due to movement and position being f32
 - [ ] Save/load game
 - [-] Sound:
   - [x] Verify positional sound

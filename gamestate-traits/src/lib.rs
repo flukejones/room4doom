@@ -29,7 +29,7 @@ pub enum GameState {
     Finale,
     /// The second most seen state is `GameState::Demo` which plays back
     /// recorded demos and is the default startup mode.
-    Demo,
+    DemoScreen,
 }
 
 /// Universal game traits. To be implemented by the Game

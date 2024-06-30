@@ -92,6 +92,12 @@ impl From<i32> for Skill {
     }
 }
 
+impl From<u8> for Skill {
+    fn from(w: u8) -> Self {
+        Self::from(w as i32)
+    }
+}
+
 impl From<usize> for Skill {
     fn from(w: usize) -> Self {
         if w > Skill::Nightmare as usize {

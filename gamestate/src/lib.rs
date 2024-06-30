@@ -25,7 +25,7 @@ pub mod game_impl;
 pub mod machination;
 
 use crate::machination::Machinations;
-use gameplay::log::{debug, info, trace, warn};
+use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
     log, m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction,
@@ -36,13 +36,16 @@ use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, MachinationTrait};
 use sound_nosnd::SndServerTx;
 use std::cell::RefCell;
+use std::iter::Peekable;
 use std::rc::Rc;
 use std::time::Duration;
+use std::vec::IntoIter;
 // use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::types::WadPatch;
 use wad::WadData;
 
+pub const DEMO_MARKER: u8 = 0x80;
 pub const BACKUPTICS: usize = 12;
 /// Description of the unregistered shareware release
 pub const DESC_SHAREWARE: &str = "DOOM Shareware";
@@ -127,7 +130,7 @@ fn identify_version(wad: &WadData) -> (GameMode, GameMission, &'static str) {
 
 /// Game is very much driven by d_main, which operates as an orchestrator
 pub struct Game {
-    pub title: WadPatch,
+    pub page_cache: WadPatch,
     /// Contains the full wad file. Wads are tiny in terms of today's memory use
     /// so it doesn't hurt to store the full file in ram. May change later.
     pub wad_data: WadData,
@@ -143,6 +146,18 @@ pub struct Game {
     pub switch_list: Vec<usize>,
     /// Is the game running? Used as main loop control
     running: bool,
+    /// Demo being played?
+    demo_playback: bool,
+    /// Is in the overall demo loop? (titles, credits, demos)
+    pub demo_advance: bool,
+    demo_sequence: i8,
+    demo_buffer: Peekable<IntoIter<u8>>,
+    demo_name: String,
+    pub page_name: &'static str,
+    page_tic: i32,
+
+    /// Showing automap?
+    automap: bool,
     /// only if started as net death
     deathmatch: bool,
     /// only true if packets are broadcast
@@ -334,19 +349,28 @@ impl Game {
         // TODO: ST_Init ();
 
         let mut game_action = GameAction::None;
-        let gamestate = GameState::Demo;
+        let gamestate = GameState::DemoScreen;
         if options.warp {
             game_action = GameAction::NewGame;
         }
 
         let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
-        let title = WadPatch::from_lump(lump);
+        let page_cache = WadPatch::from_lump(lump);
 
         Game {
-            title,
+            page_cache,
             wad_data: wad,
             level: None,
             running: true,
+            automap: false,
+            demo_playback: false,
+            demo_buffer: Vec::new().into_iter().peekable(),
+            demo_name: String::new(),
+            demo_advance: false,
+            demo_sequence: 0,
+            page_name: "TITLEPIC",
+            page_tic: 200,
+
             pic_data: Rc::new(RefCell::new(pic_data)),
             animations,
             switch_list,
@@ -381,7 +405,7 @@ impl Game {
 
             game_mode,
             game_mission,
-            wipe_game_state: GameState::Demo,
+            wipe_game_state: GameState::DemoScreen,
             usergame: false,
             options,
             snd_command: tx,
@@ -420,12 +444,11 @@ impl Game {
         self.consoleplayer = 0;
         self.player_in_game[0] = true;
 
-        // TODO: not pass these, they are stored already
-        self.init_new(self.game_skill, self.game_episode, self.game_map);
+        self.init_new();
         self.game_action = GameAction::None;
     }
 
-    fn init_new(&mut self, skill: Skill, mut episode: usize, mut map: usize) {
+    fn init_new(&mut self) {
         debug!("Entered init_new");
 
         if self.paused {
@@ -435,47 +458,47 @@ impl Game {
 
         debug!("Game: init_new: mode = {:?}", self.game_mode);
         if self.game_mode == GameMode::Retail {
-            if episode > 4 && self.options.pwad.is_empty() {
+            if self.game_episode > 4 && self.options.pwad.is_empty() {
                 warn!(
                     "Game: init_new: {:?} mode but episode {} is greater than 4",
-                    self.game_mode, episode
+                    self.game_mode, self.game_episode
                 );
-                episode = 4;
+                self.game_episode = 4;
             }
         } else if self.game_mode == GameMode::Shareware {
-            if episode > 1 {
+            if self.game_episode > 1 {
                 warn!(
                     "Game: init_new: {:?} mode but episode {} is greater than 1",
-                    self.game_mode, episode
+                    self.game_mode, self.game_episode
                 );
-                episode = 1; // only start episode 1 on shareware
+                self.game_episode = 1; // only start episode 1 on shareware
             }
-            if map > 5 {
+            if self.game_map > 5 {
                 warn!(
                     "Game: init_new: {:?} mode but map {} is greater than 5",
-                    self.game_mode, map
+                    self.game_mode, self.game_map
                 );
-                map = 5;
+                self.game_map = 5;
             }
-        } else if episode > 3 && self.options.pwad.is_empty() {
+        } else if self.game_episode > 3 && self.options.pwad.is_empty() {
             warn!(
                 "Game: init_new: {:?} mode but episode {} is greater than 3",
-                self.game_mode, episode
+                self.game_mode, self.game_episode
             );
-            episode = 3;
+            self.game_episode = 3;
         }
 
-        if map > 9 && self.game_mode != GameMode::Commercial {
+        if self.game_map > 9 && self.game_mode != GameMode::Commercial {
             warn!(
                 "Game: init_new: {:?} mode but map {} is greater than 9",
-                self.game_mode, map
+                self.game_mode, self.game_map
             );
-            map = 9;
+            self.game_map = 9;
         }
 
         m_clear_random();
 
-        self.respawn_monsters = skill == Skill::Nightmare || self.options.respawn_parm;
+        self.respawn_monsters = self.game_skill == Skill::Nightmare || self.options.respawn_parm;
 
         // TODO: This shit (mobjinfo) is constant for now. Change it later
         // if (fastparm || (skill == sk_nightmare && gameskill != sk_nightmare))
@@ -501,9 +524,8 @@ impl Game {
         }
 
         self.paused = false;
-        self.game_episode = episode;
-        self.game_map = map;
-        self.game_skill = skill;
+        self.demo_playback = false;
+        self.automap = false;
         self.usergame = true; // will be set false if a demo
 
         self.pic_data
@@ -603,6 +625,202 @@ impl Game {
         self.game_action = GameAction::LoadLevel;
         // self.players[player_num].
         // TODO: deathmatch spawns
+    }
+
+    /// G_DoLoadGame
+    fn do_load_game(&mut self) {
+        todo!("do_load_game");
+    }
+
+    /// G_DoSaveGame
+    fn do_save_game(&mut self) {
+        todo!("do_save_game");
+    }
+
+    pub fn start_title(&mut self) {
+        self.demo_sequence = -1;
+        self.game_action = GameAction::None;
+        self.advance_demo();
+    }
+
+    fn check_demo_status(&mut self) -> bool {
+        if self.demo_playback {
+            self.demo_playback = false;
+            self.netgame = false;
+            self.deathmatch = false;
+            for p in self.player_in_game.iter_mut() {
+                *p = false;
+            }
+            self.options.respawn_parm = false;
+            self.options.fast_parm = false;
+            self.options.no_monsters = false;
+            self.consoleplayer = 0;
+
+            self.advance_demo();
+
+            return true;
+        }
+        false
+    }
+
+    /// G_ReadDemoTicCmd
+    fn read_demo_tic_cmd(&mut self, cmd: &mut TicCmd) {
+        if let Some(byte) = self.demo_buffer.peek() {
+            if *byte == DEMO_MARKER {
+                self.check_demo_status();
+                return;
+            }
+        }
+        if let Some(byte) = self.demo_buffer.next() {
+            cmd.forwardmove = byte as i8;
+        }
+        if let Some(byte) = self.demo_buffer.next() {
+            cmd.sidemove = byte as i8;
+        }
+        if let Some(byte) = self.demo_buffer.next() {
+            cmd.angleturn = (byte as i16) << 8;
+        }
+        if let Some(byte) = self.demo_buffer.next() {
+            cmd.buttons = byte;
+        }
+    }
+
+    pub fn advance_demo(&mut self) {
+        self.demo_advance = true;
+    }
+
+    /// D_PageTicker();
+    fn page_ticker(&mut self) {
+        self.page_tic -= 1;
+        if self.page_tic < 0 {
+            self.advance_demo();
+        }
+    }
+
+    pub fn do_advance_demo(&mut self) {
+        self.players[self.consoleplayer].player_state = PlayerState::Live;
+        self.demo_advance = false;
+        self.usergame = false;
+        self.paused = false;
+        self.game_action = GameAction::None;
+
+        if self.game_mode == GameMode::Retail {
+            self.demo_sequence = (self.demo_sequence + 1) % 7;
+        } else {
+            self.demo_sequence = (self.demo_sequence + 1) % 6;
+        }
+
+        dbg!(self.demo_sequence);
+        match self.demo_sequence {
+            0 => {
+                if self.game_mode == GameMode::Commercial {
+                    self.page_tic = 35 * 11;
+                } else {
+                    self.page_tic = 170;
+                }
+                self.gamestate = GameState::DemoScreen;
+                self.page_name = "TITLEPIC";
+
+                if self.game_mode == GameMode::Commercial {
+                    self.snd_command
+                        .send(SoundAction::ChangeMusic(MusTrack::Dm2ttl as usize, false))
+                        .expect("Title music failed");
+                } else {
+                    self.snd_command
+                        .send(SoundAction::ChangeMusic(MusTrack::Intro as usize, false))
+                        .expect("Title music failed");
+                }
+            }
+            1 => self.defered_play_demo("demo1".into()),
+            2 => {
+                self.page_tic = 200;
+                self.gamestate = GameState::DemoScreen;
+                self.page_name = "CREDIT";
+            }
+            3 => self.defered_play_demo("demo2".into()),
+            4 => {
+                self.gamestate = GameState::DemoScreen;
+                if self.game_mode == GameMode::Commercial {
+                    self.page_tic = 35 * 11;
+                    self.snd_command
+                        .send(SoundAction::ChangeMusic(MusTrack::Dm2ttl as usize, false))
+                        .expect("Title music failed");
+                    self.page_name = "TITLEPIC";
+                } else {
+                    self.page_tic = 200;
+                    if self.game_mode == GameMode::Retail {
+                        self.page_name = "CREDIT";
+                    } else {
+                        self.page_name = "HELP2";
+                    }
+                }
+            }
+            5 => self.defered_play_demo("demo3".into()),
+            6 => self.defered_play_demo("demo4".into()),
+            _ => {}
+        }
+    }
+
+    /// G_DeferedPlayDemo
+    fn defered_play_demo(&mut self, name: String) {
+        self.demo_name = name;
+        self.game_action = GameAction::PlayDemo;
+    }
+
+    /// G_DoPlayDemo
+    fn do_play_demo(&mut self) {
+        self.game_action = GameAction::None;
+
+        if let Some(demo) = self.wad_data.get_lump(&self.demo_name) {
+            self.demo_buffer = demo.data.clone().into_iter().peekable();
+
+            if let Some(byte) = self.demo_buffer.next() {
+                if byte != 109 {
+                    self.game_action = GameAction::None;
+                    return;
+                }
+            }
+
+            if let Some(byte) = self.demo_buffer.next() {
+                self.game_skill = Skill::from(byte);
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.game_episode = byte as usize;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.game_map = byte as usize;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.deathmatch = byte == 1;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.options.respawn_parm = byte == 1;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.options.fast_parm = byte == 1;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.options.no_monsters = byte == 1;
+            }
+            if let Some(byte) = self.demo_buffer.next() {
+                self.consoleplayer = byte as usize;
+            }
+            for player in self.player_in_game.iter_mut() {
+                if let Some(byte) = self.demo_buffer.next() {
+                    *player = byte == 1;
+                }
+            }
+            if self.player_in_game[1] {
+                // TODO: netgame stuff
+            }
+
+            self.init_new();
+            self.usergame = false;
+            self.demo_playback = true;
+        } else {
+            error!("Demo {} does not exist", self.demo_name);
+            self.game_action = GameAction::None;
+        }
     }
 
     /// Load the next level and set the `GameAction` to None
@@ -750,9 +968,9 @@ impl Game {
                 machinations.hud_msgs.init(self);
             }
             GameAction::None => {}
-            GameAction::LoadGame => todo!("G_DoLoadGame()"),
-            GameAction::SaveGame => todo!("G_DoSaveGame()"),
-            GameAction::PlayDemo => todo!("G_DoPlayDemo()"),
+            GameAction::LoadGame => self.do_load_game(),
+            GameAction::SaveGame => self.do_save_game(),
+            GameAction::PlayDemo => self.do_play_demo(),
             GameAction::Victory => {
                 self.start_finale();
                 machinations.finale.init(self);
@@ -772,11 +990,13 @@ impl Game {
                 // sets the players cmd for this tic
                 self.players[i].cmd = self.netcmds[i][0];
                 // memcpy(cmd, &netcmds[i][buf], sizeof(ticcmd_t));
-                // let cmd = &self.players[i].cmd;
-                // if (demoplayback)
-                //     G_ReadDemoTiccmd(cmd);
+                if self.demo_playback {
+                    let mut cmd = self.players[i].cmd;
+                    self.read_demo_tic_cmd(&mut cmd);
+                    self.players[i].cmd = cmd;
+                }
                 // if (demorecording)
-                //     G_WriteDemoTiccmd(cmd);
+                //     TODO: G_WriteDemoTiccmd(cmd);
                 // TODO: Netgame stuff here
             }
         }
@@ -817,7 +1037,6 @@ impl Game {
                 // update the automap display info
                 // AM_Ticker();
                 // update the HUD statuses (things like timeout displayed messages)
-                // HU_Ticker();
                 machinations.hud_msgs.ticker(self);
             }
             GameState::Intermission => {
@@ -827,8 +1046,8 @@ impl Game {
             GameState::Finale => {
                 machinations.finale.ticker(self);
             }
-            GameState::Demo => {
-                // D_PageTicker();
+            GameState::DemoScreen => {
+                self.page_ticker();
             }
             GameState::ForceWipe => {
                 // do a wipe

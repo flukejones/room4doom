@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
-    let game = Game::new(
+    let mut game = Game::new(
         options.clone().into(),
         wad,
         snd_ctx,
@@ -149,6 +149,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
+    game.start_title();
     d_doom_loop(game, input, window, gl_ctx, options)?;
     Ok(())
 }

@@ -264,23 +264,23 @@ pub fn d_doom_loop(
             }
         }
     }
-    // game.snd_command.send(SoundAction::Shutdown).unwrap();
+    game.snd_command.send(SoundAction::Shutdown).unwrap();
     // game.snd_thread.join().unwrap();
     Ok(())
 }
 
-fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
+fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     let mut xtmp = 0;
     let mut ytmp = 0;
-    let f = draw_buf.size().height() / draw_buf.size().width();
-    for c in game.title.columns.iter() {
+    let f = draw_buf.size().height() / 200;
+    for column in game.page_cache.columns.iter() {
         for n in 0..f {
-            for p in c.pixels.iter() {
+            for p in column.pixels.iter() {
                 let colour = game.pic_data.borrow().palette()[*p];
                 for _ in 0..f {
                     draw_buf.set_pixel(
-                        (xtmp - n) as usize,              // - (image.left_offset as i32),
-                        (ytmp + c.y_offset * f) as usize, /* - image.top_offset as i32 - 30, */
+                        (xtmp - n) as usize,                   // - (image.left_offset as i32),
+                        (ytmp + column.y_offset * f) as usize, /* - image.top_offset as i32 - 30, */
                         &colour.0,
                     );
                     ytmp += 1;
@@ -288,7 +288,7 @@ fn draw_title_pixels(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
             }
             ytmp = 0;
 
-            if c.y_offset == 255 {
+            if column.y_offset == 255 {
                 xtmp += 1;
             }
         }
@@ -360,10 +360,16 @@ fn d_display(
         }
         GameState::Intermission => machines.intermission.draw(draw_buf.pixel_buffer()),
         GameState::Finale => machines.finale.draw(draw_buf.pixel_buffer()),
-        GameState::Demo => {
+        GameState::DemoScreen => {
             // TODO: we're clearing here to make the menu visible (for now)
-            draw_title_pixels(game, draw_buf.pixel_buffer());
-            // TODO: D_PageDrawer();
+            if game.page_cache.name != game.page_name {
+                let lump = game
+                    .wad_data
+                    .get_lump("TITLEPIC")
+                    .expect("TITLEPIC missing");
+                game.page_cache = WadPatch::from_lump(lump);
+            }
+            page_drawer(game, draw_buf.pixel_buffer());
         }
         _ => {}
     }
@@ -417,6 +423,9 @@ fn try_run_tics(
 
     // Build tics here?
     timestep.run_this(|_| {
+        if game.demo_advance {
+            game.do_advance_demo();
+        }
         // Did menu take control?
         if !menu.ticker(game) {
             game.ticker(machinations); // G_Ticker
