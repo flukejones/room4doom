@@ -270,9 +270,9 @@ pub fn d_doom_loop(
 }
 
 fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
-    let mut xtmp = 0;
-    let mut ytmp = 0;
     let f = draw_buf.size().height() / 200;
+    let mut ytmp = 0;
+    let mut xtmp = f - 1;
     for column in game.page_cache.columns.iter() {
         for n in 0..f {
             for p in column.pixels.iter() {
