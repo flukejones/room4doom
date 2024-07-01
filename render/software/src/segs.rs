@@ -794,6 +794,9 @@ pub fn draw_wall_column(
     doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
+    if yh < yl {
+        return;
+    }
     if yh >= pixels.size().height_f32() {
         yh = pixels.size().height_f32() - 1.0;
     }
