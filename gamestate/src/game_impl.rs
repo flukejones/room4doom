@@ -1,6 +1,6 @@
 use crate::Game;
-use gameplay::{GameAction, GameMode, Skill, WBPlayerStruct, WBStartStruct};
-use gamestate_traits::{GameTraits, PlayerStatus};
+use gameplay::{GameAction, GameMode, Skill, WorldEndPlayerInfo};
+use gamestate_traits::{GameTraits, PlayerStatus, WorldInfo};
 use sound_traits::{MusTrack, SfxName, SoundAction, EPISODE4_MUS};
 use wad::WadData;
 
@@ -15,14 +15,14 @@ impl GameTraits for Game {
     /// of impact of changing game-exe vars beyong action here, probably
     /// nothing.
     fn defered_init_new(&mut self, skill: Skill, episode: usize, map: usize) {
-        self.game_skill = skill;
-        self.game_episode = episode;
-        self.game_map = map;
-        self.game_action = GameAction::NewGame;
+        self.options.skill = skill;
+        self.options.episode = episode;
+        self.options.map = map;
+        self.pending_action = GameAction::NewGame;
     }
 
     fn get_mode(&self) -> GameMode {
-        self.game_mode
+        self.game_type.mode
     }
 
     fn load_game(&mut self, _name: String) {
@@ -48,43 +48,45 @@ impl GameTraits for Game {
             x: 0.0,
             y: 0.0,
         };
-        self.snd_command.send(sfx).unwrap();
+        self.sound_cmd.send(sfx).unwrap();
     }
 
     fn change_music(&self, mus: MusTrack) {
         let music = if mus == MusTrack::None {
-            if self.game_mode == GameMode::Commercial {
-                MusTrack::Runnin as usize + self.game_map - 1
-            } else if self.game_episode < 4 {
-                MusTrack::E1M1 as usize + (self.game_episode - 1) * 9 + self.game_map - 1
+            if self.game_type.mode == GameMode::Commercial {
+                MusTrack::Runnin as usize + self.options.map - 1
+            } else if self.options.episode < 4 {
+                MusTrack::E1M1 as usize + (self.options.episode - 1) * 9 + self.options.map - 1
             } else {
-                EPISODE4_MUS[self.game_map - 1] as usize
+                EPISODE4_MUS[self.options.map - 1] as usize
             }
         } else {
             mus as usize
         };
 
-        self.snd_command
+        self.sound_cmd
             .send(SoundAction::ChangeMusic(music, true))
             .unwrap();
     }
 
     /// Doom function name `G_WorldDone`
     fn level_done(&mut self) {
-        self.game_action = GameAction::WorldDone;
-        if self.wminfo.didsecret {
+        self.pending_action = GameAction::WorldDone;
+        if self.world_info.didsecret {
             for p in self.players.iter_mut() {
                 p.didsecret = true;
             }
         }
-        if matches!(self.game_mode, GameMode::Commercial) {
-            match self.wminfo.last {
+        if matches!(self.game_type.mode, GameMode::Commercial) {
+            match self.world_info.last {
                 6 | 11 | 15 | 20 | 30 | 31 => {
-                    if !self.wminfo.didsecret && (self.game_map == 15 || self.game_map == 31) {
+                    if !self.world_info.didsecret
+                        && (self.options.map == 15 || self.options.map == 31)
+                    {
                         return;
                     }
-                    self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
-                    self.game_action = GameAction::Victory;
+                    self.world_info.didsecret = self.players[self.consoleplayer].didsecret;
+                    self.pending_action = GameAction::Victory;
                 }
                 _ => {}
             }
@@ -92,15 +94,15 @@ impl GameTraits for Game {
     }
 
     fn finale_done(&mut self) {
-        self.game_action = GameAction::WorldDone;
+        self.pending_action = GameAction::WorldDone;
     }
 
-    fn level_end_info(&self) -> &WBStartStruct {
-        &self.wminfo
+    fn level_end_info(&self) -> &WorldInfo {
+        &self.world_info
     }
 
-    fn player_end_info(&self) -> &WBPlayerStruct {
-        &self.wminfo.plyr[self.consoleplayer]
+    fn player_end_info(&self) -> &WorldEndPlayerInfo {
+        &self.world_info.plyr[self.consoleplayer]
     }
 
     fn player_status(&self) -> PlayerStatus {

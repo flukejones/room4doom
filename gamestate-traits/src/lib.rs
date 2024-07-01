@@ -4,9 +4,10 @@
 
 pub mod util;
 
+use gameplay::MAXPLAYERS;
 pub use gameplay::{
-    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill,
-    WBPlayerStruct, WBStartStruct, WeaponType, TICRATE, WEAPON_INFO,
+    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WeaponType,
+    WorldEndPlayerInfo, TICRATE, WEAPON_INFO,
 };
 pub use render_target::{PixelBuffer, RenderType};
 pub use sdl2::keyboard::Scancode;
@@ -30,6 +31,27 @@ pub enum GameState {
     /// The second most seen state is `GameState::Demo` which plays back
     /// recorded demos and is the default startup mode.
     DemoScreen,
+}
+
+/// parms for world level / intermission
+#[derive(Default, Clone)]
+pub struct WorldInfo {
+    pub episode: usize,
+    pub map: usize,
+    /// if true, splash the secret level
+    pub didsecret: bool,
+    /// previous and next levels, origin 0
+    pub last: usize,
+    pub next: usize,
+    pub maxkills: i32,
+    pub maxitems: i32,
+    pub maxsecret: i32,
+    pub maxfrags: i32,
+    /// the par time
+    pub partime: i32,
+    /// index of this player in game-exe
+    pub pnum: usize,
+    pub plyr: [WorldEndPlayerInfo; MAXPLAYERS],
 }
 
 /// Universal game traits. To be implemented by the Game
@@ -69,10 +91,10 @@ pub trait GameTraits {
     fn finale_done(&mut self);
 
     /// Fetch the end-of-level information
-    fn level_end_info(&self) -> &WBStartStruct;
+    fn level_end_info(&self) -> &WorldInfo;
 
     /// Fetch the end-of-level player statistics (player 1)
-    fn player_end_info(&self) -> &WBPlayerStruct;
+    fn player_end_info(&self) -> &WorldEndPlayerInfo;
 
     /// Fetch the basic player statistics (player 1)
     fn player_status(&self) -> PlayerStatus;

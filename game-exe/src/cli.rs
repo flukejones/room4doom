@@ -29,7 +29,8 @@ pub struct CLIOptions {
     /// set high-res is using software rendering
     #[argh(switch, short = 'H')]
     pub hi_res: bool,
-    /// set low-res is using software rendering, If used with hi-res switch then lo-res takes precedence
+    /// set low-res is using software rendering, If used with hi-res switch then
+    /// lo-res takes precedence
     #[argh(switch, short = 'L')]
     pub lo_res: bool,
     /// disable monsters
@@ -84,10 +85,12 @@ impl From<CLIOptions> for DoomOptions {
             hi_res: g.hi_res && !g.lo_res,
             verbose: g.verbose.unwrap_or(log::LevelFilter::Warn),
             respawn_parm: false,
+            respawn_monsters: false,
             fast_parm: false,
             deathmatch: 0,
             autostart: false,
             enable_demos: g.enable_demos,
+            netgame: false,
         }
     }
 }

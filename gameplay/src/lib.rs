@@ -3,7 +3,7 @@
 //!
 //! The `Gameplay` is very self contained, such that it really only expects
 //! input, the player thinkers to be run, and the MapObject thinkers to be run.
-//! Theowner of the `Gameplay` is then expected to get what is required to
+//! The owner of the `Gameplay` is then expected to get what is required to
 //! display the results from the exposed public API.
 
 // #![feature(const_fn_floating_point_arithmetic)]
@@ -46,7 +46,7 @@ pub use level::map_data::{MapData, IS_SSECTOR_MASK};
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
 pub use level::Level;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
-pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WBPlayerStruct, WBStartStruct};
+pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
 use std::error::Error;
 use std::str::FromStr;

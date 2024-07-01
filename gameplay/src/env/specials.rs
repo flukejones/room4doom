@@ -22,7 +22,7 @@ use crate::level::Level;
 use crate::pic::{ButtonWhere, PicAnimation};
 use crate::thing::MapObject;
 use crate::utilities::circle_line_collide;
-use crate::{p_random, teleport_move, Angle, MapObjFlag, MapPtr, PicData, TICRATE};
+use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
 use sound_traits::SfxName;

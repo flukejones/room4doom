@@ -5,8 +5,8 @@ use crate::defs::{
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WBPlayerStruct,
-    WBStartStruct,
+    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WorldEndPlayerInfo,
+    WorldInfo,
 };
 use log::warn;
 use wad::types::{WadPalette, WadPatch};
@@ -34,8 +34,8 @@ pub struct Intermission {
     bg_count: i32,
     mode: GameMode,
     // info updated by ticker
-    player_info: WBPlayerStruct,
-    level_info: WBStartStruct,
+    player_info: WorldEndPlayerInfo,
+    level_info: WorldInfo,
 
     pointer_on: bool,
     count: i32,
@@ -141,8 +141,8 @@ impl Intermission {
             current_bg: 0,
             bg_count: 0,
             mode,
-            player_info: WBPlayerStruct::default(),
-            level_info: WBStartStruct::default(),
+            player_info: WorldEndPlayerInfo::default(),
+            level_info: WorldInfo::default(),
             pointer_on: true,
             count: SHOW_NEXT_LOC_DELAY * TICRATE,
             state: State::None,

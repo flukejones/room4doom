@@ -105,12 +105,12 @@ pub fn d_doom_loop(
     }
 
     let mut cheats = Cheats::new();
-    let mut menu = MenuDoom::new(game.game_mode, &game.wad_data);
+    let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
 
     let mut machines = Machinations {
-        statusbar: Statusbar::new(game.game_mode, &game.wad_data),
-        intermission: Intermission::new(game.game_mode, &game.wad_data),
+        statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
+        intermission: Intermission::new(game.game_type.mode, &game.wad_data),
         hud_msgs: Messages::new(&game.wad_data),
         finale: Finale::new(&game.wad_data),
     };
@@ -142,7 +142,7 @@ pub fn d_doom_loop(
         // Update the listener of the sound server. Will always be consoleplayer.
         if let Some(mobj) = game.players[game.consoleplayer].mobj() {
             let uid = mobj as *const MapObject as usize;
-            game.snd_command
+            game.sound_cmd
                 .send(SoundAction::UpdateListener {
                     uid,
                     x: mobj.xy.x,
@@ -171,7 +171,7 @@ pub fn d_doom_loop(
 
         render_buffer.blit(&mut canvas);
     }
-    game.snd_command.send(SoundAction::Shutdown).unwrap();
+    game.sound_cmd.send(SoundAction::Shutdown).unwrap();
     // game.snd_thread.join().unwrap();
     Ok(())
 }
@@ -180,7 +180,7 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     let f = draw_buf.size().height() / 200;
     let mut ytmp = 0;
     let mut xtmp = f - 1;
-    for column in game.page_cache.columns.iter() {
+    for column in game.page.cache.columns.iter() {
         for n in 0..f {
             for p in column.pixels.iter() {
                 let colour = game.pic_data.borrow().palette()[*p];
@@ -238,7 +238,7 @@ fn d_display(
     if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
             if let Some(ref level) = game.level {
-                if !game.player_in_game[0] {
+                if !game.players_in_game[0] {
                     return;
                 }
                 if game.players[0].mobj().is_none() {
@@ -273,13 +273,12 @@ fn d_display(
         GameState::Intermission => machines.intermission.draw(draw_buf.pixel_buffer()),
         GameState::Finale => machines.finale.draw(draw_buf.pixel_buffer()),
         GameState::DemoScreen => {
-            // TODO: we're clearing here to make the menu visible (for now)
-            if game.page_cache.name != game.page_name {
+            if game.page.cache.name != game.page.name {
                 let lump = game
                     .wad_data
-                    .get_lump(game.page_name)
+                    .get_lump(game.page.name)
                     .expect("TITLEPIC missing");
-                game.page_cache = WadPatch::from_lump(lump);
+                game.page.cache = WadPatch::from_lump(lump);
             }
             page_drawer(game, draw_buf.pixel_buffer());
         }
@@ -335,7 +334,7 @@ fn try_run_tics(
 
     // Build tics here?
     timestep.run_this(|_| {
-        if game.demo_advance {
+        if game.demo.advance {
             game.do_advance_demo();
         }
         // Did menu take control?

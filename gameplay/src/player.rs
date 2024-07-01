@@ -17,7 +17,7 @@ use crate::thing::enemy::noise_alert;
 use crate::thing::{MapObjFlag, MapObject, BONUSADD};
 use crate::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
-use crate::{english, GameMode, Skill};
+use crate::{GameMode, Skill};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
@@ -59,7 +59,7 @@ pub enum PlayerCheat {
 /// INTERMISSION
 /// Structure passed e.g. to WI_Start(wb)
 #[derive(Default, Clone)]
-pub struct WBPlayerStruct {
+pub struct WorldEndPlayerInfo {
     /// whether the player is in game-exe
     pub inn: bool,
     // Player stats, kills, collected items etc.
@@ -74,27 +74,6 @@ pub struct WBPlayerStruct {
     pub frags: [i32; 4],
     /// current score on entry, modified on return
     pub score: i32,
-}
-
-/// parms for world level / intermission
-#[derive(Default, Clone)]
-pub struct WBStartStruct {
-    pub episode: usize,
-    pub map: usize,
-    /// if true, splash the secret level
-    pub didsecret: bool,
-    /// previous and next levels, origin 0
-    pub last: usize,
-    pub next: usize,
-    pub maxkills: i32,
-    pub maxitems: i32,
-    pub maxsecret: i32,
-    pub maxfrags: i32,
-    /// the par time
-    pub partime: i32,
-    /// index of this player in game-exe
-    pub pnum: usize,
-    pub plyr: [WBPlayerStruct; MAXPLAYERS],
 }
 
 /// Contains the players current status such as attacking, loadout, health. This
