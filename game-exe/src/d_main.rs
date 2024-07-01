@@ -253,12 +253,15 @@ fn d_display(
                 }
             }
         }
-        // Fake crosshair
-        draw_buf.pixel_buffer().set_pixel(
-            disp_buf.width() / 2,
-            disp_buf.height() / 2,
-            &[200, 14, 14, 255],
-        );
+        // TODO: option for various crosshair
+        let crosshair = false;
+        if crosshair {
+            draw_buf.pixel_buffer().set_pixel(
+                disp_buf.width() / 2,
+                disp_buf.height() / 2,
+                &[200, 14, 14, 255],
+            );
+        }
     }
 
     match game.gamestate {
