@@ -405,7 +405,7 @@ impl SegRender {
 
         let half_height = pixels.size().half_height_f32(); // TODO: hmmm, - 0.5;
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = half_height - (self.worldtop * self.rw_scale);
+        self.topfrac = half_height - (self.worldtop * self.rw_scale) + 1.0;
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = half_height - (self.worldbottom * self.rw_scale);
@@ -484,10 +484,6 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
-        // TODO: yh/bottomfrac is sometimes negative?
-        if self.bottomfrac.is_sign_negative() {
-            return;
-        }
         // yl is the pixel location, it is the result of converting the topfrac to int
         let mut yl: f32;
         let mut yh: f32;
@@ -507,28 +503,28 @@ impl SegRender {
 
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as usize;
-            if rdata.portal_clip.floorclip[clip_index] < 0.0 {
-                // TODO: shouldn't be happening, early out?
-                return;
-            }
+            // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
+            //     // TODO: shouldn't be happening, early out?
+            //     return;
+            // }
 
             // The yl and yh blocks are what affect wall clipping the most. You can make
             // shorter/taller. topfrac here is calulated in previous function
             // and is the starting point that topstep is added to
-            yl = self.topfrac.floor() + 1.0;
-            if yl < rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
+            yl = self.topfrac.floor();
+            if yl <= rdata.portal_clip.ceilingclip[clip_index] {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
-                bottom = yl;
+                bottom = yl - 1.0;
 
-                if bottom > rdata.portal_clip.floorclip[clip_index] {
-                    bottom = rdata.portal_clip.floorclip[clip_index]; // Maybe not - 1.0
+                if bottom >= rdata.portal_clip.floorclip[clip_index] {
+                    bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
 
-                if top < bottom {
+                if top <= bottom {
                     if seg.frontsector.ceilingpic == pic_data.sky_num() {
                         let screen_x_degrees = screen_to_angle(
                             self.fov,
@@ -575,18 +571,18 @@ impl SegRender {
             }
 
             yh = self.bottomfrac.floor();
-            if yh > rdata.portal_clip.floorclip[clip_index] - 1.0 {
+            if yh >= rdata.portal_clip.floorclip[clip_index] {
                 yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
             }
 
             if self.markfloor {
-                top = yh;
+                top = yh + 1.0;
                 bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
 
-                if top < rdata.portal_clip.ceilingclip[clip_index] {
-                    top = rdata.portal_clip.ceilingclip[clip_index]; // + 1.0;
+                if top <= rdata.portal_clip.ceilingclip[clip_index] {
+                    top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
-                if top < bottom {
+                if top <= bottom {
                     let x_start = self.rw_startx as usize;
                     draw_flat_column(
                         floor_tex,
@@ -619,21 +615,23 @@ impl SegRender {
             }
 
             if self.midtexture {
-                if let Some(mid_tex) = seg.sidedef.midtexture {
-                    let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
-                    draw_wall_column(
-                        texture_column,
-                        pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
-                        dc_iscale,
-                        self.rw_startx,
-                        self.rw_midtexturemid,
-                        yl,
-                        yh,
-                        pic_data,
-                        false,
-                        pixels,
-                    );
-                };
+                if yl <= yh {
+                    if let Some(mid_tex) = seg.sidedef.midtexture {
+                        let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
+                        draw_wall_column(
+                            texture_column,
+                            pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
+                            dc_iscale,
+                            self.rw_startx,
+                            self.rw_midtexturemid,
+                            yl,
+                            yh,
+                            pic_data,
+                            false,
+                            pixels,
+                        );
+                    };
+                }
 
                 rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
                 rdata.portal_clip.floorclip[clip_index] = -1.0;
@@ -739,22 +737,16 @@ pub fn draw_wall_column(
     doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
-    if yh < yl {
-        return;
-    }
-    if yh >= pixels.size().height_f32() {
-        yh = pixels.size().height_f32() - 1.0;
-    }
+    yh = yh.min(pixels.size().height_f32() - 1.0);
 
     let dc_x = dc_x as usize;
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
     for y in yl as usize..=yh as usize {
-        let mut select = frac.abs() as usize;
+        let mut select = frac.abs() as usize % texture_column.len();
         if doubled {
             select /= 2;
         }
-        select %= texture_column.len();
         let tc = texture_column[select];
         if tc == usize::MAX {
             continue;
@@ -787,9 +779,7 @@ pub fn draw_flat_column(
     yslope_table: &[f32],
     wide_ratio: f32,
 ) {
-    if yh >= pixels.size().height_usize() {
-        yh = pixels.size().height_usize() - 1;
-    }
+    yh = yh.min(pixels.size().height_usize() - 1);
 
     let angle = angle + screen_x;
     let distscale = 1.0 / screen_x.cos() * wide_ratio;
@@ -807,8 +797,9 @@ pub fn draw_flat_column(
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = -viewxy.y - sin * length;
 
-        let x_step = ds_xfrac.abs() as usize % texture.data.len();
-        let y_step = ds_yfrac.abs() as usize % texture.data[0].len();
+        // flats are 64x64 so a bitwise op works here
+        let x_step = ds_xfrac.abs() as usize & (texture.data.len() - 1);
+        let y_step = ds_yfrac.abs() as usize & (texture.data[0].len() - 1);
 
         // changed from `distance` to `length` to provide a radius light
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);

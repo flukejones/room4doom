@@ -282,8 +282,8 @@ impl SoftwareRenderer {
             }
 
             let texture_column = &patch.data[tex_column];
-            let mut top = ((pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0).ceil();
-            let mut bottom = top + (spryscale * texture_column.len() as f32).floor();
+            let mut top = (pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0; //.ceil();
+            let mut bottom = top + (spryscale * texture_column.len() as f32); //.floor();
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1.0;
