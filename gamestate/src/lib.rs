@@ -863,7 +863,6 @@ impl Game {
         self.wminfo.didsecret = self.players[self.consoleplayer].didsecret;
         self.wminfo.episode = self.game_episode - 1;
         self.wminfo.last = self.game_map;
-        dbg!(self.wminfo.episode);
 
         if !matches!(self.game_mode, GameMode::Commercial) {
             if self.game_map == 8 {
