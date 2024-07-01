@@ -574,10 +574,8 @@ impl Player {
                 }
                 // SECRET SECTOR
                 9 => {
-                    info!("Found secret!");
                     self.secrets_found += 1;
                     sector.special = 0;
-                    self.message = Some(english::STSTR_FOUND_SECRET);
                 }
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
                 11 => {

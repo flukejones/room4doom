@@ -51,7 +51,6 @@
 - [x] Powerup/damage palette effects
 - [x] Thinkers for all things
 - [-] HUD (Done except for multiplayer chat)
-  - [x] Show "Found a secret" message
 - [-] Menu screens (partial. New game, quit)
 - [x] Intermissions and finale
   - [x] Stats

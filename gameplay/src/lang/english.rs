@@ -63,5 +63,3 @@ pub const STSTR_BEHOLDX: &str = "Power-up Toggled";
 
 pub const STSTR_CHOPPERS: &str = "... doesn't suck - GM";
 pub const STSTR_CLEV: &str = "Changing Level...";
-
-pub const STSTR_FOUND_SECRET: &str = "Found a secret.";

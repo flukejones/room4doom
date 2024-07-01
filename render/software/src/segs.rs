@@ -505,7 +505,7 @@ impl SegRender {
 
         let sky_colourmap = pic_data.colourmap(0);
 
-        while self.rw_startx < self.rw_stopx.floor() {
+        while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as usize;
             if rdata.portal_clip.floorclip[clip_index] < 0.0 {
                 // TODO: shouldn't be happening, early out?
@@ -674,7 +674,7 @@ impl SegRender {
 
                 if self.bottomtexture {
                     // floor vs ceil affects how things align in slightly off ways
-                    mid = (self.pixlow + 1.0).floor();
+                    mid = self.pixlow.floor() + 1.0;
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[clip_index] {
