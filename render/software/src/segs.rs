@@ -719,6 +719,59 @@ impl SegRender {
     }
 }
 
+/// Provides an easy way to draw a column in an `dc_x` location, starting and
+/// ending at `yl` and `yh`
+
+/// A column is a vertical slice/span from a wall texture that,
+///  given the DOOM style restrictions on the view orientation,
+///  will always have constant z depth.
+/// Thus a special case loop for very fast rendering can
+///  be used. It has also been used with Wolfenstein 3D.
+pub fn draw_wall_column(
+    texture_column: &[usize],
+    colourmap: &[usize],
+    fracstep: f32,
+    dc_x: f32,
+    dc_texturemid: f32,
+    yl: f32,
+    mut yh: f32,
+    pic_data: &PicData,
+    doubled: bool,
+    pixels: &mut dyn PixelBuffer,
+) {
+    if yh < yl {
+        return;
+    }
+    if yh >= pixels.size().height_f32() {
+        yh = pixels.size().height_f32() - 1.0;
+    }
+
+    let dc_x = dc_x as usize;
+    let pal = pic_data.palette();
+    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    for y in yl as usize..=yh as usize {
+        let mut select = frac.abs() as usize;
+        if doubled {
+            select /= 2;
+        }
+        select %= texture_column.len();
+        let tc = texture_column[select];
+        if tc == usize::MAX {
+            continue;
+        }
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
+            pixels.set_pixel(dc_x, y, &c.0);
+        }
+        #[cfg(feature = "safety_check")]
+        {
+            pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
+        }
+        frac += fracstep;
+    }
+}
+
 pub fn draw_flat_column(
     texture: &FlatPic,
     viewxy: Vec2,
@@ -773,97 +826,3 @@ pub fn draw_flat_column(
         }
     }
 }
-
-/// Provides an easy way to draw a column in an `dc_x` location, starting and
-/// ending at `yl` and `yh`
-
-/// A column is a vertical slice/span from a wall texture that,
-///  given the DOOM style restrictions on the view orientation,
-///  will always have constant z depth.
-/// Thus a special case loop for very fast rendering can
-///  be used. It has also been used with Wolfenstein 3D.
-pub fn draw_wall_column(
-    texture_column: &[usize],
-    colourmap: &[usize],
-    fracstep: f32,
-    dc_x: f32,
-    dc_texturemid: f32,
-    yl: f32,
-    mut yh: f32,
-    pic_data: &PicData,
-    doubled: bool,
-    pixels: &mut dyn PixelBuffer,
-) {
-    if yh < yl {
-        return;
-    }
-    if yh >= pixels.size().height_f32() {
-        yh = pixels.size().height_f32() - 1.0;
-    }
-
-    let dc_x = dc_x as usize;
-    let pal = pic_data.palette();
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as usize..=yh as usize {
-        let mut select = frac.abs() as usize;
-        if doubled {
-            select /= 2;
-        }
-        select %= texture_column.len();
-        let tc = texture_column[select];
-        if tc == usize::MAX {
-            continue;
-        }
-        #[cfg(not(feature = "safety_check"))]
-        unsafe {
-            let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-            pixels.set_pixel(dc_x, y, &c.0);
-        }
-        #[cfg(feature = "safety_check")]
-        {
-            pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
-        }
-        frac += fracstep;
-    }
-}
-
-// /// Mostly duped code, but done for opts
-// pub fn draw_sky_column(
-//     texture_column: &[usize],
-//     colourmap: &[usize],
-//     fracstep: f32,
-//     dc_x: f32,
-//     dc_texturemid: f32,
-//     yl: f32,
-//     yh: f32,
-//     pic_data: &PicData,
-//     doubled: bool,
-//     pixels: &mut dyn PixelBuffer,
-// ) {
-//     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) *
-// fracstep;
-
-//     let dc_x = dc_x as usize;
-//     let pal = pic_data.palette();
-//     for y in yl as i32..=yh as i32 {
-//         let mut select = frac.abs() as usize;
-//         if doubled {
-//             select /= 2;
-//         }
-//         select %= texture_column.len();
-//         let tc = texture_column[select];
-//         if tc == usize::MAX {
-//             continue;
-//         }
-//         #[cfg(not(feature= "safety_check"))]
-//         unsafe {
-//             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-//             pixels.set_pixel(dc_x, y as usize, &c.0);
-//         }
-
-//         #[cfg(feature= "safety_check")]
-//         pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
-
-//         frac += fracstep;
-//     }
-// }
