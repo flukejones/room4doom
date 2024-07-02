@@ -142,16 +142,14 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
                 for line in sec.lines.iter() {
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
                         if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
-                            let tmp = level.pic_data.borrow().get_texture(bottomtexture).data[0]
-                                .len() as f32;
+                            let tmp = level.animations[bottomtexture].num_pics() as f32;
                             if tmp < min {
                                 min = tmp;
                             }
                         }
                         if let Some(side) = line.back_sidedef.as_ref() {
                             if let Some(bottomtexture) = side.bottomtexture {
-                                let tmp = level.pic_data.borrow().get_texture(bottomtexture).data[0]
-                                    .len() as f32;
+                                let tmp = level.animations[bottomtexture].num_pics() as f32;
                                 if tmp < min {
                                     min = tmp;
                                 }

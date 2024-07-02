@@ -22,6 +22,10 @@ impl PicAnimation {
         }
     }
 
+    pub fn num_pics(&self) -> usize {
+        self.numpics
+    }
+
     /// Doom function name `P_InitPicAnims`
     pub fn init(pic_data: &PicData) -> Vec<PicAnimation> {
         let mut anims = Vec::with_capacity(ANIM_DEFS.len());

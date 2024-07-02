@@ -22,7 +22,7 @@ use crate::level::Level;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::utilities::circle_line_collide;
-use crate::{Angle, MapObjFlag, MapPtr, TICRATE};
+use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
 use sound_traits::SfxName;
@@ -868,7 +868,7 @@ pub fn spawn_specials(level: &mut Level) {
 }
 
 /// Doom function name `P_UpdateSpecials`
-pub fn update_specials(level: &mut Level) {
+pub fn update_specials(level: &mut Level, pic_data: &mut PicData) {
     // Used mostly for deathmatch as far as I know
     if level.level_timer && level.level_time == 0 {
         // exit
@@ -877,7 +877,7 @@ pub fn update_specials(level: &mut Level) {
 
     // Flats and wall texture animations (switching between series)
     for anim in level.animations.iter_mut() {
-        anim.update(&mut level.pic_data.borrow_mut(), level.level_time as usize);
+        anim.update(pic_data, level.level_time as usize);
     }
 
     // Animate switches

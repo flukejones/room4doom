@@ -205,7 +205,7 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
     for column in game.page.cache.columns.iter() {
         for n in 0..f {
             for p in column.pixels.iter() {
-                let colour = game.pic_data.borrow().palette()[*p];
+                let colour = game.pic_data.palette()[*p];
                 for _ in 0..f {
                     let x = (xtmp - n) as usize;
                     let y = (ytmp + column.y_offset * f) as usize;
@@ -267,11 +267,10 @@ fn d_display(
                     error!("Active console player has no MapObject, can't render player view");
                 } else {
                     let player = &game.players[game.consoleplayer];
-                    let mut pic_data = level.pic_data.borrow_mut();
                     if game.options.dev_parm {
                         draw_buf.pixel_buffer().clear_with_colour(&[0, 164, 0, 255]);
                     }
-                    rend.render_player_view(player, level, &mut pic_data, draw_buf);
+                    rend.render_player_view(player, level, &mut game.pic_data, draw_buf);
                 }
             }
         }

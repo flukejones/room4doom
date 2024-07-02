@@ -191,12 +191,12 @@ impl MapObject {
                     self.p_slide_move();
                 } else if self.flags & MapObjFlag::Missile as u32 != 0 {
                     if let Some(line) = ctrl.sky_line {
-                        if line.frontsector.ceilingpic == self.level().sky_num() {
+                        if line.frontsector.ceilingpic == self.level().sky_num {
                             self.remove();
                             return;
                         }
                         if let Some(back) = line.backsector.as_ref() {
-                            if back.ceilingpic == self.level().sky_num() {
+                            if back.ceilingpic == self.level().sky_num {
                                 self.remove();
                                 return;
                             }

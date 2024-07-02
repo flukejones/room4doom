@@ -9,10 +9,8 @@ pub mod map_data;
 pub mod map_defs;
 pub mod node;
 
-use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::ptr;
-use std::rc::Rc;
 
 use log::info;
 use sound_sdl2::SndServerTx;
@@ -67,7 +65,6 @@ pub struct Level {
 
     /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
     /// access to change animations + translation tables.
-    pub pic_data: Rc<RefCell<PicData>>,
     /// Pre-generated texture animations
     pub animations: Vec<PicAnimation>,
     /// List of switch textures in ordered pairs
@@ -92,6 +89,7 @@ pub struct Level {
     pub(super) snd_command: SndServerTx,
 
     active_platforms: Vec<*mut Platform>,
+    pub(crate) sky_num: usize,
 }
 
 impl Level {
@@ -107,7 +105,7 @@ impl Level {
     ///
     /// Doom method name is `P_SetupLevel`
     #[allow(clippy::too_many_arguments)]
-    pub unsafe fn new(
+    pub unsafe fn new_empty(
         options: GameOptions,
         game_mode: GameMode,
         snd_command: SndServerTx,
@@ -136,7 +134,6 @@ impl Level {
             secret_exit: false,
             valid_count: 0,
             switch_list: Default::default(),
-            pic_data: Default::default(),
             animations: Default::default(),
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
@@ -145,6 +142,7 @@ impl Level {
             players_in_game,
             players,
             active_platforms: Vec::new(),
+            sky_num: 0,
         }
     }
 
@@ -200,26 +198,20 @@ impl Level {
         unsafe { &mut *self.players }
     }
 
-    pub(crate) fn sky_num(&self) -> usize {
-        self.pic_data.borrow().sky_num()
-    }
-
     pub fn load(
         &mut self,
         map_name: &str,
         game_mode: GameMode,
-        pic_data: Rc<RefCell<PicData>>,
+        pic_data: &mut PicData,
         wad_data: &WadData,
     ) {
-        let animations = PicAnimation::init(&pic_data.borrow());
-        let switch_list = Switches::init(self.game_mode, &pic_data.borrow());
+        let animations = PicAnimation::init(pic_data);
+        let switch_list = Switches::init(self.game_mode, pic_data);
 
-        pic_data
-            .borrow_mut()
-            .set_sky_pic(game_mode, self.options.episode, self.options.map);
+        pic_data.set_sky_pic(game_mode, self.options.episode, self.options.map);
+        self.sky_num = pic_data.sky_num();
 
-        self.map_data.load(map_name, &pic_data.borrow(), wad_data);
-        self.pic_data = pic_data;
+        self.map_data.load(map_name, pic_data, wad_data);
         self.animations = animations;
         self.switch_list = switch_list;
         unsafe {

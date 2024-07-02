@@ -33,9 +33,7 @@ use gameplay::{
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
 use sound_nosnd::SndServerTx;
-use std::cell::RefCell;
 use std::iter::Peekable;
-use std::rc::Rc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::vec::IntoIter;
@@ -148,7 +146,7 @@ pub struct Game {
     pub players_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
     pub players: [Player; MAXPLAYERS],
-    pub pic_data: Rc<RefCell<PicData>>,
+    pub pic_data: PicData,
 
     //
     pending_action: GameAction,
@@ -324,7 +322,7 @@ impl Game {
 
         let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
         let page_cache = WadPatch::from_lump(lump);
-        let pic_data = Rc::new(RefCell::new(PicData::init(false, &wad)));
+        let pic_data = PicData::init(false, &wad);
 
         Game {
             wad_data: wad,
@@ -536,7 +534,7 @@ impl Game {
         };
 
         let level = unsafe {
-            Level::new(
+            Level::new_empty(
                 self.options.clone(),
                 self.game_type.mode,
                 self.sound_cmd.clone(),
@@ -555,7 +553,7 @@ impl Game {
             level.load(
                 &map_name,
                 self.game_type.mode,
-                self.pic_data.clone(),
+                &mut self.pic_data,
                 &self.wad_data,
             );
 
@@ -1069,7 +1067,7 @@ impl Game {
 
             level.level_time += 1;
 
-            update_specials(level);
+            update_specials(level, &mut self.pic_data);
             respawn_specials(level);
         }
     }

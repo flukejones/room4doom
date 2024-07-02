@@ -655,7 +655,7 @@ mod tests {
         let (tx, _rx) = channel();
 
         let mut l = unsafe {
-            Level::new(
+            Level::new_empty(
                 crate::GameOptions::default(),
                 GameMode::Shareware,
                 tx,
