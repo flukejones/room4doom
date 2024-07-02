@@ -237,7 +237,6 @@ pub struct Game {
 impl Drop for Game {
     fn drop(&mut self) {
         self.sound_cmd.send(SoundAction::Shutdown).unwrap();
-        // Nightly only
         let thread = self.snd_thread.take();
         thread.unwrap().join().unwrap();
         std::thread::sleep(Duration::from_millis(500));

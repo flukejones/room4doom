@@ -171,8 +171,14 @@ pub fn d_doom_loop(
 
         render_buffer.blit(&mut canvas);
     }
-    game.sound_cmd.send(SoundAction::Shutdown).unwrap();
-    // game.snd_thread.join().unwrap();
+
+    // Explicit drop to ensure shutdown happens
+    drop(game);
+    drop(renderer);
+    drop(render_buffer);
+    drop(render_buffer2);
+    // drop(window);
+    drop(gl_ctx);
     Ok(())
 }
 

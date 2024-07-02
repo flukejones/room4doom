@@ -127,7 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
-    let mut game = Game::new(
+    let game = Game::new(
         options.clone().into(),
         wad,
         snd_ctx,
