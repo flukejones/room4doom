@@ -330,7 +330,8 @@ impl RenderTarget {
 
     /// # Safety
     ///
-    /// The software framebuffer must not be `None`. Only use if software is used.
+    /// The software framebuffer must not be `None`. Only use if software is
+    /// used.
     #[inline]
     pub unsafe fn software_unchecked(&mut self) -> &mut SoftFramebuffer {
         self.software.as_mut().unwrap_unchecked()

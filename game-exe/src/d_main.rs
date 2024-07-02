@@ -14,9 +14,9 @@
 //!
 //! Note that the sound system runs on its own thread.
 //!
-//! `Game` also contains a lot of state ranging from the world state, demo playback
-//! state, options used to setup the world, players and their stats, and the overall
-//! gamestate.
+//! `Game` also contains a lot of state ranging from the world state, demo
+//! playback state, options used to setup the world, players and their stats,
+//! and the overall gamestate.
 
 use std::error::Error;
 use std::mem;

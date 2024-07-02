@@ -1,6 +1,5 @@
 use argh::FromArgs;
-use gameplay::GameOptions;
-use gameplay::{log, Skill};
+use gameplay::{log, GameOptions, Skill};
 use render_target::shaders::Shaders;
 
 use crate::config::{self, MusicType};

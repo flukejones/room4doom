@@ -1,5 +1,5 @@
-//! A menu `GameSubsystem` as used by Doom. This loads and uses the Doom assets to
-//! display the menu but because it uses `SubsystemTrait` for the actual
+//! A menu `GameSubsystem` as used by Doom. This loads and uses the Doom assets
+//! to display the menu but because it uses `SubsystemTrait` for the actual
 //! interaction with the rest of the game it ends up being fairly generic - you
 //! could make this fully generic with a little work, or use it as the basis for
 //! a different menu.
