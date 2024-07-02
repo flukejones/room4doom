@@ -743,10 +743,11 @@ pub fn draw_wall_column(
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
     for y in yl as usize..=yh as usize {
-        let mut select = frac.abs() as usize % texture_column.len();
+        let mut select = frac.abs() as usize;
         if doubled {
             select /= 2;
         }
+        select %= texture_column.len();
         let tc = texture_column[select];
         if tc == usize::MAX {
             continue;

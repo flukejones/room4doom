@@ -275,15 +275,15 @@ impl SoftwareRenderer {
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
-        for x in vis.x1.ceil() as usize..=vis.x2.floor() as usize {
+        for x in vis.x1.round() as usize..=vis.x2.round() as usize {
             let tex_column = frac as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
 
             let texture_column = &patch.data[tex_column];
-            let mut top = (pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0; //.ceil();
-            let mut bottom = top + (spryscale * texture_column.len() as f32); //.floor();
+            let mut top = ((pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0).round();
+            let mut bottom = top + (spryscale * texture_column.len() as f32).round();
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1.0;
@@ -544,7 +544,7 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1 as usize..=x2 as usize {
+            for x in x1.round() as usize..=x2.round() as usize {
                 if ds.maskedtexturecol + (x as f32) < 0.0 {
                     spryscale += rw_scalestep;
                     continue;
@@ -575,8 +575,8 @@ impl SoftwareRenderer {
 
                     // calculate unclipped screen coordinates for post
                     let sprtopscreen = pixels.size().half_height_f32() - dc_texturemid * spryscale;
-                    let mut top = sprtopscreen.ceil(); // TODO: possible glitch
-                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32).floor();
+                    let mut top = sprtopscreen.round(); // TODO: possible glitch
+                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32).round();
 
                     if bottom >= mfloorclip {
                         bottom = mfloorclip - 1.0;
@@ -624,7 +624,7 @@ fn draw_masked_column(
     }
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in (yl) as usize..=yh as usize {
+    for y in yl as usize..=yh as usize {
         let select = frac as usize;
         if select >= texture_column.len() {
             return;
