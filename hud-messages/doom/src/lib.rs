@@ -1,4 +1,4 @@
-use gamestate_traits::{GameTraits, MachinationTrait, PixelBuffer, Scancode, TICRATE};
+use gamestate_traits::{GameTraits, PixelBuffer, Scancode, SubsystemTrait, TICRATE};
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::types::WadPalette;
 use wad::WadData;
@@ -63,7 +63,7 @@ impl Messages {
         }
     }
 
-    pub fn draw_wrapped(&self, machination: &impl MachinationTrait, buffer: &mut dyn PixelBuffer) {
+    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut dyn PixelBuffer) {
         let f = buffer.size().height() / 200;
 
         let x = 10;
@@ -92,7 +92,7 @@ impl Messages {
     }
 }
 
-impl MachinationTrait for Messages {
+impl SubsystemTrait for Messages {
     fn init(&mut self, _game: &impl GameTraits) {
         for l in self.lines.iter_mut() {
             l.clear();

@@ -108,7 +108,7 @@ pub trait GameTraits {
 }
 
 /// To be implemented by machination type things (HUD, Map, Statusbar)
-pub trait MachinationTrait {
+pub trait SubsystemTrait {
     /// Possibly initialise the machination
     fn init(&mut self, game: &impl GameTraits);
 

@@ -5,7 +5,7 @@ use crate::defs::{
 };
 use gameplay::{m_random, TICRATE};
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, WorldEndPlayerInfo,
+    GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, WorldEndPlayerInfo,
     WorldInfo,
 };
 use log::warn;
@@ -276,7 +276,7 @@ impl Intermission {
     // }
 }
 
-impl MachinationTrait for Intermission {
+impl SubsystemTrait for Intermission {
     fn init(&mut self, game: &impl GameTraits) {
         self.bg_count = 0;
         self.yah_idx = 0;

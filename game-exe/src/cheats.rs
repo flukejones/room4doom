@@ -1,7 +1,7 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
 use gameplay::log::debug;
-use gameplay::{english, GameMission, PlayerCheat, Skill, WeaponType};
+use gameplay::{english, GameMission, PlayerCheat, PowerType, Skill, WeaponType};
 use gamestate::Game;
 use gamestate_traits::sdl2::keyboard::{Keycode, Scancode};
 use gamestate_traits::GameTraits;
@@ -27,11 +27,11 @@ pub struct Cheats {
     /// - `idbeholdr`: Radiation suit
     /// - `idbeholda`: Area map
     /// - `idbeholdl`: Light amp visor
-    pub powerup: [Cheat; 7],
+    pub powerup: [Cheat; 6],
     /// `idchoppers`: Chainsaw and invulnerability
     pub choppers: Cheat,
     /// `idclev##`: Change level, ## is E#M# or MAP## (01-32)
-    pub clev: Cheat,
+    pub _clev: Cheat,
     /// `idmypos`: Coords and compass direction
     pub mypos: Cheat,
 }
@@ -52,10 +52,9 @@ impl Cheats {
                 Cheat::new("idbeholdr", 0),
                 Cheat::new("idbeholda", 0),
                 Cheat::new("idbeholdl", 0),
-                Cheat::new("idbehold", 0),
             ],
             choppers: Cheat::new("idchoppers", 0),
-            clev: Cheat::new("idclev", 2),
+            _clev: Cheat::new("idclev", 2),
             mypos: Cheat::new("idmypos", 0),
         }
     }
@@ -109,6 +108,42 @@ impl Cheats {
                     *k = true;
                 }
                 player.message = Some(english::STSTR_KFAADDED);
+            } else if self.powerup[0].check(key) {
+                // `idbeholdv`: Invulnerability
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::Invulnerability) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
+            } else if self.powerup[1].check(key) {
+                // `idbeholds`: Go beserk
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::Strength) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
+            } else if self.powerup[2].check(key) {
+                // `idbeholdi`: Pertial invisibility
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::Invisibility) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
+            } else if self.powerup[3].check(key) {
+                // `idbeholdr`: Radiation suit
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::IronFeet) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
+            } else if self.powerup[4].check(key) {
+                // `idbeholda`: Area map
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::Allmap) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
+            } else if self.powerup[5].check(key) {
+                // `idbeholdl`: Light amp visor
+                let player = &mut game.players[game.consoleplayer];
+                if player.give_power(PowerType::Infrared) {
+                    player.message = Some(english::STSTR_BEHOLD);
+                }
             } else if self.choppers.check(key) {
                 let player = &mut game.players[game.consoleplayer];
                 player.status.weaponowned[WeaponType::Chainsaw as usize] = true;

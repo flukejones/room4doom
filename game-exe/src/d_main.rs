@@ -1,6 +1,22 @@
-//! The main loop driver. The primary function is the main loop which attempts
-//! to run all tics then display the result. Handling of actual game-exe state
-//! is done withing the `Game` object.
+//! `d_main()` is the main loop. The task it has is to do a number of things:
+//! 1. Set up the `Game`
+//! 2. Run the ticks for all subsystems (input, menus, hud etc)
+//! 3. Display the results on screen
+//!
+//! Most things are separated out as much as possible. The `Game` is its
+//! own world, and various subsystems rely on getting data from it. These
+//! subsystems are:
+//! - `Statusbar`
+//! - `Intermission`
+//! - `Messages`
+//! - `Finale`
+//! - others may be added such as automap
+//!
+//! Note that the sound system runs on its own thread.
+//!
+//! `Game` also contains a lot of state ranging from the world state, demo playback
+//! state, options used to setup the world, players and their stats, and the overall
+//! gamestate.
 
 use std::error::Error;
 use std::mem;
@@ -8,12 +24,12 @@ use std::mem;
 use finale_doom::Finale;
 use gameplay::log::{self, error, info};
 use gameplay::MapObject;
-use gamestate::machination::Machinations;
+use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
 use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::render::Canvas;
 use gamestate_traits::sdl2::video::Window;
-use gamestate_traits::{GameState, MachinationTrait};
+use gamestate_traits::{GameState, SubsystemTrait};
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -108,7 +124,7 @@ pub fn d_doom_loop(
     let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
 
-    let mut machines = Machinations {
+    let mut machines = GameSubsystem {
         statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
         intermission: Intermission::new(game.game_type.mode, &game.wad_data),
         hud_msgs: Messages::new(&game.wad_data),
@@ -220,12 +236,12 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
 #[allow(clippy::too_many_arguments)]
 fn d_display(
     rend: &mut impl PlayRenderer,
-    menu: &mut impl MachinationTrait,
-    machines: &mut Machinations<
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
+    menu: &mut impl SubsystemTrait,
+    machines: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
     >,
     game: &mut Game,
     disp_buf: &mut RenderTarget, // Display from this buffer
@@ -244,7 +260,7 @@ fn d_display(
     if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
             if let Some(ref level) = game.level {
-                if !game.players_in_game[0] {
+                if !game.players_in_game[game.consoleplayer] {
                     return;
                 }
                 if game.players[0].mobj().is_none() {
@@ -325,12 +341,12 @@ fn d_display(
 fn try_run_tics(
     game: &mut Game,
     input: &mut Input,
-    menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
+    menu: &mut impl SubsystemTrait,
+    machinations: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
     >,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
@@ -354,12 +370,12 @@ fn try_run_tics(
 fn process_events(
     game: &mut Game,
     input: &mut Input,
-    menu: &mut impl MachinationTrait,
-    machinations: &mut Machinations<
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
-        impl MachinationTrait,
+    menu: &mut impl SubsystemTrait,
+    machinations: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
     >,
     cheats: &mut Cheats,
 ) {

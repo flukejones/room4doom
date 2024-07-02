@@ -21,18 +21,17 @@
 //! player view is drawn.
 
 pub mod game_impl;
-pub mod machination;
+pub mod subsystems;
 
-use crate::machination::Machinations;
+use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    log, m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction,
-    GameMission, GameMode, Level, MapObject, PicAnimation, PicData, Player, PlayerState, Skill,
-    Switches, MAXPLAYERS,
+    m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction, GameMission,
+    GameMode, GameOptions, Level, MapObject, PicData, Player, PlayerState, Skill, MAXPLAYERS,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
-use gamestate_traits::{GameState, GameTraits, MachinationTrait, WorldInfo};
+use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
 use sound_nosnd::SndServerTx;
 use std::cell::RefCell;
 use std::iter::Peekable;
@@ -55,52 +54,6 @@ pub const DESC_REGISTERED: &str = "DOOM Registered";
 pub const DESC_ULTIMATE: &str = "The Ultimate DOOM";
 /// Description of DOOM II commercial release
 pub const DESC_COMMERCIAL: &str = "DOOM 2: Hell on Earth";
-
-/// Options specific to Doom gameplay
-pub struct DoomOptions {
-    pub iwad: String,
-    pub pwad: Vec<String>,
-    pub no_monsters: bool,
-    pub respawn_parm: bool,
-    pub fast_parm: bool,
-    pub dev_parm: bool,
-    pub deathmatch: u8,
-    pub warp: bool,
-    pub skill: Skill,
-    pub episode: usize,
-    pub map: usize,
-    pub respawn_monsters: bool,
-    pub autostart: bool,
-    pub hi_res: bool,
-    pub verbose: log::LevelFilter,
-    pub enable_demos: bool,
-    /// only true if packets are broadcast
-    pub netgame: bool,
-}
-
-impl Default for DoomOptions {
-    fn default() -> Self {
-        Self {
-            iwad: "doom.wad".to_string(),
-            pwad: Default::default(),
-            no_monsters: Default::default(),
-            respawn_parm: Default::default(),
-            fast_parm: Default::default(),
-            dev_parm: Default::default(),
-            deathmatch: Default::default(),
-            skill: Default::default(),
-            episode: Default::default(),
-            map: Default::default(),
-            respawn_monsters: false,
-            warp: false,
-            autostart: Default::default(),
-            hi_res: true,
-            verbose: log::LevelFilter::Info,
-            enable_demos: false,
-            netgame: false,
-        }
-    }
-}
 
 /// Data and details used for playback of demos
 pub struct DemoData {
@@ -175,13 +128,7 @@ pub struct Game {
     /// The complete `Level` data encompassing the everything everywhere all at
     /// once... (if loaded).
     pub level: Option<Level>,
-    /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
-    /// access to change animations + translation tables.
-    pub pic_data: Rc<RefCell<PicData>>,
-    /// Pre-generated texture animations
-    pub animations: Vec<PicAnimation>,
-    /// List of switch textures in ordered pairs
-    pub switch_list: Vec<usize>,
+
     /// Data related to demo play and state
     pub demo: DemoData,
     /// The page currently shown during demo state
@@ -201,6 +148,7 @@ pub struct Game {
     pub players_in_game: [bool; MAXPLAYERS],
     /// Each player in the array may be controlled
     pub players: [Player; MAXPLAYERS],
+    pub pic_data: Rc<RefCell<PicData>>,
 
     //
     pending_action: GameAction,
@@ -228,7 +176,7 @@ pub struct Game {
     pub paused: bool,
 
     /// The options the game-exe exe was started with
-    pub options: DoomOptions,
+    pub options: GameOptions,
     /// Sound tx
     pub sound_cmd: SndServerTx,
     snd_thread: Option<JoinHandle<()>>,
@@ -245,7 +193,7 @@ impl Drop for Game {
 
 impl Game {
     pub fn new(
-        mut options: DoomOptions,
+        mut options: GameOptions,
         mut wad: WadData,
         snd_ctx: AudioSubsystem,
         sfx_vol: i32,
@@ -337,10 +285,7 @@ impl Game {
             }
         }
 
-        let pic_data = PicData::init(options.hi_res, &wad);
         info!("Init playloop state.");
-        let animations = PicAnimation::init(&pic_data);
-        let switch_list = Switches::init(game_type.mode, &pic_data);
 
         let snd_thread;
         let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
@@ -379,16 +324,12 @@ impl Game {
 
         let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
         let page_cache = WadPatch::from_lump(lump);
+        let pic_data = Rc::new(RefCell::new(PicData::init(false, &wad)));
 
         Game {
             wad_data: wad,
             level_start_tic: 0,
             level: None,
-            pic_data: Rc::new(RefCell::new(pic_data)),
-
-            animations,
-            switch_list,
-
             demo: DemoData {
                 playback: false,
                 buffer: Vec::new().into_iter().peekable(),
@@ -401,6 +342,7 @@ impl Game {
                 cache: page_cache,
                 page_tic: 200,
             },
+            pic_data,
             running: true,
 
             automap: false,
@@ -461,14 +403,11 @@ impl Game {
     fn do_new_game(&mut self) {
         debug!("Entered do_new_game");
 
+        self.options.respawn_monsters = matches!(self.options.skill, Skill::Nightmare);
         self.options.netgame = false;
         self.options.deathmatch = 0;
-        for i in 0..self.players.len() {
-            self.players_in_game[i] = false;
-        }
-        self.options.respawn_monsters = matches!(self.options.skill, Skill::Nightmare);
-        self.consoleplayer = 0;
-        self.players_in_game[0] = true;
+        self.players_in_game.fill(false);
+        self.players_in_game[self.consoleplayer] = true;
 
         self.init_new();
         self.pending_action = GameAction::None;
@@ -555,12 +494,6 @@ impl Game {
         self.automap = false;
         self.usergame = true; // will be set false if a demo
 
-        self.pic_data.borrow_mut().set_sky_pic(
-            self.game_type.mode,
-            self.options.episode,
-            self.options.map,
-        );
-
         info!("Begin new game!");
         self.do_load_level();
     }
@@ -591,26 +524,40 @@ impl Game {
         // TODO: starttime = I_GetTime();
         self.pending_action = GameAction::None;
 
+        // Verify and set the map number + name
+        let map_name = if self.game_type.mode == GameMode::Commercial {
+            if self.options.map < 10 {
+                format!("MAP0{}", self.options.map)
+            } else {
+                format!("MAP{}", self.options.map)
+            }
+        } else {
+            format!("E{}M{}", self.options.episode, self.options.map)
+        };
+
         let level = unsafe {
             Level::new(
-                self.options.skill,
-                self.options.episode,
-                self.options.map,
+                self.options.clone(),
                 self.game_type.mode,
-                self.switch_list.clone(),
-                self.pic_data.clone(),
                 self.sound_cmd.clone(),
                 &self.players_in_game,
                 &mut self.players,
-                self.pic_data.borrow().sky_num(),
             )
         };
 
-        info!("Level started: E{} M{}", level.episode, level.game_map);
+        info!(
+            "Level started: E{} M{}",
+            level.options.episode, level.options.map
+        );
         self.level = Some(level);
 
         if let Some(ref mut level) = self.level {
-            level.load(&self.wad_data);
+            level.load(
+                &map_name,
+                self.game_type.mode,
+                self.pic_data.clone(),
+                &self.wad_data,
+            );
 
             // Pointer stuff must be set up *AFTER* the level data has been allocated
             // (it moves when punted to Some<Level>)
@@ -627,14 +574,12 @@ impl Game {
             }
             spawn_specials(level);
 
-            debug!("Level: skill = {:?}", &level.game_skill);
-            debug!("Level: episode = {}", &level.episode);
-            debug!("Level: map = {}", &level.game_map);
+            debug!("Level: skill = {:?}", &level.options.skill);
+            debug!("Level: episode = {}", &level.options.episode);
+            debug!("Level: map = {}", &level.options.map);
             debug!("Level: player_starts = {:?}", &level.player_starts);
 
-            level.game_tic = self.game_tic;
             self.level_start_tic = self.game_tic;
-            level.game_tic = self.game_tic;
         }
 
         // Player setup from P_SetupLevel
@@ -642,11 +587,6 @@ impl Game {
         self.world_info.partime = 180;
         self.players[self.consoleplayer].viewz = 1.0;
         // TODO: remove after new-game-exe stuff done
-        self.pic_data.borrow_mut().set_sky_pic(
-            self.game_type.mode,
-            self.options.episode,
-            self.options.map,
-        );
 
         self.change_music(MusTrack::None);
     }
@@ -975,12 +915,12 @@ impl Game {
     /// change the game-exe state or cause an action through `GameAction`.
     ///
     /// Doom function name `G_Ticker`
-    pub fn ticker<I, S, H, F>(&mut self, machinations: &mut Machinations<I, S, H, F>)
+    pub fn ticker<I, S, H, F>(&mut self, machinations: &mut GameSubsystem<I, S, H, F>)
     where
-        I: MachinationTrait,
-        S: MachinationTrait,
-        H: MachinationTrait,
-        F: MachinationTrait,
+        I: SubsystemTrait,
+        S: SubsystemTrait,
+        H: SubsystemTrait,
+        F: SubsystemTrait,
     {
         trace!("Entered ticker");
         // do player reborns if needed
@@ -1129,9 +1069,7 @@ impl Game {
 
             level.level_time += 1;
 
-            let animations = &mut self.animations;
-            let mut pic_data = self.pic_data.borrow_mut();
-            update_specials(level, animations, &mut pic_data);
+            update_specials(level);
             respawn_specials(level);
         }
     }

@@ -1,6 +1,6 @@
 use argh::FromArgs;
+use gameplay::GameOptions;
 use gameplay::{log, Skill};
-use gamestate::DoomOptions;
 use render_target::shaders::Shaders;
 
 use crate::config::{self, MusicType};
@@ -71,9 +71,9 @@ pub struct CLIOptions {
     pub enable_demos: bool,
 }
 
-impl From<CLIOptions> for DoomOptions {
+impl From<CLIOptions> for GameOptions {
     fn from(g: CLIOptions) -> Self {
-        DoomOptions {
+        GameOptions {
             iwad: g.iwad,
             pwad: g.pwad,
             no_monsters: g.no_monsters,

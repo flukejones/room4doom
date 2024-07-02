@@ -71,6 +71,53 @@ impl fmt::Display for DoomArgError {
     }
 }
 
+/// Options specific to gameplay
+#[derive(Clone)]
+pub struct GameOptions {
+    pub iwad: String,
+    pub pwad: Vec<String>,
+    pub no_monsters: bool,
+    pub respawn_parm: bool,
+    pub fast_parm: bool,
+    pub dev_parm: bool,
+    pub deathmatch: u8,
+    pub warp: bool,
+    pub skill: Skill,
+    pub episode: usize,
+    pub map: usize,
+    pub respawn_monsters: bool,
+    pub autostart: bool,
+    pub hi_res: bool,
+    pub verbose: log::LevelFilter,
+    pub enable_demos: bool,
+    /// only true if packets are broadcast
+    pub netgame: bool,
+}
+
+impl Default for GameOptions {
+    fn default() -> Self {
+        Self {
+            iwad: "doom.wad".to_string(),
+            pwad: Default::default(),
+            no_monsters: Default::default(),
+            respawn_parm: Default::default(),
+            fast_parm: Default::default(),
+            dev_parm: Default::default(),
+            deathmatch: Default::default(),
+            skill: Default::default(),
+            episode: Default::default(),
+            map: Default::default(),
+            respawn_monsters: false,
+            warp: false,
+            autostart: Default::default(),
+            hi_res: true,
+            verbose: log::LevelFilter::Info,
+            enable_demos: false,
+            netgame: false,
+        }
+    }
+}
+
 #[repr(i32)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Skill {

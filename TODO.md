@@ -4,6 +4,7 @@
 
 ## BUGS
 
+- [ ] Player not taking damage from rockets or barrels
 - [ ] Demons don't wake on spawn when they should?
 - [x] Telefrags don't work. Does work but ignored for demons
   - [ ] Push demons apart if they are spawned together (teleports) or maybe prevent them teleporting if it's not clear?

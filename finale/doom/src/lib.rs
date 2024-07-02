@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    GameMode, GameTraits, MachinationTrait, MusTrack, PixelBuffer, Scancode, TICRATE,
+    GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, TICRATE,
 };
 use hud_util::{load_char_patches, HUDString, HUD_STRING};
 use wad::types::{WadFlat, WadPalette};
@@ -59,7 +59,7 @@ impl Finale {
     }
 }
 
-impl MachinationTrait for Finale {
+impl SubsystemTrait for Finale {
     fn init(&mut self, game: &impl GameTraits) {
         let mut name = "FLOOR4_8";
         self.count = 20 * TICRATE;

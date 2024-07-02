@@ -19,10 +19,10 @@ use crate::info::{MapObjKind, MOBJINFO};
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
-use crate::pic::{ButtonWhere, PicAnimation};
+use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::utilities::circle_line_collide;
-use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
+use crate::{Angle, MapObjFlag, MapPtr, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
 use sound_traits::SfxName;
@@ -868,7 +868,7 @@ pub fn spawn_specials(level: &mut Level) {
 }
 
 /// Doom function name `P_UpdateSpecials`
-pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_data: &mut PicData) {
+pub fn update_specials(level: &mut Level) {
     // Used mostly for deathmatch as far as I know
     if level.level_timer && level.level_time == 0 {
         // exit
@@ -876,8 +876,8 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
     }
 
     // Flats and wall texture animations (switching between series)
-    for anim in animations {
-        anim.update(pic_data, level.level_time as usize);
+    for anim in level.animations.iter_mut() {
+        anim.update(&mut level.pic_data.borrow_mut(), level.level_time as usize);
     }
 
     // Animate switches
@@ -918,7 +918,7 @@ pub fn update_specials(level: &mut Level, animations: &mut [PicAnimation], pic_d
 /// P_RespawnSpecials
 pub fn respawn_specials(level: &mut Level) {
     // only respawn items in deathmatch
-    if !level.deathmatch && !level.respawn_monsters {
+    if level.options.deathmatch == 0 && !level.options.respawn_monsters {
         return;
     }
 

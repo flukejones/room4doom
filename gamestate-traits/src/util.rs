@@ -1,4 +1,4 @@
-use crate::MachinationTrait;
+use crate::SubsystemTrait;
 use render_target::PixelBuffer;
 use std::mem::MaybeUninit;
 use wad::types::{WadPatch, WAD_PATCH};
@@ -37,7 +37,7 @@ pub fn draw_num_pixels(
     y: i32,
     pad: usize,
     nums: &[WadPatch],
-    drawer: &impl MachinationTrait,
+    drawer: &impl SubsystemTrait,
     pixels: &mut dyn PixelBuffer,
 ) -> i32 {
     let f = pixels.size().height() / 200;
@@ -69,7 +69,7 @@ pub fn draw_num(
     y: i32,
     pad: usize,
     nums: &[WadPatch],
-    drawer: &impl MachinationTrait,
+    drawer: &impl SubsystemTrait,
     buffer: &mut dyn PixelBuffer,
 ) -> i32 {
     // TODO: remove duplicated functionality

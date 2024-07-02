@@ -25,7 +25,7 @@ use crate::env::platforms::{PlatStatus, Platform};
 use crate::level::map_data::MapData;
 use crate::pic::Button;
 use crate::thinker::ThinkerAlloc;
-use crate::{MapPtr, PicData, Player, Skill};
+use crate::{GameOptions, MapPtr, PicAnimation, PicData, Player, Switches};
 
 use self::map_defs::LineDef;
 
@@ -39,26 +39,20 @@ pub struct Level {
     /// Thinkers are objects that are not static, like enemies, switches,
     /// platforms, lights etc
     pub thinkers: ThinkerAlloc,
-    pub game_skill: Skill,
-    pub respawn_monsters: bool,
     pub respawn_queue: VecDeque<(u32, WadThing)>,
-    // Used mostly for deathmatch as far as I know
+
+    pub options: GameOptions,
+
     pub level_timer: bool,
     /// Time spent in level
     pub level_time: u32,
-    /// Required for the thing controller (Boss check)
-    pub episode: usize,
-    /// Required for the thing controller (Boss check)
-    pub game_map: usize,
-    /// This needs to be synced with `Game`
-    pub game_tic: u32,
+
     /// The `Things` for player start locations
     pub player_starts: [Option<WadThing>; MAXPLAYERS],
     /// The `Things` for deathmatch start locations
     pub(super) deathmatch_starts: [Option<WadThing>; MAX_DEATHMATCH_STARTS],
     pub(super) deathmatch_p: Vec<WadThing>,
-    /// Was the level set for deathmatch game-exe
-    pub(super) deathmatch: bool,
+
     /// for intermission
     pub total_level_kills: i32,
     /// for intermission
@@ -66,33 +60,38 @@ pub struct Level {
     /// for intermission
     pub total_level_secrets: i32,
     /// To change the game-exe state via switches in the level
-    pub game_action: Option<GameAction>,
     /// Record how the level was exited
     pub secret_exit: bool,
-    /// Marker count for lines checked
-    pub(super) valid_count: usize,
-    /// List of switch textures in ordered pairs
-    pub(super) switch_list: Vec<usize>,
-    /// List of used buttons. Typically these buttons or switches are timed.
-    pub(super) button_list: Vec<Button>,
-    pub(super) line_special_list: Vec<MapPtr<LineDef>>,
-    /// Need access to texture data for a few things
+
+    pub game_action: Option<GameAction>,
+
+    /// Pre-composed textures, shared to the renderer. `doom-lib` owns and uses
+    /// access to change animations + translation tables.
     pub pic_data: Rc<RefCell<PicData>>,
-    /// Some stuff needs to know the game-exe mode (e.g, switching weapons)
-    pub(super) game_mode: GameMode,
-    /// Provides ability for things to start a sound
-    pub(super) snd_command: SndServerTx,
+    /// Pre-generated texture animations
+    pub animations: Vec<PicAnimation>,
+    /// List of switch textures in ordered pairs
+    pub switch_list: Vec<usize>,
 
     /// Tracks which players are currently active, set by d_net.c loop.
     /// This is a raw pointer to the array in `Game`, and must not be modified
-    player_in_game: *const [bool; MAXPLAYERS],
+    players_in_game: *const [bool; MAXPLAYERS],
     /// Each player in the array may be controlled.
     /// This is a raw pointer to the array in `Game`, and must not be modified
     players: *mut [Player; MAXPLAYERS],
 
+    /// Some stuff needs to know the game-exe mode (e.g, switching weapons)
+    pub(super) game_mode: GameMode,
+
+    /// Marker count for lines checked
+    pub(super) valid_count: usize,
+    /// List of used buttons. Typically these buttons or switches are timed.
+    pub(super) button_list: Vec<Button>,
+    pub(super) line_special_list: Vec<MapPtr<LineDef>>,
+    /// Provides ability for things to start a sound
+    pub(super) snd_command: SndServerTx,
+
     active_platforms: Vec<*mut Platform>,
-    /// The sky texture number used to signify a floor or ceiling is a sky
-    sky_num: usize,
 }
 
 impl Level {
@@ -109,30 +108,13 @@ impl Level {
     /// Doom method name is `P_SetupLevel`
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        skill: Skill,
-        episode: usize,
-        map: usize,
+        options: GameOptions,
         game_mode: GameMode,
-        switch_list: Vec<usize>,
-        pic_data: Rc<RefCell<PicData>>,
         snd_command: SndServerTx,
-        player_in_game: &[bool; MAXPLAYERS],
+        players_in_game: &[bool; MAXPLAYERS],
         players: &mut [Player; MAXPLAYERS],
-        sky_num: usize,
     ) -> Self {
-        let respawn_monsters = matches!(skill, Skill::Nightmare);
-
-        let map_name = if game_mode == GameMode::Commercial {
-            if map < 10 {
-                format!("MAP0{}", map)
-            } else {
-                format!("MAP{}", map)
-            }
-        } else {
-            format!("E{}M{}", episode, map)
-        };
-
-        let map_data = MapData::new(map_name);
+        let map_data = MapData::default();
 
         // G_DoReborn
         // G_CheckSpot
@@ -140,34 +122,29 @@ impl Level {
         Level {
             map_data,
             thinkers: ThinkerAlloc::new(0),
-            game_skill: skill,
-            respawn_monsters,
+            options,
             respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
             level_time: 0,
             level_timer: false,
-            episode,
-            game_map: map,
-            game_tic: 0,
             player_starts: [None; MAXPLAYERS],
             deathmatch_starts: [None; MAX_DEATHMATCH_STARTS],
             deathmatch_p: Vec::with_capacity(MAX_DEATHMATCH_STARTS),
-            deathmatch: false,
             total_level_kills: 0,
             total_level_items: 0,
             total_level_secrets: 0,
             game_action: None,
             secret_exit: false,
             valid_count: 0,
-            switch_list,
+            switch_list: Default::default(),
+            pic_data: Default::default(),
+            animations: Default::default(),
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
-            pic_data,
             game_mode,
             snd_command,
-            player_in_game,
+            players_in_game,
             players,
             active_platforms: Vec::new(),
-            sky_num,
         }
     }
 
@@ -211,8 +188,8 @@ impl Level {
         }
     }
 
-    pub(super) fn player_in_game(&self) -> &[bool; MAXPLAYERS] {
-        unsafe { &*self.player_in_game }
+    pub(super) fn players_in_game(&self) -> &[bool; MAXPLAYERS] {
+        unsafe { &*self.players_in_game }
     }
 
     pub(super) fn players(&self) -> &[Player; MAXPLAYERS] {
@@ -224,12 +201,27 @@ impl Level {
     }
 
     pub(crate) fn sky_num(&self) -> usize {
-        self.sky_num
+        self.pic_data.borrow().sky_num()
     }
 
-    pub fn load(&mut self, wad_data: &WadData) {
-        let pic_data = self.pic_data.borrow();
-        self.map_data.load(&pic_data, wad_data);
+    pub fn load(
+        &mut self,
+        map_name: &str,
+        game_mode: GameMode,
+        pic_data: Rc<RefCell<PicData>>,
+        wad_data: &WadData,
+    ) {
+        let animations = PicAnimation::init(&pic_data.borrow());
+        let switch_list = Switches::init(self.game_mode, &pic_data.borrow());
+
+        pic_data
+            .borrow_mut()
+            .set_sky_pic(game_mode, self.options.episode, self.options.map);
+
+        self.map_data.load(map_name, &pic_data.borrow(), wad_data);
+        self.pic_data = pic_data;
+        self.animations = animations;
+        self.switch_list = switch_list;
         unsafe {
             self.thinkers = ThinkerAlloc::new(self.map_data.things().len() + 500);
         }

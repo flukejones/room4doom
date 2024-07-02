@@ -286,7 +286,7 @@ impl MapObject {
         self.lastlook = (self.lastlook - 1) & 3;
         for _ in 0..self.lastlook {
             self.lastlook = (self.lastlook - 1) & 3;
-            if !self.level().player_in_game()[self.lastlook as usize] {
+            if !self.level().players_in_game()[self.lastlook as usize] {
                 continue;
             }
             see += 1;

@@ -100,7 +100,7 @@ pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool
 
     unsafe {
         thing.unset_thing_position();
-        telefrag_others(thing, new_subsect.sector.as_mut(), level.game_map);
+        telefrag_others(thing, new_subsect.sector.as_mut(), level.options.map);
         thing.xy = xy;
         thing.floorz = floorz;
         thing.ceilingz = ceilzz;

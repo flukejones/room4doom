@@ -699,37 +699,31 @@ impl Player {
         true
     }
 
-    pub(crate) fn give_power(&mut self, power: PowerType) -> bool {
+    pub fn give_power(&mut self, power: PowerType) -> bool {
+        if self.status.powers[power as usize] != 0 {
+            return false; // Already got it
+        }
+
         match power {
             PowerType::Invulnerability => {
                 self.status.powers[power as usize] = PowerDuration::Invulnerability as i32;
-                return true;
             }
             PowerType::Strength => {
                 self.give_body(100);
                 self.status.powers[power as usize] = 1;
-                return true;
             }
             PowerType::Invisibility => {
                 self.status.powers[power as usize] = PowerDuration::Invisibility as i32;
-                return true;
             }
             PowerType::IronFeet => {
                 self.status.powers[power as usize] = PowerDuration::IronFeet as i32;
-                return true;
             }
             PowerType::Infrared => {
                 self.status.powers[power as usize] = PowerDuration::Infrared as i32;
-                return true;
             }
-            _ => {}
+            PowerType::NumPowers => {}
+            PowerType::Allmap => {}
         }
-
-        if self.status.powers[power as usize] != 0 {
-            return false; // Already got it
-        }
-        self.status.powers[power as usize] = 1;
-
         true
     }
 

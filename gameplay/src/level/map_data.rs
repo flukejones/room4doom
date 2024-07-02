@@ -36,8 +36,8 @@ pub struct MapExtents {
 /// Access to the `Vec` arrays within is limited to immutable only to
 /// prevent unwanted removal of items, which *will* break references and
 /// segfault
+#[derive(Default)]
 pub struct MapData {
-    name: String,
     /// Things will be linked to/from each other in many ways, which means this
     /// array may never be resized or it will invalidate references and
     /// pointers
@@ -53,21 +53,6 @@ pub struct MapData {
 }
 
 impl MapData {
-    pub fn new(name: String) -> MapData {
-        MapData {
-            name,
-            things: Vec::new(),
-            linedefs: Vec::new(),
-            sectors: Vec::new(),
-            sidedefs: Vec::new(),
-            subsectors: Vec::new(),
-            segments: Vec::new(),
-            extents: MapExtents::default(),
-            nodes: Vec::new(),
-            start_node: 0,
-        }
-    }
-
     #[inline]
     pub fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
@@ -167,21 +152,21 @@ impl MapData {
     }
 
     // TODO: pass in TextureData
-    pub fn load(&mut self, pic_data: &PicData, wad: &WadData) {
+    pub fn load(&mut self, map_name: &str, pic_data: &PicData, wad: &WadData) {
         // THINGS
-        self.things = wad.thing_iter(&self.name).collect();
-        info!("{}: Loaded things", self.name);
+        self.things = wad.thing_iter(map_name).collect();
+        info!("{}: Loaded things", map_name);
 
         // Vertexes
         let vertexes: Vec<Vec2> = wad
-            .vertex_iter(&self.name)
+            .vertex_iter(map_name)
             .map(|v| Vec2::new(v.x as f32, v.y as f32))
             .collect();
-        info!("{}: Loaded vertexes", self.name);
+        info!("{}: Loaded vertexes", map_name);
 
         // Sectors
         self.sectors = wad
-            .sector_iter(&self.name)
+            .sector_iter(map_name)
             .enumerate()
             .map(|(i, s)| {
                 Sector::new(
@@ -202,7 +187,7 @@ impl MapData {
                 )
             })
             .collect();
-        info!("{}: Loaded segments", self.name);
+        info!("{}: Loaded segments", map_name);
 
         let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         if wad.lump_exists("TEXTURE2") {
@@ -211,7 +196,7 @@ impl MapData {
         }
         // Sidedefs
         self.sidedefs = wad
-            .sidedef_iter(&self.name)
+            .sidedef_iter(map_name)
             .map(|s| {
                 let sector = &mut self.sectors[s.sector as usize];
 
@@ -231,11 +216,11 @@ impl MapData {
                 }
             })
             .collect();
-        info!("{}: Loaded sidedefs", self.name);
+        info!("{}: Loaded sidedefs", map_name);
 
         //LineDefs
         self.linedefs = wad
-            .linedef_iter(&self.name)
+            .linedef_iter(map_name)
             .map(|l| {
                 let v1 = vertexes[l.start_vertex as usize];
                 let v2 = vertexes[l.end_vertex as usize];
@@ -282,7 +267,7 @@ impl MapData {
                 }
             })
             .collect();
-        info!("{}: Loaded linedefs", self.name);
+        info!("{}: Loaded linedefs", map_name);
 
         // Now map sectors to lines
         for line in self.linedefs.iter_mut() {
@@ -292,7 +277,7 @@ impl MapData {
                 sector.lines.push(MapPtr::new(line));
             }
         }
-        info!("{}: Mapped linedefs to sectors", self.name);
+        info!("{}: Mapped linedefs to sectors", map_name);
         // TODO: iterate sector lines to find max bounding box for sector
 
         for sector in &mut self.sectors {
@@ -304,7 +289,7 @@ impl MapData {
         //
         // SEGS
         self.segments = wad
-            .segment_iter(&self.name)
+            .segment_iter(map_name)
             .map(|s| {
                 let v1 = vertexes[s.start_vertex as usize];
                 let v2 = vertexes[s.end_vertex as usize];
@@ -339,11 +324,11 @@ impl MapData {
                 }
             })
             .collect();
-        info!("{}: Generated segments", self.name);
+        info!("{}: Generated segments", map_name);
 
         // SSECTORS
         self.subsectors = wad
-            .subsector_iter(&self.name)
+            .subsector_iter(map_name)
             .map(|s| {
                 let sector = self.segments()[s.start_seg as usize].sidedef.sector.clone();
                 SubSector {
@@ -354,7 +339,7 @@ impl MapData {
             })
             .collect();
         // assert!(self.subsectors().len() != 0);
-        info!("{}: Loaded subsectors", self.name);
+        info!("{}: Loaded subsectors", map_name);
 
         // NODES
         // BOXTOP = 0
@@ -362,7 +347,7 @@ impl MapData {
         // BOXLEFT = 2
         // BOXRIGHT = 3
         self.nodes = wad
-            .node_iter(&self.name)
+            .node_iter(map_name)
             .map(|n| Node {
                 xy: Vec2::new(n.x as f32, n.y as f32),
                 delta: Vec2::new(n.dx as f32, n.dy as f32),
@@ -380,9 +365,9 @@ impl MapData {
                 parent: 0,
             })
             .collect();
-        info!("{}: Loaded bsp nodes", self.name);
+        info!("{}: Loaded bsp nodes", map_name);
 
-        for (i, wn) in wad.node_iter(&self.name).enumerate() {
+        for (i, wn) in wad.node_iter(map_name).enumerate() {
             if wn.child_index[0] & IS_SSECTOR_MASK == 0 {
                 if (wn.child_index[0] as usize) <= self.nodes.len() {
                     self.nodes[wn.child_index[0] as usize].parent = i as u16;
@@ -398,7 +383,7 @@ impl MapData {
                 }
             }
         }
-        info!("{}: Mapped bsp node children", self.name);
+        info!("{}: Mapped bsp node children", map_name);
 
         self.start_node = (self.nodes.len() - 1) as u32;
         self.set_extents();
@@ -517,11 +502,7 @@ impl MapData {
         }
 
         let end = Instant::now();
-        info!(
-            "{}: Fixed map vertices, took: {:#?}",
-            self.name,
-            end.duration_since(start)
-        );
+        info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
     }
 }
 
@@ -732,8 +713,8 @@ mod tests {
     #[test]
     fn test_tracing_bsp() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
         let origin = Vec2::new(710.0, -3400.0); // left corner from start
         let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
 
@@ -809,8 +790,8 @@ mod tests {
     #[test]
     fn check_e1m1_things() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let things = &map.things;
         assert_eq!(things[0].x as i32, 1056);
@@ -836,8 +817,8 @@ mod tests {
     #[allow(clippy::float_cmp)]
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let linedefs = map.linedefs;
 
@@ -872,8 +853,8 @@ mod tests {
     #[test]
     fn check_e1m1_linedefs() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let linedefs = map.linedefs();
         assert_eq!(linedefs[0].v1.x as i32, 1088);
@@ -896,8 +877,8 @@ mod tests {
     #[allow(clippy::float_cmp)]
     fn check_e1m1_sectors() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let sectors = map.sectors();
         assert_eq!(sectors[0].floorheight, 0.0);
@@ -915,8 +896,8 @@ mod tests {
     #[allow(clippy::float_cmp)]
     fn check_e1m1_sidedefs() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let sidedefs = map.sidedefs();
         assert_eq!(sidedefs[0].rowoffset, 0.0);
@@ -931,9 +912,8 @@ mod tests {
     #[allow(clippy::float_cmp)]
     fn check_e1m1_segments() {
         let wad = WadData::new("../doom1.wad".into());
-
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         let segments = map.segments();
         assert_eq!(segments[0].v1.x as i32, 1552);
@@ -958,8 +938,8 @@ mod tests {
     #[test]
     fn find_vertex_using_bsptree() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);

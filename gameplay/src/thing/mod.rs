@@ -327,10 +327,6 @@ impl MapObject {
         })
     }
 
-    pub(crate) fn set_target(&mut self, target: Option<*mut Thinker>) {
-        self.target = target
-    }
-
     /// P_SpawnPlayer
     /// Called when a player is spawned on the level.
     /// Most of the player structure stays unchanged
@@ -431,23 +427,23 @@ impl MapObject {
         if mthing.kind <= 4 && mthing.kind != 0 {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(mthing);
-            if !level.deathmatch {
+            if level.options.deathmatch == 0 {
                 MapObject::p_spawn_player(&mthing, level, players, active_players);
             }
             return;
         }
 
         // check for appropriate skill level
-        if !level.deathmatch && mthing.flags & MTF_SINGLE_PLAYER != 0 {
+        if level.options.deathmatch == 0 && mthing.flags & MTF_SINGLE_PLAYER != 0 {
             return;
         }
         let bit: i16;
-        if level.game_skill == Skill::Baby {
+        if level.options.skill == Skill::Baby {
             bit = 1;
-        } else if level.game_skill == Skill::Nightmare {
+        } else if level.options.skill == Skill::Nightmare {
             bit = 4;
         } else {
-            bit = 1 << (level.game_skill as i16 - 1);
+            bit = 1 << (level.options.skill as i16 - 1);
         }
 
         if mthing.flags & bit == 0 {
@@ -471,7 +467,9 @@ impl MapObject {
         }
 
         // don't spawn keycards and players in deathmatch
-        if level.deathmatch && MOBJINFO[i as usize].flags & MapObjFlag::Notdmatch as u32 != 0 {
+        if level.options.deathmatch != 0
+            && MOBJINFO[i as usize].flags & MapObjFlag::Notdmatch as u32 != 0
+        {
             return;
         }
 
@@ -657,7 +655,7 @@ impl MapObject {
         level: &mut Level,
     ) -> *mut MapObject {
         let info = MOBJINFO[kind as usize];
-        let reactiontime = if level.game_skill != Skill::Nightmare {
+        let reactiontime = if level.options.skill != Skill::Nightmare {
             info.reactiontime
         } else {
             0
@@ -771,7 +769,7 @@ impl MapObject {
         if (self.flags & MapObjFlag::Special as u32 != 0
             && self.flags & MapObjFlag::Dropped as u32 == 0)
             && (self.kind != MapObjKind::MT_INV && self.kind != MapObjKind::MT_INS)
-            && (self.level().respawn_monsters || self.level().deathmatch)
+            && (self.level().options.respawn_monsters || self.level().options.deathmatch != 0)
         {
             let time = self.level().level_time;
             let respawn = self.spawnpoint;
@@ -951,7 +949,7 @@ impl Think for MapObject {
             if this.flags & MapObjFlag::Countkill as u32 == 0 {
                 return false;
             }
-            if !level.respawn_monsters {
+            if !level.options.respawn_monsters {
                 return false;
             }
             this.movecount += 1;

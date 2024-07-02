@@ -163,7 +163,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 
     // Missile attack?
     if actor.info.missilestate != StateNum::None {
-        let skill = unsafe { (*actor.level).game_skill };
+        let skill = unsafe { (*actor.level).options.skill };
         if skill >= Skill::Nightmare || actor.movecount <= 0 {
             // if (gameskill < sk_nightmare && !fastparm && actor->movecount) {
             // goto nomissile;
@@ -376,7 +376,7 @@ pub(crate) fn a_braindie(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainspit(actor: &mut MapObject) {
-    let skill = unsafe { (*actor.level).game_skill };
+    let skill = unsafe { (*actor.level).options.skill };
     if skill == Skill::Baby {
         return;
     }
@@ -924,8 +924,8 @@ pub(crate) fn a_spidrefire(actor: &mut MapObject) {
 
 pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     let level = unsafe { &mut *actor.level };
-    let map = level.game_map;
-    let episode = level.episode;
+    let map = level.options.map;
+    let episode = level.options.episode;
     let mode = level.game_mode;
     let mt = actor.kind;
 

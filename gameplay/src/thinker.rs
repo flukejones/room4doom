@@ -621,12 +621,10 @@ mod tests {
     use crate::level::map_data::MapData;
     use crate::level::Level;
     use crate::thinker::{Think, Thinker};
-    use crate::{PicData, Player, Skill, MAXPLAYERS};
+    use crate::{PicData, Player, MAXPLAYERS};
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
-    use std::cell::RefCell;
     use std::ptr::null_mut;
-    use std::rc::Rc;
     use std::sync::mpsc::channel;
 
     #[test]
@@ -652,19 +650,14 @@ mod tests {
     #[test]
     fn bad_stuff_thinking() {
         let wad = WadData::new("../doom1.wad".into());
-        let mut map = MapData::new("E1M1".to_owned());
-        map.load(&PicData::default(), &wad);
-        let textures = PicData::init(false, &wad);
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
         let (tx, _rx) = channel();
 
         let mut l = unsafe {
             Level::new(
-                Skill::Baby,
-                1,
-                1,
+                crate::GameOptions::default(),
                 GameMode::Shareware,
-                Vec::new(),
-                Rc::new(RefCell::new(textures)),
                 tx,
                 &[false; MAXPLAYERS],
                 &mut [
@@ -673,7 +666,6 @@ mod tests {
                     Player::default(),
                     Player::default(),
                 ],
-                0,
             )
         };
         let mut x = Thinker {

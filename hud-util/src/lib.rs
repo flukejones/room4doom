@@ -1,4 +1,4 @@
-use gamestate_traits::{MachinationTrait, PixelBuffer};
+use gamestate_traits::{PixelBuffer, SubsystemTrait};
 use log::warn;
 use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;
@@ -114,7 +114,7 @@ impl HUDString {
         &self,
         mut x: i32,
         mut y: i32,
-        machination: &impl MachinationTrait,
+        machination: &impl SubsystemTrait,
         pixels: &mut dyn PixelBuffer,
     ) -> Option<()> {
         let f = pixels.size().height() / 200;
@@ -173,7 +173,7 @@ impl HUDString {
         &self,
         x: i32,
         y: i32,
-        machination: &impl MachinationTrait,
+        machination: &impl SubsystemTrait,
         pixels: &mut dyn PixelBuffer,
     ) -> Option<()> {
         self.draw_pixels(x, y, machination, pixels);

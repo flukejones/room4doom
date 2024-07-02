@@ -62,7 +62,7 @@ impl MapObject {
         }
 
         unsafe {
-            if self.player.is_some() && (*self.level).game_skill == Skill::Baby {
+            if self.player.is_some() && (*self.level).options.skill == Skill::Baby {
                 damage >>= 1; // take half damage in trainer mode
             }
         }
@@ -288,7 +288,7 @@ impl MapObject {
                 return;
             }
 
-            let skill = unsafe { (*self.level).game_skill };
+            let skill = unsafe { (*self.level).options.skill };
             match special.sprite {
                 SpriteNum::ARM1 => {
                     if !player.give_armour(1) {
