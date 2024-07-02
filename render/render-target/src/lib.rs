@@ -324,20 +324,26 @@ impl RenderTarget {
     }
 
     #[inline]
-    pub unsafe fn software(&mut self) -> Option<&mut SoftFramebuffer> {
+    pub fn software(&mut self) -> Option<&mut SoftFramebuffer> {
         self.software.as_mut()
     }
 
+    /// # Safety
+    ///
+    /// The software framebuffer must not be `None`. Only use if software is used.
     #[inline]
     pub unsafe fn software_unchecked(&mut self) -> &mut SoftFramebuffer {
         self.software.as_mut().unwrap_unchecked()
     }
 
     #[inline]
-    pub unsafe fn soft_opengl(&mut self) -> Option<&mut SoftOpenGL> {
+    pub fn soft_opengl(&mut self) -> Option<&mut SoftOpenGL> {
         self.soft_opengl.as_mut()
     }
 
+    /// # Safety
+    ///
+    /// The opengl framebuffer must not be `None`. Only use if opengl is used.
     #[inline]
     pub unsafe fn soft_opengl_unchecked(&mut self) -> &mut SoftOpenGL {
         self.soft_opengl.as_mut().unwrap_unchecked()

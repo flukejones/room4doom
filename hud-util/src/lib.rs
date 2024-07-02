@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use gamestate_traits::{PixelBuffer, SubsystemTrait};
 use log::warn;
 use wad::types::{WadPatch, WAD_PATCH};
@@ -8,26 +10,28 @@ const FONT_END: u8 = b'_';
 const FONT_COUNT: u8 = FONT_END - FONT_START + 1;
 
 static mut CHARS: [WadPatch; FONT_COUNT as usize] = [WAD_PATCH; FONT_COUNT as usize];
-static mut CHARS_INITIALISED: bool = false;
+static mut CHARS_INITIALISED: AtomicBool = AtomicBool::new(false);
 
-pub unsafe fn load_char_patches(wad: &WadData) {
-    if CHARS_INITIALISED {
-        return;
-    }
-    for i in 0..FONT_COUNT {
-        let f = i + FONT_START;
-        if let Some(lump) = wad.get_lump(&format!("STCFN{f:0>3}")) {
-            CHARS[i as usize] = WadPatch::from_lump(lump);
-        } else {
-            warn!("Missing STCFN{f:0>3}");
+pub fn load_char_patches(wad: &WadData) {
+    unsafe {
+        if CHARS_INITIALISED.load(Ordering::Relaxed) {
+            return;
         }
+        for i in 0..FONT_COUNT {
+            let f = i + FONT_START;
+            if let Some(lump) = wad.get_lump(&format!("STCFN{f:0>3}")) {
+                CHARS[i as usize] = WadPatch::from_lump(lump);
+            } else {
+                warn!("Missing STCFN{f:0>3}");
+            }
+        }
+        CHARS_INITIALISED.store(true, Ordering::Relaxed);
     }
-    CHARS_INITIALISED = true;
 }
 
 fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
     unsafe {
-        if !CHARS_INITIALISED {
+        if !CHARS_INITIALISED.load(Ordering::Relaxed) {
             warn!("Character patches not initialised");
             return None;
         }
@@ -60,7 +64,7 @@ impl HUDString {
     }
 
     pub fn new(wad: &WadData) -> Self {
-        unsafe { load_char_patches(wad) };
+        load_char_patches(wad);
 
         Self {
             data: String::new(),
@@ -189,7 +193,7 @@ mod tests {
     #[test]
     fn load_and_check_chars() {
         let wad = WadData::new("../doom1.wad".into());
-        unsafe { load_char_patches(&wad) };
+        load_char_patches(&wad);
 
         let l = get_patch_for_char('!').unwrap();
         assert_eq!(l.name.as_str(), "STCFN033");

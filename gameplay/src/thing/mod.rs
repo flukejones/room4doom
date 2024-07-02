@@ -989,22 +989,22 @@ impl Think for MapObject {
     }
 }
 
-pub(crate) fn kind_from_doomednum(mthing: &WadThing) -> MapObjKind {
-    // find which type to spawn
-    let mut i = 0;
-    for n in 0..MapObjKind::Count as u16 {
-        if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
-            i = n;
-            break;
-        }
-    }
+// pub(crate) fn kind_from_doomednum(mthing: &WadThing) -> MapObjKind {
+//     // find which type to spawn
+//     let mut i = 0;
+//     for n in 0..MapObjKind::Count as u16 {
+//         if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
+//             i = n;
+//             break;
+//         }
+//     }
 
-    if i == MapObjKind::Count as u16 {
-        error!(
-            "P_SpawnMapThing: Unknown type {} at ({}, {})",
-            mthing.kind, mthing.x, mthing.y
-        );
-    }
+//     if i == MapObjKind::Count as u16 {
+//         error!(
+//             "P_SpawnMapThing: Unknown type {} at ({}, {})",
+//             mthing.kind, mthing.x, mthing.y
+//         );
+//     }
 
-    MapObjKind::from(i)
-}
+//     MapObjKind::from(i)
+// }

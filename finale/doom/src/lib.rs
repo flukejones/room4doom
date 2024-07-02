@@ -20,7 +20,7 @@ pub struct Finale {
 impl Finale {
     pub fn new(wad: &WadData) -> Self {
         // initialise
-        unsafe { load_char_patches(wad) };
+        load_char_patches(wad);
         let palette = wad.playpal_iter().next().unwrap();
 
         let lump = wad.get_lump("FLOOR4_8").unwrap();

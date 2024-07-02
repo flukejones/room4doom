@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -42,20 +43,20 @@ pub enum MapLump {
     Count,
 }
 
-impl ToString for MapLump {
-    fn to_string(&self) -> String {
+impl Display for MapLump {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MapLump::Things => "THINGS".to_string(),
-            MapLump::LineDefs => "LINEDEFS".to_string(),
-            MapLump::SideDefs => "SIDEDEFS".to_string(),
-            MapLump::Vertexes => "VERTEXES".to_string(),
-            MapLump::Segs => "SEGS".to_string(),
-            MapLump::SSectors => "SSECTORS".to_string(),
-            MapLump::Nodes => "NODES".to_string(),
-            MapLump::Sectors => "SECTORS".to_string(),
-            MapLump::Reject => "REJECT".to_string(),
-            MapLump::Blockmap => "BLOCKMAP".to_string(),
-            MapLump::Count => "COUNT".to_string(),
+            MapLump::Things => write!(f, "THINGS"),
+            MapLump::LineDefs => write!(f, "LINEDEFS"),
+            MapLump::SideDefs => write!(f, "SIDEDEFS"),
+            MapLump::Vertexes => write!(f, "VERTEXES"),
+            MapLump::Segs => write!(f, "SEGS"),
+            MapLump::SSectors => write!(f, "SSECTORS"),
+            MapLump::Nodes => write!(f, "NODES"),
+            MapLump::Sectors => write!(f, "SECTORS"),
+            MapLump::Reject => write!(f, "REJECT"),
+            MapLump::Blockmap => write!(f, "BLOCKMAP"),
+            MapLump::Count => write!(f, "COUNT"),
         }
     }
 }

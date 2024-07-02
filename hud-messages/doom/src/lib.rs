@@ -20,7 +20,7 @@ pub struct Messages {
 impl Messages {
     pub fn new(wad: &WadData) -> Self {
         // initialise
-        unsafe { load_char_patches(wad) };
+        load_char_patches(wad);
         let palette = wad.playpal_iter().next().unwrap();
 
         Self {
