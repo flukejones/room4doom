@@ -56,15 +56,21 @@ pub struct SpritePic {
     pub data: Vec<Vec<usize>>,
 }
 
-#[derive(Debug, Default)]
+type Palette = [usize; 256];
+const PALLETE_LEN: usize = 14;
+const COLOURMAP_LEN: usize = 34;
+
+#[derive(Debug)]
 pub struct PicData {
     /// Colours for pixels
-    palettes: Vec<WadPalette>,
+    palettes: [WadPalette; PALLETE_LEN],
     // Usually 34 blocks of 256, each u8 being an index in to the palette
-    colourmap: Vec<Vec<usize>>,
-    light_scale: Vec<Vec<Vec<usize>>>,
+    colourmap: [Palette; COLOURMAP_LEN],
+    // 16 groups of 48 sets of palette
+    light_scale: Vec<Vec<Palette>>,
+    // 16 groups of 128 sets of palette
+    pub zlight_scale: Vec<Vec<Palette>>,
     use_fixed_colourmap: usize,
-    pub zlight_scale: Vec<Vec<Vec<usize>>>,
     walls: Vec<WallPic>,
     /// Used in animations
     wall_translation: Vec<usize>,
@@ -83,6 +89,12 @@ pub struct PicData {
     /// like take-damage.
     use_pallette: usize,
     double_res: bool,
+}
+
+impl Default for PicData {
+    fn default() -> Self {
+        todo!()
+    }
 }
 
 impl PicData {
@@ -157,22 +169,34 @@ impl PicData {
         }
     }
 
-    fn init_palette(wad: &WadData) -> Vec<WadPalette> {
+    fn init_palette(wad: &WadData) -> [WadPalette; PALLETE_LEN] {
         print!(".");
-        wad.playpal_iter().collect()
+        let mut tmp = [WadPalette::default(); PALLETE_LEN];
+        for (i, p) in wad.playpal_iter().enumerate() {
+            tmp[i] = p;
+        }
+        tmp
     }
 
-    fn init_colourmap(wad: &WadData) -> Vec<Vec<usize>> {
+    fn init_colourmap(wad: &WadData) -> [Palette; COLOURMAP_LEN] {
         print!(".");
-        wad.colourmap_iter()
+        let mut tmp = [[0; 256]; COLOURMAP_LEN];
+        let maps: Vec<Palette> = wad
+            .colourmap_iter()
             .map(|i| i as usize)
             .collect::<Vec<usize>>()
             .chunks(256)
-            .map(|v| v.to_owned())
-            .collect()
+            .map(|v| {
+                let mut tmp: Palette = [0; 256];
+                tmp.copy_from_slice(v);
+                tmp
+            })
+            .collect();
+        tmp.copy_from_slice(&maps);
+        tmp
     }
 
-    fn init_light_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+    fn init_light_scales(colourmap: &[Palette]) -> Vec<Vec<Palette>> {
         print!(".");
         (0..LIGHTLEVELS)
             .map(|i| {
@@ -203,7 +227,7 @@ impl PicData {
         self.use_fixed_colourmap = colourmap
     }
 
-    fn init_zlight_scales(colourmap: &[Vec<usize>]) -> Vec<Vec<Vec<usize>>> {
+    fn init_zlight_scales(colourmap: &[Palette]) -> Vec<Vec<Palette>> {
         print!(".");
         (0..LIGHTLEVELS)
             .map(|i| {
@@ -473,7 +497,7 @@ impl PicData {
 
     fn colourmap_for_scale(&self, scale: f32) -> usize {
         let mut colourmap = if self.double_res {
-            (scale * 15.8 / 2.0) as u32
+            (scale * 7.9) as u32
         } else {
             (scale * 15.8) as u32
         };

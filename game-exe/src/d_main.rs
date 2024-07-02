@@ -22,7 +22,7 @@ use std::error::Error;
 use std::mem;
 
 use finale_doom::Finale;
-use gameplay::log::{self, error, info};
+use gameplay::log::{self, debug, error, info};
 use gameplay::MapObject;
 use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
@@ -181,8 +181,8 @@ pub fn d_doom_loop(
         );
 
         // FPS rate updates every second
-        if let Some(_fps) = timestep.frame_rate() {
-            // info!("{:?}", _fps);
+        if let Some(fps) = timestep.frame_rate() {
+            debug!("{:?}", fps);
         }
 
         render_buffer.blit(&mut canvas);
