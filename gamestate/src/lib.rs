@@ -37,6 +37,7 @@ use sound_nosnd::SndServerTx;
 use std::cell::RefCell;
 use std::iter::Peekable;
 use std::rc::Rc;
+use std::thread::JoinHandle;
 use std::time::Duration;
 use std::vec::IntoIter;
 // use sound_sdl2::SndServerTx;
@@ -230,13 +231,15 @@ pub struct Game {
     pub options: DoomOptions,
     /// Sound tx
     pub sound_cmd: SndServerTx,
+    snd_thread: Option<JoinHandle<()>>,
 }
 
 impl Drop for Game {
     fn drop(&mut self) {
         self.sound_cmd.send(SoundAction::Shutdown).unwrap();
         // Nightly only
-        //while self.snd_thread.is_running() {}
+        let thread = self.snd_thread.take();
+        thread.unwrap().join().unwrap();
         std::thread::sleep(Duration::from_millis(500));
     }
 }
@@ -340,10 +343,11 @@ impl Game {
         let animations = PicAnimation::init(&pic_data);
         let switch_list = Switches::init(game_type.mode, &pic_data);
 
-        let tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
+        let snd_thread;
+        let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
             Ok(mut s) => {
                 let tx = s.init().unwrap();
-                std::thread::spawn(move || loop {
+                snd_thread = std::thread::spawn(move || loop {
                     if !s.tic() {
                         break;
                     }
@@ -356,7 +360,7 @@ impl Game {
                 warn!("Could not set up sound server: {e}");
                 let mut s = sound_nosnd::Snd::new(&wad).unwrap();
                 let tx = s.init().unwrap();
-                std::thread::spawn(move || loop {
+                snd_thread = std::thread::spawn(move || loop {
                     if !s.tic() {
                         break;
                     }
@@ -370,7 +374,6 @@ impl Game {
         // TODO: ST_Init ();
 
         let mut game_action = GameAction::None;
-        let gamestate = GameState::ForceWipe;
         if options.warp {
             game_action = GameAction::NewGame;
         }
@@ -418,7 +421,9 @@ impl Game {
             game_type,
 
             game_tic: 0,
-            gamestate,
+            // Start the display with a wipe. Looks cool
+            gamestate: GameState::ForceWipe,
+            // Initial state is changed later, here doesn't matter
             wipe_game_state: GameState::DemoScreen,
             _time_limit: None,
             world_info: WorldInfo::default(),
@@ -429,7 +434,8 @@ impl Game {
             usergame: false,
             paused: false,
             options,
-            sound_cmd: tx,
+            sound_cmd: snd_tx,
+            snd_thread: Some(snd_thread),
         }
     }
 
