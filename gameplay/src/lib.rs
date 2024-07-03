@@ -34,8 +34,7 @@ pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{
-    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
-    MAXPLAYERS, TICRATE, WEAPON_INFO,
+    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION, MAXPLAYERS, TICRATE, WEAPON_INFO
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;

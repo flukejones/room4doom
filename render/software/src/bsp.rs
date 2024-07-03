@@ -3,12 +3,11 @@ use super::segs::SegRender;
 use super::things::VisSprite;
 use super::RenderData;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
 };
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
-    IS_SSECTOR_MASK,
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector, IS_SSECTOR_MASK
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
