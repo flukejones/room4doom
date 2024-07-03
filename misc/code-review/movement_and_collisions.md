@@ -112,7 +112,7 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
 A modern general purpose take on this function is to use a line-to-line intersection test:
 
 ```rust
-#[inline]
+
 pub fn line_line_intersection(
     mv1: Vec2, // bbox edge start
     mv2: Vec2, // bbox edge end

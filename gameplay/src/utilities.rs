@@ -415,13 +415,13 @@ fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
     numerator / denominator
 }
 
-// #[inline]
+//
 // pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
 //     lhs.x * rhs.y - lhs.y * rhs.x
 // }
 
 /// True if the line segment from point1 to point2 penetrates the circle
-#[inline]
+
 pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, s_start: Vec2, s_end: Vec2) -> bool {
     let lc = c_origin - s_start;
     let d = s_end - s_start;
@@ -438,7 +438,6 @@ pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, s_start: Vec2, s_end: V
     false
 }
 
-#[inline]
 pub fn circle_line_collide(c_origin: Vec2, c_radius: f32, l_start: Vec2, l_end: Vec2) -> bool {
     let lc = c_origin - l_start;
     let p = project_vec2(lc, l_end - l_start);
@@ -456,7 +455,6 @@ fn project_vec2(this: Vec2, onto: Vec2) -> Vec2 {
     onto
 }
 
-#[inline]
 pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
     let dist = point - origin;
     let len = dist.length();
@@ -466,7 +464,7 @@ pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
     false
 }
 
-// #[inline]
+//
 // pub fn circle_circle_intersect(
 //     origin: Vec2,
 //     origin_radius: f32,

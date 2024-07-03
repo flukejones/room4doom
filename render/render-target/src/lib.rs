@@ -55,45 +55,42 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
-    #[inline]
     pub const fn width(&self) -> i32 {
         self.width_i32
     }
-    #[inline]
+
     pub const fn height(&self) -> i32 {
         self.height_i32
     }
-    #[inline]
+
     pub const fn half_width(&self) -> i32 {
         self.half_width
     }
-    #[inline]
+
     pub const fn half_height(&self) -> i32 {
         self.half_height
     }
 
-    #[inline]
     pub const fn width_usize(&self) -> usize {
         self.width
     }
-    #[inline]
+
     pub const fn height_usize(&self) -> usize {
         self.height
     }
 
-    #[inline]
     pub const fn width_f32(&self) -> f32 {
         self.width_f32
     }
-    #[inline]
+
     pub const fn height_f32(&self) -> f32 {
         self.height_f32
     }
-    #[inline]
+
     pub const fn half_width_f32(&self) -> f32 {
         self.half_width_f32
     }
-    #[inline]
+
     pub const fn half_height_f32(&self) -> f32 {
         self.half_height_f32
     }
@@ -128,26 +125,22 @@ impl Buffer {
 }
 
 impl PixelBuffer for Buffer {
-    #[inline]
     fn size(&self) -> &BufferSize {
         &self.size
     }
 
-    #[inline]
     fn clear(&mut self) {
         self.buffer
             .chunks_mut(4)
             .for_each(|n| n.copy_from_slice(&[0, 0, 0, 255]));
     }
 
-    #[inline]
     fn clear_with_colour(&mut self, colour: &[u8; 4]) {
         self.buffer
             .chunks_mut(4)
             .for_each(|n| n.copy_from_slice(colour));
     }
 
-    #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]) {
         // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
@@ -168,7 +161,7 @@ impl PixelBuffer for Buffer {
     }
 
     /// Read the colour of a single pixel at X|Y
-    #[inline]
+
     fn read_pixel(&self, x: usize, y: usize) -> [u8; 4] {
         let pos = y * self.stride + x * CHANNELS;
         let mut slice = [0u8; 4];
@@ -177,7 +170,7 @@ impl PixelBuffer for Buffer {
     }
 
     /// Read the full buffer
-    #[inline]
+
     fn read_pixels(&mut self) -> &mut [u8] {
         &mut self.buffer
     }
@@ -226,7 +219,6 @@ impl SoftOpenGL {
         }
     }
 
-    #[inline]
     pub const fn gl_texture(&self) -> &Texture {
         &self.gl_texture
     }
@@ -308,22 +300,18 @@ impl RenderTarget {
         self
     }
 
-    #[inline]
     pub fn width(&self) -> usize {
         self.width
     }
 
-    #[inline]
     pub fn height(&self) -> usize {
         self.height
     }
 
-    #[inline]
     pub fn render_type(&self) -> RenderType {
         self.render_type
     }
 
-    #[inline]
     pub fn software(&mut self) -> Option<&mut SoftFramebuffer> {
         self.software.as_mut()
     }
@@ -332,12 +320,11 @@ impl RenderTarget {
     ///
     /// The software framebuffer must not be `None`. Only use if software is
     /// used.
-    #[inline]
+
     pub unsafe fn software_unchecked(&mut self) -> &mut SoftFramebuffer {
         self.software.as_mut().unwrap_unchecked()
     }
 
-    #[inline]
     pub fn soft_opengl(&mut self) -> Option<&mut SoftOpenGL> {
         self.soft_opengl.as_mut()
     }
@@ -345,7 +332,7 @@ impl RenderTarget {
     /// # Safety
     ///
     /// The opengl framebuffer must not be `None`. Only use if opengl is used.
-    #[inline]
+
     pub unsafe fn soft_opengl_unchecked(&mut self) -> &mut SoftOpenGL {
         self.soft_opengl.as_mut().unwrap_unchecked()
     }

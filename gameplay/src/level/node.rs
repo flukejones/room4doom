@@ -29,12 +29,12 @@ impl Node {
         false
     }
 
-    // #[inline]
+    //
     // pub fn cross(lhs: &Vec2, rhs: &Vec2) -> f32 {
     //     lhs.x * rhs.y - lhs.y * rhs.x
     // }
 
-    // #[inline]
+    //
     // pub fn ray_to_line_intersect(
     //     origin: &Vec2,
     //     direction: f32,

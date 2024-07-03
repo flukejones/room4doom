@@ -53,7 +53,6 @@ pub struct MapData {
 }
 
 impl MapData {
-    #[inline]
     pub fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
@@ -80,47 +79,38 @@ impl MapData {
         self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
     }
 
-    #[inline]
     pub fn things(&self) -> &[WadThing] {
         &self.things
     }
 
-    #[inline]
     pub fn linedefs(&self) -> &[LineDef] {
         &self.linedefs
     }
 
-    #[inline]
     pub fn sectors(&self) -> &[Sector] {
         &self.sectors
     }
 
-    #[inline]
     pub fn sectors_mut(&mut self) -> &mut [Sector] {
         &mut self.sectors
     }
 
-    #[inline]
     pub fn sidedefs(&self) -> &[SideDef] {
         &self.sidedefs
     }
 
-    #[inline]
     pub fn subsectors(&self) -> &[SubSector] {
         &self.subsectors
     }
 
-    #[inline]
     pub fn subsectors_mut(&mut self) -> &mut [SubSector] {
         &mut self.subsectors
     }
 
-    #[inline]
     pub fn segments(&self) -> &[Segment] {
         &self.segments
     }
 
-    #[inline]
     pub fn segments_mut(&mut self) -> &mut [Segment] {
         &mut self.segments
     }
@@ -136,17 +126,14 @@ impl MapData {
         }
     }
 
-    #[inline]
     pub fn get_nodes(&self) -> &[Node] {
         &self.nodes
     }
 
-    #[inline]
     pub fn start_node(&self) -> u32 {
         self.start_node
     }
 
-    #[inline]
     pub fn get_map_extents(&self) -> &MapExtents {
         &self.extents
     }

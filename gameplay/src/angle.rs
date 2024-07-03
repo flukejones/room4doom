@@ -54,7 +54,6 @@ impl Angle {
 impl Add for Angle {
     type Output = Angle;
 
-    #[inline]
     fn add(self, other: Angle) -> Angle {
         Angle::new(self.0 + other.0)
     }
@@ -63,7 +62,6 @@ impl Add for Angle {
 impl Add<f32> for Angle {
     type Output = Angle;
 
-    #[inline]
     fn add(self, other: f32) -> Angle {
         Angle::new(self.0 + other)
     }
@@ -72,14 +70,13 @@ impl Add<f32> for Angle {
 // impl Add<i32> for Angle {
 //     type Output = Angle;
 
-//     #[inline]
+//
 //     fn add(self, other: i32) -> Angle {
 //         Angle::new(self.0 + (other as f32).to_radians())
 //     }
 // }
 
 impl AddAssign for Angle {
-    #[inline]
     fn add_assign(&mut self, other: Angle) {
         self.0 += other.0;
         self.inner_wrap();
@@ -87,7 +84,6 @@ impl AddAssign for Angle {
 }
 
 impl AddAssign<f32> for Angle {
-    #[inline]
     fn add_assign(&mut self, other: f32) {
         self.0 += other;
         self.inner_wrap();
@@ -95,7 +91,7 @@ impl AddAssign<f32> for Angle {
 }
 
 // impl AddAssign<i32> for Angle{
-//     #[inline]
+//
 //     fn add_assign(&mut self, other: i32) {
 //         self.0 += (other as f32).to_radians();
 //         self.inner_wrap();
@@ -107,7 +103,6 @@ impl AddAssign<f32> for Angle {
 impl Mul for Angle {
     type Output = Angle;
 
-    #[inline]
     fn mul(self, other: Angle) -> Angle {
         Angle::new(self.0 * other.0)
     }
@@ -116,7 +111,6 @@ impl Mul for Angle {
 impl Mul<f32> for Angle {
     type Output = Angle;
 
-    #[inline]
     fn mul(self, other: f32) -> Angle {
         Angle::new(self.0 * other)
     }
@@ -125,14 +119,13 @@ impl Mul<f32> for Angle {
 // impl Mul<i32> for Angle {
 //     type Output = Angle;
 
-//     #[inline]
+//
 //     fn mul(self, other: i32) -> Angle {
 //         Angle::new(self.0 * (other as f32).to_radians())
 //     }
 // }
 
 impl MulAssign for Angle {
-    #[inline]
     fn mul_assign(&mut self, other: Angle) {
         self.0 *= other.0;
         self.inner_wrap();
@@ -140,7 +133,6 @@ impl MulAssign for Angle {
 }
 
 impl MulAssign<f32> for Angle {
-    #[inline]
     fn mul_assign(&mut self, other: f32) {
         self.0 *= other;
         self.inner_wrap();
@@ -148,7 +140,7 @@ impl MulAssign<f32> for Angle {
 }
 
 // impl MulAssign<i32> for Angle{
-//     #[inline]
+//
 //     fn mul_assign(&mut self, other: i32) {
 //         self.0 *= (other as f32).to_radians();
 //         self.inner_wrap();
@@ -160,7 +152,6 @@ impl MulAssign<f32> for Angle {
 impl Sub for Angle {
     type Output = Angle;
 
-    #[inline]
     fn sub(self, other: Angle) -> Angle {
         Angle::new(self.0 - other.0)
     }
@@ -169,7 +160,6 @@ impl Sub for Angle {
 impl Sub<f32> for Angle {
     type Output = Angle;
 
-    #[inline]
     fn sub(self, other: f32) -> Angle {
         Angle::new(self.0 - other)
     }
@@ -178,14 +168,13 @@ impl Sub<f32> for Angle {
 // impl Sub<i32> for Angle {
 //     type Output = Angle;
 
-//     #[inline]
+//
 //     fn sub(self, other: i32) -> Angle {
 //         Angle::new(self.0 - (other as f32).to_radians())
 //     }
 // }
 
 impl SubAssign for Angle {
-    #[inline]
     fn sub_assign(&mut self, other: Angle) {
         self.0 -= other.0;
         self.inner_wrap();
@@ -193,7 +182,6 @@ impl SubAssign for Angle {
 }
 
 impl SubAssign<f32> for Angle {
-    #[inline]
     fn sub_assign(&mut self, other: f32) {
         self.0 -= other;
         self.inner_wrap();
@@ -201,7 +189,7 @@ impl SubAssign<f32> for Angle {
 }
 
 // impl SubAssign<i32> for Angle{
-//     #[inline]
+//
 //     fn sub_assign(&mut self, other: i32) {
 //         self.0 -= (other as f32).to_radians();
 //         self.inner_wrap();
@@ -213,7 +201,6 @@ impl SubAssign<f32> for Angle {
 impl Div for Angle {
     type Output = Angle;
 
-    #[inline]
     fn div(self, other: Angle) -> Angle {
         Angle::new(self.0 / other.0)
     }
@@ -222,7 +209,6 @@ impl Div for Angle {
 impl Div<f32> for Angle {
     type Output = Angle;
 
-    #[inline]
     fn div(self, other: f32) -> Angle {
         Angle::new(self.0 / other)
     }
@@ -231,14 +217,13 @@ impl Div<f32> for Angle {
 // impl Div<i32> for Angle {
 //     type Output = Angle;
 
-//     #[inline]
+//
 //     fn div(self, other: i32) -> Angle {
 //         Angle::new(self.0 / (other as f32).to_radians()
 //     }
 // }
 
 impl DivAssign for Angle {
-    #[inline]
     fn div_assign(&mut self, other: Angle) {
         self.0 /= other.0;
         self.inner_wrap();
@@ -246,7 +231,6 @@ impl DivAssign for Angle {
 }
 
 impl DivAssign<f32> for Angle {
-    #[inline]
     fn div_assign(&mut self, other: f32) {
         self.0 /= other;
         self.inner_wrap();
@@ -254,7 +238,7 @@ impl DivAssign<f32> for Angle {
 }
 
 // impl DivAssign<i32> for Angle{
-//     #[inline]
+//
 //     fn div_assign(&mut self, other: i32) {
 //         self.0 /= (other as f32).to_radians();
 //         self.inner_wrap();
