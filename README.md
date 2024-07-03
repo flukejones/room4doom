@@ -21,6 +21,40 @@ I may convert gameplay to fixedpoint.. I'm not sure. It'll be a huge amount of w
 
 Demos are disabled by default. Use the CLI opts `-E, --enable-demos` to enable them (does not save option). See `--help` for more options.
 
+# 03/07/2024
+
+You may notice a lot of `f32 as u32 as usize`. This is because a plain `as usize` results in:
+```asm
+cvttss2si       rax, xmm0
+mov     rcx, rax
+sar     rcx, 63
+movaps  xmm1, xmm0
+subss   xmm1, dword ptr [rip + .LCPI1_0]
+cvttss2si       rdx, xmm1
+and     rdx, rcx
+or      rdx, rax
+xor     ecx, ecx
+xorps   xmm1, xmm1
+ucomiss xmm0, xmm1
+cmovae  rcx, rdx
+ucomiss xmm0, dword ptr [rip + .LCPI1_1]
+mov     rax, -1
+cmovbe  rax, rcx
+```
+
+while `as u32 as usize`:
+```asm
+cvttss2si       rax, xmm0
+xor     ecx, ecx
+xorps   xmm1, xmm1
+ucomiss xmm0, xmm1
+cmovae  ecx, eax
+ucomiss xmm0, dword ptr [rip + .LCPI1_0]
+mov     eax, -1
+cmovbe  eax, ecx
+```
+since on x64 the `usize` type is 64bits. Not a major thing, but interesting.
+
 ## Goals
 
 - To retain the classic Doom look with a software renderer

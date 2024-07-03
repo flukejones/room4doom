@@ -165,7 +165,7 @@ impl SoftwareRenderer {
 
         // Find the sprite def to use
         let sprnum = thing.state.sprite;
-        let sprite_def = pic_data.sprite_def(sprnum as usize);
+        let sprite_def = pic_data.sprite_def(sprnum as u32 as usize);
         if sprite_def.frames.is_empty() {
             error!("No frames?, {:?}, {sprite_def:?}", thing.state);
             return true;
@@ -175,24 +175,24 @@ impl SoftwareRenderer {
         if frame & FF_FRAMEMASK > 28 {
             return true;
         }
-        let sprite_frame = sprite_def.frames[(frame) as usize];
+        let sprite_frame = sprite_def.frames[(frame) as u32 as usize];
         let patch;
         let patch_index;
         let flip;
         if sprite_frame.rotate == 1 {
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
-            patch_index = sprite_frame.lump[rot as usize] as usize;
+            patch_index = sprite_frame.lump[rot as u32 as usize] as u32 as usize;
             patch = pic_data.sprite_patch(patch_index);
-            flip = sprite_frame.flip[rot as usize];
+            flip = sprite_frame.flip[rot as u32 as usize];
         } else {
-            patch_index = sprite_frame.lump[0] as usize;
+            patch_index = sprite_frame.lump[0] as u32 as usize;
             patch = pic_data.sprite_patch(patch_index);
             flip = sprite_frame.flip[0];
         }
 
         if flip > 0 {
-            tx -= (patch.data.len() - patch.left_offset as usize) as f32;
+            tx -= (patch.data.len() - patch.left_offset as u32 as usize) as f32;
         } else {
             tx -= patch.left_offset as f32;
         }
@@ -275,8 +275,8 @@ impl SoftwareRenderer {
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
-        for x in vis.x1.floor() as usize..=vis.x2.floor() as usize {
-            let tex_column = frac as usize;
+        for x in vis.x1.floor() as u32 as usize..=vis.x2.floor() as u32 as usize {
+            let tex_column = frac as u32 as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
@@ -359,17 +359,17 @@ impl SoftwareRenderer {
                 }
             }
 
-            for r in r1 as usize..=r2 as usize {
+            for r in r1 as u32 as usize..=r2 as u32 as usize {
                 if clip_bottom[r] == -2.0 && seg.sprbottomclip.is_some() {
                     clip_bottom[r] = self.seg_renderer.openings
-                        [(seg.sprbottomclip.unwrap() + r as f32) as usize];
+                        [(seg.sprbottomclip.unwrap() + r as f32) as u32 as usize];
                     if clip_bottom[r] < 0.0 {
                         clip_bottom[r] = 0.0;
                     }
                 }
                 if clip_top[r] == -2.0 && seg.sprtopclip.is_some() {
-                    clip_top[r] =
-                        self.seg_renderer.openings[(seg.sprtopclip.unwrap() + r as f32) as usize];
+                    clip_top[r] = self.seg_renderer.openings
+                        [(seg.sprtopclip.unwrap() + r as f32) as u32 as usize];
                     if clip_top[r] >= pixels.size().height_f32() {
                         clip_top[r] = pixels.size().height_f32();
                     }
@@ -377,7 +377,7 @@ impl SoftwareRenderer {
             }
         }
 
-        for x in vis.x1 as usize..=vis.x2 as usize {
+        for x in vis.x1 as u32 as usize..=vis.x2 as u32 as usize {
             if clip_bottom[x] == -2.0 {
                 clip_bottom[x] = pixels.size().height_f32();
             }
@@ -419,15 +419,15 @@ impl SoftwareRenderer {
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 
-        let def = pic_data.sprite_def(sprite.state.unwrap().sprite as usize);
+        let def = pic_data.sprite_def(sprite.state.unwrap().sprite as u32 as usize);
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
         }
         // TODO: WARN: SHT2 has no frames
         // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is
         // 0', render/software/src/things.rs:423:21
-        let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
-        let patch = pic_data.sprite_patch(frame.lump[0] as usize);
+        let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as u32 as usize];
+        let patch = pic_data.sprite_patch(frame.lump[0] as u32 as usize);
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
@@ -446,7 +446,7 @@ impl SoftwareRenderer {
 
         let mut vis = VisSprite::new();
         vis.mobj_flags = flags;
-        vis.patch = frame.lump[0] as usize;
+        vis.patch = frame.lump[0] as u32 as usize;
         // -(sprite.sy.floor() - patch.top_offset as f32);
         vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
         vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
@@ -544,12 +544,12 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1.floor() as usize..=x2.floor() as usize {
+            for x in x1.floor() as u32 as usize..=x2.floor() as u32 as usize {
                 if ds.maskedtexturecol + (x as f32) < 0.0 {
                     spryscale += rw_scalestep;
                     continue;
                 }
-                let index = (ds.maskedtexturecol + x as f32) as usize;
+                let index = (ds.maskedtexturecol + x as f32) as u32 as usize;
 
                 if index != usize::MAX
                     && ds.sprbottomclip.is_some()
@@ -559,13 +559,13 @@ impl SoftwareRenderer {
                 {
                     let texture_column = pic_data.wall_pic_column(
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                        self.seg_renderer.openings[index].abs() as usize,
+                        self.seg_renderer.openings[index].abs() as u32 as usize,
                     );
 
-                    let mut mceilingclip =
-                        self.seg_renderer.openings[(ds.sprtopclip.unwrap() + x as f32) as usize];
-                    let mut mfloorclip =
-                        self.seg_renderer.openings[(ds.sprbottomclip.unwrap() + x as f32) as usize];
+                    let mut mceilingclip = self.seg_renderer.openings
+                        [(ds.sprtopclip.unwrap() + x as f32) as u32 as usize];
+                    let mut mfloorclip = self.seg_renderer.openings
+                        [(ds.sprbottomclip.unwrap() + x as f32) as u32 as usize];
                     if mceilingclip >= pixels.size().height_f32() {
                         mceilingclip = pixels.size().height_f32();
                     }
@@ -624,8 +624,8 @@ fn draw_masked_column(
     }
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as usize..=yh as usize {
-        let select = frac as usize;
+    for y in yl as u32 as usize..=yh as u32 as usize {
+        let select = frac as u32 as usize;
         if select >= texture_column.len() {
             return;
         }

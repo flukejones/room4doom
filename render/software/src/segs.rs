@@ -194,7 +194,7 @@ impl SegRender {
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         // TODO: doublecheck the angles and bounds
-        let visangle = mobj.angle + self.screen_x[start as usize]; //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
+        let visangle = mobj.angle + self.screen_x[start as u32 as usize]; //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
         self.rw_scale = scale_from_view_angle(
             visangle,
             self.rw_normalangle,
@@ -203,7 +203,7 @@ impl SegRender {
             pixels.size().width_f32(),
         ) * self.wide_ratio;
 
-        let visangle = mobj.angle + self.screen_x[stop as usize]; //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
+        let visangle = mobj.angle + self.screen_x[stop as u32 as usize]; //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
 
         ds_p.scale1 = self.rw_scale;
         ds_p.x1 = start;
@@ -430,10 +430,10 @@ impl SegRender {
                 .portal_clip
                 .ceilingclip
                 .iter()
-                .skip(start as usize)
+                .skip(start as u32 as usize)
                 .enumerate()
             {
-                let last = self.lastopening as usize;
+                let last = self.lastopening as u32 as usize;
                 self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
@@ -449,10 +449,10 @@ impl SegRender {
                 .portal_clip
                 .floorclip
                 .iter()
-                .skip(start as usize)
+                .skip(start as u32 as usize)
                 .enumerate()
             {
-                let last = self.lastopening as usize;
+                let last = self.lastopening as u32 as usize;
                 self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
@@ -502,7 +502,7 @@ impl SegRender {
         let sky_colourmap = pic_data.colourmap(0);
 
         while self.rw_startx < self.rw_stopx {
-            let clip_index = self.rw_startx as usize;
+            let clip_index = self.rw_startx as u32 as usize;
             // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
             //     // TODO: shouldn't be happening, early out?
             //     return;
@@ -533,8 +533,8 @@ impl SegRender {
                         );
                         let sky_angle =
                             (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
-                        let sky_column =
-                            pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as usize);
+                        let sky_column = pic_data
+                            .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
 
                         draw_wall_column(
                             sky_column,
@@ -549,7 +549,7 @@ impl SegRender {
                             pixels,
                         );
                     } else {
-                        let x_start = self.rw_startx as usize;
+                        let x_start = self.rw_startx as u32 as usize;
                         draw_flat_column(
                             ceil_tex,
                             mobj.xy,
@@ -558,8 +558,8 @@ impl SegRender {
                             x_start,
                             self.screen_x[x_start],
                             mobj.angle,
-                            top as usize,
-                            bottom as usize,
+                            top as u32 as usize,
+                            bottom as u32 as usize,
                             pic_data,
                             pixels,
                             &self.yslope,
@@ -583,7 +583,7 @@ impl SegRender {
                     top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
                 if top <= bottom {
-                    let x_start = self.rw_startx as usize;
+                    let x_start = self.rw_startx as u32 as usize;
                     draw_flat_column(
                         floor_tex,
                         mobj.xy,
@@ -592,8 +592,8 @@ impl SegRender {
                         x_start,
                         self.screen_x[x_start],
                         mobj.angle,
-                        top as usize,
-                        bottom as usize,
+                        top as u32 as usize,
+                        bottom as u32 as usize,
                         pic_data,
                         pixels,
                         &self.yslope,
@@ -605,11 +605,11 @@ impl SegRender {
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle + self.screen_x[self.rw_startx as usize]; // screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
-                                                                                      // TODO: horizontal position of texture isn't quite right
+                angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
+                                                                                             // TODO: horizontal position of texture isn't quite right
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
                     .abs()
-                    .floor() as usize;
+                    .floor() as u32 as usize;
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
@@ -704,7 +704,7 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    self.openings[(self.maskedtexturecol + self.rw_startx) as usize] =
+                    self.openings[(self.maskedtexturecol + self.rw_startx) as u32 as usize] =
                         texture_column as f32;
                 }
             }
@@ -739,11 +739,11 @@ pub fn draw_wall_column(
 ) {
     yh = yh.min(pixels.size().height_f32() - 1.0);
 
-    let dc_x = dc_x as usize;
+    let dc_x = dc_x as u32 as usize;
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as usize..=yh as usize {
-        let mut select = frac.abs() as usize;
+    for y in yl as u32 as usize..=yh as u32 as usize {
+        let mut select = frac.abs() as u32 as usize;
         if doubled {
             select /= 2;
         }
@@ -759,7 +759,7 @@ pub fn draw_wall_column(
         }
         #[cfg(feature = "safety_check")]
         {
-            pixels.set_pixel(dc_x, y as usize, &pal[colourmap[tc]].0);
+            pixels.set_pixel(dc_x, y as u32 as usize, &pal[colourmap[tc]].0);
         }
         frac += fracstep;
     }
@@ -784,8 +784,8 @@ pub fn draw_flat_column(
 
     let angle = angle + screen_x;
     let distscale = 1.0 / screen_x.cos() * wide_ratio;
-    let cos = angle.cos().abs();
-    let sin = angle.sin().abs();
+    let cos = angle.cos();
+    let sin = angle.sin();
 
     // let lm = &pic_data.zlight_scale[total_light];
     let pal = pic_data.palette();
@@ -797,11 +797,11 @@ pub fn draw_flat_column(
         let ds_yfrac = viewxy.y + sin * length;
 
         // flats are 64x64 so a bitwise op works here
-        let x_step = ds_xfrac.abs() as usize & (tex_len);
-        let y_step = ds_yfrac.abs() as usize & (tex_len);
+        let x_step = ds_xfrac.abs() as u32 as usize & tex_len;
+        let y_step = ds_yfrac.abs() as u32 as usize & tex_len;
 
         // changed from `distance` to `length` to provide a radius light
-        let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);
+        let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32 as usize);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let px =
