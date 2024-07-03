@@ -55,6 +55,8 @@ cmovbe  eax, ecx
 ```
 since on x64 the `usize` type is 64bits. Not a major thing, but interesting.
 
+I use many `.get_unchecked(num)` on arrays I know are safe also, as this reduces instruction count from ~8 to 1.
+
 ## Goals
 
 - To retain the classic Doom look with a software renderer

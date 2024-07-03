@@ -500,7 +500,7 @@ impl PicData {
         } else {
             (scale * 15.8) as u32
         };
-        if colourmap >= MAXLIGHTSCALE as u32 - 1 {
+        if colourmap >= MAXLIGHTSCALE as u32 {
             colourmap = MAXLIGHTSCALE as u32 - 1;
         }
         colourmap as usize
@@ -521,6 +521,7 @@ impl PicData {
         let colourmap = self.colourmap_for_scale(wall_scale);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
+            // unchecked reduces instruction count from ~8 down to 1
             let i = self
                 .light_scale
                 .get_unchecked(light_level)
@@ -534,6 +535,11 @@ impl PicData {
     #[inline(always)]
     pub fn flat_light_colourmap(&self, mut light_level: usize, scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
+            #[cfg(not(feature = "safety_check"))]
+            unsafe {
+                return self.colourmap.get_unchecked(self.use_fixed_colourmap);
+            }
+            #[cfg(feature = "safety_check")]
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
@@ -560,13 +566,29 @@ impl PicData {
     }
 
     pub fn get_texture(&self, num: usize) -> &WallPic {
-        let num = self.wall_translation[num];
-        &self.walls[num]
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            let num = self.wall_translation.get_unchecked(num);
+            self.walls.get_unchecked(*num)
+        }
+        #[cfg(feature = "safety_check")]
+        {
+            let num = self.wall_translation[num];
+            &self.walls[num]
+        }
     }
 
     pub fn get_flat(&self, num: usize) -> &FlatPic {
-        let num = self.flat_translation[num];
-        &self.flats[num]
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            let num = self.flat_translation.get_unchecked(num);
+            self.flats.get_unchecked(*num)
+        }
+        #[cfg(feature = "safety_check")]
+        {
+            let num = self.flat_translation[num];
+            &self.flats[num]
+        }
     }
 
     pub fn wallpic_num_for_name(&self, name: &str) -> Option<usize> {
@@ -589,12 +611,23 @@ impl PicData {
 
     /// Return a ref to the specified column of the requested texture
     pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
+        #[cfg(not(feature = "safety_check"))]
+        let texture = unsafe {
+            self.walls
+                .get_unchecked(*self.wall_translation.get_unchecked(texture))
+        };
+        #[cfg(feature = "safety_check")]
         let texture = &self.walls[self.wall_translation[texture]];
 
         if texture_column >= texture.data.len() {
-            texture_column &= texture.data.len() - 1;
+            texture_column %= texture.data.len() - 1;
         }
 
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            texture.data.get_unchecked(texture_column)
+        }
+        #[cfg(feature = "safety_check")]
         &texture.data[texture_column]
     }
 
@@ -603,10 +636,20 @@ impl PicData {
     }
 
     pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            self.sprite_defs.get_unchecked(sprite_num)
+        }
+        #[cfg(feature = "safety_check")]
         &self.sprite_defs[sprite_num]
     }
 
     pub fn sprite_patch(&self, patch_num: usize) -> &SpritePic {
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            self.sprite_patches.get_unchecked(patch_num)
+        }
+        #[cfg(feature = "safety_check")]
         &self.sprite_patches[patch_num]
     }
 }
