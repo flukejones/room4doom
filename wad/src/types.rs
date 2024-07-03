@@ -2,7 +2,6 @@ use std::str;
 
 use log::error;
 
-use crate::compat::NodeLumpType;
 use crate::Lump;
 
 pub struct WadFlat {
@@ -228,12 +227,12 @@ impl WadThing {
 /// The parsing for OG Doom should still be using i16 size (and convert it).
 #[derive(Debug, Default, Clone)]
 pub struct WadVertex {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl WadVertex {
-    pub fn new(x: i32, y: i32) -> WadVertex {
+    pub fn new(x: f32, y: f32) -> WadVertex {
         WadVertex { x, y }
     }
 }
@@ -273,10 +272,12 @@ pub struct WadLineDef {
     /// field)
     pub sector_tag: i16,
     /// Pointer to the front (right) `SideDef` for this line
-    pub front_sidedef: i16,
+    pub front_sidedef: u16,
     /// Pointer to the (left) `SideDef` for this line
     /// If the parsed value == `0xFFFF` means there is no sidedef
-    pub back_sidedef: Option<i16>,
+    pub back_sidedef: Option<u16>,
+    /// front/back sides convenience
+    pub sides: [u16; 2],
 }
 
 impl WadLineDef {
@@ -286,8 +287,9 @@ impl WadLineDef {
         flags: i16,
         line_type: i16,
         sector_tag: i16,
-        front_sidedef: i16,
-        back_sidedef: Option<i16>,
+        front_sidedef: u16,
+        back_sidedef: Option<u16>,
+        sides: [u16; 2],
     ) -> WadLineDef {
         WadLineDef {
             start_vertex,
@@ -297,6 +299,7 @@ impl WadLineDef {
             sector_tag,
             front_sidedef,
             back_sidedef,
+            sides,
         }
     }
 }
@@ -321,9 +324,9 @@ impl WadLineDef {
 #[derive(Debug, Clone)]
 pub struct WadSegment {
     /// The line starts from this point
-    pub start_vertex: i32,
+    pub start_vertex: u32,
     /// The line ends at this point
-    pub end_vertex: i32,
+    pub end_vertex: u32,
     /// Binary Angle Measurement
     ///
     /// Degrees(0-360) = angle * 0.005493164
@@ -342,8 +345,8 @@ pub struct WadSegment {
 
 impl WadSegment {
     pub fn new(
-        start_vertex: i32,
-        end_vertex: i32,
+        start_vertex: u32,
+        end_vertex: u32,
         angle: i16,
         linedef: u16,
         side: i16,
@@ -356,6 +359,17 @@ impl WadSegment {
             linedef,
             side,
             offset,
+        }
+    }
+
+    pub fn new_z(start_vertex: u32, end_vertex: u32, linedef: u16, side: i16) -> WadSegment {
+        WadSegment {
+            start_vertex,
+            end_vertex,
+            angle: i16::MIN,
+            linedef,
+            side,
+            offset: i16::MIN,
         }
     }
 
@@ -590,7 +604,7 @@ impl WadSideDef {
 ///
 /// The child index can be either u16 or u32 depending on if the node is
 /// Original Doom style, or the ZDoom extended node style
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct WadNode {
     /// Where the line used for splitting the level starts
     pub x: i16,
@@ -599,11 +613,13 @@ pub struct WadNode {
     pub dx: i16,
     pub dy: i16,
     /// Coordinates of the bounding boxes:
-    pub bounding_boxes: [[i16; 4]; 2],
+    pub bboxes: [[i16; 4]; 2],
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
     /// code by inverting the last bit
-    pub child_index: [u32; 2],
+    ///
+    /// On ZDoom maps u32::MAX == no child
+    pub children: [u32; 2],
 }
 
 impl WadNode {
@@ -621,13 +637,9 @@ impl WadNode {
             y,
             dx,
             dy,
-            bounding_boxes,
-            child_index: [right_child_id, left_child_id],
+            bboxes: bounding_boxes,
+            children: [right_child_id, left_child_id],
         }
-    }
-
-    pub fn node_lump_type(bytes: &[u8; 4]) -> NodeLumpType {
-        NodeLumpType::from_bytes(bytes)
     }
 }
 
@@ -823,8 +835,5 @@ mod tests {
             .trim_end_matches('\u{0}')
             .to_owned();
         assert_eq!(name.as_str(), "WOODSKUL");
-
-        //assert_eq!(lump.offset as i32 + tex_offsets[0], lump.offset as i32 +
-        // 4);
     }
 }

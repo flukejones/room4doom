@@ -20,7 +20,7 @@ impl PortalClip {
     }
 
     pub(super) fn clear(&mut self) {
-        self.floorclip.fill(self.screen_height as f32);
+        self.floorclip.fill(self.screen_height as f32 + 1.0);
         self.ceilingclip.fill(-1.0);
     }
 }

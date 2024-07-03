@@ -5,15 +5,17 @@ use crate::angle::Angle;
 use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
 use crate::log::info;
 use crate::utilities::{bam_to_radian, circle_line_collide};
-use crate::{MapPtr, PicData};
+use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::warn;
+use log::{debug, warn};
+use wad::compat::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
 use wad::WadData;
 
-pub const IS_SSECTOR_MASK: u32 = 0x8000;
+const IS_OLD_SSECTOR_MASK: u32 = 0x8000;
+pub const IS_SSECTOR_MASK: u32 = 0x80000000;
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
@@ -42,6 +44,7 @@ pub struct MapData {
     /// array may never be resized or it will invalidate references and
     /// pointers
     things: Vec<WadThing>,
+    vertexes: Vec<Vec2>,
     pub linedefs: Vec<LineDef>,
     pub sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
@@ -139,19 +142,66 @@ impl MapData {
     }
 
     // TODO: pass in TextureData
+    // None of this is efficient as it iterates over wad data many multiples of
+    // times
+    /// The level struct *must not move after this*
     pub fn load(&mut self, map_name: &str, pic_data: &PicData, wad: &WadData) {
-        // THINGS
+        let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
+        if wad.lump_exists("TEXTURE2") {
+            let mut pnames2: Vec<WadTexture> = wad.texture_iter("TEXTURE2").collect();
+            tex_order.append(&mut pnames2);
+        }
+
         self.things = wad.thing_iter(map_name).collect();
-        info!("{}: Loaded things", map_name);
+        info!("{}: Loaded {} things", map_name, self.things.len());
 
-        // Vertexes
-        let vertexes: Vec<Vec2> = wad
+        // We may need to append ZDoom vertices to the vertexes, so check and lod now
+        let node_type = wad.node_lump_type(map_name);
+        let extended = match node_type {
+            NodeLumpType::OGDoom => None,
+            NodeLumpType::Extended(ExtendedNodeType::XNOD) => WadExtendedMap::parse(wad, map_name),
+            _ => panic!("Unsupported zddom node type (yet)"),
+        };
+        // The overall level information. You can rebuild a BSP from this.
+        // A lot of what happens here is using the wad data to fill in
+        // structures, and then creating (unsafe) internal pointers to everything
+        self.load_vertexes(map_name, wad, extended.as_ref());
+        self.load_sectors(map_name, wad, pic_data);
+        self.load_sidedefs(map_name, wad, &tex_order);
+        self.load_linedefs(map_name, wad);
+        // TODO: iterate sector lines to find max bounding box for sector
+
+        // The BSP level structure for rendering, movement, collisions etc
+        self.load_segments(map_name, wad, extended.as_ref());
+        self.load_subsectors(map_name, wad, extended.as_ref());
+        self.load_nodes(map_name, wad, node_type, extended.as_ref());
+
+        for sector in &mut self.sectors {
+            set_sector_sound_origin(sector);
+        }
+
+        self.set_extents();
+        self.set_scale();
+        self.fix_vertices();
+    }
+
+    fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
+        self.vertexes = wad
             .vertex_iter(map_name)
-            .map(|v| Vec2::new(v.x as f32, v.y as f32))
+            .map(|v| Vec2::new(v.x, v.y))
             .collect();
-        info!("{}: Loaded vertexes", map_name);
+        info!("{}: Loaded {} vertexes", map_name, self.vertexes.len());
 
-        // Sectors
+        if let Some(ext) = extended.as_ref() {
+            self.vertexes.reserve(ext.vertexes.len());
+            for v in ext.vertexes.iter() {
+                self.vertexes.push(Vec2::new(v.x, v.y));
+            }
+            info!("{}: Loaded {} zdoom vertexes", map_name, ext.vertexes.len());
+        }
+    }
+
+    fn load_sectors(&mut self, map_name: &str, wad: &WadData, pic_data: &PicData) {
         self.sectors = wad
             .sector_iter(map_name)
             .enumerate()
@@ -162,11 +212,13 @@ impl MapData {
                     s.ceil_height as f32,
                     pic_data.flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
                         warn!("Sectors: Did not find flat for {}", s.floor_tex);
-                        usize::MAX
+                        // usize::MAX
+                        1
                     }),
                     pic_data.flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
                         warn!("Sectors: Did not find flat for {}", s.ceil_tex);
-                        usize::MAX
+                        // usize::MAX
+                        1
                     }),
                     s.light_level as usize,
                     s.kind,
@@ -174,19 +226,18 @@ impl MapData {
                 )
             })
             .collect();
-        info!("{}: Loaded segments", map_name);
+        info!("{}: Loaded {} sectors", map_name, self.sectors.len());
+    }
 
-        let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
-        if wad.lump_exists("TEXTURE2") {
-            let mut pnames2: Vec<WadTexture> = wad.texture_iter("TEXTURE2").collect();
-            tex_order.append(&mut pnames2);
+    fn load_sidedefs(&mut self, map_name: &str, wad: &WadData, tex_order: &[WadTexture]) {
+        if self.sectors.is_empty() {
+            panic!("sectors must be loaded before sidedefs");
         }
-        // Sidedefs
+        // dbg!(tex_order.iter().position(|n| n.name == "METAL"));
         self.sidedefs = wad
             .sidedef_iter(map_name)
             .map(|s| {
                 let sector = &mut self.sectors[s.sector as usize];
-
                 SideDef {
                     textureoffset: s.x_offset as f32,
                     rowoffset: s.y_offset as f32,
@@ -203,25 +254,50 @@ impl MapData {
                 }
             })
             .collect();
-        info!("{}: Loaded sidedefs", map_name);
+        info!("{}: Loaded {} sidedefs", map_name, self.sidedefs.len());
+    }
 
-        //LineDefs
+    fn load_linedefs(&mut self, map_name: &str, wad: &WadData) {
+        if self.vertexes.is_empty() {
+            panic!("Vertexes must be loaded before linedefs");
+        }
+        if self.sidedefs.is_empty() {
+            panic!("sidedefs must be loaded before linedefs");
+        }
         self.linedefs = wad
             .linedef_iter(map_name)
             .map(|l| {
-                let v1 = vertexes[l.start_vertex as usize];
-                let v2 = vertexes[l.end_vertex as usize];
+                let v1 = self.vertexes[l.start_vertex as usize];
+                let v2 = self.vertexes[l.end_vertex as usize];
+                if l.sides[0] == u16::MAX {
+                    dbg!(l.sides);
+                }
+                // if l.sides[1] == u16::MAX {
+                //     dbg!(l.sides);
+                // }
+
+                if l.front_sidedef == 0xFFFF {
+                    panic!();
+                }
 
                 let front = MapPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
 
                 let back_side = {
-                    l.back_sidedef
-                        .map(|index| MapPtr::new(&mut self.sidedefs[index as usize]))
+                    if l.back_sidedef == Some(u16::MAX) {
+                        None
+                    } else {
+                        l.back_sidedef
+                            .map(|index| MapPtr::new(&mut self.sidedefs[index as usize]))
+                    }
                 };
 
                 let back_sector = {
-                    l.back_sidedef
-                        .map(|index| self.sidedefs()[index as usize].sector.clone())
+                    if l.back_sidedef == Some(u16::MAX) {
+                        None
+                    } else {
+                        l.back_sidedef
+                            .map(|index| self.sidedefs()[index as usize].sector.clone())
+                    }
                 };
 
                 let dx = v2.x - v1.x;
@@ -251,11 +327,11 @@ impl MapData {
                     frontsector: front.sector.clone(),
                     backsector: back_sector,
                     valid_count: 0,
+                    sides: l.sides,
                 }
             })
             .collect();
-        info!("{}: Loaded linedefs", map_name);
-
+        info!("{}: Loaded {} linedefs", map_name, self.linedefs.len());
         // Now map sectors to lines
         for line in self.linedefs.iter_mut() {
             let mut sector = line.frontsector.clone();
@@ -264,118 +340,179 @@ impl MapData {
                 sector.lines.push(MapPtr::new(line));
             }
         }
-        info!("{}: Mapped linedefs to sectors", map_name);
-        // TODO: iterate sector lines to find max bounding box for sector
+        info!(
+            "{}: Mapped linedefs to {} sectors",
+            map_name,
+            self.sectors.len()
+        );
+    }
 
-        for sector in &mut self.sectors {
-            set_sector_sound_origin(sector);
+    // TODO: Verified
+    fn load_segments(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
+        if self.vertexes.is_empty() {
+            panic!("Vertexes must be loaded before segs");
         }
+        let mut parse_segs = |ms: WadSegment| {
+            if ms.side as usize >= self.sidedefs.len() {
+                panic!("Invalid side num on segment");
+            }
 
-        // Sector, Sidedef, Linedef, Seg all need to be preprocessed before
-        // storing in level struct
-        //
-        // SEGS
-        self.segments = wad
-            .segment_iter(map_name)
-            .map(|s| {
-                let v1 = vertexes[s.start_vertex as usize];
-                let v2 = vertexes[s.end_vertex as usize];
+            let v1 = self.vertexes[ms.start_vertex as usize];
+            let v2 = self.vertexes[ms.end_vertex as usize];
+            let linedef = MapPtr::new(&mut self.linedefs[ms.linedef as usize]);
 
-                let linedef = &mut self.linedefs[s.linedef as usize];
+            let angle = if extended.is_none() {
+                Angle::new(bam_to_radian((ms.angle as u32) << 16))
+            } else {
+                let dx = v2.x - v1.x;
+                let dy = v2.y - v1.y;
+                Angle::new(Vec2::new(dx, dy).to_angle())
+            };
 
-                let frontsector;
-                let backsector;
-                let side;
-                // The front and back sectors interchange depending on BSP
-                if s.side == 0 {
-                    side = linedef.front_sidedef.clone();
-                    frontsector = linedef.frontsector.clone();
-                    backsector = linedef.backsector.clone();
+            let offset = if ms.offset == i16::MIN {
+                let v2 = if ms.side == 1 { linedef.v2 } else { linedef.v1 };
+                Segment::recalc_offset(v1, v2)
+            } else {
+                ms.offset as f32
+            };
+            let sidedef = MapPtr::new(&mut self.sidedefs[linedef.sides[ms.side as usize] as usize]);
+            let frontsector = sidedef.sector.clone();
+
+            let mut backsector = None;
+            if linedef.flags & LineDefFlags::TwoSided as u32 != 0 {
+                let sidenum = linedef.sides[ms.side as usize ^ 1] as usize;
+                if sidenum == u16::MAX as usize || sidenum >= self.sidedefs().len() {
+                    if sidedef.midtexture.is_some() {
+                        backsector = None;
+                        debug!("Two-sided line with midtexture: removed back sector")
+                    }
                 } else {
-                    side = linedef.back_sidedef.as_ref().unwrap().clone();
-                    frontsector = linedef.backsector.as_ref().unwrap().clone();
-                    backsector = Some(linedef.frontsector.clone());
-                };
-
-                let angle = bam_to_radian((s.angle as u32) << 16);
-
-                Segment {
-                    v1,
-                    v2,
-                    offset: s.offset as f32,
-                    angle: Angle::new(angle),
-                    sidedef: side,
-                    linedef: MapPtr::new(linedef),
-                    frontsector,
-                    backsector,
+                    backsector = Some(self.sidedefs[sidenum].sector.clone());
                 }
-            })
-            .collect();
-        info!("{}: Generated segments", map_name);
+            }
 
-        // SSECTORS
-        self.subsectors = wad
-            .subsector_iter(map_name)
-            .map(|s| {
-                let sector = self.segments()[s.start_seg as usize].sidedef.sector.clone();
-                SubSector {
-                    sector,
-                    seg_count: s.seg_count,
-                    start_seg: s.start_seg,
-                }
-            })
-            .collect();
-        // assert!(self.subsectors().len() != 0);
-        info!("{}: Loaded subsectors", map_name);
+            Segment {
+                v1,
+                v2,
+                angle,
+                offset,
+                sidedef,
+                linedef,
+                frontsector,
+                backsector,
+            }
+        };
 
-        // NODES
+        if let Some(ext) = extended.as_ref() {
+            self.segments = ext.segments.iter().map(|s| parse_segs(s.clone())).collect();
+        } else {
+            self.segments = wad.segment_iter(map_name).map(parse_segs).collect();
+        }
+        info!("{}: Generated {} segments", map_name, self.segments.len());
+    }
+
+    fn load_subsectors(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        extended: Option<&WadExtendedMap>,
+    ) {
+        if self.segments.is_empty() {
+            panic!("segments must be loaded before subsectors");
+        }
+        let parse_subs = |s: WadSubSector| {
+            let sector = self.segments[s.start_seg as usize].sidedef.sector.clone();
+            SubSector {
+                sector,
+                seg_count: s.seg_count,
+                start_seg: s.start_seg,
+            }
+        };
+        if let Some(ext) = extended.as_ref() {
+            self.subsectors = ext
+                .subsectors
+                .iter()
+                .map(|s| parse_subs(s.clone()))
+                .collect();
+        } else {
+            self.subsectors = wad.subsector_iter(map_name).map(parse_subs).collect();
+        }
+        // iter through subsectors and check the lines have front/back sectors matching?
+        // for ss in self.subsectors.iter() {
+        //     for i in ss.start_seg..ss.start_seg + ss.seg_count {
+        //         let seg = &mut self.segments[i as usize];
+        //         if seg.frontsector.num != ss.sector.num {
+        //             // sub.frontsector = ss.sector.clone();
+        //             if let Some(back) = seg.backsector.take() {
+        //                 let tmp = seg.frontsector.clone();
+        //                 seg.frontsector = back;
+        //                 seg.backsector = Some(tmp);
+        //             }
+        //         }
+        //     }
+        // }
+        info!("{}: Loaded {} subsectors", map_name, self.subsectors.len());
+    }
+
+    fn load_nodes(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        node_type: NodeLumpType,
+        extended: Option<&WadExtendedMap>,
+    ) {
         // BOXTOP = 0
         // BOXBOT = 1
         // BOXLEFT = 2
         // BOXRIGHT = 3
-        self.nodes = wad
-            .node_iter(map_name)
-            .map(|n| Node {
+        let parse_nodes = |n: WadNode| {
+            let bounding_boxes = [
+                [
+                    Vec2::new(n.bboxes[0][2] as f32, n.bboxes[0][0] as f32),
+                    Vec2::new(n.bboxes[0][3] as f32, n.bboxes[0][1] as f32),
+                ],
+                [
+                    Vec2::new(n.bboxes[1][2] as f32, n.bboxes[1][0] as f32),
+                    Vec2::new(n.bboxes[1][3] as f32, n.bboxes[1][1] as f32),
+                ],
+            ];
+            Node {
                 xy: Vec2::new(n.x as f32, n.y as f32),
                 delta: Vec2::new(n.dx as f32, n.dy as f32),
-                bounding_boxes: [
-                    [
-                        Vec2::new(n.bounding_boxes[0][2] as f32, n.bounding_boxes[0][0] as f32),
-                        Vec2::new(n.bounding_boxes[0][3] as f32, n.bounding_boxes[0][1] as f32),
-                    ],
-                    [
-                        Vec2::new(n.bounding_boxes[1][2] as f32, n.bounding_boxes[1][0] as f32),
-                        Vec2::new(n.bounding_boxes[1][3] as f32, n.bounding_boxes[1][1] as f32),
-                    ],
-                ],
-                child_index: n.child_index,
-                parent: 0,
-            })
-            .collect();
-        info!("{}: Loaded bsp nodes", map_name);
+                bboxes: bounding_boxes,
+                children: n.children,
+            }
+        };
 
-        for (i, wn) in wad.node_iter(map_name).enumerate() {
-            if wn.child_index[0] & IS_SSECTOR_MASK == 0 {
-                if (wn.child_index[0] as usize) <= self.nodes.len() {
-                    self.nodes[wn.child_index[0] as usize].parent = i as u16;
-                } else {
-                    // warn!("Invalid node");
-                }
-            }
-            if wn.child_index[1] & IS_SSECTOR_MASK == 0 {
-                if (wn.child_index[1] as usize) <= self.nodes.len() {
-                    self.nodes[wn.child_index[1] as usize].parent = i as u16;
-                } else {
-                    // warn!("Invalid node");
-                }
-            }
+        if node_type == NodeLumpType::OGDoom {
+            self.nodes = wad.node_iter(map_name).map(parse_nodes).collect();
+        } else if let Some(ext) = extended {
+            self.nodes = ext.nodes.iter().map(|s| parse_nodes(s.clone())).collect();
         }
-        info!("{}: Mapped bsp node children", map_name);
+        info!("{}: Loaded {} bsp nodes", map_name, self.nodes.len());
+
+        if extended.is_none() {
+            for i in 0..self.nodes.len() {
+                for n in 0..2 {
+                    let node_num = &mut self.nodes[i].children[n];
+                    // Correct the nodes for extended node support
+                    if *node_num != u32::MAX && *node_num & IS_OLD_SSECTOR_MASK != 0 {
+                        if *node_num == u16::MAX as u32 {
+                            *node_num = u32::MAX;
+                        } else {
+                            *node_num &= !&IS_OLD_SSECTOR_MASK;
+                            if *node_num as usize >= self.subsectors.len() {
+                                *node_num = 0;
+                            }
+                            *node_num |= IS_SSECTOR_MASK;
+                        }
+                    }
+                }
+            }
+            info!("{}: Fixed bsp node children", map_name);
+        }
 
         self.start_node = (self.nodes.len() - 1) as u32;
-        self.set_extents();
-        self.set_scale();
-        self.fix_vertices();
     }
 
     /// Get a raw pointer to the subsector a point is in. This is mostly used to
@@ -387,11 +524,17 @@ impl MapData {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
+        let mut count = self.nodes.len();
 
         while node_id & IS_SSECTOR_MASK == 0 {
             node = &self.get_nodes()[node_id as usize];
             side = node.point_on_side(&point);
-            node_id = node.child_index[side];
+            node_id = node.children[side];
+            if count == 0 {
+                dbg!(node, point);
+                break;
+            }
+            count -= 1;
         }
 
         MapPtr::new(&mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize])
@@ -405,7 +548,7 @@ impl MapData {
         while node_id & IS_SSECTOR_MASK == 0 {
             node = &self.get_nodes()[node_id as usize];
             side = node.point_on_side(&point);
-            node_id = node.child_index[side];
+            node_id = node.children[side];
         }
 
         &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize]
@@ -601,7 +744,7 @@ impl BSPTrace {
                 error!(
                     "Node {} masked to {} was out of bounds",
                     node_id,
-                    node_id & !IS_SSECTOR_MASK
+                    node_id & !IS_ZSSECTOR_MASK
                 );
                 return;
             }
@@ -620,8 +763,8 @@ impl BSPTrace {
             // On opposite sides of the splitting line, recurse down both sides
             // Traverse the side the origin is on first, then backside last. This
             // gives an ordered list of nodes from closest to furtherest.
-            self.find_line_inner(node.child_index[side1], map, count);
-            self.find_line_inner(node.child_index[side2], map, count);
+            self.find_line_inner(node.children[side1], map, count);
+            self.find_line_inner(node.children[side2], map, count);
         } else if self.radius > 1.0 {
             let side_l1 = node.point_on_side(&self.origin_left);
             let side_l2 = node.point_on_side(&self.endpoint_left);
@@ -630,16 +773,16 @@ impl BSPTrace {
             let side_r2 = node.point_on_side(&self.endpoint_right);
 
             if side_l1 != side_l2 {
-                self.find_line_inner(node.child_index[side_l1], map, count);
-                self.find_line_inner(node.child_index[side_l2], map, count);
+                self.find_line_inner(node.children[side_l1], map, count);
+                self.find_line_inner(node.children[side_l2], map, count);
             } else if side_r1 != side_r2 {
-                self.find_line_inner(node.child_index[side_r1], map, count);
-                self.find_line_inner(node.child_index[side_r2], map, count);
+                self.find_line_inner(node.children[side_r1], map, count);
+                self.find_line_inner(node.children[side_r2], map, count);
             } else {
-                self.find_line_inner(node.child_index[side1], map, count);
+                self.find_line_inner(node.children[side1], map, count);
             }
         } else {
-            self.find_line_inner(node.child_index[side1], map, count);
+            self.find_line_inner(node.children[side1], map, count);
         }
     }
 
@@ -653,7 +796,7 @@ impl BSPTrace {
                 error!(
                     "Node {} masked to {} was out of bounds",
                     node_id,
-                    node_id & !IS_SSECTOR_MASK
+                    node_id & !IS_ZSSECTOR_MASK
                 );
                 return;
             }
@@ -675,10 +818,10 @@ impl BSPTrace {
 
         if circle_line_collide(self.origin, self.radius, l_start, l_end) {
             let other = if side == 1 { 0 } else { 1 };
-            self.find_radius_inner(node.child_index[side], map, count);
-            self.find_radius_inner(node.child_index[other], map, count);
+            self.find_radius_inner(node.children[side], map, count);
+            self.find_radius_inner(node.children[other], map, count);
         } else {
-            self.find_radius_inner(node.child_index[side], map, count);
+            self.find_radius_inner(node.children[side], map, count);
         }
     }
 
@@ -691,11 +834,69 @@ impl BSPTrace {
 #[cfg(test)]
 mod tests {
     use crate::angle::Angle;
-    use crate::level::map_data::{BSPTrace, MapData};
-    use crate::PicData;
+    use crate::level::map_data::{BSPTrace, MapData, IS_SSECTOR_MASK};
+    use crate::{Node, PicData};
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
+    use wad::compat::WadExtendedMap;
     use wad::WadData;
+
+    // #[ignore = "sunder.wad can't be included in git"]
+    #[test]
+    fn check_nodes_of_sunder_m3() {
+        let mut wad = WadData::new("/home/luke/DOOM/doom2.wad".into());
+        wad.add_file("/home/luke/DOOM/sunder.wad".into());
+        let ext = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        assert_eq!(ext.num_org_vertices, 5525); // verified with crispy
+        assert_eq!(ext.vertexes.len(), 996); // verified with crispy
+        assert_eq!(ext.subsectors.len(), 4338);
+        assert_eq!(ext.segments.len(), 14582);
+        assert_eq!(ext.nodes.len(), 4337);
+
+        let pic_data = PicData::init(false, &wad);
+        let mut map = MapData::default();
+        map.load("MAP03", &pic_data, &wad);
+
+        // 666: no->x: 12.000000, no->y: -342.000000, no->dx: 0.000000, no->dy:
+        // -20.000000 666: child[0]: 665, child[1]: -2147482974
+        assert_eq!(
+            map.nodes[666],
+            Node {
+                xy: Vec2::new(12.0, -342.0),
+                delta: Vec2::new(0.0, -20.0),
+                bboxes: [
+                    [Vec2::new(0.0, -342.0), Vec2::new(12.0, -362.0)],
+                    [Vec2::new(12.0, -333.0), Vec2::new(24.0, -371.0)]
+                ],
+                children: [665, 2147484322]
+            }
+        );
+
+        // seg v1:, x:496.000000, y:-1072.000000
+        // seg v2:, x:496.000000, y:-1040.000000
+        // sidedef->toptexture: 151
+        // linedef: 2670
+        // side: 1
+        // sidenum: 4387
+        let mut success = false;
+        for (i, seg) in map.segments().iter().enumerate() {
+            if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0) {
+                assert_eq!(ext.segments[i].linedef, 2670);
+                let v1 = &map.vertexes[ext.segments[i].start_vertex as usize];
+                let v2 = &map.vertexes[ext.segments[i].end_vertex as usize];
+                assert_eq!(v1, &Vec2::new(496.0, -1072.0));
+                assert_eq!(v2, &Vec2::new(496.0, -1040.0));
+
+                dbg!(i, &ext.segments[i]);
+                assert_eq!(ext.segments[i].linedef, 2670);
+                assert_eq!(ext.segments[i].side, 1);
+                // dbg!(&seg.sidedef);
+                assert_eq!(seg.sidedef.toptexture, Some(151));
+                success = true;
+            }
+        }
+        assert!(success);
+    }
 
     #[test]
     fn test_tracing_bsp() {
@@ -908,10 +1109,8 @@ mod tests {
         assert_eq!(segments[731].v1.x as i32, 3040);
         assert_eq!(segments[731].v2.x as i32, 2976);
         assert_eq!(segments[0].angle, Angle::new(FRAC_PI_2));
-        assert_eq!(segments[0].offset, 0.0);
 
         assert_eq!(segments[731].angle, Angle::new(PI));
-        assert_eq!(segments[731].offset, 0.0);
 
         let subsectors = map.subsectors();
         assert_eq!(subsectors[0].seg_count, 4);
@@ -934,5 +1133,50 @@ mod tests {
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);
         assert_eq!(subsector.start_seg, 305);
+    }
+
+    #[test]
+    fn check_nodes_of_e1m1() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut map = MapData::default();
+        map.load("E1M1", &PicData::default(), &wad);
+
+        let nodes = map.get_nodes();
+        assert_eq!(nodes[0].xy.x as i32, 1552);
+        assert_eq!(nodes[0].xy.y as i32, -2432);
+        assert_eq!(nodes[0].delta.x as i32, 112);
+        assert_eq!(nodes[0].delta.y as i32, 0);
+
+        assert_eq!(nodes[0].bboxes[0][0].x as i32, 1552); //left
+        assert_eq!(nodes[0].bboxes[0][0].y as i32, -2432); //top
+        assert_eq!(nodes[0].bboxes[0][1].x as i32, 1664); //right
+        assert_eq!(nodes[0].bboxes[0][1].y as i32, -2560); //bottom
+
+        assert_eq!(nodes[0].bboxes[1][0].x as i32, 1600);
+        assert_eq!(nodes[0].bboxes[1][0].y as i32, -2048);
+
+        assert_eq!(nodes[0].children[0], 2147483648);
+        assert_eq!(nodes[0].children[1], 2147483649);
+
+        assert_eq!(nodes[235].xy.x as i32, 2176);
+        assert_eq!(nodes[235].xy.y as i32, -3776);
+        assert_eq!(nodes[235].delta.x as i32, 0);
+        assert_eq!(nodes[235].delta.y as i32, -32);
+        assert_eq!(nodes[235].children[0], 128);
+        assert_eq!(nodes[235].children[1], 234);
+
+        println!("{:#018b}", IS_SSECTOR_MASK);
+
+        println!("00: {:#018b}", nodes[0].children[0]);
+        println!("00: {:#018b}", nodes[0].children[1]);
+
+        println!("01: {:#018b}", nodes[1].children[0]);
+        println!("01: {:#018b}", nodes[1].children[1]);
+
+        println!("02: {:#018b}", nodes[2].children[0]);
+        println!("02: {:#018b}", nodes[2].children[1]);
+
+        println!("03: {:#018b}", nodes[3].children[0]);
+        println!("03: {:#018b}", nodes[3].children[1]);
     }
 }

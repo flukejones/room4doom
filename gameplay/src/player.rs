@@ -6,7 +6,8 @@ use sound_traits::SfxName;
 
 use crate::angle::Angle;
 use crate::doom_def::{
-    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
+    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH,
+    MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO,
 };
 use crate::info::{SpriteNum, StateNum, STATES};
 use crate::level::Level;

@@ -321,14 +321,13 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
         }
     }
 
-    // TODO: if the sector has an active thinker, use it
-    // sec = sides[line->sidenum[side ^ 1]].sector;
     if line.flags & LineDefFlags::TwoSided as u32 == 0 {
         error!("ev_vertical_door: tried to operate on a line that is not two-sided");
         return;
     }
 
     // new door thinker
+    // sec = sides[line->sidenum[side ^ 1]].sector;
     let mut sec = line.backsector.clone().unwrap();
 
     // if the sector has an active thinker, use it

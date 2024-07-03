@@ -93,7 +93,23 @@ pub struct PicData {
 
 impl Default for PicData {
     fn default() -> Self {
-        todo!()
+        Self {
+            palettes: Default::default(),
+            colourmap: [[0; 256]; COLOURMAP_LEN],
+            light_scale: [[0; 48]; 16],
+            zlight_scale: [[0usize; 128]; 16],
+            use_fixed_colourmap: Default::default(),
+            walls: Default::default(),
+            wall_translation: Default::default(),
+            flats: Default::default(),
+            flat_translation: Default::default(),
+            sky_num: Default::default(),
+            sky_pic: Default::default(),
+            sprite_patches: Default::default(),
+            sprite_defs: Default::default(),
+            use_pallette: Default::default(),
+            double_res: Default::default(),
+        }
     }
 }
 
@@ -579,6 +595,14 @@ impl PicData {
     }
 
     pub fn get_flat(&self, num: usize) -> &FlatPic {
+        if num >= self.flat_translation.len() {
+            dbg!(num);
+            dbg!(self.flat_translation.len());
+            panic!()
+        }
+        if num >= self.flats.len() {
+            panic!()
+        }
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let num = self.flat_translation.get_unchecked(num);

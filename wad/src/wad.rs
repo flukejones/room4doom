@@ -115,17 +115,14 @@ pub struct Lump {
 }
 
 impl Lump {
-    #[inline(always)]
     pub fn read_i16(&self, offset: usize) -> i16 {
         i16::from_le_bytes([self.data[offset], self.data[offset + 1]])
     }
 
-    #[inline(always)]
     pub fn read_u16(&self, offset: usize) -> u16 {
         u16::from_le_bytes([self.data[offset], self.data[offset + 1]])
     }
 
-    #[inline(always)]
     pub fn read_i32(&self, offset: usize) -> i32 {
         i32::from_le_bytes([
             self.data[offset],
@@ -135,7 +132,6 @@ impl Lump {
         ])
     }
 
-    #[inline(always)]
     pub fn read_u32(&self, offset: usize) -> u32 {
         u32::from_le_bytes([
             self.data[offset],
@@ -143,6 +139,18 @@ impl Lump {
             self.data[offset + 2],
             self.data[offset + 3],
         ])
+    }
+
+    pub fn read_u32_to_f32(&self, offset: usize) -> f32 {
+        const FRACUNIT: f32 = (1 << 16) as f32;
+
+        i32::from_le_bytes([
+            self.data[offset],
+            self.data[offset + 1],
+            self.data[offset + 2],
+            self.data[offset + 3],
+        ]) as f32
+            / FRACUNIT
     }
 }
 

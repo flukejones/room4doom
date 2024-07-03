@@ -107,7 +107,7 @@ impl SoftwareRenderer {
     fn new_vissprite(&mut self) -> &mut VisSprite {
         let curr = self.next_vissprite;
         self.next_vissprite += 1;
-        if curr == self.vissprites.len() {
+        if curr >= self.vissprites.len() - 1 {
             // panic!("Exhausted vissprite allocation");
             self.next_vissprite -= 1;
         }
@@ -159,7 +159,7 @@ impl SoftwareRenderer {
         if frame & FF_FRAMEMASK > 28 {
             return true;
         }
-        let sprite_frame = sprite_def.frames[(frame) as u32 as usize];
+        let sprite_frame = sprite_def.frames[frame as usize];
         let patch;
         let patch_index;
         let flip;
@@ -410,7 +410,7 @@ impl SoftwareRenderer {
         // TODO: WARN: SHT2 has no frames
         // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is
         // 0', render/software/src/things.rs:423:21
-        let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as u32 as usize];
+        let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
         let patch = pic_data.sprite_patch(frame.lump[0] as u32 as usize);
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always

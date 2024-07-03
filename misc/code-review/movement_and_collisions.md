@@ -266,6 +266,7 @@ Returns true if the traverser function returns true for all lines.
 A good exercise would be to walk the BSP from origin to endpoint, returning a list of all subsectors between, such as:
 
 ```rust
+    pub use level::map_data::{MapData, IS_SSECTOR_MASK};
     pub fn find_ssect_intercepts<'a>(&mut self, map: &MapData) {
         if self.node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
             if !self.nodes.contains(&(self.node_id ^ IS_SSECTOR_MASK)) {

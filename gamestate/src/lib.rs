@@ -27,7 +27,8 @@ use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
 use gameplay::{
-    m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction, GameMission, GameMode, GameOptions, Level, MapObject, PicData, Player, PlayerState, Skill, MAXPLAYERS
+    m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction, GameMission,
+    GameMode, GameOptions, Level, MapObject, PicData, Player, PlayerState, Skill, MAXPLAYERS,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};

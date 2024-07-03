@@ -126,7 +126,7 @@ impl SegRender {
                     screen_width as f32 / 2.0 / dy.abs()
                 })
                 .collect(),
-            screen_x: (0..=screen_width + 1)
+            screen_x: (0..=screen_width)
                 .map(|x| screen_to_angle(fov, x as f32, (screen_width / 2) as f32))
                 .collect(),
             fov,
@@ -144,7 +144,7 @@ impl SegRender {
 
     /// R_StoreWallRange - r_segs
     /// This is called by the BSP clipping functions. The incoming `start` and
-    /// `stop` have alredy been `.floor()`ed by `angle_to_screen()` function
+    /// `stop` have already been `.floor()`ed by `angle_to_screen()` function
     /// called on the segs during BSP traversal.
     ///
     /// # Note
@@ -160,6 +160,11 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
+        //seg:, x:496.000000, y:-1072.000000
+        //seg:, x:496.000000, y:-1040.000000
+        if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0) {
+            dbg!(&seg.sidedef);
+        }
         // Keep original Doom behaviour here
         if rdata.drawsegs.len() >= MAXDRAWSEGS {
             warn!("Maxxed out drawsegs");
@@ -173,7 +178,7 @@ impl SegRender {
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
 
-        if start < 0.0 || start > pixels.size().width_f32() {
+        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -183,6 +188,7 @@ impl SegRender {
 
         // mark the segment as visible for automap
         linedef.flags |= LineDefFlags::Mapped as u32;
+        // TODO: return if in automap
 
         self.rw_normalangle = seg.angle + FRAC_PI_2; // widescreen: Leave as is
         let mut offsetangle = self.rw_normalangle - rdata.rw_angle1; // radians
@@ -193,28 +199,26 @@ impl SegRender {
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
+        ds_p.x1 = start;
+        self.rw_startx = ds_p.x1;
+        ds_p.x2 = stop;
+        self.rw_stopx = stop + 1.0;
         // TODO: doublecheck the angles and bounds
-        let visangle = mobj.angle + self.screen_x[start as u32 as usize]; //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
+        //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
         self.rw_scale = scale_from_view_angle(
-            visangle,
+            mobj.angle + self.screen_x[start as u32 as usize],
             self.rw_normalangle,
             self.rw_distance,
             mobj.angle,
             pixels.size().width_f32(),
         ) * self.wide_ratio;
-
-        let visangle = mobj.angle + self.screen_x[stop as u32 as usize]; //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
-
         ds_p.scale1 = self.rw_scale;
-        ds_p.x1 = start;
-        self.rw_startx = ds_p.x1;
-        ds_p.x2 = stop;
-        self.rw_stopx = stop + 1.0;
 
         if stop > start {
+            //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
             // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
-                visangle,
+                mobj.angle + self.screen_x[stop as u32 as usize],
                 self.rw_normalangle,
                 self.rw_distance,
                 mobj.angle,
@@ -241,21 +245,21 @@ impl SegRender {
         self.maskedtexturecol = -1.0;
 
         if seg.backsector.is_none() {
+            // single sided line
+            self.midtexture = sidedef.midtexture.is_some();
             self.markfloor = true;
             self.markceiling = true;
-            // single sided line
-            self.midtexture = seg.sidedef.midtexture.is_some();
-
-            // top of texture at top
-            self.rw_midtexturemid = self.worldtop;
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                if let Some(mid_tex) = seg.sidedef.midtexture {
+                if let Some(mid_tex) = sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
                     let vtop = frontsector.floorheight + texture_column.len() as f32;
                     self.rw_midtexturemid = vtop - player.viewz;
                 }
+            } else {
+                // top of texture at top
+                self.rw_midtexturemid = self.worldtop;
             }
-            self.rw_midtexturemid += seg.sidedef.rowoffset;
+            self.rw_midtexturemid += sidedef.rowoffset;
 
             ds_p.silhouette = SIL_BOTH;
             ds_p.sprtopclip = Some(0.0); // start of screenheightarray
@@ -342,10 +346,12 @@ impl SegRender {
             if self.worldhigh < self.worldtop {
                 self.toptexture = sidedef.toptexture.is_some();
                 if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
+                    // texture top
                     self.rw_toptexturemid = self.worldtop;
-                } else if let Some(top_tex) = seg.sidedef.toptexture {
+                } else if let Some(top_tex) = sidedef.toptexture {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
+                    // texture bottom
                     self.rw_toptexturemid = vtop - player.viewz;
                 }
             }
@@ -383,7 +389,7 @@ impl SegRender {
             //  }
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
-            self.wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
+            self.wall_lights = (sidedef.sector.lightlevel >> 4) + player.extralight;
             if (seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0) && self.wall_lights > 0 {
                 self.wall_lights -= 1;
             }
@@ -501,6 +507,8 @@ impl SegRender {
 
         let sky_colourmap = pic_data.colourmap(0);
 
+        let sidedef = seg.sidedef.clone();
+
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as u32 as usize;
             // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
@@ -616,7 +624,7 @@ impl SegRender {
 
             if self.midtexture {
                 if yl <= yh {
-                    if let Some(mid_tex) = seg.sidedef.midtexture {
+                    if let Some(mid_tex) = sidedef.midtexture {
                         let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
                         draw_wall_column(
                             texture_column,
@@ -646,7 +654,7 @@ impl SegRender {
                     }
 
                     if mid >= yl {
-                        if let Some(top_tex) = seg.sidedef.toptexture {
+                        if let Some(top_tex) = sidedef.toptexture {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
@@ -680,7 +688,7 @@ impl SegRender {
                     }
 
                     if mid <= yh {
-                        if let Some(bot_tex) = seg.sidedef.bottomtexture {
+                        if let Some(bot_tex) = sidedef.bottomtexture {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
                             draw_wall_column(
                                 texture_column,
@@ -704,8 +712,10 @@ impl SegRender {
                 }
 
                 if self.maskedtexture {
-                    self.openings[(self.maskedtexturecol + self.rw_startx) as u32 as usize] =
-                        texture_column as f32;
+                    let i = (self.maskedtexturecol + self.rw_startx) as u32 as usize;
+                    if self.openings.len() > i {
+                        self.openings[i] = texture_column as f32;
+                    }
                 }
             }
 

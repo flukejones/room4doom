@@ -19,10 +19,10 @@ impl Node {
     }
 
     pub fn point_in_bounds(&self, v: &Vec2, side: usize) -> bool {
-        if v.x > self.bounding_boxes[side][0].x
-            && v.x < self.bounding_boxes[side][1].x
-            && v.y < self.bounding_boxes[side][0].y
-            && v.y > self.bounding_boxes[side][1].y
+        if v.x > self.bboxes[side][0].x
+            && v.x < self.bboxes[side][1].x
+            && v.y < self.bboxes[side][0].y
+            && v.y > self.bboxes[side][1].y
         {
             return true;
         }

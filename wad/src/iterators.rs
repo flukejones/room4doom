@@ -63,6 +63,10 @@ where
             return None;
         }
 
+        if *start == self.lumps.len() {
+            return None;
+        }
+
         let item = (self.transformer)(&self.lumps[*start]);
         *start += 1;
         Some(item)
@@ -357,7 +361,7 @@ impl WadData {
             lump_offset: 0,
             current: 0,
             transformer: move |ofs| {
-                WadVertex::new(info.read_i16(ofs) as i32, info.read_i16(ofs + 2) as i32)
+                WadVertex::new(info.read_i16(ofs) as f32, info.read_i16(ofs + 2) as f32)
             },
             _phantom: Default::default(),
         }
@@ -430,8 +434,8 @@ impl WadData {
             current: 0,
             transformer: move |ofs| {
                 let back_sidedef = {
-                    let index = info.read_i16(ofs + 12);
-                    if (index as u16) < u16::MAX {
+                    let index = info.read_i16(ofs + 12) as u16;
+                    if index < u16::MAX {
                         Some(index)
                     } else {
                         None
@@ -444,8 +448,12 @@ impl WadData {
                     info.read_i16(ofs + 4),
                     info.read_i16(ofs + 6),
                     info.read_i16(ofs + 8),
-                    info.read_i16(ofs + 10),
+                    info.read_i16(ofs + 10) as u16,
                     back_sidedef,
+                    [
+                        info.read_i16(ofs + 10) as u16,
+                        info.read_i16(ofs + 12) as u16,
+                    ],
                 )
             },
             _phantom: Default::default(),
@@ -466,8 +474,8 @@ impl WadData {
             current: 0,
             transformer: move |ofs| {
                 WadSegment::new(
-                    info.read_i16(ofs) as i32,
-                    info.read_i16(ofs + 2) as i32,
+                    info.read_i16(ofs) as u32,
+                    info.read_i16(ofs + 2) as u32,
                     info.read_i16(ofs + 4),
                     info.read_i16(ofs + 6) as u16,
                     info.read_i16(ofs + 8),
@@ -497,6 +505,17 @@ impl WadData {
         }
     }
 
+    pub fn node_lump_type(&self, map_name: &str) -> NodeLumpType {
+        let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
+        let bytes = [
+            info.read_i16(0) as u8,
+            info.read_i16(1) as u8,
+            info.read_i16(2) as u8,
+            info.read_i16(3) as u8,
+        ];
+        NodeLumpType::from_bytes(&bytes)
+    }
+
     pub fn node_iter(&self, map_name: &str) -> OffsetIter<WadNode, impl Fn(usize) -> WadNode + '_> {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
         let item_size = 28;
@@ -521,6 +540,14 @@ impl WadData {
             lump_offset: 0,
             current: 0,
             transformer: move |ofs| {
+                let mut right = info.read_u16(ofs + 24) as u32;
+                if right == u16::MAX as u32 {
+                    right = u32::MAX;
+                }
+                let mut left = info.read_u16(ofs + 26) as u32;
+                if left == u16::MAX as u32 {
+                    left = u32::MAX;
+                }
                 WadNode::new(
                     info.read_i16(ofs),     // X
                     info.read_i16(ofs + 2), // Y
@@ -540,8 +567,8 @@ impl WadData {
                             info.read_i16(ofs + 22), // right
                         ],
                     ],
-                    info.read_u16(ofs + 24) as u32, // right child index
-                    info.read_u16(ofs + 26) as u32, // left child index
+                    right, // right child index
+                    left,  // left child index
                 )
             },
             _phantom: Default::default(),
@@ -575,6 +602,21 @@ mod tests {
         assert_eq!(next.flags, 7);
 
         assert_eq!(wad.thing_iter("E1M1").count(), 138);
+    }
+
+    #[test]
+    fn node_iter() {
+        let wad = WadData::new("../doom1.wad".into());
+        let mut iter = wad.node_iter("E1M1");
+        // All verified with SLADE
+
+        let next = iter.next().unwrap();
+        assert_eq!(next.x, 1552);
+        assert_eq!(next.y, -2432);
+        assert_eq!(next.dx, 112);
+        assert_eq!(next.dy, 0);
+
+        assert_eq!(wad.node_iter("E1M1").count(), 236);
     }
 
     #[test]

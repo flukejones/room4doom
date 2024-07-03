@@ -34,14 +34,15 @@ pub(crate) mod utilities;
 
 pub use angle::Angle;
 pub use doom_def::{
-    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION, MAXPLAYERS, TICRATE, WEAPON_INFO
+    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
+    MAXPLAYERS, TICRATE, WEAPON_INFO,
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;
 pub use info::MapObjKind;
 pub use lang::english;
 pub use level::flags::LineDefFlags;
-pub use level::map_data::{MapData, IS_SSECTOR_MASK};
+pub use level::map_data::MapData;
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
 pub use level::Level;
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};

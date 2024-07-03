@@ -15,7 +15,7 @@ pub enum SlopeType {
 
 /// The SECTORS record, at runtime.
 /// Stores things/mobjs.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Sector {
     /// An incremented "ID" of sorts.
     pub num: u32,
@@ -47,6 +47,18 @@ pub struct Sector {
 
     // thing that made a sound (or null)
     sound_target: Option<*mut Thinker>,
+}
+
+impl std::fmt::Debug for Sector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sector")
+            .field("num", &self.num)
+            .field("floorheight", &self.floorheight)
+            .field("ceilingheight", &self.ceilingheight)
+            .field("floorpic", &self.floorpic)
+            .field("ceilingpic", &self.ceilingpic)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Sector {
@@ -262,28 +274,26 @@ pub struct LineDef {
     // Vertices, from v1 to v2.
     pub v1: Vec2,
     pub v2: Vec2,
-
     // Precalculated v2 - v1 for side checking.
     pub delta: Vec2,
-
     // Animation related.
     pub flags: u32,
     pub special: i16,
     pub tag: i16,
 
-    // Visual appearance: SideDefs.
-    //  sidenum[1] will be -1 if one sided
-    // Can leave this out as backsector.is_none() can check
-    // pub sidenum: [i16; 2],
-
     // Neat. Another bounding box, for the extent
     //  of the LineDef.
     pub bbox: BBox,
-
     // To aid move clipping.
     pub slopetype: SlopeType,
 
+    /// Convenience
+    pub sides: [u16; 2],
+    // Visual appearance: SideDefs.
+    //  sidenum[1] will be -1 if one sided
+    /// Helper to prevent having to lookup the sidedef. Used for interaction stuff or setting the textures to draw but not used during drawing.
     pub front_sidedef: MapPtr<SideDef>,
+    /// Helper to prevent having to lookup the sidedef. Used for interaction stuff or setting the textures to draw but not used during drawing.
     pub back_sidedef: Option<MapPtr<SideDef>>,
 
     // Front and back sector.
@@ -298,19 +308,33 @@ pub struct LineDef {
 
 impl std::fmt::Debug for LineDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Visplane")
+        f.debug_struct("Linedef")
             .field("v1", &self.v1)
             .field("v2", &self.v2)
             .field("flags", &self.flags)
             .field("tag", &self.tag)
             .field("bbox", &self.bbox)
             .field("slopetype", &self.slopetype)
-            .field("valid_count", &self.valid_count)
+            .field("front_sidedef", &self.front_sidedef)
+            .field("back_sidedef", &self.back_sidedef)
+            // .field("valid_count", &self.valid_count)
             .finish_non_exhaustive()
     }
 }
 
 impl LineDef {
+    /// True if the right side of the segment faces the point
+    pub fn is_facing_point(&self, point: &Vec2) -> bool {
+        let start = &self.v1;
+        let end = &self.v2;
+
+        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
+        if d >= 0.0 {
+            return false;
+        }
+        true
+    }
+
     pub fn point_on_side(&self, v: Vec2) -> usize {
         // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
         // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
@@ -331,7 +355,7 @@ impl LineDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Segment {
     // Vertices, from v1 to v2.
     pub v1: Vec2,
@@ -339,15 +363,11 @@ pub struct Segment {
 
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
-    ///
-    /// For diagonal `Segment` offset can be found with:
-    /// `DISTANCE = SQR((x2 - x1)^2 + (y2 - y1)^2)`
     pub offset: f32,
-
     pub angle: Angle,
 
     pub sidedef: MapPtr<SideDef>,
-    /// The Linedef this segment travels along
+    /// The Linedef this segment travels along. During drawing it is used for finding flags.
     pub linedef: MapPtr<LineDef>,
 
     pub frontsector: MapPtr<Sector>,
@@ -355,6 +375,31 @@ pub struct Segment {
 }
 
 impl Segment {
+    pub fn test_panic(&self) -> bool {
+        // vertex:
+        // 12 top-left (256.0, -1392.0)
+        // 4176 top-right (272.0, -1392.0)
+        // 4143 bottom-right (272.0, -1408.0)
+        if self.v2 == Vec2::new(256., -1392.) && self.v1 == Vec2::new(272., -1392.) {
+            dbg!(self.sidedef.bottomtexture);
+            dbg!(&self.linedef.front_sidedef);
+            dbg!(&self.linedef.back_sidedef);
+            dbg!(&self.frontsector);
+            dbg!(&self.backsector);
+            dbg!(self.sidedef != self.linedef.front_sidedef);
+            return true;
+        }
+        false
+    }
+
+    /// Helper to recalcuate the offset of a seg along the linedef line it is
+    /// derived from. Required for ZDBSP style nodes.
+    pub fn recalc_offset(v1: Vec2, v2: Vec2) -> f32 {
+        let a = v1.x - v2.x;
+        let b = v1.y - v2.y;
+        (a * a + b * b).sqrt()
+    }
+
     /// True if the right side of the segment faces the point
     pub fn is_facing_point(&self, point: &Vec2) -> bool {
         let start = &self.v1;
@@ -397,7 +442,7 @@ pub struct SubSector {
     pub start_seg: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Node {
     /// Where the line used for splitting the level starts
     pub xy: Vec2,
@@ -408,14 +453,12 @@ pub struct Node {
     /// - [0][1] == right box, bottom-right
     /// - [1][0] == left box, top-left
     /// - [1][1] == left box, bottom-right
-    pub bounding_boxes: [[Vec2; 2]; 2],
+    pub bboxes: [[Vec2; 2]; 2],
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
-    /// code by inverting the last bit
-    pub child_index: [u32; 2],
-    /// The parent of this node. Additional property to allow reversing up a BSP
-    /// tree.
-    pub parent: u16,
+    /// code by inverting the last bit.
+    /// The final 'leaf' is bitmasked to find the index to subsector array
+    pub children: [u32; 2],
 }
 
 #[cfg(test)]

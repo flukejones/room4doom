@@ -8,7 +8,6 @@ use crate::utilities::{
 use gameplay::log::trace;
 use gameplay::{
     Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
-    IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
@@ -16,7 +15,8 @@ use std::f32::consts::PI;
 use std::mem;
 
 const MAX_SEGS: usize = 128;
-const MAX_VIS_SPRITES: usize = 256;
+const MAX_VIS_SPRITES: usize = 1024;
+const IS_SSECTOR_MASK: u32 = 0x80000000;
 
 // Need to sort out what is shared and what is not so that a data struct
 // can be organised along with method/ownsership
@@ -151,26 +151,36 @@ impl SoftwareRenderer {
         // reject orthogonal back sides
         let viewangle = mobj.angle;
 
-        if !seg.is_facing_point(&mobj.xy) {
-            return;
-        }
+        // #[allow(invalid_reference_casting)]
+        // let seg = unsafe { &mut *(seg as *const Segment as *mut Segment) };
+        // if seg.sidedef != seg.linedef.front_sidedef {
+        //     std::mem::swap(&mut seg.v1, &mut seg.v2);
+        // }
 
-        let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
+        // Blocks some zdoom segs rendering
+        // if !seg.is_facing_point(&mobj.xy) {
+        //     return;
+        // }
+
+        // if seg.v1 == Vec2::new(256., -1392.) && seg.v2 == Vec2::new(272., -1392.) {
+        //     panic!();
+        // }
+
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
-        if span >= PI {
+        if span.abs() >= PI {
             // widescreen: Leave as is
             return;
         }
 
         // Global angle needed by segcalc.
         self.r_data.rw_angle1 = angle1; // widescreen: Leave as is
-
         angle1 -= viewangle; // widescreen: Leave as is
         angle2 -= viewangle; // widescreen: Leave as is
 
+        let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
         let mut tspan = angle1 + clipangle;
         if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
@@ -207,7 +217,7 @@ impl SoftwareRenderer {
             return;
         }
 
-        if let Some(back_sector) = &seg.backsector {
+        if let Some(back_sector) = seg.backsector.clone() {
             // Doors. Block view
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
@@ -235,10 +245,11 @@ impl SoftwareRenderer {
             {
                 return;
             }
+
             self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
-        } else {
-            self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
+            return;
         }
+        self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
     }
 
     /// R_Subsector - r_bsp
@@ -383,7 +394,7 @@ impl SoftwareRenderer {
         first: f32,
         last: f32,
         seg: &Segment,
-        object: &Player,
+        player: &Player,
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
@@ -401,7 +412,7 @@ impl SoftwareRenderer {
                     first,
                     last,
                     seg,
-                    object,
+                    player,
                     &mut self.r_data,
                     pic_data,
                     pixels,
@@ -414,7 +425,7 @@ impl SoftwareRenderer {
                 first,
                 self.solidsegs[start].first - 1.0,
                 seg,
-                object,
+                player,
                 &mut self.r_data,
                 pic_data,
                 pixels,
@@ -431,7 +442,7 @@ impl SoftwareRenderer {
                 self.solidsegs[start].last + 1.0,
                 self.solidsegs[start + 1].first - 1.0,
                 seg,
-                object,
+                player,
                 &mut self.r_data,
                 pic_data,
                 pixels,
@@ -449,7 +460,7 @@ impl SoftwareRenderer {
             self.solidsegs[start].last + 1.0,
             last,
             seg,
-            object,
+            player,
             &mut self.r_data,
             pic_data,
             pixels,
@@ -482,11 +493,17 @@ impl SoftwareRenderer {
         *count += 1;
         let mobj = unsafe { player.mobj_unchecked() };
 
-        if node_id & IS_SSECTOR_MASK != 0 {
-            // It's a leaf node and is the index to a subsector
-            let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
-            // Check if it should be drawn, then draw
-            self.draw_subsector(map, player, subsect, pic_data, pixels);
+        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+            if node_id == u32::MAX {
+                let subsect = &map.subsectors()[0];
+                // Check if it should be drawn, then draw
+                self.draw_subsector(map, player, subsect, pic_data, pixels);
+            } else {
+                // It's a leaf node and is the index to a subsector
+                let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
+                // Check if it should be drawn, then draw
+                self.draw_subsector(map, player, subsect, pic_data, pixels);
+            }
             return;
         }
 
@@ -495,7 +512,7 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.child_index[side], pic_data, pixels, count);
+        self.render_bsp_node(map, player, node.children[side], pic_data, pixels, count);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -510,7 +527,7 @@ impl SoftwareRenderer {
             self.render_bsp_node(
                 map,
                 player,
-                node.child_index[side ^ 1],
+                node.children[side ^ 1],
                 pic_data,
                 pixels,
                 count,
@@ -532,8 +549,8 @@ impl SoftwareRenderer {
         // BOXBOT = 1
         // BOXLEFT = 2
         // BOXRIGHT = 3
-        let lt = node.bounding_boxes[side][0];
-        let rb = node.bounding_boxes[side][1];
+        let lt = node.bboxes[side][0];
+        let rb = node.bboxes[side][1];
 
         if node.point_in_bounds(&mobj.xy, side) {
             return true;
@@ -661,57 +678,5 @@ impl SoftwareRenderer {
             return false;
         }
         true
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use gameplay::{MapData, PicData, IS_SSECTOR_MASK};
-    use wad::WadData;
-
-    #[test]
-    fn check_nodes_of_e1m1() {
-        let wad = WadData::new("../../doom1.wad".into());
-        let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
-
-        let nodes = map.get_nodes();
-        assert_eq!(nodes[0].xy.x as i32, 1552);
-        assert_eq!(nodes[0].xy.y as i32, -2432);
-        assert_eq!(nodes[0].delta.x as i32, 112);
-        assert_eq!(nodes[0].delta.y as i32, 0);
-
-        assert_eq!(nodes[0].bounding_boxes[0][0].x as i32, 1552); //left
-        assert_eq!(nodes[0].bounding_boxes[0][0].y as i32, -2432); //top
-        assert_eq!(nodes[0].bounding_boxes[0][1].x as i32, 1664); //right
-        assert_eq!(nodes[0].bounding_boxes[0][1].y as i32, -2560); //bottom
-
-        assert_eq!(nodes[0].bounding_boxes[1][0].x as i32, 1600);
-        assert_eq!(nodes[0].bounding_boxes[1][0].y as i32, -2048);
-
-        assert_eq!(nodes[0].child_index[0], 32768);
-        assert_eq!(nodes[0].child_index[1], 32769);
-        assert_eq!(IS_SSECTOR_MASK, 0x8000);
-
-        assert_eq!(nodes[235].xy.x as i32, 2176);
-        assert_eq!(nodes[235].xy.y as i32, -3776);
-        assert_eq!(nodes[235].delta.x as i32, 0);
-        assert_eq!(nodes[235].delta.y as i32, -32);
-        assert_eq!(nodes[235].child_index[0], 128);
-        assert_eq!(nodes[235].child_index[1], 234);
-
-        println!("{:#018b}", IS_SSECTOR_MASK);
-
-        println!("00: {:#018b}", nodes[0].child_index[0]);
-        println!("00: {:#018b}", nodes[0].child_index[1]);
-
-        println!("01: {:#018b}", nodes[1].child_index[0]);
-        println!("01: {:#018b}", nodes[1].child_index[1]);
-
-        println!("02: {:#018b}", nodes[2].child_index[0]);
-        println!("02: {:#018b}", nodes[2].child_index[1]);
-
-        println!("03: {:#018b}", nodes[3].child_index[0]);
-        println!("03: {:#018b}", nodes[3].child_index[1]);
     }
 }
