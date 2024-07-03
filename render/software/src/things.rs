@@ -275,7 +275,7 @@ impl SoftwareRenderer {
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
-        for x in vis.x1.round() as usize..=vis.x2.round() as usize {
+        for x in vis.x1.floor() as usize..=vis.x2.floor() as usize {
             let tex_column = frac as usize;
             if tex_column >= patch.data.len() {
                 break;
@@ -544,7 +544,7 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            for x in x1.round() as usize..=x2.round() as usize {
+            for x in x1.floor() as usize..=x2.floor() as usize {
                 if ds.maskedtexturecol + (x as f32) < 0.0 {
                     spryscale += rw_scalestep;
                     continue;

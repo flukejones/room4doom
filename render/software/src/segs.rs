@@ -784,23 +784,21 @@ pub fn draw_flat_column(
 
     let angle = angle + screen_x;
     let distscale = 1.0 / screen_x.cos() * wide_ratio;
-    let cos = angle.cos();
-    let sin = angle.sin();
+    let cos = angle.cos().abs();
+    let sin = angle.sin().abs();
 
     // let lm = &pic_data.zlight_scale[total_light];
     let pal = pic_data.palette();
-    for y in yl..=yh {
-        if y >= yslope_table.len() {
-            break;
-        }
-        let distance = plane_height * yslope_table[y];
+    let tex_len = texture.data.len() - 1; // always square
+    for (y, slope) in yslope_table.iter().enumerate().take(yh + 1).skip(yl) {
+        let distance = plane_height * slope;
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;
-        let ds_yfrac = -viewxy.y - sin * length;
+        let ds_yfrac = viewxy.y + sin * length;
 
         // flats are 64x64 so a bitwise op works here
-        let x_step = ds_xfrac.abs() as usize & (texture.data.len() - 1);
-        let y_step = ds_yfrac.abs() as usize & (texture.data[0].len() - 1);
+        let x_step = ds_xfrac.abs() as usize & (tex_len);
+        let y_step = ds_yfrac.abs() as usize & (tex_len);
 
         // changed from `distance` to `length` to provide a radius light
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as usize);
@@ -817,4 +815,5 @@ pub fn draw_flat_column(
             pixels.set_pixel(dc_x, y, &pal[px].0);
         }
     }
+    // panic!()
 }
