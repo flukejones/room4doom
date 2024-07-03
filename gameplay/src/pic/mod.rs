@@ -56,7 +56,7 @@ pub struct SpritePic {
     pub data: Vec<Vec<usize>>,
 }
 
-type Palette = [usize; 256];
+type Colourmap = [usize; 256];
 const PALLETE_LEN: usize = 14;
 const COLOURMAP_LEN: usize = 34;
 
@@ -65,11 +65,11 @@ pub struct PicData {
     /// Colours for pixels
     palettes: [WadPalette; PALLETE_LEN],
     // Usually 34 blocks of 256, each u8 being an index in to the palette
-    colourmap: [Palette; COLOURMAP_LEN],
-    // 16 groups of 48 sets of palette
-    light_scale: Vec<Vec<Palette>>,
+    colourmap: [Colourmap; COLOURMAP_LEN],
+    // 16 groups of 48 sets of indexes to colourmap
+    light_scale: [[usize; 48]; 16],
     // 16 groups of 128 sets of palette
-    pub zlight_scale: Vec<Vec<Palette>>,
+    pub zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
     walls: Vec<WallPic>,
     /// Used in animations
@@ -103,8 +103,8 @@ impl PicData {
 
         let colourmap = Self::init_colourmap(wad);
         let palettes = Self::init_palette(wad);
-        let light_scale = Self::init_light_scales(&colourmap);
-        let zlight_scale = Self::init_zlight_scales(&colourmap);
+        let light_scale = Self::init_light_scales();
+        let zlight_scale = Self::init_zlight_scales();
 
         let (walls, sky_pic) = Self::init_wall_pics(wad);
         let wall_translation = (0..walls.len()).collect();
@@ -178,16 +178,16 @@ impl PicData {
         tmp
     }
 
-    fn init_colourmap(wad: &WadData) -> [Palette; COLOURMAP_LEN] {
+    fn init_colourmap(wad: &WadData) -> [Colourmap; COLOURMAP_LEN] {
         print!(".");
         let mut tmp = [[0; 256]; COLOURMAP_LEN];
-        let maps: Vec<Palette> = wad
+        let maps: Vec<Colourmap> = wad
             .colourmap_iter()
             .map(|i| i as usize)
             .collect::<Vec<usize>>()
             .chunks(256)
             .map(|v| {
-                let mut tmp: Palette = [0; 256];
+                let mut tmp: Colourmap = [0; 256];
                 tmp.copy_from_slice(v);
                 tmp
             })
@@ -196,29 +196,30 @@ impl PicData {
         tmp
     }
 
-    fn init_light_scales(colourmap: &[Palette]) -> Vec<Vec<Palette>> {
+    /// Populate the indexes to colourmaps
+    fn init_light_scales() -> [[usize; 48]; 16] {
         print!(".");
-        (0..LIGHTLEVELS)
-            .map(|i| {
-                let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
-                (0..MAXLIGHTSCALE)
-                    .map(|j| {
-                        // let j = MAXLIGHTSCALE - j;
-                        let mut level = startmap - j / 2;
-                        // let scale = (160 / (j + 1)) as f32;
-                        // let mut level = startmap - (scale / 2.0) as
-                        // i32;
-                        if level < 0 {
-                            level = 0;
-                        }
-                        if level >= NUMCOLORMAPS {
-                            level = NUMCOLORMAPS - 1;
-                        }
-                        colourmap[level as usize].to_owned()
-                    })
-                    .collect()
-            })
-            .collect()
+        let mut tmp = [[0; 48]; 16];
+        for i in 0..LIGHTLEVELS {
+            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+            for j in 0..MAXLIGHTSCALE {
+                // let j = MAXLIGHTSCALE - j;
+                let mut level = startmap - j / 2;
+                // let scale = (160 / (j + 1)) as f32;
+                // let mut level = startmap - (scale / 2.0) as
+                // i32;
+                if level < 0 {
+                    level = 0;
+                }
+                if level >= NUMCOLORMAPS {
+                    level = NUMCOLORMAPS - 1;
+                }
+                // TODO: maybe turn this in to indexing? of colourmaps
+                // tmp[i as usize][j as usize].copy_from_slice(&colourmap[level as usize]);
+                tmp[i as usize][j as usize] = level as usize;
+            }
+        }
+        tmp
     }
 
     /// A non-zero value is the the colourmap number forced to use for all
@@ -227,26 +228,24 @@ impl PicData {
         self.use_fixed_colourmap = colourmap
     }
 
-    fn init_zlight_scales(colourmap: &[Palette]) -> Vec<Vec<Palette>> {
+    fn init_zlight_scales() -> [[usize; 128]; 16] {
         print!(".");
-        (0..LIGHTLEVELS)
-            .map(|i| {
-                let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
-                (0..MAXLIGHTZ)
-                    .map(|j| {
-                        let scale = (160 / (j + 1)) as f32;
-                        let mut level = startmap - (scale / 2.0) as i32;
-                        if level < 0 {
-                            level = 0;
-                        }
-                        if level >= NUMCOLORMAPS {
-                            level = NUMCOLORMAPS - 1;
-                        }
-                        colourmap[level as usize].to_owned()
-                    })
-                    .collect()
-            })
-            .collect()
+        let mut tmp = [[0usize; 128]; 16];
+        for i in 0..LIGHTLEVELS {
+            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+            for j in 0..MAXLIGHTZ {
+                let scale = (160 / (j + 1)) as f32;
+                let mut level = startmap - (scale / 2.0) as i32;
+                if level < 0 {
+                    level = 0;
+                }
+                if level >= NUMCOLORMAPS {
+                    level = NUMCOLORMAPS - 1;
+                }
+                tmp[i as usize][j] = level as usize;
+            }
+        }
+        tmp
     }
 
     fn init_wall_pics(wad: &WadData) -> (Vec<WallPic>, usize) {
@@ -522,9 +521,11 @@ impl PicData {
         let colourmap = self.colourmap_for_scale(wall_scale);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            self.light_scale
+            let i = self
+                .light_scale
                 .get_unchecked(light_level)
-                .get_unchecked(colourmap)
+                .get_unchecked(colourmap);
+            self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
         &self.light_scale[light_level][colourmap]
@@ -548,9 +549,11 @@ impl PicData {
 
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            self.zlight_scale
+            let i = self
+                .zlight_scale
                 .get_unchecked(light_level)
-                .get_unchecked(dist)
+                .get_unchecked(dist);
+            self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
         &self.zlight_scale[light_level][dist]
