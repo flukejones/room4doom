@@ -3,15 +3,17 @@ use super::segs::SegRender;
 use super::things::VisSprite;
 use super::RenderData;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
 };
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector, IS_SSECTOR_MASK
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
+    IS_SSECTOR_MASK,
 };
 use glam::Vec2;
 use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
 use std::f32::consts::PI;
+use std::mem;
 
 const MAX_SEGS: usize = 128;
 const MAX_VIS_SPRITES: usize = 256;
@@ -98,8 +100,6 @@ impl PlayRenderer for SoftwareRenderer {
         );
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        // self.draw_planes(player, pic_data, buffer.pixel_buffer());
-        // TODO: netupdate again
         self.draw_masked(player, pic_data, buffer.pixel_buffer());
         // TODO: netupdate again
     }
@@ -130,14 +130,12 @@ impl SoftwareRenderer {
 
     fn clear(&mut self, screen_width: f32) {
         for vis in self.vissprites.iter_mut() {
-            vis.clear();
+            *vis = unsafe { mem::zeroed::<VisSprite>() };
         }
         self.next_vissprite = 0;
 
         self.clear_clip_segs(screen_width);
         self.r_data.clear_data();
-        // No need to recreate or clear as it is fully overwritten each frame
-        // self.seg_renderer = SegRender::new(self.texture_data.clone());
     }
 
     /// R_AddLine - r_bsp

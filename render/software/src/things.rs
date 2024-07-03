@@ -3,7 +3,8 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::{error, warn};
 use gameplay::{
-    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
+    Sector,
 };
 use glam::Vec2;
 use render_target::PixelBuffer;
@@ -18,7 +19,7 @@ const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
 /// Divisor for selecting which frame rotation to use
 const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Default)]
 pub struct VisSprite {
     x1: f32,
     x2: f32,
@@ -78,22 +79,6 @@ impl VisSprite {
             light_level: 0,
             mobj_flags: 0,
         }
-    }
-
-    pub fn clear(&mut self) {
-        self.x1 = 0.0;
-        self.x2 = 0.0;
-        self.gx = 0.0;
-        self.gy = 0.0;
-        self.gz = 0.0;
-        self.gzt = 0.0;
-        self.start_frac = 0.0;
-        self.scale = 0.0;
-        self.x_iscale = 0.0;
-        self.texture_mid = 0.0;
-        self.patch = 0;
-        self.light_level = 0;
-        self.mobj_flags = 0;
     }
 }
 
