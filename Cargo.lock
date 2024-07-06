@@ -123,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "finale-doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -133,7 +133,7 @@ dependencies = [
 
 [[package]]
 name = "gameplay"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glam",
  "log",
@@ -144,7 +144,7 @@ dependencies = [
 
 [[package]]
 name = "gamestate"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "gamestate-traits",
@@ -158,7 +158,7 @@ dependencies = [
 
 [[package]]
 name = "gamestate-traits"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "render-target",
@@ -215,7 +215,7 @@ checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
 name = "hud-doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "hud-util"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gamestate-traits",
  "log",
@@ -240,7 +240,7 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "input"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "nanoserde",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "intermission-doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "gamestate-traits",
@@ -336,7 +336,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "menu-doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gamestate-traits",
  "log",
@@ -436,7 +436,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 
 [[package]]
 name = "render-soft"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "glam",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "render-target"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gameplay",
  "golem",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "room4doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "argh",
  "dirs",
@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "sound-nosnd"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glam",
  "log",
@@ -543,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "sound-sdl2"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glam",
  "log",
@@ -555,11 +555,11 @@ dependencies = [
 
 [[package]]
 name = "sound-traits"
-version = "0.14.0"
+version = "0.14.1"
 
 [[package]]
 name = "statusbar-doom"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -627,7 +627,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wad"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "log",
 ]
