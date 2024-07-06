@@ -265,7 +265,7 @@ pub struct WadLineDef {
     /// The line ends at this point
     pub end_vertex: u16,
     /// The line attributes, see `LineDefFlags`
-    pub flags: i16,
+    pub flags: u16,
     pub special: i16,
     /// This is a number which ties this line's effect type
     /// to all SECTORS that have the same tag number (in their last
@@ -284,7 +284,7 @@ impl WadLineDef {
     pub fn new(
         start_vertex: u16,
         end_vertex: u16,
-        flags: i16,
+        flags: u16,
         line_type: i16,
         sector_tag: i16,
         front_sidedef: u16,
@@ -334,7 +334,7 @@ pub struct WadSegment {
     /// The Linedef this segment travels along
     pub linedef: u16,
     /// The `side`, 0 = front/right, 1 = back/left
-    pub side: i16,
+    pub side: u16,
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
     ///
@@ -357,12 +357,12 @@ impl WadSegment {
             end_vertex,
             angle,
             linedef,
-            side,
+            side: side as u16,
             offset,
         }
     }
 
-    pub fn new_z(start_vertex: u32, end_vertex: u32, linedef: u16, side: i16) -> WadSegment {
+    pub fn new_z(start_vertex: u32, end_vertex: u32, linedef: u16, side: u16) -> WadSegment {
         WadSegment {
             start_vertex,
             end_vertex,

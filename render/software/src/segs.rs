@@ -160,10 +160,13 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut dyn PixelBuffer,
     ) {
-        //seg:, x:496.000000, y:-1072.000000
-        //seg:, x:496.000000, y:-1040.000000
-        if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0) {
-            dbg!(&seg.sidedef);
+        // //seg:, x:496.000000, y:-1072.000000
+        // //seg:, x:496.000000, y:-1040.000000
+        // if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0)
+        // {     dbg!(&seg.sidedef);
+        // }
+        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
+            panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
         // bounds check before getting ref
@@ -179,10 +182,6 @@ impl SegRender {
         }
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
-
-        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
-            panic!("Bad R_RenderWallRange: {} to {}", start, stop);
-        }
 
         // These need only be locally defined to make some things easier
         let sidedef = seg.sidedef.clone();
@@ -205,8 +204,6 @@ impl SegRender {
         self.rw_startx = ds_p.x1;
         ds_p.x2 = stop;
         self.rw_stopx = stop + 1.0;
-        // TODO: doublecheck the angles and bounds
-        //screen_to_x_view(self.fov, start, pixels.size().half_width_f32());
         self.rw_scale = scale_from_view_angle(
             mobj.angle + self.screen_x[start as u32 as usize],
             self.rw_normalangle,
@@ -217,8 +214,6 @@ impl SegRender {
         ds_p.scale1 = self.rw_scale;
 
         if stop > start {
-            //screen_to_x_view(self.fov, stop, pixels.size().half_width_f32());
-            // scale2 and rw_scale appears corrrect
             ds_p.scale2 = scale_from_view_angle(
                 mobj.angle + self.screen_x[stop as u32 as usize],
                 self.rw_normalangle,
@@ -248,9 +243,9 @@ impl SegRender {
 
         if seg.backsector.is_none() {
             // single sided line
-            self.midtexture = sidedef.midtexture.is_some();
             self.markfloor = true;
             self.markceiling = true;
+            self.midtexture = sidedef.midtexture.is_some();
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
@@ -510,7 +505,6 @@ impl SegRender {
         let sky_colourmap = pic_data.colourmap(0);
 
         let sidedef = seg.sidedef.clone();
-
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as u32 as usize;
             // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
@@ -624,6 +618,16 @@ impl SegRender {
                 dc_iscale = 1.0 / self.rw_scale;
             }
 
+            //map20
+            // if seg.v1 == Vec2::new(-560.000000, -3952.000000)
+            //     || seg.v2 == Vec2::new(-560.000000, -3952.000000)
+            // {
+            //     dbg!(yl <= yh);
+            //     if yl <= yh {
+            //         dbg!(seg);
+            //     }
+            // }
+
             if self.midtexture {
                 if yl <= yh {
                     if let Some(mid_tex) = sidedef.midtexture {
@@ -641,10 +645,9 @@ impl SegRender {
                             pixels,
                         );
                     };
+                    rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
+                    rdata.portal_clip.floorclip[clip_index] = -1.0;
                 }
-
-                rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
-                rdata.portal_clip.floorclip[clip_index] = -1.0;
             } else {
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
@@ -671,7 +674,6 @@ impl SegRender {
                                 pixels,
                             );
                         }
-
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
                     } else {
                         rdata.portal_clip.ceilingclip[clip_index] = yl - 1.0;
@@ -704,8 +706,8 @@ impl SegRender {
                                 false,
                                 pixels,
                             );
+                            rdata.portal_clip.floorclip[clip_index] = mid;
                         }
-                        rdata.portal_clip.floorclip[clip_index] = mid;
                     } else {
                         rdata.portal_clip.floorclip[clip_index] = yh + 1.0;
                     }

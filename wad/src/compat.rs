@@ -177,7 +177,7 @@ impl WadExtendedMap {
                 lump.read_u32(ofs),
                 lump.read_u32(ofs + 4),
                 lump.read_u16(ofs + 8),
-                u8::from_be(lump.data[ofs + 10]) as i16,
+                lump.data[ofs + 10] as u16,
             ));
             ofs += 11;
         }
@@ -236,8 +236,9 @@ mod tests {
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3_check_vertex() {
+        let name = "MAP03";
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
-        let map = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
 
         // All verified with crispy
         const FRACUNIT: f32 = (1 << 16) as f32;
@@ -246,7 +247,7 @@ mod tests {
         // newVerts: 965 : 85983232
         assert_eq!(map.vertexes[965].x, 85983232f32 / FRACUNIT);
 
-        let vertexes: Vec<WadVertex> = wad.vertex_iter("MAP03").collect();
+        let vertexes: Vec<WadVertex> = wad.vertex_iter(name).collect();
         // org_vertexes: 5485 : 4390912
         assert_eq!(vertexes[5485].x, 4390912f32 / FRACUNIT);
         // vertexes: 4025 : -28311552
@@ -256,8 +257,9 @@ mod tests {
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3_check_subs() {
+        let name = "MAP03";
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
-        let map = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
         assert_eq!(map.subsectors.len(), 4338);
 
         // subsectors[1130]: first: 3834, num: 4
@@ -274,8 +276,9 @@ mod tests {
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3_check_segs() {
+        let name = "MAP03";
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
-        let map = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
         // numSegs: 14582
         assert_eq!(map.segments.len(), 14582);
 
@@ -301,8 +304,9 @@ mod tests {
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3_check_nodes() {
+        let name = "MAP03";
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
-        let map = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
         // Node: 666
         // no->x: 12, no->y: -342, no->dx: 0, no->dy: -20
         // child[0]: 665, child[1]: -2147482974
@@ -337,8 +341,9 @@ mod tests {
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3() {
+        let name = "MAP03";
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
-        let map = WadExtendedMap::parse(&wad, "MAP03").unwrap();
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
 
         assert_eq!(map.num_org_vertices, 5525); // verified with crispy
         assert_eq!(map.vertexes.len(), 996); // verified with crispy
@@ -346,10 +351,10 @@ mod tests {
         assert_eq!(map.segments.len(), 14582);
         assert_eq!(map.nodes.len(), 11589);
 
-        let sectors: Vec<WadSector> = wad.sector_iter("MAP03").collect();
+        let sectors: Vec<WadSector> = wad.sector_iter(name).collect();
         assert_eq!(sectors.len(), 954);
 
-        let linedefs: Vec<WadLineDef> = wad.linedef_iter("MAP03").collect();
+        let linedefs: Vec<WadLineDef> = wad.linedef_iter(name).collect();
         assert_eq!(linedefs.len(), 7476);
         assert_eq!(linedefs[3103].front_sidedef, 5094);
         assert_eq!(linedefs[3103].back_sidedef, Some(5095));
@@ -366,7 +371,7 @@ mod tests {
         assert_eq!(linedefs[2670].start_vertex, 2499); // test this
         assert_eq!(linedefs[2670].end_vertex, 2500); //
 
-        let sidedefs: Vec<WadSideDef> = wad.sidedef_iter("MAP03").collect();
+        let sidedefs: Vec<WadSideDef> = wad.sidedef_iter(name).collect();
         assert_eq!(sidedefs.len(), 12781);
         assert_eq!(sidedefs[4387].lower_tex, "");
         assert_eq!(sidedefs[4387].upper_tex, "");
@@ -374,7 +379,7 @@ mod tests {
         assert_eq!(sidedefs[4388].upper_tex, "METAL");
         assert_eq!(sidedefs[4388].sector, 0); // sector 0 why???? This breaks shit
 
-        let vertexes: Vec<WadVertex> = wad.vertex_iter("MAP03").collect();
+        let vertexes: Vec<WadVertex> = wad.vertex_iter(name).collect();
         assert_eq!(map.num_org_vertices, vertexes.len());
         assert_eq!(vertexes[2752].x, 1016.0);
         assert_eq!(vertexes[2752].y, -720.0);
@@ -388,7 +393,30 @@ mod tests {
         assert_eq!(map.vertexes[666].x, 2176.0);
         assert_eq!(map.vertexes[666].y, -496.0);
 
-        let sidedefs: Vec<WadSideDef> = wad.sidedef_iter("MAP03").collect();
+        let sidedefs: Vec<WadSideDef> = wad.sidedef_iter(name).collect();
         assert_eq!(sidedefs.len(), 12781);
+    }
+
+    #[ignore = "sunder.wad can't be included in git"]
+    #[test]
+    fn extended_nodes_sunder_m19() {
+        let name = "MAP19";
+        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let map = WadExtendedMap::parse(&wad, name).unwrap();
+
+        assert_eq!(map.num_org_vertices, 55802); // verified with slade
+        assert_eq!(map.num_new_vertices, 21241); // not verified
+        assert_eq!(map.vertexes.len(), 21241); // not verified
+        assert_eq!(map.subsectors.len(), 51692); // not verified
+        assert_eq!(map.segments.len(), 158867); // not verified
+        assert_eq!(map.nodes.len(), 51691); // not verified
+
+        let linedefs: Vec<WadLineDef> = wad.linedef_iter(name).collect();
+        assert_eq!(linedefs.len(), 65524); // verified with slade
+        assert_eq!(linedefs[65522].start_vertex, -12799i16 as u16); // verified with slade
+        assert_eq!(linedefs[65522].front_sidedef, 87);
+        assert_eq!(linedefs[65522].back_sidedef, None);
+        assert_eq!(linedefs[65523].front_sidedef, 82);
+        assert_eq!(linedefs[65523].back_sidedef, Some(75));
     }
 }

@@ -445,7 +445,7 @@ impl WadData {
                 WadLineDef::new(
                     info.read_u16(ofs),
                     info.read_u16(ofs + 2),
-                    info.read_i16(ofs + 4),
+                    info.read_u16(ofs + 4),
                     info.read_i16(ofs + 6),
                     info.read_i16(ofs + 8),
                     info.read_u16(ofs + 10),

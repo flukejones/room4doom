@@ -182,7 +182,7 @@ impl MapData {
 
         self.set_extents();
         self.set_scale();
-        self.fix_vertices();
+        // self.fix_vertices();
     }
 
     fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
@@ -269,16 +269,8 @@ impl MapData {
             .map(|l| {
                 let v1 = self.vertexes[l.start_vertex as usize];
                 let v2 = self.vertexes[l.end_vertex as usize];
-                if l.sides[0] == u16::MAX {
-                    dbg!(l.sides);
-                }
-
-                if l.front_sidedef == 0xFFFF {
-                    panic!();
-                }
 
                 let front = MapPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
-
                 let back_side = {
                     if l.back_sidedef == Some(u16::MAX) {
                         None
@@ -381,7 +373,7 @@ impl MapData {
                 if sidenum == u16::MAX as usize || sidenum >= self.sidedefs().len() {
                     if sidedef.midtexture.is_some() {
                         backsector = None;
-                        debug!("Two-sided line with midtexture: removed back sector")
+                        warn!("Two-sided line with midtexture: removed back sector")
                     }
                 } else {
                     backsector = Some(self.sidedefs[sidenum].sector.clone());
@@ -836,13 +828,13 @@ mod tests {
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::compat::WadExtendedMap;
+    use wad::types::{WadLineDef, WadSideDef};
     use wad::WadData;
 
     // #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn check_nodes_of_sunder_m3() {
-        let mut wad = WadData::new("/home/luke/DOOM/doom2.wad".into());
-        wad.add_file("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
         let ext = WadExtendedMap::parse(&wad, "MAP03").unwrap();
         assert_eq!(ext.num_org_vertices, 5525); // verified with crispy
         assert_eq!(ext.vertexes.len(), 996); // verified with crispy
@@ -850,7 +842,7 @@ mod tests {
         assert_eq!(ext.segments.len(), 14582);
         assert_eq!(ext.nodes.len(), 4337);
 
-        let pic_data = PicData::init(false, &wad);
+        let pic_data = PicData::default();
         let mut map = MapData::default();
         map.load("MAP03", &pic_data, &wad);
 
@@ -893,6 +885,77 @@ mod tests {
             }
         }
         assert!(success);
+    }
+
+    #[test]
+    fn check_nodes_of_sunder_m20() {
+        let name = "MAP20";
+        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let ext = WadExtendedMap::parse(&wad, name).unwrap();
+        // orgVerts: 54347
+        // newVerts: 25125
+        // numSubs: 48504
+        // numSegs: 161892
+        // numNodes: 48503
+
+        assert_eq!(ext.num_org_vertices, 54347); // verified with slade
+        assert_eq!(ext.num_new_vertices, 25125); // with crispy
+        assert_eq!(ext.vertexes.len(), 25125);
+        assert_eq!(ext.subsectors.len(), 48504);
+        assert_eq!(ext.segments.len(), 161892);
+        assert_eq!(ext.nodes.len(), 48503);
+
+        // seg:, x:-560.000000, y:-3952.000000
+        // seg:, x:-560.000000, y:-3920.000000
+        // sidedef->midtexture: 1657
+        // linedef: 1590
+        // side: 0
+        // and other side:
+        // sidedef->bottomtexture: 1628
+        // sidedef->midtexture: 1657
+        // linedef: 1590
+        // side: 1
+        for seg in ext.segments.iter() {
+            if seg.linedef == 1590 {
+                dbg!(seg); // two segs, one each side for this seg
+            }
+        }
+
+        let lines: Vec<WadLineDef> = wad.linedef_iter(name).collect();
+        assert_eq!(lines[1590].front_sidedef, 2924);
+        assert_eq!(lines[1590].back_sidedef, Some(2925));
+
+        let sides: Vec<WadSideDef> = wad.sidedef_iter(name).collect();
+        assert_eq!(sides[2924].lower_tex, "");
+        assert_eq!(sides[2924].middle_tex, "MAKWOD12");
+        assert_eq!(sides[2924].upper_tex, "");
+        assert_eq!(sides[2925].lower_tex, "MAKMET02");
+        assert_eq!(sides[2925].middle_tex, "MAKWOD12");
+        assert_eq!(sides[2925].upper_tex, "");
+
+        let pic_data = PicData::default();
+        let mut map = MapData::default();
+        map.load("MAP20", &pic_data, &wad);
+        // line 1590
+        assert_eq!(map.linedefs[1590].v1, Vec2::new(-560.0, -3952.0));
+        assert_eq!(map.linedefs[1590].v2, Vec2::new(-560.0, -3920.0));
+        assert_eq!(map.linedefs[1590].front_sidedef.midtexture, Some(1657));
+        assert_eq!(
+            map.linedefs[1590].back_sidedef.as_ref().unwrap().midtexture,
+            Some(1657)
+        );
+        assert_eq!(
+            map.linedefs[1590]
+                .back_sidedef
+                .as_ref()
+                .unwrap()
+                .bottomtexture,
+            Some(1628)
+        );
+        assert_eq!(
+            map.linedefs[1590].back_sidedef.as_ref().unwrap().toptexture,
+            None
+        );
     }
 
     #[test]
