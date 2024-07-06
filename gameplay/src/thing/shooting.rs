@@ -299,6 +299,13 @@ impl MapObject {
             }
 
             if let Some(mobj) = self.level().players()[self.lastlook as usize].mobj() {
+                // skip the BSP trace if too far away
+                let dist = self.xy.distance_squared(mobj.xy);
+                if dist > 2185300.3 {
+                    // approx 1500.0 units
+                    continue;
+                }
+
                 let xy = mobj.xy;
                 let z = mobj.z;
                 let height = mobj.height;
