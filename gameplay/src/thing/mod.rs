@@ -939,7 +939,7 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics == 0 && !this.set_state(this.state.next_state) {
+            if this.tics < 0 && !this.set_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {
