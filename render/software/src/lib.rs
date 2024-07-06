@@ -1,13 +1,11 @@
 #![allow(clippy::too_many_arguments)]
 
 use self::defs::DrawSeg;
-use self::portals::PortalClip;
-use defs::MAXDRAWSEGS;
+use defs::{PortalClip, MAXDRAWSEGS};
 use gameplay::Angle;
 
 mod bsp;
 mod defs;
-mod portals;
 mod segs;
 mod things;
 mod utilities;
@@ -57,7 +55,7 @@ impl RenderData {
 #[cfg(test)]
 mod tests {
 
-    use crate::portals::PortalClip;
+    use crate::defs::PortalClip;
     use crate::RenderData;
 
     #[test]

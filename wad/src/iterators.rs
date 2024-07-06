@@ -434,7 +434,7 @@ impl WadData {
             current: 0,
             transformer: move |ofs| {
                 let back_sidedef = {
-                    let index = info.read_i16(ofs + 12) as u16;
+                    let index = info.read_u16(ofs + 12);
                     if index < u16::MAX {
                         Some(index)
                     } else {
@@ -443,17 +443,14 @@ impl WadData {
                 };
 
                 WadLineDef::new(
-                    info.read_i16(ofs),
-                    info.read_i16(ofs + 2),
+                    info.read_u16(ofs),
+                    info.read_u16(ofs + 2),
                     info.read_i16(ofs + 4),
                     info.read_i16(ofs + 6),
                     info.read_i16(ofs + 8),
-                    info.read_i16(ofs + 10) as u16,
+                    info.read_u16(ofs + 10),
                     back_sidedef,
-                    [
-                        info.read_i16(ofs + 10) as u16,
-                        info.read_i16(ofs + 12) as u16,
-                    ],
+                    [info.read_u16(ofs + 10), info.read_u16(ofs + 12)],
                 )
             },
             _phantom: Default::default(),

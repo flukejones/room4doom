@@ -78,7 +78,7 @@ pub fn scale_from_view_angle(
     let sinea = anglea.sin(); // not correct?
     let sineb = angleb.sin();
 
-    let projection = screen_width / 2.0; // / (FRAC_PI_4).tan();
+    let projection = screen_width / 2.0;
     let num = projection * sineb;
     let den = rw_distance * sinea;
 

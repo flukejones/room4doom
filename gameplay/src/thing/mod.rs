@@ -21,7 +21,7 @@ use crate::level::Level;
 use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::{MapPtr, Skill};
 use glam::Vec2;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use wad::types::WadThing;
 
 use crate::angle::Angle;
@@ -339,7 +339,7 @@ impl MapObject {
         players: &mut [Player],
         active_players: &[bool; MAXPLAYERS],
     ) {
-        debug!("Player spawn check");
+        trace!("Player spawn check");
         if mthing.kind == 0 {
             return;
         }
@@ -351,7 +351,7 @@ impl MapObject {
 
         // TODO: Properly sort this out
         let player = &mut players[0];
-        info!("Spawing player 1");
+        trace!("Spawing player 1");
 
         if player.player_state == PlayerState::Reborn {
             player.reborn();

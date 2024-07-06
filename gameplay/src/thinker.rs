@@ -3,7 +3,7 @@ use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
 
-use log::{debug, error};
+use log::{debug, error, trace};
 
 use crate::env::ceiling::CeilingMove;
 use crate::env::doors::VerticalDoor;
@@ -246,12 +246,12 @@ impl ThinkerAlloc {
         }
 
         let root_ptr = self.find_first_free(false)?;
-        debug!("Pushing: {:?}", root_ptr);
+        trace!("Pushing: {:?}", root_ptr);
         match &thinker.data {
             ThinkerData::MapObject(mobj) => {
-                debug!("Adding Thinker of type {:?}", mobj.kind);
+                trace!("Adding Thinker of type {:?}", mobj.kind);
             }
-            _ => debug!("Adding Thinker of type {:?}", thinker.data),
+            _ => trace!("Adding Thinker of type {:?}", thinker.data),
         }
         unsafe { ptr::write(root_ptr, thinker) };
         let current = unsafe { &mut *root_ptr };

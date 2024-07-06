@@ -50,7 +50,7 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
             }
         }
     }
-    debug!("find_min_light_surrounding: {min}");
+    trace!("find_min_light_surrounding: {min}");
     min
 }
 

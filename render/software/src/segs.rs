@@ -118,7 +118,7 @@ impl SegRender {
             worldhigh: 0.0,
             worldlow: 0.0,
             wall_lights: 0,
-            openings: vec![f32::MAX; screen_width * screen_height], // TODO: find a good limit
+            openings: vec![f32::MAX; screen_width * screen_height],
             lastopening: 0.0,
             yslope: (0..=screen_height + 1)
                 .map(|y| {
@@ -165,13 +165,15 @@ impl SegRender {
         if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0) {
             dbg!(&seg.sidedef);
         }
-        // Keep original Doom behaviour here
-        if rdata.drawsegs.len() >= MAXDRAWSEGS {
-            warn!("Maxxed out drawsegs");
-            return;
-        }
 
         // bounds check before getting ref
+        if rdata.ds_p >= rdata.drawsegs.capacity() {
+            rdata.drawsegs.reserve(MAXDRAWSEGS);
+            warn!(
+                "Maxxed out drawsegs. Expanded to {}",
+                rdata.drawsegs.capacity()
+            );
+        }
         if rdata.ds_p >= rdata.drawsegs.len() {
             rdata.drawsegs.push(DrawSeg::new(NonNull::from(seg)));
         }
@@ -713,9 +715,9 @@ impl SegRender {
 
                 if self.maskedtexture {
                     let i = (self.maskedtexturecol + self.rw_startx) as u32 as usize;
-                    if self.openings.len() > i {
-                        self.openings[i] = texture_column as f32;
-                    }
+                    // if self.openings.len() > i {
+                    self.openings[i] = texture_column as f32;
+                    // }
                 }
             }
 

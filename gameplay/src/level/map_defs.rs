@@ -291,9 +291,11 @@ pub struct LineDef {
     pub sides: [u16; 2],
     // Visual appearance: SideDefs.
     //  sidenum[1] will be -1 if one sided
-    /// Helper to prevent having to lookup the sidedef. Used for interaction stuff or setting the textures to draw but not used during drawing.
+    /// Helper to prevent having to lookup the sidedef. Used for interaction
+    /// stuff or setting the textures to draw but not used during drawing.
     pub front_sidedef: MapPtr<SideDef>,
-    /// Helper to prevent having to lookup the sidedef. Used for interaction stuff or setting the textures to draw but not used during drawing.
+    /// Helper to prevent having to lookup the sidedef. Used for interaction
+    /// stuff or setting the textures to draw but not used during drawing.
     pub back_sidedef: Option<MapPtr<SideDef>>,
 
     // Front and back sector.
@@ -367,7 +369,8 @@ pub struct Segment {
     pub angle: Angle,
 
     pub sidedef: MapPtr<SideDef>,
-    /// The Linedef this segment travels along. During drawing it is used for finding flags.
+    /// The Linedef this segment travels along. During drawing it is used for
+    /// finding flags.
     pub linedef: MapPtr<LineDef>,
 
     pub frontsector: MapPtr<Sector>,

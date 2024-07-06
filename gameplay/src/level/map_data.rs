@@ -272,9 +272,6 @@ impl MapData {
                 if l.sides[0] == u16::MAX {
                     dbg!(l.sides);
                 }
-                // if l.sides[1] == u16::MAX {
-                //     dbg!(l.sides);
-                // }
 
                 if l.front_sidedef == 0xFFFF {
                     panic!();

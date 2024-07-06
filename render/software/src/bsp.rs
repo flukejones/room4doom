@@ -151,20 +151,10 @@ impl SoftwareRenderer {
         // reject orthogonal back sides
         let viewangle = mobj.angle;
 
-        // #[allow(invalid_reference_casting)]
-        // let seg = unsafe { &mut *(seg as *const Segment as *mut Segment) };
-        // if seg.sidedef != seg.linedef.front_sidedef {
-        //     std::mem::swap(&mut seg.v1, &mut seg.v2);
-        // }
-
         // Blocks some zdoom segs rendering
-        // if !seg.is_facing_point(&mobj.xy) {
-        //     return;
-        // }
-
-        // if seg.v1 == Vec2::new(256., -1392.) && seg.v2 == Vec2::new(272., -1392.) {
-        //     panic!();
-        // }
+        if !seg.is_facing_point(&mobj.xy) {
+            return;
+        }
 
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
@@ -493,7 +483,7 @@ impl SoftwareRenderer {
         *count += 1;
         let mobj = unsafe { player.mobj_unchecked() };
 
-        if node_id & IS_SSECTOR_MASK == IS_SSECTOR_MASK {
+        if node_id & IS_SSECTOR_MASK != 0 {
             if node_id == u32::MAX {
                 let subsect = &map.subsectors()[0];
                 // Check if it should be drawn, then draw

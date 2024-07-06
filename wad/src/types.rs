@@ -261,9 +261,9 @@ impl WadVertex {
 #[derive(Debug, Clone)]
 pub struct WadLineDef {
     /// The line starts from this point
-    pub start_vertex: i16,
+    pub start_vertex: u16,
     /// The line ends at this point
-    pub end_vertex: i16,
+    pub end_vertex: u16,
     /// The line attributes, see `LineDefFlags`
     pub flags: i16,
     pub special: i16,
@@ -282,8 +282,8 @@ pub struct WadLineDef {
 
 impl WadLineDef {
     pub fn new(
-        start_vertex: i16,
-        end_vertex: i16,
+        start_vertex: u16,
+        end_vertex: u16,
         flags: i16,
         line_type: i16,
         sector_tag: i16,
