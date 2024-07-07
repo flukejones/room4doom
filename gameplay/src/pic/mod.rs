@@ -410,9 +410,9 @@ impl PicData {
                     let y_pos = y as i32 + wad_tex_patch.origin_y + patch_column.y_offset;
                     if y_pos >= 0 && y_pos < texture.height as i32 {
                         compose[x_pos as usize][y_pos as usize] = *p;
-                        if y > total_height {
-                            total_height = y;
-                        }
+                    }
+                    if y_pos > total_height {
+                        total_height = y_pos;
                     }
                 }
             }
@@ -422,11 +422,7 @@ impl PicData {
         }
         compose.truncate(total_width as usize + 1);
         for col in compose.iter_mut() {
-<<<<<<< Updated upstream
-            col.truncate(total_height);
-=======
             col.truncate(total_height as usize + 1);
->>>>>>> Stashed changes
         }
 
         debug!("Built texture: {}", &texture.name);

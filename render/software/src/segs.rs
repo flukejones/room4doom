@@ -445,6 +445,9 @@ impl SegRender {
                 .enumerate()
             {
                 let last = self.lastopening as u32 as usize;
+                if last + i >= self.openings.len() {
+                    break;
+                }
                 self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
@@ -464,6 +467,9 @@ impl SegRender {
                 .enumerate()
             {
                 let last = self.lastopening as u32 as usize;
+                if last + i >= self.openings.len() {
+                    break;
+                }
                 self.openings[last + i] = *n;
                 if i as f32 >= self.rw_stopx - start {
                     break;
@@ -532,7 +538,6 @@ impl SegRender {
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl - 1.0;
-
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
@@ -712,9 +717,9 @@ impl SegRender {
 
                 if self.maskedtexture {
                     let i = (self.maskedtexturecol + self.rw_startx) as u32 as usize;
-                    // if self.openings.len() > i {
-                    self.openings[i] = texture_column as f32;
-                    // }
+                    if self.openings.len() > i {
+                        self.openings[i] = texture_column as f32;
+                    }
                 }
             }
 

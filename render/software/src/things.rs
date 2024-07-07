@@ -344,17 +344,21 @@ impl SoftwareRenderer {
 
             for r in r1 as u32 as usize..=r2 as u32 as usize {
                 if clip_bottom[r] == -2.0 && seg.sprbottomclip.is_some() {
-                    clip_bottom[r] = self.seg_renderer.openings
-                        [(seg.sprbottomclip.unwrap() + r as f32) as u32 as usize];
-                    if clip_bottom[r] < 0.0 {
-                        clip_bottom[r] = 0.0;
+                    let i = (seg.sprbottomclip.unwrap() + r as f32) as u32 as usize;
+                    if i < self.seg_renderer.openings.len() {
+                        clip_bottom[r] = self.seg_renderer.openings[i];
+                        if clip_bottom[r] < 0.0 {
+                            clip_bottom[r] = 0.0;
+                        }
                     }
                 }
                 if clip_top[r] == -2.0 && seg.sprtopclip.is_some() {
-                    clip_top[r] = self.seg_renderer.openings
-                        [(seg.sprtopclip.unwrap() + r as f32) as u32 as usize];
-                    if clip_top[r] >= pixels.size().height_f32() {
-                        clip_top[r] = pixels.size().height_f32();
+                    let i = (seg.sprtopclip.unwrap() + r as f32) as u32 as usize;
+                    if i < self.seg_renderer.openings.len() {
+                        clip_top[r] = self.seg_renderer.openings[i];
+                        if clip_top[r] >= pixels.size().height_f32() {
+                            clip_top[r] = pixels.size().height_f32();
+                        }
                     }
                 }
             }
@@ -535,6 +539,7 @@ impl SoftwareRenderer {
                 let index = (ds.maskedtexturecol + x as f32) as u32 as usize;
 
                 if index != usize::MAX
+                    && index < self.seg_renderer.openings.len()
                     && ds.sprbottomclip.is_some()
                     && ds.sprtopclip.is_some()
                     && self.seg_renderer.openings[index] != f32::MAX
@@ -545,10 +550,16 @@ impl SoftwareRenderer {
                         self.seg_renderer.openings[index].abs() as u32 as usize,
                     );
 
-                    let mut mceilingclip = self.seg_renderer.openings
-                        [(ds.sprtopclip.unwrap() + x as f32) as u32 as usize];
-                    let mut mfloorclip = self.seg_renderer.openings
-                        [(ds.sprbottomclip.unwrap() + x as f32) as u32 as usize];
+                    let i = (ds.sprtopclip.unwrap() + x as f32) as u32 as usize;
+                    if i >= self.seg_renderer.openings.len() {
+                        continue;
+                    }
+                    let mut mceilingclip = self.seg_renderer.openings[i];
+                    let i = (ds.sprbottomclip.unwrap() + x as f32) as u32 as usize;
+                    if i >= self.seg_renderer.openings.len() {
+                        continue;
+                    }
+                    let mut mfloorclip = self.seg_renderer.openings[i];
                     if mceilingclip >= pixels.size().height_f32() {
                         mceilingclip = pixels.size().height_f32();
                     }
