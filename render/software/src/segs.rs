@@ -583,7 +583,8 @@ impl SegRender {
                             self.wide_ratio,
                         );
                     }
-                    // rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
+                    // Must clip walls to floors if drawn
+                    rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
                 }
             }
 
@@ -615,7 +616,8 @@ impl SegRender {
                         &self.yslope,
                         self.wide_ratio,
                     );
-                    // rdata.portal_clip.floorclip[clip_index] = top + 1.0;
+                    // Must clip walls to floors if drawn
+                    rdata.portal_clip.floorclip[clip_index] = top + 1.0;
                 }
             }
 
