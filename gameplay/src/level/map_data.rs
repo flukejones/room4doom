@@ -831,7 +831,7 @@ mod tests {
     use wad::types::{WadLineDef, WadSideDef};
     use wad::WadData;
 
-    // #[ignore = "sunder.wad can't be included in git"]
+    #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn check_nodes_of_sunder_m3() {
         let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
@@ -887,6 +887,7 @@ mod tests {
         assert!(success);
     }
 
+    #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn check_nodes_of_sunder_m20() {
         let name = "MAP20";
