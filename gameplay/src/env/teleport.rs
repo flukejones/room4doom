@@ -49,7 +49,9 @@ pub fn teleport(
                     player.viewz = old_z + player.viewheight;
                 }
 
-                teleport_move(endpoint.xy, thing, level);
+                if !teleport_move(endpoint.xy, thing, level) {
+                    return false;
+                }
                 thing.z = endpoint.z;
 
                 let fog = MapObject::spawn_map_object(
@@ -97,10 +99,11 @@ pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool
     let ceilzz = new_subsect.sector.ceilingheight;
 
     // telefrag if needed
-
+    if !telefrag(thing, xy, new_subsect.sector.as_mut(), level.options.map) {
+        return false;
+    }
     unsafe {
         thing.unset_thing_position();
-        telefrag_others(thing, new_subsect.sector.as_mut(), level.options.map);
         thing.xy = xy;
         thing.floorz = floorz;
         thing.ceilingz = ceilzz;
@@ -109,22 +112,34 @@ pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool
     false
 }
 
-fn telefrag_others(this_thing: &mut MapObject, sector: &mut Sector, game_map: usize) {
-    // monsters don't stomp things except on boss level
-    if this_thing.player().is_none() && game_map != 30 {
-        return;
-    }
-
-    let thing_xy = this_thing.xy;
+fn telefrag(
+    this_thing: &mut MapObject,
+    new_xy: Vec2,
+    sector: &mut Sector,
+    game_map: usize,
+) -> bool {
     sector.run_mut_func_on_thinglist(move |thing| {
-        let dist = this_thing.radius + thing.radius;
-        if (thing.xy.x - thing_xy.x).abs() >= dist || (thing.xy.y - thing_xy.y).abs() >= dist {
+        if thing.flags & MapObjFlag::Shootable as u32 == 0 {
             return true;
+        }
+
+        let dist = this_thing.radius + thing.radius;
+        if (thing.xy.x - new_xy.x).abs() >= dist || (thing.xy.y - new_xy.y).abs() >= dist {
+            return true;
+        }
+
+        if this_thing.thinker == thing.thinker {
+            return true;
+        }
+
+        // monsters don't telefrag things except on boss level
+        if this_thing.player().is_none() && game_map != 30 {
+            return false;
         }
 
         if thing.flags & MapObjFlag::Shootable as u32 != 0 {
             thing.p_take_damage(Some(this_thing), None, false, 10000);
         }
         true
-    });
+    })
 }
