@@ -74,7 +74,7 @@ And maybe write a book on all I've learned about writing a Doom engine.
 - [x] Thinkers for all things
 - [-] HUD (Done except for multiplayer chat)
 - [-] Menu screens (partial. New game, quit)
-- [x] Play uncompresed ZDBSP maps
+- [x] Play uncompresed ZDBSP maps (some textures may fail)
 - [x] Intermissions and finale
   - [x] Stats
   - [x] Episode end text

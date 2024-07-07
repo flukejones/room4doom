@@ -241,6 +241,13 @@ impl SegRender {
         self.maskedtexture = false;
         self.maskedtexturecol = -1.0;
 
+        // //map20
+        // if seg.v2 == Vec2::new(-560.000000, -3920.000000)
+        //     && seg.v1 == Vec2::new(-560.000000, -3952.000000)
+        // {
+        //     dbg!(seg);
+        // }
+
         if seg.backsector.is_none() {
             // single sided line
             self.markfloor = true;
@@ -282,7 +289,7 @@ impl SegRender {
             if frontsector.ceilingheight < backsector.ceilingheight {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = frontsector.ceilingheight;
-            } else if backsector.ceilingheight <= player.viewz {
+            } else if backsector.ceilingheight < player.viewz {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = f32::MIN;
             }
@@ -290,17 +297,17 @@ impl SegRender {
             // Commented out as this seems to fix the incorrect clipping of
             // sprites lower/higher than player and blocked by lower or upper
             // part of portal
-            // if backsector.ceilingheight <= frontsector.floorheight {
-            //     ds_p.sprbottomclip = Some(0.0); // start of negonearray
-            //     ds_p.silhouette |= SIL_BOTTOM;
-            //     ds_p.bsilheight = f32::MAX;
-            // }
+            if backsector.ceilingheight <= frontsector.floorheight {
+                ds_p.sprbottomclip = Some(0.0); // start of negonearray
+                ds_p.silhouette |= SIL_BOTTOM;
+                ds_p.bsilheight = f32::MAX;
+            }
 
-            // if backsector.floorheight >= frontsector.ceilingheight {
-            //     ds_p.sprtopclip = Some(0.0);
-            //     ds_p.silhouette |= SIL_TOP;
-            //     ds_p.tsilheight = f32::MIN;
-            // }
+            if backsector.floorheight >= frontsector.ceilingheight {
+                ds_p.sprtopclip = Some(0.0);
+                ds_p.silhouette |= SIL_TOP;
+                ds_p.tsilheight = f32::MIN;
+            }
 
             self.worldhigh = backsector.ceilingheight - player.viewz;
             self.worldlow = backsector.floorheight - player.viewz;
@@ -365,6 +372,7 @@ impl SegRender {
             self.rw_toptexturemid += sidedef.rowoffset;
             self.rw_bottomtexturemid += sidedef.rowoffset;
 
+            // TODO: fix this. Enabed causes sprites to clip throguh some places
             // if sidedef.midtexture.is_some() {
             self.maskedtexture = true;
             self.maskedtexturecol = self.lastopening - self.rw_startx;
@@ -406,7 +414,7 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        let half_height = pixels.size().half_height_f32(); // TODO: hmmm, - 0.5;
+        let half_height = pixels.size().half_height_f32();
         self.topstep = -(self.worldtop * self.rw_scalestep);
         self.topfrac = half_height - (self.worldtop * self.rw_scale) + 1.0;
 
@@ -505,6 +513,7 @@ impl SegRender {
         let sky_colourmap = pic_data.colourmap(0);
 
         let sidedef = seg.sidedef.clone();
+
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as u32 as usize;
             // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
@@ -527,7 +536,6 @@ impl SegRender {
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
-
                 if top <= bottom {
                     if seg.frontsector.ceilingpic == pic_data.sky_num() {
                         let screen_x_degrees = screen_to_angle(
@@ -570,7 +578,7 @@ impl SegRender {
                             self.wide_ratio,
                         );
                     }
-                    rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
+                    // rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
                 }
             }
 
@@ -582,7 +590,6 @@ impl SegRender {
             if self.markfloor {
                 top = yh + 1.0;
                 bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
-
                 if top <= rdata.portal_clip.ceilingclip[clip_index] {
                     top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
@@ -603,7 +610,7 @@ impl SegRender {
                         &self.yslope,
                         self.wide_ratio,
                     );
-                    rdata.portal_clip.floorclip[clip_index] = top + 1.0;
+                    // rdata.portal_clip.floorclip[clip_index] = top + 1.0;
                 }
             }
 
@@ -617,16 +624,6 @@ impl SegRender {
 
                 dc_iscale = 1.0 / self.rw_scale;
             }
-
-            //map20
-            // if seg.v1 == Vec2::new(-560.000000, -3952.000000)
-            //     || seg.v2 == Vec2::new(-560.000000, -3952.000000)
-            // {
-            //     dbg!(yl <= yh);
-            //     if yl <= yh {
-            //         dbg!(seg);
-            //     }
-            // }
 
             if self.midtexture {
                 if yl <= yh {
@@ -657,7 +654,6 @@ impl SegRender {
                     if mid >= rdata.portal_clip.floorclip[clip_index] {
                         mid = rdata.portal_clip.floorclip[clip_index] - 1.0;
                     }
-
                     if mid >= yl {
                         if let Some(top_tex) = sidedef.toptexture {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
@@ -690,7 +686,6 @@ impl SegRender {
                     if mid <= rdata.portal_clip.ceilingclip[clip_index] {
                         mid = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                     }
-
                     if mid <= yh {
                         if let Some(bot_tex) = sidedef.bottomtexture {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
@@ -763,9 +758,6 @@ pub fn draw_wall_column(
         }
         select %= texture_column.len();
         let tc = texture_column[select];
-        if tc == usize::MAX {
-            continue;
-        }
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));

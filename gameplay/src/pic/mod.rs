@@ -269,19 +269,20 @@ impl PicData {
         let patches: Vec<WadPatch> = wad.patches_iter().collect();
         // Need to include flats
         let pnames: Vec<String> = wad.pnames_iter().collect();
-        let mut sorted: Vec<WadPatch> = Vec::with_capacity(pnames.len());
+        let mut sorted_patches: Vec<WadPatch> = Vec::with_capacity(pnames.len());
         for name in &pnames {
             let mut log = true;
             for patch in &patches {
                 if &patch.name == name {
-                    sorted.push(patch.clone());
+                    sorted_patches.push(patch.clone());
                     log = false;
                     break;
                 }
             }
             if log {
+                // Try to find missing patches
                 if let Some(lump) = wad.get_lump(name) {
-                    sorted.push(WadPatch::from_lump(lump));
+                    sorted_patches.push(WadPatch::from_lump(lump));
                 } else {
                     warn!("Mising: {name}");
                 }
@@ -293,7 +294,7 @@ impl PicData {
         let mut texture_alloc_size = 0;
 
         let mut pic_func = |(i, tex)| {
-            let pic = Self::build_wall_pic(tex, &sorted);
+            let pic = Self::build_wall_pic(tex, &sorted_patches);
             if pic.name == "SKY1" {
                 print!(".");
                 skytexture = i;
@@ -384,6 +385,8 @@ impl PicData {
     /// Build a texture out of patches and return it
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
         let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
+        let mut total_width = 0;
+        let mut total_height = 0;
         for wad_tex_patch in texture.patches.iter() {
             let wad_patch = &patches[wad_tex_patch.patch_index];
             // draw patch
@@ -393,8 +396,9 @@ impl PicData {
                 // skip = x_pos.abs() as usize;
                 x_pos = 0;
             }
-            for c in wad_patch.columns.iter() {
-                if c.y_offset == 255 {
+
+            for patch_column in wad_patch.columns.iter() {
+                if patch_column.y_offset == 255 {
                     x_pos += 1;
                     continue;
                 }
@@ -402,13 +406,27 @@ impl PicData {
                     break;
                 }
 
-                for (y, p) in c.pixels.iter().enumerate() {
-                    let y_pos = y as i32 + wad_tex_patch.origin_y + c.y_offset;
+                for (y, p) in patch_column.pixels.iter().enumerate() {
+                    let y_pos = y as i32 + wad_tex_patch.origin_y + patch_column.y_offset;
                     if y_pos >= 0 && y_pos < texture.height as i32 {
                         compose[x_pos as usize][y_pos as usize] = *p;
+                        if y > total_height {
+                            total_height = y;
+                        }
                     }
                 }
             }
+            if x_pos > total_width {
+                total_width = x_pos;
+            }
+        }
+        compose.truncate(total_width as usize + 1);
+        for col in compose.iter_mut() {
+<<<<<<< Updated upstream
+            col.truncate(total_height);
+=======
+            col.truncate(total_height as usize + 1);
+>>>>>>> Stashed changes
         }
 
         debug!("Built texture: {}", &texture.name);

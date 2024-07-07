@@ -4,6 +4,7 @@
 
 ## BUGS
 
+- [ ] Sidedefs with mid + top or bottom texture don't draw
 - [ ] Player not taking damage from rockets or barrels
 - [ ] Demons don't wake on spawn when they should?
 - [x] Telefrags don't work. Does work but ignored for demons
