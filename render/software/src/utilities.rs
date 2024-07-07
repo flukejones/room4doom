@@ -52,7 +52,7 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that
     // two values straddling a line may go one way or the other
-    let t = (half_screen_width - t + 0.9).round();
+    let t = (half_screen_width - t + 0.9).floor();
     t.clamp(0.0, screen_width)
 }
 
