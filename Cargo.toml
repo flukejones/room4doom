@@ -24,7 +24,7 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Luke Jones <luke@ljones.dev>"]
-version = "0.14.1"
+version = "0.15.0"
 edition = "2021"
 license = "MIT"
 
