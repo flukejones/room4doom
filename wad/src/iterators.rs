@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::compat::NodeLumpType;
+use crate::extended::NodeLumpType;
 use crate::types::*;
 use crate::{Lump, MapLump, WadData};
 use std::marker::PhantomData;

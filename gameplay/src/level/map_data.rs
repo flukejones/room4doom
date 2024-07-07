@@ -9,8 +9,8 @@ use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::{debug, warn};
-use wad::compat::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
+use log::warn;
+use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
 use wad::WadData;
 
@@ -182,7 +182,7 @@ impl MapData {
 
         self.set_extents();
         self.set_scale();
-        // self.fix_vertices();
+        self.fix_vertices();
     }
 
     fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
@@ -558,8 +558,8 @@ impl MapData {
     /// (they might also be able to detect the degree of roundoff error and
     /// try to avoid splits with a high degree of roundoff error). But we
     /// can use fractional coordinates here, inside the engine. It's like
-    /// the difference between square inches and square miles, in terms of
-    /// granularity.
+    /// the difference between square centimetres and square millimetres, in
+    /// terms of granularity.
     ///
     /// For each vertex of every seg, check to see whether it's also a vertex of
     /// the linedef associated with the seg (i.e, it's an endpoint). If it's not
@@ -827,7 +827,7 @@ mod tests {
     use crate::{Node, PicData};
     use glam::Vec2;
     use std::f32::consts::{FRAC_PI_2, PI};
-    use wad::compat::WadExtendedMap;
+    use wad::extended::WadExtendedMap;
     use wad::types::{WadLineDef, WadSideDef};
     use wad::WadData;
 

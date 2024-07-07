@@ -42,4 +42,5 @@ pub mod iterators;
 /// The specific types, these are contained within the Lumps
 pub mod types;
 
-pub mod compat;
+/// ZDoom BSP support (and maybe others in future)
+pub mod extended;

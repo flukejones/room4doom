@@ -21,7 +21,7 @@ use crate::level::Level;
 use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::{MapPtr, Skill};
 use glam::Vec2;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use wad::types::WadThing;
 
 use crate::angle::Angle;

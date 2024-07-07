@@ -277,6 +277,14 @@ impl MapObject {
         )
     }
 
+    /// Check the target is within a minimum distance
+    fn target_within_min_dist(&self, target: &MapObject) -> bool {
+        // skip the BSP trace if too far away
+        let dist = self.xy.distance_squared(target.xy);
+        // approx 1500.0 units
+        dist < 2185300.3
+    }
+
     /// Iterate through the available live players and check if there is a LOS
     /// to one.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
@@ -298,17 +306,16 @@ impl MapObject {
                 continue;
             }
 
-            if let Some(mobj) = self.level().players()[self.lastlook as usize].mobj() {
+            if let Some(target) = self.level().players()[self.lastlook as usize].mobj() {
                 // skip the BSP trace if too far away
-                let dist = self.xy.distance_squared(mobj.xy);
-                if dist > 2185300.3 {
+                if !self.target_within_min_dist(target) {
                     // approx 1500.0 units
                     continue;
                 }
 
-                let xy = mobj.xy;
-                let z = mobj.z;
-                let height = mobj.height;
+                let xy = target.xy;
+                let z = target.z;
+                let height = target.height;
 
                 let mut bsp_trace = self.get_sight_bsp_trace(xy);
                 if !self.check_sight(xy, z, height, &mut bsp_trace) {
@@ -338,6 +345,10 @@ impl MapObject {
     /// This checks teh '2D top-down' nature of Doom, followed by the Z
     /// (height) axis.
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
+        // skip the BSP trace if too far away
+        if !self.target_within_min_dist(target) {
+            return false;
+        }
         let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
         self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)
     }
@@ -363,6 +374,11 @@ impl MapObject {
     pub(crate) fn check_missile_range(&mut self) -> bool {
         if let Some(target) = self.target {
             let target = unsafe { (*target).mobj() };
+
+            // skip the BSP trace if too far away
+            if !self.target_within_min_dist(target) {
+                return false;
+            }
 
             let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
             if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {

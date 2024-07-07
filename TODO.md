@@ -4,17 +4,16 @@
 
 ## BUGS
 
-- [ ] Sidedefs with mid + top or bottom texture don't draw
+- [ ] Shots in Map 19 of sunder tank framerate. Likely sector sound propagation + enemy begin search for player
 - [ ] Player not taking damage from rockets or barrels
+- [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 - [ ] Demons don't wake on spawn when they should?
 - [x] Telefrags don't work. Does work but ignored for demons
   - [ ] Push demons apart if they are spawned together (teleports) or maybe prevent them teleporting if it's not clear?
 - [-] Demons shouldn't open locked doors (Actual Doom isue)
-- [x] Floating blood? Happens near doors and looks like an error between hi/lo clipping (can't reproduce since massive rework)
-- [-] Monster rotations when walking towards off-by-one? Unsure
+- [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping (can't reproduce since massive rework)
 - [-] Aim/shoot tries to hit low enemy even if portal blocks view
 - [x] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;` -- Nuked it all with visplane removal
-- [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
 
 ## Graphics
 
@@ -82,7 +81,7 @@
 - [ ] Need to reset sector sound targets if player dies
 - [ ] refactor the stair-builder loop to use lines iter. It currently needs two mutable accesses to data in a loop
   - let target = unsafe { (\*target).object_mut().mobj() };// make a shortcut for this
-- [ ] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
+- [X] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
       . It's (currently) not possible to "step" on top of another object
 - [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
