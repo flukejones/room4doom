@@ -1,4 +1,4 @@
-image: rust:latest
+image: rustlang/rust:nightly
 
 .rust_cache: &rust_cache
   cache:
@@ -8,11 +8,11 @@ image: rust:latest
 
 before_script:
   - apt-get update -qq && apt install -y libsdl2-dev libsdl2-gfx-dev libsdl2-mixer-dev cmake
-  
+
 stages:
-    - check
-    - test
-    - deploy
+  - check
+  - test
+  - deploy
 
 test:
   <<: *rust_cache
@@ -20,12 +20,12 @@ test:
     - cargo test --verbose --all
 
 check:
- <<: *rust_cache
- script:
-   - rustup component add clippy
-   - rustup component add rustfmt
-   - cargo fmt --all -- --check
-   - cargo check --verbose --all
+  <<: *rust_cache
+  script:
+    - rustup component add clippy
+    - rustup component add rustfmt
+    - cargo fmt --all -- --check
+    - cargo check --verbose --all
 
 #clippy:
 #  <<: *rust_cache
