@@ -297,17 +297,17 @@ impl SegRender {
             // Commented out as this seems to fix the incorrect clipping of
             // sprites lower/higher than player and blocked by lower or upper
             // part of portal
-            if backsector.ceilingheight <= frontsector.floorheight {
-                ds_p.sprbottomclip = Some(0.0); // start of negonearray
-                ds_p.silhouette |= SIL_BOTTOM;
-                ds_p.bsilheight = f32::MAX;
-            }
+            // if backsector.ceilingheight <= frontsector.floorheight {
+            //     ds_p.sprbottomclip = Some(0.0); // start of negonearray
+            //     ds_p.silhouette |= SIL_BOTTOM;
+            //     ds_p.bsilheight = f32::MAX;
+            // }
 
-            if backsector.floorheight >= frontsector.ceilingheight {
-                ds_p.sprtopclip = Some(0.0);
-                ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = f32::MIN;
-            }
+            // if backsector.floorheight >= frontsector.ceilingheight {
+            //     ds_p.sprtopclip = Some(0.0);
+            //     ds_p.silhouette |= SIL_TOP;
+            //     ds_p.tsilheight = f32::MIN;
+            // }
 
             self.worldhigh = backsector.ceilingheight - player.viewz;
             self.worldlow = backsector.floorheight - player.viewz;
@@ -763,6 +763,9 @@ pub fn draw_wall_column(
         }
         select %= texture_column.len();
         let tc = texture_column[select];
+        if tc >= colourmap.len() {
+            continue;
+        }
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
