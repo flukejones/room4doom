@@ -145,14 +145,10 @@ pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObje
             return false;
         }
 
-        if let 1    // MANUAL DOOR RAISE
-            | 32    // MANUAL BLUE
-            | 33    // MANUAL RED
-            | 34    // MANUAL YELLOW
-            = line.special {
-            // Nothing
-        } else {
-            return false;
+        match line.special {
+            // Allow enemy to open these
+            1 | 31 | 32 | 33 | 34 | 117 | 118 => return true,
+            _ => return false,
         }
     }
 
@@ -161,18 +157,16 @@ pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObje
     }
     let level = unsafe { &mut *thing.level };
     match line.special {
-        1        // Vertical Door
-        | 26      // Blue Door/Locked
-        | 27      // Yellow Door /Locked
-        | 28      // Red Door /Locked
-
-        | 31      // Manual door open
-        | 32      // Blue locked door open
-        | 33      // Red locked door open
-        | 34      // Yellow locked door open
-
-        | 117     // Blazing door raise
-        | 118     // Blazing door open
+        1 // Vertical Door
+        | 26 // Blue Door/Locked
+        | 27 // Yellow Door /Locked
+        | 28 // Red Door /Locked
+        | 31 // Manual door open
+        | 32 // Blue locked door open
+        | 33 // Red locked door open
+        | 34 // Yellow locked door open
+        | 117 // Blazing door raise
+        | 118 // Blazing door open
         => {
             ev_vertical_door(line, thing, level);
         }
