@@ -647,6 +647,9 @@ impl MapObject {
     /// The callee is expected to handle adding the thinker with P_AddThinker,
     /// and inserting in to the level thinker container (differently to
     /// doom).
+    ///
+    /// The Z position is used to determine if the object should spawn on the
+    /// floor or ceiling
     pub(crate) fn spawn_map_object(
         x: f32,
         y: f32,
