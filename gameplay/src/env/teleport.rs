@@ -109,7 +109,7 @@ pub fn teleport_move(xy: Vec2, thing: &mut MapObject, level: &mut Level) -> bool
         thing.ceilingz = ceilzz;
         thing.set_thing_position();
     }
-    false
+    true
 }
 
 fn telefrag(
