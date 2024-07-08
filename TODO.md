@@ -1,15 +1,23 @@
 # TODO
 
-- [ ] Check that WadSubSector parse type is correct. Is it really i16?
-
 ## BUGS
 
-- [ ] Shots in Map 19 of sunder tank framerate. Likely sector sound propagation + enemy begin search for player
 - [ ] Player not taking damage from rockets or barrels
 - [ ] Total kills: doesn't count for player if they shoot a barrel and that barrel kills a demon.
-- [ ] Demons don't wake on spawn when they should?
-- [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping (can't reproduce since massive rework)
+- [ ] Floating blood? Happens near doors and looks like an error between hi/lo clipping (difficult to reproduce)
 - [-] Aim/shoot tries to hit low enemy even if portal blocks view
+
+## Features to add
+
+- [ ] Lump name `SWITCHES`, extend the switch list (BOOM)
+- [ ] Lump name `ANIMATED`, extend the animated texture list (BOOM)
+- [ ] Lump name `TRANMAP` for transparency? (BOOM)
+- [ ] New linedef flag, bit 9, PassThru, that allows one push to activate several functions simultaneously (BOOM)
+- [ ] Generalized linedef types added in range 2F80H - 7FFFH (BOOM)
+- [ ] Generalized sector types using bits 5-11 of the sector type field (BOOM)
+- [ ] UMAPINFO
+- [ ] UDMF (general)
+- [ ] UDMF (zdoom extended)
 
 ## Graphics
 
@@ -79,19 +87,13 @@
   - let target = unsafe { (\*target).object_mut().mobj() };// make a shortcut for this
 - [ ] Where aiming/shooting at an object the shooter should be a point while target + radius is considered
 
-## BOOM stuff to consider
-
-- [ ] Lump name `SWITCHES`, extend the switch list
-- [ ] Lump name `ANIMATED`, extend the animated texture list
-- [ ] Lump name `TRANMAP` for transparency?
-- [ ] New linedef flag, bit 9, PassThru, that allows one push to activate several functions simultaneously.
-- [ ] Generalized linedef types added in range 2F80H - 7FFFH
-- [ ] Generalized sector types using bits 5-11 of the sector type field
-
 ## DONE
 
+- [x] Demons don't wake on spawn when they should?
+- [x] Shots in Map 19 of sunder tank framerate. Likely sector sound propagation + enemy begin search for player (Nope, it was thousands of BSP searches looking for the player)
+- [x] Check that WadSubSector parse type is correct. Is it really i16? (parsing the lot as u16 now as `-1` is used for `u16::MAX` anyway. Fucking C sucks)
 - [x] Demons shouldn't open locked doors (Actual Doom isue)
-- [X] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
+- [x] Make skulls attempt to scale inanimate objects. This is related to objects taking the full Z-axis
 - [x] Telefrags don't work. Does work but ignored for demons
 - [x] panicked at 'attempt to add with overflow', render-soft/src/segs.rs:477:18 -- `yl = (self.topfrac + HEIGHTUNIT) as i32 + 1;` -- Nuked it all with visplane removal
 - [x] Fix the types in texture module
