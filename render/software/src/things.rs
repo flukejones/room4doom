@@ -409,6 +409,7 @@ impl SoftwareRenderer {
         let def = pic_data.sprite_def(sprite.state.unwrap().sprite as u32 as usize);
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
+            return;
         }
         // TODO: WARN: SHT2 has no frames
         // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is
