@@ -9,6 +9,7 @@ use cli::*;
 use config::MusicType;
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2;
+use simplelog::TermLogger;
 use std::env::set_var;
 use std::error::Error;
 use std::fs::File;
@@ -16,7 +17,6 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use d_main::d_doom_loop;
-use env_logger::fmt::Color;
 use gamestate::Game;
 
 use crate::config::UserConfig;
@@ -62,39 +62,12 @@ fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut options: CLIOptions = argh::from_env();
 
-    let mut logger = env_logger::Builder::new();
-    logger
-        .target(env_logger::Target::Stdout)
-        .format(move |buf, record| {
-            let mut style = buf.style();
-            let colour = match record.level() {
-                log::Level::Error => Color::Red,
-                log::Level::Warn => Color::Yellow,
-                log::Level::Info => Color::Green,
-                log::Level::Debug => Color::Magenta,
-                log::Level::Trace => Color::Magenta,
-            };
-            style.set_color(colour);
-
-            if let Some(level) = options.verbose {
-                if level == log::Level::Debug {
-                    writeln!(
-                        buf,
-                        "{}: {}: {}",
-                        style.value(record.level()),
-                        record.target(),
-                        record.args()
-                    )
-                } else {
-                    //record.target().split("::").last().unwrap_or("")
-                    writeln!(buf, "{}: {}", style.value(record.level()), record.args())
-                }
-            } else {
-                writeln!(buf, "{}: {}", style.value(record.level()), record.args())
-            }
-        })
-        .filter(None, options.verbose.unwrap_or(log::LevelFilter::Warn))
-        .init();
+    let logger = TermLogger::init(
+        log::LevelFilter::Info,
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Auto,
+    );
 
     let mut user_config = UserConfig::load();
 

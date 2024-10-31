@@ -593,7 +593,7 @@ impl MapData {
         let start = Instant::now();
         // Track vertices. Because they are stored in segs now, but originally came
         // from the shared vertices we need to ensure the individual vertexes match
-        let mut log: HashMap<String, Vec3> = HashMap::with_capacity(self.vertexes.len());
+        let mut log: HashMap<String, Vec2> = HashMap::with_capacity(self.vertexes.len());
         for seg in self.segments.iter_mut() {
             let linedef = seg.linedef.as_mut();
             if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
