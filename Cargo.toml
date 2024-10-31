@@ -52,15 +52,15 @@ glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
     "mixer",
-    "bundled",
+    "bundled"
 ] }
 #sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
 argh = "0.1.12"
 sarge = "*"
 
-log = "*"
-env_logger = { version = "^0.10" }
+log = { version = "*" }
+simplelog = { version = "*" }
 dirs = "~5.0"
 nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
     "ron",

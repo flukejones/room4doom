@@ -648,6 +648,17 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
+    pub fn wall_pic(&self, texture: usize) -> &WallPic {
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            self.walls
+                .get_unchecked(*self.wall_translation.get_unchecked(texture))
+        }
+        #[cfg(feature = "safety_check")]
+        &self.walls[self.wall_translation[texture]]
+    }
+
+    /// Return a ref to the specified column of the requested texture
     pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
         #[cfg(not(feature = "safety_check"))]
         let texture = unsafe {

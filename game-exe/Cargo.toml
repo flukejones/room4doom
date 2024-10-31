@@ -33,7 +33,7 @@ render-soft.workspace = true
 wad.workspace = true
 
 # utility deps
-env_logger.workspace = true
+simplelog.workspace = true
 dirs.workspace = true
 nanoserde.workspace = true
 

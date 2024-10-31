@@ -2,7 +2,6 @@
 //!
 //! Almost all of the methods here are on `MapObject`.
 
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 use std::ptr;
 
 use glam::Vec3;
@@ -17,7 +16,7 @@ use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{
-    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4
+    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
 };
 use crate::{MapObjKind, MapObject, MapPtr};
 
