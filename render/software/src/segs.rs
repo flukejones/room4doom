@@ -556,7 +556,7 @@ impl SegRender {
                         draw_wall_column(
                             sky_column,
                             sky_colourmap,
-                            0.94,
+                            0.89,
                             self.rw_startx,
                             self.sky_mid,
                             top,
@@ -648,23 +648,6 @@ impl SegRender {
                             false,
                             pixels,
                         );
-                        // let texture = pic_data.wall_pic(mid_tex);
-                        // let x_start = self.rw_startx as u32 as usize;
-                        // draw_wally_column(
-                        //     texture,
-                        //     mobj.xyz,
-                        //     floor_height,
-                        //     flats_total_light,
-                        //     x_start,
-                        //     self.screen_x[x_start],
-                        //     mobj.angle,
-                        //     yl as u32 as usize,
-                        //     yh as u32 as usize,
-                        //     pic_data,
-                        //     pixels,
-                        //     &self.yslope,
-                        //     self.wide_ratio,
-                        // );
                     };
                     rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
                     rdata.portal_clip.floorclip[clip_index] = -1.0;
@@ -876,8 +859,12 @@ pub fn draw_flat_column(
     // let lm = &pic_data.zlight_scale[total_light];
     let pal = pic_data.palette();
     let tex_len = texture.data.len() - 1; // always square
-    for (y, slope) in yslope_table.iter().enumerate().take(yh + 1).skip(yl) {
-        let distance = plane_height * slope;
+    for y in yl..yh + 1 {
+        #[cfg(feature = "safety_check")]
+        let distance = plane_height * unsafe { yslope_table[y] };
+        // unchecked indexing boosts speed immensely
+        #[cfg(not(feature = "safety_check"))]
+        let distance = plane_height * unsafe { yslope_table.get_unchecked(y) };
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = viewxy.y + sin * length;
@@ -890,8 +877,8 @@ pub fn draw_flat_column(
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32 as usize);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            let px =
-                *colourmap.get_unchecked(*texture.data.get_unchecked(x_step).get_unchecked(y_step));
+            let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
+            let px = *colourmap.get_unchecked(tc);
             let c = pal.get_unchecked(px);
             pixels.set_pixel(dc_x, y, &c.0);
         }
@@ -901,5 +888,4 @@ pub fn draw_flat_column(
             pixels.set_pixel(dc_x, y, &pal[px].0);
         }
     }
-    // panic!()
 }
