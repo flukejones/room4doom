@@ -62,12 +62,14 @@ fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut options: CLIOptions = argh::from_env();
 
-    let logger = TermLogger::init(
+    TermLogger::init(
         log::LevelFilter::Info,
-        simplelog::Config::default(),
+        simplelog::ConfigBuilder::default()
+            .set_time_level(log::LevelFilter::Trace)
+            .build(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
-    );
+    )?;
 
     let mut user_config = UserConfig::load();
 
