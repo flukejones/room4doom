@@ -258,7 +258,7 @@ impl SoftwareRenderer {
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
-        for x in vis.x1.floor() as u32 as usize..=vis.x2.floor() as u32 as usize {
+        for x in vis.x1.ceil() as u32 as usize..=vis.x2.floor() as u32 as usize {
             let tex_column = frac as u32 as usize;
             if tex_column >= patch.data.len() {
                 break;

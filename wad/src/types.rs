@@ -4,6 +4,8 @@ use log::error;
 
 use crate::Lump;
 
+const SOFT_PIXEL_CHANNELS: usize = 4;
+
 pub struct WadFlat {
     pub name: String,
     pub data: Vec<u8>,
@@ -12,7 +14,7 @@ pub struct WadFlat {
 /// Used in a `WadPalette`. Each component byte is stored in the palette in
 /// sequence of Red-Green-Blue
 #[derive(Debug, Copy, Clone, Default)]
-pub struct WadColour(pub [u8; 4]);
+pub struct WadColour(pub [u8; SOFT_PIXEL_CHANNELS]);
 
 impl WadColour {
     pub fn new(r: u8, g: u8, b: u8) -> Self {

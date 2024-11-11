@@ -758,7 +758,12 @@ pub fn draw_wall_column(
     let dc_x = dc_x as u32 as usize;
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
-    for y in yl as u32 as usize..=yh as u32 as usize {
+
+    let mut pos = pixels.get_buf_index(dc_x, yl as u32 as usize);
+    let stride = pixels.stride();
+    let channels = pixels.channels();
+
+    for _ in yl as u32..=yh as u32 {
         let mut select = frac.abs() as u32 as usize;
         if doubled {
             select /= 2;
@@ -771,13 +776,17 @@ pub fn draw_wall_column(
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-            pixels.set_pixel(dc_x, y, &c.0);
+            pixels
+                .buf_mut()
+                .get_unchecked_mut(pos..pos + channels)
+                .copy_from_slice(&c.0);
         }
         #[cfg(feature = "safety_check")]
         {
             pixels.set_pixel(dc_x, y as u32 as usize, &pal[colourmap[tc]].0);
         }
         frac += fracstep;
+        pos += stride;
     }
 }
 
@@ -856,22 +865,28 @@ pub fn draw_flat_column(
     let cos = angle.cos();
     let sin = angle.sin();
 
-    // let lm = &pic_data.zlight_scale[total_light];
     let pal = pic_data.palette();
     let tex_len = texture.data.len() - 1; // always square
+
+    let mut pos = pixels.get_buf_index(dc_x, yl);
+    let stride = pixels.stride();
+    let channels = pixels.channels();
+
     for y in yl..yh + 1 {
         #[cfg(feature = "safety_check")]
-        let distance = plane_height * unsafe { yslope_table[y] };
+        let y_slope = yslope_table[y];
         // unchecked indexing boosts speed immensely
         #[cfg(not(feature = "safety_check"))]
-        let distance = plane_height * unsafe { yslope_table.get_unchecked(y) };
+        let y_slope = unsafe { yslope_table.get_unchecked(y) };
+
+        let distance = plane_height * y_slope;
         let length = distance * distscale;
         let ds_xfrac = viewxy.x + cos * length;
         let ds_yfrac = viewxy.y + sin * length;
 
         // flats are 64x64 so a bitwise op works here
-        let x_step = ds_xfrac.abs() as u32 as usize & tex_len;
-        let y_step = ds_yfrac.abs() as u32 as usize & tex_len;
+        let x_step = (ds_xfrac.abs() as u32 as usize) & tex_len;
+        let y_step = (ds_yfrac.abs() as u32 as usize) & tex_len;
 
         // changed from `distance` to `length` to provide a radius light
         let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32 as usize);
@@ -880,12 +895,16 @@ pub fn draw_flat_column(
             let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
             let px = *colourmap.get_unchecked(tc);
             let c = pal.get_unchecked(px);
-            pixels.set_pixel(dc_x, y, &c.0);
+            pixels
+                .buf_mut()
+                .get_unchecked_mut(pos..pos + channels)
+                .copy_from_slice(&c.0);
         }
         #[cfg(feature = "safety_check")]
         {
             let px = colourmap[texture.data[x_step][y_step]];
             pixels.set_pixel(dc_x, y, &pal[px].0);
         }
+        pos += stride;
     }
 }

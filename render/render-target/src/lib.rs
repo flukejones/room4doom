@@ -15,7 +15,10 @@ use shaders::cgwg_crt::Cgwgcrt;
 use shaders::lottes_crt::LottesCRT;
 use shaders::{ShaderDraw, Shaders};
 
-const CHANNELS: usize = 4;
+/// channels should match pixel format
+const SOFT_PIXEL_CHANNELS: usize = 4;
+/// pixel format should match channel count
+const SOFT_PIXEL_FORMAT: pixels::PixelFormatEnum = pixels::PixelFormatEnum::RGBA32;
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
@@ -35,10 +38,17 @@ pub enum RenderType {
 pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
-    fn clear_with_colour(&mut self, colour: &[u8; 4]);
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]);
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; 4];
-    fn read_pixels(&mut self) -> &mut [u8];
+    fn clear_with_colour(&mut self, colour: &[u8; SOFT_PIXEL_CHANNELS]);
+    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]);
+    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS];
+    fn buf_mut(&mut self) -> &mut [u8];
+    /// The stride that should be added/subtracted to go up or down the Y while
+    /// keeping X position
+    fn stride(&self) -> usize;
+    /// Amount of colour channels, e.g: [R, G, B] == 3
+    fn channels(&self) -> usize;
+    /// Get an index point for this coord to copy a colour array too
+    fn get_buf_index(&self, x: usize, y: usize) -> usize;
 }
 
 pub struct BufferSize {
@@ -118,8 +128,8 @@ impl Buffer {
                 half_width_f32: width as f32 / 2.0,
                 half_height_f32: height as f32 / 2.0,
             },
-            buffer: vec![0; (width * height) * CHANNELS],
-            stride: width * CHANNELS,
+            buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS],
+            stride: width * SOFT_PIXEL_CHANNELS,
         }
     }
 }
@@ -135,13 +145,13 @@ impl PixelBuffer for Buffer {
             .for_each(|n| n.copy_from_slice(&[0, 0, 0, 255]));
     }
 
-    fn clear_with_colour(&mut self, colour: &[u8; 4]) {
+    fn clear_with_colour(&mut self, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
         self.buffer
             .chunks_mut(4)
             .for_each(|n| n.copy_from_slice(colour));
     }
 
-    fn set_pixel(&mut self, x: usize, y: usize, rgba: &[u8; 4]) {
+    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
         // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
         if x >= self.size.width || y >= self.size.height {
@@ -149,30 +159,40 @@ impl PixelBuffer for Buffer {
             panic!();
         }
 
-        let pos = y * self.stride + x * CHANNELS;
+        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             self.buffer
-                .get_unchecked_mut(pos..pos + 4)
-                .copy_from_slice(rgba);
+                .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
+                .copy_from_slice(colour);
         }
         #[cfg(feature = "safety_check")]
-        self.buffer[pos..pos + 4].copy_from_slice(rgba);
+        self.buffer[pos..pos + SOFT_PIXEL_CHANNELS].copy_from_slice(colour);
     }
 
     /// Read the colour of a single pixel at X|Y
-
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; 4] {
-        let pos = y * self.stride + x * CHANNELS;
-        let mut slice = [0u8; 4];
-        slice.copy_from_slice(&self.buffer[pos..pos + 4]);
+    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
+        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
+        let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
+        slice.copy_from_slice(&self.buffer[pos..pos + SOFT_PIXEL_CHANNELS]);
         slice
     }
 
     /// Read the full buffer
-
-    fn read_pixels(&mut self) -> &mut [u8] {
+    fn buf_mut(&mut self) -> &mut [u8] {
         &mut self.buffer
+    }
+
+    fn stride(&self) -> usize {
+        self.size().width_usize() * SOFT_PIXEL_CHANNELS
+    }
+
+    fn channels(&self) -> usize {
+        SOFT_PIXEL_CHANNELS
+    }
+
+    fn get_buf_index(&self, x: usize, y: usize) -> usize {
+        y * self.size().width_usize() * SOFT_PIXEL_CHANNELS + x * SOFT_PIXEL_CHANNELS
     }
 }
 
@@ -206,7 +226,7 @@ pub struct SoftOpenGL {
 impl SoftOpenGL {
     fn new(width: usize, height: usize, gl_ctx: &Context, screen_shader: Shaders) -> Self {
         let mut gl_texture = Texture::new(gl_ctx).unwrap();
-        gl_texture.set_image(None, width as u32, height as u32, ColorFormat::RGBA);
+        gl_texture.set_image(None, width as u32, height as u32, ColorFormat::RGB);
 
         Self {
             gl_texture,
@@ -233,7 +253,7 @@ impl SoftOpenGL {
             Some(&buffer.buffer),
             buffer.size.width as u32,
             buffer.size.height as u32,
-            ColorFormat::RGBA,
+            ColorFormat::RGB,
         );
     }
 }
@@ -355,8 +375,8 @@ impl RenderTarget {
                     &mut self.buffer.buffer,
                     w,
                     h,
-                    4 * w,
-                    pixels::PixelFormatEnum::RGBA32,
+                    SOFT_PIXEL_CHANNELS as u32 * w,
+                    SOFT_PIXEL_FORMAT,
                 )
                 .unwrap()
                 .as_texture(texc)
