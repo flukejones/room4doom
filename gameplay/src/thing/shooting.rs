@@ -15,6 +15,9 @@ use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
+// approx 1500.0 units * 2, used to determine if BSP trace should be done
+const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3 * 2.0;
+
 impl MapObject {
     /// P_ExplodeMissile
     pub(crate) fn p_explode_missile(&mut self) {
@@ -283,8 +286,7 @@ impl MapObject {
     fn target_within_min_dist(&self, target: &MapObject) -> bool {
         // skip the BSP trace if too far away
         let dist = self.xyz.distance_squared(target.xyz);
-        // approx 1500.0 units * 2
-        dist < 2185300.3 * 2.0
+        dist < TARGET_SEEK_DIST_SQUARED
     }
 
     /// Iterate through the available live players and check if there is a LOS
