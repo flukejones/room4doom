@@ -56,7 +56,6 @@ sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
 #sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
 argh = "0.1.12"
-sarge = "*"
 
 log = { version = "*" }
 simplelog = { version = "*" }

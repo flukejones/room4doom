@@ -9,7 +9,6 @@ use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
-use sdl2::{pixels, surface};
 use shaders::basic::Basic;
 use shaders::cgwg_crt::Cgwgcrt;
 use shaders::lottes_crt::LottesCRT;
@@ -17,8 +16,6 @@ use shaders::{ShaderDraw, Shaders};
 
 /// channels should match pixel format
 const SOFT_PIXEL_CHANNELS: usize = 4;
-/// pixel format should match channel count
-const SOFT_PIXEL_FORMAT: pixels::PixelFormatEnum = pixels::PixelFormatEnum::RGBA32;
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
@@ -357,7 +354,7 @@ impl RenderTarget {
         self.soft_opengl.as_mut().unwrap_unchecked()
     }
 
-    pub fn blit(&mut self, sdl_canvas: &mut Canvas<Window>) {
+    pub fn blit(&mut self, sdl_canvas: &mut Canvas<Window>, texture: &mut sdl2::render::Texture) {
         match self.render_type {
             RenderType::SoftOpenGL => {
                 let ogl = unsafe { self.soft_opengl.as_mut().unwrap_unchecked() };
@@ -367,22 +364,12 @@ impl RenderTarget {
                 sdl_canvas.window().gl_swap_window();
             }
             RenderType::Software => {
-                let w = self.width() as u32;
-                let h = self.height() as u32;
-                let render_buffer = unsafe { self.software.as_mut().unwrap_unchecked() };
-                let texc = &render_buffer.tex_creator;
-                let surf = surface::Surface::from_data(
-                    &mut self.buffer.buffer,
-                    w,
-                    h,
-                    SOFT_PIXEL_CHANNELS as u32 * w,
-                    SOFT_PIXEL_FORMAT,
-                )
-                .unwrap()
-                .as_texture(texc)
-                .unwrap();
+                let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
+                texture
+                    .update(None, &self.buffer.buffer, self.buffer.stride)
+                    .unwrap();
                 sdl_canvas
-                    .copy(&surf, None, Some(render_buffer.crop_rect))
+                    .copy(&texture, None, Some(buf.crop_rect))
                     .unwrap();
                 sdl_canvas.present();
             }
