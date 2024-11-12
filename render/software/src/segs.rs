@@ -760,7 +760,7 @@ pub fn draw_wall_column(
     let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
 
     let mut pos = pixels.get_buf_index(dc_x, yl as u32 as usize);
-    let stride = pixels.stride();
+    let pitch = pixels.pitch();
     let channels = pixels.channels();
 
     for _ in yl as u32..=yh as u32 {
@@ -786,7 +786,7 @@ pub fn draw_wall_column(
             pixels.set_pixel(dc_x, y as u32 as usize, &pal[colourmap[tc]].0);
         }
         frac += fracstep;
-        pos += stride;
+        pos += pitch;
     }
 }
 
@@ -869,7 +869,7 @@ pub fn draw_flat_column(
     let tex_len = texture.data.len() - 1; // always square
 
     let mut pos = pixels.get_buf_index(dc_x, yl);
-    let stride = pixels.stride();
+    let pitch = pixels.pitch();
     let channels = pixels.channels();
 
     for y in yl..yh + 1 {
@@ -905,6 +905,6 @@ pub fn draw_flat_column(
             let px = colourmap[texture.data[x_step][y_step]];
             pixels.set_pixel(dc_x, y, &pal[px].0);
         }
-        pos += stride;
+        pos += pitch;
     }
 }
