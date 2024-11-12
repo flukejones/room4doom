@@ -7,8 +7,8 @@ pub mod shaders;
 use gameplay::{Level, PicData, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, TextureCreator};
-use sdl2::video::{Window, WindowContext};
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 use shaders::basic::Basic;
 use shaders::cgwg_crt::Cgwgcrt;
 use shaders::lottes_crt::LottesCRT;
@@ -39,9 +39,9 @@ pub trait PixelBuffer {
     fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]);
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS];
     fn buf_mut(&mut self) -> &mut [u8];
-    /// The stride that should be added/subtracted to go up or down the Y while
+    /// The pitch that should be added/subtracted to go up or down the Y while
     /// keeping X position
-    fn stride(&self) -> usize;
+    fn pitch(&self) -> usize;
     /// Amount of colour channels, e.g: [R, G, B] == 3
     fn channels(&self) -> usize;
     /// Get an index point for this coord to copy a colour array too
@@ -180,7 +180,7 @@ impl PixelBuffer for Buffer {
         &mut self.buffer
     }
 
-    fn stride(&self) -> usize {
+    fn pitch(&self) -> usize {
         self.size().width_usize() * SOFT_PIXEL_CHANNELS
     }
 
@@ -196,7 +196,6 @@ impl PixelBuffer for Buffer {
 /// A structure holding display data
 pub struct SoftFramebuffer {
     crop_rect: Rect,
-    tex_creator: TextureCreator<WindowContext>,
 }
 
 impl SoftFramebuffer {
@@ -205,11 +204,9 @@ impl SoftFramebuffer {
         // let ratio = wsize.1 as f32 * 1.333;
         // let xp = (wsize.0 as f32 - ratio) / 2.0;
 
-        let tex_creator = canvas.texture_creator();
         Self {
             // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
             crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
-            tex_creator,
         }
     }
 }
@@ -250,7 +247,7 @@ impl SoftOpenGL {
             Some(&buffer.buffer),
             buffer.size.width as u32,
             buffer.size.height as u32,
-            ColorFormat::RGB,
+            ColorFormat::RGBA,
         );
     }
 }

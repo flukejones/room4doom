@@ -77,9 +77,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let snd_ctx = sdl_ctx.audio()?;
     let video_ctx = sdl_ctx.video()?;
 
-    let events = sdl_ctx.event_pump()?;
-    let input = Input::new(events, (&user_config.input).into());
-
     user_config.sync_cli(&mut options);
     user_config.write();
 
@@ -98,6 +95,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let gl_attr = video_ctx.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+
+    let events = sdl_ctx.event_pump()?;
+    let input = Input::new(events, (&user_config.input).into());
 
     let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
