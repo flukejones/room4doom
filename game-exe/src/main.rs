@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut window = video_ctx
         .window("ROOM for DOOM", user_config.width, user_config.height)
-        .fullscreen_desktop()
+        .fullscreen()
         .opengl()
         .build()?;
     let _gl_ctx = window.gl_create_context()?;

@@ -27,9 +27,10 @@ use gameplay::MapObject;
 use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
 use gamestate_traits::sdl2::keyboard::Scancode;
+use gamestate_traits::sdl2::pixels::PixelFormatEnum;
 use gamestate_traits::sdl2::render::Canvas;
 use gamestate_traits::sdl2::video::Window;
-use gamestate_traits::{GameState, SubsystemTrait};
+use gamestate_traits::{sdl2, GameState, SubsystemTrait};
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -80,6 +81,14 @@ pub fn d_doom_loop(
         //.present_vsync()
         .accelerated()
         .build()
+        .unwrap();
+    let tc = canvas.texture_creator();
+    let mut texture = tc
+        .create_texture_target(
+            Some(PixelFormatEnum::RGBA32),
+            buf_width as u32,
+            buf_height as u32,
+        )
         .unwrap();
 
     let fov = 90f32.to_radians();
@@ -177,6 +186,7 @@ pub fn d_doom_loop(
             &mut render_buffer,
             &mut render_buffer2,
             &mut canvas,
+            &mut texture,
             &mut timestep,
         );
 
@@ -185,7 +195,7 @@ pub fn d_doom_loop(
             info!("{:?}", fps);
         }
 
-        render_buffer.blit(&mut canvas);
+        render_buffer.blit(&mut canvas, &mut texture);
     }
 
     // Explicit drop to ensure shutdown happens
@@ -247,6 +257,7 @@ fn d_display(
     disp_buf: &mut RenderTarget, // Display from this buffer
     draw_buf: &mut RenderTarget, // Draw to this buffer
     canvas: &mut Canvas<Window>,
+    texture: &mut sdl2::render::Texture,
     timestep: &mut TimeStep,
 ) {
     let automap_active = false;
@@ -325,7 +336,7 @@ fn d_display(
         let mut done = false;
         timestep.run_this(|_| {
             done = wipe.do_melt(disp_buf.pixel_buffer(), draw_buf.pixel_buffer());
-            disp_buf.blit(canvas);
+            disp_buf.blit(canvas, texture);
         });
 
         if done {
