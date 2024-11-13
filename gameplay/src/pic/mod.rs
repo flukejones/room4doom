@@ -219,17 +219,11 @@ impl PicData {
         for i in 0..LIGHTLEVELS {
             let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
             for j in 0..MAXLIGHTSCALE {
-                // let j = MAXLIGHTSCALE - j;
                 let mut level = startmap - j / 2;
-                // let scale = (160 / (j + 1)) as f32;
-                // let mut level = startmap - (scale / 2.0) as
-                // i32;
                 if level < 0 {
                     level = 0;
                 }
-                if level >= NUMCOLORMAPS {
-                    level = NUMCOLORMAPS - 1;
-                }
+                level = level.min(NUMCOLORMAPS - 1);
                 // TODO: maybe turn this in to indexing? of colourmaps
                 // tmp[i as usize][j as usize].copy_from_slice(&colourmap[level as usize]);
                 tmp[i as usize][j as usize] = level as usize;
@@ -255,9 +249,7 @@ impl PicData {
                 if level < 0 {
                     level = 0;
                 }
-                if level >= NUMCOLORMAPS {
-                    level = NUMCOLORMAPS - 1;
-                }
+                level = level.min(NUMCOLORMAPS - 1);
                 tmp[i as usize][j] = level as usize;
             }
         }
@@ -436,11 +428,8 @@ impl PicData {
         &self.palettes[self.use_pallette].0
     }
 
-    pub fn set_palette(&mut self, mut num: usize) {
-        if num >= self.palettes.len() {
-            num = self.palettes.len() - 1;
-        }
-        self.use_pallette = num;
+    pub fn set_palette(&mut self, num: usize) {
+        self.use_pallette = num.min(self.palettes.len() - 1);
     }
 
     /// Used to set effects for the player visually, such as damage
@@ -459,15 +448,11 @@ impl PicData {
 
         if damagecount != 0 {
             self.use_pallette = ((damagecount + 7) >> 3) as usize;
-            if self.use_pallette >= NUMREDPALS {
-                self.use_pallette = NUMREDPALS - 1;
-            }
+            self.use_pallette = self.use_pallette.min(NUMREDPALS - 1);
             self.use_pallette += STARTREDPALS;
         } else if player.status.bonuscount != 0 {
             self.use_pallette = ((player.status.bonuscount + 7) >> 3) as usize;
-            if self.use_pallette >= NUMBONUSPALS {
-                self.use_pallette = NUMBONUSPALS - 1;
-            }
+            self.use_pallette = self.use_pallette.min(NUMBONUSPALS - 1);
             self.use_pallette += STARTBONUSPALS;
         } else if player.status.powers[PowerType::IronFeet as usize] > 4 * 32
             || player.status.powers[PowerType::IronFeet as usize] & 8 != 0
@@ -525,15 +510,12 @@ impl PicData {
     }
 
     fn colourmap_for_scale(&self, scale: f32) -> usize {
-        let mut colourmap = if self.double_res {
+        let colourmap = if self.double_res {
             (scale * 7.9) as u32
         } else {
             (scale * 15.8) as u32
         };
-        if colourmap >= MAXLIGHTSCALE as u32 {
-            colourmap = MAXLIGHTSCALE as u32 - 1;
-        }
-        colourmap as usize
+        colourmap.min(MAXLIGHTSCALE as u32 - 1) as usize
     }
 
     /// Get the correct colourmapping for a light level. The colourmap is
@@ -543,27 +525,24 @@ impl PicData {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let mut light_level = light_level;
-        if light_level >= self.light_scale.len() {
-            light_level = self.light_scale.len() - 1;
-        }
-
         let colourmap = self.colourmap_for_scale(wall_scale);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             // unchecked reduces instruction count from ~8 down to 1
             let i = self
                 .light_scale
-                .get_unchecked(light_level)
+                .get_unchecked(light_level.min(self.light_scale.len() - 1))
                 .get_unchecked(colourmap);
             self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
-        &self.light_scale[light_level][colourmap]
+        &self
+            .colourmap
+            .get_unchecked(self.light_scale[light_level.min(self.light_scale.len() - 1)][colourmap])
     }
 
     #[inline(always)]
-    pub fn flat_light_colourmap(&self, mut light_level: usize, scale: usize) -> &[usize] {
+    pub fn flat_light_colourmap(&self, mut light_level: usize, mut scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             #[cfg(not(feature = "safety_check"))]
             unsafe {
@@ -573,26 +552,20 @@ impl PicData {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
-        let mut dist = scale >> 4;
-
-        if dist >= MAXLIGHTZ - 1 {
-            dist = MAXLIGHTZ - 1;
-        }
-
-        if light_level >= self.zlight_scale.len() {
-            light_level = self.zlight_scale.len() - 1;
-        }
+        // scale = scale >> 4;
+        scale &= MAXLIGHTZ - 1;
+        light_level = light_level.min(self.zlight_scale.len() - 1);
 
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let i = self
                 .zlight_scale
                 .get_unchecked(light_level)
-                .get_unchecked(dist);
+                .get_unchecked(scale);
             self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
-        &self.zlight_scale[light_level][dist]
+        &self.colourmap[self.zlight_scale[light_level][scale]]
     }
 
     pub fn get_texture(&self, num: usize) -> &WallPic {
@@ -609,12 +582,7 @@ impl PicData {
     }
 
     pub fn get_flat(&self, num: usize) -> &FlatPic {
-        if num >= self.flat_translation.len() {
-            dbg!(num);
-            dbg!(self.flat_translation.len());
-            panic!()
-        }
-        if num >= self.flats.len() {
+        if num >= self.flat_translation.len() || num >= self.flats.len() {
             panic!()
         }
         #[cfg(not(feature = "safety_check"))]
@@ -668,9 +636,7 @@ impl PicData {
         #[cfg(feature = "safety_check")]
         let texture = &self.walls[self.wall_translation[texture]];
 
-        if texture_column >= texture.data.len() {
-            texture_column %= texture.data.len() - 1;
-        }
+        texture_column %= texture.data.len() - 1;
 
         #[cfg(not(feature = "safety_check"))]
         unsafe {

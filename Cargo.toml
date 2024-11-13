@@ -50,7 +50,7 @@ render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer", "bundled"] }
 
 argh = "0.1.12"
 
@@ -72,12 +72,10 @@ debug = false
 opt-level = 3
 panic = "abort"
 strip = true
-codegen-units = 1
 
 [profile.dev]
 debug = true
-opt-level = 3
-codegen-units = 1
+opt-level = 2
 
 [profile.bench]
 lto = true
