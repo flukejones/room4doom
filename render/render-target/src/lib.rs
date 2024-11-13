@@ -307,10 +307,9 @@ impl RenderTarget {
         self.render_type = RenderType::SoftOpenGL;
 
         let wsize = canvas.window().drawable_size();
-        let ratio = wsize.1 as f32 * 1.333;
-        let xp = (wsize.0 as f32 - ratio) / 2.0;
-
-        gl_ctx.set_viewport(xp as u32, 0, ratio as u32, wsize.1);
+        // let ratio = wsize.1 as f32 * 1.333;
+        // let xp = (wsize.0 as f32 - ratio) / 2.0;
+        gl_ctx.set_viewport(0, 0, wsize.0, wsize.1);
         self
     }
 

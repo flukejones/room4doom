@@ -889,7 +889,7 @@ pub fn draw_flat_column(
         let y_step = (ds_yfrac.abs() as u32 as usize) & tex_len;
 
         // changed from `distance` to `length` to provide a radius light
-        let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32 as usize);
+        let colourmap = pic_data.flat_light_colourmap(total_light, (distance as u32 as usize) >> 4);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
