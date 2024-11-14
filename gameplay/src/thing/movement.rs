@@ -16,7 +16,7 @@ use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{
-    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
+    box_on_line_side, circle_circle_intersect, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4
 };
 use crate::{MapObjKind, MapObject, MapPtr};
 
@@ -456,6 +456,7 @@ impl MapObject {
 
                 let damage = ((p_random() % 8) + 1) * self.info.damage;
                 thing.p_take_damage(Some(self), Some(target), false, damage);
+                return false;
             }
         }
 
@@ -469,14 +470,14 @@ impl MapObject {
             return solid;
         }
 
-        if thing.flags & MapObjFlag::Shootable as u32 != 0
-            && thing.flags & MapObjFlag::Solid as u32 != 0
+        if (thing.flags & MapObjFlag::Shootable as u32 != 0
+            || thing.flags & MapObjFlag::Solid as u32 != 0)
             && self.player().is_some()
         {
             // Already over it?
             let thing_top_z = thing.xyz.z + thing.height;
             let self_top_z = self.xyz.z + self.height;
-            if self.xyz.z + 0.0 >= thing_top_z {
+            if self.xyz.z >= thing_top_z {
                 // Walk over the top
                 if thing_top_z > self.floorz {
                     self.floorz = thing_top_z;
@@ -504,9 +505,9 @@ impl MapObject {
                 return true;
             }
             // // Always allow movement if within the enemy radius
-            // if circle_circle_intersect(self.xyz, self.radius, thing.xyz, thing.radius) {
-            //     return true;
-            // }
+            if circle_circle_intersect(self.xyz, self.radius, thing.xyz, thing.radius) {
+                return true;
+            }
             return false;
         }
         // final failsafe
