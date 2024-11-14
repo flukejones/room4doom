@@ -2,6 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    println!("cargo::rustc-check-cfg=cfg(Debug)");
     // #[cfg(all(target_os = "macos", feature = "sdl2-bundled"))]
     // println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
 

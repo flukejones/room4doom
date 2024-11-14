@@ -11,23 +11,23 @@ pub(crate) struct Patches {
     // pub minus: WadPatch,
     pub percent: WadPatch,
     pub kills: WadPatch,
-    pub secret: WadPatch,
     pub sp_secret: WadPatch,
     pub items: WadPatch,
-    pub frags: WadPatch,
     pub colon: WadPatch,
     pub time: WadPatch,
-    pub sucks: WadPatch,
     pub par: WadPatch,
-    pub killers: WadPatch,
-    pub victims: WadPatch,
-    pub total: WadPatch,
-    pub star: WadPatch,
-    pub bstar: WadPatch,
     pub enter: WadPatch,
     pub finish: WadPatch,
-    pub players: [WadPatch; MAXPLAYERS],
-    pub bplayers: [WadPatch; MAXPLAYERS],
+    // secret: WadPatch,
+    // frags: WadPatch,
+    // killers: WadPatch,
+    // victims: WadPatch,
+    // total: WadPatch,
+    // sucks: WadPatch,
+    // star: WadPatch,
+    // bstar: WadPatch,
+    // players: [WadPatch; MAXPLAYERS],
+    // bplayers: [WadPatch; MAXPLAYERS],
 }
 
 impl Patches {
@@ -58,23 +58,23 @@ impl Patches {
             nums: get_num_sprites("WINUM", 0, wad),
             percent: WadPatch::from_lump(wad.get_lump("WIPCNT").unwrap()),
             kills: WadPatch::from_lump(wad.get_lump("WIOSTK").unwrap()),
-            secret: WadPatch::from_lump(wad.get_lump("WIOSTS").unwrap()),
             sp_secret: WadPatch::from_lump(wad.get_lump("WISCRT2").unwrap()),
             items: WadPatch::from_lump(wad.get_lump("WIOSTI").unwrap()),
-            frags: WadPatch::from_lump(wad.get_lump("WIFRGS").unwrap()),
             colon: WadPatch::from_lump(wad.get_lump("WICOLON").unwrap()),
             time: WadPatch::from_lump(wad.get_lump("WITIME").unwrap()),
-            sucks: WadPatch::from_lump(wad.get_lump("WISUCKS").unwrap()),
             par: WadPatch::from_lump(wad.get_lump("WIPAR").unwrap()),
-            killers: WadPatch::from_lump(wad.get_lump("WIKILRS").unwrap()),
-            victims: WadPatch::from_lump(wad.get_lump("WIVCTMS").unwrap()),
-            total: WadPatch::from_lump(wad.get_lump("WIMSTT").unwrap()),
-            star: WadPatch::from_lump(wad.get_lump("STFST01").unwrap()),
-            bstar: WadPatch::from_lump(wad.get_lump("STFDEAD0").unwrap()),
             enter: WadPatch::from_lump(wad.get_lump("WIENTER").unwrap()),
             finish: WadPatch::from_lump(wad.get_lump("WIF").unwrap()),
-            players: unsafe { players.map(|n| n.assume_init()) },
-            bplayers: unsafe { bplayers.map(|n| n.assume_init()) },
+            // secret: WadPatch::from_lump(wad.get_lump("WIOSTS").unwrap()),
+            // frags: WadPatch::from_lump(wad.get_lump("WIFRGS").unwrap()),
+            // sucks: WadPatch::from_lump(wad.get_lump("WISUCKS").unwrap()),
+            // killers: WadPatch::from_lump(wad.get_lump("WIKILRS").unwrap()),
+            // victims: WadPatch::from_lump(wad.get_lump("WIVCTMS").unwrap()),
+            // total: WadPatch::from_lump(wad.get_lump("WIMSTT").unwrap()),
+            // star: WadPatch::from_lump(wad.get_lump("STFST01").unwrap()),
+            // bstar: WadPatch::from_lump(wad.get_lump("STFDEAD0").unwrap()),
+            // players: unsafe { players.map(|n| n.assume_init()) },
+            // bplayers: unsafe { bplayers.map(|n| n.assume_init()) },
         }
     }
 }
@@ -149,12 +149,12 @@ pub(crate) struct Animation {
     // following must be initialized to zero before use!
     // next value of bcnt (used in conjunction with period)
     pub next_tic: i32,
-    // last drawn animation frame (Doom II)
-    pub last_drawn: i32,
     // next frame number to animate
     pub counter: i32,
-    // used by RANDOM and LEVEL when animating (Doom II)
-    pub state: i32,
+    // // used by RANDOM and LEVEL when animating (Doom II)
+    // pub state: i32,
+    // // last drawn animation frame (Doom II)
+    // pub last_drawn: i32,
 }
 
 impl Animation {
@@ -174,9 +174,9 @@ impl Animation {
             data2: 0,
             patches: Vec::new(),
             next_tic: 0,
-            last_drawn: 0,
             counter: 0,
-            state: 0,
+            // state: 0,
+            // last_drawn: 0,
         }
     }
 }

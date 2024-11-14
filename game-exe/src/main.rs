@@ -97,7 +97,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     for n in 0..num_disp {
         info!("Found display {:?}", video_ctx.display_name(n)?);
     }
-    let b = video_ctx.display_bounds(1)?;
     let mut window = video_ctx
         .window("ROOM4DOOM", 0, 0)
         .opengl()
