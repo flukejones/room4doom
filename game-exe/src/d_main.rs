@@ -29,7 +29,7 @@ use gamestate::Game;
 use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::pixels::PixelFormatEnum;
 use gamestate_traits::sdl2::render::Canvas;
-use gamestate_traits::sdl2::video::Window;
+use gamestate_traits::sdl2::video::{Window, WindowPos};
 use gamestate_traits::{sdl2, GameState, SubsystemTrait};
 use hud_doom::Messages;
 use input::Input;
@@ -60,38 +60,35 @@ fn buffer_dimensions(width: f32, height: f32, double: bool) -> (usize, usize) {
     (buf_width as usize, buf_height)
 }
 
-/// Never returns until `game.running` is set to false
-pub fn d_doom_loop(
-    mut game: Game,
-    mut input: Input,
-    window: Window,
-    gl_ctx: golem::Context,
-    options: CLIOptions,
-) -> Result<(), Box<dyn Error>> {
-    // TODO: implement an openGL or Vulkan renderer
-    // TODO: check res aspect and set widescreen or no
+struct RenderGroup {
+    buf_size: (usize, usize),
+    render_buffer: RenderTarget,
+    render_buffer2: RenderTarget,
+    renderer: SoftwareRenderer,
+}
+
+fn create_renderer(
+    canvas: &Canvas<Window>,
+    gl_ctx: &golem::Context,
+    options: &CLIOptions,
+) -> RenderGroup {
+    let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
+    let fov = 90f32.to_radians();
+    let double = options.hi_res;
+
     let mut render_buffer: RenderTarget;
     let mut render_buffer2: RenderTarget;
     let mut render_type = RenderType::Software;
-    let double = options.hi_res;
-    let (buf_width, buf_height) =
-        buffer_dimensions(window.size().0 as f32, window.size().1 as f32, double);
-    let mut canvas = window
-        .into_canvas()
-        //.present_vsync()
-        .accelerated()
-        .build()
-        .unwrap();
-    let tc = canvas.texture_creator();
-    let mut texture = tc
-        .create_texture_target(
-            Some(PixelFormatEnum::RGBA32),
-            buf_width as u32,
-            buf_height as u32,
-        )
-        .unwrap();
 
-    let fov = 90f32.to_radians();
+    let size = canvas.window().size();
+    let (buf_width, buf_height) = buffer_dimensions(size.0 as f32, size.1 as f32, double);
+
+    let renderer = SoftwareRenderer::new(
+        fov,
+        buf_width,
+        buf_height,
+        matches!(verbose, log::LevelFilter::Debug),
+    );
 
     match options.rendering.unwrap() {
         crate::config::RenderType::Software => {
@@ -110,25 +107,32 @@ pub fn d_doom_loop(
         crate::config::RenderType::Vulkan => todo!(),
     }
 
-    let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
-    let mut renderer = SoftwareRenderer::new(
-        fov,
-        buf_width,
-        buf_height,
-        matches!(verbose, log::LevelFilter::Debug),
-    );
-
-    info!("Using {render_type:?}");
-
-    let mut timestep = TimeStep::new();
-
     if matches!(render_type, RenderType::SoftOpenGL) {
         let buf = unsafe { render_buffer.soft_opengl_unchecked() };
         buf.set_gl_filter().unwrap();
-        let buf = unsafe { render_buffer.soft_opengl_unchecked() };
+        let buf = unsafe { render_buffer2.soft_opengl_unchecked() };
         buf.set_gl_filter().unwrap();
     }
 
+    RenderGroup {
+        buf_size: (buf_width, buf_height),
+        render_buffer,
+        render_buffer2,
+        renderer,
+    }
+}
+
+/// Never returns until `game.running` is set to false
+pub fn d_doom_loop(
+    mut game: Game,
+    mut input: Input,
+    window: Window,
+    gl_ctx: golem::Context,
+    options: CLIOptions,
+) -> Result<(), Box<dyn Error>> {
+    // TODO: implement an openGL or Vulkan renderer
+    // TODO: check res aspect and set widescreen or no
+    let mut timestep = TimeStep::new();
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
@@ -145,9 +149,32 @@ pub fn d_doom_loop(
         game.start_title();
     }
 
+    let mut canvas = window.into_canvas().accelerated().build()?;
+    canvas.window_mut().show();
+    let mut rend_group = create_renderer(&canvas, &gl_ctx, &options);
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator.create_texture_target(
+        Some(PixelFormatEnum::RGBA32),
+        rend_group.buf_size.0 as u32,
+        rend_group.buf_size.1 as u32,
+    )?;
+
+    let mut old_size = canvas.window().size();
     loop {
         if !game.running() {
             break;
+        }
+        let new_size = canvas.window().size();
+        if old_size != new_size {
+            drop(rend_group);
+            rend_group = create_renderer(&canvas, &gl_ctx, &options);
+            texture = texture_creator.create_texture_target(
+                Some(PixelFormatEnum::RGBA32),
+                rend_group.buf_size.0 as u32,
+                rend_group.buf_size.1 as u32,
+            )?;
+            old_size = new_size;
+            info!("Resized game window");
         }
         // The game-exe is split in to two parts:
         // - tickers, these update all states (game-exe, menu, hud, automap etc)
@@ -179,12 +206,12 @@ pub fn d_doom_loop(
 
         // Draw everything to the buffer
         d_display(
-            &mut renderer,
+            &mut rend_group.renderer,
             &mut menu,
             &mut machines,
             &mut game,
-            &mut render_buffer,
-            &mut render_buffer2,
+            &mut rend_group.render_buffer,
+            &mut rend_group.render_buffer2,
             &mut canvas,
             &mut texture,
             &mut timestep,
@@ -195,14 +222,12 @@ pub fn d_doom_loop(
             info!("{:?}", fps);
         }
 
-        render_buffer.blit(&mut canvas, &mut texture);
+        rend_group.render_buffer.blit(&mut canvas, &mut texture);
     }
 
     // Explicit drop to ensure shutdown happens
     drop(game);
-    drop(renderer);
-    drop(render_buffer);
-    drop(render_buffer2);
+    drop(rend_group);
     // drop(window);
     drop(gl_ctx);
     Ok(())
@@ -362,10 +387,10 @@ fn try_run_tics(
     timestep: &mut TimeStep,
 ) {
     // TODO: net.c starts here
-    process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
-
     // Build tics here?
     timestep.run_this(|_| {
+        process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
+
         if game.demo.advance {
             game.do_advance_demo();
         }
@@ -391,7 +416,7 @@ fn process_events(
 ) {
     // required for cheats and menu so they don't receive multiple key-press fo same
     // key
-    let callback = |sc: Scancode| {
+    let input_callback = |sc: Scancode| {
         if game.level.is_some() {
             cheats.check_input(sc, game);
         }
@@ -425,13 +450,32 @@ fn process_events(
         false
     };
 
-    if !input.update(callback) {
-        let console_player = game.consoleplayer;
-        // net update does i/o and buildcmds...
-        // TODO: NetUpdate(); // send out any new accumulation
+    let event_callback = |event: sdl2::event::Event| match event {
+        sdl2::event::Event::Window {
+            timestamp: _,
+            window_id,
+            win_event,
+        } => {
+            match win_event {
+                // sdl2::event::WindowEvent::Moved(..) => todo!("Moved"),
+                // sdl2::event::WindowEvent::Resized(..) => todo!("Resized"),
+                // sdl2::event::WindowEvent::SizeChanged(..) => todo!("SizeChanged"),
+                // sdl2::event::WindowEvent::DisplayChanged(_) => todo!("DisplayChanged"),
+                _ => {}
+            }
+            // println!(
+            //     "sdl2::event::Event::Window: {:?} {:?}",
+            //     window_id, win_event
+            // );
+        }
+        _ => {}
+    };
 
-        // TODO: Network code would update each player slot with incoming TicCmds...
-        let cmd = input.events.build_tic_cmd(&input.config);
-        game.netcmds[console_player][0] = cmd;
-    }
+    input.update(input_callback, event_callback);
+    let console_player = game.consoleplayer;
+    // net update does i/o and buildcmds...
+    // TODO: NetUpdate(); // send out any new accumulation
+    // TODO: Network code would update each player slot with incoming TicCmds...
+    let cmd = input.events.build_tic_cmd(&input.config);
+    game.netcmds[console_player][0] = cmd;
 }

@@ -8,7 +8,7 @@ mod wipe;
 use cli::*;
 use config::MusicType;
 use dirs::{cache_dir, data_dir};
-use gamestate_traits::sdl2;
+use gamestate_traits::sdl2::{self};
 use simplelog::TermLogger;
 use std::env::set_var;
 use std::error::Error;
@@ -72,32 +72,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     let mut user_config = UserConfig::load();
-
-    let sdl_ctx = sdl2::init()?;
-    let snd_ctx = sdl_ctx.audio()?;
-    let video_ctx = sdl_ctx.video()?;
-
     user_config.sync_cli(&mut options);
     user_config.write();
 
-    let mut window = video_ctx
-        .window("ROOM for DOOM", user_config.width, user_config.height)
-        .fullscreen()
-        .opengl()
-        .build()?;
-    let _gl_ctx = window.gl_create_context()?;
-    let gl_ctx = unsafe {
-        golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
-            video_ctx.gl_get_proc_address(s) as *const _
-        }))
-        .unwrap()
-    };
-
-    let gl_attr = video_ctx.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-
-    let events = sdl_ctx.event_pump()?;
-    let input = Input::new(events, (&user_config.input).into());
+    let sdl_ctx = sdl2::init()?;
+    info!("Init SDL2 main");
+    let snd_ctx = sdl_ctx.audio()?;
+    info!("Init SDL2 sound");
+    let video_ctx = sdl_ctx.video()?;
+    info!("Init SDL2 video");
 
     let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
@@ -110,14 +93,37 @@ fn main() -> Result<(), Box<dyn Error>> {
         user_config.mus_vol,
     );
 
+    let num_disp = video_ctx.num_video_displays()?;
+    for n in 0..num_disp {
+        info!("Found display {:?}", video_ctx.display_name(n)?);
+    }
+    let b = video_ctx.display_bounds(1)?;
+    let mut window = video_ctx
+        .window("ROOM4DOOM", 0, 0)
+        .opengl()
+        .hidden()
+        .build()?;
+
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
-            window.set_fullscreen(sdl2::video::FullscreenType::True)?;
+            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
         } else {
             window.set_fullscreen(sdl2::video::FullscreenType::Off)?;
         }
     }
-    window.show();
+
+    let _gl_ctx = window.gl_create_context()?;
+    let gl_ctx = unsafe {
+        golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
+            video_ctx.gl_get_proc_address(s) as *const _
+        }))
+        .unwrap()
+    };
+
+    let gl_attr = video_ctx.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+
+    let input = Input::new(sdl_ctx.event_pump()?, (&user_config.input).into());
 
     sdl_ctx.mouse().show_cursor(false);
     sdl_ctx.mouse().set_relative_mouse_mode(true);
