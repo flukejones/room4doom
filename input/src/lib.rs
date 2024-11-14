@@ -66,8 +66,11 @@ impl InputEvents {
         self.mouse_delta = (0, 0);
     }
 
-    fn set_mouse_pos(&mut self, state: (i32, i32)) {
-        self.mouse_delta = (state.0 * self.mouse_scale.0, state.1 * self.mouse_scale.1);
+    fn scale_mouse(&mut self, state: (i32, i32)) {
+        self.mouse_delta = (
+            state.0 * (self.mouse_scale.0 + 5) / 10,
+            state.1 * (self.mouse_scale.1 + 5) / 10,
+        );
     }
 
     pub fn build_tic_cmd(&mut self, cfg: &InputConfigSdl) -> TicCmd {
@@ -156,11 +159,11 @@ impl InputEvents {
 
         let mousex = self.mouse_delta.0;
 
-        forward += self.mouse_delta.1;
+        forward += -self.mouse_delta.1;
         if strafe {
             side += mousex * 2;
         } else {
-            cmd.angleturn -= (mousex * 0x8) as i16;
+            cmd.angleturn -= (mousex * 8) as i16;
         }
 
         forward = forward.clamp(-MAXPLMOVE, MAXPLMOVE);
@@ -200,7 +203,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            events: InputEvents::new((10, 0)),
+            events: InputEvents::new((20, 10)),
             config,
             quit: false,
         }
@@ -222,16 +225,18 @@ impl Input {
     /// **rust-sdl2** provides an `event_iter()`, but this isn't very useful
     /// unless we perform all the required actions in the same block that it
     /// is called in. It has the potential to cause delays in proccessing
-    pub fn update(&mut self, mut key_once_callback: impl FnMut(Sc) -> bool) -> bool {
-        let mut cb_res = false;
+    pub fn update(
+        &mut self,
+        mut input_callback: impl FnMut(Sc) -> bool,
+        mut events_callback: impl FnMut(Event),
+    ) {
         while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown {
                     scancode: Some(sc), ..
                 } => {
-                    if key_once_callback(sc) {
+                    if input_callback(sc) {
                         self.events.unset_kb(sc);
-                        cb_res = true;
                     } else {
                         self.events.set_kb(sc);
                     }
@@ -255,14 +260,13 @@ impl Input {
                     yrel,
                     ..
                 } => {
-                    self.events.set_mouse_pos((xrel, yrel));
+                    self.events.scale_mouse((xrel, yrel));
                 }
 
                 Event::Quit { .. } => self.quit = true, // Early out if Quit
-                _ => {}
+                _ => events_callback(event),
             }
         }
-        cb_res
     }
     pub fn get_quit(&self) -> bool {
         self.quit
