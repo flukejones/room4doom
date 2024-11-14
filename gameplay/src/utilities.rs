@@ -17,14 +17,14 @@ const FRACUNIT: f32 = (1 << FRACBITS) as f32;
 pub const FRACUNIT_DIV4: f32 = FRACUNIT / 4.0;
 
 /// Convert a Doom `fixed_t` fixed-point float to `f32`
-pub fn fixed_to_float(value: i32) -> f32 {
+pub const fn fixed_to_float(value: i32) -> f32 {
     value as f32 / FRACUNIT
 }
 
 const DEG_TO_RAD: f32 = PI / 180.0;
 
 /// Convert a BAM (Binary Angle Measure) to radians
-pub fn bam_to_radian(value: u32) -> f32 {
+pub const fn bam_to_radian(value: u32) -> f32 {
     (value as f32 * 8.381_903e-8) * DEG_TO_RAD
 }
 
@@ -47,21 +47,21 @@ pub const RNDTABLE: [i32; 256] = [
     84, 118, 222, 187, 136, 120, 163, 236, 249,
 ];
 
-pub fn p_random() -> i32 {
+pub const fn p_random() -> i32 {
     unsafe {
         PRNDINDEX = (PRNDINDEX + 1) & 0xFF;
         RNDTABLE[PRNDINDEX]
     }
 }
 
-pub fn m_random() -> i32 {
+pub const fn m_random() -> i32 {
     unsafe {
         RNDINDEX = (RNDINDEX + 1) & 0xFF;
         RNDTABLE[RNDINDEX]
     }
 }
 
-pub fn m_clear_random() {
+pub const fn m_clear_random() {
     unsafe {
         // Not clearing this random as it's used only by screen wipe so far
         //RNDINDEX = 0;
@@ -69,7 +69,7 @@ pub fn m_clear_random() {
     }
 }
 
-pub fn p_subrandom() -> i32 {
+pub const fn p_subrandom() -> i32 {
     let r = p_random();
     r - p_random()
 }

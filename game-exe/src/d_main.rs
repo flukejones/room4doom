@@ -29,7 +29,7 @@ use gamestate::Game;
 use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::pixels::PixelFormatEnum;
 use gamestate_traits::sdl2::render::Canvas;
-use gamestate_traits::sdl2::video::{Window, WindowPos};
+use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{sdl2, GameState, SubsystemTrait};
 use hud_doom::Messages;
 use input::Input;
@@ -453,7 +453,7 @@ fn process_events(
     let event_callback = |event: sdl2::event::Event| match event {
         sdl2::event::Event::Window {
             timestamp: _,
-            window_id,
+            window_id: _,
             win_event,
         } => {
             match win_event {

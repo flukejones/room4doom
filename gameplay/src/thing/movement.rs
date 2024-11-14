@@ -17,8 +17,8 @@ use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{
-    box_on_line_side, circle_circle_intersect, p_random, path_traverse, BestSlide, Intercept,
-    PortalZ, FRACUNIT_DIV4,
+    box_on_line_side, circle_circle_intersect, fixed_to_float, p_random, path_traverse, BestSlide,
+    Intercept, PortalZ, FRACUNIT_DIV4,
 };
 use crate::{MapObjKind, MapObject, MapPtr};
 
@@ -26,8 +26,8 @@ use super::MapObjFlag;
 
 pub const GRAVITY: f32 = 1.0;
 pub const MAXMOVE: f32 = 30.0;
-pub const STOPSPEED: f32 = 0.06250095; // 0x1000
-pub const FRICTION: f32 = 0.9062638; // 0xE800
+pub const STOPSPEED: f32 = fixed_to_float(0x1000);
+pub const FRICTION: f32 = fixed_to_float(0xE800);
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
@@ -256,6 +256,8 @@ impl MapObject {
                     self.momxy = Vec2::default();
                 }
             }
+            self.momxy.x = 0.0;
+            self.momxy.y = 0.0;
         } else {
             self.momxy *= FRICTION;
         }
