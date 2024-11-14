@@ -20,13 +20,17 @@ pub struct InputEvents {
     key_state: HashSet<Sc>,
     mouse_state: HashSet<Mb>,
     mouse_delta: (i32, i32),
-    mouse_scale: (i32, i32),
+    mouse_sensitivity: (i32, i32),
+    mouse_threshold: f32,
+    mouse_acceleration: f32,
     turn_held: u32,
 }
 impl InputEvents {
     fn new(mouse_scale: (i32, i32)) -> Self {
         let mut i = Self::default();
         i.set_mouse_scale(mouse_scale);
+        i.mouse_threshold = 10.0;
+        i.mouse_acceleration = 2.0;
         i
     }
 
@@ -59,18 +63,30 @@ impl InputEvents {
     }
 
     pub fn set_mouse_scale(&mut self, scale: (i32, i32)) {
-        self.mouse_scale = scale;
+        self.mouse_sensitivity = scale;
     }
 
     fn reset_mouse_delta(&mut self) {
         self.mouse_delta = (0, 0);
     }
 
-    fn scale_mouse(&mut self, state: (i32, i32)) {
+    fn apply_mouse_sensitivity(&mut self, state: (i32, i32)) {
         self.mouse_delta = (
-            state.0 * (self.mouse_scale.0 + 5) / 10,
-            state.1 * (self.mouse_scale.1 + 5) / 10,
+            state.0 * (self.mouse_sensitivity.0 + 5),
+            state.1 * (self.mouse_sensitivity.1 + 5),
         );
+    }
+
+    const fn apply_mouse_accel(&self, val: f32) -> f32 {
+        if val < 0.0 {
+            return -self.apply_mouse_accel(-val);
+        }
+
+        if val > self.mouse_threshold {
+            return (val - self.mouse_threshold) * self.mouse_acceleration + self.mouse_threshold;
+        } else {
+            return val;
+        }
     }
 
     pub fn build_tic_cmd(&mut self, cfg: &InputConfigSdl) -> TicCmd {
@@ -163,8 +179,9 @@ impl InputEvents {
         if strafe {
             side += mousex * 2;
         } else {
-            cmd.angleturn -= (mousex * 8) as i16;
+            cmd.angleturn -= (mousex * 0x8) as i16;
         }
+        self.reset_mouse_delta();
 
         forward = forward.clamp(-MAXPLMOVE, MAXPLMOVE);
         side = side.clamp(-MAXPLMOVE, MAXPLMOVE);
@@ -184,7 +201,6 @@ impl InputEvents {
         //     sendsave = false;
         //     cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot <<
         // BTS_SAVESHIFT); }
-        self.reset_mouse_delta();
 
         cmd
     }
@@ -203,7 +219,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            events: InputEvents::new((20, 10)),
+            events: InputEvents::new((5, 5)),
             config,
             quit: false,
         }
@@ -260,7 +276,9 @@ impl Input {
                     yrel,
                     ..
                 } => {
-                    self.events.scale_mouse((xrel, yrel));
+                    let xrel = self.events.apply_mouse_accel(xrel as f32) as i32;
+                    let yrel = self.events.apply_mouse_accel(yrel as f32) as i32;
+                    self.events.apply_mouse_sensitivity((xrel, yrel));
                 }
 
                 Event::Quit { .. } => self.quit = true, // Early out if Quit
