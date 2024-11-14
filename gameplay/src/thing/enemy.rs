@@ -149,7 +149,10 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.flags & MapObjFlag::Justattacked as u32 != 0 {
         actor.flags &= !(MapObjFlag::Justattacked as u32);
         // TODO: if (gameskill != sk_nightmare && !fastparm)
-        actor.new_chase_dir();
+        let skill = unsafe { (*actor.level).options.skill };
+        if skill != Skill::Nightmare {
+            actor.new_chase_dir();
+        }
         return;
     }
 
@@ -164,7 +167,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     // Missile attack?
     if actor.info.missilestate != StateNum::None {
         let skill = unsafe { (*actor.level).options.skill };
-        if skill >= Skill::Nightmare || actor.movecount <= 0 {
+        if skill == Skill::Nightmare || actor.movecount <= 0 {
             // if (gameskill < sk_nightmare && !fastparm && actor->movecount) {
             // goto nomissile;
             // }

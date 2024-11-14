@@ -17,7 +17,8 @@ use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{
-    box_on_line_side, p_random, path_traverse, BestSlide, Intercept, PortalZ, FRACUNIT_DIV4,
+    box_on_line_side, circle_circle_intersect, p_random, path_traverse, BestSlide, Intercept,
+    PortalZ, FRACUNIT_DIV4,
 };
 use crate::{MapObjKind, MapObject, MapPtr};
 
@@ -470,6 +471,7 @@ impl MapObject {
 
                 let damage = ((p_random() % 8) + 1) * self.info.damage;
                 thing.p_take_damage(Some(self), Some(target), false, damage);
+                return false;
             }
         }
 
@@ -483,12 +485,18 @@ impl MapObject {
             return solid;
         }
 
-        if thing.flags & MapObjFlag::Solid as u32 == MapObjFlag::Solid as u32 {
+        if (thing.flags & MapObjFlag::Shootable as u32 != 0
+            || thing.flags & MapObjFlag::Solid as u32 != 0)
+            && self.player().is_some()
+        {
             // Already over it?
-            if self.z >= thing.z + thing.height {
-                // Step over it?
-                if thing.z + thing.height - self.z > 24.0 {
-                    return false;
+            let thing_top_z = thing.z + thing.height;
+            let self_top_z = self.z + self.height;
+            if self.z >= thing_top_z {
+                // Walk over the top
+                if thing_top_z > self.floorz {
+                    self.floorz = thing_top_z;
+                    ctrl.min_floor_z = thing_top_z;
                 }
                 ctrl.min_floor_z = thing.z + thing.height;
                 return true; // over
@@ -496,6 +504,11 @@ impl MapObject {
             if self.z + thing.height <= thing.z {
                 return true; // under
             }
+            // // Always allow movement if within the enemy radius
+            if circle_circle_intersect(self.xy, self.radius, thing.xy, thing.radius) {
+                return true;
+            }
+            return false;
         }
         // final failsafe
         thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32

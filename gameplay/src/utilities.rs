@@ -422,6 +422,21 @@ fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
 
 /// True if the line segment from point1 to point2 penetrates the circle
 
+#[inline]
+pub fn circle_circle_intersect(
+    origin: Vec2,
+    origin_radius: f32,
+    point: Vec2,
+    point_radius: f32,
+) -> bool {
+    let dist = point - origin;
+    let len = dist.length();
+    if len < origin_radius + point_radius {
+        return true; // Some(len - radius);
+    }
+    false
+}
+
 pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, s_start: Vec2, s_end: Vec2) -> bool {
     let lc = c_origin - s_start;
     let d = s_end - s_start;
