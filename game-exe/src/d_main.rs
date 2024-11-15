@@ -23,6 +23,7 @@ use std::mem;
 
 use finale_doom::Finale;
 use gameplay::log::{self, error, info};
+use gameplay::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::MapObject;
 use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
@@ -72,6 +73,18 @@ fn create_renderer(
     gl_ctx: &golem::Context,
     options: &CLIOptions,
 ) -> RenderGroup {
+    unsafe {
+        LOOKDIRMIN = BASELOOKDIRMIN;
+        if options.hi_res {
+            LOOKDIRMIN *= 2;
+        }
+        LOOKDIRMAX = BASELOOKDIRMAX;
+        if options.hi_res {
+            LOOKDIRMAX *= 2;
+        }
+        LOOKDIRS = 1 + LOOKDIRMIN + LOOKDIRMAX;
+    }
+
     let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
     let fov = 90f32.to_radians();
     let double = options.hi_res;

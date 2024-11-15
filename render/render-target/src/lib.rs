@@ -49,6 +49,7 @@ pub trait PixelBuffer {
 }
 
 pub struct BufferSize {
+    hi_res: bool,
     width: usize,
     height: usize,
     width_i32: i32,
@@ -62,6 +63,10 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
+    pub const fn hi_res(&self) -> bool {
+        self.hi_res
+    }
+
     pub const fn width(&self) -> i32 {
         self.width_i32
     }
@@ -114,6 +119,7 @@ impl Buffer {
     fn new(width: usize, height: usize) -> Self {
         Self {
             size: BufferSize {
+                hi_res: height > 200,
                 width,
                 height,
                 width_i32: width as i32,
