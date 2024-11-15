@@ -14,7 +14,7 @@ use crate::pic::INVERSECOLORMAP;
 use crate::player_sprite::{PspDef, WEAPONBOTTOM};
 use crate::thing::enemy::noise_alert;
 use crate::thing::{MapObjFlag, MapObject, BONUSADD};
-use crate::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
+use crate::tic_cmd::{TicCmd, LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS};
 use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
 use crate::{GameMode, Skill};
 
@@ -199,6 +199,7 @@ pub struct Player {
 
     // Custom option
     pub head_bob: bool,
+    pub lookdir: i16,
 }
 
 impl Default for Player {
@@ -239,6 +240,7 @@ impl Player {
             cmd: TicCmd::new(),
 
             head_bob: true,
+            lookdir: 0,
 
             psprites: [
                 PspDef {
@@ -451,6 +453,10 @@ impl Player {
                 && mobj.state.sprite as i32 == SpriteNum::PLAY as i32
             {
                 mobj.set_state(StateNum::PLAY_RUN1);
+            }
+
+            unsafe {
+                self.lookdir = (self.lookdir + self.cmd.lookdir).clamp(-LOOKDIRMAX, LOOKDIRMIN);
             }
         }
     }

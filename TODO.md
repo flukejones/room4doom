@@ -9,6 +9,11 @@
 
 ## Features to add
 
+- [X] Mlook, requires:
+      - new yslope tables for flats
+      - dc_texturemid adjustment to remap
+      - in segs uses of half_height_f32() need to be wrapped to add view pitch
+- [ ] Dehacked support
 - [ ] Lump name `SWITCHES`, extend the switch list (BOOM)
 - [ ] Lump name `ANIMATED`, extend the animated texture list (BOOM)
 - [ ] Lump name `TRANMAP` for transparency? (BOOM)

@@ -73,7 +73,7 @@ impl InputEvents {
     fn apply_mouse_sensitivity(&mut self, state: (i32, i32)) {
         self.mouse_delta = (
             state.0 * (self.mouse_sensitivity.0 + 5),
-            state.1 * (self.mouse_sensitivity.1 + 5),
+            state.1 * (self.mouse_sensitivity.1),
         );
     }
 
@@ -174,8 +174,15 @@ impl InputEvents {
         }
 
         let mousex = self.mouse_delta.0;
+        let mousey = self.mouse_delta.1;
 
-        forward += -self.mouse_delta.1;
+        if true {
+            // TODO: invert settings
+            cmd.lookdir = -(mousey) as i16;
+        } else {
+            forward += -self.mouse_delta.1;
+        }
+
         if strafe {
             side += mousex * 2;
         } else {
@@ -219,7 +226,7 @@ impl Input {
         pump.pump_events();
         Input {
             pump,
-            events: InputEvents::new((5, 5)),
+            events: InputEvents::new((5, 1)),
             config,
             quit: false,
         }

@@ -6,6 +6,12 @@ pub const MAXPLMOVE: i32 = FORWARDMOVE[1];
 
 pub const SLOWTURNTICS: i32 = 6;
 
+pub const BASELOOKDIRMIN: i16 = 110;
+pub const BASELOOKDIRMAX: i16 = 90;
+pub static mut LOOKDIRMIN: i16 = BASELOOKDIRMIN;
+pub static mut LOOKDIRMAX: i16 = BASELOOKDIRMAX;
+pub static mut LOOKDIRS: i16 = unsafe { 1 + LOOKDIRMIN + LOOKDIRMAX };
+
 pub struct ButtonCode {
     // Press "Fire".
     pub bt_attack: u8,
@@ -79,6 +85,7 @@ pub struct TicCmd {
     pub consistancy: i16,
     pub chatchar: u8,
     pub buttons: u8,
+    pub lookdir: i16,
 }
 
 impl TicCmd {
@@ -90,6 +97,7 @@ impl TicCmd {
             consistancy: 0,
             chatchar: 0,
             buttons: 0,
+            lookdir: 0,
         }
     }
 }

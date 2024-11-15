@@ -1,5 +1,6 @@
 use crate::utilities::screen_to_angle;
 use gameplay::log::warn;
+use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment, WallPic};
 use glam::Vec2;
 use render_target::PixelBuffer;
@@ -73,7 +74,9 @@ pub(crate) struct SegRender {
     lastopening: f32,
     /// Light level for the wall
     wall_lights: usize,
-    pub yslope: Vec<f32>,
+    pub yslopes: Vec<Vec<f32>>,
+    pub yslope: usize,
+    pub centery: f32,
     pub screen_x: Vec<f32>,
     pub fov: f32,
     pub fov_half: f32,
@@ -120,12 +123,19 @@ impl SegRender {
             wall_lights: 0,
             openings: vec![f32::MAX; screen_width * screen_height],
             lastopening: 0.0,
-            yslope: (0..=screen_height + 1)
-                .map(|y| {
-                    let dy = y as f32 - screen_height as f32 / 2.0;
-                    screen_width as f32 / 2.0 / dy.abs()
+            yslopes: (0..=screen_height + 1)
+                .map(|y| unsafe {
+                    (0..LOOKDIRS)
+                        .map(|j| {
+                            let dy =
+                                y as f32 - (screen_height as f32 / 2.0 + (j - LOOKDIRMIN) as f32);
+                            screen_width as f32 / 2.0 / dy.abs()
+                        })
+                        .collect()
                 })
                 .collect(),
+            yslope: 0,
+            centery: screen_height as f32 / 2.0,
             screen_x: (0..=screen_width)
                 .map(|x| screen_to_angle(fov, x as f32, (screen_width / 2) as f32))
                 .collect(),
@@ -140,6 +150,13 @@ impl SegRender {
 
     pub fn clear(&mut self) {
         self.lastopening = 0.0;
+    }
+
+    /// # Safety
+    /// Nothing else should be modifying `LOOKDIRMAX`
+    pub unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: f32) {
+        self.yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+        self.centery = half_screen_height as f32 + pitch as f32;
     }
 
     /// R_StoreWallRange - r_segs
@@ -414,7 +431,7 @@ impl SegRender {
             self.markceiling = false;
         }
 
-        let half_height = pixels.size().half_height_f32();
+        let half_height = self.centery;
         self.topstep = -(self.worldtop * self.rw_scalestep);
         self.topfrac = half_height - (self.worldtop * self.rw_scale) + 1.0;
 
@@ -557,6 +574,7 @@ impl SegRender {
                             sky_column,
                             sky_colourmap,
                             0.89,
+                            self.centery,
                             self.rw_startx,
                             self.sky_mid,
                             top,
@@ -579,7 +597,7 @@ impl SegRender {
                             bottom as u32 as usize,
                             pic_data,
                             pixels,
-                            &self.yslope,
+                            &self.yslopes[self.yslope],
                             self.wide_ratio,
                         );
                     }
@@ -613,7 +631,7 @@ impl SegRender {
                         bottom as u32 as usize,
                         pic_data,
                         pixels,
-                        &self.yslope,
+                        &self.yslopes[self.yslope],
                         self.wide_ratio,
                     );
                     // Must clip walls to floors if drawn
@@ -640,6 +658,7 @@ impl SegRender {
                             texture_column,
                             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                             dc_iscale,
+                            self.centery,
                             self.rw_startx,
                             self.rw_midtexturemid,
                             yl,
@@ -668,6 +687,7 @@ impl SegRender {
                                 texture_column,
                                 pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
+                                self.centery,
                                 self.rw_startx,
                                 self.rw_toptexturemid,
                                 yl,
@@ -700,6 +720,7 @@ impl SegRender {
                                 texture_column,
                                 pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
+                                self.centery,
                                 self.rw_startx,
                                 self.rw_bottomtexturemid,
                                 mid,
@@ -745,6 +766,7 @@ pub fn draw_wall_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
+    centery: f32,
     dc_x: f32,
     dc_texturemid: f32,
     yl: f32,
@@ -757,7 +779,7 @@ pub fn draw_wall_column(
 
     let dc_x = dc_x as u32 as usize;
     let pal = pic_data.palette();
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    let mut frac = dc_texturemid + (yl - centery) * fracstep;
 
     let mut pos = pixels.get_buf_index(dc_x, yl as u32 as usize);
     let pitch = pixels.pitch();

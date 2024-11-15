@@ -90,6 +90,12 @@ impl PlayRenderer for SoftwareRenderer {
         pic_data.set_player_palette(player);
 
         self.seg_renderer.clear();
+        unsafe {
+            self.seg_renderer.set_view_pitch(
+                player.lookdir as i16,
+                buffer.pixel_buffer().size().half_height_f32(),
+            );
+        }
         self.render_bsp_node(
             map,
             player,

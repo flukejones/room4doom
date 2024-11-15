@@ -236,7 +236,7 @@ impl SoftwareRenderer {
         true
     }
 
-    // R_DrawSprite
+    // R_DrawVisSprite
     fn draw_vissprite(
         &self,
         vis: &VisSprite,
@@ -265,7 +265,7 @@ impl SoftwareRenderer {
             }
 
             let texture_column = &patch.data[tex_column];
-            let mut top = ((pixels.size().half_height_f32() - dc_texmid * spryscale) + 1.0).round();
+            let mut top = ((self.seg_renderer.centery - dc_texmid * spryscale) + 1.0).round();
             let mut bottom = top + (spryscale * texture_column.len() as f32).round();
 
             if bottom >= clip_bottom[x] {
@@ -282,6 +282,7 @@ impl SoftwareRenderer {
                     colourmap,
                     vis.mobj_flags & MapObjFlag::Shadow as u32 != 0,
                     dc_iscale,
+                    self.seg_renderer.centery,
                     x,
                     dc_texmid,
                     top,
@@ -394,6 +395,7 @@ impl SoftwareRenderer {
         }
     }
 
+    /// R_DrawPSprite
     fn draw_player_sprite(
         &mut self,
         sprite: &PspDef,
@@ -437,6 +439,12 @@ impl SoftwareRenderer {
         vis.patch = frame.lump[0] as u32 as usize;
         // -(sprite.sy.floor() - patch.top_offset as f32);
         vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
+        let tmp = self.seg_renderer.centery - pixels.size().half_height_f32();
+        if pixels.size().hi_res() {
+            vis.texture_mid += tmp / 2.0;
+        } else {
+            vis.texture_mid += tmp;
+        }
         vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
         vis.x2 = if x2 >= pixels.size().width_f32() {
             pixels.size().width_f32()
@@ -569,7 +577,7 @@ impl SoftwareRenderer {
                     }
 
                     // calculate unclipped screen coordinates for post
-                    let sprtopscreen = pixels.size().half_height_f32() - dc_texturemid * spryscale;
+                    let sprtopscreen = self.seg_renderer.centery - dc_texturemid * spryscale;
                     let mut top = sprtopscreen.round(); // TODO: possible glitch
                     let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32).round();
 
@@ -585,6 +593,7 @@ impl SoftwareRenderer {
                         pic_data.vert_light_colourmap(wall_lights, spryscale),
                         false,
                         1.0 / spryscale,
+                        self.seg_renderer.centery,
                         x,
                         dc_texturemid,
                         top,
@@ -607,6 +616,7 @@ fn draw_masked_column(
     colourmap: &[usize],
     fuzz: bool,
     fracstep: f32,
+    centery: f32,
     dc_x: usize,
     dc_texturemid: f32,
     yl: f32,
@@ -618,7 +628,7 @@ fn draw_masked_column(
         yh = pixels.size().height_f32() - 1.0;
     }
     let pal = pic_data.palette();
-    let mut frac = dc_texturemid + (yl - pixels.size().half_height_f32()) * fracstep;
+    let mut frac = dc_texturemid + (yl - centery) * fracstep;
     for y in yl as u32 as usize..=yh as u32 as usize {
         let select = frac as u32 as usize;
         if select >= texture_column.len() {
