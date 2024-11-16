@@ -3,16 +3,18 @@
 //! level.
 
 pub mod shaders;
+pub mod wipe;
 
 use gameplay::{Level, PicData, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
 use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::render::{Canvas, TextureCreator};
+use sdl2::video::{Window, WindowContext};
 use shaders::basic::Basic;
 use shaders::cgwg_crt::Cgwgcrt;
 use shaders::lottes_crt::LottesCRT;
 use shaders::{ShaderDraw, Shaders};
+use wipe::Wipe;
 
 /// channels should match pixel format
 const SOFT_PIXEL_CHANNELS: usize = 4;
@@ -50,10 +52,10 @@ pub trait PixelBuffer {
 
 pub struct BufferSize {
     hi_res: bool,
-    width: usize,
-    height: usize,
-    width_i32: i32,
-    height_i32: i32,
+    width_usize: usize,
+    height_usize: usize,
+    width: i32,
+    height: i32,
     width_f32: f32,
     height_f32: f32,
     half_width: i32,
@@ -63,16 +65,32 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            hi_res: height > 200,
+            width_usize: width,
+            height_usize: height,
+            width: width as i32,
+            height: height as i32,
+            half_width: width as i32 / 2,
+            half_height: height as i32 / 2,
+            width_f32: width as f32,
+            height_f32: height as f32,
+            half_width_f32: width as f32 / 2.0,
+            half_height_f32: height as f32 / 2.0,
+        }
+    }
+
     pub const fn hi_res(&self) -> bool {
         self.hi_res
     }
 
     pub const fn width(&self) -> i32 {
-        self.width_i32
+        self.width
     }
 
     pub const fn height(&self) -> i32 {
-        self.height_i32
+        self.height
     }
 
     pub const fn half_width(&self) -> i32 {
@@ -84,11 +102,11 @@ impl BufferSize {
     }
 
     pub const fn width_usize(&self) -> usize {
-        self.width
+        self.width_usize
     }
 
     pub const fn height_usize(&self) -> usize {
-        self.height
+        self.height_usize
     }
 
     pub const fn width_f32(&self) -> f32 {
@@ -118,19 +136,7 @@ pub struct Buffer {
 impl Buffer {
     fn new(width: usize, height: usize) -> Self {
         Self {
-            size: BufferSize {
-                hi_res: height > 200,
-                width,
-                height,
-                width_i32: width as i32,
-                height_i32: height as i32,
-                half_width: width as i32 / 2,
-                half_height: height as i32 / 2,
-                width_f32: width as f32,
-                height_f32: height as f32,
-                half_width_f32: width as f32 / 2.0,
-                half_height_f32: height as f32 / 2.0,
-            },
+            size: BufferSize::new(width, height),
             buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS],
             stride: width * SOFT_PIXEL_CHANNELS,
         }
@@ -202,17 +208,28 @@ impl PixelBuffer for Buffer {
 /// A structure holding display data
 pub struct SoftFramebuffer {
     crop_rect: Rect,
+    _tc: TextureCreator<WindowContext>,
+    texture: sdl2::render::Texture,
 }
 
 impl SoftFramebuffer {
-    fn new(canvas: &Canvas<Window>) -> Self {
+    fn new(canvas: &Canvas<Window>, r_width: u32, r_height: u32) -> Self {
         let wsize = canvas.window().drawable_size();
         // let ratio = wsize.1 as f32 * 1.333;
         // let xp = (wsize.0 as f32 - ratio) / 2.0;
-
+        let texture_creator = canvas.texture_creator();
+        let texture = texture_creator
+            .create_texture_target(
+                Some(sdl2::pixels::PixelFormatEnum::RGBA32),
+                r_width,
+                r_height,
+            )
+            .unwrap();
         Self {
             // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
             crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
+            _tc: texture_creator,
+            texture,
         }
     }
 }
@@ -251,8 +268,8 @@ impl SoftOpenGL {
     pub fn copy_softbuf_to_gl_texture(&mut self, buffer: &Buffer) {
         self.gl_texture.set_image(
             Some(&buffer.buffer),
-            buffer.size.width as u32,
-            buffer.size.height as u32,
+            buffer.size.width_usize as u32,
+            buffer.size.height_usize as u32,
             ColorFormat::RGBA,
         );
     }
@@ -260,37 +277,72 @@ impl SoftOpenGL {
 
 /// A structure holding display data
 pub struct RenderTarget {
+    wipe: Wipe,
     width: usize,
     height: usize,
     render_type: RenderType,
-    buffer: Buffer,
+    /// Software rendering draws to the software buffer. If OpenGL or Vulkan are
+    /// used then the menus and HUD are drawn to this and blitted on top of the
+    /// player view
+    buffer1: Buffer,
+    buffer2: Buffer,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     software: Option<SoftFramebuffer>,
     soft_opengl: Option<SoftOpenGL>,
 }
 
 impl RenderTarget {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(
+        width: usize,
+        height: usize,
+        canvas: &Canvas<Window>,
+        gl_ctx: &golem::Context,
+        render_type: RenderType,
+        soft_size: (u32, u32),
+        shader: Shaders,
+    ) -> RenderTarget {
+        let render_target = match render_type {
+            RenderType::Software => {
+                RenderTarget::build(width, height).with_software(&canvas, soft_size.0, soft_size.1)
+            }
+            RenderType::SoftOpenGL => {
+                RenderTarget::build(width, height).with_gl(&canvas, &gl_ctx, shader)
+            }
+            RenderType::OpenGL => todo!(),
+            RenderType::Vulkan => todo!(),
+        };
+
+        render_target
+    }
+
+    fn build(width: usize, height: usize) -> Self {
         Self {
+            wipe: Wipe::new(width as i32, height as i32),
             width,
             height,
             render_type: RenderType::Software,
-            buffer: Buffer::new(width, height),
+            buffer1: Buffer::new(width, height),
+            buffer2: Buffer::new(width, height),
             software: None,
             soft_opengl: None,
         }
     }
 
-    // TODO: should we return the pixelbuffer directly?
-    pub fn pixel_buffer(&mut self) -> &mut dyn PixelBuffer {
-        &mut self.buffer
+    /// Get the buffer currently being drawn to
+    pub fn draw_buffer(&mut self) -> &mut impl PixelBuffer {
+        &mut self.buffer2
     }
 
-    pub fn with_software(mut self, canvas: &Canvas<Window>) -> Self {
+    /// Get the buffer that will be blitted to screen
+    pub fn blit_buffer(&mut self) -> &mut impl PixelBuffer {
+        &mut self.buffer1
+    }
+
+    pub fn with_software(mut self, canvas: &Canvas<Window>, r_width: u32, r_height: u32) -> Self {
         if self.soft_opengl.is_some() {
             panic!("Rendering already set up for software-opengl");
         }
-        self.software = Some(SoftFramebuffer::new(canvas));
+        self.software = Some(SoftFramebuffer::new(canvas, r_width, r_height));
         self.render_type = RenderType::Software;
         self
     }
@@ -304,12 +356,9 @@ impl RenderTarget {
         if self.software.is_some() {
             panic!("Rendering already set up for software");
         }
-        self.soft_opengl = Some(SoftOpenGL::new(
-            self.width,
-            self.height,
-            gl_ctx,
-            screen_shader,
-        ));
+        let gl = SoftOpenGL::new(self.width, self.height, gl_ctx, screen_shader);
+        gl.set_gl_filter().unwrap();
+        self.soft_opengl = Some(gl);
         self.render_type = RenderType::SoftOpenGL;
 
         let wsize = canvas.window().drawable_size();
@@ -319,59 +368,23 @@ impl RenderTarget {
         self
     }
 
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    pub fn height(&self) -> usize {
-        self.height
-    }
-
-    pub fn render_type(&self) -> RenderType {
-        self.render_type
-    }
-
-    pub fn software(&mut self) -> Option<&mut SoftFramebuffer> {
-        self.software.as_mut()
-    }
-
-    /// # Safety
-    ///
-    /// The software framebuffer must not be `None`. Only use if software is
-    /// used.
-
-    pub unsafe fn software_unchecked(&mut self) -> &mut SoftFramebuffer {
-        self.software.as_mut().unwrap_unchecked()
-    }
-
-    pub fn soft_opengl(&mut self) -> Option<&mut SoftOpenGL> {
-        self.soft_opengl.as_mut()
-    }
-
-    /// # Safety
-    ///
-    /// The opengl framebuffer must not be `None`. Only use if opengl is used.
-
-    pub unsafe fn soft_opengl_unchecked(&mut self) -> &mut SoftOpenGL {
-        self.soft_opengl.as_mut().unwrap_unchecked()
-    }
-
-    pub fn blit(&mut self, sdl_canvas: &mut Canvas<Window>, texture: &mut sdl2::render::Texture) {
+    /// Throw buffer1 at the screen
+    pub fn blit(&mut self, sdl_canvas: &mut Canvas<Window>) {
         match self.render_type {
             RenderType::SoftOpenGL => {
                 let ogl = unsafe { self.soft_opengl.as_mut().unwrap_unchecked() };
                 // shader.shader.clear();
-                ogl.copy_softbuf_to_gl_texture(&self.buffer);
+                ogl.copy_softbuf_to_gl_texture(&self.buffer1);
                 ogl.screen_shader.draw(&ogl.gl_texture).unwrap();
                 sdl_canvas.window().gl_swap_window();
             }
             RenderType::Software => {
                 let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
-                texture
-                    .update(None, &self.buffer.buffer, self.buffer.stride)
+                buf.texture
+                    .update(None, &self.buffer1.buffer, self.buffer1.stride)
                     .unwrap();
                 sdl_canvas
-                    .copy(&texture, None, Some(buf.crop_rect))
+                    .copy(&buf.texture, None, Some(buf.crop_rect))
                     .unwrap();
                 sdl_canvas.present();
             }
@@ -379,37 +392,39 @@ impl RenderTarget {
             RenderType::Vulkan => todo!(),
         }
     }
+
+    pub fn clear_with_debug(&mut self) {
+        self.buffer2.clear_with_colour(&[0, 164, 0, 255]);
+    }
+
+    pub fn flip(&mut self) {
+        std::mem::swap(&mut self.buffer1, &mut self.buffer2);
+    }
+
+    /// Must do a blit after to show the results
+    pub fn do_wipe(&mut self) -> bool {
+        let done = self
+            .wipe
+            .do_melt_pixels(&mut self.buffer1, &mut self.buffer2);
+        if done {
+            self.wipe.reset();
+        }
+        done
+    }
 }
 
-pub trait PlayRenderer {
+pub trait PlayViewRenderer {
     /// Drawing the full player view to the `PixelBuf`.
     ///
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_view(
-        &mut self,
+    fn render(
+        self: &mut Self,
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        buf: &mut RenderTarget,
+        target: &mut dyn PixelBuffer,
     );
+
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
 }
-
-// TODO: somehow test with gl context
-// #[cfg(test)]
-// mod tests {
-//     use crate::PixelBuf;
-
-//     #[test]
-//     fn write_read_pixel() {
-//         let mut pixels = PixelBuf::new(320, 200, true);
-
-//         pixels.set_pixel(10, 10, 255, 10, 3, 255);
-//         pixels.set_pixel(319, 199, 25, 10, 3, 255);
-
-//         let px = pixels.read_pixel(10, 10);
-//         assert_eq!(px, (255, 10, 3, 0));
-
-//         let px = pixels.read_pixel(319, 199);
-//         assert_eq!(px, (25, 10, 3, 0));
-//     }
-// }

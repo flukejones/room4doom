@@ -1,11 +1,15 @@
-use gameplay::m_random;
-use render_target::PixelBuffer;
+use std::thread::sleep;
+use std::time::Duration;
 
-#[derive(Debug)]
+use gameplay::m_random;
+
+use crate::PixelBuffer;
+
 pub(crate) struct Wipe {
     y: Vec<i32>,
     height: i32,
     width: i32,
+    delay: i32,
 }
 
 impl Wipe {
@@ -23,14 +27,29 @@ impl Wipe {
             }
         }
 
-        Self { y, height, width }
+        Self {
+            y,
+            height,
+            width,
+            delay: 16,
+        }
     }
 
-    fn do_melt_pixels(
+    pub(crate) fn reset(&mut self) {
+        *self = Self::new(self.width, self.height);
+    }
+
+    pub(crate) fn do_melt_pixels(
         &mut self,
         disp_buf: &mut dyn PixelBuffer, // Display from this buffer
         draw_buf: &mut dyn PixelBuffer, /* Draw to this buffer */
     ) -> bool {
+        if self.delay > 0 {
+            self.delay -= 1;
+            sleep(Duration::from_micros(100));
+            return false;
+        }
+        self.delay = 16;
         let mut done = true;
         let f = disp_buf.size().height() / 200;
         for x in 0..self.width as usize {
@@ -65,13 +84,5 @@ impl Wipe {
             }
         }
         done
-    }
-
-    pub(crate) fn do_melt(
-        &mut self,
-        disp_buf: &mut dyn PixelBuffer, // Display from this buffer
-        draw_buf: &mut dyn PixelBuffer, /* Draw to this buffer */
-    ) -> bool {
-        self.do_melt_pixels(disp_buf, draw_buf)
     }
 }
