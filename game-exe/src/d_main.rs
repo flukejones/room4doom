@@ -19,7 +19,6 @@
 //! and the overall gamestate.
 
 use std::error::Error;
-use std::mem;
 
 use finale_doom::Finale;
 use gameplay::log::{self, error, info};
@@ -27,8 +26,8 @@ use gameplay::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, 
 use gameplay::MapObject;
 use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
+use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
-use gamestate_traits::sdl2::pixels::PixelFormatEnum;
 use gamestate_traits::sdl2::render::Canvas;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{sdl2, GameState, SubsystemTrait};
@@ -37,102 +36,42 @@ use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_soft::SoftwareRenderer;
-use render_target::{PixelBuffer, PlayRenderer, RenderTarget, RenderType};
+use render_target::{PixelBuffer, PlayViewRenderer, RenderTarget};
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::types::WadPatch;
 
 use crate::cheats::Cheats;
 use crate::timestep::TimeStep;
-use crate::wipe::Wipe;
 use crate::CLIOptions;
 
-/// Used to set correct buffer width for screen dimensions matching the OD Doom
-/// height
-fn buffer_dimensions(width: f32, height: f32, double: bool) -> (usize, usize) {
-    let screen_ratio = width / height;
-    let mut buf_height = 200;
-
-    let mut buf_width = (buf_height as f32 * screen_ratio) as i32;
-    if double {
-        buf_width *= 2;
-        buf_height *= 2;
-    }
-    (buf_width as usize, buf_height)
-}
-
-struct RenderGroup {
-    buf_size: (usize, usize),
-    render_buffer: RenderTarget,
-    render_buffer2: RenderTarget,
-    renderer: SoftwareRenderer,
-}
-
-fn create_renderer(
-    canvas: &Canvas<Window>,
-    gl_ctx: &golem::Context,
-    options: &CLIOptions,
-) -> RenderGroup {
+fn set_lookdirs(options: &CLIOptions) {
     unsafe {
         LOOKDIRMIN = BASELOOKDIRMIN;
-        if options.hi_res {
-            LOOKDIRMIN *= 2;
-        }
         LOOKDIRMAX = BASELOOKDIRMAX;
         if options.hi_res {
             LOOKDIRMAX *= 2;
+            LOOKDIRMIN *= 2;
         }
         LOOKDIRS = 1 + LOOKDIRMIN + LOOKDIRMAX;
     }
+}
 
-    let verbose = options.verbose.unwrap_or(log::LevelFilter::Warn);
-    let fov = 90f32.to_radians();
-    let double = options.hi_res;
-
-    let mut render_buffer: RenderTarget;
-    let mut render_buffer2: RenderTarget;
-    let mut render_type = RenderType::Software;
-
+fn create_renderer(canvas: &Canvas<Window>, options: &CLIOptions) -> SoftwareRenderer {
+    set_lookdirs(options);
     let size = canvas.window().size();
-    let (buf_width, buf_height) = buffer_dimensions(size.0 as f32, size.1 as f32, double);
-
     let renderer = SoftwareRenderer::new(
-        fov,
-        buf_width,
-        buf_height,
-        matches!(verbose, log::LevelFilter::Debug),
+        90f32.to_radians(),
+        size.0 as f32,
+        size.1 as f32,
+        options.hi_res,
+        matches!(
+            options.verbose.unwrap_or(log::LevelFilter::Warn),
+            log::LevelFilter::Debug
+        ),
     );
 
-    match options.rendering.unwrap() {
-        crate::config::RenderType::Software => {
-            render_buffer = RenderTarget::new(buf_width, buf_height).with_software(&canvas);
-            render_buffer2 = RenderTarget::new(buf_width, buf_height).with_software(&canvas);
-        }
-        crate::config::RenderType::SoftOpenGL => {
-            let shader = options.shader.unwrap_or_default();
-            render_type = RenderType::SoftOpenGL;
-            render_buffer =
-                RenderTarget::new(buf_width, buf_height).with_gl(&canvas, &gl_ctx, shader);
-            render_buffer2 =
-                RenderTarget::new(buf_width, buf_height).with_gl(&canvas, &gl_ctx, shader);
-        }
-        crate::config::RenderType::OpenGL => todo!(),
-        crate::config::RenderType::Vulkan => todo!(),
-    }
-
-    if matches!(render_type, RenderType::SoftOpenGL) {
-        let buf = unsafe { render_buffer.soft_opengl_unchecked() };
-        buf.set_gl_filter().unwrap();
-        let buf = unsafe { render_buffer2.soft_opengl_unchecked() };
-        buf.set_gl_filter().unwrap();
-    }
-
-    RenderGroup {
-        buf_size: (buf_width, buf_height),
-        render_buffer,
-        render_buffer2,
-        renderer,
-    }
+    renderer
 }
 
 /// Never returns until `game.running` is set to false
@@ -164,44 +103,66 @@ pub fn d_doom_loop(
 
     let mut canvas = window.into_canvas().accelerated().build()?;
     canvas.window_mut().show();
-    let mut rend_group = create_renderer(&canvas, &gl_ctx, &options);
-    let texture_creator = canvas.texture_creator();
-    let mut texture = texture_creator.create_texture_target(
-        Some(PixelFormatEnum::RGBA32),
-        rend_group.buf_size.0 as u32,
-        rend_group.buf_size.1 as u32,
-    )?;
+    // BEGIN SETUP
+    set_lookdirs(&options);
+    let mut renderer = create_renderer(&canvas, &options);
+    let mut render_target = RenderTarget::new(
+        renderer.width() as usize,
+        renderer.height() as usize,
+        &canvas,
+        &gl_ctx,
+        options.rendering.unwrap_or_default().into(),
+        (renderer.width(), renderer.height()),
+        options.shader.unwrap_or_default(),
+    );
+    // END
 
-    let mut old_size = canvas.window().size();
     loop {
         if !game.running() {
             break;
-        }
-        let new_size = canvas.window().size();
-        if old_size != new_size {
-            drop(rend_group);
-            rend_group = create_renderer(&canvas, &gl_ctx, &options);
-            texture = texture_creator.create_texture_target(
-                Some(PixelFormatEnum::RGBA32),
-                rend_group.buf_size.0 as u32,
-                rend_group.buf_size.1 as u32,
-            )?;
-            old_size = new_size;
-            info!("Resized game window");
         }
         // The game-exe is split in to two parts:
         // - tickers, these update all states (game-exe, menu, hud, automap etc)
         // - drawers, these take a state from above and display it to the user
 
         // Update the game-exe state
-        try_run_tics(
+        if let Some(event) = try_run_tics(
             &mut game,
             &mut input,
             &mut menu,
             &mut machines,
             &mut cheats,
             &mut timestep,
-        );
+        ) {
+            match event {
+                Event::Window {
+                    timestamp: _,
+                    window_id: _,
+                    win_event,
+                } => match win_event {
+                    sdl2::event::WindowEvent::SizeChanged(..) => {
+                        drop(renderer);
+                        drop(render_target);
+                        // BEGIN SETUP
+                        set_lookdirs(&options);
+                        renderer = create_renderer(&canvas, &options);
+                        render_target = RenderTarget::new(
+                            renderer.width() as usize,
+                            renderer.height() as usize,
+                            &canvas,
+                            &gl_ctx,
+                            options.rendering.unwrap_or_default().into(),
+                            (renderer.width(), renderer.height()),
+                            options.shader.unwrap_or_default(),
+                        );
+                        // END
+                        info!("Resized game window");
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
 
         // Update the positional sounds
         // Update the listener of the sound server. Will always be consoleplayer.
@@ -219,29 +180,23 @@ pub fn d_doom_loop(
 
         // Draw everything to the buffer
         d_display(
-            &mut rend_group.renderer,
+            &mut renderer,
+            &mut render_target,
+            &mut canvas,
             &mut menu,
             &mut machines,
             &mut game,
-            &mut rend_group.render_buffer,
-            &mut rend_group.render_buffer2,
-            &mut canvas,
-            &mut texture,
-            &mut timestep,
         );
 
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
             info!("{:?}", fps);
         }
-
-        rend_group.render_buffer.blit(&mut canvas, &mut texture);
     }
 
     // Explicit drop to ensure shutdown happens
     drop(game);
-    drop(rend_group);
-    // drop(window);
+    drop(renderer);
     drop(gl_ctx);
     Ok(())
 }
@@ -283,7 +238,9 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
 /// D_Display
 #[allow(clippy::too_many_arguments)]
 fn d_display(
-    rend: &mut impl PlayRenderer,
+    play_view: &mut impl PlayViewRenderer,
+    rend_target: &mut RenderTarget,
+    canvas: &mut Canvas<Window>,
     menu: &mut impl SubsystemTrait,
     machines: &mut GameSubsystem<
         impl SubsystemTrait,
@@ -292,16 +249,10 @@ fn d_display(
         impl SubsystemTrait,
     >,
     game: &mut Game,
-    disp_buf: &mut RenderTarget, // Display from this buffer
-    draw_buf: &mut RenderTarget, // Draw to this buffer
-    canvas: &mut Canvas<Window>,
-    texture: &mut sdl2::render::Texture,
-    timestep: &mut TimeStep,
 ) {
+    let wipe = game.gamestate != game.wipe_game_state;
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
-
-    let wipe = game.gamestate != game.wipe_game_state;
 
     // Drawing order is different for RUST4DOOM as the screensize-statusbar is
     // never taken in to account. A full Doom-style statusbar will never be added
@@ -317,31 +268,22 @@ fn d_display(
                 } else {
                     let player = &game.players[game.consoleplayer];
                     if game.options.dev_parm {
-                        draw_buf.pixel_buffer().clear_with_colour(&[0, 164, 0, 255]);
+                        rend_target.clear_with_debug();
                     }
-                    rend.render_player_view(player, level, &mut game.pic_data, draw_buf);
+                    play_view.render(player, level, &mut game.pic_data, rend_target.draw_buffer());
                 }
             }
-        }
-        // TODO: option for various crosshair
-        let crosshair = false;
-        if crosshair {
-            draw_buf.pixel_buffer().set_pixel(
-                disp_buf.width() / 2,
-                disp_buf.height() / 2,
-                &[200, 14, 14, 255],
-            );
         }
     }
 
     match game.gamestate {
         GameState::Level => {
             // TODO: Automap draw
-            machines.statusbar.draw(draw_buf.pixel_buffer());
-            machines.hud_msgs.draw(draw_buf.pixel_buffer());
+            machines.statusbar.draw(rend_target.draw_buffer());
+            machines.hud_msgs.draw(rend_target.draw_buffer());
         }
-        GameState::Intermission => machines.intermission.draw(draw_buf.pixel_buffer()),
-        GameState::Finale => machines.finale.draw(draw_buf.pixel_buffer()),
+        GameState::Intermission => machines.intermission.draw(rend_target.draw_buffer()),
+        GameState::Finale => machines.finale.draw(rend_target.draw_buffer()),
         GameState::DemoScreen => {
             if game.page.cache.name != game.page.name {
                 let lump = game
@@ -350,40 +292,27 @@ fn d_display(
                     .expect("TITLEPIC missing");
                 game.page.cache = WadPatch::from_lump(lump);
             }
-            page_drawer(game, draw_buf.pixel_buffer());
+            page_drawer(game, rend_target.draw_buffer());
         }
         _ => {}
     }
 
     // menus go directly to the screen
     // draw_buf.clear();
-    menu.draw(draw_buf.pixel_buffer()); // menu is drawn even on top of everything
-                                        // net update does i/o and buildcmds...
-                                        // TODO: NetUpdate(); // send out any new accumulation
+    // net update does i/o and buildcmds...
+    // TODO: NetUpdate(); // send out any new accumulation
 
-    if !wipe {
-        mem::swap(disp_buf, draw_buf);
-        return;
-    }
-
-    // Doom uses a loop here. The thing about it is that while the loop is running
-    // there can be no input, so the menu can't be activated. I think with Doom the
-    // input event queue was still filled via interrupt.
-    let mut wipe = Wipe::new(disp_buf.width() as i32, disp_buf.height() as i32);
-    loop {
-        let mut done = false;
-        timestep.run_this(|_| {
-            done = wipe.do_melt(disp_buf.pixel_buffer(), draw_buf.pixel_buffer());
-            disp_buf.blit(canvas, texture);
-        });
-
-        if done {
-            break;
+    if wipe {
+        if rend_target.do_wipe() {
+            game.wipe_game_state = game.gamestate;
         }
-        std::thread::sleep(std::time::Duration::from_micros(1));
+        // menu is drawn on top of wipes
+        menu.draw(rend_target.blit_buffer());
+    } else {
+        menu.draw(rend_target.draw_buffer());
+        rend_target.flip();
     }
-    game.wipe_game_state = game.gamestate;
-    //menu.draw(disp_buf); // menu is drawn on top of wipes too
+    rend_target.blit(canvas);
 }
 
 fn try_run_tics(
@@ -398,11 +327,15 @@ fn try_run_tics(
     >,
     cheats: &mut Cheats,
     timestep: &mut TimeStep,
-) {
+) -> Option<Event> {
     // TODO: net.c starts here
     // Build tics here?
+    let mut event_return = None;
     timestep.run_this(|_| {
-        process_events(game, input, menu, machinations, cheats); // D_ProcessEvents
+        // D_ProcessEvents
+        if let Some(e) = process_events(game, input, menu, machinations, cheats) {
+            event_return.replace(e);
+        }
 
         if game.demo.advance {
             game.do_advance_demo();
@@ -413,6 +346,7 @@ fn try_run_tics(
         }
         game.game_tic += 1;
     });
+    event_return
 }
 
 fn process_events(
@@ -426,7 +360,7 @@ fn process_events(
         impl SubsystemTrait,
     >,
     cheats: &mut Cheats,
-) {
+) -> Option<Event> {
     // required for cheats and menu so they don't receive multiple key-press fo same
     // key
     let input_callback = |sc: Scancode| {
@@ -463,23 +397,16 @@ fn process_events(
         false
     };
 
+    let mut event_return = None;
     let event_callback = |event: sdl2::event::Event| match event {
         sdl2::event::Event::Window {
             timestamp: _,
             window_id: _,
             win_event,
         } => {
-            match win_event {
-                // sdl2::event::WindowEvent::Moved(..) => todo!("Moved"),
-                // sdl2::event::WindowEvent::Resized(..) => todo!("Resized"),
-                // sdl2::event::WindowEvent::SizeChanged(..) => todo!("SizeChanged"),
-                // sdl2::event::WindowEvent::DisplayChanged(_) => todo!("DisplayChanged"),
-                _ => {}
+            if matches!(win_event, WindowEvent::SizeChanged(_, _)) {
+                event_return = Some(event);
             }
-            // println!(
-            //     "sdl2::event::Event::Window: {:?} {:?}",
-            //     window_id, win_event
-            // );
         }
         _ => {}
     };
@@ -489,6 +416,10 @@ fn process_events(
     // net update does i/o and buildcmds...
     // TODO: NetUpdate(); // send out any new accumulation
     // TODO: Network code would update each player slot with incoming TicCmds...
-    let cmd = input.events.build_tic_cmd(&input.config);
-    game.netcmds[console_player][0] = cmd;
+    if game.gamestate == game.wipe_game_state {
+        let cmd = input.events.build_tic_cmd(&input.config);
+        game.netcmds[console_player][0] = cmd;
+    }
+
+    event_return
 }

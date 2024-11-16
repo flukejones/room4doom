@@ -3,14 +3,14 @@ use super::segs::SegRender;
 use super::things::VisSprite;
 use super::RenderData;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
 };
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
 };
 use glam::Vec2;
-use render_target::{PixelBuffer, PlayRenderer, RenderTarget};
+use render_target::{PixelBuffer, PlayViewRenderer};
 use std::f32::consts::PI;
 use std::mem;
 
@@ -68,20 +68,23 @@ pub struct SoftwareRenderer {
     pub y_scale: f32,
     /// Mostly used in thing drawing only
     pub projection: f32,
+
+    pub buf_width: usize,
+    pub buf_height: usize,
 }
 
-impl PlayRenderer for SoftwareRenderer {
-    fn render_player_view(
+impl PlayViewRenderer for SoftwareRenderer {
+    fn render(
         &mut self,
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        buffer: &mut RenderTarget,
+        target: &mut dyn PixelBuffer,
     ) {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
-        self.clear(buffer.pixel_buffer().size().width_f32());
+        self.clear(target.size().width_f32());
         let mut count = 0;
         self.checked_sectors.clear();
         // TODO: netupdate
@@ -91,28 +94,35 @@ impl PlayRenderer for SoftwareRenderer {
 
         self.seg_renderer.clear();
         unsafe {
-            self.seg_renderer.set_view_pitch(
-                player.lookdir as i16,
-                buffer.pixel_buffer().size().half_height_f32(),
-            );
+            self.seg_renderer
+                .set_view_pitch(player.lookdir as i16, target.size().half_height_f32());
         }
-        self.render_bsp_node(
-            map,
-            player,
-            map.start_node(),
-            pic_data,
-            buffer.pixel_buffer(),
-            &mut count,
-        );
+        self.render_bsp_node(map, player, map.start_node(), pic_data, target, &mut count);
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        self.draw_masked(player, pic_data, buffer.pixel_buffer());
+        self.draw_masked(player, pic_data, target);
         // TODO: netupdate again
+    }
+
+    fn width(&self) -> u32 {
+        self.buf_width as u32
+    }
+
+    fn height(&self) -> u32 {
+        self.buf_height as u32
     }
 }
 
 impl SoftwareRenderer {
-    pub fn new(fov: f32, buf_width: usize, buf_height: usize, debug: bool) -> Self {
+    pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
+        let screen_ratio = width / height;
+        let mut buf_height = 200;
+
+        let mut buf_width = (buf_height as f32 * screen_ratio) as usize;
+        if double {
+            buf_width *= 2;
+            buf_height *= 2;
+        }
         let fov = corrected_fov_for_height(fov, buf_width as f32, buf_height as f32);
         let projection = projection(fov, buf_width as f32 / 2.0);
         let y_scale = y_scale(fov, buf_width as f32, buf_height as f32);
@@ -131,6 +141,8 @@ impl SoftwareRenderer {
             next_vissprite: 0,
             y_scale,
             projection,
+            buf_width,
+            buf_height,
         }
     }
 

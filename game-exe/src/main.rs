@@ -3,7 +3,6 @@ mod cli;
 mod config;
 mod d_main;
 mod timestep;
-mod wipe;
 
 use cli::*;
 use config::MusicType;

@@ -58,6 +58,17 @@ impl FromStr for RenderType {
     }
 }
 
+impl Into<render_target::RenderType> for RenderType {
+    fn into(self) -> render_target::RenderType {
+        match self {
+            RenderType::Software => render_target::RenderType::Software,
+            RenderType::SoftOpenGL => render_target::RenderType::SoftOpenGL,
+            RenderType::OpenGL => render_target::RenderType::OpenGL,
+            RenderType::Vulkan => render_target::RenderType::Vulkan,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum MusicType {
     FluidSynth,

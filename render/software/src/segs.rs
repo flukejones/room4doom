@@ -894,7 +894,7 @@ pub fn draw_flat_column(
     let pitch = pixels.pitch();
     let channels = pixels.channels();
 
-    for y in yl..yh + 1 {
+    for y in yl..=yh {
         #[cfg(feature = "safety_check")]
         let y_slope = yslope_table[y];
         // unchecked indexing boosts speed immensely

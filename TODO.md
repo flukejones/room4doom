@@ -1,5 +1,12 @@
 # TODO
 
+Refactor the rendering.
+1. Menus and HUD need a buffer to draw on to
+2. Software player view needs buffer to draw on to
+3. OpenGL and Vulkan???
+
+Need to move more of the explicitly software stuff in to the software rendering
+
 ## BUGS
 
 - [ ] Player not taking damage from rockets or barrels
@@ -13,6 +20,7 @@
       - new yslope tables for flats
       - dc_texturemid adjustment to remap
       - in segs uses of half_height_f32() need to be wrapped to add view pitch
+- [ ] mlook options
 - [ ] Dehacked support
 - [ ] Lump name `SWITCHES`, extend the switch list (BOOM)
 - [ ] Lump name `ANIMATED`, extend the animated texture list (BOOM)
