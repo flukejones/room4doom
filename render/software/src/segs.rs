@@ -82,6 +82,7 @@ pub(crate) struct SegRender {
     pub yslope: usize,
     pub centery: f32,
     pub screen_x: Vec<f32>,
+    pub screen_x_scale: Vec<f32>,
     pub fov: f32,
     pub fov_half: f32,
     pub wide_ratio: f32,
@@ -92,6 +93,16 @@ pub(crate) struct SegRender {
 
 impl SegRender {
     pub fn new(fov: f32, screen_width: usize, screen_height: usize) -> Self {
+        let screen_x: Vec<f32> = (0..=screen_width)
+            .map(|x| screen_to_angle(fov, x as f32, (screen_width / 2) as f32))
+            .collect();
+
+        let wide_ratio = screen_height as f32 / screen_width as f32 * 1.6;
+        let screen_x_scale = screen_x
+            .iter()
+            .map(|x| 1.0 / x.cos() * wide_ratio)
+            .collect();
+
         Self {
             segtextured: false,
             markfloor: false,
@@ -140,12 +151,11 @@ impl SegRender {
                 .collect(),
             yslope: 0,
             centery: screen_height as f32 / 2.0,
-            screen_x: (0..=screen_width)
-                .map(|x| screen_to_angle(fov, x as f32, (screen_width / 2) as f32))
-                .collect(),
+            screen_x,
+            screen_x_scale,
             fov,
             fov_half: fov / 2.0,
-            wide_ratio: screen_height as f32 / screen_width as f32 * 1.6,
+            wide_ratio,
 
             sky_doubled: screen_height != 200,
             sky_mid: (screen_height / 2 - if screen_height != 200 { 12 } else { 6 }) as f32,
@@ -558,6 +568,8 @@ impl SegRender {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
+            let x_start = self.rw_startx as u32 as usize;
+            let screen_x = self.screen_x[x_start];
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl - 1.0;
@@ -589,29 +601,28 @@ impl SegRender {
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(10));
+                            sleep(Duration::from_millis(3));
                         }
                     } else {
-                        let x_start = self.rw_startx as u32 as usize;
                         draw_flat_column(
                             ceil_tex,
                             mobj.xy,
                             ceil_height,
                             flats_total_light,
                             x_start,
-                            self.screen_x[x_start],
+                            screen_x,
+                            self.screen_x_scale[x_start],
                             mobj.angle,
                             top as u32 as usize,
                             bottom as u32 as usize,
                             pic_data,
                             rend.draw_buffer(),
                             &self.yslopes[self.yslope],
-                            self.wide_ratio,
                         );
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(10));
+                            sleep(Duration::from_millis(3));
                         }
                     }
                     // Must clip walls to floors if drawn
@@ -633,27 +644,25 @@ impl SegRender {
                 if top <= bottom {
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.floorclip[clip_index] = top + 1.0;
-
-                    let x_start = self.rw_startx as u32 as usize;
                     draw_flat_column(
                         floor_tex,
                         mobj.xy,
                         floor_height,
                         flats_total_light,
                         x_start,
-                        self.screen_x[x_start],
+                        screen_x,
+                        self.screen_x_scale[x_start],
                         mobj.angle,
                         top as u32 as usize,
                         bottom as u32 as usize,
                         pic_data,
                         rend.draw_buffer(),
                         &self.yslopes[self.yslope],
-                        self.wide_ratio,
                     );
                     #[cfg(feature = "debug_draw")]
                     {
                         rend.debug_blit_draw_buffer();
-                        sleep(Duration::from_millis(10));
+                        sleep(Duration::from_millis(3));
                     }
                 }
             }
@@ -689,7 +698,7 @@ impl SegRender {
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(10));
+                            sleep(Duration::from_millis(3));
                         }
                     };
                     rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
@@ -723,7 +732,7 @@ impl SegRender {
                             #[cfg(feature = "debug_draw")]
                             {
                                 rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(10));
+                                sleep(Duration::from_millis(3));
                             }
                         }
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
@@ -761,7 +770,7 @@ impl SegRender {
                             #[cfg(feature = "debug_draw")]
                             {
                                 rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(10));
+                                sleep(Duration::from_millis(3));
                             }
                             rdata.portal_clip.floorclip[clip_index] = mid;
                         }
@@ -785,9 +794,6 @@ impl SegRender {
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
         }
-        // rend.flip();
-        // rend.blit_draw_buffer();
-        // sleep(Duration::from_millis(2000));
     }
 }
 
@@ -909,13 +915,13 @@ pub fn draw_flat_column(
     total_light: usize,
     dc_x: usize,
     screen_x: f32,
+    distscale: f32,
     angle: Angle,
     yl: usize,
     mut yh: usize,
     pic_data: &PicData,
     pixels: &mut dyn PixelBuffer,
     yslope_table: &[f32],
-    wide_ratio: f32,
 ) {
     yh = yh.min(pixels.size().height_usize() - 1);
 
@@ -929,38 +935,33 @@ pub fn draw_flat_column(
     let angle = angle + screen_x;
     let cos = angle.cos();
     let sin = angle.sin();
-    let distscale = 1.0 / screen_x.cos() * wide_ratio * plane_height;
-    for y in yl..=yh {
-        #[cfg(feature = "safety_check")]
-        let y_slope = yslope_table[y];
-        // unchecked indexing boosts speed immensely
-        #[cfg(not(feature = "safety_check"))]
-        let y_slope = unsafe { yslope_table.get_unchecked(y) };
 
-        let distance = y_slope * distscale;
-        let ds_xfrac = viewxy.x + cos * distance;
-        let ds_yfrac = viewxy.y + sin * distance;
+    let pixels = pixels.buf_mut();
+    for y_slope in yslope_table[yl..=yh].iter() {
+        let diminished_light = plane_height * y_slope;
+        let colourmap =
+            pic_data.flat_light_colourmap(total_light, (diminished_light as u32 as usize) >> 4);
 
+        let length = diminished_light * distscale;
+        let xfrac = viewxy.x + cos * length;
+        let yfrac = viewxy.y + sin * length;
         // flats are 64x64 so a bitwise op works here
-        let x_step = (ds_xfrac.abs() as u32 as usize) & tex_len;
-        let y_step = (ds_yfrac.abs() as u32 as usize) & tex_len;
+        let x_step = (xfrac.abs() as u32 as usize) & tex_len;
+        let y_step = (yfrac.abs() as u32 as usize) & tex_len;
 
-        // changed from `distance` to `length` to provide a radius light
-        let colourmap = pic_data.flat_light_colourmap(total_light, (distance as u32 as usize) >> 4);
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
             let px = *colourmap.get_unchecked(tc);
             let c = pal.get_unchecked(px);
             pixels
-                .buf_mut()
                 .get_unchecked_mut(pos..pos + channels)
                 .copy_from_slice(c);
         }
         #[cfg(feature = "safety_check")]
         {
-            let px = colourmap[texture.data[x_step][y_step]];
-            pixels.set_pixel(dc_x, y, &pal[px].0);
+            let px = colourmap[texture.data[x_step][y_pos]];
+            pixels.set_pixel(dc_x, y_pos, &pal[px].0);
         }
         pos += pitch;
     }
