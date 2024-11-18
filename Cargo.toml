@@ -79,7 +79,7 @@ strip = true
 
 [profile.dev]
 debug = true
-opt-level = 2
+opt-level = 3
 
 [profile.bench]
 lto = true

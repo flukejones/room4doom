@@ -58,10 +58,6 @@ pub struct BufferSize {
     height: i32,
     width_f32: f32,
     height_f32: f32,
-    half_width: i32,
-    half_height: i32,
-    half_width_f32: f32,
-    half_height_f32: f32,
 }
 
 impl BufferSize {
@@ -72,12 +68,8 @@ impl BufferSize {
             height_usize: height,
             width: width as i32,
             height: height as i32,
-            half_width: width as i32 / 2,
-            half_height: height as i32 / 2,
             width_f32: width as f32,
             height_f32: height as f32,
-            half_width_f32: width as f32 / 2.0,
-            half_height_f32: height as f32 / 2.0,
         }
     }
 
@@ -85,6 +77,7 @@ impl BufferSize {
         self.hi_res
     }
 
+    // todo, need const traits stabilised
     pub const fn width(&self) -> i32 {
         self.width
     }
@@ -94,11 +87,11 @@ impl BufferSize {
     }
 
     pub const fn half_width(&self) -> i32 {
-        self.half_width
+        self.width / 2
     }
 
     pub const fn half_height(&self) -> i32 {
-        self.half_height
+        self.height / 2
     }
 
     pub const fn width_usize(&self) -> usize {
@@ -118,11 +111,11 @@ impl BufferSize {
     }
 
     pub const fn half_width_f32(&self) -> f32 {
-        self.half_width_f32
+        self.width_f32 / 2.0
     }
 
     pub const fn half_height_f32(&self) -> f32 {
-        self.half_height_f32
+        self.height_f32 / 2.0
     }
 }
 

@@ -13,14 +13,7 @@ pub struct WadFlat {
 
 /// Used in a `WadPalette`. Each component byte is stored in the palette in
 /// sequence of Red-Green-Blue
-#[derive(Debug, Copy, Clone, Default)]
-pub struct WadColour(pub [u8; SOFT_PIXEL_CHANNELS]);
-
-impl WadColour {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self([r, g, b, 255])
-    }
-}
+pub type WadColour = [u8; SOFT_PIXEL_CHANNELS];
 
 /// There are typically 14 palettes available during gameplay. These range from
 /// regular colours to increasing shades of red for player damage, some

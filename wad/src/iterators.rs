@@ -215,11 +215,12 @@ impl WadData {
             transformer: move |offset| {
                 let mut palette = WadPalette::new();
                 for i in 0..256 {
-                    palette.0[i] = WadColour::new(
+                    palette.0[i] = [
                         info.data[offset + i * 3],
                         info.data[offset + i * 3 + 1],
                         info.data[offset + i * 3 + 2],
-                    );
+                        255,
+                    ];
                 }
                 palette
             },
@@ -624,21 +625,21 @@ mod tests {
 
         let palettes: Vec<WadPalette> = wad.playpal_iter().collect();
 
-        assert_eq!(palettes[0].0[0].0[0], 0);
-        assert_eq!(palettes[0].0[0].0[1], 0);
-        assert_eq!(palettes[0].0[0].0[2], 0);
+        assert_eq!(palettes[0].0[0][0], 0);
+        assert_eq!(palettes[0].0[0][1], 0);
+        assert_eq!(palettes[0].0[0][2], 0);
 
-        assert_eq!(palettes[0].0[1].0[0], 31);
-        assert_eq!(palettes[0].0[1].0[1], 23);
-        assert_eq!(palettes[0].0[1].0[2], 11);
+        assert_eq!(palettes[0].0[1][0], 31);
+        assert_eq!(palettes[0].0[1][1], 23);
+        assert_eq!(palettes[0].0[1][2], 11);
 
-        assert_eq!(palettes[0].0[119].0[0], 67);
-        assert_eq!(palettes[0].0[119].0[1], 147);
-        assert_eq!(palettes[0].0[119].0[2], 55);
+        assert_eq!(palettes[0].0[119][0], 67);
+        assert_eq!(palettes[0].0[119][1], 147);
+        assert_eq!(palettes[0].0[119][2], 55);
 
-        assert_eq!(palettes[4].0[119].0[0], 150);
-        assert_eq!(palettes[4].0[119].0[1], 82);
-        assert_eq!(palettes[4].0[119].0[2], 31);
+        assert_eq!(palettes[4].0[119][0], 150);
+        assert_eq!(palettes[4].0[119][1], 82);
+        assert_eq!(palettes[4].0[119][2], 31);
     }
 
     #[test]

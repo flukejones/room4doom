@@ -69,7 +69,7 @@ pub struct PicData {
     // 16 groups of 48 sets of indexes to colourmap
     light_scale: [[usize; 48]; 16],
     // 16 groups of 128 sets of palette
-    pub zlight_scale: [[usize; 128]; 16],
+    zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
     walls: Vec<WallPic>,
     /// Used in animations

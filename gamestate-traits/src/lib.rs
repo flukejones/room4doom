@@ -135,7 +135,7 @@ pub trait SubsystemTrait {
                     for _ in 0..f {
                         let x = (x + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize;
                         let y = (y + ytmp + column.y_offset * f).unsigned_abs() as usize;
-                        pixels.set_pixel(x, y, &colour.0);
+                        pixels.set_pixel(x, y, &colour);
                         ytmp += 1;
                     }
                 }

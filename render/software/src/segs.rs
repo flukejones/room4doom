@@ -559,50 +559,47 @@ impl SegRender {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top <= bottom {
-                    if seg.frontsector.ceilingpic == pic_data.sky_num() {
-                        let screen_x_degrees = screen_to_angle(
-                            self.fov,
-                            self.rw_startx,
-                            pixels.size().half_width_f32(),
-                        );
-                        let sky_angle =
-                            (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
-                        let sky_column = pic_data
-                            .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
-
-                        draw_wall_column(
-                            sky_column,
-                            sky_colourmap,
-                            0.89,
-                            self.centery,
-                            self.rw_startx,
-                            self.sky_mid,
-                            top,
-                            bottom,
-                            pic_data,
-                            self.sky_doubled,
-                            pixels,
-                        );
-                    } else {
-                        let x_start = self.rw_startx as u32 as usize;
-                        draw_flat_column(
-                            ceil_tex,
-                            mobj.xy,
-                            ceil_height,
-                            flats_total_light,
-                            x_start,
-                            self.screen_x[x_start],
-                            mobj.angle,
-                            top as u32 as usize,
-                            bottom as u32 as usize,
-                            pic_data,
-                            pixels,
-                            &self.yslopes[self.yslope],
-                            self.wide_ratio,
-                        );
-                    }
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
+                }
+                if seg.frontsector.ceilingpic == pic_data.sky_num() {
+                    let screen_x_degrees =
+                        screen_to_angle(self.fov, self.rw_startx, pixels.size().half_width_f32());
+                    let sky_angle =
+                        (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
+                    let sky_column = pic_data
+                        .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
+
+                    draw_wall_column(
+                        sky_column,
+                        sky_colourmap,
+                        0.89,
+                        self.centery,
+                        self.rw_startx,
+                        self.sky_mid,
+                        top,
+                        bottom,
+                        pic_data,
+                        self.sky_doubled,
+                        pixels,
+                    );
+                } else {
+                    let x_start = self.rw_startx as u32 as usize;
+                    draw_flat_column(
+                        ceil_tex,
+                        mobj.xy,
+                        ceil_height,
+                        flats_total_light,
+                        x_start,
+                        self.screen_x[x_start],
+                        mobj.angle,
+                        top as u32 as usize,
+                        bottom as u32 as usize,
+                        pic_data,
+                        pixels,
+                        &self.yslopes[self.yslope],
+                        self.wide_ratio,
+                    );
                 }
             }
 
@@ -618,25 +615,25 @@ impl SegRender {
                     top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 }
                 if top <= bottom {
-                    let x_start = self.rw_startx as u32 as usize;
-                    draw_flat_column(
-                        floor_tex,
-                        mobj.xy,
-                        floor_height,
-                        flats_total_light,
-                        x_start,
-                        self.screen_x[x_start],
-                        mobj.angle,
-                        top as u32 as usize,
-                        bottom as u32 as usize,
-                        pic_data,
-                        pixels,
-                        &self.yslopes[self.yslope],
-                        self.wide_ratio,
-                    );
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.floorclip[clip_index] = top + 1.0;
                 }
+                let x_start = self.rw_startx as u32 as usize;
+                draw_flat_column(
+                    floor_tex,
+                    mobj.xy,
+                    floor_height,
+                    flats_total_light,
+                    x_start,
+                    self.screen_x[x_start],
+                    mobj.angle,
+                    top as u32 as usize,
+                    bottom as u32 as usize,
+                    pic_data,
+                    pixels,
+                    &self.yslopes[self.yslope],
+                    self.wide_ratio,
+                );
             }
 
             let mut dc_iscale = 0.0;
@@ -801,7 +798,7 @@ pub fn draw_wall_column(
             pixels
                 .buf_mut()
                 .get_unchecked_mut(pos..pos + channels)
-                .copy_from_slice(&c.0);
+                .copy_from_slice(c);
         }
         #[cfg(feature = "safety_check")]
         {
@@ -854,7 +851,7 @@ pub fn draw_wally_column(
             let px =
                 *colourmap.get_unchecked(*texture.data.get_unchecked(x_step).get_unchecked(y_step));
             let c = pal.get_unchecked(px);
-            pixels.set_pixel(dc_x, y, &c.0);
+            pixels.set_pixel(dc_x, y, &c);
         }
         #[cfg(feature = "safety_check")]
         {
@@ -882,11 +879,6 @@ pub fn draw_flat_column(
 ) {
     yh = yh.min(pixels.size().height_usize() - 1);
 
-    let angle = angle + screen_x;
-    let distscale = 1.0 / screen_x.cos() * wide_ratio;
-    let cos = angle.cos();
-    let sin = angle.sin();
-
     let pal = pic_data.palette();
     let tex_len = texture.data.len() - 1; // always square
 
@@ -894,6 +886,10 @@ pub fn draw_flat_column(
     let pitch = pixels.pitch();
     let channels = pixels.channels();
 
+    let angle = angle + screen_x;
+    let cos = angle.cos();
+    let sin = angle.sin();
+    let distscale = 1.0 / screen_x.cos() * wide_ratio * plane_height;
     for y in yl..=yh {
         #[cfg(feature = "safety_check")]
         let y_slope = yslope_table[y];
@@ -901,10 +897,9 @@ pub fn draw_flat_column(
         #[cfg(not(feature = "safety_check"))]
         let y_slope = unsafe { yslope_table.get_unchecked(y) };
 
-        let distance = plane_height * y_slope;
-        let length = distance * distscale;
-        let ds_xfrac = viewxy.x + cos * length;
-        let ds_yfrac = viewxy.y + sin * length;
+        let distance = y_slope * distscale;
+        let ds_xfrac = viewxy.x + cos * distance;
+        let ds_yfrac = viewxy.y + sin * distance;
 
         // flats are 64x64 so a bitwise op works here
         let x_step = (ds_xfrac.abs() as u32 as usize) & tex_len;
@@ -920,7 +915,7 @@ pub fn draw_flat_column(
             pixels
                 .buf_mut()
                 .get_unchecked_mut(pos..pos + channels)
-                .copy_from_slice(&c.0);
+                .copy_from_slice(c);
         }
         #[cfg(feature = "safety_check")]
         {
