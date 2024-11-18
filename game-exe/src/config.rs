@@ -58,13 +58,13 @@ impl FromStr for RenderType {
     }
 }
 
-impl Into<render_target::RenderType> for RenderType {
-    fn into(self) -> render_target::RenderType {
+impl Into<render_target::RenderApiType> for RenderType {
+    fn into(self) -> render_target::RenderApiType {
         match self {
-            RenderType::Software => render_target::RenderType::Software,
-            RenderType::SoftOpenGL => render_target::RenderType::SoftOpenGL,
-            RenderType::OpenGL => render_target::RenderType::OpenGL,
-            RenderType::Vulkan => render_target::RenderType::Vulkan,
+            RenderType::Software => render_target::RenderApiType::Software,
+            RenderType::SoftOpenGL => render_target::RenderApiType::SoftOpenGL,
+            RenderType::OpenGL => render_target::RenderApiType::OpenGL,
+            RenderType::Vulkan => render_target::RenderApiType::Vulkan,
         }
     }
 }

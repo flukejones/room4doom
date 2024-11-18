@@ -21,22 +21,22 @@
 use std::error::Error;
 
 use finale_doom::Finale;
-use gameplay::log::{self, error, info};
+use gameplay::log::{error, info};
 use gameplay::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::MapObject;
 use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
-use gamestate_traits::sdl2::render::Canvas;
 use gamestate_traits::sdl2::video::Window;
-use gamestate_traits::{sdl2, GameState, SubsystemTrait};
+use gamestate_traits::{
+    sdl2, GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait
+};
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
-use render_soft::SoftwareRenderer;
-use render_target::{PixelBuffer, PlayViewRenderer, RenderTarget};
+use render_target::RenderTarget;
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::types::WadPatch;
@@ -55,23 +55,6 @@ fn set_lookdirs(options: &CLIOptions) {
         }
         LOOKDIRS = 1 + LOOKDIRMIN + LOOKDIRMAX;
     }
-}
-
-fn create_renderer(canvas: &Canvas<Window>, options: &CLIOptions) -> SoftwareRenderer {
-    set_lookdirs(options);
-    let size = canvas.window().size();
-    let renderer = SoftwareRenderer::new(
-        90f32.to_radians(),
-        size.0 as f32,
-        size.1 as f32,
-        options.hi_res,
-        matches!(
-            options.verbose.unwrap_or(log::LevelFilter::Warn),
-            log::LevelFilter::Debug
-        ),
-    );
-
-    renderer
 }
 
 /// Never returns until `game.running` is set to false
@@ -105,14 +88,12 @@ pub fn d_doom_loop(
     canvas.window_mut().show();
     // BEGIN SETUP
     set_lookdirs(&options);
-    let mut renderer = create_renderer(&canvas, &options);
     let mut render_target = RenderTarget::new(
-        renderer.width() as usize,
-        renderer.height() as usize,
-        &canvas,
+        options.hi_res,
+        options.dev_parm,
+        canvas,
         &gl_ctx,
         options.rendering.unwrap_or_default().into(),
-        (renderer.width(), renderer.height()),
         options.shader.unwrap_or_default(),
     );
     // END
@@ -141,18 +122,15 @@ pub fn d_doom_loop(
                     win_event,
                 } => match win_event {
                     sdl2::event::WindowEvent::SizeChanged(..) => {
-                        drop(renderer);
-                        drop(render_target);
                         // BEGIN SETUP
                         set_lookdirs(&options);
-                        renderer = create_renderer(&canvas, &options);
+                        let canvas = render_target.framebuffer.canvas;
                         render_target = RenderTarget::new(
-                            renderer.width() as usize,
-                            renderer.height() as usize,
-                            &canvas,
+                            options.hi_res,
+                            options.dev_parm,
+                            canvas,
                             &gl_ctx,
                             options.rendering.unwrap_or_default().into(),
-                            (renderer.width(), renderer.height()),
                             options.shader.unwrap_or_default(),
                         );
                         // END
@@ -179,14 +157,7 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        d_display(
-            &mut renderer,
-            &mut render_target,
-            &mut canvas,
-            &mut menu,
-            &mut machines,
-            &mut game,
-        );
+        d_display(&mut render_target, &mut menu, &mut machines, &mut game);
 
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
@@ -196,7 +167,6 @@ pub fn d_doom_loop(
 
     // Explicit drop to ensure shutdown happens
     drop(game);
-    drop(renderer);
     drop(gl_ctx);
     Ok(())
 }
@@ -237,10 +207,8 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
 ///
 /// D_Display
 #[allow(clippy::too_many_arguments)]
-fn d_display(
-    play_view: &mut impl PlayViewRenderer,
-    rend_target: &mut RenderTarget,
-    canvas: &mut Canvas<Window>,
+fn d_display<R>(
+    rend_target: &mut R,
     menu: &mut impl SubsystemTrait,
     machines: &mut GameSubsystem<
         impl SubsystemTrait,
@@ -249,7 +217,9 @@ fn d_display(
         impl SubsystemTrait,
     >,
     game: &mut Game,
-) {
+) where
+    R: RenderTrait + PlayViewRenderer,
+{
     let wipe = game.gamestate != game.wipe_game_state;
     let automap_active = false;
     //if (gamestate == GS_LEVEL && !automapactive && gametic)
@@ -268,9 +238,9 @@ fn d_display(
                 } else {
                     let player = &game.players[game.consoleplayer];
                     if game.options.dev_parm {
-                        rend_target.clear_with_debug();
+                        rend_target.debug_clear();
                     }
-                    play_view.render(player, level, &mut game.pic_data, rend_target.draw_buffer());
+                    rend_target.render_player_view(player, level, &mut game.pic_data);
                 }
             }
         }
@@ -302,6 +272,14 @@ fn d_display(
     // net update does i/o and buildcmds...
     // TODO: NetUpdate(); // send out any new accumulation
 
+    #[cfg(feature = "debug_draw")]
+    {
+        game.wipe_game_state = game.gamestate;
+        rend_target.flip();
+        rend_target.clear();
+        return;
+    }
+
     if wipe {
         if rend_target.do_wipe() {
             game.wipe_game_state = game.gamestate;
@@ -312,7 +290,7 @@ fn d_display(
         menu.draw(rend_target.draw_buffer());
         rend_target.flip();
     }
-    rend_target.blit(canvas);
+    rend_target.blit();
 }
 
 fn try_run_tics(

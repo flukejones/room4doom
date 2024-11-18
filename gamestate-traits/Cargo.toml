@@ -8,6 +8,6 @@ license.workspace = true
 [dependencies]
 sdl2.workspace = true
 gameplay.workspace = true
-render-target.workspace = true
+render-trait.workspace = true
 sound-traits.workspace = true
 wad.workspace = true

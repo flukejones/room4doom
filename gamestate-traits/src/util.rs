@@ -1,5 +1,5 @@
 use crate::SubsystemTrait;
-use render_target::PixelBuffer;
+use render_trait::PixelBuffer;
 use std::mem::MaybeUninit;
 use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;

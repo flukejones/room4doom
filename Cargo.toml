@@ -10,6 +10,7 @@ members = [
     "input",
     "menu/doom",
     "render/render-target",
+    "render/render-trait",
     "render/software",
     "sound/traits",
     "sound/sdl2",
@@ -44,9 +45,9 @@ statusbar-doom = { path = "./statusbar/doom" }
 sound-traits = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
 sound-nosnd = { path = "./sound/nosnd" }
+render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
 render-soft = { path = "./render/software" }
-render-opengl = { path = "./render/opengl" }
 
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }

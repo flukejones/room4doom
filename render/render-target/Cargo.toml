@@ -8,9 +8,12 @@ build = "../../build.rs"
 
 [features]
 safety_check = []
+debug_draw = []
 
 [dependencies]
 gameplay.workspace = true
 golem.workspace = true
 sdl2.workspace = true
 nanoserde.workspace = true
+render-trait.workspace = true
+render-soft.workspace = true

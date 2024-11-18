@@ -205,7 +205,6 @@ impl PicData {
             .map(|v| {
                 let mut tmp: Colourmap = [0; 256];
                 tmp.copy_from_slice(v);
-                dbg!(tmp);
                 tmp
             })
             .collect();

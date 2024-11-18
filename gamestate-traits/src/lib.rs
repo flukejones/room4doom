@@ -8,7 +8,7 @@ use gameplay::MAXPLAYERS;
 pub use gameplay::{
     m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WeaponType, WorldEndPlayerInfo, TICRATE, WEAPON_INFO
 };
-pub use render_target::{PixelBuffer, RenderType};
+pub use render_trait::{PixelBuffer, PlayViewRenderer, RenderTrait};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};
