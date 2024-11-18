@@ -134,7 +134,7 @@ name = "gamestate-traits"
 version = "0.15.3"
 dependencies = [
  "gameplay",
- "render-target",
+ "render-trait",
  "sdl2",
  "sound-traits",
  "wad",
@@ -359,7 +359,8 @@ version = "0.15.3"
 dependencies = [
  "gameplay",
  "glam",
- "render-target",
+ "render-trait",
+ "sdl2",
  "wad",
 ]
 
@@ -370,7 +371,17 @@ dependencies = [
  "gameplay",
  "golem",
  "nanoserde",
+ "render-soft",
+ "render-trait",
  "sdl2",
+]
+
+[[package]]
+name = "render-trait"
+version = "0.15.3"
+dependencies = [
+ "gameplay",
+ "wad",
 ]
 
 [[package]]

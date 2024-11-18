@@ -1,5 +1,5 @@
 [package]
-name = "render-opengl"
+name = "render-trait"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -7,9 +7,7 @@ license.workspace = true
 build = "../../build.rs"
 
 [dependencies]
-glam.workspace = true
 gameplay.workspace = true
-render-target.workspace = true
 
 [dev-dependencies]
 wad.workspace = true

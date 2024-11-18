@@ -10,7 +10,7 @@ use gameplay::{
     Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
 };
 use glam::Vec2;
-use render_target::{PixelBuffer, PlayViewRenderer};
+use render_trait::{PixelBuffer, RenderTrait};
 use std::f32::consts::PI;
 use std::mem;
 
@@ -73,18 +73,18 @@ pub struct SoftwareRenderer {
     pub buf_height: usize,
 }
 
-impl PlayViewRenderer for SoftwareRenderer {
-    fn render(
+impl SoftwareRenderer {
+    pub fn render_player_view(
         &mut self,
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        target: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
-        self.clear(target.size().width_f32());
+        self.clear(rend.draw_buffer().size().width_f32());
         let mut count = 0;
         self.checked_sectors.clear();
         // TODO: netupdate
@@ -94,26 +94,18 @@ impl PlayViewRenderer for SoftwareRenderer {
 
         self.seg_renderer.clear();
         unsafe {
-            self.seg_renderer
-                .set_view_pitch(player.lookdir as i16, target.size().half_height_f32());
+            self.seg_renderer.set_view_pitch(
+                player.lookdir as i16,
+                rend.draw_buffer().size().half_height_f32(),
+            );
         }
-        self.render_bsp_node(map, player, map.start_node(), pic_data, target, &mut count);
+        self.render_bsp_node(map, player, map.start_node(), pic_data, rend, &mut count);
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
-        self.draw_masked(player, pic_data, target);
+        self.draw_masked(player, pic_data, rend);
         // TODO: netupdate again
     }
 
-    fn width(&self) -> u32 {
-        self.buf_width as u32
-    }
-
-    fn height(&self) -> u32 {
-        self.buf_height as u32
-    }
-}
-
-impl SoftwareRenderer {
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
         let screen_ratio = width / height;
         let mut buf_height = 200;
@@ -163,7 +155,7 @@ impl SoftwareRenderer {
         seg: &'a Segment,
         front_sector: &'a Sector,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
@@ -207,16 +199,17 @@ impl SoftwareRenderer {
         }
         // OK down to here
 
+        let s = rend.draw_buffer().size();
         let x1 = angle_to_screen(
             self.seg_renderer.fov,
-            pixels.size().half_width_f32(),
-            pixels.size().width_f32(),
+            s.half_width_f32(),
+            s.width_f32(),
             angle1,
         );
         let x2 = angle_to_screen(
             self.seg_renderer.fov,
-            pixels.size().half_width_f32(),
-            pixels.size().width_f32(),
+            s.half_width_f32(),
+            s.width_f32(),
             angle2,
         );
 
@@ -230,7 +223,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
+                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
                 return;
             }
 
@@ -239,7 +232,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
+                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
                 return;
             }
 
@@ -254,10 +247,10 @@ impl SoftwareRenderer {
                 return;
             }
 
-            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
+            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
             return;
         }
-        self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, pixels);
+        self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
     }
 
     /// R_Subsector - r_bsp
@@ -267,15 +260,20 @@ impl SoftwareRenderer {
         player: &Player,
         subsect: &SubSector,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         let front_sector = &subsect.sector;
 
-        self.add_sprites(player, front_sector, pixels.size().width() as u32, pic_data);
+        self.add_sprites(
+            player,
+            front_sector,
+            rend.draw_buffer().size().width() as u32,
+            pic_data,
+        );
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];
-            self.add_line(player, seg, front_sector, pic_data, pixels);
+            self.add_line(player, seg, front_sector, pic_data, rend);
         }
     }
 
@@ -298,7 +296,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         object: &Player,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         let mut next;
 
@@ -320,7 +318,7 @@ impl SoftwareRenderer {
                     object,
                     &mut self.r_data,
                     pic_data,
-                    pixels,
+                    rend,
                 );
 
                 next = self.new_end;
@@ -345,7 +343,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.r_data,
                 pic_data,
-                pixels,
+                rend,
             );
             // Now adjust the clip size.
             self.solidsegs[start].first = first;
@@ -365,7 +363,7 @@ impl SoftwareRenderer {
                 object,
                 &mut self.r_data,
                 pic_data,
-                pixels,
+                rend,
             );
 
             next += 1;
@@ -384,7 +382,7 @@ impl SoftwareRenderer {
             object,
             &mut self.r_data,
             pic_data,
-            pixels,
+            rend,
         );
         // Adjust the clip size.
         self.solidsegs[start].last = last;
@@ -404,7 +402,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         player: &Player,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -423,7 +421,7 @@ impl SoftwareRenderer {
                     player,
                     &mut self.r_data,
                     pic_data,
-                    pixels,
+                    rend,
                 );
                 return;
             }
@@ -436,7 +434,7 @@ impl SoftwareRenderer {
                 player,
                 &mut self.r_data,
                 pic_data,
-                pixels,
+                rend,
             );
         }
 
@@ -453,7 +451,7 @@ impl SoftwareRenderer {
                 player,
                 &mut self.r_data,
                 pic_data,
-                pixels,
+                rend,
             );
 
             start += 1;
@@ -471,7 +469,7 @@ impl SoftwareRenderer {
             player,
             &mut self.r_data,
             pic_data,
-            pixels,
+            rend,
         );
     }
 
@@ -495,7 +493,8 @@ impl SoftwareRenderer {
         player: &Player,
         node_id: u32,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
+
         count: &mut usize,
     ) {
         *count += 1;
@@ -505,12 +504,12 @@ impl SoftwareRenderer {
             if node_id == u32::MAX {
                 let subsect = &map.subsectors()[0];
                 // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, pixels);
+                self.draw_subsector(map, player, subsect, pic_data, rend);
             } else {
                 // It's a leaf node and is the index to a subsector
                 let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
                 // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, pixels);
+                self.draw_subsector(map, player, subsect, pic_data, rend);
             }
             return;
         }
@@ -520,7 +519,7 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.children[side], pic_data, pixels, count);
+        self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -529,17 +528,10 @@ impl SoftwareRenderer {
             node,
             mobj,
             side ^ 1,
-            pixels.size().half_width_f32(),
-            pixels.size().width_f32(),
+            rend.draw_buffer().size().half_width_f32(),
+            rend.draw_buffer().size().width_f32(),
         ) {
-            self.render_bsp_node(
-                map,
-                player,
-                node.children[side ^ 1],
-                pic_data,
-                pixels,
-                count,
-            );
+            self.render_bsp_node(map, player, node.children[side ^ 1], pic_data, rend, count);
         }
     }
 

@@ -3,10 +3,11 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::{error, warn};
 use gameplay::{
-    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector
+    p_random, point_to_angle_2, LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef,
+    Sector,
 };
 use glam::Vec2;
-use render_target::PixelBuffer;
+use render_trait::{PixelBuffer, RenderTrait};
 
 use super::bsp::SoftwareRenderer;
 use super::defs::DrawSeg;
@@ -243,7 +244,7 @@ impl SoftwareRenderer {
         clip_bottom: &[f32],
         clip_top: &[f32],
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         let patch = pic_data.sprite_patch(vis.patch);
 
@@ -288,7 +289,7 @@ impl SoftwareRenderer {
                     top,
                     bottom,
                     pic_data,
-                    pixels,
+                    rend.draw_buffer(),
                 );
             }
 
@@ -302,10 +303,11 @@ impl SoftwareRenderer {
         player: &Player,
         vis: &VisSprite,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
-        let mut clip_bottom = vec![-2.0; pixels.size().width_usize()];
-        let mut clip_top = vec![-2.0; pixels.size().width_usize()];
+        let size = rend.draw_buffer().size().clone();
+        let mut clip_bottom = vec![-2.0; size.width_usize()];
+        let mut clip_top = vec![-2.0; size.width_usize()];
 
         // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
@@ -336,7 +338,7 @@ impl SoftwareRenderer {
                             == 0)
                 {
                     if seg.maskedtexturecol != -1.0 {
-                        self.render_masked_seg_range(player, seg, r1, r2, pic_data, pixels);
+                        self.render_masked_seg_range(player, seg, r1, r2, pic_data, rend);
                     }
                     // seg is behind sprite
                     continue;
@@ -357,8 +359,8 @@ impl SoftwareRenderer {
                     let i = (seg.sprtopclip.unwrap() + r as f32) as u32 as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_top[r] = self.seg_renderer.openings[i];
-                        if clip_top[r] >= pixels.size().height_f32() {
-                            clip_top[r] = pixels.size().height_f32();
+                        if clip_top[r] >= size.height_f32() {
+                            clip_top[r] = size.height_f32();
                         }
                     }
                 }
@@ -367,21 +369,21 @@ impl SoftwareRenderer {
 
         for x in vis.x1 as u32 as usize..=vis.x2 as u32 as usize {
             if clip_bottom[x] == -2.0 {
-                clip_bottom[x] = pixels.size().height_f32();
+                clip_bottom[x] = size.height_f32();
             }
             if clip_top[x] == -2.0 {
                 clip_top[x] = -1.0;
             }
         }
 
-        self.draw_vissprite(vis, &clip_bottom, &clip_top, pic_data, pixels);
+        self.draw_vissprite(vis, &clip_bottom, &clip_top, pic_data, rend);
     }
 
     fn draw_player_sprites(
         &mut self,
         player: &Player,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         if let Some(mobj) = player.mobj() {
             let light = mobj.subsector.sector.lightlevel;
@@ -389,7 +391,7 @@ impl SoftwareRenderer {
 
             for sprite in player.psprites.iter() {
                 if sprite.state.is_some() {
-                    self.draw_player_sprite(sprite, light, mobj.flags, pic_data, pixels);
+                    self.draw_player_sprite(sprite, light, mobj.flags, pic_data, rend);
                 }
             }
         }
@@ -402,9 +404,10 @@ impl SoftwareRenderer {
         light: usize,
         flags: u32,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
-        let f = pixels.size().height() / 200;
+        let size = rend.draw_buffer().size().clone();
+        let f = size.height() / 200;
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
 
@@ -422,13 +425,13 @@ impl SoftwareRenderer {
         // 160.0 is pretty much a hardcoded number to center the weapon always
         let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
         let x_offset = pspritescale / self.y_scale;
-        let x1 = pixels.size().half_width_f32() + (tx * x_offset);
+        let x1 = size.half_width_f32() + (tx * x_offset);
 
-        if x1 >= pixels.size().width_f32() {
+        if x1 >= size.width_f32() {
             return;
         }
         tx += patch.data.len() as f32;
-        let x2 = pixels.size().half_width_f32() + tx * x_offset;
+        let x2 = size.half_width_f32() + tx * x_offset;
 
         if x2 < 0.0 {
             return;
@@ -439,15 +442,15 @@ impl SoftwareRenderer {
         vis.patch = frame.lump[0] as u32 as usize;
         // -(sprite.sy.floor() - patch.top_offset as f32);
         vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
-        let tmp = self.seg_renderer.centery - pixels.size().half_height_f32();
-        if pixels.size().hi_res() {
+        let tmp = self.seg_renderer.centery - size.half_height_f32();
+        if size.hi_res() {
             vis.texture_mid += tmp / 2.0;
         } else {
             vis.texture_mid += tmp;
         }
         vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
-        vis.x2 = if x2 >= pixels.size().width_f32() {
-            pixels.size().width_f32()
+        vis.x2 = if x2 >= size.width_f32() {
+            size.width_f32()
         } else {
             x2
         };
@@ -466,23 +469,23 @@ impl SoftwareRenderer {
             vis.start_frac += vis.x_iscale * (vis.x1 - x1);
         }
 
-        let clip_bottom = vec![0.0; pixels.size().width_usize()];
-        let clip_top = vec![pixels.size().height_f32(); pixels.size().width_usize()];
-        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, pixels)
+        let clip_bottom = vec![0.0; size.width_usize()];
+        let clip_top = vec![size.height_f32(); size.width_usize()];
+        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, rend)
     }
 
     pub(crate) fn draw_masked(
         &mut self,
         player: &Player,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
         let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
         for (i, vis) in vis.iter().enumerate() {
-            self.draw_sprite(player, vis, pic_data, pixels);
+            self.draw_sprite(player, vis, pic_data, rend);
             if i == self.next_vissprite {
                 break;
             }
@@ -490,10 +493,10 @@ impl SoftwareRenderer {
 
         let segs: Vec<DrawSeg> = self.r_data.drawsegs.to_vec();
         for ds in segs.iter().rev() {
-            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pic_data, pixels);
+            self.render_masked_seg_range(player, ds, ds.x1, ds.x2, pic_data, rend);
         }
 
-        self.draw_player_sprites(player, pic_data, pixels);
+        self.draw_player_sprites(player, pic_data, rend);
     }
 
     fn render_masked_seg_range(
@@ -503,8 +506,9 @@ impl SoftwareRenderer {
         x1: f32,
         x2: f32,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
+        let size = rend.draw_buffer().size().clone();
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
 
@@ -569,8 +573,8 @@ impl SoftwareRenderer {
                         continue;
                     }
                     let mut mfloorclip = self.seg_renderer.openings[i];
-                    if mceilingclip >= pixels.size().height_f32() {
-                        mceilingclip = pixels.size().height_f32();
+                    if mceilingclip >= size.height_f32() {
+                        mceilingclip = size.height_f32();
                     }
                     if mfloorclip < 0.0 {
                         mfloorclip = 0.0;
@@ -599,7 +603,7 @@ impl SoftwareRenderer {
                         top,
                         bottom,
                         pic_data,
-                        pixels,
+                        rend.draw_buffer(),
                     );
 
                     self.seg_renderer.openings[index] = f32::MAX;

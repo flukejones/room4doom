@@ -11,6 +11,10 @@ default-run = "room4doom"
 name = "room4doom"
 path = "src/main.rs"
 
+[features]
+safety_check = ["render-soft/safety_check"]
+debug_draw = ["render-soft/debug_draw"]
+
 [dependencies]
 golem = { git = "https://github.com/flukejones/golem/" }
 

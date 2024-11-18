@@ -8,11 +8,13 @@ build = "../../build.rs"
 
 [features]
 safety_check = []
+debug_draw = []
 
 [dependencies]
 glam.workspace = true
 gameplay.workspace = true
-render-target.workspace = true
+render-trait.workspace = true
+sdl2.workspace = true
 
 [dev-dependencies]
 wad.workspace = true

@@ -3,9 +3,13 @@ use gameplay::log::warn;
 use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment, WallPic};
 use glam::Vec2;
-use render_target::PixelBuffer;
+use render_trait::{PixelBuffer, RenderTrait};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use std::ptr::NonNull;
+#[cfg(feature = "debug_draw")]
+use std::thread::sleep;
+#[cfg(feature = "debug_draw")]
+use std::time::Duration;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
@@ -167,7 +171,7 @@ impl SegRender {
     /// # Note
     ///
     /// This can be a source of bugs such as missing clip ranges
-    pub fn store_wall_range(
+    pub(crate) fn store_wall_range(
         &mut self,
         start: f32,
         stop: f32,
@@ -175,14 +179,15 @@ impl SegRender {
         player: &Player,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
+        let size = rend.draw_buffer().size();
         // //seg:, x:496.000000, y:-1072.000000
         // //seg:, x:496.000000, y:-1040.000000
         // if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0)
         // {     dbg!(&seg.sidedef);
         // }
-        if start < 0.0 || start > pixels.size().width_f32() || start > stop {
+        if start < 0.0 || start > size.width_f32() || start > stop {
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -226,7 +231,7 @@ impl SegRender {
             self.rw_normalangle,
             self.rw_distance,
             mobj.angle,
-            pixels.size().width_f32(),
+            size.width_f32(),
         ) * self.wide_ratio;
         ds_p.scale1 = self.rw_scale;
 
@@ -236,7 +241,7 @@ impl SegRender {
                 self.rw_normalangle,
                 self.rw_distance,
                 mobj.angle,
-                pixels.size().width_f32(),
+                size.width_f32(),
             ) * self.wide_ratio;
 
             self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
@@ -450,7 +455,7 @@ impl SegRender {
             }
         }
 
-        self.render_seg_loop(seg, player, mobj, rdata, pic_data, pixels);
+        self.render_seg_loop(seg, player, mobj, rdata, pic_data, rend);
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -516,7 +521,7 @@ impl SegRender {
         mobj: &MapObject,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        rend: &mut impl RenderTrait,
     ) {
         // yl is the pixel location, it is the result of converting the topfrac to int
         let mut yl: f32;
@@ -526,6 +531,7 @@ impl SegRender {
         let mut mid: f32;
         let mut angle;
         let mut texture_column = 0;
+        let size = rend.draw_buffer().size().clone();
 
         let flats_total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
         let ceil_height = (seg.frontsector.ceilingheight - player.viewz).abs();
@@ -559,47 +565,57 @@ impl SegRender {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
                 }
                 if top <= bottom {
+                    if seg.frontsector.ceilingpic == pic_data.sky_num() {
+                        let screen_x_degrees =
+                            screen_to_angle(self.fov, self.rw_startx, size.half_width_f32());
+                        let sky_angle =
+                            (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
+                        let sky_column = pic_data
+                            .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
+
+                        draw_wall_column(
+                            sky_column,
+                            sky_colourmap,
+                            0.89,
+                            self.centery,
+                            self.rw_startx,
+                            self.sky_mid,
+                            top,
+                            bottom,
+                            pic_data,
+                            self.sky_doubled,
+                            rend.draw_buffer(),
+                        );
+                        #[cfg(feature = "debug_draw")]
+                        {
+                            rend.debug_blit_draw_buffer();
+                            sleep(Duration::from_millis(10));
+                        }
+                    } else {
+                        let x_start = self.rw_startx as u32 as usize;
+                        draw_flat_column(
+                            ceil_tex,
+                            mobj.xy,
+                            ceil_height,
+                            flats_total_light,
+                            x_start,
+                            self.screen_x[x_start],
+                            mobj.angle,
+                            top as u32 as usize,
+                            bottom as u32 as usize,
+                            pic_data,
+                            rend.draw_buffer(),
+                            &self.yslopes[self.yslope],
+                            self.wide_ratio,
+                        );
+                        #[cfg(feature = "debug_draw")]
+                        {
+                            rend.debug_blit_draw_buffer();
+                            sleep(Duration::from_millis(10));
+                        }
+                    }
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
-                }
-                if seg.frontsector.ceilingpic == pic_data.sky_num() {
-                    let screen_x_degrees =
-                        screen_to_angle(self.fov, self.rw_startx, pixels.size().half_width_f32());
-                    let sky_angle =
-                        (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
-                    let sky_column = pic_data
-                        .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
-
-                    draw_wall_column(
-                        sky_column,
-                        sky_colourmap,
-                        0.89,
-                        self.centery,
-                        self.rw_startx,
-                        self.sky_mid,
-                        top,
-                        bottom,
-                        pic_data,
-                        self.sky_doubled,
-                        pixels,
-                    );
-                } else {
-                    let x_start = self.rw_startx as u32 as usize;
-                    draw_flat_column(
-                        ceil_tex,
-                        mobj.xy,
-                        ceil_height,
-                        flats_total_light,
-                        x_start,
-                        self.screen_x[x_start],
-                        mobj.angle,
-                        top as u32 as usize,
-                        bottom as u32 as usize,
-                        pic_data,
-                        pixels,
-                        &self.yslopes[self.yslope],
-                        self.wide_ratio,
-                    );
                 }
             }
 
@@ -617,28 +633,34 @@ impl SegRender {
                 if top <= bottom {
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.floorclip[clip_index] = top + 1.0;
+
+                    let x_start = self.rw_startx as u32 as usize;
+                    draw_flat_column(
+                        floor_tex,
+                        mobj.xy,
+                        floor_height,
+                        flats_total_light,
+                        x_start,
+                        self.screen_x[x_start],
+                        mobj.angle,
+                        top as u32 as usize,
+                        bottom as u32 as usize,
+                        pic_data,
+                        rend.draw_buffer(),
+                        &self.yslopes[self.yslope],
+                        self.wide_ratio,
+                    );
+                    #[cfg(feature = "debug_draw")]
+                    {
+                        rend.debug_blit_draw_buffer();
+                        sleep(Duration::from_millis(10));
+                    }
                 }
-                let x_start = self.rw_startx as u32 as usize;
-                draw_flat_column(
-                    floor_tex,
-                    mobj.xy,
-                    floor_height,
-                    flats_total_light,
-                    x_start,
-                    self.screen_x[x_start],
-                    mobj.angle,
-                    top as u32 as usize,
-                    bottom as u32 as usize,
-                    pic_data,
-                    pixels,
-                    &self.yslopes[self.yslope],
-                    self.wide_ratio,
-                );
             }
 
             let mut dc_iscale = 0.0;
             if self.segtextured {
-                angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, pixels.size().half_width_f32());
+                angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, size.half_width_f32());
                                                                                              // TODO: horizontal position of texture isn't quite right
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
                     .abs()
@@ -662,8 +684,13 @@ impl SegRender {
                             yh,
                             pic_data,
                             false,
-                            pixels,
+                            rend.draw_buffer(),
                         );
+                        #[cfg(feature = "debug_draw")]
+                        {
+                            rend.debug_blit_draw_buffer();
+                            sleep(Duration::from_millis(10));
+                        }
                     };
                     rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
                     rdata.portal_clip.floorclip[clip_index] = -1.0;
@@ -691,8 +718,13 @@ impl SegRender {
                                 mid,
                                 pic_data,
                                 false,
-                                pixels,
+                                rend.draw_buffer(),
                             );
+                            #[cfg(feature = "debug_draw")]
+                            {
+                                rend.debug_blit_draw_buffer();
+                                sleep(Duration::from_millis(10));
+                            }
                         }
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
                     } else {
@@ -724,8 +756,13 @@ impl SegRender {
                                 yh,
                                 pic_data,
                                 false,
-                                pixels,
+                                rend.draw_buffer(),
                             );
+                            #[cfg(feature = "debug_draw")]
+                            {
+                                rend.debug_blit_draw_buffer();
+                                sleep(Duration::from_millis(10));
+                            }
                             rdata.portal_clip.floorclip[clip_index] = mid;
                         }
                     } else {
@@ -748,6 +785,9 @@ impl SegRender {
             self.topfrac += self.topstep;
             self.bottomfrac += self.bottomstep;
         }
+        // rend.flip();
+        // rend.blit_draw_buffer();
+        // sleep(Duration::from_millis(2000));
     }
 }
 
