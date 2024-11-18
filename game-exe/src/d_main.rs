@@ -215,7 +215,7 @@ fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
                     draw_buf.set_pixel(
                         x, // - (image.left_offset as i32),
                         y, /* - image.top_offset as i32 - 30, */
-                        &colour.0,
+                        &colour,
                     );
                     ytmp += 1;
                 }
