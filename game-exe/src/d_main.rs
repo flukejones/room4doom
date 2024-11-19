@@ -45,7 +45,7 @@ use crate::cheats::Cheats;
 use crate::timestep::TimeStep;
 use crate::CLIOptions;
 
-fn set_lookdirs(options: &CLIOptions) {
+const fn set_lookdirs(options: &CLIOptions) {
     unsafe {
         LOOKDIRMIN = BASELOOKDIRMIN;
         LOOKDIRMAX = BASELOOKDIRMAX;

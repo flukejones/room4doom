@@ -37,7 +37,7 @@ pub struct Cheats {
 }
 
 impl Cheats {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             god: Cheat::new("iddqd", 0),
             mus: Cheat::new("idmus", 2),
@@ -213,7 +213,7 @@ impl Cheat {
     }
 
     /// Doom function name `cht_CheckCheat`
-    pub fn check(&mut self, key: char) -> bool {
+    pub const fn check(&mut self, key: char) -> bool {
         if self.chars_read < self.sequence.len() {
             if key as u8 == self.sequence.as_bytes()[self.chars_read] {
                 self.chars_read += 1;

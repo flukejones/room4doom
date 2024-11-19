@@ -12,7 +12,6 @@ pub mod node;
 use std::collections::VecDeque;
 use std::ptr;
 
-use log::info;
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
 use wad::types::WadThing;

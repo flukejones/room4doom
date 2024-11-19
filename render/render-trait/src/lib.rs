@@ -1,3 +1,4 @@
+#![feature(const_trait_impl)]
 use gameplay::{Level, PicData, Player};
 
 /// channels should match pixel format
@@ -15,7 +16,7 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub const fn new(width: usize, height: usize) -> Self {
         Self {
             hi_res: height > 200,
             width_usize: width,
@@ -73,6 +74,7 @@ impl BufferSize {
     }
 }
 
+#[const_trait]
 pub trait PixelBuffer {
     fn size(&self) -> &BufferSize;
     fn clear(&mut self);
@@ -112,6 +114,7 @@ pub trait RenderTrait {
     fn do_wipe(&mut self) -> bool;
 }
 
+#[const_trait]
 pub trait PlayViewRenderer {
     /// Doom function name `R_RenderPlayerView`
     fn render_player_view(self: &mut Self, player: &Player, level: &Level, pic_data: &mut PicData);

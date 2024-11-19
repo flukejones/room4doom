@@ -8,6 +8,7 @@
 
 // #![feature(const_fn_floating_point_arithmetic)]
 #![allow(clippy::new_without_default)]
+#![feature(const_float_methods)]
 
 use std::f32::consts::TAU;
 use std::fmt::{self, Debug};
@@ -30,6 +31,7 @@ mod player_sprite;
 mod thing;
 mod thinker;
 pub mod tic_cmd;
+mod trig;
 pub(crate) mod utilities;
 
 pub use angle::Angle;
