@@ -15,7 +15,7 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub const fn new(width: usize, height: usize) -> Self {
         Self {
             hi_res: height > 200,
             width_usize: width,

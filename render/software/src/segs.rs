@@ -198,6 +198,7 @@ impl SegRender {
         // {     dbg!(&seg.sidedef);
         // }
         if start < 0.0 || start > size.width_f32() || start > stop {
+            return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 

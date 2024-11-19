@@ -2,12 +2,20 @@ use glam::Vec2;
 use std::f32::consts::{PI, TAU};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use crate::trig::{COS_TABLE, SIN_TABLE, TAN_TABLE};
+
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI
-    pub const fn new(angle: f32) -> Self {
+    pub fn new(angle: f32) -> Self {
+        // let mut i = 0;
+        // while i < 3600 * 2 + 1 {
+        //     i += 1;
+        //     print!("{:?},", (i as f32 * PI / (1800.0 * 2.0)).tan());
+        // }
+
         let mut a = Angle(angle);
         a.inner_wrap();
         a
@@ -27,20 +35,39 @@ impl Angle {
         self.0
     }
 
-    pub fn sin(&self) -> f32 {
-        self.0.sin()
+    const fn to_table(&self) -> usize {
+        let mut idx = (self.0.to_degrees() * 20.0) as i32;
+
+        while idx >= 7200 {
+            idx -= 7200;
+        }
+        while idx < 0 {
+            idx += 7200;
+        }
+        idx as usize
     }
 
-    pub fn cos(&self) -> f32 {
-        self.0.cos()
+    pub const fn sin(&self) -> f32 {
+        // self.0.sin()
+        SIN_TABLE[self.to_table()]
     }
 
-    pub fn tan(&self) -> f32 {
-        self.0.tan()
+    pub const fn cos(&self) -> f32 {
+        // self.0.cos()
+        COS_TABLE[self.to_table()]
     }
 
-    pub fn unit(&self) -> Vec2 {
-        let (y, x) = self.0.sin_cos();
+    pub const fn tan(&self) -> f32 {
+        // self.0.tan()
+        TAN_TABLE[self.to_table()]
+    }
+
+    pub const fn sin_cos(&self) -> (f32, f32) {
+        (self.sin(), self.cos())
+    }
+
+    pub const fn unit(&self) -> Vec2 {
+        let (y, x) = self.sin_cos();
         Vec2::new(x, y)
     }
 
