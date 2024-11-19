@@ -104,7 +104,7 @@ impl SoftwareRenderer {
         });
     }
 
-    fn new_vissprite(&mut self) -> &mut VisSprite {
+    const fn new_vissprite(&mut self) -> &mut VisSprite {
         let curr = self.next_vissprite;
         self.next_vissprite += 1;
         if curr >= self.vissprites.len() - 1 {

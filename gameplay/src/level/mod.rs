@@ -219,20 +219,17 @@ impl Level {
         }
     }
 
-    pub(super) fn do_exit_level(&mut self) {
-        info!("Exited level");
+    pub(super) const fn do_exit_level(&mut self) {
         self.secret_exit = false;
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub(super) fn do_secret_exit_level(&mut self) {
-        info!("Secret exited level");
+    pub(super) const fn do_secret_exit_level(&mut self) {
         self.secret_exit = true;
         self.game_action = Some(GameAction::CompletedLevel);
     }
 
-    pub(super) fn do_completed(&mut self) {
-        info!("Completed boss level");
+    pub(super) const fn do_completed(&mut self) {
         self.secret_exit = false;
         self.game_action = Some(GameAction::Victory);
     }

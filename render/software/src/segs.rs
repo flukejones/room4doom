@@ -162,13 +162,13 @@ impl SegRender {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub const fn clear(&mut self) {
         self.lastopening = 0.0;
     }
 
     /// # Safety
     /// Nothing else should be modifying `LOOKDIRMAX`
-    pub unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: f32) {
+    pub const unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: f32) {
         self.yslope = (LOOKDIRMAX as i16 + pitch) as usize;
         self.centery = half_screen_height as f32 + pitch as f32;
     }
@@ -590,10 +590,10 @@ impl SegRender {
                             sky_colourmap,
                             0.89,
                             self.centery,
-                            self.rw_startx,
+                            self.rw_startx as u32 as usize,
                             self.sky_mid,
                             top,
-                            bottom,
+                            bottom as i32,
                             pic_data,
                             self.sky_doubled,
                             rend.draw_buffer(),
@@ -687,10 +687,10 @@ impl SegRender {
                             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                             dc_iscale,
                             self.centery,
-                            self.rw_startx,
+                            self.rw_startx as u32 as usize,
                             self.rw_midtexturemid,
                             yl,
-                            yh,
+                            yh as i32,
                             pic_data,
                             false,
                             rend.draw_buffer(),
@@ -721,10 +721,10 @@ impl SegRender {
                                 pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.centery,
-                                self.rw_startx,
+                                self.rw_startx as u32 as usize,
                                 self.rw_toptexturemid,
                                 yl,
-                                mid,
+                                mid as i32,
                                 pic_data,
                                 false,
                                 rend.draw_buffer(),
@@ -759,10 +759,10 @@ impl SegRender {
                                 pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
                                 dc_iscale,
                                 self.centery,
-                                self.rw_startx,
+                                self.rw_startx as u32 as usize,
                                 self.rw_bottomtexturemid,
                                 mid,
-                                yh,
+                                yh as i32,
                                 pic_data,
                                 false,
                                 rend.draw_buffer(),
@@ -810,17 +810,16 @@ pub fn draw_wall_column(
     colourmap: &[usize],
     fracstep: f32,
     centery: f32,
-    dc_x: f32,
+    dc_x: usize,
     dc_texturemid: f32,
     yl: f32,
-    mut yh: f32,
+    mut yh: i32,
     pic_data: &PicData,
     doubled: bool,
     pixels: &mut dyn PixelBuffer,
 ) {
-    yh = yh.min(pixels.size().height_f32() - 1.0);
+    yh = yh.min(pixels.size().height() - 1);
 
-    let dc_x = dc_x as u32 as usize;
     let pal = pic_data.palette();
     let mut frac = dc_texturemid + (yl - centery) * fracstep;
 
@@ -828,7 +827,7 @@ pub fn draw_wall_column(
     let pitch = pixels.pitch();
     let channels = pixels.channels();
 
-    for _ in yl as u32..=yh as u32 {
+    for _ in yl as i32..=yh {
         let mut select = frac.abs() as u32 as usize;
         if doubled {
             select /= 2;
@@ -848,7 +847,7 @@ pub fn draw_wall_column(
         }
         #[cfg(feature = "safety_check")]
         {
-            pixels.set_pixel(dc_x, y as u32 as usize, &pal[colourmap[tc]].0);
+            pixels.set_pixel(dc_x, i as u32 as usize, &pal[colourmap[tc]].0);
         }
         frac += fracstep;
         pos += pitch;

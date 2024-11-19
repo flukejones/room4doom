@@ -119,7 +119,7 @@ impl MapData {
         &mut self.segments
     }
 
-    fn set_scale(&mut self) {
+    const fn set_scale(&mut self) {
         let map_width = self.extents.width;
         let map_height = self.extents.height;
 
@@ -134,7 +134,7 @@ impl MapData {
         &self.nodes
     }
 
-    pub fn start_node(&self) -> u32 {
+    pub const fn start_node(&self) -> u32 {
         self.start_node
     }
 
@@ -713,7 +713,12 @@ impl BSPTrace {
             origin,
             radius,
             trace_type: BSPTraceType::Radius,
-            ..Self::default()
+            origin_left: Vec2::new(0., 0.),
+            origin_right: Vec2::new(0., 0.),
+            endpoint: Vec2::new(0., 0.),
+            endpoint_left: Vec2::new(0., 0.),
+            endpoint_right: Vec2::new(0., 0.),
+            nodes: Vec::new(),
         }
     }
 
