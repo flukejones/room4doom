@@ -9,7 +9,7 @@ pub struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI
-    pub fn new(angle: f32) -> Self {
+    pub const fn new(angle: f32) -> Self {
         // let mut i = 0;
         // while i < 3600 * 2 + 1 {
         //     i += 1;
@@ -75,6 +75,10 @@ impl Angle {
 
     pub fn from_vector(input: Vec2) -> Self {
         Angle::new(input.y.atan2(input.x))
+    }
+
+    pub const fn sub_other(self, other: Angle) -> Angle {
+        Angle::new(self.0 - other.0)
     }
 }
 

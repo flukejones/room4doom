@@ -3,10 +3,13 @@ use std::f32::consts::FRAC_PI_2;
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
 
+const ZERO_POINT_THREE: f32 = 0.0052359877;
+const OG_RATIO: f32 = 320. / 200.;
+
 /// Find a new fov for the width of buffer proportional to the OG Doom height
 pub fn corrected_fov_for_height(fov: f32, width: f32, height: f32) -> f32 {
     let v_dist = height / 2.0 / (fov * 0.82 / 2.0).tan();
-    2.0 * (width / 2.0 / v_dist).atan() - 0.3f32.to_radians()
+    2.0 * (width / 2.0 / v_dist).atan() - ZERO_POINT_THREE
 }
 
 /// A scaling factor generally applied to the sprite rendering to get the
@@ -20,12 +23,12 @@ pub fn y_scale(fov: f32, buf_width: f32, buf_height: f32) -> f32 {
     // 100degrees
     let og_fov = 100.150536f32.to_radians();
     let fov_ratio = og_fov / fov;
-    let wide_ratio = buf_height / buf_width * 320. / 200.;
+    let wide_ratio = buf_height / buf_width * OG_RATIO;
     (fov / 2.0 * wide_ratio / fov_ratio).tan()
 }
 
-pub fn projection(fov: f32, screen_width_half: f32) -> f32 {
-    screen_width_half / (fov / 2.0 - 0.3f32.to_radians()).tan()
+pub const fn projection(fov: f32, screen_width_half: f32) -> f32 {
+    screen_width_half / Angle::new(fov / 2.0 - ZERO_POINT_THREE).tan()
 }
 
 /// Used to build a table for drawing process. The table cuts out a huge amount
@@ -65,15 +68,15 @@ pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
 
 /// R_ScaleFromGlobalAngle
 // All should be in rads
-pub fn scale_from_view_angle(
+pub const fn scale_from_view_angle(
     visangle: Angle,
     rw_normalangle: Angle,
     rw_distance: f32,
     view_angle: Angle,
     screen_width: f32,
 ) -> f32 {
-    let anglea = Angle::new(FRAC_PI_2 + (visangle - view_angle).rad()); // CORRECT
-    let angleb = Angle::new(FRAC_PI_2 + (visangle - rw_normalangle).rad()); // CORRECT
+    let anglea = Angle::new(FRAC_PI_2 + (visangle.sub_other(view_angle)).rad()); // CORRECT
+    let angleb = Angle::new(FRAC_PI_2 + (visangle.sub_other(rw_normalangle)).rad()); // CORRECT
 
     let sinea = anglea.sin(); // not correct?
     let sineb = angleb.sin();
