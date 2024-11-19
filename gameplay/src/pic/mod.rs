@@ -234,7 +234,7 @@ impl PicData {
 
     /// A non-zero value is the the colourmap number forced to use for all
     /// light-levels
-    pub fn set_fixed_lightscale(&mut self, colourmap: usize) {
+    pub const fn set_fixed_lightscale(&mut self, colourmap: usize) {
         self.use_fixed_colourmap = colourmap
     }
 
@@ -424,7 +424,7 @@ impl PicData {
         }
     }
 
-    pub fn palette(&self) -> &[WadColour] {
+    pub const fn palette(&self) -> &[WadColour] {
         &self.palettes[self.use_pallette].0
     }
 
@@ -469,12 +469,12 @@ impl PicData {
 
     /// Get the number of the flat used for the sky texture. Sectors using this
     /// number for the flat will be rendered with the skybox.
-    pub fn sky_num(&self) -> usize {
+    pub const fn sky_num(&self) -> usize {
         self.sky_num
     }
 
     /// Get the index used by `get_texture()` to return a texture.
-    pub fn sky_pic(&self) -> usize {
+    pub const fn sky_pic(&self) -> usize {
         self.sky_pic
     }
 

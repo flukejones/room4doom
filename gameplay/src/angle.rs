@@ -7,13 +7,13 @@ pub struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI
-    pub fn new(angle: f32) -> Self {
+    pub const fn new(angle: f32) -> Self {
         let mut a = Angle(angle);
         a.inner_wrap();
         a
     }
 
-    fn inner_wrap(&mut self) {
+    const fn inner_wrap(&mut self) {
         if self.0 < 0.0 {
             self.0 += 2.0 * PI;
         } else if self.0 >= TAU {

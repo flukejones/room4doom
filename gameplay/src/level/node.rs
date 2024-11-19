@@ -8,7 +8,7 @@ impl Node {
     ///
     /// Determine with cross-product which side of a splitting line the point is
     /// on
-    pub fn point_on_side(&self, v: &Vec3) -> usize {
+    pub const fn point_on_side(&self, v: &Vec3) -> usize {
         let dx = v.x - self.xyz.x;
         let dy = v.y - self.xyz.y;
 
@@ -18,7 +18,7 @@ impl Node {
         1
     }
 
-    pub fn point_in_bounds(&self, v: Vec3, side: usize) -> bool {
+    pub const fn point_in_bounds(&self, v: Vec3, side: usize) -> bool {
         if v.x > self.bboxes[side][0].x
             && v.x < self.bboxes[side][1].x
             && v.y < self.bboxes[side][0].y

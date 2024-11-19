@@ -267,11 +267,11 @@ impl Player {
         self.mobj.map(|m| unsafe { &mut *m })
     }
 
-    pub fn mobj_raw(&mut self) -> Option<*mut MapObject> {
+    pub const fn mobj_raw(&mut self) -> Option<*mut MapObject> {
         self.mobj
     }
 
-    pub fn set_mobj(&mut self, mobj: *mut MapObject) {
+    pub const fn set_mobj(&mut self, mobj: *mut MapObject) {
         self.mobj = Some(mobj);
     }
 
@@ -279,7 +279,7 @@ impl Player {
     ///
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
-    pub unsafe fn mobj_unchecked(&self) -> &MapObject {
+    pub const unsafe fn mobj_unchecked(&self) -> &MapObject {
         &*self.mobj.unwrap_unchecked()
     }
 
@@ -287,7 +287,7 @@ impl Player {
     ///
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
-    pub unsafe fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
+    pub const unsafe fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
         &mut *self.mobj.unwrap_unchecked()
     }
 
