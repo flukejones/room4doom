@@ -73,17 +73,12 @@ pub const fn scale_from_view_angle(
     rw_normalangle: Angle,
     rw_distance: f32,
     view_angle: Angle,
-    screen_width: f32,
+    screen_width_half: f32,
 ) -> f32 {
-    let anglea = Angle::new(FRAC_PI_2 + (visangle.sub_other(view_angle)).rad()); // CORRECT
-    let angleb = Angle::new(FRAC_PI_2 + (visangle.sub_other(rw_normalangle)).rad()); // CORRECT
-
-    let sinea = anglea.sin(); // not correct?
-    let sineb = angleb.sin();
-
-    let projection = screen_width / 2.0;
-    let num = projection * sineb;
-    let den = rw_distance * sinea;
-
+    let anglea: Angle = Angle::new(FRAC_PI_2 + (visangle.sub_other(view_angle)).rad());
+    let angleb: Angle = Angle::new(FRAC_PI_2 + (visangle.sub_other(rw_normalangle)).rad());
+    let projection: f32 = screen_width_half;
+    let num: f32 = projection * angleb.sin();
+    let den: f32 = rw_distance * anglea.sin();
     num / den
 }

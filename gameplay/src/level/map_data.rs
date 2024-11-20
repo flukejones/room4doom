@@ -781,8 +781,8 @@ impl BSPTrace {
                 self.find_line_inner(node.children[side_r1], map, count);
                 self.find_line_inner(node.children[side_r2], map, count);
             } else {
-                self.find_line_inner(node.children[side1], map, count);
             }
+            self.find_line_inner(node.children[side1], map, count);
         } else {
             self.find_line_inner(node.children[side1], map, count);
         }

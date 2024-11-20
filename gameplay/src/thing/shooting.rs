@@ -16,7 +16,7 @@ use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
 // approx 1500.0 units * 2, used to determine if BSP trace should be done
-const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3 * 2.0;
+const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3;
 
 impl MapObject {
     /// P_ExplodeMissile
