@@ -371,9 +371,13 @@ impl MapObject {
         // subsectors crossed = average 2
         // lines per subsector = average 4
         // Lines to check = 4~
+
+        // This is very expensive, it needs to be converted to a subsector check
         let mut bsp_trace =
             BSPTrace::new_line(Vec2::new(left, bottom), Vec2::new(right, top), self.radius);
+
         let mut count = 0;
+        // TODO: modify so that first line that is blocking makes function return
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
 
         for n in bsp_trace.intercepted_subsectors() {

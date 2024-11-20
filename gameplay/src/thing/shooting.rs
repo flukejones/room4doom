@@ -281,7 +281,7 @@ impl MapObject {
     }
 
     /// Check the target is within a minimum distance
-    fn target_within_min_dist(&self, target: &MapObject) -> bool {
+    pub(crate) fn target_within_min_dist(&self, target: &MapObject) -> bool {
         // skip the BSP trace if too far away
         let dist = self.xy.distance_squared(target.xy);
         // approx 1500.0 units * 2
@@ -292,12 +292,12 @@ impl MapObject {
     /// to one.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
         let mut see = 0;
-        let stop = (self.lastlook - 1) & 3;
+        let stop = ((self.lastlook as i32 - 1) & 3) as usize;
 
-        self.lastlook = (self.lastlook - 1) & 3;
+        self.lastlook = stop;
         for _ in 0..self.lastlook {
             self.lastlook = (self.lastlook - 1) & 3;
-            if !self.level().players_in_game()[self.lastlook as usize] {
+            if !self.level().players_in_game()[self.lastlook] {
                 continue;
             }
             see += 1;
@@ -305,14 +305,13 @@ impl MapObject {
                 return false;
             }
 
-            if self.level().players()[self.lastlook as usize].status.health <= 0 {
+            if self.level().players()[self.lastlook].status.health <= 0 {
                 continue;
             }
 
-            if let Some(target) = self.level().players()[self.lastlook as usize].mobj() {
+            if let Some(target) = self.level().players()[self.lastlook].mobj() {
                 // skip the BSP trace if too far away
                 if !self.target_within_min_dist(target) {
-                    // approx 1500.0 units
                     continue;
                 }
 

@@ -182,7 +182,7 @@ pub struct MapObject {
     /// guaranteed to point to a player
     player: Option<*mut Player>,
     /// Player number last looked for, 1-4 (does not start at 0)
-    lastlook: i32,
+    lastlook: usize,
     /// For nightmare respawn.
     pub(crate) spawnpoint: WadThing,
     // Thing being chased/attacked for tracers.
@@ -257,7 +257,7 @@ impl MapObject {
             best_slide: BestSlide::default(),
             reactiontime,
             threshold: 0,
-            lastlook: p_random() % MAXPLAYERS as i32,
+            lastlook: p_random() as usize % MAXPLAYERS as usize,
             spawnpoint: WadThing::default(),
             target: None,
             tracer: None,

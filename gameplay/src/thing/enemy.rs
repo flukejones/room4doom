@@ -44,7 +44,7 @@ fn sound_flood(
     sound_blocks: i32,
     target: &mut MapObject,
 ) {
-    if sector.validcount == valid_count && sector.soundtraversed <= sound_blocks + 1 {
+    if sector.validcount == valid_count && sector.soundtraversed <= 2 {
         return; // Done with this sector, it's flooded
     }
 
@@ -57,23 +57,22 @@ fn sound_flood(
             continue;
         }
 
-        let line_opening = PortalZ::new(line);
-        if line_opening.range <= 0.0 {
+        if PortalZ::new(line).range <= 0.0 {
             continue; // A door, and it's closed
         }
 
-        let other = if ptr::eq(line.front_sidedef.sector.as_ref(), sector.as_ref()) {
-            line.back_sidedef.as_ref().unwrap().sector.clone()
+        let sector = if ptr::eq(line.front_sidedef.sector.as_ref(), sector.as_ref()) {
+            unsafe { line.back_sidedef.as_ref().unwrap_unchecked().sector.clone() }
         } else {
             line.front_sidedef.sector.clone()
         };
 
         if line.flags & LineDefFlags::BlockSound as u32 != 0 {
             if sound_blocks == 0 {
-                sound_flood(other, valid_count, 1, target);
+                sound_flood(sector, valid_count, 1, target);
             }
         } else {
-            sound_flood(other, valid_count, sound_blocks, target);
+            sound_flood(sector, valid_count, sound_blocks, target);
         }
     }
 }
@@ -127,9 +126,9 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
         }
     }
 
+    // If already have a target check if proper, else look for it
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj() };
-
         // Inanimate object, try to find new target
         if target.flags & MapObjFlag::Shootable as u32 == 0 {
             if actor.look_for_players(true) {
