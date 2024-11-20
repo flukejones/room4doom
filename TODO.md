@@ -4,6 +4,11 @@ Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to
 2. Software player view needs buffer to draw on to
 3. OpenGL and Vulkan???
+4. do_enemy_move() -> p_try_move() -> p_check_position() is very costly
+  - p_check_position is called multiple times, witha  BSP trace in each call,
+    new_chase_dir() potentially calls the chain 7 times
+  - TODO: add blockmaps, and rebuild if there are none, better for enemy collision testing
+  - TODO: add reject table, will prevent unneessaarryy use of BSP trace (chase/sight)
 
 Need to move more of the explicitly software stuff in to the software rendering
 
@@ -17,9 +22,6 @@ Need to move more of the explicitly software stuff in to the software rendering
 ## Features to add
 
 - [X] Mlook, requires:
-      - new yslope tables for flats
-      - dc_texturemid adjustment to remap
-      - in segs uses of half_height_f32() need to be wrapped to add view pitch
 - [ ] mlook options
 - [ ] Dehacked support
 - [ ] Lump name `SWITCHES`, extend the switch list (BOOM)

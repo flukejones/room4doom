@@ -677,7 +677,6 @@ impl Default for BSPTraceType {
     }
 }
 
-#[derive(Debug, Default)]
 pub struct BSPTrace {
     radius: f32,
     pub origin: Vec3,
@@ -708,7 +707,7 @@ impl BSPTrace {
             endpoint_left: endpoint + left_rad_vec + forward.unit_vec3() * radius,
             endpoint_right: endpoint + right_rad_vec + forward.unit_vec3() * radius,
             radius,
-            nodes: Vec::with_capacity(20),
+            nodes: Vec::with_capacity(50),
             trace_type: BSPTraceType::Line,
         }
     }
@@ -760,6 +759,7 @@ impl BSPTrace {
             }
             return;
         }
+
         let node = &map.nodes[node_id as usize];
 
         // find which side the point is on

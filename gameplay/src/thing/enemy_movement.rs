@@ -74,7 +74,7 @@ impl MapObject {
     /// Try to move in current direction. If blocked by a wall or other actor it
     /// returns false, otherwise tries to open a door if the block is one, and
     /// continue.
-    pub(crate) fn try_walk(&mut self) -> bool {
+    fn try_walk(&mut self) -> bool {
         if !self.do_enemy_move() {
             return false;
         }
@@ -141,6 +141,10 @@ impl MapObject {
 
         let target = unsafe { (**self.target.as_mut().unwrap()).mobj() };
 
+        // if !self.target_within_min_dist(target) {
+        //     return;
+        // }
+
         let dx = target.xyz.x - self.xyz.x;
         let dy = target.xyz.y - self.xyz.y;
         // Select a cardinal angle based on delta
@@ -162,7 +166,8 @@ impl MapObject {
 
         // try direct route
         if dirs[1] != MoveDir::None && dirs[2] != MoveDir::None {
-            self.movedir = DIR_DIAGONALS[(((dy < 0.0) as usize) << 1) + (dx > 0.0) as usize];
+            self.movedir =
+                DIR_DIAGONALS[(((dy < 0.0) as u32 as usize) << 1) + (dx > 0.0) as u32 as usize];
             if self.movedir != turnaround && self.try_walk() {
                 return;
             }
@@ -205,7 +210,7 @@ impl MapObject {
 
         // randomly determine direction of search
         if p_random() & 1 != 0 {
-            for t in MoveDir::East as usize..=MoveDir::SouthEast as usize {
+            for t in MoveDir::East as u32 as usize..=MoveDir::SouthEast as u32 as usize {
                 let tdir = MoveDir::from(t);
                 if tdir != turnaround {
                     self.movedir = tdir;
@@ -215,7 +220,7 @@ impl MapObject {
                 }
             }
         } else {
-            for t in (MoveDir::East as usize..=MoveDir::SouthEast as usize).rev() {
+            for t in (MoveDir::East as u32 as usize..=MoveDir::SouthEast as u32 as usize).rev() {
                 let tdir = MoveDir::from(t);
                 if tdir != turnaround {
                     self.movedir = tdir;

@@ -15,6 +15,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use std::mem;
 
 const MAX_SEGS: usize = 128;
+const MAX_SECTS: usize = 4096;
 const MAX_VIS_SPRITES: usize = 1024;
 const IS_SSECTOR_MASK: u32 = 0x80000000;
 
@@ -62,7 +63,7 @@ pub struct SoftwareRenderer {
     pub(super) _debug: bool,
 
     /// Used for checking if a sector has been worked on when iterating over
-    pub(super) checked_sectors: [i32; 2048],
+    pub(super) checked_sectors: [i32; MAX_SECTS],
     pub(super) checked_idx: usize,
 
     /// Mostly used in thing drawing only
@@ -128,7 +129,7 @@ impl SoftwareRenderer {
                 last: 0.0,
             }; MAX_SEGS],
             _debug: debug,
-            checked_sectors: [-1; 2048],
+            checked_sectors: [-1; MAX_SECTS],
             checked_idx: 0,
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
             next_vissprite: 0,
@@ -144,7 +145,7 @@ impl SoftwareRenderer {
             *vis = unsafe { mem::zeroed::<VisSprite>() };
         }
         self.next_vissprite = 0;
-        self.checked_sectors.copy_from_slice(&[-1; 2048]);
+        self.checked_sectors.copy_from_slice(&[-1; MAX_SECTS]);
         self.checked_idx = 0;
 
         self.clear_clip_segs(screen_width);
