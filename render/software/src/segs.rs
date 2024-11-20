@@ -198,7 +198,6 @@ impl SegRender {
         // {     dbg!(&seg.sidedef);
         // }
         if start < 0.0 || start > size.width_f32() || start > stop {
-            return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -242,7 +241,7 @@ impl SegRender {
             self.rw_normalangle,
             self.rw_distance,
             mobj.angle,
-            size.width_f32(),
+            size.half_width_f32(),
         ) * self.wide_ratio;
         ds_p.scale1 = self.rw_scale;
 
@@ -252,7 +251,7 @@ impl SegRender {
                 self.rw_normalangle,
                 self.rw_distance,
                 mobj.angle,
-                size.width_f32(),
+                size.half_width_f32(),
             ) * self.wide_ratio;
 
             self.rw_scalestep = (ds_p.scale2 - self.rw_scale) / (stop - start);
@@ -602,7 +601,7 @@ impl SegRender {
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(3));
+                            sleep(Duration::from_millis(1));
                         }
                     } else {
                         draw_flat_column(
@@ -623,7 +622,7 @@ impl SegRender {
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(3));
+                            sleep(Duration::from_millis(1));
                         }
                     }
                     // Must clip walls to floors if drawn
@@ -663,7 +662,7 @@ impl SegRender {
                     #[cfg(feature = "debug_draw")]
                     {
                         rend.debug_blit_draw_buffer();
-                        sleep(Duration::from_millis(3));
+                        sleep(Duration::from_millis(1));
                     }
                 }
             }
@@ -699,7 +698,7 @@ impl SegRender {
                         #[cfg(feature = "debug_draw")]
                         {
                             rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(3));
+                            sleep(Duration::from_millis(1));
                         }
                     };
                     rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
@@ -733,7 +732,7 @@ impl SegRender {
                             #[cfg(feature = "debug_draw")]
                             {
                                 rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(3));
+                                sleep(Duration::from_millis(1));
                             }
                         }
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
@@ -771,7 +770,7 @@ impl SegRender {
                             #[cfg(feature = "debug_draw")]
                             {
                                 rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(3));
+                                sleep(Duration::from_millis(1));
                             }
                             rdata.portal_clip.floorclip[clip_index] = mid;
                         }

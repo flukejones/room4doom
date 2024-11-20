@@ -1,5 +1,5 @@
 use glam::{Vec2, Vec3};
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::TAU;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::trig::{COS_TABLE, SIN_TABLE, TAN_TABLE};
@@ -9,79 +9,88 @@ pub struct Angle(f32);
 
 impl Angle {
     /// Will always wrap < 0 to > PI
-    pub const fn new(angle: f32) -> Self {
-        // let mut i = 0;
-        // while i < 3600 * 2 + 1 {
-        //     i += 1;
-        //     print!("{:?},", (i as f32 * PI / (1800.0 * 2.0)).tan());
-        // }
-
-        let mut a = Angle(angle);
-        a.inner_wrap();
-        a
+    #[inline(always)]
+    pub const fn new(mut radians: f32) -> Self {
+        radians = radians % TAU;
+        if radians < 0.0 {
+            radians += TAU;
+        }
+        Angle(radians)
     }
 
+    #[inline(always)]
     const fn inner_wrap(&mut self) {
+        self.0 = self.0 % TAU;
         if self.0 < 0.0 {
-            self.0 += 2.0 * PI;
-        } else if self.0 >= TAU {
-            self.0 -= 2.0 * PI;
+            self.0 += TAU;
         }
     }
 
-    //pub fn as_degrees(&self) -> i32 { (self.0 * 180.0 / PI) as i32 }
-
+    #[inline(always)]
     pub const fn rad(&self) -> f32 {
         self.0
     }
 
+    #[inline(always)]
     const fn to_table(&self) -> usize {
-        let mut idx = (self.0.to_degrees() * 20.0) as i32;
-
-        while idx >= 7200 {
-            idx -= 7200;
-        }
-        while idx < 0 {
-            idx += 7200;
+        let mut idx = (self.0.to_degrees() * 22.7555556) as i32;
+        idx &= 8191;
+        if idx < 0 {
+            idx += 8192;
         }
         idx as usize
     }
 
+    #[inline(always)]
     pub const fn sin(&self) -> f32 {
         // self.0.sin()
         SIN_TABLE[self.to_table()]
     }
 
+    #[inline(always)]
     pub const fn cos(&self) -> f32 {
         // self.0.cos()
         COS_TABLE[self.to_table()]
     }
 
+    #[inline(always)]
     pub const fn tan(&self) -> f32 {
         // self.0.tan()
         TAN_TABLE[self.to_table()]
     }
 
+    #[inline(always)]
     pub const fn sin_cos(&self) -> (f32, f32) {
-        (self.sin(), self.cos())
+        let idx = self.to_table();
+        (SIN_TABLE[idx], COS_TABLE[idx])
     }
 
     /// Make a unit vector discarding the Z component
+    #[inline(always)]
     pub const fn unit_vec3(&self) -> Vec3 {
         let (y, x) = self.sin_cos();
         Vec3::new(x, y, 0.0)
     }
 
     /// Make a unit vector discarding the Z component
+    #[inline(always)]
     pub const fn unit_vec2(&self) -> Vec2 {
         let (y, x) = self.sin_cos();
         Vec2::new(x, y)
     }
 
+    #[inline(always)]
     pub fn from_vector_xy(input: Vec3) -> Self {
+        // let mut i = 0;
+        // while i < 8192 {
+        //     i += 1;
+        //     print!("{:?},", (i as f32 * PI / (8192.0 / 2.0)).sin());
+        // }
+        // panic!();
         Angle::new(input.y.atan2(input.x))
     }
 
+    #[inline(always)]
     pub const fn sub_other(self, other: Angle) -> Angle {
         Angle::new(self.0 - other.0)
     }

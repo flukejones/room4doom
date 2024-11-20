@@ -11,7 +11,7 @@ use gameplay::{
 };
 use glam::Vec3;
 use render_trait::{PixelBuffer, RenderTrait};
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::mem;
 
 const MAX_SEGS: usize = 128;
@@ -181,17 +181,18 @@ impl SoftwareRenderer {
         angle2 -= viewangle; // widescreen: Leave as is
 
         let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
+        let clipangrad = clipangle.rad();
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() > 2.0 * clipangle.rad() {
-            tspan -= 2.0 * clipangle.rad();
+        if tspan.rad() > 2.0 * clipangrad {
+            tspan -= 2.0 * clipangrad;
             if tspan.rad() > span {
                 return;
             }
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() > 2.0 * clipangle.rad() {
-            tspan -= 2.0 * clipangle.rad();
+        if tspan.rad() > 2.0 * clipangrad {
+            tspan -= 2.0 * clipangrad;
             if tspan.rad() >= span {
                 return;
             }
@@ -552,9 +553,9 @@ impl SoftwareRenderer {
         let lt = node.bboxes[side][0];
         let rb = node.bboxes[side][1];
 
-        if node.point_in_bounds(mobj.xyz, side) {
-            return true;
-        }
+        // if node.point_in_bounds(mobj.xyz, side) {
+        //     return true;
+        // }
 
         let boxx;
         let boxy;
@@ -575,58 +576,31 @@ impl SoftwareRenderer {
         }
 
         let boxpos = (boxy << 2) + boxx;
-        if boxpos == 5 {
+        if boxpos == 5 || boxpos > 10 {
             return true;
         }
 
-        let v1;
-        let v2;
-        match boxpos {
-            0 => {
-                v1 = Vec3::new(rb.x, lt.y, 0.0);
-                v2 = Vec3::new(lt.x, rb.y, 0.0);
-            }
-            1 => {
-                v1 = Vec3::new(rb.x, lt.y, 0.0);
-                v2 = lt;
-            }
-            2 => {
-                v1 = rb;
-                v2 = lt;
-            }
-            4 => {
-                v1 = lt;
-                v2 = Vec3::new(lt.x, rb.y, 0.0);
-            }
-            6 => {
-                v1 = rb;
-                v2 = Vec3::new(rb.x, lt.y, 0.0);
-            }
-            8 => {
-                v1 = lt;
-                v2 = rb;
-            }
-            9 => {
-                v1 = Vec3::new(lt.x, rb.y, 0.0);
-                v2 = rb;
-            }
-            10 => {
-                v1 = Vec3::new(lt.x, rb.y, 0.0);
-                v2 = Vec3::new(rb.x, lt.y, 0.0);
-            }
-            _ => {
-                return false;
-            }
-        }
+        let (v1, v2) = match boxpos {
+            0 => (Vec3::new(rb.x, lt.y, 0.0), Vec3::new(lt.x, rb.y, 0.0)),
+            1 => (Vec3::new(rb.x, lt.y, 0.0), lt),
+            2 => (rb, lt),
+            4 => (lt, Vec3::new(lt.x, rb.y, 0.0)),
+            6 => (rb, Vec3::new(rb.x, lt.y, 0.0)),
+            8 => (lt, rb),
+            9 => (Vec3::new(lt.x, rb.y, 0.0), rb),
+            10 => (Vec3::new(lt.x, rb.y, 0.0), Vec3::new(rb.x, lt.y, 0.0)),
+            _ => (Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)),
+        };
 
         let clipangle = Angle::new(self.seg_renderer.fov_half);
+        let clipangrad = clipangle.rad();
         // Reset to correct angles
         let mut angle1 = vertex_angle_to_object(v1, mobj);
         let mut angle2 = vertex_angle_to_object(v2, mobj);
 
         let span = angle1 - angle2;
 
-        if span.rad() >= PI {
+        if span.rad() >= FRAC_PI_2 {
             return true;
         }
 
@@ -634,16 +608,16 @@ impl SoftwareRenderer {
         angle2 -= view_angle;
 
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= clipangle.rad() * 2.0 {
-            tspan -= 2.0 * clipangle.rad();
+        if tspan.rad() >= clipangrad * 2.0 {
+            tspan -= 2.0 * clipangrad;
             if tspan.rad() >= span.rad() {
                 return false;
             }
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() >= 2.0 * clipangle.rad() {
-            tspan -= 2.0 * clipangle.rad();
+        if tspan.rad() >= 2.0 * clipangrad {
+            tspan -= 2.0 * clipangrad;
             if tspan.rad() >= span.rad() {
                 return false;
             }
