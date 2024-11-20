@@ -80,7 +80,7 @@ strip = true
 
 [profile.dev]
 debug = true
-opt-level = 3
+opt-level = 1
 
 [profile.bench]
 lto = true

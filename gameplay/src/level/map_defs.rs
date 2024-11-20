@@ -18,7 +18,7 @@ pub enum SlopeType {
 #[derive(Default)]
 pub struct Sector {
     /// An incremented "ID" of sorts.
-    pub num: u32,
+    pub num: i32,
     pub floorheight: f32,
     pub ceilingheight: f32,
     /// Is a tag or index to patch
@@ -74,7 +74,7 @@ impl Sector {
         tag: i16,
     ) -> Self {
         Self {
-            num,
+            num: num as i32,
             floorheight,
             ceilingheight,
             floorpic,

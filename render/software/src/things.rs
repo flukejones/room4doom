@@ -96,7 +96,10 @@ impl SoftwareRenderer {
         if self.checked_sectors.contains(&sector.num) {
             return;
         }
-        self.checked_sectors.push(sector.num);
+        self.checked_sectors[self.checked_idx] = sector.num;
+        if self.checked_idx < self.checked_sectors.len() {
+            self.checked_idx += 1;
+        }
 
         let light_level = (sector.lightlevel >> 4) + player.extralight;
         sector.run_func_on_thinglist(|thing| {
@@ -134,16 +137,16 @@ impl SoftwareRenderer {
         // transform the origin point
         let tr_x = thing.xy.x - player_mobj.xy.x;
         let tr_y = thing.xy.y - player_mobj.xy.y;
-        let tz = (tr_x * view_cos) + (tr_y * view_sin);
+        let tz = (tr_x * view_cos) - -(tr_y * view_sin);
 
         // Is it behind the view?
-        if tz < 4.0 {
+        if tz < 10.0 {
             return true; // keep checking
         }
 
         let mut tx = (tr_x * view_sin) - (tr_y * view_cos);
         // too far off the side?
-        if tx.abs() as i32 > (tz.abs() as i32) << 2 {
+        if tx.abs() as i32 >= (tz.abs() as i32) * 2 {
             return true;
         }
 
