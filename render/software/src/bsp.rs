@@ -62,7 +62,8 @@ pub struct SoftwareRenderer {
     pub(super) _debug: bool,
 
     /// Used for checking if a sector has been worked on when iterating over
-    pub(super) checked_sectors: Vec<u32>,
+    pub(super) checked_sectors: [i32; 2048],
+    pub(super) checked_idx: usize,
 
     /// Mostly used in thing drawing only
     pub y_scale: f32,
@@ -86,7 +87,6 @@ impl SoftwareRenderer {
         // TODO: pull duplicate functionality out to a function
         self.clear(rend.draw_buffer().size().width_f32());
         let mut count = 0;
-        self.checked_sectors.clear();
         // TODO: netupdate
 
         pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
@@ -128,7 +128,8 @@ impl SoftwareRenderer {
                 last: 0.0,
             }; MAX_SEGS],
             _debug: debug,
-            checked_sectors: Vec::new(),
+            checked_sectors: [-1; 2048],
+            checked_idx: 0,
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
             next_vissprite: 0,
             y_scale,
@@ -143,6 +144,8 @@ impl SoftwareRenderer {
             *vis = unsafe { mem::zeroed::<VisSprite>() };
         }
         self.next_vissprite = 0;
+        self.checked_sectors.copy_from_slice(&[-1; 2048]);
+        self.checked_idx = 0;
 
         self.clear_clip_segs(screen_width);
         self.r_data.clear_data();
