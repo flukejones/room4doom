@@ -16,8 +16,8 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::utilities::p_random;
 use crate::MapPtr;
+use math::p_random;
 
 const PLATSPEED: f32 = 1.0;
 const PLATWAIT: i32 = 3;

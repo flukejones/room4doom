@@ -805,7 +805,8 @@ impl SegRender {
 ///  will always have constant z depth.
 /// Thus a special case loop for very fast rendering can
 ///  be used. It has also been used with Wolfenstein 3D.
-pub fn draw_wall_column(
+#[inline]
+fn draw_wall_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
@@ -854,60 +855,8 @@ pub fn draw_wall_column(
     }
 }
 
-pub fn draw_wally_column(
-    texture: &WallPic,
-    viewxy: Vec2,
-    plane_height: f32,
-    total_light: usize,
-    dc_x: usize,
-    screen_x: f32,
-    angle: Angle,
-    yl: usize,
-    mut yh: usize,
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-    yslope_table: &[f32],
-    wide_ratio: f32,
-) {
-    yh = yh.min(pixels.size().height_usize() - 1);
-
-    let angle = angle + screen_x;
-    let distscale = 1.0 / screen_x.cos() * wide_ratio;
-    let cos = angle.cos();
-    let sin = angle.sin();
-
-    // let lm = &pic_data.zlight_scale[total_light];
-    let pal = pic_data.palette();
-    let tex_len = texture.data.len() - 1; // always square
-    for (y, slope) in yslope_table.iter().enumerate().take(yh + 1).skip(yl) {
-        let distance = plane_height * slope;
-        let length = distance * distscale;
-        let ds_xfrac = viewxy.x + cos * length;
-        let ds_yfrac = viewxy.y + sin * length;
-
-        // flats are 64x64 so a bitwise op works here
-        let x_step = ds_xfrac.abs() as u32 as usize & tex_len;
-        let y_step = ds_yfrac.abs() as u32 as usize & tex_len;
-
-        // changed from `distance` to `length` to provide a radius light
-        let colourmap = pic_data.flat_light_colourmap(total_light, distance as u32 as usize);
-        #[cfg(not(feature = "safety_check"))]
-        unsafe {
-            let px =
-                *colourmap.get_unchecked(*texture.data.get_unchecked(x_step).get_unchecked(y_step));
-            let c = pal.get_unchecked(px);
-            pixels.set_pixel(dc_x, y, &c);
-        }
-        #[cfg(feature = "safety_check")]
-        {
-            let px = colourmap[texture.data[x_step][y_step]];
-            pixels.set_pixel(dc_x, y, &pal[px].0);
-        }
-    }
-    // panic!()
-}
-
-pub fn draw_flat_column(
+#[inline]
+fn draw_flat_column(
     texture: &FlatPic,
     viewxy: Vec2,
     plane_height: f32,

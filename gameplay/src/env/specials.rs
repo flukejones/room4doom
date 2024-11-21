@@ -20,10 +20,10 @@ use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
-use crate::utilities::circle_line_collide;
 use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
+use math::circle_line_collide;
 use sound_traits::SfxName;
 use std::ptr;
 

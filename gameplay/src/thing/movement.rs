@@ -8,7 +8,6 @@ use std::ptr;
 use glam::Vec2;
 use log::{debug, error};
 
-use crate::angle::Angle;
 use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
 use crate::env::specials::cross_special_line;
 use crate::env::switch::p_use_special_line;
@@ -16,11 +15,9 @@ use crate::info::StateNum;
 use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
-use crate::utilities::{
-    box_on_line_side, circle_circle_intersect, fixed_to_float, p_random, path_traverse, BestSlide,
-    Intercept, PortalZ, FRACUNIT_DIV4,
-};
+use crate::utilities::{box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ};
 use crate::{MapObjKind, MapObject, MapPtr};
+use math::{circle_circle_intersect, fixed_to_float, p_random, Angle, FRACUNIT_DIV4};
 
 use super::MapObjFlag;
 

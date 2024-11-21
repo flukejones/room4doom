@@ -9,8 +9,8 @@ use crate::info::{State, StateNum, STATES};
 use crate::player::{Player, PsprNum};
 use crate::thing::MapObject;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
-use crate::utilities::{p_random, point_to_angle_2};
 use crate::{MapObjKind, PlayerState, WeaponType};
+use math::{p_random, point_to_angle_2};
 
 const LOWERSPEED: f32 = 6.0;
 const RAISESPEED: f32 = 6.0;

@@ -11,8 +11,8 @@ use crate::info::{MapObjKind, SpriteNum, StateNum, STATES};
 use crate::lang::english::*;
 use crate::player::{PlayerCheat, PlayerState};
 use crate::thing::MapObjFlag;
-use crate::utilities::{p_random, point_to_angle_2};
 use crate::{MapObject, Skill};
+use math::{p_random, point_to_angle_2};
 
 pub const BONUSADD: i32 = 6;
 

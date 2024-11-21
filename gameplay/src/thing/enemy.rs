@@ -19,10 +19,11 @@ use crate::info::{StateNum, MOBJINFO};
 use crate::level::map_defs::{LineDef, SlopeType};
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
-use crate::utilities::{p_random, point_to_angle_2, PortalZ};
+use crate::utilities::PortalZ;
 use crate::{
     teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS
 };
+use math::{p_random, point_to_angle_2};
 
 use super::movement::SubSectorMinMax;
 

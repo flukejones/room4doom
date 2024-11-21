@@ -4,7 +4,6 @@ use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxName;
 
-use crate::angle::Angle;
 use crate::doom_def::{
     ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
 };
@@ -15,8 +14,8 @@ use crate::player_sprite::{PspDef, WEAPONBOTTOM};
 use crate::thing::enemy::noise_alert;
 use crate::thing::{MapObjFlag, MapObject, BONUSADD};
 use crate::tic_cmd::{TicCmd, LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS};
-use crate::utilities::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
 use crate::{GameMode, Skill};
+use math::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, Angle};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;

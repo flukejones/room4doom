@@ -17,7 +17,6 @@ use std::ops::{Deref, DerefMut};
 use std::panic;
 use std::ptr::null_mut;
 
-mod angle;
 mod doom_def;
 pub(crate) mod env;
 #[rustfmt::skip]
@@ -30,10 +29,8 @@ mod player_sprite;
 mod thing;
 mod thinker;
 pub mod tic_cmd;
-mod trig;
 pub(crate) mod utilities;
 
-pub use angle::Angle;
 pub use doom_def::{
     AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
     MAXPLAYERS, TICRATE, WEAPON_INFO,
@@ -46,13 +43,13 @@ pub use level::flags::LineDefFlags;
 pub use level::map_data::MapData;
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
 pub use level::Level;
+pub use math::{m_clear_random, m_random, p_random, point_to_angle_2, Angle};
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
 use std::error::Error;
 use std::str::FromStr;
 pub use thing::{MapObjFlag, MapObject};
-pub use utilities::{m_clear_random, m_random, p_random, point_to_angle_2};
 
 // re-export
 pub use {glam, log};

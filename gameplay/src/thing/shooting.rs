@@ -3,6 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
+use math::{p_random, point_to_angle_2};
 use sound_traits::SfxName;
 
 use crate::doom_def::{MAXRADIUS, MELEERANGE};
@@ -10,7 +11,7 @@ use crate::env::specials::shoot_special_line;
 use crate::info::{StateNum, MOBJINFO};
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::LineDef;
-use crate::utilities::{p_random, path_traverse, point_to_angle_2, Intercept, PortalZ};
+use crate::utilities::{path_traverse, Intercept, PortalZ};
 use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};

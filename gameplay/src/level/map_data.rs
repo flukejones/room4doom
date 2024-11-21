@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
-use crate::angle::Angle;
 use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
 use crate::log::info;
-use crate::utilities::{bam_to_radian, circle_line_collide};
 use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
 use log::warn;
+use math::{bam_to_radian, circle_line_collide, Angle};
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
 use wad::WadData;
@@ -688,6 +687,7 @@ pub struct BSPTrace {
 impl BSPTrace {
     /// Setup the trace for a line trace. Use `find_line_intercepts()` to find
     /// all intersections.
+    #[inline]
     pub fn new_line(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
         let forward = Angle::from_vector(endpoint - origin);
         let back = Angle::from_vector(origin - endpoint);
@@ -707,7 +707,8 @@ impl BSPTrace {
         }
     }
 
-    pub fn new_radius(origin: Vec2, radius: f32) -> Self {
+    #[inline]
+    pub const fn new_radius(origin: Vec2, radius: f32) -> Self {
         Self {
             origin,
             radius,
@@ -723,6 +724,7 @@ impl BSPTrace {
 
     /// Do the BSP trace. The type of trace done is determined by if the trace
     /// was set up with `BSPTrace::new_line` or `BSPTrace::new_radius`.
+    #[inline]
     pub fn find_intercepts(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         match self.trace_type {
             BSPTraceType::Line => self.find_line_inner(node_id, map, count),
@@ -736,6 +738,7 @@ impl BSPTrace {
     /// is added to the `nodes` list. The recursion always traverses down the
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
+    #[inline]
     fn find_line_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
@@ -788,6 +791,7 @@ impl BSPTrace {
         }
     }
 
+    #[inline]
     fn find_radius_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         *count += 1;
 
@@ -828,6 +832,7 @@ impl BSPTrace {
     }
 
     /// List of indexes to subsectors the trace intercepted
+    #[inline]
     pub fn intercepted_subsectors(&self) -> &[u32] {
         &self.nodes
     }
@@ -835,10 +840,10 @@ impl BSPTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::angle::Angle;
     use crate::level::map_data::{BSPTrace, MapData, IS_SSECTOR_MASK};
     use crate::{Node, PicData};
     use glam::Vec2;
+    use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::extended::WadExtendedMap;
     use wad::types::{WadLineDef, WadSideDef};
