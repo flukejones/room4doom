@@ -8,6 +8,7 @@ use cli::*;
 use config::MusicType;
 use dirs::{cache_dir, data_dir};
 use gamestate_traits::sdl2::{self};
+use mimalloc::MiMalloc;
 use simplelog::TermLogger;
 use std::env::set_var;
 use std::error::Error;
@@ -56,6 +57,9 @@ fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
         }
     }
 }
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// The main `game-exe` crate should take care of initialising a few things
 fn main() -> Result<(), Box<dyn Error>> {

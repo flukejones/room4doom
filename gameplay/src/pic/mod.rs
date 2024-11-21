@@ -424,10 +424,12 @@ impl PicData {
         }
     }
 
+    #[inline]
     pub const fn palette(&self) -> &[WadColour] {
         &self.palettes[self.use_pallette].0
     }
 
+    #[inline]
     pub fn set_palette(&mut self, num: usize) {
         self.use_pallette = num.min(self.palettes.len() - 1);
     }
@@ -469,16 +471,19 @@ impl PicData {
 
     /// Get the number of the flat used for the sky texture. Sectors using this
     /// number for the flat will be rendered with the skybox.
+    #[inline]
     pub const fn sky_num(&self) -> usize {
         self.sky_num
     }
 
     /// Get the index used by `get_texture()` to return a texture.
+    #[inline]
     pub const fn sky_pic(&self) -> usize {
         self.sky_pic
     }
 
     /// Set the correct skybox for the map/episode currently playing
+    #[inline]
     pub fn set_sky_pic(&mut self, mode: GameMode, episode: usize, map: usize) {
         if mode == GameMode::Commercial {
             self.sky_pic = self.wallpic_num_for_name("SKY3").expect("SKY3 is missing");
@@ -505,10 +510,12 @@ impl PicData {
         }
     }
 
+    #[inline]
     pub fn colourmap(&self, index: usize) -> &[usize] {
         &self.colourmap[index]
     }
 
+    #[inline]
     fn colourmap_for_scale(&self, scale: f32) -> usize {
         let colourmap = if self.double_res {
             (scale * 7.9) as u32
@@ -541,7 +548,7 @@ impl PicData {
             .get_unchecked(self.light_scale[light_level.min(self.light_scale.len() - 1)][colourmap])
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn flat_light_colourmap(&self, mut light_level: usize, mut scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             #[cfg(not(feature = "safety_check"))]
@@ -568,6 +575,7 @@ impl PicData {
         &self.colourmap[self.zlight_scale[light_level][scale]]
     }
 
+    #[inline]
     pub fn get_texture(&self, num: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -581,6 +589,7 @@ impl PicData {
         }
     }
 
+    #[inline]
     pub fn get_flat(&self, num: usize) -> &FlatPic {
         if num >= self.flat_translation.len() || num >= self.flats.len() {
             panic!()
@@ -597,6 +606,7 @@ impl PicData {
         }
     }
 
+    #[inline]
     pub fn wallpic_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.walls.iter().enumerate() {
             if tex.name == name {
@@ -606,6 +616,7 @@ impl PicData {
         None
     }
 
+    #[inline]
     pub fn flat_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.flats.iter().enumerate() {
             if tex.name == name {
@@ -616,6 +627,7 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
+    #[inline]
     pub fn wall_pic(&self, texture: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -627,6 +639,7 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
+    #[inline]
     pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
         #[cfg(not(feature = "safety_check"))]
         let texture = unsafe {
@@ -646,10 +659,12 @@ impl PicData {
         &texture.data[texture_column]
     }
 
+    #[inline]
     pub fn num_textures(&self) -> usize {
         self.walls.len()
     }
 
+    #[inline]
     pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -659,6 +674,7 @@ impl PicData {
         &self.sprite_defs[sprite_num]
     }
 
+    #[inline]
     pub fn sprite_patch(&self, patch_num: usize) -> &SpritePic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {

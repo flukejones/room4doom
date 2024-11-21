@@ -8,6 +8,7 @@ members = [
     "intermission/doom",
     "statusbar/doom",
     "input",
+    "math",
     "menu/doom",
     "render/render-target",
     "render/render-trait",
@@ -32,6 +33,7 @@ license = "MIT"
 [workspace.dependencies]
 wad = { path = "./wad" }
 input = { path = "./input" }
+math = { path = "./math" }
 menu-doom = { path = "./menu/doom" }
 gameplay = { path = "./gameplay" }
 gamestate = { path = "./gamestate" }

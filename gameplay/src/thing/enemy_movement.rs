@@ -74,6 +74,7 @@ impl MapObject {
     /// Try to move in current direction. If blocked by a wall or other actor it
     /// returns false, otherwise tries to open a door if the block is one, and
     /// continue.
+    #[inline]
     fn try_walk(&mut self) -> bool {
         if !self.do_enemy_move() {
             return false;

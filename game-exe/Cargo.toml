@@ -16,6 +16,7 @@ safety_check = ["render-soft/safety_check"]
 debug_draw = ["render-soft/debug_draw"]
 
 [dependencies]
+mimalloc = "0.1.43"
 golem = { git = "https://github.com/flukejones/golem/" }
 
 argh.workspace = true

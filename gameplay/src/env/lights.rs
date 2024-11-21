@@ -11,7 +11,7 @@ use crate::MapPtr;
 use crate::env::specials::{
     find_max_light_surrounding, find_min_light_surrounding, get_next_sector
 };
-use crate::utilities::p_random;
+use math::p_random;
 
 const STROBEBRIGHT: i32 = 5;
 pub const FASTDARK: i32 = 15;

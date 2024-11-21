@@ -805,7 +805,8 @@ impl SegRender {
 ///  will always have constant z depth.
 /// Thus a special case loop for very fast rendering can
 ///  be used. It has also been used with Wolfenstein 3D.
-pub fn draw_wall_column(
+#[inline]
+fn draw_wall_column(
     texture_column: &[usize],
     colourmap: &[usize],
     fracstep: f32,
@@ -854,7 +855,8 @@ pub fn draw_wall_column(
     }
 }
 
-pub fn draw_flat_column(
+#[inline]
+fn draw_flat_column(
     texture: &FlatPic,
     viewxy: Vec3,
     plane_height: f32,

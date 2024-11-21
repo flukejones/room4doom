@@ -11,6 +11,7 @@ null_check = []
 safety_check = []
 
 [dependencies]
+math.workspace = true
 sound-traits.workspace = true
 sound-sdl2.workspace = true
 wad.workspace = true
