@@ -8,11 +8,13 @@ use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::warn;
-use math::{bam_to_radian, circle_line_collide, Angle};
+use log::{debug, warn};
+use math::{bam_to_radian, circle_line_collide, fixed_to_float, Angle};
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
 use wad::WadData;
+
+use super::map_defs::Blockmap;
 
 const IS_OLD_SSECTOR_MASK: u32 = 0x8000;
 pub const IS_SSECTOR_MASK: u32 = 0x80000000;
@@ -50,6 +52,8 @@ pub struct MapData {
     sidedefs: Vec<SideDef>,
     subsectors: Vec<SubSector>,
     segments: Vec<Segment>,
+    blockmap: Blockmap,
+    reject: Vec<u8>,
     extents: MapExtents,
     nodes: Vec<Node>,
     start_node: u32,
@@ -141,6 +145,10 @@ impl MapData {
         &self.extents
     }
 
+    pub fn get_devils_rejects(&self) -> &[u8] {
+        &self.reject
+    }
+
     // TODO: pass in TextureData
     // None of this is efficient as it iterates over wad data many multiples of
     // times
@@ -169,6 +177,8 @@ impl MapData {
         self.load_sectors(map_name, wad, pic_data);
         self.load_sidedefs(map_name, wad, &tex_order);
         self.load_linedefs(map_name, wad);
+        self.load_blockmap(map_name, wad);
+        self.load_devils_rejects(map_name, wad);
         // TODO: iterate sector lines to find max bounding box for sector
 
         // The BSP level structure for rendering, movement, collisions etc
@@ -441,6 +451,41 @@ impl MapData {
         //     }
         // }
         info!("{}: Loaded {} subsectors", map_name, self.subsectors.len());
+    }
+
+    fn load_blockmap(&mut self, map_name: &str, wad: &WadData) {
+        if let Some(wadblock) = wad.read_blockmap(map_name) {
+            let mut blockmap = Blockmap {
+                x_origin: fixed_to_float(wadblock.x_origin as i32),
+                y_origin: fixed_to_float(wadblock.y_origin as i32),
+                columns: wadblock.columns as usize,
+                rows: wadblock.rows as usize,
+                lines: Vec::with_capacity(wadblock.line_indexes.len()),
+            };
+
+            for l in wadblock.line_indexes {
+                if l != 0 && l != -1 {
+                    let linedef = MapPtr::new(&mut self.linedefs[l as usize]);
+                    blockmap.lines.push(linedef);
+                }
+            }
+
+            info!(
+                "{}: Loaded blockmap, {} blocks",
+                map_name,
+                blockmap.columns * blockmap.rows
+            );
+            self.blockmap = blockmap;
+        } else {
+            info!("{}: No blockmap: TODO: build one", map_name);
+        }
+    }
+
+    fn load_devils_rejects(&mut self, map_name: &str, wad: &WadData) {
+        if let Some(rejects) = wad.read_rejects(map_name) {
+            self.reject = rejects;
+            info!("{}: Loaded {} reject bytes", map_name, self.reject.len());
+        }
     }
 
     fn load_nodes(

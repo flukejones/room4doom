@@ -337,7 +337,7 @@ impl SoftwareRenderer {
                         && seg
                             .curline
                             .as_ref()
-                            .point_on_side(&Vec2::new(vis.gx, vis.gy))
+                            .point_on_side(Vec2::new(vis.gx, vis.gy))
                             == 0)
                 {
                     if seg.maskedtexturecol != -1.0 {

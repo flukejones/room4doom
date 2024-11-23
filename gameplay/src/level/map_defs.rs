@@ -337,6 +337,8 @@ impl LineDef {
         true
     }
 
+    /// Determine which side of XY/XY a point is on. Ignores Z
+    #[inline]
     pub fn point_on_side(&self, v: Vec2) -> usize {
         // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
         // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
@@ -404,6 +406,7 @@ impl Segment {
     }
 
     /// True if the right side of the segment faces the point
+    #[inline]
     pub fn is_facing_point(&self, point: &Vec2) -> bool {
         let start = &self.v1;
         let end = &self.v2;
@@ -415,7 +418,8 @@ impl Segment {
         false
     }
 
-    pub fn point_on_side(&self, v: &Vec2) -> usize {
+    #[inline]
+    pub fn point_on_side(&self, v: Vec2) -> usize {
         // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
         // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
         // if r.is_sign_positive() {
@@ -462,6 +466,15 @@ pub struct Node {
     /// code by inverting the last bit.
     /// The final 'leaf' is bitmasked to find the index to subsector array
     pub children: [u32; 2],
+}
+
+#[derive(Default)]
+pub struct Blockmap {
+    pub x_origin: f32,
+    pub y_origin: f32,
+    pub columns: usize,
+    pub rows: usize,
+    pub lines: Vec<MapPtr<LineDef>>,
 }
 
 #[cfg(test)]

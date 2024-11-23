@@ -293,6 +293,15 @@ impl WadData {
         panic!("Could not find lump {}", map_name);
     }
 
+    pub(super) fn find_lump_for_map(&self, map_name: &str, lump: MapLump) -> Option<&Lump> {
+        for (idx, info) in self.lumps.iter().enumerate().rev() {
+            if info.name == map_name.to_ascii_uppercase() {
+                return Some(&self.lumps[idx + lump as usize]);
+            }
+        }
+        None
+    }
+
     pub fn lump_exists(&self, lump_name: &str) -> bool {
         for lump in self.lumps.iter().rev() {
             if lump.name == lump_name.to_ascii_uppercase() {
@@ -302,36 +311,50 @@ impl WadData {
         false
     }
 
-    pub fn read_blockmap(&self, map_name: &str) -> WadBlockMap {
-        let info = self.find_lump_for_map_or_panic(map_name, MapLump::Blockmap);
-        // let file = &self.file_data[info.handle];
-
-        let w = info.read_i16(4) as usize;
-        let h = info.read_i16(6) as usize;
-        let word_len = 2;
-        let ofs = 8; //info.offset;
-        let len = ofs + w * h * word_len;
-        let mut line_groups = Vec::with_capacity(info.data.len() / word_len);
-        for i in (ofs..len).step_by(2) {
-            let mut start =
-                i16::from_le_bytes([info.data[i], info.data[i + 1]]) as usize * word_len;
-            while start < info.data.len() {
-                let line = i16::from_le_bytes([info.data[start], info.data[start + 1]]);
-                line_groups.push(line);
-                if line == -1 {
-                    break;
-                }
-                start += word_len;
+    pub fn read_blockmap(&self, map_name: &str) -> Option<WadBlockMap> {
+        if let Some(info) = self.find_lump_for_map(map_name, MapLump::Blockmap) {
+            if info.data.len() == 0 {
+                return None;
             }
-        }
 
-        WadBlockMap::new(
-            info.read_i16(0),
-            info.read_i16(2),
-            info.read_i16(4),
-            info.read_i16(6),
-            line_groups,
-        )
+            let w = info.read_i16(4) as usize;
+            let h = info.read_i16(6) as usize;
+            let word_len = 2;
+            let ofs = 8; //info.offset;
+            let len = ofs + w * h * word_len;
+            let mut line_groups = Vec::with_capacity(info.data.len() / word_len);
+            for i in (ofs..len).step_by(2) {
+                let mut start =
+                    i16::from_le_bytes([info.data[i], info.data[i + 1]]) as usize * word_len;
+                while start < info.data.len() {
+                    let line = i16::from_le_bytes([info.data[start], info.data[start + 1]]);
+                    line_groups.push(line);
+                    if line == -1 {
+                        break;
+                    }
+                    start += word_len;
+                }
+            }
+
+            return Some(WadBlockMap::new(
+                info.read_i16(0),
+                info.read_i16(2),
+                info.read_i16(4),
+                info.read_i16(6),
+                line_groups,
+            ));
+        }
+        None
+    }
+
+    pub fn read_rejects(&self, map_name: &str) -> Option<Vec<u8>> {
+        if let Some(info) = self.find_lump_for_map(map_name, MapLump::Reject) {
+            if info.data.len() == 0 {
+                return None;
+            }
+            return Some(info.data.clone());
+        }
+        None
     }
 }
 
@@ -528,7 +551,7 @@ mod tests {
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Blockmap);
         assert_eq!(things_lump.name, "BLOCKMAP");
 
-        let blockmap = wad.read_blockmap("E1M1");
+        let blockmap = wad.read_blockmap("E1M1").unwrap();
         assert_eq!(blockmap.x_origin, -768 + -8); // -776 confirmed, needs
                                                   // conversion to float
         assert_eq!(blockmap.y_origin, -4864 + -8); // -4872 confirmed, needs conversion to float
@@ -661,5 +684,16 @@ mod tests {
         ];
         assert_eq!(blockmap.line_indexes, blocks);
         assert_eq!(blockmap.line_indexes.len(), blocks.len());
+    }
+
+    #[test]
+    #[ignore = "sunder.wad can't be included in git"]
+    fn find_sunder15_reject() {
+        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let things_lump = wad.find_lump_for_map_or_panic("MAP15", MapLump::Reject);
+        assert_eq!(things_lump.name, "REJECT");
+
+        let blockmap = wad.read_rejects("MAP15").unwrap();
+        assert_eq!(blockmap.len(), 21216099);
     }
 }

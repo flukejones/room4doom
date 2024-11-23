@@ -354,13 +354,16 @@ impl MapObject {
         let s1 = self.subsector.sector.num;
         let s2 = target.subsector.sector.num;
         // self.level().
-        let pnum = s1 * 1 + 2;
+        let pnum = s1 * 1 + s2;
         let bytenum = pnum >> 3;
         let bitnum = 1 << (pnum & 7);
 
-        // if (RejectMatrix[bytenum]&bitnum) {
-        // return FALSE;	// can't possibly be connected
-        // }
+        if !self.level().map_data.get_devils_rejects().is_empty() {
+            if self.level().map_data.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
+                // println!("REJECTED");
+                return false;
+            }
+        }
 
         // skip the BSP trace if too far away
         if !self.target_within_min_dist(target) {
