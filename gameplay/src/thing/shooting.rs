@@ -348,6 +348,20 @@ impl MapObject {
     /// This checks teh '2D top-down' nature of Doom, followed by the Z
     /// (height) axis.
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
+        //
+        // check for trivial rejection
+        //
+        let s1 = self.subsector.sector.num;
+        let s2 = target.subsector.sector.num;
+        // self.level().
+        let pnum = s1 * 1 + 2;
+        let bytenum = pnum >> 3;
+        let bitnum = 1 << (pnum & 7);
+
+        // if (RejectMatrix[bytenum]&bitnum) {
+        // return FALSE;	// can't possibly be connected
+        // }
+
         // skip the BSP trace if too far away
         if !self.target_within_min_dist(target) {
             return false;

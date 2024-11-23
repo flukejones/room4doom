@@ -89,6 +89,8 @@ pub(crate) struct SegRender {
 
     sky_doubled: bool,
     sky_mid: f32,
+
+    dc_iscale: f32,
 }
 
 impl SegRender {
@@ -159,6 +161,8 @@ impl SegRender {
 
             sky_doubled: screen_height != 200,
             sky_mid: (screen_height / 2 - if screen_height != 200 { 12 } else { 6 }) as f32,
+
+            dc_iscale: 0.0,
         }
     }
 
@@ -542,16 +546,13 @@ impl SegRender {
         let mut angle;
         let mut texture_column = 0;
         let size = rend.draw_buffer().size().clone();
+        let sidedef = seg.sidedef.clone();
 
         let flats_total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
         let ceil_height = (seg.frontsector.ceilingheight - player.viewz).abs();
         let ceil_tex = pic_data.get_flat(seg.frontsector.ceilingpic);
         let floor_height = (seg.frontsector.floorheight - player.viewz).abs();
         let floor_tex = pic_data.get_flat(seg.frontsector.floorpic);
-
-        let sky_colourmap = pic_data.colourmap(0);
-
-        let sidedef = seg.sidedef.clone();
 
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as u32 as usize;
@@ -568,8 +569,7 @@ impl SegRender {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
-            let x_start = self.rw_startx as u32 as usize;
-            let screen_x = self.screen_x[x_start];
+            let x_angle = mobj.angle + self.screen_x[clip_index];
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl - 1.0;
@@ -585,17 +585,14 @@ impl SegRender {
                         let sky_column = pic_data
                             .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
 
-                        draw_wall_column(
+                        self.dc_iscale = 0.89;
+                        self.draw_wall_column(
                             sky_column,
-                            sky_colourmap,
-                            0.89,
-                            self.centery,
-                            self.rw_startx as u32 as usize,
                             self.sky_mid,
                             top,
                             bottom as i32,
+                            true,
                             pic_data,
-                            self.sky_doubled,
                             rend.draw_buffer(),
                         );
                         #[cfg(feature = "debug_draw")]
@@ -604,20 +601,16 @@ impl SegRender {
                             sleep(Duration::from_millis(1));
                         }
                     } else {
-                        draw_flat_column(
+                        self.draw_flat_column(
                             ceil_tex,
                             mobj.xy,
                             ceil_height,
                             flats_total_light,
-                            x_start,
-                            screen_x,
-                            self.screen_x_scale[x_start],
-                            mobj.angle,
+                            x_angle,
                             top as u32 as usize,
                             bottom as u32 as usize,
                             pic_data,
                             rend.draw_buffer(),
-                            &self.yslopes[self.yslope],
                         );
                         #[cfg(feature = "debug_draw")]
                         {
@@ -644,20 +637,16 @@ impl SegRender {
                 if top <= bottom {
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.floorclip[clip_index] = top + 1.0;
-                    draw_flat_column(
+                    self.draw_flat_column(
                         floor_tex,
                         mobj.xy,
                         floor_height,
                         flats_total_light,
-                        x_start,
-                        screen_x,
-                        self.screen_x_scale[x_start],
-                        mobj.angle,
+                        x_angle,
                         top as u32 as usize,
                         bottom as u32 as usize,
                         pic_data,
                         rend.draw_buffer(),
-                        &self.yslopes[self.yslope],
                     );
                     #[cfg(feature = "debug_draw")]
                     {
@@ -667,7 +656,6 @@ impl SegRender {
                 }
             }
 
-            let mut dc_iscale = 0.0;
             if self.segtextured {
                 angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, size.half_width_f32());
                                                                                              // TODO: horizontal position of texture isn't quite right
@@ -675,24 +663,20 @@ impl SegRender {
                     .abs()
                     .floor() as u32 as usize;
 
-                dc_iscale = 1.0 / self.rw_scale;
+                self.dc_iscale = 1.0 / self.rw_scale;
             }
 
             if self.midtexture {
                 if yl <= yh {
                     if let Some(mid_tex) = sidedef.midtexture {
                         let texture_column = pic_data.wall_pic_column(mid_tex, texture_column);
-                        draw_wall_column(
+                        self.draw_wall_column(
                             texture_column,
-                            pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
-                            dc_iscale,
-                            self.centery,
-                            self.rw_startx as u32 as usize,
                             self.rw_midtexturemid,
                             yl,
                             yh as i32,
-                            pic_data,
                             false,
+                            pic_data,
                             rend.draw_buffer(),
                         );
                         #[cfg(feature = "debug_draw")]
@@ -716,17 +700,13 @@ impl SegRender {
                     if mid >= yl {
                         if let Some(top_tex) = sidedef.toptexture {
                             let texture_column = pic_data.wall_pic_column(top_tex, texture_column);
-                            draw_wall_column(
+                            self.draw_wall_column(
                                 texture_column,
-                                pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
-                                dc_iscale,
-                                self.centery,
-                                self.rw_startx as u32 as usize,
                                 self.rw_toptexturemid,
                                 yl,
                                 mid as i32,
-                                pic_data,
                                 false,
+                                pic_data,
                                 rend.draw_buffer(),
                             );
                             #[cfg(feature = "debug_draw")]
@@ -754,17 +734,13 @@ impl SegRender {
                     if mid <= yh {
                         if let Some(bot_tex) = sidedef.bottomtexture {
                             let texture_column = pic_data.wall_pic_column(bot_tex, texture_column);
-                            draw_wall_column(
+                            self.draw_wall_column(
                                 texture_column,
-                                pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale),
-                                dc_iscale,
-                                self.centery,
-                                self.rw_startx as u32 as usize,
                                 self.rw_bottomtexturemid,
                                 mid,
                                 yh as i32,
-                                pic_data,
                                 false,
+                                pic_data,
                                 rend.draw_buffer(),
                             );
                             #[cfg(feature = "debug_draw")]
@@ -795,122 +771,123 @@ impl SegRender {
             self.bottomfrac += self.bottomstep;
         }
     }
-}
 
-/// Provides an easy way to draw a column in an `dc_x` location, starting and
-/// ending at `yl` and `yh`
+    /// Provides an easy way to draw a column in an `dc_x` location, starting
+    /// and ending at `yl` and `yh`
 
-/// A column is a vertical slice/span from a wall texture that,
-///  given the DOOM style restrictions on the view orientation,
-///  will always have constant z depth.
-/// Thus a special case loop for very fast rendering can
-///  be used. It has also been used with Wolfenstein 3D.
-#[inline]
-fn draw_wall_column(
-    texture_column: &[usize],
-    colourmap: &[usize],
-    fracstep: f32,
-    centery: f32,
-    dc_x: usize,
-    dc_texturemid: f32,
-    yl: f32,
-    mut yh: i32,
-    pic_data: &PicData,
-    doubled: bool,
-    pixels: &mut dyn PixelBuffer,
-) {
-    yh = yh.min(pixels.size().height() - 1);
+    /// A column is a vertical slice/span from a wall texture that,
+    ///  given the DOOM style restrictions on the view orientation,
+    ///  will always have constant z depth.
+    /// Thus a special case loop for very fast rendering can
+    ///  be used. It has also been used with Wolfenstein 3D.
+    #[inline]
+    fn draw_wall_column(
+        &mut self,
+        texture_column: &[usize],
+        dc_texturemid: f32,
+        y_start: f32,
+        mut y_end: i32,
+        sky: bool,
+        pic_data: &PicData,
+        pixels: &mut dyn PixelBuffer,
+    ) {
+        y_end = y_end.min(pixels.size().height() - 1);
 
-    let pal = pic_data.palette();
-    let mut frac = dc_texturemid + (yl - centery) * fracstep;
+        let pal = pic_data.palette();
+        let mut frac = dc_texturemid + (y_start - self.centery) * self.dc_iscale;
 
-    let mut pos = pixels.get_buf_index(dc_x, yl as u32 as usize);
-    let pitch = pixels.pitch();
-    let channels = pixels.channels();
+        let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start as u32 as usize);
+        let pitch = pixels.pitch();
+        let channels = pixels.channels();
 
-    for _ in yl as i32..=yh {
-        let mut select = frac.abs() as u32 as usize;
-        if doubled {
-            select /= 2;
+        let colourmap = if !sky {
+            pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale)
+        } else {
+            pic_data.colourmap(0)
+        };
+
+        for _ in y_start as i32..=y_end {
+            let mut select = frac.abs() as u32 as usize;
+            if sky && self.sky_doubled {
+                select /= 2;
+            }
+            select %= texture_column.len();
+            let tc = texture_column[select];
+            if tc >= colourmap.len() {
+                continue;
+            }
+            #[cfg(not(feature = "safety_check"))]
+            unsafe {
+                let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
+                pixels
+                    .buf_mut()
+                    .get_unchecked_mut(pos..pos + channels)
+                    .copy_from_slice(c);
+            }
+            #[cfg(feature = "safety_check")]
+            {
+                pixels.set_pixel(dc_x, i as u32 as usize, &pal[colourmap[tc]].0);
+            }
+            frac += self.dc_iscale;
+            pos += pitch;
         }
-        select %= texture_column.len();
-        let tc = texture_column[select];
-        if tc >= colourmap.len() {
-            continue;
-        }
-        #[cfg(not(feature = "safety_check"))]
-        unsafe {
-            let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-            pixels
-                .buf_mut()
-                .get_unchecked_mut(pos..pos + channels)
-                .copy_from_slice(c);
-        }
-        #[cfg(feature = "safety_check")]
-        {
-            pixels.set_pixel(dc_x, i as u32 as usize, &pal[colourmap[tc]].0);
-        }
-        frac += fracstep;
-        pos += pitch;
     }
-}
 
-#[inline]
-fn draw_flat_column(
-    texture: &FlatPic,
-    viewxy: Vec2,
-    plane_height: f32,
-    total_light: usize,
-    dc_x: usize,
-    screen_x: f32,
-    distscale: f32,
-    angle: Angle,
-    yl: usize,
-    mut yh: usize,
-    pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
-    yslope_table: &[f32],
-) {
-    yh = yh.min(pixels.size().height_usize() - 1);
+    #[inline]
+    fn draw_flat_column(
+        &mut self,
+        texture: &FlatPic,
+        viewxy: Vec2,
+        plane_height: f32,
+        total_light: usize,
+        angle: Angle,
+        y_start: usize,
+        mut y_end: usize,
+        pic_data: &PicData,
+        pixels: &mut dyn PixelBuffer,
+    ) {
+        y_end = y_end.min(pixels.size().height_usize() - 1);
 
-    let pal = pic_data.palette();
-    let tex_len = texture.data.len() - 1; // always square
+        let pal = pic_data.palette();
+        let tex_len = texture.data.len() - 1; // always square
 
-    let mut pos = pixels.get_buf_index(dc_x, yl);
-    let pitch = pixels.pitch();
-    let channels = pixels.channels();
+        let x_start = self.rw_startx as u32 as usize;
+        let mut pos = pixels.get_buf_index(x_start, y_start);
+        let pitch = pixels.pitch();
+        let channels = pixels.channels();
 
-    let angle = angle + screen_x;
-    let cos = angle.cos();
-    let sin = angle.sin();
+        let cos = angle.cos();
+        let sin = angle.sin();
 
-    let pixels = pixels.buf_mut();
-    for y_slope in yslope_table[yl..=yh].iter() {
-        let diminished_light = plane_height * y_slope;
-        let colourmap =
-            pic_data.flat_light_colourmap(total_light, (diminished_light as u32 as usize) >> 4);
+        let distscale = self.screen_x_scale[x_start];
+        let pixels = pixels.buf_mut();
+        for y_slope in self.yslopes[self.yslope][y_start..=y_end].iter() {
+            // TODO: move this out and make a way to "step" it
+            let diminished_light = plane_height * y_slope;
+            let colourmap =
+                pic_data.flat_light_colourmap(total_light, (diminished_light as u32 as usize) >> 4);
 
-        let length = diminished_light * distscale;
-        let xfrac = viewxy.x + cos * length;
-        let yfrac = viewxy.y + sin * length;
-        // flats are 64x64 so a bitwise op works here
-        let x_step = (xfrac.abs() as u32 as usize) & tex_len;
-        let y_step = (yfrac.abs() as u32 as usize) & tex_len;
+            let length = diminished_light * distscale;
+            let xfrac = viewxy.x + cos * length;
+            let yfrac = viewxy.y + sin * length;
+            // flats are 64x64 so a bitwise op works here
+            let x_step = (xfrac.abs() as u32 as usize) & tex_len;
+            let y_step = (yfrac.abs() as u32 as usize) & tex_len;
 
-        #[cfg(not(feature = "safety_check"))]
-        unsafe {
-            let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
-            let px = *colourmap.get_unchecked(tc);
-            let c = pal.get_unchecked(px);
-            pixels
-                .get_unchecked_mut(pos..pos + channels)
-                .copy_from_slice(c);
+            #[cfg(not(feature = "safety_check"))]
+            unsafe {
+                let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
+                let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
+                pixels
+                    .get_unchecked_mut(pos..pos + channels)
+                    .copy_from_slice(c);
+            }
+            #[cfg(feature = "safety_check")]
+            {
+                let px = colourmap[texture.data[x_step][y_pos]];
+                pixels.set_pixel(dc_x, y_pos, &pal[px].0);
+            }
+            pos += pitch;
         }
-        #[cfg(feature = "safety_check")]
-        {
-            let px = colourmap[texture.data[x_step][y_pos]];
-            pixels.set_pixel(dc_x, y_pos, &pal[px].0);
-        }
-        pos += pitch;
     }
 }
