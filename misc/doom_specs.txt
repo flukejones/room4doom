@@ -1857,9 +1857,9 @@ up. It is an array of bits, with each bit controlling whether monsters
 in a given sector can detect and/or attack players in another sector.
   Make a table of sectors vs. sectors, like this:
 
-	 sector that the player is in
-	      0  1  2  3  4
-	    +---------------
+              sector that the player is in
+              0  1  2  3  4
+            +---------------
 sector    0 | 0  1  0  0  0
 that      1 | 1  0  1  1  0
 the       2 | 0  1  0  1  0
@@ -3800,8 +3800,3 @@ Ted Vessenes (tedv@geom.umn.ed)
 	I had the THING angles wrong in the original specs.
 
 You! Thanks for reading the "Unofficial" DOOM Specs!
-
-
-
-
-

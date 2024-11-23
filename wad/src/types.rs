@@ -638,30 +638,21 @@ impl WadNode {
     }
 }
 
-impl WadBlockMap {
-    pub fn new(
-        x_origin: i16,
-        y_origin: i16,
-        width: i16,
-        height: i16,
-        lines: Vec<i16>,
-        blockmap_idx: usize,
-    ) -> WadBlockMap {
-        WadBlockMap {
-            x_origin,
-            y_origin,
-            width,
-            height,
-            line_indexes: lines,
-            blockmap_offset: blockmap_idx,
-        }
-    }
-}
-
 /// The `BLOCKMAP` is a pre-calculated structure that the game-exe engine uses
 /// to simplify collision-detection between moving things and walls.
 ///
 /// Each "block" is 128 square.
+///
+/// | Field Size | Data Type | Content                                    |
+/// |------------|-----------|--------------------------------------------|
+/// | 0x00-0x01  | i16       | X origin (left, fixedpoint)                |
+/// | 0x02-0x03  | i16       | Y origin (bottom, fixedpoint)              |
+/// | 0x04-0x05  | i16       | Num of columns                             |
+/// | 0x06-0x07  | i16       | Num of rows                                |
+/// | 0x08-0xN   | i16       | Block offsets, where N = columns*rows      |
+/// | 0xN2-0xN3  | i16       | 0x0000, start of block of lines            |
+/// | 0xN4-0xN   | i16       | Lindedef, and all consectutive lines after |
+/// | 0xN+1-0xN+2| i16       | 0xFFFF, end of this block                  |
 #[derive(Debug, Clone)]
 pub struct WadBlockMap {
     /// Leftmost X coord, this is 16.16 fixed point, doing an `((i as i32)<<16)
@@ -671,16 +662,35 @@ pub struct WadBlockMap {
     /// i32)<<16) as f32` will convert
     pub y_origin: i16,
     /// Width
-    pub width: i16,
+    pub columns: i16,
     /// Height
-    pub height: i16,
+    pub rows: i16,
     /// The line index is used by converting a local X.Y coordinate in to an
     /// offset in to this array. The number at that location is then the
     /// index number in to the linedefs array.
     pub line_indexes: Vec<i16>,
-    /// Blockmap Index start
-    pub blockmap_offset: usize,
 }
+
+impl WadBlockMap {
+    pub fn new(
+        x_origin: i16,
+        y_origin: i16,
+        width: i16,
+        height: i16,
+        lines: Vec<i16>,
+    ) -> WadBlockMap {
+        WadBlockMap {
+            x_origin,
+            y_origin,
+            columns: width,
+            rows: height,
+            line_indexes: lines,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WadRejectTable(Vec<u8>);
 
 #[cfg(test)]
 mod tests {
