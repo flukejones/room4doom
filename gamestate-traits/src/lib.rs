@@ -120,10 +120,10 @@ pub trait SubsystemTrait {
     fn get_palette(&self) -> &WadPalette;
 
     /// Draw this Machination to the `PixelBuf`.
-    fn draw(&mut self, buffer: &mut dyn PixelBuffer);
+    fn draw(&mut self, buffer: &mut impl PixelBuffer);
 
     /// Free method, requires `get_palette()` to be implemented
-    fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut dyn PixelBuffer) {
+    fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut impl PixelBuffer) {
         let mut xtmp = 0;
         let mut ytmp = 0;
 

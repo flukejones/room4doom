@@ -171,7 +171,7 @@ pub fn d_doom_loop(
     Ok(())
 }
 
-fn page_drawer(game: &mut Game, draw_buf: &mut dyn PixelBuffer) {
+fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
     let f = draw_buf.size().height() / 200;
     let mut ytmp = 0;
     let mut xtmp = f - 1;

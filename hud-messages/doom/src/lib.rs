@@ -63,7 +63,7 @@ impl Messages {
         }
     }
 
-    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut dyn PixelBuffer) {
+    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut impl PixelBuffer) {
         let f = buffer.size().height() / 200;
 
         let x = 10;
@@ -128,7 +128,7 @@ impl SubsystemTrait for Messages {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
         self.screen_width = buffer.size().width();
         self.screen_height = buffer.size().height();
         self.draw_wrapped(self, buffer);

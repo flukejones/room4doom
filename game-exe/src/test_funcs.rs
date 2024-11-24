@@ -6,7 +6,7 @@ use gamestate::Game;
 use render_target::PixelBuffer;
 use wad::types::{WadFlat, WadPalette, WadPatch};
 
-pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) {
+pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut impl PixelBuffer) {
     let lump = game.wad_data.get_lump(name).unwrap();
     let image = WadPatch::from_lump(lump);
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
@@ -31,7 +31,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut dyn PixelBuffer) 
     }
 }
 
-pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut dyn PixelBuffer) {
+pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut impl PixelBuffer) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = (pixels.size().width_usize() - image.width as usize) / 2;
@@ -53,7 +53,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut dyn 
     }
 }
 
-pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut dyn PixelBuffer) {
+pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut impl PixelBuffer) {
     let width = texture.data.len();
     let height = texture.data[0].len();
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
@@ -73,7 +73,7 @@ pub(crate) fn texture_select_test(texture: &WallPic, game: &Game, pixels: &mut d
     }
 }
 
-pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut dyn PixelBuffer) {
+pub(crate) fn flat_select_test(flat: &WadFlat, game: &Game, pixels: &mut impl PixelBuffer) {
     let pals: Vec<WadPalette> = game.wad_data.playpal_iter().collect();
 
     let xs = (pixels.size().width_usize() - 64) / 2;

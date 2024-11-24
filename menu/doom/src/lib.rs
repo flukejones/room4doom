@@ -336,7 +336,7 @@ impl MenuDoom {
             .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 
-    fn draw_pixels(&mut self, pixels: &mut dyn PixelBuffer) {
+    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
         let f = pixels.size().height() / 200;
 
         if self.active || self.in_help {
@@ -538,7 +538,7 @@ impl SubsystemTrait for MenuDoom {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
         self.draw_pixels(buffer)
     }
 }
