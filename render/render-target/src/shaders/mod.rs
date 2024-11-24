@@ -3,7 +3,6 @@ use nanoserde::{DeRon, SerRon};
 use std::str::FromStr;
 
 pub mod basic;
-pub mod cgwg_crt;
 pub mod lottes_crt;
 pub mod lottes_reduced;
 
@@ -11,7 +10,6 @@ pub mod lottes_reduced;
 pub enum Shaders {
     Lottes,
     LottesBasic,
-    Cgwg,
     Basic,
 }
 
@@ -28,7 +26,6 @@ impl FromStr for Shaders {
         match s.to_ascii_lowercase().as_str() {
             "lottes" => Ok(Shaders::Lottes),
             "lottesbasic" => Ok(Shaders::LottesBasic),
-            "cgwg" => Ok(Shaders::Cgwg),
             "basic" => Ok(Shaders::Basic),
             _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Doh!")),
         }

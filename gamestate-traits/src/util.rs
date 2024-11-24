@@ -38,7 +38,7 @@ pub fn draw_num_pixels(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl SubsystemTrait,
-    pixels: &mut dyn PixelBuffer,
+    pixels: &mut impl PixelBuffer,
 ) -> i32 {
     let f = pixels.size().height() / 200;
     let width = nums[0].width as i32 * f;
@@ -70,7 +70,7 @@ pub fn draw_num(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl SubsystemTrait,
-    buffer: &mut dyn PixelBuffer,
+    buffer: &mut impl PixelBuffer,
 ) -> i32 {
     // TODO: remove duplicated functionality
     draw_num_pixels(p, x, y, pad, nums, drawer, buffer)

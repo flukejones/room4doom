@@ -1,9 +1,9 @@
 use crate::utilities::screen_to_angle;
 use gameplay::log::warn;
 use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
-use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment, WallPic};
+use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
-use render_trait::{PixelBuffer, RenderTrait};
+use render_trait::{PixelBuffer, RenderTrait, SOFT_PIXEL_CHANNELS};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use std::ptr::NonNull;
 #[cfg(feature = "debug_draw")]
@@ -79,7 +79,7 @@ pub(crate) struct SegRender {
     /// Light level for the wall
     wall_lights: usize,
     pub yslopes: Vec<Vec<f32>>,
-    pub yslope: usize,
+    pub look_yslope: usize,
     pub centery: f32,
     pub screen_x: Vec<f32>,
     pub screen_x_scale: Vec<f32>,
@@ -151,7 +151,7 @@ impl SegRender {
                         .collect()
                 })
                 .collect(),
-            yslope: 0,
+            look_yslope: 0,
             centery: screen_height as f32 / 2.0,
             screen_x,
             screen_x_scale,
@@ -173,7 +173,7 @@ impl SegRender {
     /// # Safety
     /// Nothing else should be modifying `LOOKDIRMAX`
     pub const unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: f32) {
-        self.yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+        self.look_yslope = (LOOKDIRMAX as i16 + pitch) as usize;
         self.centery = half_screen_height as f32 + pitch as f32;
     }
 
@@ -570,6 +570,9 @@ impl SegRender {
             }
 
             let x_angle = mobj.angle + self.screen_x[clip_index];
+            let cos = x_angle.cos();
+            let sin = x_angle.sin();
+            let distscale = self.screen_x_scale[self.rw_startx as u32 as usize];
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl - 1.0;
@@ -606,7 +609,9 @@ impl SegRender {
                             mobj.xy,
                             ceil_height,
                             flats_total_light,
-                            x_angle,
+                            cos,
+                            sin,
+                            distscale,
                             top as u32 as usize,
                             bottom as u32 as usize,
                             pic_data,
@@ -642,7 +647,9 @@ impl SegRender {
                         mobj.xy,
                         floor_height,
                         flats_total_light,
-                        x_angle,
+                        cos,
+                        sin,
+                        distscale,
                         top as u32 as usize,
                         bottom as u32 as usize,
                         pic_data,
@@ -789,7 +796,7 @@ impl SegRender {
         mut y_end: i32,
         sky: bool,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        pixels: &mut impl PixelBuffer,
     ) {
         y_end = y_end.min(pixels.size().height() - 1);
 
@@ -797,8 +804,6 @@ impl SegRender {
         let mut frac = dc_texturemid + (y_start - self.centery) * self.dc_iscale;
 
         let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start as u32 as usize);
-        let pitch = pixels.pitch();
-        let channels = pixels.channels();
 
         let colourmap = if !sky {
             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale)
@@ -821,7 +826,7 @@ impl SegRender {
                 let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
                 pixels
                     .buf_mut()
-                    .get_unchecked_mut(pos..pos + channels)
+                    .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
                     .copy_from_slice(c);
             }
             #[cfg(feature = "safety_check")]
@@ -829,7 +834,7 @@ impl SegRender {
                 pixels.set_pixel(dc_x, i as u32 as usize, &pal[colourmap[tc]].0);
             }
             frac += self.dc_iscale;
-            pos += pitch;
+            pos += pixels.pitch();
         }
     }
 
@@ -840,30 +845,23 @@ impl SegRender {
         viewxy: Vec2,
         plane_height: f32,
         total_light: usize,
-        angle: Angle,
+        cos: f32,
+        sin: f32,
+        distscale: f32,
         y_start: usize,
         mut y_end: usize,
         pic_data: &PicData,
-        pixels: &mut dyn PixelBuffer,
+        pixels: &mut impl PixelBuffer,
     ) {
         y_end = y_end.min(pixels.size().height_usize() - 1);
 
         let pal = pic_data.palette();
         let tex_len = texture.data.len() - 1; // always square
+        let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start);
 
-        let x_start = self.rw_startx as u32 as usize;
-        let mut pos = pixels.get_buf_index(x_start, y_start);
-        let pitch = pixels.pitch();
-        let channels = pixels.channels();
-
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        let distscale = self.screen_x_scale[x_start];
-        let pixels = pixels.buf_mut();
-        for y_slope in self.yslopes[self.yslope][y_start..=y_end].iter() {
-            // TODO: move this out and make a way to "step" it
+        for y_slope in self.yslopes[self.look_yslope][y_start..=y_end].iter() {
             let diminished_light = plane_height * y_slope;
+            // TODO: move this out and make a way to "step" it
             let colourmap =
                 pic_data.flat_light_colourmap(total_light, (diminished_light as u32 as usize) >> 4);
 
@@ -879,7 +877,8 @@ impl SegRender {
                 let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
                 let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
                 pixels
-                    .get_unchecked_mut(pos..pos + channels)
+                    .buf_mut()
+                    .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
                     .copy_from_slice(c);
             }
             #[cfg(feature = "safety_check")]
@@ -887,7 +886,7 @@ impl SegRender {
                 let px = colourmap[texture.data[x_step][y_pos]];
                 pixels.set_pixel(dc_x, y_pos, &pal[px].0);
             }
-            pos += pitch;
+            pos += pixels.pitch();
         }
     }
 }

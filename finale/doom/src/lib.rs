@@ -39,7 +39,7 @@ impl Finale {
         }
     }
 
-    fn draw_pixels(&mut self, pixels: &mut dyn PixelBuffer) {
+    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
         let f = pixels.size().height() / 200;
         self.screen_width = pixels.size().width();
         self.screen_height = pixels.size().height();
@@ -151,7 +151,7 @@ impl SubsystemTrait for Finale {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
         self.draw_pixels(buffer);
     }
 }

@@ -13,7 +13,6 @@ use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 use shaders::basic::Basic;
-use shaders::cgwg_crt::Cgwgcrt;
 use shaders::lottes_crt::LottesCRT;
 use shaders::{ShaderDraw, Shaders};
 use wipe::Wipe;
@@ -36,7 +35,7 @@ pub enum RenderApiType {
     Vulkan,
 }
 
-pub struct Buffer {
+struct Buffer {
     size: BufferSize,
     /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
     buffer: Vec<u8>,
@@ -54,22 +53,26 @@ impl Buffer {
 }
 
 impl PixelBuffer for Buffer {
+    #[inline(always)]
     fn size(&self) -> &BufferSize {
         &self.size
     }
 
+    #[inline(always)]
     fn clear(&mut self) {
         self.buffer
             .chunks_mut(4)
             .for_each(|n| n.copy_from_slice(&[0, 0, 0, 255]));
     }
 
+    #[inline(always)]
     fn clear_with_colour(&mut self, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
         self.buffer
             .chunks_mut(4)
             .for_each(|n| n.copy_from_slice(colour));
     }
 
+    #[inline(always)]
     fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
         // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
@@ -90,6 +93,7 @@ impl PixelBuffer for Buffer {
     }
 
     /// Read the colour of a single pixel at X|Y
+    #[inline]
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
         let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
@@ -98,25 +102,29 @@ impl PixelBuffer for Buffer {
     }
 
     /// Read the full buffer
+    #[inline(always)]
     fn buf_mut(&mut self) -> &mut [u8] {
         &mut self.buffer
     }
 
+    #[inline(always)]
     fn pitch(&self) -> usize {
-        self.size().width_usize() * SOFT_PIXEL_CHANNELS
+        self.size.width_usize() * SOFT_PIXEL_CHANNELS
     }
 
+    #[inline(always)]
     fn channels(&self) -> usize {
         SOFT_PIXEL_CHANNELS
     }
 
+    #[inline(always)]
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        y * self.size().width_usize() * SOFT_PIXEL_CHANNELS + x * SOFT_PIXEL_CHANNELS
+        y * self.size.width_usize() * SOFT_PIXEL_CHANNELS + x * SOFT_PIXEL_CHANNELS
     }
 }
 
 /// A structure holding display data
-pub struct SoftFramebuffer {
+struct SoftFramebuffer {
     crop_rect: Rect,
     _tc: TextureCreator<WindowContext>,
     texture: sdl2::render::Texture,
@@ -145,7 +153,7 @@ impl SoftFramebuffer {
 }
 
 /// A structure holding display data
-pub struct SoftGLBuffer {
+struct SoftGLBuffer {
     gl_texture: Texture,
     screen_shader: Box<dyn ShaderDraw>,
 }
@@ -161,21 +169,18 @@ impl SoftGLBuffer {
                 Shaders::Basic => Box::new(Basic::new(gl_ctx)),
                 Shaders::Lottes => Box::new(LottesCRT::new(gl_ctx)),
                 Shaders::LottesBasic => Box::new(shaders::lottes_reduced::LottesCRT::new(gl_ctx)),
-                Shaders::Cgwg => Box::new(Cgwgcrt::new(gl_ctx, width as u32, height as u32)),
             },
         }
     }
 
-    pub const fn gl_texture(&self) -> &Texture {
-        &self.gl_texture
-    }
-
-    pub fn set_gl_filter(&self) -> Result<(), GolemError> {
+    #[inline]
+    fn set_gl_filter(&self) -> Result<(), GolemError> {
         self.gl_texture.set_minification(TextureFilter::Linear)?;
         self.gl_texture.set_magnification(TextureFilter::Linear)
     }
 
-    pub fn copy_softbuf_to_gl_texture(&mut self, buffer: &Buffer) {
+    #[inline]
+    fn copy_softbuf_to_gl_texture(&mut self, buffer: &Buffer) {
         self.gl_texture.set_image(
             Some(&buffer.buffer),
             buffer.size.width() as u32,

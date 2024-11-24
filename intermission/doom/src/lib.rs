@@ -238,7 +238,7 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut dyn PixelBuffer) {
+    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl PixelBuffer) {
         if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
@@ -345,7 +345,7 @@ impl SubsystemTrait for Intermission {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut dyn PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
         let scale = buffer.size().height() / 200;
 
         // TODO: stats and next are two different screens.

@@ -119,7 +119,7 @@ impl HUDString {
         mut x: i32,
         mut y: i32,
         machination: &impl SubsystemTrait,
-        pixels: &mut dyn PixelBuffer,
+        pixels: &mut impl PixelBuffer,
     ) -> Option<()> {
         let f = pixels.size().height() / 200;
         let width = pixels.size().width();
@@ -178,7 +178,7 @@ impl HUDString {
         x: i32,
         y: i32,
         machination: &impl SubsystemTrait,
-        pixels: &mut dyn PixelBuffer,
+        pixels: &mut impl PixelBuffer,
     ) -> Option<()> {
         self.draw_pixels(x, y, machination, pixels);
         Some(())

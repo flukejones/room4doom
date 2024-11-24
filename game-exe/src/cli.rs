@@ -58,7 +58,7 @@ pub struct CLIOptions {
     /// rendering type <software, softopengl>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
-    /// screen shader <cgwg, lottes, lottesbasic>, not used with Software
+    /// screen shader <lottes, lottesbasic>, not used with Software
     /// renderer
     #[argh(option, short = 'S')]
     pub shader: Option<Shaders>,

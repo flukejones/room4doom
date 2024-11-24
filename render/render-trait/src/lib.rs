@@ -1,7 +1,7 @@
 use gameplay::{Level, PicData, Player};
 
 /// channels should match pixel format
-const SOFT_PIXEL_CHANNELS: usize = 4;
+pub const SOFT_PIXEL_CHANNELS: usize = 4;
 
 #[derive(Clone, Copy)]
 pub struct BufferSize {

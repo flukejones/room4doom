@@ -629,7 +629,7 @@ fn draw_masked_column(
     yl: f32,
     mut yh: f32,
     pic_data: &PicData,
-    pixels: &mut dyn PixelBuffer,
+    pixels: &mut impl PixelBuffer,
 ) {
     if yh >= pixels.size().height_f32() {
         yh = pixels.size().height_f32() - 1.0;

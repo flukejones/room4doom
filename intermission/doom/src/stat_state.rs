@@ -31,7 +31,7 @@ impl Intermission {
         }
     }
 
-    pub(super) fn draw_level_finish_pixels(&self, scale: i32, pixels: &mut dyn PixelBuffer) {
+    pub(super) fn draw_level_finish_pixels(&self, scale: i32, pixels: &mut impl PixelBuffer) {
         let half = pixels.size().width() / 2;
         let mut y = TITLE_Y * scale;
         self.draw_patch_pixels(
@@ -45,12 +45,12 @@ impl Intermission {
         self.draw_patch_pixels(patch, half - patch.width as i32 * scale / 2, y, pixels);
     }
 
-    fn draw_percent(&self, p: u32, x: i32, y: i32, pixels: &mut dyn PixelBuffer) {
+    fn draw_percent(&self, p: u32, x: i32, y: i32, pixels: &mut impl PixelBuffer) {
         self.draw_patch_pixels(&self.patches.percent, x, y, pixels);
         draw_num_pixels(p, x, y, 0, &self.patches.nums, self, pixels);
     }
 
-    fn draw_time(&self, t: u32, mut x: i32, y: i32, scale: i32, buffer: &mut dyn PixelBuffer) {
+    fn draw_time(&self, t: u32, mut x: i32, y: i32, scale: i32, buffer: &mut impl PixelBuffer) {
         let mut div = 1;
         if t <= 61 * 59 {
             loop {
@@ -70,7 +70,7 @@ impl Intermission {
         }
     }
 
-    pub(super) fn draw_stats_pixels(&mut self, scale: i32, buffer: &mut dyn PixelBuffer) {
+    pub(super) fn draw_stats_pixels(&mut self, scale: i32, buffer: &mut impl PixelBuffer) {
         let width = buffer.size().width();
         let stats_x = SP_STATSX * scale;
         let stats_y = SP_STATSY * scale;

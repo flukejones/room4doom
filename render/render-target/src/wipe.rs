@@ -41,8 +41,8 @@ impl Wipe {
 
     pub(crate) fn do_melt_pixels(
         &mut self,
-        disp_buf: &mut dyn PixelBuffer, // Display from this buffer
-        draw_buf: &mut dyn PixelBuffer, /* Draw to this buffer */
+        disp_buf: &mut impl PixelBuffer, // Display from this buffer
+        draw_buf: &mut impl PixelBuffer, /* Draw to this buffer */
     ) -> bool {
         if self.delay > 0 {
             self.delay -= 1;
