@@ -806,7 +806,7 @@ impl SegRender {
         let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start as u32 as usize);
 
         let colourmap = if !sky {
-            pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale)
+            pic_data.flat_light_colourmap(self.wall_lights, (self.dc_iscale * 10.0) as u32 as usize)
         } else {
             pic_data.colourmap(0)
         };
