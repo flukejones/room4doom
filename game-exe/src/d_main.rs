@@ -229,7 +229,7 @@ fn d_display<R>(
     // instead an "overlay" style bar will be done.
     if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
-            if let Some(ref level) = game.level {
+            match game.level { Some(ref level) => {
                 if !game.players_in_game[game.consoleplayer] {
                     return;
                 }
@@ -242,7 +242,7 @@ fn d_display<R>(
                     }
                     rend_target.render_player_view(player, level, &mut game.pic_data);
                 }
-            }
+            } _ => {}}
         }
     }
 

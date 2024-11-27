@@ -1,5 +1,3 @@
-#![feature(const_float_methods)]
-
 mod angle;
 mod intercept;
 mod trig;

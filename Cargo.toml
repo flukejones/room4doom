@@ -27,7 +27,8 @@ resolver = "2"
 [workspace.package]
 authors = ["Luke Jones <luke@ljones.dev>"]
 version = "0.15.3"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "MIT"
 
 [workspace.dependencies]

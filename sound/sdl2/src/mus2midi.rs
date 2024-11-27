@@ -417,10 +417,10 @@ mod tests {
     use std::io::{Read, Write};
     use std::time::Duration;
 
-    use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
+    use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
     use wad::WadData;
 
-    use crate::mus2midi::{read_track, MusEvent, MusEventType, MusHeader};
+    use crate::mus2midi::{MusEvent, MusEventType, MusHeader, read_track};
 
     use super::read_mus_to_midi;
 
@@ -432,89 +432,68 @@ mod tests {
         let header = MusHeader::read(&tmp).unwrap();
         let mus2mid = read_track(&tmp, &header);
 
-        assert_eq!(
-            mus2mid[0],
-            MusEvent {
-                delay: 0,
-                kind: MusEventType::Controller,
-                channel: 0,
-                data1: 0,
-                data2: 48,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[0], MusEvent {
+            delay: 0,
+            kind: MusEventType::Controller,
+            channel: 0,
+            data1: 0,
+            data2: 48,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[1],
-            MusEvent {
-                delay: 0,
-                kind: MusEventType::Controller,
-                channel: 0,
-                data1: 3,
-                data2: 0,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[1], MusEvent {
+            delay: 0,
+            kind: MusEventType::Controller,
+            channel: 0,
+            data1: 3,
+            data2: 0,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[10],
-            MusEvent {
-                delay: 0,
-                kind: MusEventType::Controller,
-                channel: 1,
-                data1: 3,
-                data2: 0,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[10], MusEvent {
+            delay: 0,
+            kind: MusEventType::Controller,
+            channel: 1,
+            data1: 3,
+            data2: 0,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[11],
-            MusEvent {
-                delay: 0,
-                kind: MusEventType::Controller,
-                channel: 1,
-                data1: 4,
-                data2: 114,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[11], MusEvent {
+            delay: 0,
+            kind: MusEventType::Controller,
+            channel: 1,
+            data1: 4,
+            data2: 114,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[12],
-            MusEvent {
-                delay: 0,
-                kind: MusEventType::Controller,
-                channel: 2,
-                data1: 0,
-                data2: 37,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[12], MusEvent {
+            delay: 0,
+            kind: MusEventType::Controller,
+            channel: 2,
+            data1: 0,
+            data2: 37,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[50],
-            MusEvent {
-                delay: 2,
-                kind: MusEventType::Controller,
-                channel: 0,
-                data1: 3,
-                data2: 93,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[50], MusEvent {
+            delay: 2,
+            kind: MusEventType::Controller,
+            channel: 0,
+            data1: 3,
+            data2: 93,
+            volume: 0
+        });
 
-        assert_eq!(
-            mus2mid[200],
-            MusEvent {
-                delay: 1,
-                kind: MusEventType::Controller,
-                channel: 0,
-                data1: 3,
-                data2: 126,
-                volume: 0
-            }
-        );
+        assert_eq!(mus2mid[200], MusEvent {
+            delay: 1,
+            kind: MusEventType::Controller,
+            channel: 0,
+            data1: 3,
+            data2: 126,
+            volume: 0
+        });
     }
 
     #[test]
@@ -572,8 +551,10 @@ mod tests {
     #[test]
     #[ignore = "CI doesn't have a sound device"]
     fn play_midi() {
-        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
-        set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
+        unsafe {
+            set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
+            set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
+        }
         let wad = WadData::new("../doom1.wad".into());
 
         let lump = wad.get_lump("D_E1M1").unwrap();

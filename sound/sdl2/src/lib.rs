@@ -1,14 +1,14 @@
 use std::error::Error;
 use std::f32::consts::TAU;
 use std::fmt::Debug;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 
 use glam::Vec2;
 use log::{debug, info};
-use sdl2::audio::{AudioCVT, AudioFormat};
-use sdl2::mixer::{Chunk, InitFlag, Music, Sdl2MixerContext, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use sdl2::AudioSubsystem;
-use sound_traits::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic, MUS_DATA};
+use sdl2::audio::{AudioCVT, AudioFormat};
+use sdl2::mixer::{AUDIO_S16LSB, Chunk, DEFAULT_CHANNELS, InitFlag, Music, Sdl2MixerContext};
+use sound_traits::{InitResult, MUS_DATA, SfxName, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 use crate::info::SFX_INFO_BASE;
@@ -166,6 +166,7 @@ impl<'a> Snd<'a> {
         let mut mus_count = 0;
         unsafe {
             // TODO: make function unsafe to call instead to reflect the static mut
+            #[allow(static_mut_refs)]
             for mus in MUS_DATA.iter_mut() {
                 if let Some(lump) = wad.get_lump(mus.lump_name().as_str()) {
                     if lump.data[..4] == MUS_ID {
@@ -405,7 +406,7 @@ impl<'a> SoundServerTic<SfxName, usize, sdl2::Error> for Snd<'a> {}
 #[cfg(test)]
 mod tests {
     use crate::mus2midi::read_mus_to_midi;
-    use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
+    use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
     use sound_traits::MUS_DATA;
     use std::time::Duration;
     use wad::WadData;
@@ -416,6 +417,7 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
 
         unsafe {
+            #[allow(static_mut_refs)]
             for mus in MUS_DATA.iter_mut() {
                 if let Some(lump) = wad.get_lump(mus.lump_name().as_str()) {
                     dbg!(mus.lump_name());
