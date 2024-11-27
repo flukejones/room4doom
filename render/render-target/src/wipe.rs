@@ -1,6 +1,3 @@
-use std::thread::sleep;
-use std::time::Duration;
-
 use gameplay::m_random;
 
 use crate::PixelBuffer;
@@ -9,7 +6,6 @@ pub(crate) struct Wipe {
     y: Vec<i32>,
     height: i32,
     width: i32,
-    delay: i32,
 }
 
 impl Wipe {
@@ -27,12 +23,7 @@ impl Wipe {
             }
         }
 
-        Self {
-            y,
-            height,
-            width,
-            delay: 16,
-        }
+        Self { y, height, width }
     }
 
     pub(crate) fn reset(&mut self) {
@@ -44,22 +35,17 @@ impl Wipe {
         disp_buf: &mut impl PixelBuffer, // Display from this buffer
         draw_buf: &mut impl PixelBuffer, /* Draw to this buffer */
     ) -> bool {
-        if self.delay > 0 {
-            self.delay -= 1;
-            sleep(Duration::from_micros(100));
-            return false;
-        }
-        self.delay = 16;
         let mut done = true;
+        let stepping = disp_buf.size().height_usize() / 100;
         let f = disp_buf.size().height() / 200;
-        for x in 0..self.width as usize {
+        for x in (0..self.width as usize).step_by(stepping) {
             if self.y[x] < 0 {
                 // This is the offset to start with, sort of like a timer
-                self.y[x] += 1;
+                self.y[x] += stepping as i32 / 2;
                 done = false;
             } else if self.y[x] < self.height {
                 let mut dy = if self.y[x] < (16 * f) {
-                    self.y[x] + 1
+                    self.y[x] + stepping as i32
                 } else {
                     8 * f
                 };
@@ -69,16 +55,22 @@ impl Wipe {
 
                 let mut y = self.y[x] as usize;
                 for _ in (0..dy).rev() {
-                    let px = draw_buf.read_pixel(x, y);
-                    disp_buf.set_pixel(x, y, &px);
+                    for x in x..x + stepping {
+                        let px = draw_buf.read_pixel(x, y);
+                        disp_buf.set_pixel(x, y, &px);
+                    }
                     y += 1;
                 }
-                self.y[x] += dy;
+                for x in x..x + stepping {
+                    self.y[x] += dy;
+                }
 
                 for c in 0..=self.height - self.y[x] - dy {
                     let y = self.height - c - dy;
-                    let px = disp_buf.read_pixel(x, y as usize);
-                    disp_buf.set_pixel(x, (self.height - c - 1) as usize, &px);
+                    for x in x..x + stepping {
+                        let px = disp_buf.read_pixel(x, y as usize);
+                        disp_buf.set_pixel(x, (self.height - c - 1) as usize, &px);
+                    }
                 }
                 done = false;
             }
