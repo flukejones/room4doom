@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
-use super::defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP};
 use super::RenderData;
+use super::defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP};
 
 //const HEIGHTUNIT: f32 = 0.062485;
 
@@ -173,7 +173,9 @@ impl SegRender {
     /// # Safety
     /// Nothing else should be modifying `LOOKDIRMAX`
     pub const unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: f32) {
-        self.look_yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+        unsafe {
+            self.look_yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+        }
         self.centery = half_screen_height as f32 + pitch as f32;
     }
 
@@ -665,7 +667,7 @@ impl SegRender {
 
             if self.segtextured {
                 angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, size.half_width_f32());
-                                                                                             // TODO: horizontal position of texture isn't quite right
+                // TODO: horizontal position of texture isn't quite right
                 texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
                     .abs()
                     .floor() as u32 as usize;

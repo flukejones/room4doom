@@ -33,7 +33,8 @@ const BASE_DIR: &str = "room4doom/";
 
 fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
     if music_type == MusicType::FluidSynth {
-        set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "0");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "0") };
         info!("Using fluidsynth for sound");
         return;
     }
@@ -45,8 +46,10 @@ fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
             if let Some(cfg) = make_timidity_cfg(wad, path, gus_mem) {
                 let mut file = File::create(cache_dir.as_path()).unwrap();
                 file.write_all(&cfg).unwrap();
-                set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
-                set_var("TIMIDITY_CFG", cache_dir.as_path());
+                // TODO: Audit that the environment access only happens in single-threaded code.
+                unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1") };
+                // TODO: Audit that the environment access only happens in single-threaded code.
+                unsafe { set_var("TIMIDITY_CFG", cache_dir.as_path()) };
                 info!("Using timidity for sound");
             } else {
                 warn!("Sound fonts were missing, using fluidsynth instead");

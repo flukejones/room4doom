@@ -5,17 +5,18 @@ use log::{debug, error, info};
 use sound_traits::SfxName;
 
 use crate::doom_def::{
-    ActFn, AmmoType, Card, PowerDuration, PowerType, WeaponType, BFGCELLS, CLIP_AMMO, MAXHEALTH, MAXPLAYERS, MAX_AMMO, VIEWHEIGHT, WEAPON_INFO
+    ActFn, AmmoType, BFGCELLS, CLIP_AMMO, Card, MAX_AMMO, MAXHEALTH, MAXPLAYERS, PowerDuration,
+    PowerType, VIEWHEIGHT, WEAPON_INFO, WeaponType,
 };
-use crate::info::{SpriteNum, StateNum, STATES};
+use crate::info::{STATES, SpriteNum, StateNum};
 use crate::level::Level;
 use crate::pic::INVERSECOLORMAP;
 use crate::player_sprite::{PspDef, WEAPONBOTTOM};
 use crate::thing::enemy::noise_alert;
-use crate::thing::{MapObjFlag, MapObject, BONUSADD};
-use crate::tic_cmd::{TicCmd, LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS};
+use crate::thing::{BONUSADD, MapObjFlag, MapObject};
+use crate::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS, TicCmd};
 use crate::{GameMode, Skill};
-use math::{bam_to_radian, fixed_to_float, p_random, point_to_angle_2, Angle};
+use math::{Angle, bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
@@ -279,7 +280,7 @@ impl Player {
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
     pub const unsafe fn mobj_unchecked(&self) -> &MapObject {
-        &*self.mobj.unwrap_unchecked()
+        unsafe { &*self.mobj.unwrap_unchecked() }
     }
 
     /// Unchecked access to the raw `MapObject` pointer cast to ref mut
@@ -287,7 +288,7 @@ impl Player {
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
     pub const unsafe fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
-        &mut *self.mobj.unwrap_unchecked()
+        unsafe { &mut *self.mobj.unwrap_unchecked() }
     }
 
     pub fn start_sound(&self, sfx: SfxName) {
@@ -390,7 +391,7 @@ impl Player {
             if self.head_bob {
                 let angle = (level_time as f32 / 3.0).sin(); // Controls frequency (3.0 seems ideal)
                 bob = self.bob / 3.0 * angle; // Controls depth of bob (2.0 is
-                                              // original)
+                // original)
             }
 
             // move viewheight

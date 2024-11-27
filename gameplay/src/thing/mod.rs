@@ -25,11 +25,11 @@ use log::{debug, error, trace, warn};
 use wad::types::WadThing;
 
 use crate::doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};
-use crate::info::{MapObjInfo, MapObjKind, SpriteNum, State, StateNum, MOBJINFO, STATES};
+use crate::info::{MOBJINFO, MapObjInfo, MapObjKind, STATES, SpriteNum, State, StateNum};
 use crate::level::map_defs::SubSector;
 use crate::player::{Player, PlayerState};
 use crate::utilities::BestSlide;
-use math::{p_random, p_subrandom, point_to_angle_2, Angle};
+use math::{Angle, p_random, p_subrandom, point_to_angle_2};
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]
@@ -749,7 +749,9 @@ impl MapObject {
     pub(crate) unsafe fn unset_thing_position(&mut self) {
         if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
             let mut ss = self.subsector.clone();
-            ss.sector.remove_from_thinglist(self.thinker_mut());
+            unsafe {
+                ss.sector.remove_from_thinglist(self.thinker_mut());
+            }
         }
     }
 
@@ -758,10 +760,10 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn set_thing_position(&mut self) {
-        let level = &mut *self.level;
+        let level = unsafe { &mut *self.level };
         let mut subsector = level.map_data.point_in_subsector_raw(self.xy);
         if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
-            subsector.sector.add_to_thinglist(self.thinker)
+            unsafe { subsector.sector.add_to_thinglist(self.thinker) }
         }
         self.subsector = subsector;
     }

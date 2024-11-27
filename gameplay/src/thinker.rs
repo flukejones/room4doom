@@ -1,4 +1,4 @@
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{Layout, alloc, dealloc};
 use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
@@ -78,45 +78,49 @@ impl ThinkerAlloc {
     /// # Safety
     /// Once allocated the owner of this `ThinkerAlloc` must not move.
     pub(crate) unsafe fn new(capacity: usize) -> Self {
-        let size = capacity * size_of::<Thinker>();
-        let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
-        let buf_ptr = alloc(layout) as *mut Thinker;
+        unsafe {
+            let size = capacity * size_of::<Thinker>();
+            let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
+            let buf_ptr = alloc(layout) as *mut Thinker;
 
-        // Need to initialise everything to a blank slate
-        for n in 0..capacity {
-            buf_ptr.add(n).write(Thinker {
-                prev: null_mut(),
-                next: null_mut(),
-                data: ThinkerData::Free,
-                func: Thinker::placeholder,
-            })
-        }
+            // Need to initialise everything to a blank slate
+            for n in 0..capacity {
+                buf_ptr.add(n).write(Thinker {
+                    prev: null_mut(),
+                    next: null_mut(),
+                    data: ThinkerData::Free,
+                    func: Thinker::placeholder,
+                })
+            }
 
-        Self {
-            buf_ptr,
-            capacity,
-            len: 0,
-            next_free: buf_ptr,
-            head: null_mut(),
+            Self {
+                buf_ptr,
+                capacity,
+                len: 0,
+                next_free: buf_ptr,
+                head: null_mut(),
+            }
         }
     }
 
     pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
-        let mut current = &mut *self.head;
-        let mut next;
+        unsafe {
+            let mut current = &mut *self.head;
+            let mut next;
 
-        loop {
-            if current.should_remove() {
-                next = &mut *current.next;
-                self.remove(&mut *current);
-            } else {
-                current.think(level);
-                next = &mut *current.next;
-            }
-            current = next;
+            loop {
+                if current.should_remove() {
+                    next = &mut *current.next;
+                    self.remove(&mut *current);
+                } else {
+                    current.think(level);
+                    next = &mut *current.next;
+                }
+                current = next;
 
-            if ptr::eq(current, self.head) {
-                break;
+                if ptr::eq(current, self.head) {
+                    break;
+                }
             }
         }
     }
@@ -200,7 +204,9 @@ impl ThinkerAlloc {
         debug_assert!(idx < self.capacity);
         let ptr = self.ptr_for_idx(idx);
         if std::mem::needs_drop::<Thinker>() {
-            ptr::drop_in_place(ptr);
+            unsafe {
+                ptr::drop_in_place(ptr);
+            }
         }
     }
 
@@ -242,7 +248,9 @@ impl ThinkerAlloc {
             return None;
         }
         if matches!(thinker.data, ThinkerData::Free) {
-            panic!("Can't push a thinker with `Thinker::Free` as the inner data. Please use `Thinker::Remove` to initiate removal, or use `remove()`");
+            panic!(
+                "Can't push a thinker with `Thinker::Free` as the inner data. Please use `Thinker::Remove` to initiate removal, or use `remove()`"
+            );
         }
 
         let root_ptr = self.find_first_free(false)?;
@@ -299,15 +307,12 @@ impl ThinkerAlloc {
             self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
 
-            ptr::write(
-                thinker,
-                Thinker {
-                    prev: null_mut(),
-                    next: null_mut(),
-                    data: ThinkerData::Free,
-                    func: TestObject::think,
-                },
-            );
+            ptr::write(thinker, Thinker {
+                prev: null_mut(),
+                next: null_mut(),
+                data: ThinkerData::Free,
+                func: TestObject::think,
+            });
         }
     }
 }
@@ -618,10 +623,10 @@ mod tests {
     use wad::WadData;
 
     use crate::doom_def::GameMode;
-    use crate::level::map_data::MapData;
     use crate::level::Level;
+    use crate::level::map_data::MapData;
     use crate::thinker::{Think, Thinker};
-    use crate::{PicData, Player, MAXPLAYERS};
+    use crate::{MAXPLAYERS, PicData, Player};
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
     use std::ptr::null_mut;

@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use gamestate_traits::{PixelBuffer, SubsystemTrait};
 use log::warn;
-use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;
+use wad::types::{WAD_PATCH, WadPatch};
 
 const FONT_START: u8 = b'!';
 const FONT_END: u8 = b'_';
@@ -14,6 +14,7 @@ static mut CHARS_INITIALISED: AtomicBool = AtomicBool::new(false);
 
 pub fn load_char_patches(wad: &WadData) {
     unsafe {
+        #[allow(static_mut_refs)]
         if CHARS_INITIALISED.load(Ordering::Relaxed) {
             return;
         }
@@ -25,12 +26,14 @@ pub fn load_char_patches(wad: &WadData) {
                 warn!("Missing STCFN{f:0>3}");
             }
         }
+        #[allow(static_mut_refs)]
         CHARS_INITIALISED.store(true, Ordering::Relaxed);
     }
 }
 
 fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
     unsafe {
+        #[allow(static_mut_refs)]
         if !CHARS_INITIALISED.load(Ordering::Relaxed) {
             warn!("Character patches not initialised");
             return None;
@@ -38,6 +41,7 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
         if c == ' ' {
             return None;
         }
+        #[allow(static_mut_refs)]
         CHARS.get((c as u8 - FONT_START) as usize)
     }
 }

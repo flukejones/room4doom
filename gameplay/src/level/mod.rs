@@ -14,10 +14,10 @@ use std::ptr;
 
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
-use wad::types::WadThing;
 use wad::WadData;
+use wad::types::WadThing;
 
-use crate::doom_def::{GameAction, GameMode, MAXPLAYERS, MAX_DEATHMATCH_STARTS, MAX_RESPAWNS};
+use crate::doom_def::{GameAction, GameMode, MAX_DEATHMATCH_STARTS, MAX_RESPAWNS, MAXPLAYERS};
 use crate::env::platforms::{PlatStatus, Platform};
 use crate::level::map_data::MapData;
 use crate::pic::Button;
@@ -118,7 +118,7 @@ impl Level {
 
         Level {
             map_data,
-            thinkers: ThinkerAlloc::new(0),
+            thinkers: unsafe { ThinkerAlloc::new(0) },
             options,
             respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
             level_time: 0,
@@ -180,7 +180,7 @@ impl Level {
             }
         }
         if index < self.active_platforms.len() {
-            (*plat.thinker).mark_remove();
+            unsafe { &mut *plat.thinker }.mark_remove();
             self.active_platforms.remove(index);
         }
     }

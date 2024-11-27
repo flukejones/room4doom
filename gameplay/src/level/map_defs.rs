@@ -1,6 +1,6 @@
+use crate::MapPtr;
 use crate::thing::MapObject;
 use crate::thinker::{Thinker, ThinkerData};
-use crate::MapPtr;
 use glam::Vec2;
 use log::error;
 use math::Angle;
@@ -172,15 +172,18 @@ impl Sector {
     /// The `Thinker` pointer *must* be valid, and the `Thinker` must not be
     /// `Free` or `Remove`
     pub unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
-        if matches!((*thing).data(), ThinkerData::Free | ThinkerData::Remove) {
+        if matches!(
+            (unsafe { &*thing }).data(),
+            ThinkerData::Free | ThinkerData::Remove
+        ) {
             error!("add_to_thinglist() tried to add a Thinker that was Free or Remove");
             return;
         }
-        (*thing).mobj_mut().s_prev = None;
-        (*thing).mobj_mut().s_next = self.thinglist; // could be null
+        unsafe { &mut *thing }.mobj_mut().s_prev = None;
+        unsafe { &mut *thing }.mobj_mut().s_next = self.thinglist; // could be null
 
         if let Some(other) = self.thinglist {
-            (*other).mobj_mut().s_prev = Some(thing);
+            unsafe { &mut *other }.mobj_mut().s_prev = Some(thing);
         }
 
         self.thinglist = Some(thing);
@@ -196,12 +199,12 @@ impl Sector {
         }
 
         if let Some(next) = thing.mobj().s_next {
-            (*next).mobj_mut().s_prev = (*thing).mobj_mut().s_prev;
+            unsafe { &mut *next }.mobj_mut().s_prev = (*thing).mobj_mut().s_prev;
             // could also be null
         }
 
         if let Some(prev) = thing.mobj().s_prev {
-            (*prev).mobj_mut().s_next = thing.mobj_mut().s_next;
+            unsafe { &mut *prev }.mobj_mut().s_next = thing.mobj_mut().s_next;
         } else {
             let mut ss = thing.mobj().subsector.clone();
             ss.sector.thinglist = thing.mobj().s_next;

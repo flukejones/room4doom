@@ -13,15 +13,15 @@ use log::trace;
 use sound_traits::SfxName;
 
 use crate::doom_def::{MISSILERANGE, SKULLSPEED};
-use crate::env::doors::{ev_do_door, DoorKind};
-use crate::env::floor::{ev_do_floor, FloorKind};
-use crate::info::{StateNum, MOBJINFO};
+use crate::env::doors::{DoorKind, ev_do_door};
+use crate::env::floor::{FloorKind, ev_do_floor};
+use crate::info::{MOBJINFO, StateNum};
 use crate::level::map_defs::{LineDef, SlopeType};
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::PortalZ;
 use crate::{
-    teleport_move, Angle, GameMode, LineDefFlags, MapObjKind, MapPtr, Sector, Skill, MAXPLAYERS
+    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, MapPtr, Sector, Skill, teleport_move
 };
 use math::{p_random, point_to_angle_2};
 
@@ -309,7 +309,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
     // Check keens are all dead
     let mut dead = true;
     level.thinkers.run_fn_on_things(|thinker| {
-        if let ThinkerData::MapObject(ref mobj) = thinker.data() {
+        if let &ThinkerData::MapObject(ref mobj) = thinker.data() {
             if !ptr::eq(mobj, actor) && mobj.kind == actor.kind && mobj.health > 0 {
                 dead = false;
             }
@@ -985,7 +985,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     // Check bosses are all dead
     let mut dead = true;
     level.thinkers.run_fn_on_things(|thinker| {
-        if let ThinkerData::MapObject(ref mobj) = thinker.data() {
+        if let &ThinkerData::MapObject(ref mobj) = thinker.data() {
             if !ptr::eq(mobj, actor) && mobj.kind == actor.kind && mobj.health > 0 {
                 dead = false;
             }
