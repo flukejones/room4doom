@@ -21,16 +21,16 @@
 use std::error::Error;
 
 use finale_doom::Finale;
+use gameplay::MapObject;
 use gameplay::log::{error, info};
 use gameplay::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
-use gameplay::MapObject;
-use gamestate::subsystems::GameSubsystem;
 use gamestate::Game;
+use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{
-    sdl2, GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait
+    GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait, sdl2
 };
 use hud_doom::Messages;
 use input::Input;
@@ -41,9 +41,9 @@ use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::types::WadPatch;
 
+use crate::CLIOptions;
 use crate::cheats::Cheats;
 use crate::timestep::TimeStep;
-use crate::CLIOptions;
 
 const fn set_lookdirs(options: &CLIOptions) {
     unsafe {
@@ -157,7 +157,13 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        d_display(&mut render_target, &mut menu, &mut machines, &mut game);
+        d_display(
+            &mut render_target,
+            &mut menu,
+            &mut machines,
+            &mut game,
+            &mut timestep,
+        );
 
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
@@ -218,6 +224,7 @@ fn d_display<R>(
         impl SubsystemTrait,
     >,
     game: &mut Game,
+    timestep: &mut TimeStep,
 ) where
     R: RenderTrait + PlayViewRenderer,
 {
@@ -230,20 +237,23 @@ fn d_display<R>(
     // instead an "overlay" style bar will be done.
     if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
-            match game.level { Some(ref level) => {
-                if !game.players_in_game[game.consoleplayer] {
-                    return;
-                }
-                if game.players[0].mobj().is_none() {
-                    error!("Active console player has no MapObject, can't render player view");
-                } else {
-                    let player = &game.players[game.consoleplayer];
-                    if game.options.dev_parm {
-                        rend_target.debug_clear();
+            match game.level {
+                Some(ref level) => {
+                    if !game.players_in_game[game.consoleplayer] {
+                        return;
                     }
-                    rend_target.render_player_view(player, level, &mut game.pic_data);
+                    if game.players[0].mobj().is_none() {
+                        error!("Active console player has no MapObject, can't render player view");
+                    } else {
+                        let player = &game.players[game.consoleplayer];
+                        if game.options.dev_parm {
+                            rend_target.debug_clear();
+                        }
+                        rend_target.render_player_view(player, level, &mut game.pic_data);
+                    }
                 }
-            } _ => {}}
+                _ => {}
+            }
         }
     }
 
@@ -268,7 +278,6 @@ fn d_display<R>(
         _ => {}
     }
 
-    // menus go directly to the screen
     // draw_buf.clear();
     // net update does i/o and buildcmds...
     // TODO: NetUpdate(); // send out any new accumulation
@@ -282,9 +291,11 @@ fn d_display<R>(
     }
 
     if wipe {
-        if rend_target.do_wipe() {
-            game.wipe_game_state = game.gamestate;
-        }
+        timestep.run_this(|_| {
+            if rend_target.do_wipe() {
+                game.wipe_game_state = game.gamestate;
+            }
+        });
         // menu is drawn on top of wipes
         menu.draw(rend_target.blit_buffer());
     } else {
