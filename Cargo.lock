@@ -60,9 +60,9 @@ checksum = "b6b1fc10dbac614ebc03540c9dbd60e83887fda27794998c6528f1782047d540"
 
 [[package]]
 name = "cc"
-version = "1.2.1"
+version = "1.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd9de9f2205d5ef3fd67e685b0df337994ddd4495e2a28d185500d0e1edfea47"
+checksum = "be714c154be609ec7f5dad223a33bf1482fff90472de28f7362806e6d4832b8c"
 dependencies = [
  "shlex",
 ]
@@ -72,6 +72,16 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "coarse-prof"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af7da8b0d459456192d8fba242b77d9832bf1841358944c82faa4a5e88beb5f1"
+dependencies = [
+ "instant",
+ "log",
+]
 
 [[package]]
 name = "deranged"
@@ -117,6 +127,7 @@ dependencies = [
 name = "gameplay"
 version = "0.15.3"
 dependencies = [
+ "coarse-prof",
  "glam",
  "log",
  "math",
@@ -215,6 +226,15 @@ dependencies = [
  "gameplay",
  "nanoserde",
  "sdl2",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -393,6 +413,7 @@ dependencies = [
 name = "render-soft"
 version = "0.15.3"
 dependencies = [
+ "coarse-prof",
  "gameplay",
  "glam",
  "render-trait",
@@ -425,6 +446,7 @@ name = "room4doom"
 version = "0.15.3"
 dependencies = [
  "argh",
+ "coarse-prof",
  "dirs",
  "finale-doom",
  "gameplay",

@@ -1,10 +1,12 @@
+use super::RenderData;
 use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
-use super::RenderData;
 use crate::utilities::{
     angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
 };
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
 use gameplay::log::trace;
 use gameplay::{
     Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
@@ -100,9 +102,14 @@ impl SoftwareRenderer {
                 rend.draw_buffer().size().half_height_f32(),
             );
         }
+        #[cfg(feature = "hprof")]
+        profile!("render_bsp_node begin!");
         self.render_bsp_node(map, player, map.start_node(), pic_data, rend, &mut count);
+
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
+        #[cfg(feature = "hprof")]
+        profile!("draw_masked");
         self.draw_masked(player, pic_data, rend);
         // TODO: netupdate again
     }
@@ -161,6 +168,8 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("add_line");
         let mobj = unsafe { player.mobj_unchecked() };
         // reject orthogonal back sides
         let viewangle = mobj.angle;
@@ -267,6 +276,8 @@ impl SoftwareRenderer {
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_subsector");
         let front_sector = &subsect.sector;
 
         self.add_sprites(
@@ -502,6 +513,7 @@ impl SoftwareRenderer {
 
         count: &mut usize,
     ) {
+        // profile!("render_bsp_node");
         *count += 1;
         let mobj = unsafe { player.mobj_unchecked() };
 
@@ -549,6 +561,8 @@ impl SoftwareRenderer {
         half_screen_width: f32,
         screen_width: f32,
     ) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("bb_extents_in_fov");
         let view_angle = mobj.angle;
         // BOXTOP = 0
         // BOXBOT = 1

@@ -8,6 +8,8 @@ build = "../build.rs"
 
 [features]
 null_check = []
+safety_check = []
+hprof = []
 
 [dependencies]
 math.workspace = true
@@ -16,3 +18,4 @@ sound-sdl2.workspace = true
 wad.workspace = true
 glam.workspace = true
 log.workspace = true
+coarse-prof.workspace = true

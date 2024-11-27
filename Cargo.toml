@@ -52,6 +52,7 @@ render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
 render-soft = { path = "./render/software" }
 
+coarse-prof = "0.2"
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [

@@ -6,11 +6,12 @@
 //!
 //! Doom source name `p_enemy`
 
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
-use std::ptr;
-
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
 use log::trace;
 use sound_traits::SfxName;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::ptr;
 
 use crate::doom_def::{MISSILERANGE, SKULLSPEED};
 use crate::env::doors::{DoorKind, ev_do_door};
@@ -96,6 +97,8 @@ pub(crate) fn a_facetarget(actor: &mut MapObject) {
 /// Actor has a melee attack,
 /// so it tries to close as fast as possible
 pub(crate) fn a_chase(actor: &mut MapObject) {
+    #[cfg(feature = "hprof")]
+    profile!("a_chase");
     if actor.reactiontime > 0 {
         actor.reactiontime -= 1;
     }
@@ -201,6 +204,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 
 /// Stay in this state until a player is sighted.
 pub(crate) fn a_look(actor: &mut MapObject) {
+    #[cfg(feature = "hprof")]
+    profile!("a_look");
     actor.threshold = 0;
     // TODO: any shot will wake up
     // if let Some(target) = actor.target {
@@ -250,6 +255,8 @@ pub(crate) fn a_look(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_fire(actor: &mut MapObject) {
+    #[cfg(feature = "hprof")]
+    profile!("a_fire");
     if let Some(dest) = actor.tracer {
         let dest = unsafe { (*dest).mobj() };
         if let Some(targ) = actor.target_mut() {

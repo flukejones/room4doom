@@ -8,11 +8,11 @@ use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::{debug, warn};
-use math::{bam_to_radian, circle_line_collide, fixed_to_float, Angle};
+use log::warn;
+use math::{Angle, bam_to_radian, circle_line_collide, fixed_to_float};
+use wad::WadData;
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
-use wad::WadData;
 
 use super::map_defs::Blockmap;
 
@@ -885,14 +885,14 @@ impl BSPTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::level::map_data::{BSPTrace, MapData, IS_SSECTOR_MASK};
+    use crate::level::map_data::{BSPTrace, IS_SSECTOR_MASK, MapData};
     use crate::{Node, PicData};
     use glam::Vec2;
     use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
+    use wad::WadData;
     use wad::extended::WadExtendedMap;
     use wad::types::{WadLineDef, WadSideDef};
-    use wad::WadData;
 
     #[ignore = "sunder.wad can't be included in git"]
     #[test]

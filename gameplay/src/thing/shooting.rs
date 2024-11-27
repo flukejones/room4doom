@@ -1,17 +1,17 @@
 //! Shooting and aiming.
-
-use std::f32::consts::FRAC_PI_2;
-
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
 use glam::Vec2;
 use math::{p_random, point_to_angle_2};
 use sound_traits::SfxName;
+use std::f32::consts::FRAC_PI_2;
 
 use crate::doom_def::{MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
-use crate::info::{StateNum, MOBJINFO};
+use crate::info::{MOBJINFO, StateNum};
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::LineDef;
-use crate::utilities::{path_traverse, Intercept, PortalZ};
+use crate::utilities::{Intercept, PortalZ, path_traverse};
 use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -348,6 +348,8 @@ impl MapObject {
     /// This checks teh '2D top-down' nature of Doom, followed by the Z
     /// (height) axis.
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("check_sight_target");
         //
         // check for trivial rejection
         //
@@ -374,6 +376,8 @@ impl MapObject {
     }
 
     pub(crate) fn check_melee_range(&mut self) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("check_melee_range");
         if let Some(target) = self.target {
             let target = unsafe { (*target).mobj() };
 
@@ -392,6 +396,8 @@ impl MapObject {
 
     /// The closer the Actor gets to the Target the more they shoot
     pub(crate) fn check_missile_range(&mut self) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("check_missile_range");
         if let Some(target) = self.target {
             let target = unsafe { (*target).mobj() };
 

@@ -1,9 +1,10 @@
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
+use log::{debug, error, trace};
 use std::alloc::{Layout, alloc, dealloc};
 use std::fmt::{self, Debug};
 use std::mem::{align_of, size_of};
 use std::ptr::{self, null_mut};
-
-use log::{debug, error, trace};
 
 use crate::env::ceiling::CeilingMove;
 use crate::env::doors::VerticalDoor;
@@ -105,6 +106,8 @@ impl ThinkerAlloc {
 
     pub unsafe fn run_thinkers(&mut self, level: &mut Level) {
         unsafe {
+            #[cfg(feature = "hprof")]
+            profile!("run_thinkers");
             let mut current = &mut *self.head;
             let mut next;
 

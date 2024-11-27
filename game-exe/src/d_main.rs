@@ -162,6 +162,7 @@ pub fn d_doom_loop(
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
             info!("{:?}", fps);
+            coarse_prof::write(&mut std::io::stdout()).unwrap();
         }
     }
 

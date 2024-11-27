@@ -9,12 +9,14 @@ build = "../../build.rs"
 [features]
 safety_check = []
 debug_draw = []
+hprof = []
 
 [dependencies]
 glam.workspace = true
 gameplay.workspace = true
 render-trait.workspace = true
 sdl2.workspace = true
+coarse-prof.workspace = true
 
 [dev-dependencies]
 wad.workspace = true

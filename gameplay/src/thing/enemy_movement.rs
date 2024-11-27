@@ -1,10 +1,11 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
-
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
 use log::error;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use crate::doom_def::FLOATSPEED;
 use crate::env::switch::p_use_special_line;
-use crate::{p_random, Angle, MapObjFlag, MapObject};
+use crate::{Angle, MapObjFlag, MapObject, p_random};
 
 use super::movement::SubSectorMinMax;
 
@@ -76,6 +77,8 @@ impl MapObject {
     /// continue.
     #[inline]
     fn try_walk(&mut self) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("try_walk");
         if !self.do_enemy_move() {
             return false;
         }
@@ -87,6 +90,8 @@ impl MapObject {
         if self.movedir == MoveDir::None {
             return false;
         }
+        #[cfg(feature = "hprof")]
+        profile!("do_enemy_move");
 
         let mut try_move = self.xyz;
         try_move.x += self.info.speed * DIR_XSPEED[self.movedir as usize];
@@ -135,6 +140,8 @@ impl MapObject {
             error!("new_chase_dir called with no target");
             return;
         }
+        #[cfg(feature = "hprof")]
+        profile!("new_chase_dir");
 
         let old_dir = self.movedir;
         let mut dirs = [MoveDir::None, MoveDir::None, MoveDir::None];
