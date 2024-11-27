@@ -41,6 +41,7 @@ wad.workspace = true
 simplelog.workspace = true
 dirs.workspace = true
 nanoserde.workspace = true
+coarse-prof.workspace = true
 
 #[dev-dependencies]
 #cargo-husky.workspace = true

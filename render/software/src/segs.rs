@@ -1,4 +1,6 @@
 use crate::utilities::screen_to_angle;
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
 use gameplay::log::warn;
 use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
@@ -197,6 +199,8 @@ impl SegRender {
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("store_wall_range");
         let size = rend.draw_buffer().size();
         // //seg:, x:496.000000, y:-1072.000000
         // //seg:, x:496.000000, y:-1040.000000
@@ -539,6 +543,8 @@ impl SegRender {
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("render_seg_loop");
         // yl is the pixel location, it is the result of converting the topfrac to int
         let mut yl: f32;
         let mut yh: f32;
@@ -800,6 +806,8 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_wall_column");
         y_end = y_end.min(pixels.size().height() - 1);
 
         let pal = pic_data.palette();
@@ -855,6 +863,8 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut impl PixelBuffer,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_flat_column");
         y_end = y_end.min(pixels.size().height_usize() - 1);
 
         let pal = pic_data.palette();
