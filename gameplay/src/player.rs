@@ -243,13 +243,13 @@ impl Player {
 
             psprites: [
                 PspDef {
-                    state: Some(&STATES[StateNum::PISTOLUP as usize]),
+                    state: Some(unsafe { &STATES[StateNum::PISTOLUP as usize] }),
                     tics: 1,
                     sx: 0.0,
                     sy: WEAPONBOTTOM,
                 },
                 PspDef {
-                    state: Some(&STATES[StateNum::PISTOLFLASH as usize]),
+                    state: Some(unsafe { &STATES[StateNum::PISTOLFLASH as usize] }),
                     tics: 1,
                     sx: 0.0,
                     sy: WEAPONBOTTOM,
@@ -488,7 +488,7 @@ impl Player {
                 break;
             }
 
-            let state = &STATES[state_num as usize];
+            let state = unsafe { &STATES[state_num as usize] };
             self.psprites[position].state = Some(state);
             self.psprites[position].tics = state.tics;
 

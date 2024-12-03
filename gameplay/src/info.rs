@@ -1,7 +1,8 @@
 //! @generated
 //! THIS FILE IS GENERATED WITH MULTIGEN
 //!
-//! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
+//! Contains all Map Object info, States and State numbers, and Sprite
+//! names/indexing.
 #![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
 
 const NUM_SPRNAMES: usize = SpriteNum::Count as usize;
@@ -1303,7 +1304,8 @@ impl From<u16> for MapObjKind {
 }
 
 use crate::doom_def::ActFn;
-use crate::{player_sprite::*, thing::enemy_behaviour::*};
+use crate::player_sprite::*;
+use crate::thing::enemy_behaviour::*;
 
 #[derive(Debug)]
 pub struct State {
@@ -1325,7 +1327,7 @@ pub struct State {
 }
 
 const NUM_STATES: usize = StateNum::Count as usize;
-pub const STATES: [State; NUM_STATES] = [
+pub static mut STATES: [State; NUM_STATES] = [
     // State::new(sprite, frame, tics, action, next_state, misc1, misc2)
     State {
         // S_NULL

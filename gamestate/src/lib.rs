@@ -25,9 +25,9 @@ pub mod subsystems;
 
 use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
-use gameplay::tic_cmd::{TicCmd, TIC_CMD_BUTTONS};
+use gameplay::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use gameplay::{
-    m_clear_random, respawn_specials, spawn_specials, update_specials, GameAction, GameMission, GameMode, GameOptions, Level, MapObject, PicData, Player, PlayerState, Skill, MAXPLAYERS
+    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, spawn_specials, update_specials
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
@@ -38,8 +38,8 @@ use std::time::Duration;
 use std::vec::IntoIter;
 // use sound_sdl2::SndServerTx;
 use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
-use wad::types::WadPatch;
 use wad::WadData;
+use wad::types::WadPatch;
 
 pub const DEMO_MARKER: u8 = 0x80;
 pub const BACKUPTICS: usize = 12;
@@ -170,6 +170,7 @@ pub struct Game {
     /// d_net.c
     _localcmds: [TicCmd; BACKUPTICS],
     usergame: bool,
+    game_skill: Skill,
     pub paused: bool,
 
     /// The options the game-exe exe was started with
@@ -288,9 +289,11 @@ impl Game {
         let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
             Ok(mut s) => {
                 let tx = s.init().unwrap();
-                snd_thread = std::thread::spawn(move || loop {
-                    if !s.tic() {
-                        break;
+                snd_thread = std::thread::spawn(move || {
+                    loop {
+                        if !s.tic() {
+                            break;
+                        }
                     }
                 });
                 tx.send(SoundAction::SfxVolume(sfx_vol)).unwrap();
@@ -301,9 +304,11 @@ impl Game {
                 warn!("Could not set up sound server: {e}");
                 let mut s = sound_nosnd::Snd::new(&wad).unwrap();
                 let tx = s.init().unwrap();
-                snd_thread = std::thread::spawn(move || loop {
-                    if !s.tic() {
-                        break;
+                snd_thread = std::thread::spawn(move || {
+                    loop {
+                        if !s.tic() {
+                            break;
+                        }
                     }
                 });
                 tx
@@ -370,6 +375,7 @@ impl Game {
             _localcmds: [TicCmd::new(); BACKUPTICS],
 
             usergame: false,
+            game_skill: Skill::default(),
             paused: false,
             options,
             sound_cmd: snd_tx,
@@ -390,7 +396,7 @@ impl Game {
     }
 
     pub fn game_skill(&self) -> Skill {
-        self.options.skill
+        self.game_skill
     }
 
     pub fn game_mission(&self) -> GameMission {
@@ -463,29 +469,36 @@ impl Game {
         self.options.respawn_monsters =
             self.options.skill == Skill::Nightmare || self.options.respawn_parm;
 
-        // TODO: This shit (mobjinfo) is constant for now. Change it later
-        // if (fastparm || (skill == sk_nightmare && gameskill != sk_nightmare))
-        // {
-        //     for (i = S_SARG_RUN1; i <= S_SARG_PAIN2; i++)
-        //         states[i].tics >>= 1;
-        //     mobjinfo[MT_BRUISERSHOT].speed = 20 * FRACUNIT;
-        //     mobjinfo[MT_HEADSHOT].speed = 20 * FRACUNIT;
-        //     mobjinfo[MT_TROOPSHOT].speed = 20 * FRACUNIT;
-        // }
-        // else if (skill != sk_nightmare && gameskill == sk_nightmare)
-        // {
-        //     for (i = S_SARG_RUN1; i <= S_SARG_PAIN2; i++)
-        //         states[i].tics <<= 1;
-        //     mobjinfo[MT_BRUISERSHOT].speed = 15 * FRACUNIT;
-        //     mobjinfo[MT_HEADSHOT].speed = 10 * FRACUNIT;
-        //     mobjinfo[MT_TROOPSHOT].speed = 10 * FRACUNIT;
-        // }
+        let game_skill = self.game_skill();
+        let skill = self.options.skill;
+
+        if skill == Skill::Nightmare && game_skill != Skill::Nightmare {
+            for i in StateNum::SARG_RUN1 as usize..StateNum::SARG_PAIN2 as usize {
+                unsafe {
+                    STATES[i].tics >>= 1;
+                }
+            }
+            // TODO: mut mobj info
+            // mobjinfo[MT_BRUISERSHOT].speed = 20 * FRACUNIT;
+            // mobjinfo[MT_HEADSHOT].speed = 20 * FRACUNIT;
+            // mobjinfo[MT_TROOPSHOT].speed = 20 * FRACUNIT;
+        } else if skill != Skill::Nightmare && game_skill == Skill::Nightmare {
+            for i in StateNum::SARG_RUN1 as usize..StateNum::SARG_PAIN2 as usize {
+                unsafe {
+                    STATES[i].tics <<= 1;
+                }
+            }
+            // mobjinfo[MT_BRUISERSHOT].speed = 15 * FRACUNIT;
+            // mobjinfo[MT_HEADSHOT].speed = 10 * FRACUNIT;
+            // mobjinfo[MT_TROOPSHOT].speed = 10 * FRACUNIT;
+        }
 
         // force players to be initialized upon first level load
         for player in self.players.iter_mut() {
             player.player_state = PlayerState::Reborn;
         }
 
+        self.game_skill = self.options.skill;
         self.paused = false;
         self.demo.playback = false;
         self.automap = false;
@@ -543,8 +556,8 @@ impl Game {
         };
 
         info!(
-            "Level started: E{} M{}",
-            level.options.episode, level.options.map
+            "Level started: E{} M{}, skill: {:?}",
+            level.options.episode, level.options.map, level.options.skill,
         );
         self.level = Some(level);
 
