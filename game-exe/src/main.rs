@@ -1,3 +1,5 @@
+#![doc = include_str!("../../README.md")]
+
 mod cheats;
 mod cli;
 mod config;
@@ -22,7 +24,7 @@ use gamestate::Game;
 use crate::config::UserConfig;
 use gameplay::log;
 use input::Input;
-use sound_sdl2::timidity::{make_timidity_cfg, GusMemSize};
+use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
 
 use crate::log::{info, warn};
 use wad::WadData;

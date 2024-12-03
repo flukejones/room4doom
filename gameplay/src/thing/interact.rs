@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use sound_traits::SfxName;
 
 use crate::doom_def::{AmmoType, Card, PowerType, WeaponType};
-use crate::info::{MapObjKind, SpriteNum, StateNum, STATES};
+use crate::info::{MapObjKind, STATES, SpriteNum, StateNum};
 use crate::lang::english::*;
 use crate::player::{PlayerCheat, PlayerState};
 use crate::thing::MapObjFlag;
@@ -152,7 +152,7 @@ impl MapObject {
             player.status.damagecount += damage;
             if player.status.damagecount > 100 {
                 player.status.damagecount = 100; // teleport stomp does 10k
-                                                 // points...
+                // points...
             }
             // Tactile feedback thing removed here
         }
@@ -178,8 +178,9 @@ impl MapObject {
                     self.target = Some(source.thinker);
                     self.threshold = BASETHRESHOLD;
 
-                    if ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
-                        && self.info.seestate != StateNum::None
+                    if ptr::eq(self.state, unsafe {
+                        &STATES[self.info.spawnstate as usize]
+                    }) && self.info.seestate != StateNum::None
                     {
                         self.set_state(self.info.seestate);
                     }

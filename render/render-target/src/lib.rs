@@ -137,7 +137,7 @@ impl SoftFramebuffer {
         // let xp = (wsize.0 as f32 - ratio) / 2.0;
         let texture_creator = canvas.texture_creator();
         let texture = texture_creator
-            .create_texture_target(
+            .create_texture_streaming(
                 Some(sdl2::pixels::PixelFormatEnum::RGBA32),
                 r_width,
                 r_height,

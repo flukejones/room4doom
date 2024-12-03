@@ -21,7 +21,7 @@ members = [
     "hud-messages/doom",
     "finale/doom",
 ]
-default-members = ["game-exe", "multigen"]
+default-members = ["game-exe"]
 resolver = "2"
 
 [workspace.package]

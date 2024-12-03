@@ -15,9 +15,9 @@ use crate::info::StateNum;
 use crate::level::flags::LineDefFlags;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
-use crate::utilities::{box_on_line_side, path_traverse, BestSlide, Intercept, PortalZ};
+use crate::utilities::{BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse};
 use crate::{MapObjKind, MapObject, MapPtr};
-use math::{circle_circle_intersect, fixed_to_float, p_random, Angle, FRACUNIT_DIV4};
+use math::{Angle, FRACUNIT_DIV4, circle_circle_intersect, fixed_to_float, p_random};
 
 use super::MapObjFlag;
 

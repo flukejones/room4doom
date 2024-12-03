@@ -64,7 +64,7 @@ pub const fn m_random() -> i32 {
 pub const fn m_clear_random() {
     unsafe {
         // Not clearing this random as it's used only by screen wipe so far
-        //RNDINDEX = 0;
+        RNDINDEX = 0;
         PRNDINDEX = 0;
     }
 }

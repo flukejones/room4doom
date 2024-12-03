@@ -4,8 +4,8 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use sound_traits::SfxName;
 
-use crate::doom_def::{PowerType, MELEERANGE, MISSILERANGE, WEAPON_INFO};
-use crate::info::{State, StateNum, STATES};
+use crate::doom_def::{MELEERANGE, MISSILERANGE, PowerType, WEAPON_INFO};
+use crate::info::{STATES, State, StateNum};
 use crate::player::{Player, PsprNum};
 use crate::thing::MapObject;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
@@ -46,8 +46,8 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     let mut level_time = 0;
     let readyweapon = player.status.readyweapon;
     if let Some(mobj) = player.mobj_mut() {
-        if std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK1 as usize])
-            || std::ptr::eq(mobj.state, &STATES[StateNum::PLAY_ATK2 as usize])
+        if std::ptr::eq(mobj.state, unsafe { &STATES[StateNum::PLAY_ATK1 as usize] })
+            || std::ptr::eq(mobj.state, unsafe { &STATES[StateNum::PLAY_ATK2 as usize] })
         {
             mobj.set_state(StateNum::PLAY);
         }
@@ -55,7 +55,7 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
         level_time = unsafe { (*mobj.level).level_time };
 
         if let Some(state) = pspr.state {
-            let check = &STATES[StateNum::SAW as usize];
+            let check = unsafe { &STATES[StateNum::SAW as usize] };
             if readyweapon == WeaponType::Chainsaw
                 && state.sprite == check.sprite
                 && state.frame == check.frame

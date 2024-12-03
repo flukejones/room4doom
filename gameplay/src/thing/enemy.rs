@@ -88,6 +88,7 @@ pub(crate) fn a_facetarget(actor: &mut MapObject) {
     if let Some(target) = actor.target_mut() {
         angle = point_to_angle_2(target.xy, xy);
         if target.flags & MapObjFlag::Shadow as u32 == MapObjFlag::Shadow as u32 {
+            // TODO: see how different this might be
             actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
     }

@@ -666,7 +666,7 @@ impl MapObject {
 
         // do not set the state with P_SetMobjState,
         // because action routines can not be called yet
-        let state = &STATES[info.spawnstate as usize];
+        let state = unsafe { &STATES[info.spawnstate as usize] };
 
         let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
 
@@ -708,12 +708,12 @@ impl MapObject {
         // let mut cycle_counter = 0;
         // loop {
         if matches!(state, StateNum::None) {
-            self.state = &STATES[StateNum::None as usize]; //(state_t *)NULL;
+            self.state = unsafe { &STATES[StateNum::None as usize] }; //(state_t *)NULL;
             self.remove();
             return false;
         }
 
-        let st = &STATES[state as usize];
+        let st = unsafe { &STATES[state as usize] };
         self.state = st;
         self.tics = st.tics;
         self.sprite = st.sprite;
@@ -944,7 +944,7 @@ impl Think for MapObject {
             this.tics -= 1;
 
             // you can cycle through multiple states in a tic
-            if this.tics < 0 && !this.set_state(this.state.next_state) {
+            if this.tics < 1 && !this.set_state(this.state.next_state) {
                 return true;
             } // freed itself
         } else {

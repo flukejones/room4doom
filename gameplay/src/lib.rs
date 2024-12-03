@@ -32,25 +32,24 @@ pub mod tic_cmd;
 pub(crate) mod utilities;
 
 pub use doom_def::{
-    AmmoType, Card, GameAction, GameMission, GameMode, PowerType, WeaponType, DOOM_VERSION,
-    MAXPLAYERS, TICRATE, WEAPON_INFO,
+    AmmoType, Card, DOOM_VERSION, GameAction, GameMission, GameMode, MAXPLAYERS, PowerType,
+    TICRATE, WEAPON_INFO, WeaponType,
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;
-pub use info::MapObjKind;
+pub use info::{MapObjKind, STATES, StateNum};
 pub use lang::english;
+pub use level::Level;
 pub use level::flags::LineDefFlags;
 pub use level::map_data::MapData;
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
-pub use level::Level;
-pub use math::{m_clear_random, m_random, p_random, point_to_angle_2, Angle};
+pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2};
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
 use std::error::Error;
 use std::str::FromStr;
 pub use thing::{MapObjFlag, MapObject};
-
 // re-export
 pub use {glam, log};
 
@@ -157,11 +156,11 @@ impl FromStr for Skill {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "0" => Ok(Skill::Baby),
-            "1" => Ok(Skill::Easy),
-            "2" => Ok(Skill::Medium),
-            "3" => Ok(Skill::Hard),
-            "4" => Ok(Skill::Nightmare),
+            "1" => Ok(Skill::Baby),
+            "2" => Ok(Skill::Easy),
+            "3" => Ok(Skill::Medium),
+            "4" => Ok(Skill::Hard),
+            "5" => Ok(Skill::Nightmare),
             _ => Err(DoomArgError::InvalidSkill("Invalid arg".to_owned())),
         }
     }

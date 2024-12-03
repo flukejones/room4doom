@@ -67,7 +67,7 @@ pub fn d_doom_loop(
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
-    let mut timestep = TimeStep::new();
+    let mut timestep = TimeStep::new(true);
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
@@ -84,7 +84,7 @@ pub fn d_doom_loop(
         game.start_title();
     }
 
-    let mut canvas = window.into_canvas().accelerated().build()?;
+    let mut canvas = window.into_canvas().accelerated().present_vsync().build()?;
     canvas.window_mut().show();
     // BEGIN SETUP
     set_lookdirs(&options);
@@ -157,13 +157,7 @@ pub fn d_doom_loop(
         }
 
         // Draw everything to the buffer
-        d_display(
-            &mut render_target,
-            &mut menu,
-            &mut machines,
-            &mut game,
-            &mut timestep,
-        );
+        d_display(&mut render_target, &mut menu, &mut machines, &mut game);
 
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
@@ -224,7 +218,6 @@ fn d_display<R>(
         impl SubsystemTrait,
     >,
     game: &mut Game,
-    timestep: &mut TimeStep,
 ) where
     R: RenderTrait + PlayViewRenderer,
 {
@@ -291,11 +284,9 @@ fn d_display<R>(
     }
 
     if wipe {
-        timestep.run_this(|_| {
-            if rend_target.do_wipe() {
-                game.wipe_game_state = game.gamestate;
-            }
-        });
+        if rend_target.do_wipe() {
+            game.wipe_game_state = game.gamestate;
+        }
         // menu is drawn on top of wipes
         menu.draw(rend_target.blit_buffer());
     } else {

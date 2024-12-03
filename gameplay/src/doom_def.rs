@@ -308,7 +308,7 @@ pub const WEAPON_INFO: [WeaponInfo; 9] = [
 
 /// Function-pointer container used by `MapObject` states and `Player` states in
 /// the auto-generated `info.rs`.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum ActFn {
     /// Pointer to a function that operates on `MapObject`'s. Much of the
     /// gamplay uses this (items, monsters etc)

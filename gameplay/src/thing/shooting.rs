@@ -17,7 +17,7 @@ use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
 // approx 1500.0 units * 2, used to determine if BSP trace should be done
-const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3;
+const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3 * 2.0;
 
 impl MapObject {
     /// P_ExplodeMissile
@@ -312,9 +312,9 @@ impl MapObject {
 
             if let Some(target) = self.level().players()[self.lastlook].mobj() {
                 // skip the BSP trace if too far away
-                if !self.target_within_min_dist(target) {
-                    continue;
-                }
+                // if !self.target_within_min_dist(target) {
+                //     continue;
+                // }
 
                 let xy = target.xy;
                 let z = target.z;
@@ -368,9 +368,9 @@ impl MapObject {
         }
 
         // skip the BSP trace if too far away
-        if !self.target_within_min_dist(target) {
-            return false;
-        }
+        // if !self.target_within_min_dist(target) {
+        //     return false;
+        // }
         let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
         self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)
     }
@@ -402,9 +402,9 @@ impl MapObject {
             let target = unsafe { (*target).mobj() };
 
             // skip the BSP trace if too far away
-            if !self.target_within_min_dist(target) {
-                return false;
-            }
+            // if !self.target_within_min_dist(target) {
+            //     return false;
+            // }
 
             let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
             if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
