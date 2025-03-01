@@ -8,7 +8,7 @@ use crate::{LineDefFlags, MapPtr, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::warn;
+use log::{debug, warn};
 use math::{Angle, bam_to_radian, circle_line_collide, fixed_to_float};
 use wad::WadData;
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};

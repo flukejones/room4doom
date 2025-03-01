@@ -4,7 +4,7 @@ use gameplay::glam::{Mat4, Vec3};
 use golem::Dimension::*;
 use golem::*;
 
-use super::{ShaderDraw, GL_QUAD, GL_QUAD_INDICES};
+use super::{GL_QUAD, GL_QUAD_INDICES, ShaderDraw};
 
 pub struct LottesCRT {
     _quad: [f32; 16],

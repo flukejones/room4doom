@@ -15,13 +15,13 @@ mod sprites;
 use std::mem::{size_of, size_of_val};
 
 use log::{debug, warn};
-use wad::types::{WadColour, WadPalette, WadPatch, WadTexture};
 use wad::WadData;
+use wad::types::{WadColour, WadPalette, WadPatch, WadTexture};
 
+use crate::Player;
 use crate::doom_def::{GameMode, PowerType};
 use crate::info::SPRNAMES;
 use crate::pic::sprites::init_spritedefs;
-use crate::Player;
 
 use self::sprites::SpriteDef;
 

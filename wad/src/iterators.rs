@@ -436,11 +436,7 @@ impl WadData {
             transformer: move |ofs| {
                 let back_sidedef = {
                     let index = info.read_u16(ofs + 12);
-                    if index < u16::MAX {
-                        Some(index)
-                    } else {
-                        None
-                    }
+                    if index < u16::MAX { Some(index) } else { None }
                 };
 
                 WadLineDef::new(

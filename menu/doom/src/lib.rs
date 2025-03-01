@@ -7,8 +7,8 @@
 use gamestate_traits::{GameMode, GameTraits, PixelBuffer, Scancode, Skill, SubsystemTrait};
 use sound_traits::SfxName;
 use std::collections::HashMap;
-use wad::types::{WadPalette, WadPatch};
 use wad::WadData;
+use wad::types::{WadPalette, WadPatch};
 
 const SAVESTRINGSIZE: i32 = 24;
 const SKULLXOFF: i32 = -32;

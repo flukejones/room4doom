@@ -147,7 +147,7 @@ mod tests {
     use std::error::Error;
     use std::f32::consts::FRAC_PI_2;
     use std::fmt::Display;
-    use std::sync::mpsc::{channel, Receiver, Sender};
+    use std::sync::mpsc::{Receiver, Sender, channel};
 
     use crate::{InitResult, SoundAction, SoundServer, SoundServerTic};
 

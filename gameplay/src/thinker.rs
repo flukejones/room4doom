@@ -310,12 +310,15 @@ impl ThinkerAlloc {
             self.next_free = thinker; // reuse the slot on next insert
             self.maybe_reset_head();
 
-            ptr::write(thinker, Thinker {
-                prev: null_mut(),
-                next: null_mut(),
-                data: ThinkerData::Free,
-                func: TestObject::think,
-            });
+            ptr::write(
+                thinker,
+                Thinker {
+                    prev: null_mut(),
+                    next: null_mut(),
+                    data: ThinkerData::Free,
+                    func: TestObject::think,
+                },
+            );
         }
     }
 }

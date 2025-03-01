@@ -1,8 +1,8 @@
 use gameplay::{MAXPLAYERS, TICRATE};
 use gamestate_traits::util::get_num_sprites;
 use std::mem::MaybeUninit;
-use wad::types::WadPatch;
 use wad::WadData;
+use wad::types::WadPatch;
 
 pub(crate) const SHOW_NEXT_LOC_DELAY: i32 = 4;
 

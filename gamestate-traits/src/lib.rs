@@ -6,15 +6,15 @@ pub mod util;
 
 use gameplay::MAXPLAYERS;
 pub use gameplay::{
-    m_random, AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, WeaponType, WorldEndPlayerInfo, TICRATE, WEAPON_INFO
+    AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO, WeaponType, WorldEndPlayerInfo, m_random
 };
 pub use render_trait::{PixelBuffer, PlayViewRenderer, RenderTrait};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};
 
-use wad::types::{WadPalette, WadPatch};
 use wad::WadData;
+use wad::types::{WadPalette, WadPatch};
 
 /// The current state of the game-exe: whether we are playing, gazing at the
 /// intermission screen, the game-exe final animation, or a demo.

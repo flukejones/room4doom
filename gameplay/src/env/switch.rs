@@ -6,17 +6,17 @@ use sound_traits::SfxName;
 
 use crate::thing::MapObject;
 
+use crate::MapPtr;
 use crate::doom_def::Card;
-use crate::env::ceiling::{ev_do_ceiling, CeilKind};
-use crate::env::doors::{ev_do_door, ev_vertical_door, DoorKind};
-use crate::env::floor::{ev_build_stairs, ev_do_donut, ev_do_floor, FloorKind, StairKind};
+use crate::env::ceiling::{CeilKind, ev_do_ceiling};
+use crate::env::doors::{DoorKind, ev_do_door, ev_vertical_door};
+use crate::env::floor::{FloorKind, StairKind, ev_build_stairs, ev_do_donut, ev_do_floor};
 use crate::env::lights::ev_turn_light_on;
-use crate::env::platforms::{ev_do_platform, PlatKind};
+use crate::env::platforms::{PlatKind, ev_do_platform};
 use crate::lang::english::{PD_BLUEO, PD_REDO, PD_YELLOWO};
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::LineDef;
 use crate::pic::{Button, ButtonWhere};
-use crate::MapPtr;
 
 const BUTTONTIME: u32 = 35;
 

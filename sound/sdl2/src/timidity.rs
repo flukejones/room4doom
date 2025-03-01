@@ -149,9 +149,9 @@ mod tests {
 
     use wad::WadData;
 
-    use crate::timidity::{parse, TimidityMapping};
+    use crate::timidity::{TimidityMapping, parse};
 
-    use super::{make_timidity_cfg, GusMemSize};
+    use super::{GusMemSize, make_timidity_cfg};
 
     #[test]
     fn read_gus_data() {

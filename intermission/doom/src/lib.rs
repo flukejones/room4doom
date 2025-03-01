@@ -1,15 +1,15 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    animations, AnimType, Animation, Patches, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY
+    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations
 };
-use gameplay::{m_random, TICRATE};
+use gameplay::{TICRATE, m_random};
 use gamestate_traits::{
     GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, WorldEndPlayerInfo, WorldInfo
 };
 use log::warn;
-use wad::types::{WadPalette, WadPatch};
 use wad::WadData;
+use wad::types::{WadPalette, WadPatch};
 
 mod defs;
 mod loc_state;

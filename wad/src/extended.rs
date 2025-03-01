@@ -228,8 +228,8 @@ impl WadExtendedMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{WadLineDef, WadNode, WadSector, WadSideDef, WadVertex};
     use crate::WadData;
+    use crate::types::{WadLineDef, WadNode, WadSector, WadSideDef, WadVertex};
 
     use super::WadExtendedMap;
 
