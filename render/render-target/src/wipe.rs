@@ -65,7 +65,9 @@ impl Wipe {
                     y += 1;
                 }
                 for x in x..x + stepping {
-                    self.y[x] += dy;
+                    if x < self.y.len() {
+                        self.y[x] += dy;
+                    }
                 }
 
                 for c in 0..=self.height - self.y[x] - dy {

@@ -9,13 +9,13 @@ use std::ptr::null_mut;
 
 use crate::doom_def::{Card, TICRATE};
 use crate::lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK};
-use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
+use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
 use crate::{LineDefFlags, MapPtr};
 
-use crate::env::specials::{find_lowest_ceiling_surrounding, move_plane, PlaneResult};
+use crate::env::specials::{PlaneResult, find_lowest_ceiling_surrounding, move_plane};
 use crate::env::switch::start_sector_sound;
 
 const VDOOR: f32 = 2.0;
@@ -347,7 +347,9 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
                         door.direction = -1;
                     } else if matches!(door.thinker().data(), ThinkerData::VerticalDoor(_)) { // TODO: PLATFORM
                     } else {
-                        error!("ev_vertical_door: tried to close something that is not a door or platform");
+                        error!(
+                            "ev_vertical_door: tried to close something that is not a door or platform"
+                        );
                         door.direction = -1;
                     }
                 }

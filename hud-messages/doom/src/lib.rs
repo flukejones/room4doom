@@ -1,7 +1,7 @@
 use gamestate_traits::{GameTraits, PixelBuffer, Scancode, SubsystemTrait, TICRATE};
-use hud_util::{load_char_patches, HUDString, HUD_STRING};
-use wad::types::WadPalette;
+use hud_util::{HUD_STRING, HUDString, load_char_patches};
 use wad::WadData;
+use wad::types::WadPalette;
 
 const COUNT_DOWN: i32 = 2 * TICRATE;
 

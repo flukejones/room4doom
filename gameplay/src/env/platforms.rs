@@ -7,16 +7,16 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxName;
 
+use crate::MapPtr;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
-    find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane, PlaneResult
+    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane
 };
 use crate::env::switch::start_sector_sound;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::level::Level;
+use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::MapPtr;
 use math::p_random;
 
 const PLATSPEED: f32 = 1.0;

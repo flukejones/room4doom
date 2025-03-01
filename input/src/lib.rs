@@ -8,12 +8,12 @@ pub mod config;
 use std::collections::hash_set::HashSet;
 
 use config::InputConfigSdl;
-use gameplay::tic_cmd::*;
 use gameplay::WeaponType;
+use gameplay::tic_cmd::*;
+use sdl2::EventPump;
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode as Sc;
 use sdl2::mouse::MouseButton as Mb;
-use sdl2::EventPump;
 
 #[derive(Default, Clone)]
 pub struct InputEvents {

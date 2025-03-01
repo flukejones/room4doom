@@ -1,4 +1,4 @@
-use crate::{Intermission, State, MAP_POINTS, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
+use crate::{Intermission, MAP_POINTS, SHOW_NEXT_LOC_DELAY, State, TICRATE, TITLE_Y};
 use gamestate_traits::{GameMode, PixelBuffer, SubsystemTrait};
 use wad::types::WadPatch;
 

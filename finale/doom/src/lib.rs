@@ -4,9 +4,9 @@ use crate::text::*;
 use gamestate_traits::{
     GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, TICRATE
 };
-use hud_util::{load_char_patches, HUDString, HUD_STRING};
-use wad::types::{WadFlat, WadPalette};
+use hud_util::{HUD_STRING, HUDString, load_char_patches};
 use wad::WadData;
+use wad::types::{WadFlat, WadPalette};
 
 pub struct Finale {
     palette: WadPalette,

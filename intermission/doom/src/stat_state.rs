@@ -1,4 +1,4 @@
-use crate::{Intermission, State, SHOW_NEXT_LOC_DELAY, TICRATE, TITLE_Y};
+use crate::{Intermission, SHOW_NEXT_LOC_DELAY, State, TICRATE, TITLE_Y};
 use gamestate_traits::util::draw_num_pixels;
 use gamestate_traits::{GameMode, PixelBuffer, SubsystemTrait};
 

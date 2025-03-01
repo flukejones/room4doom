@@ -1,8 +1,8 @@
 use crate::SubsystemTrait;
 use render_trait::PixelBuffer;
 use std::mem::MaybeUninit;
-use wad::types::{WadPatch, WAD_PATCH};
 use wad::WadData;
+use wad::types::{WAD_PATCH, WadPatch};
 
 /// Pattern like `WINUM` or `STTNUM`
 pub fn get_num_sprites(pattern: &str, start: usize, wad: &WadData) -> [WadPatch; 10] {

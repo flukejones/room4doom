@@ -5,15 +5,15 @@ use std::ptr::{self, null_mut};
 
 use sound_traits::SfxName;
 
+use crate::MapPtr;
+use crate::level::Level;
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::{LineDef, Sector};
-use crate::level::Level;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::MapPtr;
 
 use crate::env::specials::{
-    find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane, PlaneResult
+    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
 };
 use crate::env::switch::start_sector_sound;
 

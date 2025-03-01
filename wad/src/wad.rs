@@ -364,9 +364,9 @@ mod tests {
     use std::io::Read;
     use std::path::PathBuf;
 
+    use crate::MapLump;
     use crate::types::WadPatch;
     use crate::wad::WadData;
-    use crate::MapLump;
 
     fn read_file(file_path: PathBuf) -> Vec<u8> {
         let mut file =
@@ -553,7 +553,7 @@ mod tests {
 
         let blockmap = wad.read_blockmap("E1M1").unwrap();
         assert_eq!(blockmap.x_origin, -768 + -8); // -776 confirmed, needs
-                                                  // conversion to float
+        // conversion to float
         assert_eq!(blockmap.y_origin, -4864 + -8); // -4872 confirmed, needs conversion to float
         assert_eq!(blockmap.columns, 36); // confirmed
         assert_eq!(blockmap.rows, 23); // confirmed

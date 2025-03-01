@@ -5,19 +5,19 @@
 //! Doom source name `p_spec`
 
 use crate::doom_def::{ONCEILINGZ, ONFLOORZ};
-use crate::env::ceiling::{ev_do_ceiling, CeilKind};
-use crate::env::doors::{ev_do_door, DoorKind};
-use crate::env::floor::{ev_build_stairs, ev_do_floor, FloorKind, StairKind};
+use crate::env::ceiling::{CeilKind, ev_do_ceiling};
+use crate::env::doors::{DoorKind, ev_do_door};
+use crate::env::floor::{FloorKind, StairKind, ev_build_stairs, ev_do_floor};
 use crate::env::lights::{
-    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, FireFlicker, Glow, LightFlash, StrobeFlash, FASTDARK, SLOWDARK
+    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off
 };
-use crate::env::platforms::{ev_do_platform, ev_stop_platform, PlatKind};
+use crate::env::platforms::{PlatKind, ev_do_platform, ev_stop_platform};
 use crate::env::switch::{change_switch_texture, start_sector_sound};
 use crate::env::teleport::teleport;
-use crate::info::{MapObjKind, MOBJINFO};
+use crate::info::{MOBJINFO, MapObjKind};
+use crate::level::Level;
 use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::{LineDef, Sector};
-use crate::level::Level;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
@@ -213,9 +213,7 @@ pub fn move_plane(
                     // DOWN
                     trace!(
                         "move_plane: floor: down: {} to {} at speed {}",
-                        sector.floorheight,
-                        dest,
-                        speed
+                        sector.floorheight, dest, speed
                     );
                     if sector.floorheight - speed < dest {
                         let last_pos = sector.floorheight;
@@ -245,9 +243,7 @@ pub fn move_plane(
                     // UP
                     trace!(
                         "move_plane: floor: up: {} to {} at speed {}",
-                        sector.floorheight,
-                        dest,
-                        speed
+                        sector.floorheight, dest, speed
                     );
                     if sector.floorheight + speed > dest {
                         let last_pos = sector.floorheight;
@@ -281,9 +277,7 @@ pub fn move_plane(
                     // DOWN
                     trace!(
                         "move_plane: ceiling: down: {} to {} at speed {}",
-                        sector.ceilingheight,
-                        dest,
-                        speed
+                        sector.ceilingheight, dest, speed
                     );
                     if sector.ceilingheight - speed < dest {
                         let last_pos = sector.ceilingheight;
@@ -313,9 +307,7 @@ pub fn move_plane(
                     // UP
                     trace!(
                         "move_plane: ceiling: up: {} to {} at speed {}",
-                        sector.ceilingheight,
-                        dest,
-                        speed
+                        sector.ceilingheight, dest, speed
                     );
                     if sector.ceilingheight + speed >= dest {
                         let last_pos = sector.ceilingheight;

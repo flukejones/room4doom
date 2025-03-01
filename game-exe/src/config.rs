@@ -1,13 +1,13 @@
 //! User configuration options.
 
-use crate::{CLIOptions, BASE_DIR};
+use crate::{BASE_DIR, CLIOptions};
 use dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
 use nanoserde::{DeRon, SerRon};
 use render_target::shaders::Shaders;
 use sound_sdl2::timidity::GusMemSize;
-use std::fs::{create_dir, File, OpenOptions};
+use std::fs::{File, OpenOptions, create_dir};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;

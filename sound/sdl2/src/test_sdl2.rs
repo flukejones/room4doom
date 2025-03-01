@@ -12,9 +12,11 @@ fn play_weapons_snd() {
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
     let tx = snd.init().unwrap();
 
-    let _thread = std::thread::spawn(move || loop {
-        snd.tic();
-        std::thread::sleep(std::time::Duration::from_millis(5));
+    let _thread = std::thread::spawn(move || {
+        loop {
+            snd.tic();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     });
 
     tx.send(SoundAction::StartSfx {
@@ -63,9 +65,11 @@ fn play_demons_snd() {
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
     let tx = snd.init().unwrap();
 
-    let _thread = std::thread::spawn(move || loop {
-        snd.tic();
-        std::thread::sleep(std::time::Duration::from_millis(5));
+    let _thread = std::thread::spawn(move || {
+        loop {
+            snd.tic();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     });
 
     tx.send(SoundAction::StartSfx {
@@ -106,9 +110,11 @@ fn play_music() {
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad).unwrap();
     let tx = snd.init().unwrap();
 
-    let _thread = std::thread::spawn(move || loop {
-        snd.tic();
-        std::thread::sleep(std::time::Duration::from_millis(5));
+    let _thread = std::thread::spawn(move || {
+        loop {
+            snd.tic();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     });
 
     tx.send(SoundAction::StartMusic(1, false)).unwrap();

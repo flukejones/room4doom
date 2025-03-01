@@ -432,68 +432,89 @@ mod tests {
         let header = MusHeader::read(&tmp).unwrap();
         let mus2mid = read_track(&tmp, &header);
 
-        assert_eq!(mus2mid[0], MusEvent {
-            delay: 0,
-            kind: MusEventType::Controller,
-            channel: 0,
-            data1: 0,
-            data2: 48,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[0],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 0,
+                data2: 48,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[1], MusEvent {
-            delay: 0,
-            kind: MusEventType::Controller,
-            channel: 0,
-            data1: 3,
-            data2: 0,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[1],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 0,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[10], MusEvent {
-            delay: 0,
-            kind: MusEventType::Controller,
-            channel: 1,
-            data1: 3,
-            data2: 0,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[10],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 1,
+                data1: 3,
+                data2: 0,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[11], MusEvent {
-            delay: 0,
-            kind: MusEventType::Controller,
-            channel: 1,
-            data1: 4,
-            data2: 114,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[11],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 1,
+                data1: 4,
+                data2: 114,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[12], MusEvent {
-            delay: 0,
-            kind: MusEventType::Controller,
-            channel: 2,
-            data1: 0,
-            data2: 37,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[12],
+            MusEvent {
+                delay: 0,
+                kind: MusEventType::Controller,
+                channel: 2,
+                data1: 0,
+                data2: 37,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[50], MusEvent {
-            delay: 2,
-            kind: MusEventType::Controller,
-            channel: 0,
-            data1: 3,
-            data2: 93,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[50],
+            MusEvent {
+                delay: 2,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 93,
+                volume: 0
+            }
+        );
 
-        assert_eq!(mus2mid[200], MusEvent {
-            delay: 1,
-            kind: MusEventType::Controller,
-            channel: 0,
-            data1: 3,
-            data2: 126,
-            volume: 0
-        });
+        assert_eq!(
+            mus2mid[200],
+            MusEvent {
+                delay: 1,
+                kind: MusEventType::Controller,
+                channel: 0,
+                data1: 3,
+                data2: 126,
+                volume: 0
+            }
+        );
     }
 
     #[test]

@@ -46,7 +46,7 @@ impl Buffer {
     fn new(width: usize, height: usize) -> Self {
         Self {
             size: BufferSize::new(width, height),
-            buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS],
+            buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS + SOFT_PIXEL_CHANNELS],
             stride: width * SOFT_PIXEL_CHANNELS,
         }
     }
@@ -97,7 +97,8 @@ impl PixelBuffer for Buffer {
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
         let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
-        slice.copy_from_slice(&self.buffer[pos..pos + SOFT_PIXEL_CHANNELS]);
+        let end = pos + SOFT_PIXEL_CHANNELS;
+        slice.copy_from_slice(&self.buffer[pos..end]);
         slice
     }
 
