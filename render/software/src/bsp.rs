@@ -196,7 +196,7 @@ impl SoftwareRenderer {
         let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
         let clipangrad = clipangle.rad();
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() > 2.0 * clipangrad {
+        if tspan.rad() >= 2.0 * clipangrad {
             tspan -= 2.0 * clipangrad;
             if tspan.rad() > span {
                 return;
@@ -204,7 +204,7 @@ impl SoftwareRenderer {
             angle1 = clipangle;
         }
         tspan = clipangle - angle2;
-        if tspan.rad() > 2.0 * clipangrad {
+        if tspan.rad() >= 2.0 * clipangrad {
             tspan -= 2.0 * clipangrad;
             if tspan.rad() >= span {
                 return;
