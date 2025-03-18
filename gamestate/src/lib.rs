@@ -326,7 +326,7 @@ impl Game {
 
         let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
         let page_cache = WadPatch::from_lump(lump);
-        let pic_data = PicData::init(&wad);
+        let pic_data = PicData::init(false, &wad);
 
         Game {
             wad_data: wad,

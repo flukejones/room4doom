@@ -258,7 +258,7 @@ impl SoftwareRenderer {
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
             pic_data.colourmap(33)
         } else {
-            pic_data.flat_light_colourmap(vis.light_level, (dc_iscale * 10.0) as u32 as usize)
+            pic_data.vert_light_colourmap(vis.light_level, vis.scale)
         };
 
         let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
@@ -547,7 +547,6 @@ impl SoftwareRenderer {
             }
             dc_texturemid += seg.sidedef.rowoffset;
 
-            let x_scale = ((1.0 / ds.scale1) * 10.0) as u32 as usize;
             for x in x1.floor() as u32 as usize..=x2.floor() as u32 as usize {
                 if ds.maskedtexturecol + (x as f32) < 0.0 {
                     spryscale += rw_scalestep;
@@ -598,7 +597,7 @@ impl SoftwareRenderer {
 
                     draw_masked_column(
                         texture_column,
-                        pic_data.flat_light_colourmap(wall_lights, x_scale),
+                        pic_data.vert_light_colourmap(wall_lights, spryscale),
                         false,
                         1.0 / spryscale,
                         self.seg_renderer.centery,

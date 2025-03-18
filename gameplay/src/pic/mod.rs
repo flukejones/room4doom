@@ -26,8 +26,9 @@ use crate::pic::sprites::init_spritedefs;
 use self::sprites::SpriteDef;
 
 const MAXLIGHTZ: usize = 128;
-const LIGHTLEVELS: usize = 16;
-const NUMCOLORMAPS: usize = 32;
+const LIGHTLEVELS: i32 = 16;
+const NUMCOLORMAPS: i32 = 32;
+const MAXLIGHTSCALE: i32 = 48;
 pub const INVERSECOLORMAP: i32 = 32;
 const STARTREDPALS: usize = 1;
 const NUMREDPALS: usize = 8;
@@ -65,8 +66,10 @@ pub struct PicData {
     palettes: [WadPalette; PALLETE_LEN],
     // Usually 34 blocks of 256, each u8 being an index in to the palette
     colourmap: [Colourmap; COLOURMAP_LEN],
+    // 16 groups of 48 sets of indexes to colourmap
+    light_scale: [[usize; 48]; 16],
     // 16 groups of 128 sets of palette
-    zlight_scale: [[usize; MAXLIGHTZ]; LIGHTLEVELS],
+    zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
     walls: Vec<WallPic>,
     /// Used in animations
@@ -85,6 +88,7 @@ pub struct PicData {
     /// `set_player_palette()`, typically done on frame start to set effects
     /// like take-damage.
     use_pallette: usize,
+    double_res: bool,
 }
 
 impl Default for PicData {
@@ -92,7 +96,8 @@ impl Default for PicData {
         Self {
             palettes: Default::default(),
             colourmap: [[0; 256]; COLOURMAP_LEN],
-            zlight_scale: [[0usize; MAXLIGHTZ]; LIGHTLEVELS],
+            light_scale: [[0; 48]; 16],
+            zlight_scale: [[0usize; 128]; 16],
             use_fixed_colourmap: Default::default(),
             walls: Default::default(),
             wall_translation: Default::default(),
@@ -103,16 +108,18 @@ impl Default for PicData {
             sprite_patches: Default::default(),
             sprite_defs: Default::default(),
             use_pallette: Default::default(),
+            double_res: Default::default(),
         }
     }
 }
 
 impl PicData {
-    pub fn init(wad: &WadData) -> Self {
+    pub fn init(double_res: bool, wad: &WadData) -> Self {
         print!("Init image data  [");
 
         let colourmap = Self::init_colourmap(wad);
         let palettes = Self::init_palette(wad);
+        let light_scale = Self::init_light_scales();
         let zlight_scale = Self::init_zlight_scales();
 
         let (walls, sky_pic) = Self::init_wall_pics(wad);
@@ -167,12 +174,14 @@ impl PicData {
             flats,
             flat_translation,
             palettes,
+            light_scale,
             zlight_scale,
             colourmap,
             use_fixed_colourmap: 0,
             sprite_patches,
             sprite_defs,
             use_pallette: 0,
+            double_res,
         }
     }
 
@@ -203,24 +212,43 @@ impl PicData {
         tmp
     }
 
+    /// Populate the indexes to colourmaps
+    fn init_light_scales() -> [[usize; 48]; 16] {
+        print!(".");
+        let mut tmp = [[0; 48]; 16];
+        for i in 0..LIGHTLEVELS {
+            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+            for j in 0..MAXLIGHTSCALE {
+                let mut level = startmap - j / 2;
+                if level < 0 {
+                    level = 0;
+                }
+                level = level.min(NUMCOLORMAPS - 1);
+                // TODO: maybe turn this in to indexing? of colourmaps
+                // tmp[i as usize][j as usize].copy_from_slice(&colourmap[level as usize]);
+                tmp[i as usize][j as usize] = level as usize;
+            }
+        }
+        tmp
+    }
+
     /// A non-zero value is the the colourmap number forced to use for all
     /// light-levels
     pub const fn set_fixed_lightscale(&mut self, colourmap: usize) {
         self.use_fixed_colourmap = colourmap
     }
 
-    fn init_zlight_scales() -> [[usize; MAXLIGHTZ]; LIGHTLEVELS] {
+    fn init_zlight_scales() -> [[usize; 128]; 16] {
         print!(".");
-        let mut tmp = [[0usize; MAXLIGHTZ]; LIGHTLEVELS];
+        let mut tmp = [[0usize; 128]; 16];
         for i in 0..LIGHTLEVELS {
             let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
             for j in 0..MAXLIGHTZ {
                 let scale = (160 / (j + 1)) as f32;
-                let mut level = (startmap as f32 - (scale / 2.0)) as i32;
+                let mut level = startmap - (scale / 2.0) as i32;
                 if level < 0 {
                     level = 0;
                 }
-                let mut level = level as usize;
                 level = level.min(NUMCOLORMAPS - 1);
                 tmp[i as usize][j] = level as usize;
             }
@@ -488,7 +516,40 @@ impl PicData {
     }
 
     #[inline]
-    pub fn flat_light_colourmap(&self, light_level: usize, scale: usize) -> &[usize] {
+    fn colourmap_for_scale(&self, scale: f32) -> usize {
+        let colourmap = if self.double_res {
+            (scale * 7.9) as u32
+        } else {
+            (scale * 15.8) as u32
+        };
+        colourmap.min(MAXLIGHTSCALE as u32 - 1) as usize
+    }
+
+    /// Get the correct colourmapping for a light level. The colourmap is
+    /// indexed by the Y coordinate of a texture column.
+    pub fn vert_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
+        if self.use_fixed_colourmap != 0 {
+            return &self.colourmap[self.use_fixed_colourmap];
+        }
+
+        let colourmap = self.colourmap_for_scale(wall_scale);
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            // unchecked reduces instruction count from ~8 down to 1
+            let i = self
+                .light_scale
+                .get_unchecked(light_level.min(self.light_scale.len() - 1))
+                .get_unchecked(colourmap);
+            self.colourmap.get_unchecked(*i)
+        }
+        #[cfg(feature = "safety_check")]
+        &self
+            .colourmap
+            .get_unchecked(self.light_scale[light_level.min(self.light_scale.len() - 1)][colourmap])
+    }
+
+    #[inline]
+    pub fn flat_light_colourmap(&self, mut light_level: usize, mut scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             #[cfg(not(feature = "safety_check"))]
             unsafe {
@@ -499,17 +560,19 @@ impl PicData {
         }
 
         // scale = scale >> 4;
+        scale &= MAXLIGHTZ - 1;
+        light_level = light_level.min(self.zlight_scale.len() - 1);
+
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let i = self
                 .zlight_scale
-                .get_unchecked(light_level.min(self.zlight_scale.len() - 1))
-                .get_unchecked(scale.min(MAXLIGHTZ - 1));
+                .get_unchecked(light_level)
+                .get_unchecked(scale);
             self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
-        &self.colourmap[self.zlight_scale[light_level.min(self.zlight_scale.len() - 1)]
-            [scale.min(MAXLIGHTZ - 1)]]
+        &self.colourmap[self.zlight_scale[light_level][scale]]
     }
 
     #[inline]
