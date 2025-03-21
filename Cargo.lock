@@ -60,9 +60,9 @@ checksum = "b6b1fc10dbac614ebc03540c9dbd60e83887fda27794998c6528f1782047d540"
 
 [[package]]
 name = "cc"
-version = "1.2.16"
+version = "1.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be714c154be609ec7f5dad223a33bf1482fff90472de28f7362806e6d4832b8c"
+checksum = "1fcb57c740ae1daf453ae85f16e37396f672b039e00d9d866e07ddb24e328e3a"
 dependencies = [
  "shlex",
 ]
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "finale-doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "gameplay"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "coarse-prof",
  "glam",
@@ -138,7 +138,7 @@ dependencies = [
 
 [[package]]
 name = "gamestate"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "gamestate-traits",
@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "gamestate-traits"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "render-trait",
@@ -174,9 +174,9 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.30.0"
+version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17fcdf9683c406c2fc4d124afd29c0d595e22210d633cbdb8695ba9935ab1dc6"
+checksum = "bf3aa70d918d2b234126ff4f850f628f172542bf0603ded26b8ee36e5e22d5f9"
 
 [[package]]
 name = "glow"
@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "hud-doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "hud-util"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "log",
@@ -221,7 +221,7 @@ dependencies = [
 
 [[package]]
 name = "input"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "nanoserde",
@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "intermission-doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "gamestate-traits",
@@ -277,9 +277,9 @@ checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
 
 [[package]]
 name = "libmimalloc-sys"
-version = "0.1.39"
+version = "0.1.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23aa6811d3bd4deb8a84dde645f943476d13b248d818edcf8ce0b2f37f036b44"
+checksum = "07d0e07885d6a754b9c7993f2625187ad694ee985d60f23355ff0e7077261502"
 dependencies = [
  "cc",
  "libc",
@@ -303,14 +303,14 @@ checksum = "30bde2b3dc3671ae49d8e2e9f044c7c005836e7a023ee57cffa25ab82764bb9e"
 
 [[package]]
 name = "math"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "glam",
 ]
 
 [[package]]
 name = "menu-doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "log",
@@ -320,9 +320,9 @@ dependencies = [
 
 [[package]]
 name = "mimalloc"
-version = "0.1.43"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68914350ae34959d83f732418d51e2427a794055d0b9529f48259ac07af65633"
+checksum = "99585191385958383e13f6b822e6b6d8d9cf928e7d286ceb092da92b43c87bc1"
 dependencies = [
  "libmimalloc-sys",
 ]
@@ -411,7 +411,7 @@ dependencies = [
 
 [[package]]
 name = "render-soft"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "coarse-prof",
  "gameplay",
@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "render-target"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "golem",
@@ -435,7 +435,7 @@ dependencies = [
 
 [[package]]
 name = "render-trait"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gameplay",
  "wad",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "room4doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "argh",
  "coarse-prof",
@@ -483,7 +483,7 @@ checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
 [[package]]
 name = "sdl2"
 version = "0.37.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#c242701c1ebc40aa78608c51bc44a6ce30e8023d"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#5be34ce7cd01dde6ad87e8f9513b2e6ff6060cdb"
 dependencies = [
  "bitflags 1.3.2",
  "lazy_static",
@@ -494,7 +494,7 @@ dependencies = [
 [[package]]
 name = "sdl2-sys"
 version = "0.37.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#c242701c1ebc40aa78608c51bc44a6ce30e8023d"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#5be34ce7cd01dde6ad87e8f9513b2e6ff6060cdb"
 dependencies = [
  "cfg-if",
  "libc",
@@ -549,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "sound-nosnd"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "glam",
  "log",
@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "sound-sdl2"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "glam",
  "log",
@@ -572,11 +572,11 @@ dependencies = [
 
 [[package]]
 name = "sound-traits"
-version = "0.16.0"
+version = "0.16.1"
 
 [[package]]
 name = "statusbar-doom"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
@@ -677,7 +677,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "wad"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "log",
 ]
