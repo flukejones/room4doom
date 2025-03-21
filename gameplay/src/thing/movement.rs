@@ -170,7 +170,8 @@ impl MapObject {
         let mut ymove = self.momxy.y;
         let mut ptryx;
         let mut ptryy;
-        loop {
+
+        while xmove != 0.0 || ymove != 0.0 {
             if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
                 ptryx = self.xy.x + xmove / 2.0;
                 ptryy = self.xy.y + ymove / 2.0;
@@ -205,10 +206,6 @@ impl MapObject {
                     self.momxy = Vec2::default();
                 }
             }
-
-            if xmove == 0.0 || ymove == 0.0 {
-                break;
-            }
         }
 
         // slow down
@@ -229,32 +226,34 @@ impl MapObject {
                 || self.momxy.x < -FRACUNIT_DIV4
                 || self.momxy.y > FRACUNIT_DIV4
                 || self.momxy.y < -FRACUNIT_DIV4)
-                && (self.floorz - floorheight).abs() > f32::EPSILON
+                && self.floorz != floorheight
             {
                 return;
             }
+        }
+
+        let mut pfwd = -1;
+        let mut pside = -1;
+        if let Some(player) = self.player() {
+            pfwd = player.cmd.forwardmove;
+            pside = player.cmd.sidemove;
         }
 
         if self.momxy.x > -STOPSPEED
             && self.momxy.x < STOPSPEED
             && self.momxy.y > -STOPSPEED
             && self.momxy.y < STOPSPEED
+            && (self.player.is_none() || pfwd == 0 && pside == 0)
         {
-            if self.player.is_none() {
-                self.momxy = Vec2::default();
-            } else if let Some(player) = self.player_mut() {
-                if player.cmd.forwardmove == 0 && player.cmd.sidemove == 0 {
-                    // if in a walking frame, stop moving
-                    // TODO: What the everliving fuck is C doing here? You can't just subtract the
-                    // states array if ((player.mo.state - states) - PLAY_RUN1)
-                    // < 4 {
-                    self.set_state(StateNum::PLAY);
-                    // }
-                    self.momxy = Vec2::default();
-                }
+            if self.player().is_some() {
+                // if in a walking frame, stop moving
+                // TODO: What the everliving fuck is C doing here? You can't just subtract the
+                // states array if ((player.mo.state - states) - PLAY_RUN1)
+                // < 4 {
+                self.set_state(StateNum::PLAY);
+                // }
             }
-            self.momxy.x = 0.0;
-            self.momxy.y = 0.0;
+            self.momxy = Vec2::default();
         } else {
             self.momxy *= FRICTION;
         }

@@ -17,6 +17,10 @@ pub const fn fixed_to_float(value: i32) -> f32 {
     value as f32 / FRACUNIT
 }
 
+pub const fn float_to_fixed(value: f32) -> i32 {
+    (value * FRACUNIT) as i32
+}
+
 const DEG_TO_RAD: f32 = PI / 180.0;
 
 /// Convert a BAM (Binary Angle Measure) to radians
