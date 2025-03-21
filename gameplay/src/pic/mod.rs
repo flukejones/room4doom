@@ -649,7 +649,7 @@ impl PicData {
         #[cfg(feature = "safety_check")]
         let texture = &self.walls[self.wall_translation[texture]];
 
-        texture_column %= texture.data.len() - 1;
+        texture_column &= texture.data.len() - 1;
 
         #[cfg(not(feature = "safety_check"))]
         unsafe {
