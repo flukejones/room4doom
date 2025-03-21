@@ -822,14 +822,14 @@ impl SegRender {
         };
 
         for _ in y_start as i32..=y_end {
-            let mut select = frac.abs() as u32 as usize;
+            let mut select = frac.floor() as i32 as usize;
             if sky && self.sky_doubled {
                 select /= 2;
             }
-            select %= texture_column.len();
+            select &= texture_column.len() - 1;
             let tc = texture_column[select];
             if tc >= colourmap.len() {
-                continue;
+                return;
             }
             #[cfg(not(feature = "safety_check"))]
             unsafe {
