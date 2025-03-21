@@ -42,9 +42,9 @@ impl Angle {
     }
 
     #[inline]
-    pub const fn sin(&self) -> f32 {
-        // self.0.sin()
-        SIN_TABLE[self.to_table()]
+    pub fn sin(&self) -> f32 {
+        self.0.sin()
+        // SIN_TABLE[self.to_table()]
     }
 
     #[inline]

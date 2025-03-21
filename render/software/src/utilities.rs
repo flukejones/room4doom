@@ -68,7 +68,7 @@ pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
 
 /// R_ScaleFromGlobalAngle
 // All should be in rads
-pub const fn scale_from_view_angle(
+pub fn scale_from_view_angle(
     visangle: Angle,
     rw_normalangle: Angle,
     rw_distance: f32,
