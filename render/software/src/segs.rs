@@ -573,7 +573,7 @@ impl SegRender {
             // shorter/taller. topfrac here is calulated in previous function
             // and is the starting point that topstep is added to
             yl = self.topfrac.floor();
-            if yl <= rdata.portal_clip.ceilingclip[clip_index] {
+            if yl < rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             }
 
