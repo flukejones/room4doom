@@ -826,7 +826,7 @@ impl SegRender {
             if sky && self.sky_doubled {
                 select /= 2;
             }
-            select &= texture_column.len() - 1;
+            select %= texture_column.len();
             let tc = texture_column[select];
             if tc >= colourmap.len() {
                 return;
