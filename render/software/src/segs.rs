@@ -822,7 +822,7 @@ impl SegRender {
         };
 
         for _ in y_start as i32..=y_end {
-            let mut select = frac.round() as i32 as usize;
+            let mut select = frac.floor() as i32 as usize;
             if sky && self.sky_doubled {
                 select /= 2;
             }
