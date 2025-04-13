@@ -14,7 +14,6 @@ hprof = []
 [dependencies]
 glam.workspace = true
 gameplay.workspace = true
-math.workspace = true
 render-trait.workspace = true
 sdl2.workspace = true
 coarse-prof.workspace = true

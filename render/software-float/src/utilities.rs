@@ -2,7 +2,6 @@ use std::f32::consts::FRAC_PI_2;
 
 use gameplay::{Angle, MapObject};
 use glam::Vec2;
-use math::{FixedPoint, fixed_to_float};
 
 const ZERO_POINT_THREE: f32 = 0.0052359877;
 const OG_RATIO: f32 = 320. / 200.;
@@ -49,11 +48,6 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
-// Convert to FixedPoint version
-pub fn point_to_dist_fixed(x: f32, y: f32, to: Vec2) -> FixedPoint {
-    FixedPoint::from(point_to_dist(x, y, to))
-}
-
 // The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
 // The out value if floored and clamped to the screen width min/max.
 pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
@@ -63,18 +57,6 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
     // two values straddling a line may go one way or the other
     let t = (half_screen_width - t + 0.9).floor();
     t.clamp(0.0, screen_width)
-}
-
-// Fixed point version
-pub fn angle_to_screen_fixed(
-    fov: f32,
-    half_screen_width: FixedPoint,
-    screen_width: FixedPoint,
-    angle: Angle,
-) -> FixedPoint {
-    let hw_float: f32 = half_screen_width.into();
-    let sw_float: f32 = screen_width.into();
-    FixedPoint::from(angle_to_screen(fov, hw_float, sw_float, angle))
 }
 
 /// R_PointToAngle
@@ -99,23 +81,4 @@ pub fn scale_from_view_angle(
     let num: f32 = projection * angleb.sin();
     let den: f32 = rw_distance * anglea.sin();
     num / den
-}
-
-// Fixed point version
-pub fn scale_from_view_angle_fixed(
-    visangle: Angle,
-    rw_normalangle: Angle,
-    rw_distance: FixedPoint,
-    view_angle: Angle,
-    screen_width_half: FixedPoint,
-) -> FixedPoint {
-    let hw_float: f32 = screen_width_half.into();
-    let dist_float: f32 = rw_distance.into();
-    FixedPoint::from(scale_from_view_angle(
-        visangle,
-        rw_normalangle,
-        dist_float,
-        view_angle,
-        hw_float,
-    ))
 }

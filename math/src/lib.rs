@@ -1,10 +1,12 @@
 mod angle;
+mod fixed_point;
 mod intercept;
 mod trig;
 
 use std::f32::consts::PI;
 
 pub use angle::*;
+pub use fixed_point::*;
 use glam::Vec2;
 pub use intercept::*;
 

@@ -7,7 +7,6 @@ use gameplay::{
     point_to_angle_2,
 };
 use glam::Vec2;
-use math::FixedPoint;
 use render_trait::{PixelBuffer, RenderTrait};
 
 use super::bsp::SoftwareRenderer;
@@ -22,20 +21,20 @@ const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 
 #[derive(Clone, Copy, PartialEq, Default)]
 pub struct VisSprite {
-    x1: FixedPoint,
-    x2: FixedPoint,
+    x1: f32,
+    x2: f32,
     // Line side calc
-    gx: FixedPoint,
-    gy: FixedPoint,
+    gx: f32,
+    gy: f32,
     // Bottom and top for clipping
-    gz: FixedPoint,
-    gzt: FixedPoint,
+    gz: f32,
+    gzt: f32,
     // horizontal position of x1
-    start_frac: FixedPoint,
-    scale: FixedPoint,
+    start_frac: f32,
+    scale: f32,
     // negative if flipped
-    x_iscale: FixedPoint,
-    texture_mid: FixedPoint,
+    x_iscale: f32,
+    texture_mid: f32,
     /// The index in to patches array
     patch: usize,
     /// The index used to fetch colourmap for drawing
@@ -66,16 +65,16 @@ impl Eq for VisSprite {}
 impl VisSprite {
     pub fn new() -> Self {
         Self {
-            x1: FixedPoint::new(0),
-            x2: FixedPoint::new(0),
-            gx: FixedPoint::new(0),
-            gy: FixedPoint::new(0),
-            gz: FixedPoint::new(0),
-            gzt: FixedPoint::new(0),
-            start_frac: FixedPoint::new(0),
-            scale: FixedPoint::new(0),
-            x_iscale: FixedPoint::new(0),
-            texture_mid: FixedPoint::new(0),
+            x1: 0.0,
+            x2: 0.0,
+            gx: 0.0,
+            gy: 0.0,
+            gz: 0.0,
+            gzt: 0.0,
+            start_frac: 0.0,
+            scale: 0.0,
+            x_iscale: 0.0,
+            texture_mid: 0.0,
             patch: 0,
             light_level: 0,
             mobj_flags: 0,
@@ -119,9 +118,6 @@ impl SoftwareRenderer {
     }
 
     // R_ProjectSprite
-    // Generates a vissprite for a thing
-    //  if it might be visible.
-    //
     fn project_sprite(
         &mut self,
         player: &Player,
@@ -139,20 +135,20 @@ impl SoftwareRenderer {
         let view_sin = player_mobj.angle.sin();
 
         // transform the origin point
-        let tr_x = FixedPoint::from(thing.xy.x - player_mobj.xy.x);
-        let tr_y = FixedPoint::from(thing.xy.y - player_mobj.xy.y);
+        let tr_x = thing.xy.x - player_mobj.xy.x;
+        let tr_y = thing.xy.y - player_mobj.xy.y;
         let tz = (tr_x * view_cos) - -(tr_y * view_sin);
 
         // Is it behind the view?
-        if tz < 10 {
+        if tz < 10.0 {
             return true; // keep checking
         }
 
         let mut tx = (tr_x * view_sin) - (tr_y * view_cos);
         // too far off the side?
-        // if tx.abs() >= tz.abs() * 2 {
-        //     return true;
-        // }
+        if tx.abs() as i32 >= (tz.abs() as i32) * 2 {
+            return true;
+        }
 
         // Find the sprite def to use
         let sprnum = thing.state.sprite;
@@ -188,12 +184,12 @@ impl SoftwareRenderer {
             tx -= patch.left_offset as f32;
         }
 
-        let centerx = FixedPoint::from(screen_width / 2);
+        let centerx = screen_width as f32 / 2.0;
         // Projection does the X scaling in wide
         let x_scale = self.projection / tz;
 
-        let x1 = (centerx + tx * x_scale) - 1;
-        if x1 > screen_width {
+        let x1 = (centerx + tx * x_scale) - 1.0;
+        if x1 > screen_width as f32 {
             return true;
         }
 
@@ -207,27 +203,23 @@ impl SoftwareRenderer {
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
         vis.scale = x_scale * y_scale; // Note: increase Y
-        vis.gx = thing.xy.x.into();
-        vis.gy = thing.xy.y.into();
-        vis.gz = thing.z.into();
-        vis.gzt = (thing.z + patch.top_offset as f32).into();
+        vis.gx = thing.xy.x;
+        vis.gy = thing.xy.y;
+        vis.gz = thing.z;
+        vis.gzt = thing.z + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;
-        vis.x1 = if x1 < 0.0 {
-            FixedPoint::default()
-        } else {
-            x1.into()
-        };
+        vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
         vis.x2 = if x2 >= screen_width as f32 {
-            (screen_width as f32 - 1.0).into()
+            screen_width as f32 - 1.0
         } else {
-            x2.into()
+            x2
         };
         let iscale = 1.0 / x_scale;
         if flip == 1 {
-            vis.start_frac = (patch.data.len() - 1).into();
+            vis.start_frac = (patch.data.len() - 1) as f32;
             vis.x_iscale = -iscale;
         } else {
-            vis.start_frac = FixedPoint::default();
+            vis.start_frac = 0.0;
             vis.x_iscale = iscale;
         }
         vis.x_iscale /= y_scale; // Note: proportion to x_scale
@@ -252,8 +244,8 @@ impl SoftwareRenderer {
     fn draw_vissprite(
         &self,
         vis: &VisSprite,
-        clip_bottom: &[FixedPoint],
-        clip_top: &[FixedPoint],
+        clip_bottom: &[f32],
+        clip_top: &[f32],
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
@@ -266,29 +258,26 @@ impl SoftwareRenderer {
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
             pic_data.colourmap(33)
         } else {
-            pic_data.vert_light_colourmap(vis.light_level, vis.scale.into())
+            pic_data.vert_light_colourmap(vis.light_level, vis.scale)
         };
 
-        // Proportional to x1..x2
-        let xfrac = vis.x_iscale * self.y_scale;
-
-        for x in i32::from(vis.x1) as usize..=i32::from(vis.x2) as usize {
-            let tex_column = i32::from(frac) as usize;
+        let xfrac = vis.x_iscale * self.y_scale; // proportional to x1..x2
+        for x in vis.x1.ceil() as u32 as usize..=vis.x2.floor() as u32 as usize {
+            let tex_column = frac as u32 as usize;
             if tex_column >= patch.data.len() {
                 break;
             }
 
             let texture_column = &patch.data[tex_column];
-            let mut top = (self.seg_renderer.centery - dc_texmid * spryscale) + 1.0;
-
-            let mut bottom = top + (spryscale * FixedPoint::from(texture_column.len()));
+            let mut top = ((self.seg_renderer.centery - dc_texmid * spryscale) + 1.0).round();
+            let mut bottom = top + (spryscale * texture_column.len() as f32).round();
 
             if bottom >= clip_bottom[x] {
-                bottom = clip_bottom[x] - 1;
+                bottom = clip_bottom[x] - 1.0;
             }
 
             if top <= clip_top[x] {
-                top = clip_top[x] + 1;
+                top = clip_top[x] + 1.0;
             }
 
             if top <= bottom {
@@ -296,18 +285,18 @@ impl SoftwareRenderer {
                     texture_column,
                     colourmap,
                     vis.mobj_flags & MapObjFlag::Shadow as u32 != 0,
-                    dc_iscale.into(),
-                    self.seg_renderer.centery.into(),
+                    dc_iscale,
+                    self.seg_renderer.centery,
                     x,
-                    dc_texmid.into(),
-                    top.into(),
-                    bottom.into(),
+                    dc_texmid,
+                    top,
+                    bottom,
                     pic_data,
                     rend.draw_buffer(),
                 );
             }
 
-            frac = frac + xfrac;
+            frac += xfrac;
         }
     }
 
@@ -320,21 +309,21 @@ impl SoftwareRenderer {
         rend: &mut impl RenderTrait,
     ) {
         let size = rend.draw_buffer().size().clone();
-        let mut clip_bottom = vec![FixedPoint::from(-2); size.width_usize()];
-        let mut clip_top = vec![FixedPoint::from(-2); size.width_usize()];
+        let mut clip_bottom = vec![-2.0; size.width_usize()];
+        let mut clip_top = vec![-2.0; size.width_usize()];
 
-        // Breaking lifetime to enable this loop
+        // Breaking liftime to enable this loop
         let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
                 || seg.x2 < vis.x1
-                || (seg.silhouette == 0 && seg.maskedtexturecol == FixedPoint::new(0))
+                || (seg.silhouette == 0 && seg.maskedtexturecol == 0.0)
             {
                 continue;
             }
 
-            let r1 = if seg.x1 < vis.x1 { vis.x1 } else { seg.x1 };
-            let r2 = if seg.x2 > vis.x2 { vis.x2 } else { seg.x2 };
+            let r1 = if (seg.x1) < vis.x1 { vis.x1 } else { seg.x1 };
+            let r2 = if (seg.x2) > vis.x2 { vis.x2 } else { seg.x2 };
 
             let (lowscale, scale) = if seg.scale1 > seg.scale2 {
                 (seg.scale2, seg.scale1)
@@ -343,16 +332,15 @@ impl SoftwareRenderer {
             };
 
             unsafe {
-                // Check if sprite is behind this draw segment
                 if scale <= vis.scale
                     || (lowscale < vis.scale
                         && seg
                             .curline
                             .as_ref()
-                            .point_on_side(Vec2::new(vis.gx.into(), vis.gy.into()))
+                            .point_on_side(Vec2::new(vis.gx, vis.gy))
                             == 0)
                 {
-                    if seg.maskedtexturecol != FixedPoint::from(-1.0) {
+                    if seg.maskedtexturecol != -1.0 {
                         self.render_masked_seg_range(player, seg, r1, r2, pic_data, rend);
                     }
                     // seg is behind sprite
@@ -360,36 +348,34 @@ impl SoftwareRenderer {
                 }
             }
 
-            // Process sprite clipping
-            for r in i32::from(r1) as usize..=i32::from(r2) as usize {
-                if clip_bottom[r] == FixedPoint::from(-2.0) && seg.sprbottomclip.is_some() {
-                    let i = u32::from(seg.sprbottomclip.unwrap() + r as i32) as usize;
+            for r in r1 as u32 as usize..=r2 as u32 as usize {
+                if clip_bottom[r] == -2.0 && seg.sprbottomclip.is_some() {
+                    let i = (seg.sprbottomclip.unwrap() + r as f32) as u32 as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_bottom[r] = self.seg_renderer.openings[i];
-                        if clip_bottom[r] < FixedPoint::new(0) {
-                            clip_bottom[r] = FixedPoint::new(0);
+                        if clip_bottom[r] < 0.0 {
+                            clip_bottom[r] = 0.0;
                         }
                     }
                 }
-                if clip_top[r] == FixedPoint::from(-2.0) && seg.sprtopclip.is_some() {
-                    let i = u32::from(seg.sprtopclip.unwrap() + r as i32) as usize;
+                if clip_top[r] == -2.0 && seg.sprtopclip.is_some() {
+                    let i = (seg.sprtopclip.unwrap() + r as f32) as u32 as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_top[r] = self.seg_renderer.openings[i];
-                        if clip_top[r] >= FixedPoint::from(size.height()) {
-                            clip_top[r] = FixedPoint::from(size.height());
+                        if clip_top[r] >= size.height_f32() {
+                            clip_top[r] = size.height_f32();
                         }
                     }
                 }
             }
         }
 
-        // Set default clipping values if not set
-        for x in i32::from(vis.x1) as usize..i32::from(vis.x2) as usize {
-            if clip_bottom[x] == FixedPoint::from(-2) {
-                clip_bottom[x] = FixedPoint::from(size.height());
+        for x in vis.x1 as u32 as usize..=vis.x2 as u32 as usize {
+            if clip_bottom[x] == -2.0 {
+                clip_bottom[x] = size.height_f32();
             }
-            if clip_top[x] == FixedPoint::from(-2) {
-                clip_top[x] = FixedPoint::from(-1);
+            if clip_top[x] == -2.0 {
+                clip_top[x] = -1.0;
             }
         }
 
@@ -425,83 +411,69 @@ impl SoftwareRenderer {
     ) {
         let size = rend.draw_buffer().size().clone();
         let f = size.height() / 200;
-        let pspriteiscale = FixedPoint::from(0.99 / f as f32);
-        let pspritescale = FixedPoint::from(f);
+        let pspriteiscale = 0.99 / f as f32;
+        let pspritescale = f as f32;
 
         let def = pic_data.sprite_def(sprite.state.unwrap().sprite as u32 as usize);
         if def.frames.is_empty() {
             warn!("{:?} has no frames", sprite.state.unwrap().sprite);
             return;
         }
-
+        // TODO: WARN: SHT2 has no frames
+        // thread 'main' panicked at 'index out of bounds: the len is 0 but the index is
+        // 0', render/software/src/things.rs:423:21
         let frame = def.frames[(sprite.state.unwrap().frame & FF_FRAMEMASK) as usize];
         let patch = pic_data.sprite_patch(frame.lump[0] as u32 as usize);
         let flip = frame.flip[0];
-
-        // Calculate position - these are all in fixed point now
-        let mut tx = FixedPoint::from(sprite.sx - 160.0 - patch.left_offset as f32);
+        // 160.0 is pretty much a hardcoded number to center the weapon always
+        let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
         let x_offset = pspritescale / self.y_scale;
-        let x1 = FixedPoint::from(size.half_width()) + (tx * x_offset);
+        let x1 = size.half_width_f32() + (tx * x_offset);
 
-        if x1 >= FixedPoint::from(size.width()) {
+        if x1 >= size.width_f32() {
             return;
         }
+        tx += patch.data.len() as f32;
+        let x2 = size.half_width_f32() + tx * x_offset;
 
-        tx = tx + FixedPoint::from(patch.data.len() as f32);
-        let x2 = FixedPoint::from(size.half_width()) + tx * x_offset;
-
-        if x2 < FixedPoint::new(0) {
+        if x2 < 0.0 {
             return;
         }
 
         let mut vis = VisSprite::new();
         vis.mobj_flags = flags;
         vis.patch = frame.lump[0] as u32 as usize;
-
-        // Calculate texture mid - this is the vertical position reference
-        vis.texture_mid = FixedPoint::from(100.0 - (sprite.sy - patch.top_offset as f32));
-        let tmp = self.seg_renderer.centery - size.half_height();
-
+        // -(sprite.sy.floor() - patch.top_offset as f32);
+        vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
+        let tmp = self.seg_renderer.centery - size.half_height_f32();
         if size.hi_res() {
-            vis.texture_mid = vis.texture_mid + tmp / 2.0;
+            vis.texture_mid += tmp / 2.0;
         } else {
-            vis.texture_mid = vis.texture_mid + tmp;
+            vis.texture_mid += tmp;
         }
-
-        // Set screen coordinates with proper clipping
-        vis.x1 = if x1 < FixedPoint::new(0) {
-            FixedPoint::new(0)
-        } else {
-            x1
-        };
-        vis.x2 = if x2 >= FixedPoint::from(size.width()) {
-            FixedPoint::from(size.width())
+        vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
+        vis.x2 = if x2 >= size.width_f32() {
+            size.width_f32()
         } else {
             x2
         };
-
         vis.scale = pspritescale;
         vis.light_level = light + 2;
 
-        // Handle flipping
         if flip != 0 {
             vis.x_iscale = -pspriteiscale;
-            vis.start_frac = FixedPoint::from(patch.data[0].len() as f32);
+            vis.start_frac = patch.data[0].len() as f32;
         } else {
             vis.x_iscale = pspriteiscale;
-            vis.start_frac = FixedPoint::new(0);
+            vis.start_frac = 0.0;
         }
 
-        // Adjust starting position if clipped
         if vis.x1 > x1 {
-            vis.start_frac = vis.start_frac + vis.x_iscale * (vis.x1 - x1);
+            vis.start_frac += vis.x_iscale * (vis.x1 - x1);
         }
 
-        // Create clipping arrays
-        let clip_bottom = vec![FixedPoint::new(0); size.width_usize()];
-        let clip_top = vec![FixedPoint::from(size.height()); size.width_usize()];
-
-        // Draw the sprite
+        let clip_bottom = vec![0.0; size.width_usize()];
+        let clip_top = vec![size.height_f32(); size.width_usize()];
         self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, rend)
     }
 
@@ -534,8 +506,8 @@ impl SoftwareRenderer {
         &mut self,
         player: &Player,
         ds: &DrawSeg,
-        x1: FixedPoint,
-        x2: FixedPoint,
+        x1: f32,
+        x2: f32,
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
     ) {
@@ -552,105 +524,94 @@ impl SoftwareRenderer {
             let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
 
             let rw_scalestep = ds.scalestep;
-            // Calculate scale for first pixel and adjust based on position
+            // TODO: hmmmm 0.05
             let mut spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep;
 
             let mut dc_texturemid;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                // Bottom pegged
                 dc_texturemid = if frontsector.floorheight > backsector.floorheight {
-                    FixedPoint::from(frontsector.floorheight)
+                    frontsector.floorheight
                 } else {
-                    FixedPoint::from(backsector.floorheight)
+                    backsector.floorheight
                 };
 
                 let texture_column = pic_data.wall_pic_column(texnum, 0);
-                dc_texturemid = dc_texturemid + FixedPoint::from(texture_column.len() - 1)
-                    - FixedPoint::from(player.viewz);
+                dc_texturemid += (texture_column.len() - 1) as f32 - player.viewz;
             } else {
-                // Top pegged
                 dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
-                    FixedPoint::from(frontsector.ceilingheight)
+                    frontsector.ceilingheight
                 } else {
-                    FixedPoint::from(backsector.ceilingheight)
+                    backsector.ceilingheight
                 };
-                dc_texturemid = dc_texturemid - FixedPoint::from(player.viewz);
+                dc_texturemid -= player.viewz;
             }
-            dc_texturemid = dc_texturemid + FixedPoint::from(seg.sidedef.rowoffset);
+            dc_texturemid += seg.sidedef.rowoffset;
 
-            // Process masked column for each pixel in range
-            for x in i32::from(x1)..=i32::from(x2) {
-                if ds.maskedtexturecol + x < FixedPoint::new(0) {
-                    spryscale = spryscale + rw_scalestep;
+            for x in x1.floor() as u32 as usize..=x2.floor() as u32 as usize {
+                if ds.maskedtexturecol + (x as f32) < 0.0 {
+                    spryscale += rw_scalestep;
                     continue;
                 }
-                let index = u32::from(ds.maskedtexturecol + x) as usize;
+                let index = (ds.maskedtexturecol + x as f32) as u32 as usize;
 
                 if index != usize::MAX
                     && index < self.seg_renderer.openings.len()
                     && ds.sprbottomclip.is_some()
                     && ds.sprtopclip.is_some()
-                    && self.seg_renderer.openings[index] != FixedPoint::from(i32::MAX)
+                    && self.seg_renderer.openings[index] != f32::MAX
                     && seg.sidedef.midtexture.is_some()
                 {
                     let texture_column = pic_data.wall_pic_column(
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                        u32::from(self.seg_renderer.openings[index].abs()) as usize,
+                        self.seg_renderer.openings[index].abs() as u32 as usize,
                     );
 
-                    // Get clipping values from openings
-                    let i = u32::from(ds.sprtopclip.unwrap() + x) as usize;
+                    let i = (ds.sprtopclip.unwrap() + x as f32) as u32 as usize;
                     if i >= self.seg_renderer.openings.len() {
                         continue;
                     }
                     let mut mceilingclip = self.seg_renderer.openings[i];
-
-                    let i = u32::from(ds.sprbottomclip.unwrap() + x) as usize;
+                    let i = (ds.sprbottomclip.unwrap() + x as f32) as u32 as usize;
                     if i >= self.seg_renderer.openings.len() {
                         continue;
                     }
                     let mut mfloorclip = self.seg_renderer.openings[i];
-
-                    // Apply bounds checking
-                    if mceilingclip >= FixedPoint::from(size.height()) {
-                        mceilingclip = FixedPoint::from(size.height());
+                    if mceilingclip >= size.height_f32() {
+                        mceilingclip = size.height_f32();
                     }
-                    if mfloorclip < FixedPoint::new(0) {
-                        mfloorclip = FixedPoint::new(0);
+                    if mfloorclip < 0.0 {
+                        mfloorclip = 0.0;
                     }
 
-                    // Calculate unclipped screen coordinates for post
+                    // calculate unclipped screen coordinates for post
                     let sprtopscreen = self.seg_renderer.centery - dc_texturemid * spryscale;
-                    let mut top = sprtopscreen;
-                    let mut bottom = top + 1 + (spryscale * FixedPoint::from(texture_column.len()));
+                    let mut top = sprtopscreen.round(); // TODO: possible glitch
+                    let mut bottom = top + 1.0 + (spryscale * texture_column.len() as f32).round();
 
-                    // Apply clipping
                     if bottom >= mfloorclip {
-                        bottom = mfloorclip - 1;
+                        bottom = mfloorclip - 1.0;
                     }
                     if top <= mceilingclip {
-                        top = mceilingclip + 1;
+                        top = mceilingclip + 1.0;
                     }
 
-                    // Draw the column if visible
                     draw_masked_column(
                         texture_column,
-                        pic_data.vert_light_colourmap(wall_lights, f32::from(spryscale)),
+                        pic_data.vert_light_colourmap(wall_lights, spryscale),
                         false,
-                        (1.0 / spryscale).into(),
-                        self.seg_renderer.centery.into(),
-                        x as usize,
-                        dc_texturemid.into(),
-                        top.into(),
-                        bottom.into(),
+                        1.0 / spryscale,
+                        self.seg_renderer.centery,
+                        x,
+                        dc_texturemid,
+                        top,
+                        bottom,
                         pic_data,
                         rend.draw_buffer(),
                     );
 
-                    // Mark this column as processed
-                    self.seg_renderer.openings[index] = FixedPoint::from(i32::MAX);
+                    self.seg_renderer.openings[index] = f32::MAX;
                 }
-                spryscale = spryscale + rw_scalestep;
+                spryscale += rw_scalestep;
             }
         }
     }

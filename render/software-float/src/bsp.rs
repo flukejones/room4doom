@@ -2,10 +2,8 @@ use super::RenderData;
 use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
-
 use crate::utilities::{
-    angle_to_screen, angle_to_screen_fixed, corrected_fov_for_height, projection,
-    vertex_angle_to_object, y_scale,
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
 };
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
@@ -14,7 +12,6 @@ use gameplay::{
     Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
 };
 use glam::Vec2;
-use math::FixedPoint;
 use render_trait::{PixelBuffer, RenderTrait};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::mem;
@@ -24,6 +21,36 @@ const MAX_SECTS: usize = 4096;
 const MAX_VIS_SPRITES: usize = 1024;
 const IS_SSECTOR_MASK: u32 = 0x80000000;
 
+// Need to sort out what is shared and what is not so that a data struct
+// can be organised along with method/ownsership
+//
+// seg_t *curline; // SHARED, PASS AS AN ARG to segs.c functions
+//
+// side_t *sidedef; // don't use..., get from curline/seg
+//
+// line_t *linedef; // In maputils as an arg to P_LineOpening, not global
+//
+// These can be chased through the chain of:
+// seg.linedef.front_sidedef.sector.floorheight
+// This block as a struct to pass round?
+//
+// sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
+// sector_t *backsector;
+
+/// We store most of what is needed for rendering in various functions here to
+/// avoid having to pass too many things in args through multiple function
+/// calls. This is due to the Doom C relying a fair bit on global state.
+///
+/// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
+///
+/// ----------------------------------------------------------------------------
+///
+/// - R_DrawSprite, r_things.c
+/// - R_DrawMasked, r_things.c
+/// - R_StoreWallRange, r_segs.c, checks only for overflow of drawsegs, and uses
+///   *one* entry through ds_p it then inserts/incs pointer to next drawseg in
+///   the array when finished
+/// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
 pub struct SoftwareRenderer {
     /// index in to self.solidsegs
     new_end: usize,
@@ -42,9 +69,9 @@ pub struct SoftwareRenderer {
     pub(super) checked_idx: usize,
 
     /// Mostly used in thing drawing only
-    pub y_scale: FixedPoint,
+    pub y_scale: f32,
     /// Mostly used in thing drawing only
-    pub projection: FixedPoint,
+    pub projection: f32,
 
     pub buf_width: usize,
     pub buf_height: usize,
@@ -60,8 +87,10 @@ impl SoftwareRenderer {
     ) {
         let map = &level.map_data;
 
-        self.clear(FixedPoint::from(rend.draw_buffer().size().width_f32()));
+        // TODO: pull duplicate functionality out to a function
+        self.clear(rend.draw_buffer().size().width_f32());
         let mut count = 0;
+        // TODO: netupdate
 
         pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
         pic_data.set_player_palette(player);
@@ -70,7 +99,7 @@ impl SoftwareRenderer {
         unsafe {
             self.seg_renderer.set_view_pitch(
                 player.lookdir as i16,
-                FixedPoint::from(rend.draw_buffer().size().half_height_f32()),
+                rend.draw_buffer().size().half_height_f32(),
             );
         }
         #[cfg(feature = "hprof")]
@@ -78,9 +107,11 @@ impl SoftwareRenderer {
         self.render_bsp_node(map, player, map.start_node(), pic_data, rend, &mut count);
 
         trace!("BSP traversals for render: {count}");
+        // TODO: netupdate again
         #[cfg(feature = "hprof")]
         profile!("draw_masked");
         self.draw_masked(player, pic_data, rend);
+        // TODO: netupdate again
     }
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
@@ -93,16 +124,16 @@ impl SoftwareRenderer {
             buf_height *= 2;
         }
         let fov = corrected_fov_for_height(fov, buf_width as f32, buf_height as f32);
-        let projection = FixedPoint::from(projection(fov, buf_width as f32 / 2.0));
-        let y_scale = FixedPoint::from(y_scale(fov, buf_width as f32, buf_height as f32));
+        let projection = projection(fov, buf_width as f32 / 2.0);
+        let y_scale = y_scale(fov, buf_width as f32, buf_height as f32);
 
         Self {
             r_data: RenderData::new(buf_width, buf_height),
             seg_renderer: SegRender::new(fov, buf_width, buf_height),
             new_end: 0,
             solidsegs: [ClipRange {
-                first: FixedPoint::new(0),
-                last: FixedPoint::new(0),
+                first: 0.0,
+                last: 0.0,
             }; MAX_SEGS],
             _debug: debug,
             checked_sectors: [-1; MAX_SECTS],
@@ -116,7 +147,7 @@ impl SoftwareRenderer {
         }
     }
 
-    fn clear(&mut self, screen_width: FixedPoint) {
+    fn clear(&mut self, screen_width: f32) {
         for vis in self.vissprites.iter_mut() {
             *vis = unsafe { mem::zeroed::<VisSprite>() };
         }
@@ -128,6 +159,7 @@ impl SoftwareRenderer {
         self.r_data.clear_data();
     }
 
+    /// R_AddLine - r_bsp
     fn add_line<'a>(
         &'a mut self,
         player: &Player,
@@ -142,6 +174,7 @@ impl SoftwareRenderer {
         // reject orthogonal back sides
         let viewangle = mobj.angle;
 
+        // Blocks some zdoom segs rendering
         if !seg.is_facing_point(&mobj.xy) {
             return;
         }
@@ -178,20 +211,21 @@ impl SoftwareRenderer {
             }
             angle2 = -clipangle;
         }
+        // OK down to here
 
         let s = rend.draw_buffer().size();
-        let x1 = FixedPoint::from(angle_to_screen(
+        let x1 = angle_to_screen(
             self.seg_renderer.fov,
             s.half_width_f32(),
             s.width_f32(),
             angle1,
-        ));
-        let x2 = FixedPoint::from(angle_to_screen(
+        );
+        let x2 = angle_to_screen(
             self.seg_renderer.fov,
             s.half_width_f32(),
             s.width_f32(),
             angle2,
-        ));
+        );
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -203,7 +237,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight <= front_sector.floorheight
                 || back_sector.floorheight >= front_sector.ceilingheight
             {
-                self.clip_solid_seg(x1, x2 - 1, seg, player, pic_data, rend);
+                self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
                 return;
             }
 
@@ -212,7 +246,7 @@ impl SoftwareRenderer {
             if back_sector.ceilingheight != front_sector.ceilingheight
                 || back_sector.floorheight != front_sector.floorheight
             {
-                self.clip_portal_seg(x1, x2 - 1, seg, player, pic_data, rend);
+                self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
                 return;
             }
 
@@ -227,12 +261,13 @@ impl SoftwareRenderer {
                 return;
             }
 
-            self.clip_portal_seg(x1, x2 - 1, seg, player, pic_data, rend);
+            self.clip_portal_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
             return;
         }
-        self.clip_solid_seg(x1, x2 - 1, seg, player, pic_data, rend);
+        self.clip_solid_seg(x1, x2 - 1.0, seg, player, pic_data, rend);
     }
 
+    /// R_Subsector - r_bsp
     fn draw_subsector(
         &mut self,
         map: &MapData,
@@ -258,20 +293,22 @@ impl SoftwareRenderer {
         }
     }
 
-    fn clear_clip_segs(&mut self, screen_width: FixedPoint) {
+    /// R_ClearClipSegs - r_bsp
+    fn clear_clip_segs(&mut self, screen_width: f32) {
         for s in self.solidsegs.iter_mut() {
             s.first = screen_width;
-            s.last = FixedPoint::from(f32::MAX);
+            s.last = f32::MAX;
         }
-        self.solidsegs[0].first = FixedPoint::from(f32::MAX);
-        self.solidsegs[0].last = FixedPoint::from(f32::MIN);
+        self.solidsegs[0].first = f32::MAX;
+        self.solidsegs[0].last = f32::MIN;
         self.new_end = 1;
     }
 
+    /// R_ClipSolidWallSegment - r_bsp
     fn clip_solid_seg(
         &mut self,
-        first: FixedPoint,
-        last: FixedPoint,
+        first: f32,
+        last: f32,
         seg: &Segment,
         object: &Player,
         pic_data: &PicData,
@@ -282,12 +319,12 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - FixedPoint::from(1.0) {
+        while self.solidsegs[start].last < first - 1.0 {
             start += 1;
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - FixedPoint::from(1.0) {
+            if last < self.solidsegs[start].first - 1.0 {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
                 self.seg_renderer.store_wall_range(
@@ -314,9 +351,10 @@ impl SoftwareRenderer {
             }
 
             // There is a fragment above *start.
+            // TODO: this causes a glitch?
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - FixedPoint::from(1.0),
+                self.solidsegs[start].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -333,10 +371,10 @@ impl SoftwareRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - FixedPoint::from(1.0) {
+        while last >= self.solidsegs[next + 1].first - 1.0 {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[next].last + FixedPoint::from(1.0),
-                self.solidsegs[next + 1].first - FixedPoint::from(1.0),
+                self.solidsegs[next].last + 1.0,
+                self.solidsegs[next + 1].first - 1.0,
                 seg,
                 object,
                 &mut self.r_data,
@@ -354,7 +392,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[next].last + FixedPoint::from(1.0),
+            self.solidsegs[next].last + 1.0,
             last,
             seg,
             object,
@@ -369,10 +407,14 @@ impl SoftwareRenderer {
         self.crunch(start, next);
     }
 
+    /// R_ClipPassWallSegment - r_bsp
+    /// Clips the given range of columns, but does not includes it in the clip
+    /// list. Does handle windows, e.g. LineDefs with upper and lower
+    /// texture
     fn clip_portal_seg(
         &mut self,
-        first: FixedPoint,
-        last: FixedPoint,
+        first: f32,
+        last: f32,
         seg: &Segment,
         player: &Player,
         pic_data: &PicData,
@@ -381,12 +423,12 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - FixedPoint::from(1.0) {
+        while self.solidsegs[start].last < first - 1.0 {
             start += 1;
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - FixedPoint::from(1.0) {
+            if last < self.solidsegs[start].first - 1.0 {
                 // Post is entirely visible (above start),
                 self.seg_renderer.store_wall_range(
                     first,
@@ -403,7 +445,7 @@ impl SoftwareRenderer {
             // There is a fragment above *start.
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - FixedPoint::from(1.0),
+                self.solidsegs[start].first - 1.0,
                 seg,
                 player,
                 &mut self.r_data,
@@ -417,10 +459,10 @@ impl SoftwareRenderer {
             return;
         }
 
-        while last >= self.solidsegs[start + 1].first - FixedPoint::from(1.0) {
+        while last >= self.solidsegs[start + 1].first - 1.0 {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[start].last + FixedPoint::from(1.0),
-                self.solidsegs[start + 1].first - FixedPoint::from(1.0),
+                self.solidsegs[start].last + 1.0,
+                self.solidsegs[start + 1].first - 1.0,
                 seg,
                 player,
                 &mut self.r_data,
@@ -437,7 +479,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[start].last + FixedPoint::from(1.0),
+            self.solidsegs[start].last + 1.0,
             last,
             seg,
             player,
@@ -460,6 +502,7 @@ impl SoftwareRenderer {
         self.new_end = start + 1;
     }
 
+    /// R_RenderBSPNode - r_bsp
     fn render_bsp_node(
         &mut self,
         map: &MapData,
@@ -467,17 +510,22 @@ impl SoftwareRenderer {
         node_id: u32,
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
+
         count: &mut usize,
     ) {
+        // profile!("render_bsp_node");
         *count += 1;
         let mobj = unsafe { player.mobj_unchecked() };
 
         if node_id & IS_SSECTOR_MASK != 0 {
             if node_id == u32::MAX {
                 let subsect = &map.subsectors()[0];
+                // Check if it should be drawn, then draw
                 self.draw_subsector(map, player, subsect, pic_data, rend);
             } else {
+                // It's a leaf node and is the index to a subsector
                 let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
+                // Check if it should be drawn, then draw
                 self.draw_subsector(map, player, subsect, pic_data, rend);
             }
             return;
@@ -491,24 +539,27 @@ impl SoftwareRenderer {
         self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
 
         // Possibly divide back space.
+        // check if each corner of the BB is in the FOV
+        //if node.point_in_bounds(&v, side ^ 1) {
         if self.bb_extents_in_fov(
             node,
             mobj,
             side ^ 1,
-            FixedPoint::from(rend.draw_buffer().size().half_width_f32()),
-            FixedPoint::from(rend.draw_buffer().size().width_f32()),
+            rend.draw_buffer().size().half_width_f32(),
+            rend.draw_buffer().size().width_f32(),
         ) {
             self.render_bsp_node(map, player, node.children[side ^ 1], pic_data, rend, count);
         }
     }
 
+    /// R_CheckBBox - r_bsp
     fn bb_extents_in_fov(
         &self,
         node: &Node,
         mobj: &MapObject,
         side: usize,
-        half_screen_width: FixedPoint,
-        screen_width: FixedPoint,
+        half_screen_width: f32,
+        screen_width: f32,
     ) -> bool {
         #[cfg(feature = "hprof")]
         profile!("bb_extents_in_fov");
@@ -519,6 +570,10 @@ impl SoftwareRenderer {
         // BOXRIGHT = 3
         let lt = node.bboxes[side][0];
         let rb = node.bboxes[side][1];
+
+        // if node.point_in_bounds(mobj.xyz, side) {
+        //     return true;
+        // }
 
         let boxx;
         let boxy;
@@ -587,13 +642,13 @@ impl SoftwareRenderer {
             angle2 = -clipangle;
         }
 
-        let x1 = angle_to_screen_fixed(
+        let x1 = angle_to_screen(
             self.seg_renderer.fov,
             half_screen_width,
             screen_width,
             angle1,
         );
-        let mut x2 = angle_to_screen_fixed(
+        let mut x2 = angle_to_screen(
             self.seg_renderer.fov,
             half_screen_width,
             screen_width,
@@ -604,7 +659,7 @@ impl SoftwareRenderer {
         if x1 == x2 {
             return false;
         }
-        x2 = x2 - FixedPoint::from(1.0);
+        x2 -= 1.0;
 
         let mut start = 0;
         while self.solidsegs[start].last < x2 {
