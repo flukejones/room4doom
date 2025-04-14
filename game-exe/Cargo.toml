@@ -15,6 +15,7 @@ path = "src/main.rs"
 safety_check = ["render-soft/safety_check"]
 debug_draw = ["render-soft/debug_draw"]
 debug_seg_clip = ["render-soft/debug_seg_clip"]
+debug_seg_invert = ["render-soft/debug_seg_invert"]
 hprof = ["render-soft/hprof"]
 
 [dependencies]

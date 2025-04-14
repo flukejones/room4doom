@@ -10,6 +10,7 @@ build = "../../build.rs"
 safety_check = []
 debug_draw = []
 debug_seg_clip = []
+debug_seg_invert = []
 hprof = []
 
 [dependencies]
