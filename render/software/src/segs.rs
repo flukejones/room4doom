@@ -477,6 +477,13 @@ impl SegRender {
 
         self.render_seg_loop(seg, player, mobj, rdata, pic_data, rend);
 
+        #[cfg(feature = "debug_seg_clip")]
+        {
+            self.draw_debug_clipping(rdata, rend.draw_buffer());
+            rend.debug_blit_draw_buffer();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
             for (i, n) in rdata
@@ -899,6 +906,60 @@ impl SegRender {
                 pixels.set_pixel(dc_x, y_pos, &pal[px].0);
             }
             pos += pixels.pitch();
+        }
+    }
+
+    #[cfg(feature = "debug_seg_clip")]
+    fn draw_debug_clipping(&self, rdata: &RenderData, pixels: &mut impl PixelBuffer) {
+        // Draw ceiling clip line in red
+        for x in 0..pixels.size().width_usize() {
+            let ceiling_y = (rdata.portal_clip.ceilingclip[x] as u32 as usize);
+            if ceiling_y < pixels.size().height_usize() {
+                pixels.set_pixel(x, ceiling_y, &[255, 0, 0, 255]); // Red
+                // Draw a second pixel to make it more visible
+                if ceiling_y + 1 < pixels.size().height_usize() {
+                    pixels.set_pixel(x, ceiling_y + 1, &[255, 0, 0, 255]);
+                }
+            }
+
+            // Draw floor clip line in blue
+            let floor_y = (rdata.portal_clip.floorclip[x] as u32 as usize);
+            if floor_y < pixels.size().height_usize() {
+                pixels.set_pixel(x, floor_y, &[0, 0, 255, 255]); // Blue
+                // Draw a second pixel to make it more visible
+                if floor_y > 0 {
+                    pixels.set_pixel(x, floor_y - 1, &[0, 0, 255, 255]);
+                }
+            }
+        }
+
+        // Draw current segment bounds in green
+        if self.rw_startx < self.rw_stopx {
+            for x in (self.rw_startx as u32 as usize)
+                ..=(self.rw_stopx.min(pixels.size().width() as f32 - 1.0) as u32 as usize)
+            {
+                // Draw top of seg
+                let top_y = (self.topfrac as u32 as usize);
+                if top_y < pixels.size().height_usize() {
+                    pixels.set_pixel(x, top_y, &[0, 255, 0, 255]); // Green
+                }
+
+                // Draw bottom of seg
+                let bottom_y = (self.bottomfrac as u32 as usize);
+                if bottom_y < pixels.size().height_usize() {
+                    pixels.set_pixel(x, bottom_y, &[0, 255, 0, 255]); // Green
+                }
+            }
+        }
+
+        // Highlight any problem areas where ceiling > floor
+        for x in 0..pixels.size().width_usize() {
+            if rdata.portal_clip.ceilingclip[x] >= rdata.portal_clip.floorclip[x] {
+                // This is an error condition - draw a yellow vertical line
+                for y in 0..pixels.size().height_usize() {
+                    pixels.set_pixel(x, y, &[255, 255, 0, 128]); // Semi-transparent yellow
+                }
+            }
         }
     }
 }
