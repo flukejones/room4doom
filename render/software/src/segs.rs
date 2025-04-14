@@ -551,14 +551,14 @@ impl SegRender {
             let clip_index = usize::from(self.rw_startx);
 
             // The yl and yh blocks are what affect wall clipping the most
-            yl = self.topfrac.floor();
+            yl = self.topfrac.truncate();
             if yl <= rdata.portal_clip.ceilingclip[clip_index] {
                 yl = rdata.portal_clip.ceilingclip[clip_index] + 1;
             }
 
             let x_angle = mobj.angle + self.screen_x[clip_index];
-            let cos = x_angle.cos();
-            let sin = x_angle.sin();
+            let cos = FixedPoint::from(x_angle.cos());
+            let sin = FixedPoint::from(x_angle.sin());
             let distscale = FixedPoint::from(self.screen_x_scale[usize::from(self.rw_startx)]);
 
             if self.markceiling {
@@ -616,7 +616,7 @@ impl SegRender {
                 }
             }
 
-            yh = self.bottomfrac.floor();
+            yh = self.bottomfrac.truncate();
             if yh >= rdata.portal_clip.floorclip[clip_index] {
                 yh = rdata.portal_clip.floorclip[clip_index] - 1;
             }
@@ -656,9 +656,7 @@ impl SegRender {
 
                 // Calculate texture column - convert to fixed point
                 texture_column = usize::from(
-                    (self.rw_offset - angle.tan() * self.rw_distance)
-                        .abs()
-                        .floor(), // without floor we get overflow in draw
+                    (self.rw_offset - angle.tan() * self.rw_distance).abs(), // without floor we get overflow in draw
                 );
 
                 self.dc_iscale = 1.0 / self.rw_scale;
@@ -837,8 +835,8 @@ impl SegRender {
         viewxy: Vec2,
         plane_height: FixedPoint,
         total_light: usize,
-        cos: f32,
-        sin: f32,
+        cos: FixedPoint,
+        sin: FixedPoint,
         distscale: FixedPoint,
         y_start: usize,
         mut y_end: usize,
@@ -864,9 +862,8 @@ impl SegRender {
 
             // Calculate texture position
             let length = diminished_light * distscale;
-            let length_float: f32 = length.into();
-            let xfrac = viewxy.x + cos * length_float;
-            let yfrac = viewxy.y + sin * length_float;
+            let xfrac = viewxy.x + f32::from(cos * length);
+            let yfrac = viewxy.y + f32::from(sin * length);
 
             // Calculate texture coordinates
             let x_step = (xfrac.abs() as u32 as usize) & tex_len;

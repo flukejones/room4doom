@@ -15,15 +15,6 @@ impl FixedPoint {
         Self(self.0.abs())
     }
 
-    pub fn ceil(self) -> Self {
-        let floored = self.floor();
-        if floored == self {
-            floored
-        } else {
-            floored + 1
-        }
-    }
-
     pub fn clamp(self, min: Self, max: Self) -> Self {
         if self < min {
             min
@@ -34,13 +25,8 @@ impl FixedPoint {
         }
     }
 
-    pub fn cos(self) -> Self {
-        let angle_float: f32 = self.into();
-        angle_float.cos().into()
-    }
-
-    pub const fn floor(self) -> Self {
-        Self((self.0 >> FRACBITS) << FRACBITS)
+    pub const fn truncate(self) -> Self {
+        Self(self.0 & !(FRACUNIT - 1))
     }
 
     pub fn max(self, other: Self) -> Self {
@@ -62,10 +48,10 @@ impl FixedPoint {
         }
     }
 
-    // pub fn round(self) -> Self {
-    //     let float_val: f32 = self.into();
-    //     float_val.round().into()
-    // }
+    pub fn cos(self) -> Self {
+        let angle_float: f32 = self.into();
+        angle_float.cos().into()
+    }
 
     pub fn sin(self) -> Self {
         let angle_float: f32 = self.into();
