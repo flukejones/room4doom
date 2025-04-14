@@ -258,7 +258,7 @@ impl SegRender {
 
         ds_p.scale1 = self.rw_scale;
 
-        if stop > start {
+        if stop >= start {
             // Calculate scale at end point
             let angle_plus_screen_stop = mobj.angle + self.screen_x[usize::from(stop)];
             ds_p.scale2 = scale_from_view_angle_fixed(
@@ -445,7 +445,7 @@ impl SegRender {
 
         // Convert calculations to fixed point
         self.topstep = -(self.worldtop * self.rw_scalestep);
-        self.topfrac = half_height - (self.worldtop * self.rw_scale) + 1.0;
+        self.topfrac = half_height - (self.worldtop * self.rw_scale) + 1;
 
         self.bottomstep = -(self.worldbottom * self.rw_scalestep);
         self.bottomfrac = half_height - (self.worldbottom * self.rw_scale);
@@ -463,6 +463,13 @@ impl SegRender {
         }
 
         self.render_seg_loop(seg, player, mobj, rdata, pic_data, rend);
+
+        #[cfg(feature = "debug_seg_clip")]
+        {
+            self.draw_debug_clipping(rdata, rend.draw_buffer());
+            // rend.debug_blit_draw_buffer();
+            // std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
@@ -565,7 +572,7 @@ impl SegRender {
 
             if self.markceiling {
                 top = rdata.portal_clip.ceilingclip[clip_index] + 1;
-                bottom = yl;
+                bottom = yl - 1;
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1;
                 }
@@ -614,7 +621,7 @@ impl SegRender {
                         }
                     }
                     // Must clip walls to floors if drawn
-                    rdata.portal_clip.ceilingclip[clip_index] = bottom - 1;
+                    rdata.portal_clip.ceilingclip[clip_index] = bottom;
                 }
             }
 
@@ -650,6 +657,7 @@ impl SegRender {
                         rend.debug_blit_draw_buffer();
                         sleep(Duration::from_millis(1));
                     }
+                    rdata.portal_clip.floorclip[clip_index] = top;
                 }
             }
 
@@ -658,7 +666,7 @@ impl SegRender {
 
                 // Calculate texture column - convert to fixed point
                 texture_column = usize::from(
-                    (self.rw_offset - angle.tan() * self.rw_distance), // without floor we get overflow in draw
+                    self.rw_offset - angle.tan() * self.rw_distance, // without floor we get overflow in draw
                 );
 
                 self.dc_iscale = 1.0 / self.rw_scale;
@@ -767,6 +775,13 @@ impl SegRender {
             self.rw_scale = self.rw_scale + self.rw_scalestep;
             self.topfrac = self.topfrac + self.topstep;
             self.bottomfrac = self.bottomfrac + self.bottomstep;
+
+            #[cfg(feature = "debug_seg_invert")]
+            {
+                self.highlight_inverted_clips(rdata, rend.draw_buffer());
+                // rend.debug_blit_draw_buffer();
+                // std::thread::sleep(std::time::Duration::from_millis(50));
+            }
         }
     }
 
@@ -886,6 +901,103 @@ impl SegRender {
                 pixels.set_pixel(fixed_to_float(self.rw_startx.0) as usize, y_start, &pal[px]);
             }
             pos += pixels.pitch();
+        }
+    }
+
+    #[cfg(feature = "debug_seg_clip")]
+    fn draw_debug_clipping(&self, rdata: &RenderData, pixels: &mut impl PixelBuffer) {
+        // Draw ceiling clip line in red
+        for x in 0..pixels.size().width_usize() {
+            let ceiling_y = rdata.portal_clip.ceilingclip[x] as usize;
+            if ceiling_y < pixels.size().height_usize() {
+                pixels.set_pixel(x, ceiling_y, &[255, 0, 0, 255]); // Red
+                // Draw a second pixel to make it more visible
+                if ceiling_y + 1 < pixels.size().height_usize() {
+                    pixels.set_pixel(x, ceiling_y + 1, &[255, 0, 0, 255]);
+                }
+            }
+
+            // Draw floor clip line in blue
+            let floor_y = rdata.portal_clip.floorclip[x] as usize;
+            if floor_y < pixels.size().height_usize() {
+                pixels.set_pixel(x, floor_y, &[0, 0, 255, 255]); // Blue
+                // Draw a second pixel to make it more visible
+                if floor_y > 0 {
+                    pixels.set_pixel(x, floor_y - 1, &[0, 0, 255, 255]);
+                }
+            }
+        }
+
+        // Draw current segment bounds in green
+        if self.rw_startx < self.rw_stopx {
+            for x in usize::from(self.rw_startx)
+                ..=usize::from(
+                    self.rw_stopx
+                        .min(FixedPoint::from(pixels.size().width() - 1)),
+                )
+            {
+                // Draw top of seg
+                let top_y = usize::from(self.topfrac.truncate());
+                if top_y < pixels.size().height_usize() {
+                    pixels.set_pixel(x, top_y, &[0, 255, 0, 255]); // Green
+                }
+
+                // Draw bottom of seg
+                let bottom_y = usize::from(self.bottomfrac.truncate());
+                if bottom_y < pixels.size().height_usize() {
+                    pixels.set_pixel(x, bottom_y, &[0, 255, 0, 255]); // Green
+                }
+            }
+        }
+
+        // // Highlight any problem areas where ceiling > floor
+        // for x in 0..pixels.size().width_usize() {
+        //     if rdata.portal_clip.ceilingclip[x] > rdata.portal_clip.floorclip[x] {
+        //         // This is an error condition - draw a yellow vertical line
+        //         for y in 0..pixels.size().height_usize() {
+        //             pixels.set_pixel(x, y, &[255, 255, 0, 128]); // Semi-transparent yellow
+        //         }
+        //     }
+        // }
+    }
+
+    #[cfg(feature = "debug_seg_invert")]
+    fn highlight_inverted_clips(&self, rdata: &RenderData, pixels: &mut impl PixelBuffer) {
+        let width = pixels.size().width_usize();
+        let height = pixels.size().height_usize();
+
+        let mut inverted_count = 0;
+        let mut first_inverted = None;
+
+        for x in 0..width {
+            let ceiling = rdata.portal_clip.ceilingclip[x];
+            let floor = rdata.portal_clip.floorclip[x];
+
+            if ceiling >= floor {
+                inverted_count += 1;
+                if first_inverted.is_none() {
+                    first_inverted = Some(x);
+                }
+
+                // Draw a vertical magenta line at each inverted column
+                for y in 0..height {
+                    let mut pixel = [255, 0, 255, 50]; // Magenta
+                    let existing = pixels.read_pixel(x, y);
+                    pixel[0] = (pixel[0] / 2 + existing[0] / 2);
+                    pixel[1] = (pixel[1] / 2 + existing[1] / 2);
+                    pixel[2] = (pixel[2] / 2 + existing[2] / 2);
+
+                    pixels.set_pixel(x, y, &pixel);
+                }
+            }
+        }
+
+        if inverted_count > 0 {
+            warn!(
+                "CLIP INVERSION: Found {} columns with ceiling >= floor. First at x={}",
+                inverted_count,
+                first_inverted.unwrap()
+            );
         }
     }
 }
