@@ -1,7 +1,32 @@
+use std::i32;
+
 use crate::{fixed_to_float, float_to_fixed};
+use lazy_static::lazy_static;
 
 const FRACBITS: i32 = 16;
 const FRACUNIT: i32 = 1 << FRACBITS;
+
+// Size of the angle table (fineangles)
+pub const FINEANGLES: usize = 8192;
+pub const FINEMASK: usize = FINEANGLES - 1;
+
+// Angle conversions
+pub const ANGLE_90: i32 = FINEANGLES as i32 / 4;
+pub const ANGLE_180: i32 = ANGLE_90 * 2;
+pub const ANGLE_270: i32 = ANGLE_90 * 3;
+pub const ANGLE_MAX: i32 = FINEANGLES as i32;
+
+lazy_static! {
+    static ref FINETANGENT_TABLE: [FixedPoint; FINEANGLES / 4 + 1] = {
+        let mut table = [FixedPoint::new(0); FINEANGLES / 4 + 1];
+        for i in 0..=FINEANGLES / 4 {
+            // Calculate sine values from 0 to 90 degrees (0 to PI/2)
+            let angle = (i as f32) * (std::f32::consts::PI / 2.0) / (FINEANGLES / 4) as f32;
+            table[i] = FixedPoint::from(angle.sin());
+        }
+        table
+    };
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FixedPoint(i32);
@@ -11,9 +36,25 @@ impl FixedPoint {
         Self(value)
     }
 
-    pub fn abs(self) -> Self {
-        Self(self.0.abs())
+    pub const fn unit() -> Self {
+        Self(FRACUNIT)
     }
+
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+
+    pub const fn min() -> Self {
+        Self(i32::MIN)
+    }
+
+    pub const fn max() -> Self {
+        Self(i32::MAX)
+    }
+
+    // pub fn abs(self) -> Self {
+    //     Self(self.0.abs())
+    // }
 
     pub fn clamp(self, min: Self, max: Self) -> Self {
         if self < min {
@@ -29,14 +70,6 @@ impl FixedPoint {
         Self(self.0 & !(FRACUNIT - 1))
     }
 
-    pub fn max(self, other: Self) -> Self {
-        if self > other { self } else { other }
-    }
-
-    pub fn min(self, other: Self) -> Self {
-        if self < other { self } else { other }
-    }
-
     /// Returns the minimum of self and the given i32 value
     pub fn min_with_i32(self, other: i32) -> Self {
         // Properly convert i32 to fixed point by shifting
@@ -48,19 +81,40 @@ impl FixedPoint {
         }
     }
 
-    pub fn cos(self) -> Self {
-        let angle_float: f32 = self.into();
-        angle_float.cos().into()
+    pub fn from_radian(rad: f32) -> Self {
+        // 2π radians = FINEANGLES units
+        let doom_angle = (rad * FINEANGLES as f32 / (2.0 * std::f32::consts::PI)) as i32;
+        Self(doom_angle & FINEMASK as i32)
+    }
+
+    // Get sine from table using Doom-style angle (0-8191)
+    pub fn finesine(angle: i32) -> Self {
+        let angle = angle & FINEMASK as i32;
+        // unsafety gives us 0.44ms gain
+        unsafe {
+            match angle / ANGLE_90 {
+                0 => *FINETANGENT_TABLE.get_unchecked(angle as usize),
+                1 => *FINETANGENT_TABLE.get_unchecked((ANGLE_180 - angle) as usize),
+                2 => -*FINETANGENT_TABLE.get_unchecked((angle - ANGLE_180) as usize),
+                _ => -*FINETANGENT_TABLE.get_unchecked((ANGLE_MAX - angle) as usize),
+            }
+        }
+    }
+
+    pub fn finecosine(angle: i32) -> Self {
+        Self::finesine((angle + ANGLE_90) & FINEMASK as i32)
     }
 
     pub fn sin(self) -> Self {
-        let angle_float: f32 = self.into();
-        angle_float.sin().into()
+        Self::finesine(self.0)
+    }
+
+    pub fn cos(self) -> Self {
+        Self::finecosine(self.0)
     }
 
     pub fn tan(self) -> Self {
-        let angle_float: f32 = self.into();
-        angle_float.tan().into()
+        Self::finesine(self.0) / Self::finecosine(self.0)
     }
 }
 
@@ -373,22 +427,16 @@ impl From<FixedPoint> for i32 {
 }
 
 impl From<FixedPoint> for u32 {
+    /// Will use `abs()` on internal value
     fn from(value: FixedPoint) -> Self {
-        if value.0 <= 0 {
-            0
-        } else {
-            (value.0 >> FRACBITS) as u32
-        }
+        (value.0 >> FRACBITS) as u32
     }
 }
 
 impl From<FixedPoint> for usize {
+    /// Will use `abs()` on internal value
     fn from(value: FixedPoint) -> Self {
-        if value.0 <= 0 {
-            0
-        } else {
-            (value.0 >> FRACBITS) as usize
-        }
+        (value.0 >> FRACBITS) as u32 as usize
     }
 }
 

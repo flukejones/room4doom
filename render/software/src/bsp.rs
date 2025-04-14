@@ -60,7 +60,7 @@ impl SoftwareRenderer {
     ) {
         let map = &level.map_data;
 
-        self.clear(FixedPoint::from(rend.draw_buffer().size().width_f32()));
+        self.clear(FixedPoint::from(rend.draw_buffer().size().width()));
         let mut count = 0;
 
         pic_data.set_fixed_lightscale(player.fixedcolormap as usize);
@@ -70,7 +70,7 @@ impl SoftwareRenderer {
         unsafe {
             self.seg_renderer.set_view_pitch(
                 player.lookdir as i16,
-                FixedPoint::from(rend.draw_buffer().size().half_height_f32()),
+                FixedPoint::from(rend.draw_buffer().size().half_height()),
             );
         }
         #[cfg(feature = "hprof")]
@@ -101,8 +101,8 @@ impl SoftwareRenderer {
             seg_renderer: SegRender::new(fov, buf_width, buf_height),
             new_end: 0,
             solidsegs: [ClipRange {
-                first: FixedPoint::new(0),
-                last: FixedPoint::new(0),
+                first: FixedPoint::zero(),
+                last: FixedPoint::zero(),
             }; MAX_SEGS],
             _debug: debug,
             checked_sectors: [-1; MAX_SECTS],
@@ -180,18 +180,18 @@ impl SoftwareRenderer {
         }
 
         let s = rend.draw_buffer().size();
-        let x1 = FixedPoint::from(angle_to_screen(
+        let x1 = angle_to_screen_fixed(
             self.seg_renderer.fov,
-            s.half_width_f32(),
-            s.width_f32(),
+            s.half_width().into(),
+            s.width().into(),
             angle1,
-        ));
-        let x2 = FixedPoint::from(angle_to_screen(
+        );
+        let x2 = angle_to_screen_fixed(
             self.seg_renderer.fov,
-            s.half_width_f32(),
-            s.width_f32(),
+            s.half_width().into(),
+            s.width().into(),
             angle2,
-        ));
+        );
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -282,12 +282,12 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - FixedPoint::from(1.0) {
+        while self.solidsegs[start].last < first - FixedPoint::unit() {
             start += 1;
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - FixedPoint::from(1.0) {
+            if last < self.solidsegs[start].first - FixedPoint::unit() {
                 // Post is entirely visible (above start),
                 // so insert a new clippost.
                 self.seg_renderer.store_wall_range(
@@ -316,7 +316,7 @@ impl SoftwareRenderer {
             // There is a fragment above *start.
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - FixedPoint::from(1.0),
+                self.solidsegs[start].first - FixedPoint::unit(),
                 seg,
                 object,
                 &mut self.r_data,
@@ -333,10 +333,10 @@ impl SoftwareRenderer {
         }
 
         next = start;
-        while last >= self.solidsegs[next + 1].first - FixedPoint::from(1.0) {
+        while last >= self.solidsegs[next + 1].first - FixedPoint::unit() {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[next].last + FixedPoint::from(1.0),
-                self.solidsegs[next + 1].first - FixedPoint::from(1.0),
+                self.solidsegs[next].last + FixedPoint::unit(),
+                self.solidsegs[next + 1].first - FixedPoint::unit(),
                 seg,
                 object,
                 &mut self.r_data,
@@ -354,7 +354,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[next].last + FixedPoint::from(1.0),
+            self.solidsegs[next].last + FixedPoint::unit(),
             last,
             seg,
             object,
@@ -381,12 +381,12 @@ impl SoftwareRenderer {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
         let mut start = 0; // first index
-        while self.solidsegs[start].last < first - FixedPoint::from(1.0) {
+        while self.solidsegs[start].last < first - FixedPoint::unit() {
             start += 1;
         }
 
         if first < self.solidsegs[start].first {
-            if last < self.solidsegs[start].first - FixedPoint::from(1.0) {
+            if last < self.solidsegs[start].first - FixedPoint::unit() {
                 // Post is entirely visible (above start),
                 self.seg_renderer.store_wall_range(
                     first,
@@ -403,7 +403,7 @@ impl SoftwareRenderer {
             // There is a fragment above *start.
             self.seg_renderer.store_wall_range(
                 first,
-                self.solidsegs[start].first - FixedPoint::from(1.0),
+                self.solidsegs[start].first - FixedPoint::unit(),
                 seg,
                 player,
                 &mut self.r_data,
@@ -417,10 +417,10 @@ impl SoftwareRenderer {
             return;
         }
 
-        while last >= self.solidsegs[start + 1].first - FixedPoint::from(1.0) {
+        while last >= self.solidsegs[start + 1].first - FixedPoint::unit() {
             self.seg_renderer.store_wall_range(
-                self.solidsegs[start].last + FixedPoint::from(1.0),
-                self.solidsegs[start + 1].first - FixedPoint::from(1.0),
+                self.solidsegs[start].last + FixedPoint::unit(),
+                self.solidsegs[start + 1].first - FixedPoint::unit(),
                 seg,
                 player,
                 &mut self.r_data,
@@ -437,7 +437,7 @@ impl SoftwareRenderer {
 
         // There is a fragment after *next.
         self.seg_renderer.store_wall_range(
-            self.solidsegs[start].last + FixedPoint::from(1.0),
+            self.solidsegs[start].last + FixedPoint::unit(),
             last,
             seg,
             player,
@@ -495,8 +495,8 @@ impl SoftwareRenderer {
             node,
             mobj,
             side ^ 1,
-            FixedPoint::from(rend.draw_buffer().size().half_width_f32()),
-            FixedPoint::from(rend.draw_buffer().size().width_f32()),
+            FixedPoint::from(rend.draw_buffer().size().half_width()),
+            FixedPoint::from(rend.draw_buffer().size().width()),
         ) {
             self.render_bsp_node(map, player, node.children[side ^ 1], pic_data, rend, count);
         }
@@ -604,7 +604,7 @@ impl SoftwareRenderer {
         if x1 == x2 {
             return false;
         }
-        x2 = x2 - FixedPoint::from(1.0);
+        x2 = x2 - FixedPoint::unit();
 
         let mut start = 0;
         while self.solidsegs[start].last < x2 {

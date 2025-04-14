@@ -66,16 +66,16 @@ impl Eq for VisSprite {}
 impl VisSprite {
     pub fn new() -> Self {
         Self {
-            x1: FixedPoint::new(0),
-            x2: FixedPoint::new(0),
-            gx: FixedPoint::new(0),
-            gy: FixedPoint::new(0),
-            gz: FixedPoint::new(0),
-            gzt: FixedPoint::new(0),
-            start_frac: FixedPoint::new(0),
-            scale: FixedPoint::new(0),
-            x_iscale: FixedPoint::new(0),
-            texture_mid: FixedPoint::new(0),
+            x1: FixedPoint::zero(),
+            x2: FixedPoint::zero(),
+            gx: FixedPoint::zero(),
+            gy: FixedPoint::zero(),
+            gz: FixedPoint::zero(),
+            gzt: FixedPoint::zero(),
+            start_frac: FixedPoint::zero(),
+            scale: FixedPoint::zero(),
+            x_iscale: FixedPoint::zero(),
+            texture_mid: FixedPoint::zero(),
             patch: 0,
             light_level: 0,
             mobj_flags: 0,
@@ -260,7 +260,7 @@ impl SoftwareRenderer {
         let patch = pic_data.sprite_patch(vis.patch);
 
         let spryscale = vis.scale;
-        let dc_iscale = vis.x_iscale.abs();
+        let dc_iscale = vis.x_iscale;
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
         let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
@@ -328,7 +328,7 @@ impl SoftwareRenderer {
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
                 || seg.x2 < vis.x1
-                || (seg.silhouette == 0 && seg.maskedtexturecol == FixedPoint::new(0))
+                || (seg.silhouette == 0 && seg.maskedtexturecol == FixedPoint::zero())
             {
                 continue;
             }
@@ -366,8 +366,8 @@ impl SoftwareRenderer {
                     let i = u32::from(seg.sprbottomclip.unwrap() + r as i32) as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_bottom[r] = self.seg_renderer.openings[i];
-                        if clip_bottom[r] < FixedPoint::new(0) {
-                            clip_bottom[r] = FixedPoint::new(0);
+                        if clip_bottom[r] < FixedPoint::zero() {
+                            clip_bottom[r] = FixedPoint::zero();
                         }
                     }
                 }
@@ -450,7 +450,7 @@ impl SoftwareRenderer {
         tx = tx + FixedPoint::from(patch.data.len() as f32);
         let x2 = FixedPoint::from(size.half_width()) + tx * x_offset;
 
-        if x2 < FixedPoint::new(0) {
+        if x2 < FixedPoint::zero() {
             return;
         }
 
@@ -469,8 +469,8 @@ impl SoftwareRenderer {
         }
 
         // Set screen coordinates with proper clipping
-        vis.x1 = if x1 < FixedPoint::new(0) {
-            FixedPoint::new(0)
+        vis.x1 = if x1 < FixedPoint::zero() {
+            FixedPoint::zero()
         } else {
             x1
         };
@@ -489,7 +489,7 @@ impl SoftwareRenderer {
             vis.start_frac = FixedPoint::from(patch.data[0].len() as f32);
         } else {
             vis.x_iscale = pspriteiscale;
-            vis.start_frac = FixedPoint::new(0);
+            vis.start_frac = FixedPoint::zero();
         }
 
         // Adjust starting position if clipped
@@ -498,7 +498,7 @@ impl SoftwareRenderer {
         }
 
         // Create clipping arrays
-        let clip_bottom = vec![FixedPoint::new(0); size.width_usize()];
+        let clip_bottom = vec![FixedPoint::zero(); size.width_usize()];
         let clip_top = vec![FixedPoint::from(size.height()); size.width_usize()];
 
         // Draw the sprite
@@ -580,7 +580,7 @@ impl SoftwareRenderer {
 
             // Process masked column for each pixel in range
             for x in i32::from(x1)..=i32::from(x2) {
-                if ds.maskedtexturecol + x < FixedPoint::new(0) {
+                if ds.maskedtexturecol + x < FixedPoint::zero() {
                     spryscale = spryscale + rw_scalestep;
                     continue;
                 }
@@ -590,22 +590,22 @@ impl SoftwareRenderer {
                     && index < self.seg_renderer.openings.len()
                     && ds.sprbottomclip.is_some()
                     && ds.sprtopclip.is_some()
-                    && self.seg_renderer.openings[index] != FixedPoint::from(i32::MAX)
+                    && self.seg_renderer.openings[index] != FixedPoint::max()
                     && seg.sidedef.midtexture.is_some()
                 {
                     let texture_column = pic_data.wall_pic_column(
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                        u32::from(self.seg_renderer.openings[index].abs()) as usize,
+                        usize::from(self.seg_renderer.openings[index]),
                     );
 
                     // Get clipping values from openings
-                    let i = u32::from(ds.sprtopclip.unwrap() + x) as usize;
+                    let i = usize::from(ds.sprtopclip.unwrap() + x);
                     if i >= self.seg_renderer.openings.len() {
                         continue;
                     }
                     let mut mceilingclip = self.seg_renderer.openings[i];
 
-                    let i = u32::from(ds.sprbottomclip.unwrap() + x) as usize;
+                    let i = usize::from(ds.sprbottomclip.unwrap() + x);
                     if i >= self.seg_renderer.openings.len() {
                         continue;
                     }
@@ -615,8 +615,8 @@ impl SoftwareRenderer {
                     if mceilingclip >= FixedPoint::from(size.height()) {
                         mceilingclip = FixedPoint::from(size.height());
                     }
-                    if mfloorclip < FixedPoint::new(0) {
-                        mfloorclip = FixedPoint::new(0);
+                    if mfloorclip < FixedPoint::zero() {
+                        mfloorclip = FixedPoint::zero();
                     }
 
                     // Calculate unclipped screen coordinates for post
@@ -648,7 +648,7 @@ impl SoftwareRenderer {
                     );
 
                     // Mark this column as processed
-                    self.seg_renderer.openings[index] = FixedPoint::from(i32::MAX);
+                    self.seg_renderer.openings[index] = FixedPoint::max();
                 }
                 spryscale = spryscale + rw_scalestep;
             }

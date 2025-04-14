@@ -79,7 +79,7 @@ pub(crate) struct SegRender {
     lastopening: FixedPoint,
     /// Light level for the wall
     wall_lights: usize,
-    pub yslopes: Vec<Vec<f32>>,
+    pub yslopes: Vec<Vec<FixedPoint>>,
     pub look_yslope: usize,
     pub centery: FixedPoint,
     pub screen_x: Vec<f32>,
@@ -116,38 +116,38 @@ impl SegRender {
             bottomtexture: false,
             midtexture: false,
             rw_normalangle: Angle::default(),
-            rw_startx: FixedPoint::new(0),
-            rw_stopx: FixedPoint::new(0),
+            rw_startx: FixedPoint::zero(),
+            rw_stopx: FixedPoint::zero(),
             rw_centerangle: Angle::default(),
-            rw_offset: FixedPoint::new(0),
-            rw_distance: FixedPoint::new(0),
-            rw_scale: FixedPoint::new(0),
-            rw_scalestep: FixedPoint::new(0),
-            rw_midtexturemid: FixedPoint::new(0),
-            rw_toptexturemid: FixedPoint::new(0),
-            rw_bottomtexturemid: FixedPoint::new(0),
-            pixhigh: FixedPoint::new(0),
-            pixlow: FixedPoint::new(0),
-            pixhighstep: FixedPoint::new(0),
-            pixlowstep: FixedPoint::new(0),
-            topfrac: FixedPoint::new(0),
-            topstep: FixedPoint::new(0),
-            bottomfrac: FixedPoint::new(0),
-            bottomstep: FixedPoint::new(0),
-            worldtop: FixedPoint::new(0),
-            worldbottom: FixedPoint::new(0),
-            worldhigh: FixedPoint::new(0),
-            worldlow: FixedPoint::new(0),
+            rw_offset: FixedPoint::zero(),
+            rw_distance: FixedPoint::zero(),
+            rw_scale: FixedPoint::zero(),
+            rw_scalestep: FixedPoint::zero(),
+            rw_midtexturemid: FixedPoint::zero(),
+            rw_toptexturemid: FixedPoint::zero(),
+            rw_bottomtexturemid: FixedPoint::zero(),
+            pixhigh: FixedPoint::zero(),
+            pixlow: FixedPoint::zero(),
+            pixhighstep: FixedPoint::zero(),
+            pixlowstep: FixedPoint::zero(),
+            topfrac: FixedPoint::zero(),
+            topstep: FixedPoint::zero(),
+            bottomfrac: FixedPoint::zero(),
+            bottomstep: FixedPoint::zero(),
+            worldtop: FixedPoint::zero(),
+            worldbottom: FixedPoint::zero(),
+            worldhigh: FixedPoint::zero(),
+            worldlow: FixedPoint::zero(),
             wall_lights: 0,
-            openings: vec![FixedPoint::from(i32::MAX); screen_width * screen_height],
-            lastopening: FixedPoint::new(0),
+            openings: vec![FixedPoint::max(); screen_width * screen_height],
+            lastopening: FixedPoint::zero(),
             yslopes: (0..=screen_height + 1)
                 .map(|y| unsafe {
                     (0..LOOKDIRS)
                         .map(|j| {
                             let dy =
                                 y as f32 - (screen_height as f32 / 2.0 + (j - LOOKDIRMIN) as f32);
-                            screen_width as f32 / 2.0 / dy.abs()
+                            FixedPoint::from(screen_width as f32 / 2.0 / dy.abs())
                         })
                         .collect()
                 })
@@ -165,19 +165,19 @@ impl SegRender {
                 (screen_height / 2 - if screen_height != 200 { 12 } else { 6 }) as f32,
             ),
 
-            dc_iscale: FixedPoint::new(0),
+            dc_iscale: FixedPoint::zero(),
         }
     }
 
     pub const fn clear(&mut self) {
-        self.lastopening = FixedPoint::new(0);
+        self.lastopening = FixedPoint::zero();
     }
 
     /// # Safety
     /// Nothing else should be modifying `LOOKDIRMAX`
     pub unsafe fn set_view_pitch(&mut self, pitch: i16, half_screen_height: FixedPoint) {
         unsafe {
-            self.look_yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+            self.look_yslope = (LOOKDIRMAX + pitch) as usize;
         }
         self.centery = half_screen_height + FixedPoint::from(pitch);
     }
@@ -205,7 +205,7 @@ impl SegRender {
         let size = rend.draw_buffer().size();
 
         // Check for invalid inputs
-        if start < FixedPoint::new(0) || start > FixedPoint::from(size.width_f32()) || start > stop
+        if start < FixedPoint::zero() || start > FixedPoint::from(size.width_f32()) || start > stop
         {
             panic!("Bad R_RenderWallRange: {:?} to {:?}", start, stop);
         }
@@ -296,8 +296,9 @@ impl SegRender {
             if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
                 if let Some(mid_tex) = sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
-                    let vtop =
-                        FixedPoint::from(frontsector.floorheight + texture_column.len() as f32);
+                    let vtop = FixedPoint::from(
+                        frontsector.floorheight as i32 + texture_column.len() as i32,
+                    );
                     self.rw_midtexturemid = vtop - FixedPoint::from(player.viewz);
                 }
             } else {
@@ -307,10 +308,10 @@ impl SegRender {
             self.rw_midtexturemid = self.rw_midtexturemid + FixedPoint::from(sidedef.rowoffset);
 
             ds_p.silhouette = SIL_BOTH;
-            ds_p.sprtopclip = Some(FixedPoint::new(0)); // start of screenheightarray
-            ds_p.sprbottomclip = Some(FixedPoint::new(0)); // start of negonearray
-            ds_p.bsilheight = FixedPoint::from(i32::MAX);
-            ds_p.tsilheight = FixedPoint::from(i32::MIN);
+            ds_p.sprtopclip = Some(FixedPoint::zero()); // start of screenheightarray
+            ds_p.sprbottomclip = Some(FixedPoint::zero()); // start of negonearray
+            ds_p.bsilheight = FixedPoint::max();
+            ds_p.tsilheight = FixedPoint::min();
         } else {
             let backsector = seg.backsector.as_ref().unwrap();
             // two sided line
@@ -323,7 +324,7 @@ impl SegRender {
                 ds_p.bsilheight = FixedPoint::from(frontsector.floorheight);
             } else if backsector.floorheight >= player.viewz {
                 ds_p.silhouette = SIL_BOTTOM;
-                ds_p.bsilheight = FixedPoint::from(i32::MAX);
+                ds_p.bsilheight = FixedPoint::max();
             }
 
             if frontsector.ceilingheight < backsector.ceilingheight {
@@ -331,7 +332,7 @@ impl SegRender {
                 ds_p.tsilheight = FixedPoint::from(frontsector.ceilingheight);
             } else if backsector.ceilingheight < player.viewz {
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = FixedPoint::from(i32::MIN);
+                ds_p.tsilheight = FixedPoint::min();
             }
 
             self.worldhigh = FixedPoint::from(backsector.ceilingheight - player.viewz);
@@ -379,8 +380,9 @@ impl SegRender {
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = sidedef.toptexture {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
-                    let vtop =
-                        FixedPoint::from(backsector.ceilingheight + texture_column.len() as f32);
+                    let vtop = FixedPoint::from(
+                        backsector.ceilingheight as i32 + texture_column.len() as i32,
+                    );
                     // texture bottom
                     self.rw_toptexturemid = vtop - FixedPoint::from(player.viewz);
                 }
@@ -508,12 +510,12 @@ impl SegRender {
 
         if ds_p.silhouette & SIL_TOP == 0 && self.maskedtexture {
             ds_p.silhouette |= SIL_TOP;
-            ds_p.tsilheight = FixedPoint::from(i32::MIN);
+            ds_p.tsilheight = FixedPoint::min();
         }
 
         if ds_p.silhouette & SIL_BOTTOM == 0 && self.maskedtexture {
             ds_p.silhouette |= SIL_BOTTOM;
-            ds_p.bsilheight = FixedPoint::from(i32::MAX);
+            ds_p.bsilheight = FixedPoint::max();
         }
         rdata.ds_p += 1;
     }
@@ -557,8 +559,8 @@ impl SegRender {
             }
 
             let x_angle = mobj.angle + self.screen_x[clip_index];
-            let cos = FixedPoint::from(x_angle.cos());
-            let sin = FixedPoint::from(x_angle.sin());
+            let cos = FixedPoint::from_radian(x_angle.rad()).cos();
+            let sin = FixedPoint::from_radian(x_angle.rad()).sin();
             let distscale = FixedPoint::from(self.screen_x_scale[usize::from(self.rw_startx)]);
 
             if self.markceiling {
@@ -656,7 +658,7 @@ impl SegRender {
 
                 // Calculate texture column - convert to fixed point
                 texture_column = usize::from(
-                    (self.rw_offset - angle.tan() * self.rw_distance).abs(), // without floor we get overflow in draw
+                    (self.rw_offset - angle.tan() * self.rw_distance), // without floor we get overflow in draw
                 );
 
                 self.dc_iscale = 1.0 / self.rw_scale;
@@ -756,7 +758,7 @@ impl SegRender {
                 if self.maskedtexture {
                     let i = usize::from(self.maskedtexturecol + self.rw_startx);
                     if i < self.openings.len() {
-                        self.openings[i] = FixedPoint::from(texture_column as f32);
+                        self.openings[i] = FixedPoint::from(texture_column);
                     }
                 }
             }
@@ -825,6 +827,9 @@ impl SegRender {
             }
             frac = frac + self.dc_iscale;
             pos += pixels.pitch();
+            if pos + SOFT_PIXEL_CHANNELS >= pixels.buf_mut().len() {
+                return;
+            }
         }
     }
 
@@ -849,25 +854,22 @@ impl SegRender {
 
         let pal = pic_data.palette();
         let tex_len = texture.data.len() - 1; // always square
-        let mut pos = pixels.get_buf_index(u32::from(self.rw_startx) as usize, y_start);
+        let mut pos = pixels.get_buf_index(usize::from(self.rw_startx), y_start);
 
         for y_slope in self.yslopes[self.look_yslope][y_start..=y_end].iter() {
-            // Convert y_slope to fixed point
-            let y_slope_fixed = FixedPoint::from(*y_slope);
-            let diminished_light = plane_height * y_slope_fixed;
-
+            let diminished_light = plane_height * *y_slope;
             // Calculate light colourmap for this position
-            let colourmap = pic_data
-                .flat_light_colourmap(total_light, (u32::from(diminished_light) as usize) >> 4);
+            let colourmap =
+                pic_data.flat_light_colourmap(total_light, usize::from(diminished_light) >> 4);
 
             // Calculate texture position
             let length = diminished_light * distscale;
-            let xfrac = viewxy.x + f32::from(cos * length);
-            let yfrac = viewxy.y + f32::from(sin * length);
+            let xfrac = (cos * length) + FixedPoint::from(viewxy.x);
+            let yfrac = (sin * length) + FixedPoint::from(viewxy.y);
 
             // Calculate texture coordinates
-            let x_step = (xfrac.abs() as u32 as usize) & tex_len;
-            let y_step = (yfrac.abs() as u32 as usize) & tex_len;
+            let x_step = usize::from(xfrac) & tex_len;
+            let y_step = usize::from(yfrac) & tex_len;
 
             #[cfg(not(feature = "safety_check"))]
             unsafe {
