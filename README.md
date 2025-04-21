@@ -1,5 +1,38 @@
 # ROOM - Rusty Doom
 
+## CORE/FEATURE FUNCTIONALITY
+
+- [x] All gameplay features for Doom and Doom II
+- [x] Status bar (face, health, armour, keys, ammo, cheats)
+- [x] Powerup/damage palette effects
+- [x] Thinkers for all things
+- [-] HUD (Done except for multiplayer chat)
+- [-] Menu screens (partial. New game, quit)
+- [x] Play uncompresed ZDBSP maps (some textures may fail)
+- [x] Intermissions and finale
+  - [x] Stats
+  - [x] Episode end text
+  - [ ] Bunny screen
+  - [ ] Doom II cast
+- [ ] Automap
+- [x] Demo playback
+  - It works but accuracy is fucked due to movement system using floats not fixedpoint
+- [ ] Save/load game
+- [-] Sound:
+  - [x] Verify positional sound
+  - [x] Verify distance and cutoff
+  - [x] Check the volumes (had to divide midi track vol in half)
+  - [ ] Add the pitch shift
+  - [ ] Maybe use the `usefulness` field..
+  - [ ] OPL2 emulation (a lot of work here)
+  - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
+- [x] CLI options (use `--help`)
+- [x] Nuked Visplanes from orbit. Code is now much faster and cleaner
+
+See the **[TODO](./TODO.md)** for more.
+
+---
+
 This is a personal project to rewrite Doom C in Rust. Where possible I try to keep the Doom behaviour intact, while also making some improvements. I am also trying to document everything as I go along.
 
 I originally started by following along with [https://github.com/amroibrahim/DIYDoom](https://github.com/amroibrahim/DIYDoom)
@@ -65,37 +98,6 @@ I use many `.get_unchecked(num)` on arrays I know are safe also, as this reduces
 - Boom improvements compatibility
 
 And maybe write a book on all I've learned about writing a Doom engine.
-
-## CORE/FEATURE FUNCTIONALITY
-
-- [x] All gameplay features for Doom and Doom II
-- [x] Status bar (face, health, armour, keys, ammo, cheats)
-- [x] Powerup/damage palette effects
-- [x] Thinkers for all things
-- [-] HUD (Done except for multiplayer chat)
-- [-] Menu screens (partial. New game, quit)
-- [x] Play uncompresed ZDBSP maps (some textures may fail)
-- [x] Intermissions and finale
-  - [x] Stats
-  - [x] Episode end text
-  - [ ] Bunny screen
-  - [ ] Doom II cast
-- [ ] Automap
-- [x] Demo playback
-  - It works but accuracy is fucked due to movement system using floats not fixedpoint
-- [ ] Save/load game
-- [-] Sound:
-  - [x] Verify positional sound
-  - [x] Verify distance and cutoff
-  - [x] Check the volumes (had to divide midi track vol in half)
-  - [ ] Add the pitch shift
-  - [ ] Maybe use the `usefulness` field..
-  - [ ] OPL2 emulation (a lot of work here)
-  - [ ] Load music from extra wads (needs `UMAPINFO` parsing)
-- [x] CLI options (use `--help`)
-- [x] Nuked Visplanes from orbit. Code is now much faster and cleaner
-
-See the **[TODO](./TODO.md)** for more.
 
 **Some of the improvements I've made (so far):**
 
