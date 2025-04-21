@@ -141,7 +141,14 @@ impl<'a> Snd<'a> {
         let chunk_size = 1_024;
 
         sdl2::mixer::open_audio(frequency, format, channels, chunk_size)?;
-        let _mixer = sdl2::mixer::init(InitFlag::MOD | InitFlag::OGG)?;
+        let _mixer = if let Ok(m) = sdl2::mixer::init(InitFlag::MID | InitFlag::MP3 | InitFlag::OGG)
+        {
+            m
+        } else if let Ok(m) = sdl2::mixer::init(InitFlag::MID | InitFlag::OGG) {
+            m
+        } else {
+            sdl2::mixer::init(InitFlag::MID)?
+        };
         // Mixer channels are not play/stereo channels
         sdl2::mixer::allocate_channels(MIXER_CHANNELS);
 
