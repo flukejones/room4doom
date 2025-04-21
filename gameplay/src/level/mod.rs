@@ -214,7 +214,7 @@ impl Level {
         self.animations = animations;
         self.switch_list = switch_list;
         unsafe {
-            self.thinkers = ThinkerAlloc::new(self.map_data.things().len() * 2);
+            self.thinkers = ThinkerAlloc::new(self.map_data.things().len() * 2 + 256);
         }
     }
 

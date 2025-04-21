@@ -184,34 +184,33 @@ impl SoftwareRenderer {
 
         let span = (angle1 - angle2).rad();
         if span.abs() >= PI {
-            // widescreen: Leave as is
             return;
         }
 
         // Global angle needed by segcalc.
-        self.r_data.rw_angle1 = angle1; // widescreen: Leave as is
-        angle1 -= viewangle; // widescreen: Leave as is
-        angle2 -= viewangle; // widescreen: Leave as is
+        self.r_data.rw_angle1 = angle1;
+        angle1 -= viewangle;
+        angle2 -= viewangle;
 
-        let clipangle = Angle::new(self.seg_renderer.fov_half); // widescreen: Leave as is
-        let clipangrad = clipangle.rad();
+        let clipangle = Angle::new(self.seg_renderer.fov_half);
+
         let mut tspan = angle1 + clipangle;
-        if tspan.rad() >= 2.0 * clipangrad {
-            tspan -= 2.0 * clipangrad;
+        if tspan.rad() > 2.0 * clipangle.rad() {
+            tspan -= 2.0 * clipangle.rad();
             if tspan.rad() > span {
                 return;
             }
             angle1 = clipangle;
         }
+
         tspan = clipangle - angle2;
-        if tspan.rad() >= 2.0 * clipangrad {
-            tspan -= 2.0 * clipangrad;
+        if tspan.rad() > 2.0 * clipangle.rad() {
+            tspan -= 2.0 * clipangle.rad();
             if tspan.rad() >= span {
                 return;
             }
-            angle2 = -clipangle;
+            angle2 = Angle::default() - clipangle;
         }
-        // OK down to here
 
         let s = rend.draw_buffer().size();
         let x1 = angle_to_screen(

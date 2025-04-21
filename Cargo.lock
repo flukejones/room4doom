@@ -416,6 +416,7 @@ dependencies = [
  "coarse-prof",
  "gameplay",
  "glam",
+ "math",
  "render-trait",
  "sdl2",
  "wad",

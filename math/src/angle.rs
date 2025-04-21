@@ -43,30 +43,43 @@ impl Angle {
 
     #[inline]
     pub fn sin(&self) -> f32 {
-        self.0.sin()
-        // SIN_TABLE[self.to_table()]
+        if cfg!(not(feature = "trig_lut")) {
+            self.0.sin()
+        } else {
+            SIN_TABLE[self.to_table()]
+        }
     }
 
     #[inline]
-    pub const fn cos(&self) -> f32 {
-        // self.0.cos()
-        COS_TABLE[self.to_table()]
+    pub fn cos(&self) -> f32 {
+        if cfg!(not(feature = "trig_lut")) {
+            self.0.cos()
+        } else {
+            COS_TABLE[self.to_table()]
+        }
     }
 
     #[inline]
-    pub const fn tan(&self) -> f32 {
-        // self.0.tan()
-        TAN_TABLE[self.to_table()]
+    pub fn tan(&self) -> f32 {
+        if cfg!(not(feature = "trig_lut")) {
+            self.0.tan()
+        } else {
+            TAN_TABLE[self.to_table()]
+        }
     }
 
     #[inline]
-    pub const fn sin_cos(&self) -> (f32, f32) {
-        let idx = self.to_table();
-        (SIN_TABLE[idx], COS_TABLE[idx])
+    pub fn sin_cos(&self) -> (f32, f32) {
+        if cfg!(not(feature = "trig_lut")) {
+            self.0.sin_cos()
+        } else {
+            let idx = self.to_table();
+            (SIN_TABLE[idx], COS_TABLE[idx])
+        }
     }
 
     #[inline(always)]
-    pub const fn unit(&self) -> Vec2 {
+    pub fn unit(&self) -> Vec2 {
         let (y, x) = self.sin_cos();
         Vec2::new(x, y)
     }

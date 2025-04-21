@@ -12,11 +12,13 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
+default = ["trig_lut"]
 safety_check = ["render-soft/safety_check"]
 debug_draw = ["render-soft/debug_draw"]
 debug_seg_clip = ["render-soft/debug_seg_clip"]
 debug_seg_invert = ["render-soft/debug_seg_invert"]
 hprof = ["render-soft/hprof"]
+trig_lut = ["render-soft/trig_lut"]
 
 [dependencies]
 mimalloc = "0.1.43"

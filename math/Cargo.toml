@@ -7,3 +7,6 @@ license.workspace = true
 
 [dependencies]
 glam.workspace = true
+
+[features]
+trig_lut = []

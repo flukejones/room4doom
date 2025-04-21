@@ -12,9 +12,11 @@ debug_draw = []
 debug_seg_clip = []
 debug_seg_invert = []
 hprof = []
+trig_lut = ["math/trig_lut"]
 
 [dependencies]
 glam.workspace = true
+math.workspace = true
 gameplay.workspace = true
 render-trait.workspace = true
 sdl2.workspace = true

@@ -208,6 +208,7 @@ impl SegRender {
         // {     dbg!(&seg.sidedef);
         // }
         if start < 0.0 || start > size.width_f32() || start > stop {
+            return;
             panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
@@ -398,7 +399,7 @@ impl SegRender {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     // texture bottom
-                    self.rw_toptexturemid = vtop - player.viewz;
+                    self.rw_toptexturemid = vtop - player.viewz - 1.0;
                 }
             }
 
@@ -571,25 +572,21 @@ impl SegRender {
 
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx as u32 as usize;
-            // if rdata.portal_clip.floorclip[clip_index] < 0.0 {
-            //     // TODO: shouldn't be happening, early out?
-            //     return;
-            // }
-
             // The yl and yh blocks are what affect wall clipping the most. You can make
             // shorter/taller. topfrac here is calulated in previous function
             // and is the starting point that topstep is added to
+            top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
             yl = self.topfrac.floor();
-            if yl < rdata.portal_clip.ceilingclip[clip_index] + 1.0 {
-                yl = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
+            if yl < top {
+                yl = top;
             }
 
             let x_angle = mobj.angle + self.screen_x[clip_index];
             let cos = x_angle.cos();
             let sin = x_angle.sin();
             let distscale = self.screen_x_scale[self.rw_startx as u32 as usize];
+
             if self.markceiling {
-                top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
                 bottom = yl - 1.0;
                 if bottom >= rdata.portal_clip.floorclip[clip_index] {
                     bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
@@ -607,7 +604,7 @@ impl SegRender {
                         self.draw_wall_column(
                             sky_column,
                             self.sky_mid,
-                            top,
+                            top as i32,
                             bottom as i32,
                             true,
                             pic_data,
@@ -639,24 +636,24 @@ impl SegRender {
                         }
                     }
                     // Must clip walls to floors if drawn
-                    rdata.portal_clip.ceilingclip[clip_index] = bottom - 1.0;
+                    rdata.portal_clip.ceilingclip[clip_index] = bottom;
                 }
             }
 
+            bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
             yh = self.bottomfrac.floor();
-            if yh >= rdata.portal_clip.floorclip[clip_index] {
-                yh = rdata.portal_clip.floorclip[clip_index] - 1.0;
+            if yh > bottom {
+                yh = bottom;
             }
 
             if self.markfloor {
                 top = yh + 1.0;
-                bottom = rdata.portal_clip.floorclip[clip_index] - 1.0;
-                if top <= rdata.portal_clip.ceilingclip[clip_index] {
-                    top = rdata.portal_clip.ceilingclip[clip_index] + 1.0;
+                if top < rdata.portal_clip.ceilingclip[clip_index] {
+                    top = rdata.portal_clip.ceilingclip[clip_index];
                 }
                 if top <= bottom {
                     // Must clip walls to floors if drawn
-                    rdata.portal_clip.floorclip[clip_index] = top + 1.0;
+                    rdata.portal_clip.floorclip[clip_index] = top;
                     self.draw_flat_column(
                         floor_tex,
                         mobj.xy,
@@ -695,7 +692,7 @@ impl SegRender {
                         self.draw_wall_column(
                             texture_column,
                             self.rw_midtexturemid,
-                            yl,
+                            yl as i32,
                             yh as i32,
                             false,
                             pic_data,
@@ -725,7 +722,7 @@ impl SegRender {
                             self.draw_wall_column(
                                 texture_column,
                                 self.rw_toptexturemid,
-                                yl,
+                                yl as i32,
                                 mid as i32,
                                 false,
                                 pic_data,
@@ -759,7 +756,7 @@ impl SegRender {
                             self.draw_wall_column(
                                 texture_column,
                                 self.rw_bottomtexturemid,
-                                mid,
+                                mid as i32,
                                 yh as i32,
                                 false,
                                 pic_data,
@@ -807,7 +804,7 @@ impl SegRender {
         &mut self,
         texture_column: &[usize],
         dc_texturemid: f32,
-        y_start: f32,
+        y_start: i32,
         mut y_end: i32,
         sky: bool,
         pic_data: &PicData,
@@ -818,9 +815,9 @@ impl SegRender {
         y_end = y_end.min(pixels.size().height() - 1);
 
         let pal = pic_data.palette();
-        let mut frac = dc_texturemid + (y_start - self.centery) * self.dc_iscale;
+        let mut frac = dc_texturemid + (y_start as f32 - self.centery) * self.dc_iscale;
 
-        let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start as u32 as usize);
+        let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start as usize);
 
         let colourmap = if !sky {
             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale)
@@ -828,12 +825,12 @@ impl SegRender {
             pic_data.colourmap(0)
         };
 
-        for _ in y_start as i32..=y_end {
+        for _ in y_start..=y_end {
             let mut select = frac.floor() as i32 as usize;
             if sky && self.sky_doubled {
                 select /= 2;
             }
-            select &= texture_column.len() - 1;
+            select %= texture_column.len() - 1;
             let tc = texture_column[select];
             if tc >= colourmap.len() {
                 return;

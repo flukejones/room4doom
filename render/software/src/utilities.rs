@@ -21,14 +21,14 @@ pub fn y_scale(fov: f32, buf_width: f32, buf_height: f32) -> f32 {
     // let v_dist = 200.0 / (fov * 0.82 / 2.0).tan();
     // let og_fov = 2.0 * (320.0 / v_dist).atan() - 0.3f32.to_radians();// ==
     // 100degrees
-    let og_fov = 100.150536f32.to_radians();
+    let og_fov = 100f32.to_radians();
     let fov_ratio = og_fov / fov;
     let wide_ratio = buf_height / buf_width * OG_RATIO;
     (fov / 2.0 * wide_ratio / fov_ratio).tan()
 }
 
-pub const fn projection(fov: f32, screen_width_half: f32) -> f32 {
-    screen_width_half / Angle::new(fov / 2.0 - ZERO_POINT_THREE).tan()
+pub fn projection(fov: f32, screen_width_half: f32) -> f32 {
+    screen_width_half / Angle::new(fov / 2.0).tan()
 }
 
 /// Used to build a table for drawing process. The table cuts out a huge amount
@@ -55,8 +55,8 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that
     // two values straddling a line may go one way or the other
-    let t = (half_screen_width - t + 0.9).floor();
-    t.clamp(0.0, screen_width)
+    let t = half_screen_width - t + 0.99998474;
+    t.floor().clamp(-1.0, screen_width + 1.0)
 }
 
 /// R_PointToAngle
