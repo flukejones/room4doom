@@ -84,6 +84,12 @@ impl Angle {
         Vec2::new(x, y)
     }
 
+    #[inline(always)]
+    pub fn unit_xy(&self) -> (f32, f32) {
+        let (y, x) = self.sin_cos();
+        (x, y)
+    }
+
     pub fn from_vector(input: Vec2) -> Self {
         Angle::new(input.y.atan2(input.x))
     }
@@ -310,5 +316,11 @@ impl Neg for Angle {
 pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
     let x = point1.x - point2.x;
     let y = point1.y - point2.y;
+    Angle::new(y.atan2(x))
+}
+
+pub fn point_to_angle_2_xy(x1: f32, y1: f32, x2: f32, y2: f32) -> Angle {
+    let x = x1 - x2;
+    let y = y1 - y2;
     Angle::new(y.atan2(x))
 }

@@ -1,6 +1,5 @@
 use std::f32::consts::FRAC_PI_2;
 
-use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxName;
 
@@ -16,7 +15,7 @@ use crate::thing::enemy::noise_alert;
 use crate::thing::{BONUSADD, MapObjFlag, MapObject};
 use crate::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS, TicCmd};
 use crate::{GameMode, Skill};
-use math::{Angle, bam_to_radian, fixed_to_float, p_random, point_to_angle_2};
+use math::{Angle, bam_to_radian, fixed_to_float, p_random, point_to_angle_2_xy};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
@@ -296,8 +295,8 @@ impl Player {
             unsafe {
                 (*mobj.level).start_sound(
                     sfx,
-                    mobj.xy.x,
-                    mobj.xy.y,
+                    mobj.x,
+                    mobj.y,
                     self as *const Self as usize, /* pointer cast as a UID */
                 )
             }
@@ -347,11 +346,11 @@ impl Player {
     fn thrust(&mut self, angle: Angle, mv: i32) {
         // mv is in a fixed float format, we need to convert it
         let mv = fixed_to_float(mv);
-        let x = mv * angle.cos();
-        let y = mv * angle.sin();
-        let mxy = Vec2::new(x, y);
+        let mx = mv * angle.cos();
+        let my = mv * angle.sin();
         if let Some(mobj) = self.mobj_mut() {
-            mobj.momxy += mxy;
+            mobj.momx += mx;
+            mobj.momy += my;
         }
     }
 
@@ -366,8 +365,8 @@ impl Player {
         //  like a ramp with low health.
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            let x = mobj.momxy.x;
-            let y = mobj.momxy.y;
+            let x = mobj.momx;
+            let y = mobj.momy;
             self.bob = x * x + y * y;
 
             if self.bob > MAX_BOB {
@@ -1023,7 +1022,7 @@ impl Player {
             if let Some(attacker) = self.attacker {
                 let attacker = unsafe { &mut *attacker };
                 if !std::ptr::eq(mobj, attacker) {
-                    let angle = point_to_angle_2(attacker.xy, mobj.xy);
+                    let angle = point_to_angle_2_xy(attacker.x, attacker.y, mobj.x, mobj.y);
                     let delta = mobj.angle.unit().angle_to(angle.unit());
 
                     if delta.abs() <= ANG5 {

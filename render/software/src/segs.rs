@@ -240,7 +240,7 @@ impl SegRender {
         let mobj = unsafe { player.mobj_unchecked() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
-        let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
+        let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.x, mobj.y); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         ds_p.x1 = start;
@@ -618,7 +618,8 @@ impl SegRender {
                     } else {
                         self.draw_flat_column(
                             ceil_tex,
-                            mobj.xy,
+                            mobj.x,
+                            mobj.y,
                             ceil_height,
                             flats_total_light,
                             cos,
@@ -656,7 +657,8 @@ impl SegRender {
                     rdata.portal_clip.floorclip[clip_index] = top;
                     self.draw_flat_column(
                         floor_tex,
-                        mobj.xy,
+                        mobj.x,
+                        mobj.y,
                         floor_height,
                         flats_total_light,
                         cos,
@@ -856,7 +858,8 @@ impl SegRender {
     fn draw_flat_column(
         &mut self,
         texture: &FlatPic,
-        viewxy: Vec2,
+        viewx: f32,
+        viewy: f32,
         plane_height: f32,
         total_light: usize,
         cos: f32,
@@ -882,8 +885,8 @@ impl SegRender {
                 pic_data.flat_light_colourmap(total_light, (diminished_light as u32 as usize) >> 4);
 
             let length = diminished_light * distscale;
-            let xfrac = viewxy.x + cos * length;
-            let yfrac = viewxy.y + sin * length;
+            let xfrac = viewx + cos * length;
+            let yfrac = viewy + sin * length;
             // flats are 64x64 so a bitwise op works here
             let x_step = (xfrac.abs() as u32 as usize) & tex_len;
             let y_step = (yfrac.abs() as u32 as usize) & tex_len;

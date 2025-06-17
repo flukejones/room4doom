@@ -4,7 +4,7 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 use gameplay::log::{error, warn};
 use gameplay::{
     LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random,
-    point_to_angle_2,
+    point_to_angle_2_xy,
 };
 use glam::Vec2;
 use render_trait::{PixelBuffer, RenderTrait};
@@ -135,8 +135,8 @@ impl SoftwareRenderer {
         let view_sin = player_mobj.angle.sin();
 
         // transform the origin point
-        let tr_x = thing.xy.x - player_mobj.xy.x;
-        let tr_y = thing.xy.y - player_mobj.xy.y;
+        let tr_x = thing.x - player_mobj.x;
+        let tr_y = thing.y - player_mobj.y;
         let tz = (tr_x * view_cos) - -(tr_y * view_sin);
 
         // Is it behind the view?
@@ -167,7 +167,7 @@ impl SoftwareRenderer {
         let patch_index;
         let flip;
         if sprite_frame.rotate == 1 {
-            let angle = point_to_angle_2(player_mobj.xy, thing.xy);
+            let angle = point_to_angle_2_xy(player_mobj.x, player_mobj.y, thing.x, thing.y);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
             patch_index = sprite_frame.lump[rot as u32 as usize] as u32 as usize;
             patch = pic_data.sprite_patch(patch_index);
@@ -203,8 +203,8 @@ impl SoftwareRenderer {
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
         vis.scale = x_scale * y_scale; // Note: increase Y
-        vis.gx = thing.xy.x;
-        vis.gy = thing.xy.y;
+        vis.gx = thing.x;
+        vis.gy = thing.y;
         vis.gz = thing.z;
         vis.gzt = thing.z + patch.top_offset as f32;
         vis.texture_mid = vis.gzt - player.viewz;

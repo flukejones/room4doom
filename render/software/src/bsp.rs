@@ -175,7 +175,7 @@ impl SoftwareRenderer {
         let viewangle = mobj.angle;
 
         // Blocks some zdoom segs rendering
-        if !seg.is_facing_point(&mobj.xy) {
+        if !seg.is_facing_point_xy(mobj.x, mobj.y) {
             return;
         }
 
@@ -533,7 +533,7 @@ impl SoftwareRenderer {
         // otherwise get node
         let node = &map.get_nodes()[node_id as usize];
         // find which side the point is on
-        let side = node.point_on_side(&mobj.xy);
+        let side = node.point_on_side_xy(mobj.x, mobj.y);
         // Recursively divide front space.
         self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
 
@@ -576,17 +576,17 @@ impl SoftwareRenderer {
 
         let boxx;
         let boxy;
-        if mobj.xy.x <= lt.x {
+        if mobj.x <= lt.x {
             boxx = 0;
-        } else if mobj.xy.x < rb.x {
+        } else if mobj.x < rb.x {
             boxx = 1;
         } else {
             boxx = 2;
         }
 
-        if mobj.xy.y >= lt.y {
+        if mobj.y >= lt.y {
             boxy = 0;
-        } else if mobj.xy.y > rb.y {
+        } else if mobj.y > rb.y {
             boxy = 1;
         } else {
             boxy = 2;

@@ -28,7 +28,6 @@ use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
-use gamestate_traits::sdl2::render::CanvasBuilder;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{
     GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait, sdl2,
@@ -160,8 +159,8 @@ pub fn d_doom_loop(
             game.sound_cmd
                 .send(SoundAction::UpdateListener {
                     uid,
-                    x: mobj.xy.x,
-                    y: mobj.xy.y,
+                    x: mobj.x,
+                    y: mobj.y,
                     angle: mobj.angle.rad(),
                 })
                 .unwrap();

@@ -1,27 +1,27 @@
-use glam::Vec2;
-
 /// Used in path tracing for intercepts
 /// Is divline + trace types
 #[derive(Debug, Clone, Copy)]
 pub struct Trace {
-    pub xy: Vec2,
-    pub dxy: Vec2,
+    pub x: f32,
+    pub y: f32,
+    pub dx: f32,
+    pub dy: f32,
 }
 
 impl Trace {
     #[inline]
-    pub const fn new(xyz: Vec2, dxyz: Vec2) -> Self {
-        Self { xy: xyz, dxy: dxyz }
+    pub const fn new(x: f32, y: f32, dx: f32, dy: f32) -> Self {
+        Self { x, y, dx, dy }
     }
 }
 
 /// Determine which side of the trace the vector point is on
 #[inline]
-pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
-    let dx = v2.x - trace.xy.x;
-    let dy = v2.y - trace.xy.y;
+pub fn point_on_side(trace: Trace, x: f32, y: f32) -> usize {
+    let dx = x - trace.x;
+    let dy = y - trace.y;
 
-    if (dy * trace.dxy.x) <= (trace.dxy.y * dx) {
+    if (dy * trace.dx) <= (trace.dy * dx) {
         // Front side
         return 0;
     }
@@ -38,10 +38,10 @@ pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
 #[inline]
 pub fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
     // Doom does `v1->dy >> 8`, this is  x * 0.00390625
-    let denominator = (v1.dxy.y * v2.dxy.x) - (v1.dxy.x * v2.dxy.y);
+    let denominator = (v1.dy * v2.dx) - (v1.dx * v2.dy);
     if denominator == f32::EPSILON {
         return -0.0;
     }
-    let numerator = ((v1.xy.x - v2.xy.x) * v1.dxy.y) + ((v2.xy.y - v1.xy.y) * v1.dxy.x);
+    let numerator = ((v1.x - v2.x) * v1.dy) + ((v2.y - v1.y) * v1.dx);
     numerator / denominator
 }

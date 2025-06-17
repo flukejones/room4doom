@@ -7,8 +7,8 @@ use crate::MapPtr;
 use crate::level::Level;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
-use glam::Vec2;
-use math::{Trace, circle_seg_collide, intercept_vector, point_on_side};
+
+use math::{FixedPoint, Trace, circle_seg_collide_xy, intercept_vector, point_on_side};
 
 /// Returns -1 if the line runs through the box at all
 #[inline]
@@ -26,12 +26,12 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
             p2 = (tmbox.left > ld.v1.x) as i32;
         }
         SlopeType::Positive => {
-            p1 = ld.point_on_side(Vec2::new(tmbox.left, tmbox.top)) as i32;
-            p2 = ld.point_on_side(Vec2::new(tmbox.right, tmbox.bottom)) as i32;
+            p1 = ld.point_on_side_xy(tmbox.left, tmbox.top) as i32;
+            p2 = ld.point_on_side_xy(tmbox.right, tmbox.bottom) as i32;
         }
         SlopeType::Negative => {
-            p1 = ld.point_on_side(Vec2::new(tmbox.right, tmbox.top)) as i32;
-            p2 = ld.point_on_side(Vec2::new(tmbox.left, tmbox.bottom)) as i32;
+            p1 = ld.point_on_side_xy(tmbox.right, tmbox.top) as i32;
+            p2 = ld.point_on_side_xy(tmbox.left, tmbox.bottom) as i32;
         }
     }
 
@@ -138,9 +138,11 @@ impl PortalZ {
     }
 }
 
-pub fn path_traverse(
-    origin: Vec2,
-    endpoint: Vec2,
+pub fn path_traverse_xy(
+    origin_x: f32,
+    origin_y: f32,
+    endpoint_x: f32,
+    endpoint_y: f32,
     flags: i32,
     level: &mut Level,
     trav: impl FnMut(&mut Intercept) -> bool,
@@ -148,7 +150,65 @@ pub fn path_traverse(
 ) -> bool {
     let earlyout = flags & PT_EARLYOUT != 0;
     let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
-    let trace = Trace::new(origin, endpoint - origin);
+    let trace = Trace::new(
+        origin_x,
+        origin_y,
+        endpoint_x - origin_x,
+        endpoint_y - origin_y,
+    );
+
+    level.valid_count = level.valid_count.wrapping_add(1);
+    for n in bsp_trace.intercepted_subsectors() {
+        if flags & PT_ADDLINES != 0 {
+            let start = level.map_data.subsectors_mut()[*n as usize].start_seg as usize;
+            let end = start + level.map_data.subsectors_mut()[*n as usize].seg_count as usize;
+
+            for seg in &mut level.map_data.segments_mut()[start..end] {
+                if seg.linedef.valid_count == level.valid_count {
+                    continue;
+                }
+                seg.linedef.valid_count = level.valid_count;
+
+                if !add_line_intercepts(trace, seg.linedef.clone(), &mut intercepts, earlyout) {
+                    return false; // early out
+                }
+            }
+        }
+
+        if flags & PT_ADDTHINGS != 0
+            && !level.map_data.subsectors_mut()[*n as usize]
+                .sector
+                .run_mut_func_on_thinglist(|thing| {
+                    add_thing_intercept(trace, &mut intercepts, thing, level.valid_count)
+                })
+        {
+            return false; // early out
+        }
+    }
+
+    intercepts.sort();
+
+    traverse_intercepts(&mut intercepts, 1.0, trav)
+}
+
+pub fn path_traverse(
+    origin_x: FixedPoint,
+    origin_y: FixedPoint,
+    endpoint_x: FixedPoint,
+    endpoint_y: FixedPoint,
+    flags: i32,
+    level: &mut Level,
+    trav: impl FnMut(&mut Intercept) -> bool,
+    bsp_trace: &mut BSPTrace,
+) -> bool {
+    let earlyout = flags & PT_EARLYOUT != 0;
+    let mut intercepts: Vec<Intercept> = Vec::with_capacity(20);
+    let trace = Trace::new(
+        origin_x.into(),
+        origin_y.into(),
+        (endpoint_x - origin_x).into(),
+        (endpoint_y - origin_y).into(),
+    );
 
     level.valid_count = level.valid_count.wrapping_add(1);
     for n in bsp_trace.intercepted_subsectors() {
@@ -234,15 +294,20 @@ pub fn add_line_intercepts(
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(trace, line.v1);
-    let s2 = point_on_side(trace, line.v2);
+    let s1 = point_on_side(trace, line.v1.x, line.v1.y);
+    let s2 = point_on_side(trace, line.v2.x, line.v2.y);
 
     if s1 == s2 {
         // line isn't crossed
         return true;
     }
 
-    let dl = Trace::new(line.v1, line.v2 - line.v1);
+    let dl = Trace::new(
+        line.v1.x,
+        line.v1.y,
+        line.v2.x - line.v1.x,
+        line.v2.y - line.v1.y,
+    );
     let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {
@@ -282,20 +347,50 @@ fn add_thing_intercept(
 
     // Diagonals are too unrealiable for first check so use
     // Use the seg check to limit the range
-    if !circle_seg_collide(thing.xy, thing.radius, trace.xy, trace.xy + trace.dxy) {
+    let trace_start_x = trace.x;
+    let trace_start_y = trace.y;
+    let trace_end_x = trace.x + trace.dx;
+    let trace_end_y = trace.y + trace.dy;
+
+    if !circle_seg_collide_xy(
+        thing.x,
+        thing.y,
+        thing.radius,
+        trace_start_x,
+        trace_start_y,
+        trace_end_x,
+        trace_end_y,
+    ) {
         return true;
     }
+
     // Get vector clockwise-perpendicular to trace
     let r = thing.radius;
-    let p = Vec2::new(trace.xy.y, -trace.xy.x).normalize() * r;
-    let v1 = thing.xy + p;
-    let v2 = thing.xy - p;
+    let trace_len = (trace.dx * trace.dx + trace.dy * trace.dy).sqrt();
+    let norm_x = if trace_len > 0.0 {
+        trace.dy / trace_len
+    } else {
+        0.0
+    };
+    let norm_y = if trace_len > 0.0 {
+        -trace.dx / trace_len
+    } else {
+        0.0
+    };
 
-    let dl = Trace::new(v1, v2 - v1);
+    let p_x = norm_x * r;
+    let p_y = norm_y * r;
+
+    let v1_x = thing.x + p_x;
+    let v1_y = thing.y + p_y;
+    let v2_x = thing.x - p_x;
+    let v2_y = thing.y - p_y;
+
+    let dl = Trace::new(v1_x, v1_y, v2_x - v1_x, v2_y - v1_y);
     let frac = intercept_vector(trace, dl);
 
     // println!("Passing through {:?}, from x{},y{}, to x{},y{}, r{} f{}",
-    // thing.kind, trace.xy.x, trace.xy.y, thing.xy.x, thing.xy.y, thing.radius,
+    // thing.kind, trace.x, trace.y, thing.x, thing.y, thing.radius,
     // frac);
 
     // Skip if the trace doesn't intersect this line

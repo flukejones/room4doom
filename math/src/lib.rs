@@ -117,6 +117,38 @@ pub fn circle_line_collide(c_origin: Vec2, c_radius: f32, l_start: Vec2, l_end: 
     circle_point_intersect(c_origin, c_radius, nearest)
 }
 
+#[inline]
+pub fn circle_line_collide_xy(
+    c_origin_x: f32,
+    c_origin_y: f32,
+    c_radius: f32,
+    l_start_x: f32,
+    l_start_y: f32,
+    l_end_x: f32,
+    l_end_y: f32,
+) -> bool {
+    let c_origin = Vec2::new(c_origin_x, c_origin_y);
+    let l_start = Vec2::new(l_start_x, l_start_y);
+    let l_end = Vec2::new(l_end_x, l_end_y);
+    circle_line_collide(c_origin, c_radius, l_start, l_end)
+}
+
+#[inline]
+pub fn circle_seg_collide_xy(
+    c_origin_x: f32,
+    c_origin_y: f32,
+    c_radius: f32,
+    s_start_x: f32,
+    s_start_y: f32,
+    s_end_x: f32,
+    s_end_y: f32,
+) -> bool {
+    let c_origin = Vec2::new(c_origin_x, c_origin_y);
+    let s_start = Vec2::new(s_start_x, s_start_y);
+    let s_end = Vec2::new(s_end_x, s_end_y);
+    circle_seg_collide(c_origin, c_radius, s_start, s_end)
+}
+
 /// Do a 2d XY projection. Zeroes out the Z component in the `Vec2` copy
 /// internally.
 #[inline]
@@ -154,6 +186,58 @@ pub fn circle_circle_intersect(
         return true; // Some(len - radius);
     }
     false
+}
+
+#[inline]
+pub fn circle_circle_intersect_xy(
+    origin_x: f32,
+    origin_y: f32,
+    origin_radius: f32,
+    point_x: f32,
+    point_y: f32,
+    point_radius: f32,
+) -> bool {
+    let len = distance(origin_x, origin_y, point_x, point_y);
+    len < origin_radius + point_radius
+}
+
+#[inline]
+pub fn distance(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    (dx * dx + dy * dy).sqrt()
+}
+
+#[inline]
+pub fn distance_squared(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    dx * dx + dy * dy
+}
+
+#[inline]
+pub fn length(x: f32, y: f32) -> f32 {
+    (x * x + y * y).sqrt()
+}
+
+#[inline]
+pub fn length_squared(x: f32, y: f32) -> f32 {
+    x * x + y * y
+}
+
+#[inline]
+pub fn dot(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+    x1 * x2 + y1 * y2
+}
+
+#[inline]
+pub fn normalize(x: f32, y: f32) -> (f32, f32) {
+    let len = length(x, y);
+    if len > 0.0 {
+        (x / len, y / len)
+    } else {
+        (0.0, 0.0)
+    }
 }
 
 #[cfg(test)]

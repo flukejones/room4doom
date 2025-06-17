@@ -10,7 +10,7 @@ use crate::player::{Player, PsprNum};
 use crate::thing::MapObject;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{MapObjKind, PlayerState, WeaponType};
-use math::{p_random, point_to_angle_2};
+use math::{p_random, point_to_angle_2_xy};
 
 const LOWERSPEED: f32 = 6.0;
 const RAISESPEED: f32 = 6.0;
@@ -295,7 +295,7 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
             let mut lt = aim.line_target;
             let level = unsafe { &mut *player.level };
             let z = lt.z as i32 + ((lt.height as i32) >> 2);
-            MapObject::spawn_map_object(lt.xy.x, lt.xy.y, z, MapObjKind::MT_EXTRABFG, level);
+            MapObject::spawn_map_object(lt.x, lt.y, z, MapObjKind::MT_EXTRABFG, level);
 
             let mut damage = 0;
             for _ in 0..15 {
@@ -331,7 +331,7 @@ pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
         if let Some(res) = slope {
             let target = res.line_target;
             mobj.start_sound(SfxName::Punch);
-            mobj.angle = point_to_angle_2(target.xy, mobj.xy);
+            mobj.angle = point_to_angle_2_xy(target.x, target.y, mobj.x, mobj.y);
         }
     }
 }
@@ -380,7 +380,7 @@ pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         if let Some(res) = slope {
             let target = res.line_target;
             mobj.start_sound(SfxName::Punch);
-            let angle = point_to_angle_2(target.xy, mobj.xy);
+            let angle = point_to_angle_2_xy(target.x, target.y, mobj.x, mobj.y);
 
             let delta = angle.rad() - mobj.angle.rad();
             if delta > FRAC_PI_2 / 20.0 {

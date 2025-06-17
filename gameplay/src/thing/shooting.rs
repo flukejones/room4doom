@@ -1,8 +1,7 @@
 //! Shooting and aiming.
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
-use glam::Vec2;
-use math::{p_random, point_to_angle_2};
+use math::{distance, distance_squared, p_random, point_to_angle_2_xy};
 use sound_traits::SfxName;
 use std::f32::consts::FRAC_PI_2;
 
@@ -11,7 +10,7 @@ use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::LineDef;
-use crate::utilities::{Intercept, PortalZ, path_traverse};
+use crate::utilities::{Intercept, PortalZ, path_traverse_xy};
 use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -22,7 +21,8 @@ const TARGET_SEEK_DIST_SQUARED: f32 = 2185300.3 * 2.0;
 impl MapObject {
     /// P_ExplodeMissile
     pub(crate) fn p_explode_missile(&mut self) {
-        self.momxy = Vec2::default();
+        self.momx = 0.0;
+        self.momy = 0.0;
         self.momz = 0.0;
         self.set_state(MOBJINFO[self.kind as usize].deathstate);
 
@@ -40,12 +40,14 @@ impl MapObject {
     }
 
     pub(crate) fn get_shoot_bsp_trace(&self, distance: f32) -> BSPTrace {
-        let xy2 = self.xy + self.angle.unit() * distance;
+        let (unit_x, unit_y) = self.angle.unit_xy();
+        let xy2_x = self.x + unit_x * distance;
+        let xy2_y = self.y + unit_y * distance;
         // Use a radius for shooting to enable a sort of swept volume to capture more
         // subsectors as demons might overlap from a subsector that isn't caught
         // otherwise (for example demon might be in one subsector but overlap
         // with radius in to a subsector the bullet passes through).
-        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, 20.0);
+        let mut bsp_trace = BSPTrace::new_line_xy(self.x, self.y, xy2_x, xy2_y, 20.0);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
@@ -57,7 +59,9 @@ impl MapObject {
         distance: f32,
         bsp_trace: &mut BSPTrace,
     ) -> Option<AimResult> {
-        let xy2 = self.xy + self.angle.unit() * distance;
+        let (unit_x, unit_y) = self.angle.unit_xy();
+        let xy2_x = self.x + unit_x * distance;
+        let xy2_y = self.y + unit_y * distance;
 
         // set up traverser
         let mut aim_traverse = SubSectTraverse::new(
@@ -70,9 +74,11 @@ impl MapObject {
         );
 
         let level = unsafe { &mut *self.level };
-        path_traverse(
-            self.xy,
-            xy2,
+        path_traverse_xy(
+            self.x,
+            self.y,
+            xy2_x,
+            xy2_y,
             PT_ADDLINES | PT_ADDTHINGS,
             level,
             |t| aim_traverse.check_aim(self, t),
@@ -92,25 +98,28 @@ impl MapObject {
         damage: f32,
         bsp_trace: &mut BSPTrace,
     ) {
+        let l = angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length();
         let mut shoot_traverse = ShootTraverse::new(
             aim_slope,
             attack_range,
             damage,
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
-            bsp_trace.origin,
-            angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length(),
+            bsp_trace.origin.x,
+            bsp_trace.origin.y,
+            l.x,
+            l.y,
             self.level().sky_num,
         );
 
-        let xy2 = Vec2::new(
-            self.xy.x + attack_range * angle.cos(),
-            self.xy.y + attack_range * angle.sin(),
-        );
+        let xy2_x = self.x + attack_range * angle.cos();
+        let xy2_y = self.y + attack_range * angle.sin();
 
         let level = unsafe { &mut *self.level };
-        path_traverse(
-            self.xy,
-            xy2,
+        path_traverse_xy(
+            self.x,
+            self.y,
+            xy2_x,
+            xy2_y,
             PT_ADDLINES | PT_ADDTHINGS,
             level,
             |intercept| shoot_traverse.resolve(self, intercept),
@@ -126,7 +135,7 @@ impl MapObject {
         // bsp_count is just for debugging BSP descent depth/width
         let mut bsp_count = 0;
         let dist = damage + MAXRADIUS;
-        let mut bsp_trace = BSPTrace::new_radius(self.xy, dist);
+        let mut bsp_trace = BSPTrace::new_radius_xy(self.x, self.y, dist);
 
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut bsp_count);
@@ -161,8 +170,8 @@ impl MapObject {
         }
 
         // Could just use vector lengths but it changes Doom behaviour...
-        let dx = (other.xy.x - self.xy.x).abs();
-        let dy = (other.xy.y - self.xy.y).abs();
+        let dx = (other.x - self.x).abs();
+        let dy = (other.y - self.y).abs();
         let mut dist = if dx > dy {
             dx - other.radius - self.radius
         } else {
@@ -244,12 +253,12 @@ impl MapObject {
     /// Get a `BSPTrace` for the selected point. It uses the shooters radius to
     /// get visibility as opposed to using the victims radius (this should
     /// be changed to the reverse).
-    pub(crate) fn get_sight_bsp_trace(&self, xy2: Vec2) -> BSPTrace {
+    pub(crate) fn get_sight_bsp_trace(&self, xy2_x: f32, xy2_y: f32) -> BSPTrace {
         // Use a radius for shooting to enable a sort of swept volume to capture more
         // subsectors as demons might overlap from a subsector that isn't caught
         // otherwise (for example demon might be in one subsector but overlap
         // with radius in to a subsector the bullet passes through).
-        let mut bsp_trace = BSPTrace::new_line(self.xy, xy2, self.radius);
+        let mut bsp_trace = BSPTrace::new_line_xy(self.x, self.y, xy2_x, xy2_y, self.radius);
         let mut count = 0;
         let level = unsafe { &mut *self.level };
         bsp_trace.find_intercepts(level.map_data.start_node(), &level.map_data, &mut count);
@@ -261,7 +270,8 @@ impl MapObject {
     /// Note that this doesn't take in to account the radius of the point.
     pub(crate) fn check_sight(
         &mut self,
-        to_xy: Vec2,
+        to_xy_x: f32,
+        to_xy_y: f32,
         to_z: f32,
         to_height: f32,
         bsp_trace: &mut BSPTrace,
@@ -271,9 +281,11 @@ impl MapObject {
             SubSectTraverse::new(to_z + to_height - z_start, to_z - z_start, 0.0, z_start);
 
         let level = unsafe { &mut *self.level };
-        path_traverse(
-            self.xy,
-            to_xy,
+        path_traverse_xy(
+            self.x,
+            self.y,
+            to_xy_x,
+            to_xy_y,
             PT_ADDLINES,
             level,
             |t| sight_traverse.check_traverse(t),
@@ -284,7 +296,7 @@ impl MapObject {
     /// Check the target is within a minimum distance
     pub(crate) fn target_within_min_dist(&self, target: &MapObject) -> bool {
         // skip the BSP trace if too far away
-        let dist = self.xy.distance_squared(target.xy);
+        let dist = distance_squared(self.x, self.y, target.x, target.y);
         // approx 1500.0 units * 2
         dist < TARGET_SEEK_DIST_SQUARED
     }
@@ -316,20 +328,22 @@ impl MapObject {
                 //     continue;
                 // }
 
-                let xy = target.xy;
+                let target_x = target.x;
+                let target_y = target.y;
                 let z = target.z;
                 let height = target.height;
 
-                let mut bsp_trace = self.get_sight_bsp_trace(xy);
-                if !self.check_sight(xy, z, height, &mut bsp_trace) {
+                let mut bsp_trace = self.get_sight_bsp_trace(target_x, target_y);
+                if !self.check_sight(target_x, target_y, z, height, &mut bsp_trace) {
                     continue;
                 }
 
                 if !all_around {
-                    let xy_u = point_to_angle_2(xy, self.xy).unit(); // Using a unit vector to remove world
-                    let v1 = self.angle.unit(); // Get a unit from mobj angle
-                    let angle = v1.angle_to(xy_u).abs(); // then use glam to get angle between (it's +/- for .abs())
-                    if angle > FRAC_PI_2 && self.xy.distance(xy) > MELEERANGE {
+                    let target_angle = point_to_angle_2_xy(target_x, target_y, self.x, self.y);
+                    let angle_diff = (target_angle.rad() - self.angle.rad()).abs();
+                    if angle_diff > FRAC_PI_2
+                        && distance(self.x, self.y, target_x, target_y) > MELEERANGE
+                    {
                         continue;
                     }
                 }
@@ -371,8 +385,8 @@ impl MapObject {
         // if !self.target_within_min_dist(target) {
         //     return false;
         // }
-        let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
-        self.check_sight(target.xy, target.z, target.height, &mut bsp_trace)
+        let mut bsp_trace = self.get_sight_bsp_trace(target.x, target.y);
+        self.check_sight(target.x, target.y, target.z, target.height, &mut bsp_trace)
     }
 
     pub(crate) fn check_melee_range(&mut self) -> bool {
@@ -381,13 +395,13 @@ impl MapObject {
         if let Some(target) = self.target {
             let target = unsafe { (*target).mobj() };
 
-            let dist = self.xy.distance(target.xy);
+            let dist = distance(self.x, self.y, target.x, target.y);
             if dist >= MELEERANGE - 20.0 + target.radius {
                 return false;
             }
 
-            let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
-            if self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
+            let mut bsp_trace = self.get_sight_bsp_trace(target.x, target.y);
+            if self.check_sight(target.x, target.y, target.z, target.height, &mut bsp_trace) {
                 return true;
             }
         }
@@ -406,8 +420,8 @@ impl MapObject {
             //     return false;
             // }
 
-            let mut bsp_trace = self.get_sight_bsp_trace(target.xy);
-            if !self.check_sight(target.xy, target.z, target.height, &mut bsp_trace) {
+            let mut bsp_trace = self.get_sight_bsp_trace(target.x, target.y);
+            if !self.check_sight(target.x, target.y, target.z, target.height, &mut bsp_trace) {
                 return false;
             }
 
@@ -421,7 +435,7 @@ impl MapObject {
                 return false; // do not attack yet
             }
 
-            let mut dist = self.xy.distance(target.xy) - 64.0;
+            let mut dist = distance(self.x, self.y, target.x, target.y) - 64.0;
 
             if self.info.meleestate == StateNum::None {
                 dist -= 128.0; // no melee attack, so fire more
@@ -600,8 +614,10 @@ struct ShootTraverse {
     attack_range: f32,
     damage: f32,
     shootz: f32,
-    trace_xy: Vec2,
-    trace_dxy: Vec2,
+    trace_x: f32,
+    trace_y: f32,
+    trace_dx: f32,
+    trace_dy: f32,
     sky_num: usize,
 }
 
@@ -611,8 +627,10 @@ impl ShootTraverse {
         attack_range: f32,
         damage: f32,
         shootz: f32,
-        trace_xy: Vec2,
-        trace_dxy: Vec2,
+        trace_x: f32,
+        trace_y: f32,
+        trace_dx: f32,
+        trace_dy: f32,
         sky_num: usize,
     ) -> Self {
         Self {
@@ -620,16 +638,18 @@ impl ShootTraverse {
             attack_range,
             damage,
             shootz,
-            trace_xy,
-            trace_dxy,
+            trace_x,
+            trace_y,
+            trace_dx,
+            trace_dy,
             sky_num,
         }
     }
 
     fn hit_line(&self, shooter: &mut MapObject, frac: f32, line: &LineDef) {
         let frac = frac - (4.0 / self.attack_range);
-        let x = self.trace_xy.x + self.trace_dxy.x * frac;
-        let y = self.trace_xy.y + self.trace_dxy.y * frac;
+        let x = self.trace_x + self.trace_dx * frac;
+        let y = self.trace_y + self.trace_dy * frac;
         let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
         if line.frontsector.ceilingpic == self.sky_num {
@@ -704,8 +724,8 @@ impl ShootTraverse {
             }
 
             let frac = intercept.frac - (10.0 / self.attack_range);
-            let x = self.trace_xy.x + self.trace_dxy.x * frac;
-            let y = self.trace_xy.y + self.trace_dxy.y * frac;
+            let x = self.trace_x + self.trace_dx * frac;
+            let y = self.trace_y + self.trace_dy * frac;
             let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
             if thing.flags & MapObjFlag::Noblood as u32 != 0 {

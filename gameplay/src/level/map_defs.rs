@@ -360,6 +360,32 @@ impl LineDef {
         // Backside
         1
     }
+
+    /// Determine which side of XY/XY a point is on. Ignores Z
+    #[inline]
+    pub fn point_on_side_xy(&self, x: f32, y: f32) -> usize {
+        let dx = x - self.v1.x;
+        let dy = y - self.v1.y;
+
+        if (dy * self.delta.x) <= (self.delta.y * dx) {
+            // Front side
+            return 0;
+        }
+        // Backside
+        1
+    }
+
+    /// True if the right side of the segment faces the point
+    pub fn is_facing_point_xy(&self, x: f32, y: f32) -> bool {
+        let start = &self.v1;
+        let end = &self.v2;
+
+        let d = (end.y - start.y) * (start.x - x) - (end.x - start.x) * (start.y - y);
+        if d >= 0.0 {
+            return false;
+        }
+        true
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -415,6 +441,19 @@ impl Segment {
         let end = &self.v2;
 
         let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
+        if d <= 0.1 {
+            return true;
+        }
+        false
+    }
+
+    /// True if the right side of the segment faces the point
+    #[inline]
+    pub fn is_facing_point_xy(&self, x: f32, y: f32) -> bool {
+        let start = &self.v1;
+        let end = &self.v2;
+
+        let d = (end.y - start.y) * (start.x - x) - (end.x - start.x) * (start.y - y);
         if d <= 0.1 {
             return true;
         }

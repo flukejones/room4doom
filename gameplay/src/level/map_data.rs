@@ -574,6 +574,11 @@ impl MapData {
         MapPtr::new(&mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize])
     }
 
+    pub fn point_in_subsector_raw_xy(&mut self, x: f32, y: f32) -> MapPtr<SubSector> {
+        let point = Vec2::new(x, y);
+        self.point_in_subsector_raw(point)
+    }
+
     pub fn point_in_subsector(&mut self, point: Vec2) -> &SubSector {
         let mut node_id = self.start_node();
         let mut node;
@@ -586,6 +591,11 @@ impl MapData {
         }
 
         &self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize]
+    }
+
+    pub fn point_in_subsector_xy(&mut self, x: f32, y: f32) -> &SubSector {
+        let point = Vec2::new(x, y);
+        self.point_in_subsector(point)
     }
 
     /// Remove slime trails. killough 10/98
@@ -750,6 +760,25 @@ impl BSPTrace {
             nodes: Vec::with_capacity(50),
             trace_type: BSPTraceType::Line,
         }
+    }
+
+    #[inline]
+    pub fn new_line_xy(
+        origin_x: f32,
+        origin_y: f32,
+        endpoint_x: f32,
+        endpoint_y: f32,
+        radius: f32,
+    ) -> Self {
+        let origin = Vec2::new(origin_x, origin_y);
+        let endpoint = Vec2::new(endpoint_x, endpoint_y);
+        Self::new_line(origin, endpoint, radius)
+    }
+
+    #[inline]
+    pub fn new_radius_xy(origin_x: f32, origin_y: f32, radius: f32) -> Self {
+        let origin = Vec2::new(origin_x, origin_y);
+        Self::new_radius(origin, radius)
     }
 
     #[inline]

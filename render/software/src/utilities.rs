@@ -38,9 +38,9 @@ pub fn screen_to_angle(fov: f32, x: f32, screen_width_half: f32) -> f32 {
 }
 
 /// R_PointToDist
-pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
-    let mut dx = (x - to.x).abs();
-    let mut dy = (y - to.y).abs();
+pub fn point_to_dist(x: f32, y: f32, to_x: f32, to_y: f32) -> f32 {
+    let mut dx = (x - to_x).abs();
+    let mut dy = (y - to_y).abs();
 
     if dy > dx {
         std::mem::swap(&mut dx, &mut dy);
@@ -61,8 +61,8 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
 
 /// R_PointToAngle
 pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
-    let x = vertex.x - mobj.xy.x;
-    let y = vertex.y - mobj.xy.y;
+    let x = vertex.x - mobj.x;
+    let y = vertex.y - mobj.y;
     Angle::new(y.atan2(x))
 }
 

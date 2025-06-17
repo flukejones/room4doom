@@ -93,7 +93,6 @@ fn main() {
     // Advanced vector operations
     println!("\n5. Advanced Vector Operations:");
     let fv_base = fvec2!(1.0, 0.0);
-    let v_base = Vec2::new(1.0, 0.0);
 
     let fv_rotated = fv_base.rotate(fconst!(FRAC_PI_2));
     println!(

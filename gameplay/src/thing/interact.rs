@@ -2,7 +2,6 @@
 
 use std::ptr;
 
-use glam::Vec2;
 use log::{debug, error, info};
 use sound_traits::SfxName;
 
@@ -12,7 +11,7 @@ use crate::lang::english::*;
 use crate::player::{PlayerCheat, PlayerState};
 use crate::thing::MapObjFlag;
 use crate::{MapObject, Skill};
-use math::{p_random, point_to_angle_2};
+use math::{p_random, point_to_angle_2_xy};
 
 pub const BONUSADD: i32 = 6;
 
@@ -54,7 +53,8 @@ impl MapObject {
         }
 
         if self.flags & MapObjFlag::Skullfly as u32 != 0 {
-            self.momxy = Vec2::default();
+            self.momx = 0.0;
+            self.momy = 0.0;
             self.momz = 0.0;
             // extra flag setting here because sometimes float errors stuff it up
             self.flags &= !(MapObjFlag::Skullfly as u32);
@@ -89,7 +89,7 @@ impl MapObject {
             };
 
             if self.flags & MapObjFlag::Noclip as u32 == 0 && do_push {
-                let angle = point_to_angle_2(self.xy, inflict.xy);
+                let angle = point_to_angle_2_xy(self.x, self.y, inflict.x, inflict.y);
                 let mut thrust = damage as f32 * 16.66 / self.info.mass as f32;
                 // make fall forwards sometimes
                 if damage < 40
@@ -100,13 +100,16 @@ impl MapObject {
                     thrust *= 4.0;
                 }
 
-                self.momxy += angle.unit() * thrust;
+                let (unit_x, unit_y) = angle.unit_xy();
+                self.momx += unit_x * thrust;
+                self.momy += unit_y * thrust;
             }
         }
 
         let special = self.subsector.sector.special;
         let mobj_health = self.health;
-        let self_pos = self.xy;
+        let self_pos_x = self.x;
+        let self_pos_y = self.y;
         let self_ang = self.angle;
         if let Some(player) = self.player_mut() {
             // end of game-exe hell hack
@@ -143,7 +146,8 @@ impl MapObject {
             }
 
             if let Some(source) = source.as_mut() {
-                player.status.attacked_from = point_to_angle_2(self_pos, source.xy);
+                player.status.attacked_from =
+                    point_to_angle_2_xy(self_pos_x, self_pos_y, source.x, source.y);
                 player.status.own_angle = self_ang;
                 player.status.attacked_angle_count = 6;
                 player.attacker = Some(*source);
@@ -258,8 +262,8 @@ impl MapObject {
 
         unsafe {
             let mobj = MapObject::spawn_map_object(
-                self.xy.x,
-                self.xy.y,
+                self.x,
+                self.y,
                 self.floorz as i32,
                 item,
                 &mut *self.level,

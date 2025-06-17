@@ -20,6 +20,17 @@ impl Node {
     }
 
     #[inline]
+    pub const fn point_on_side_xy(&self, x: f32, y: f32) -> usize {
+        let dx = x - self.xy.x;
+        let dy = y - self.xy.y;
+
+        if (self.delta.y * dx) > (dy * self.delta.x) {
+            return 0;
+        }
+        1
+    }
+
+    #[inline]
     pub const fn point_in_bounds(&self, v: Vec2, side: usize) -> bool {
         if v.x > self.bboxes[side][0].x
             && v.x < self.bboxes[side][1].x
