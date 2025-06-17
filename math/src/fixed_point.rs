@@ -28,8 +28,14 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct FixedPoint(i32);
+
+impl FixedPoint {
+    pub const fn raw(self) -> i32 {
+        self.0
+    }
+}
 
 impl FixedPoint {
     pub const fn new(value: i32) -> Self {
@@ -40,21 +46,259 @@ impl FixedPoint {
         Self(FRACUNIT)
     }
 
+    pub const fn neg_unit() -> Self {
+        Self(-FRACUNIT)
+    }
+
     pub const fn zero() -> Self {
         Self(0)
     }
 
-    pub const fn min() -> Self {
+    pub const fn min_value() -> Self {
         Self(i32::MIN)
     }
 
-    pub const fn max() -> Self {
+    pub const fn max_value() -> Self {
         Self(i32::MAX)
     }
 
-    // pub fn abs(self) -> Self {
-    //     Self(self.0.abs())
-    // }
+    pub const PI: Self = Self(205887);
+    pub const TAU: Self = Self(411775);
+    pub const FRAC_PI_2: Self = Self(102944);
+    pub const FRAC_PI_3: Self = Self(68629);
+    pub const FRAC_PI_4: Self = Self(51472);
+    pub const FRAC_PI_6: Self = Self(34315);
+    pub const FRAC_PI_8: Self = Self(25736);
+    pub const FRAC_1_PI: Self = Self(20861);
+    pub const FRAC_2_PI: Self = Self(41721);
+    pub const FRAC_2_SQRT_PI: Self = Self(73588);
+    pub const SQRT_2: Self = Self(92682);
+    pub const FRAC_1_SQRT_2: Self = Self(46341);
+    pub const E: Self = Self(178145);
+    pub const LOG2_E: Self = Self(94548);
+    pub const LOG10_E: Self = Self(28377);
+    pub const LN_2: Self = Self(45426);
+    pub const LN_10: Self = Self(150902);
+
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    pub fn min(self, other: Self) -> Self {
+        if self < other { self } else { other }
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        if self > other { self } else { other }
+    }
+
+    pub fn sqrt(self) -> Self {
+        if self.0 <= 0 {
+            return Self::zero();
+        }
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.sqrt()))
+    }
+
+    pub fn floor(self) -> Self {
+        Self(self.0 & !(FRACUNIT - 1))
+    }
+
+    pub fn ceil(self) -> Self {
+        if self.0 & (FRACUNIT - 1) == 0 {
+            self
+        } else {
+            Self((self.0 & !(FRACUNIT - 1)) + FRACUNIT)
+        }
+    }
+
+    pub fn round(self) -> Self {
+        Self((self.0 + (FRACUNIT >> 1)) & !(FRACUNIT - 1))
+    }
+
+    pub fn fract(self) -> Self {
+        Self(self.0 & (FRACUNIT - 1))
+    }
+
+    pub fn powi(self, n: i32) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.powi(n)))
+    }
+
+    pub fn powf(self, n: Self) -> Self {
+        let base = fixed_to_float(self.0);
+        let exp = fixed_to_float(n.0);
+        Self(float_to_fixed(base.powf(exp)))
+    }
+
+    pub fn exp(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.exp()))
+    }
+
+    pub fn ln(self) -> Self {
+        if self.0 <= 0 {
+            return Self(i32::MIN);
+        }
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.ln()))
+    }
+
+    pub fn log(self, base: Self) -> Self {
+        if self.0 <= 0 || base.0 <= 0 {
+            return Self(i32::MIN);
+        }
+        let val = fixed_to_float(self.0);
+        let base_val = fixed_to_float(base.0);
+        Self(float_to_fixed(val.log(base_val)))
+    }
+
+    pub fn log2(self) -> Self {
+        if self.0 <= 0 {
+            return Self(i32::MIN);
+        }
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.log2()))
+    }
+
+    pub fn log10(self) -> Self {
+        if self.0 <= 0 {
+            return Self(i32::MIN);
+        }
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.log10()))
+    }
+
+    pub fn recip(self) -> Self {
+        Self::unit() / self
+    }
+
+    pub fn to_degrees(self) -> Self {
+        self * Self::from(180.0 / std::f32::consts::PI)
+    }
+
+    pub fn to_radians(self) -> Self {
+        self * Self::from(std::f32::consts::PI / 180.0)
+    }
+
+    pub fn signum(self) -> Self {
+        if self.0 > 0 {
+            Self::unit()
+        } else if self.0 < 0 {
+            -Self::unit()
+        } else {
+            Self::zero()
+        }
+    }
+
+    pub fn copysign(self, sign: Self) -> Self {
+        if sign.0 >= 0 { self.abs() } else { -self.abs() }
+    }
+
+    pub fn is_sign_positive(self) -> bool {
+        self.0 >= 0
+    }
+
+    pub fn is_sign_negative(self) -> bool {
+        self.0 < 0
+    }
+
+    pub fn is_finite(self) -> bool {
+        true
+    }
+
+    pub fn is_infinite(self) -> bool {
+        false
+    }
+
+    pub fn is_nan(self) -> bool {
+        false
+    }
+
+    pub fn is_normal(self) -> bool {
+        self.0 != 0
+    }
+
+    pub fn mul_add(self, a: Self, b: Self) -> Self {
+        self * a + b
+    }
+
+    pub fn atan(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.atan()))
+    }
+
+    pub fn atan2(self, other: Self) -> Self {
+        let y = fixed_to_float(self.0);
+        let x = fixed_to_float(other.0);
+        Self(float_to_fixed(y.atan2(x)))
+    }
+
+    pub fn asin(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.asin()))
+    }
+
+    pub fn acos(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.acos()))
+    }
+
+    pub fn sinh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.sinh()))
+    }
+
+    pub fn cosh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.cosh()))
+    }
+
+    pub fn tanh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.tanh()))
+    }
+
+    pub fn asinh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.asinh()))
+    }
+
+    pub fn acosh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.acosh()))
+    }
+
+    pub fn atanh(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.atanh()))
+    }
+
+    pub fn exp2(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.exp2()))
+    }
+
+    pub fn exp_m1(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.exp_m1()))
+    }
+
+    pub fn ln_1p(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.ln_1p()))
+    }
+
+    pub fn cbrt(self) -> Self {
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.cbrt()))
+    }
+
+    pub fn hypot(self, other: Self) -> Self {
+        let x = fixed_to_float(self.0);
+        let y = fixed_to_float(other.0);
+        Self(float_to_fixed(x.hypot(y)))
+    }
 
     pub fn clamp(self, min: Self, max: Self) -> Self {
         if self < min {
@@ -106,15 +350,18 @@ impl FixedPoint {
     }
 
     pub fn sin(self) -> Self {
-        Self::finesine(self.0)
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.sin()))
     }
 
     pub fn cos(self) -> Self {
-        Self::finecosine(self.0)
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.cos()))
     }
 
     pub fn tan(self) -> Self {
-        Self::finesine(self.0) / Self::finecosine(self.0)
+        let float_val = fixed_to_float(self.0);
+        Self(float_to_fixed(float_val.tan()))
     }
 }
 
@@ -523,5 +770,59 @@ impl PartialEq<f32> for FixedPoint {
 impl PartialOrd<f32> for FixedPoint {
     fn partial_cmp(&self, other: &f32) -> Option<std::cmp::Ordering> {
         fixed_to_float(self.0).partial_cmp(other)
+    }
+}
+
+impl PartialEq<i32> for FixedPoint {
+    fn eq(&self, other: &i32) -> bool {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0 == other_fixed
+    }
+}
+
+impl PartialOrd<i32> for FixedPoint {
+    fn partial_cmp(&self, other: &i32) -> Option<std::cmp::Ordering> {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0.partial_cmp(&other_fixed)
+    }
+}
+
+impl PartialEq<i16> for FixedPoint {
+    fn eq(&self, other: &i16) -> bool {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0 == other_fixed
+    }
+}
+
+impl PartialOrd<i16> for FixedPoint {
+    fn partial_cmp(&self, other: &i16) -> Option<std::cmp::Ordering> {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0.partial_cmp(&other_fixed)
+    }
+}
+
+impl PartialEq<u16> for FixedPoint {
+    fn eq(&self, other: &u16) -> bool {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0 == other_fixed
+    }
+}
+
+impl PartialOrd<u16> for FixedPoint {
+    fn partial_cmp(&self, other: &u16) -> Option<std::cmp::Ordering> {
+        let other_fixed = (*other as i32) << FRACBITS;
+        self.0.partial_cmp(&other_fixed)
+    }
+}
+
+impl std::fmt::Display for FixedPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", fixed_to_float(self.0))
+    }
+}
+
+impl std::fmt::Debug for FixedPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FixedPoint({})", fixed_to_float(self.0))
     }
 }

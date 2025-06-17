@@ -305,6 +305,7 @@ name = "math"
 version = "0.16.1"
 dependencies = [
  "glam",
+ "lazy_static",
 ]
 
 [[package]]
