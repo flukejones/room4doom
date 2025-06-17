@@ -3,6 +3,7 @@
 //! Doom source name `p_doors`
 
 use log::{debug, error, warn};
+use math::DoomF32;
 use sound_traits::SfxName;
 use std::fmt::{self, Formatter};
 use std::ptr::null_mut;
@@ -18,9 +19,9 @@ use crate::{LineDefFlags, MapPtr};
 use crate::env::specials::{PlaneResult, find_lowest_ceiling_surrounding, move_plane};
 use crate::env::switch::start_sector_sound;
 
-const VDOOR: f32 = 2.0;
+const VDOOR: DoomF32 = DoomF32::new(2);
 const VDOORWAIT: i32 = 150;
-const VDOORSPEED: f32 = 2.0;
+const VDOORSPEED: DoomF32 = DoomF32::new(2);
 
 #[derive(Debug, Clone, Copy)]
 pub enum DoorKind {
@@ -38,8 +39,8 @@ pub struct VerticalDoor {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
     pub kind: DoorKind,
-    pub topheight: f32,
-    pub speed: f32,
+    pub topheight: DoomF32,
+    pub speed: DoomF32,
     // 1 = up, 0 = waiting, -1 = down
     pub direction: i32,
     // tics to wait at the top
@@ -226,7 +227,7 @@ pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut Level) -> b
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             kind,
-            topheight: 0.0,
+            topheight: 0.into(),
             speed: VDOORSPEED,
             direction: 1,
             topwait: VDOORWAIT,
@@ -364,7 +365,7 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
         thinker: null_mut(),
         sector: sec.clone(),
         kind: DoorKind::Normal,
-        topheight: 0.0,
+        topheight: 0.into(),
         speed: VDOORSPEED,
         direction: 1,
         topwait: VDOORWAIT,

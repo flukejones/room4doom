@@ -60,8 +60,8 @@ pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
-        x: line.front_sidedef.sector.sound_origin_x,
-        y: line.front_sidedef.sector.sound_origin_y,
+        x: line.front_sidedef.sector.sound_origin_x.into(),
+        y: line.front_sidedef.sector.sound_origin_y.into(),
     })
     .unwrap();
 }

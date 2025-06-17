@@ -10,12 +10,12 @@ use crate::player::{Player, PsprNum};
 use crate::thing::MapObject;
 use crate::tic_cmd::TIC_CMD_BUTTONS;
 use crate::{MapObjKind, PlayerState, WeaponType};
-use math::{p_random, point_to_angle_2_xy};
+use math::{DoomF32, p_random, point_to_angle_2_xy};
 
 const LOWERSPEED: f32 = 6.0;
 const RAISESPEED: f32 = 6.0;
-pub(crate) const WEAPONBOTTOM: f32 = 128.0;
-const WEAPONTOP: f32 = 32.0;
+pub(crate) const WEAPONBOTTOM: DoomF32 = DoomF32::new(128);
+const WEAPONTOP: DoomF32 = DoomF32::new(32);
 
 /// From P_PSPR
 #[derive(Debug)]
@@ -23,8 +23,8 @@ pub struct PspDef {
     /// a NULL state means not active
     pub state: Option<&'static State>,
     pub(crate) tics: i32,
-    pub sx: f32,
-    pub sy: f32,
+    pub sx: DoomF32,
+    pub sy: DoomF32,
 }
 
 /// The player can re-fire the weapon
@@ -98,7 +98,7 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     // the division is the frequency
     let angle = (level_time as f32 / 4.0).sin();
     // the division (3.0) is the depth
-    pspr.sy = WEAPONTOP + 6.0 + player.bob / 3.0 * angle;
+    pspr.sy = (WEAPONTOP + 6.0 + math::to_f32(player.bob) / 3.0 * angle).into();
 }
 
 pub(crate) fn a_lower(player: &mut Player, pspr: &mut PspDef) {
@@ -109,7 +109,7 @@ pub(crate) fn a_lower(player: &mut Player, pspr: &mut PspDef) {
 
     if player.player_state == PlayerState::Dead {
         // Keep weapon down if dead
-        pspr.sy = WEAPONBOTTOM;
+        pspr.sy = WEAPONBOTTOM.into();
         return;
     }
 
@@ -128,7 +128,7 @@ pub(crate) fn a_raise(player: &mut Player, pspr: &mut PspDef) {
     if pspr.sy > WEAPONTOP {
         return;
     }
-    pspr.sy = WEAPONTOP;
+    pspr.sy = WEAPONTOP.into();
 
     let new_state = WEAPON_INFO[player.status.readyweapon as usize].readystate;
     player.set_psprite(PsprNum::Weapon as usize, new_state);
@@ -189,7 +189,7 @@ pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
         let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
 
         for _ in 0..20 {
-            let damage = 5.0 * (p_random() % 3 + 1) as f32;
+            let damage = 5 * (p_random() % 3 + 1);
             let mut angle = mobj.angle;
             angle += (((p_random() - p_random()) >> 5) as f32).to_radians();
             mobj.line_attack(
@@ -294,7 +294,7 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
         if let Some(aim) = aim {
             let mut lt = aim.line_target;
             let level = unsafe { &mut *player.level };
-            let z = lt.z as i32 + ((lt.height as i32) >> 2);
+            let z = lt.z + (lt.height >> 2);
             MapObject::spawn_map_object(lt.x, lt.y, z, MapObjKind::MT_EXTRABFG, level);
 
             let mut damage = 0;
@@ -315,9 +315,9 @@ pub(crate) fn a_gunflash(player: &mut Player, _pspr: &mut PspDef) {
 }
 
 pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
-    let mut damage = (p_random() % 10 + 1) as f32;
+    let mut damage = p_random() % 10 + 1;
     if player.status.powers[PowerType::Strength as usize] != 0 {
-        damage *= 10.0;
+        damage *= 10;
     }
 
     if let Some(mobj) = player.mobj_mut() {
@@ -354,7 +354,7 @@ pub(crate) fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
 }
 
 pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
-    let damage = 2.0 * (p_random() % 10 + 1) as f32;
+    let damage = 2 * (p_random() % 10 + 1);
 
     if let Some(mobj) = player.mobj_mut() {
         let mut angle = mobj.angle;

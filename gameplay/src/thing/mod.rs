@@ -28,7 +28,7 @@ use crate::info::{MOBJINFO, MapObjInfo, MapObjKind, STATES, SpriteNum, State, St
 use crate::level::map_defs::SubSector;
 use crate::player::{Player, PlayerState};
 use crate::utilities::BestSlide;
-use math::{Angle, distance, p_random, p_subrandom, point_to_angle_2_xy};
+use math::{Angle, DoomF32, distance, p_random, p_subrandom, point_to_angle_2_xy};
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
 #[derive(Debug, PartialEq)]
@@ -117,9 +117,9 @@ pub struct MapObject {
     /// Specific to Doom II. The current target (spawn point for demons)
     pub(super) boss_target_on: usize,
     /// Info for drawing: position.
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: DoomF32,
+    pub y: DoomF32,
+    pub z: DoomF32,
     // More drawing info: to determine current sprite.
     /// orientation
     pub angle: Angle,
@@ -139,15 +139,15 @@ pub struct MapObject {
     /// subsector, making this safe in 99% of cases.
     pub subsector: MapPtr<SubSector>,
     /// The closest interval over all contacted Sectors.
-    pub(crate) floorz: f32,
-    pub(crate) ceilingz: f32,
+    pub(crate) floorz: DoomF32,
+    pub(crate) ceilingz: DoomF32,
     /// For movement checking.
-    pub(crate) radius: f32,
-    pub(crate) height: f32,
+    pub(crate) radius: DoomF32,
+    pub(crate) height: DoomF32,
     /// Momentum, used to update position.
-    pub(crate) momx: f32,
-    pub(crate) momy: f32,
-    pub(crate) momz: f32,
+    pub(crate) momx: DoomF32,
+    pub(crate) momy: DoomF32,
+    pub(crate) momz: DoomF32,
     /// If == validcount, already checked.
     pub(crate) valid_count: usize,
     /// The type of object
@@ -226,9 +226,9 @@ impl Debug for MapObject {
 impl MapObject {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        x: f32,
-        y: f32,
-        z: i32,
+        x: DoomF32,
+        y: DoomF32,
+        z: DoomF32,
         reactiontime: i32,
         kind: MapObjKind,
         info: MapObjInfo,
@@ -242,17 +242,17 @@ impl MapObject {
             player: None,
             x,
             y,
-            z: z as f32,
+            z,
             angle: Angle::new(0.0),
             sprite: state.sprite,
             frame: state.frame,
-            floorz: 0.0,
-            ceilingz: 0.0,
-            radius: info.radius,
-            height: info.height,
-            momx: 0.0,
-            momy: 0.0,
-            momz: 0.0,
+            floorz: 0.into(),
+            ceilingz: 0.into(),
+            radius: info.radius.into(),
+            height: info.height.into(),
+            momx: 0.into(),
+            momy: 0.into(),
+            momz: 0.into(),
             valid_count: 0,
             flags: info.flags,
             health: info.spawnhealth,
@@ -365,9 +365,9 @@ impl MapObject {
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr
         // as I can see the Player object owns this.
         let mobj = MapObject::spawn_map_object(
-            mthing.x as f32,
-            mthing.y as f32,
-            ONFLOORZ,
+            mthing.x.into(),
+            mthing.y.into(),
+            ONFLOORZ.into(),
             MapObjKind::MT_PLAYER,
             level,
         );
@@ -392,7 +392,7 @@ impl MapObject {
         player.status.bonuscount = 0;
         player.extralight = 0;
         player.fixedcolormap = 0;
-        player.viewheight = VIEWHEIGHT;
+        player.viewheight = VIEWHEIGHT.into();
 
         // // setup gun psprite
         // TODO: P_SetupPsprites(p);
@@ -487,15 +487,16 @@ impl MapObject {
             return;
         }
 
-        let x = mthing.x as f32;
-        let y = mthing.y as f32;
+        let x = mthing.x;
+        let y = mthing.y;
         let z = if MOBJINFO[i as usize].flags & MapObjFlag::Spawnceiling as u32 != 0 {
             ONCEILINGZ
         } else {
             ONFLOORZ
         };
 
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::from(i), level);
+        let mobj =
+            MapObject::spawn_map_object(x.into(), y.into(), z.into(), MapObjKind::from(i), level);
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
@@ -518,10 +519,16 @@ impl MapObject {
 
     /// A thinker for metal spark/puff, typically used for gun-strikes against
     /// walls or non-fleshy things.
-    pub(crate) fn spawn_puff(x: f32, y: f32, z: i32, attack_range: f32, level: &mut Level) {
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
+    pub(crate) fn spawn_puff(
+        x: DoomF32,
+        y: DoomF32,
+        z: DoomF32,
+        attack_range: DoomF32,
+        level: &mut Level,
+    ) {
+        let mobj = MapObject::spawn_map_object(x, y, z.into(), MapObjKind::MT_PUFF, level);
         let mobj = unsafe { &mut *mobj };
-        mobj.momz = 1.0;
+        mobj.momz = 1.into();
         mobj.tics -= p_random() & 3;
 
         if mobj.tics < 1 {
@@ -534,20 +541,26 @@ impl MapObject {
     }
 
     /// Blood! In a game-exe!
-    pub(crate) fn spawn_blood(x: f32, y: f32, mut z: i32, damage: f32, level: &mut Level) {
-        z += (p_random() - p_random()) / 64;
+    pub(crate) fn spawn_blood(
+        x: DoomF32,
+        y: DoomF32,
+        mut z: DoomF32,
+        damage: i32,
+        level: &mut Level,
+    ) {
+        z = z + (p_random() - p_random()) / 64;
         let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_BLOOD, level);
         let mobj = unsafe { &mut *mobj };
-        mobj.momz = 2.0;
+        mobj.momz = 2.into();
         mobj.tics -= p_random() & 3;
 
         if mobj.tics < 1 {
             mobj.tics = 1;
         }
 
-        if (9.0..=12.0).contains(&damage) {
+        if (9..=12).contains(&damage) {
             mobj.set_state(StateNum::BLOOD2);
-        } else if damage < 9.0 {
+        } else if damage < 9 {
             mobj.set_state(StateNum::BLOOD3);
         }
     }
@@ -564,7 +577,7 @@ impl MapObject {
         let y = source.y;
         let z = source.z + 32.0;
 
-        let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
+        let mobj = MapObject::spawn_map_object(x, y, z, kind, level);
         let mobj = unsafe { &mut *mobj };
         mobj.angle = source.angle;
 
@@ -591,7 +604,9 @@ impl MapObject {
         let (unit_x, unit_y) = mobj.angle.unit_xy();
         mobj.momx = unit_x * mobj.info.speed;
         mobj.momy = unit_y * mobj.info.speed;
-        mobj.momz = slope.map(|s| s.aimslope * mobj.info.speed).unwrap_or(0.0);
+        mobj.momz = slope
+            .map(|s| s.aimslope * mobj.info.speed)
+            .unwrap_or(0.into());
         mobj.check_missile_spawn();
     }
 
@@ -608,7 +623,7 @@ impl MapObject {
         let y = source.y;
         let z = source.z + 32.0;
 
-        let mobj = MapObject::spawn_map_object(x, y, z as i32, kind, level);
+        let mobj = MapObject::spawn_map_object(x, y, z, kind, level);
         let mobj = unsafe { &mut *mobj };
 
         if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
@@ -628,7 +643,7 @@ impl MapObject {
         //thing.momz = slope.map(|s| s.aimslope * thing.info.speed).unwrap_or(0.0);
         let mut dist = distance(mobj.x, mobj.y, target.x, target.y) / mobj.info.speed;
         if dist < 1.0 {
-            dist = 1.0;
+            dist = 1.into();
         }
         mobj.momz = (target.z - source.z) / dist;
 
@@ -661,9 +676,9 @@ impl MapObject {
     /// The Z position is used to determine if the object should spawn on the
     /// floor or ceiling
     pub(crate) fn spawn_map_object(
-        x: f32,
-        y: f32,
-        z: i32,
+        x: DoomF32,
+        y: DoomF32,
+        z: DoomF32,
         kind: MapObjKind,
         level: &mut Level,
     ) -> *mut MapObject {
@@ -834,8 +849,8 @@ impl MapObject {
 
         if self.health <= 0 {
             self.set_state(StateNum::GIBS);
-            self.height = 0.0;
-            self.radius = 0.0;
+            self.height = 0.into();
+            self.radius = 0.into();
             return true;
         }
 
@@ -860,13 +875,13 @@ impl MapObject {
             let mobj = MapObject::spawn_map_object(
                 self.x,
                 self.y,
-                (self.z + self.height) as i32 / 2,
+                (self.z + self.height) / 2,
                 MapObjKind::MT_BLOOD,
                 unsafe { &mut *self.level },
             );
             unsafe {
-                (*mobj).momx = p_subrandom() as f32 * 0.6; // P_SubRandom() << 12;
-                (*mobj).momy = p_subrandom() as f32 * 0.6;
+                (*mobj).momx = (p_subrandom() as f32 * 0.6).into(); // P_SubRandom() << 12;
+                (*mobj).momy = (p_subrandom() as f32 * 0.6).into();
             }
         }
 
@@ -877,8 +892,8 @@ impl MapObject {
         unsafe {
             (*self.level).start_sound(
                 sfx,
-                self.x,
-                self.y,
+                self.x.into(),
+                self.y.into(),
                 self as *const Self as usize, /* pointer cast as a UID */
             )
         }
@@ -886,8 +901,8 @@ impl MapObject {
 
     /// P_NightmareRespawn
     pub fn nightmare_respawn(&mut self) {
-        let spawn_x = self.spawnpoint.x as f32;
-        let spawn_y = self.spawnpoint.y as f32;
+        let spawn_x = self.spawnpoint.x.into();
+        let spawn_y = self.spawnpoint.y.into();
         let mut ctrl = SubSectorMinMax::default();
         if !self.p_check_position(spawn_x, spawn_y, &mut ctrl) {
             return;
@@ -897,7 +912,7 @@ impl MapObject {
             .level_mut()
             .map_data
             .point_in_subsector_xy(spawn_x, spawn_y);
-        let floor = ss.sector.floorheight as i32;
+        let floor = ss.sector.floorheight;
         let fog = unsafe {
             &mut *MapObject::spawn_map_object(
                 spawn_x,

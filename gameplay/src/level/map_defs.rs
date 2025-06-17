@@ -2,7 +2,7 @@ use crate::MapPtr;
 use crate::thing::MapObject;
 use crate::thinker::{Thinker, ThinkerData};
 use log::error;
-use math::Angle;
+use math::{Angle, DoomF32};
 
 #[derive(Debug)]
 pub enum SlopeType {
@@ -18,8 +18,8 @@ pub enum SlopeType {
 pub struct Sector {
     /// An incremented "ID" of sorts.
     pub num: i32,
-    pub floorheight: f32,
-    pub ceilingheight: f32,
+    pub floorheight: DoomF32,
+    pub ceilingheight: DoomF32,
     /// Is a tag or index to patch
     pub floorpic: usize,
     /// Is a tag or index to patch
@@ -32,8 +32,8 @@ pub struct Sector {
     pub soundtraversed: i32,
 
     /// origin for any sounds played by the sector
-    pub sound_origin_x: f32,
-    pub sound_origin_y: f32,
+    pub sound_origin_x: DoomF32,
+    pub sound_origin_y: DoomF32,
 
     // if == validcount, already checked
     pub validcount: usize,
@@ -65,8 +65,8 @@ impl Sector {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         num: u32,
-        floorheight: f32,
-        ceilingheight: f32,
+        floorheight: DoomF32,
+        ceilingheight: DoomF32,
         floorpic: usize,
         ceilingpic: usize,
         lightlevel: usize,
@@ -243,14 +243,14 @@ pub struct SideDef {
 
 #[derive(Debug, Default)]
 pub struct BBox {
-    pub top: f32,
-    pub bottom: f32,
-    pub left: f32,
-    pub right: f32,
+    pub top: DoomF32,
+    pub bottom: DoomF32,
+    pub left: DoomF32,
+    pub right: DoomF32,
 }
 
 impl BBox {
-    pub fn new(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
+    pub fn new(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> Self {
         let mut bbox = BBox::default();
 
         if x1 < x2 {
@@ -275,13 +275,13 @@ impl BBox {
 
 pub struct LineDef {
     // Vertices, from v1 to v2.
-    pub v1_x: f32,
-    pub v1_y: f32,
-    pub v2_x: f32,
-    pub v2_y: f32,
+    pub v1_x: DoomF32,
+    pub v1_y: DoomF32,
+    pub v2_x: DoomF32,
+    pub v2_y: DoomF32,
     // Precalculated v2 - v1 for side checking.
-    pub delta_x: f32,
-    pub delta_y: f32,
+    pub delta_x: DoomF32,
+    pub delta_y: DoomF32,
     // Animation related.
     pub flags: u32,
     pub special: i16,
@@ -332,7 +332,7 @@ impl std::fmt::Debug for LineDef {
 
 impl LineDef {
     /// True if the right side of the segment faces the point
-    pub fn is_facing_point(&self, point_x: f32, point_y: f32) -> bool {
+    pub fn is_facing_point(&self, point_x: DoomF32, point_y: DoomF32) -> bool {
         let d = (self.v2_y - self.v1_y) * (self.v1_x - point_x)
             - (self.v2_x - self.v1_x) * (self.v1_y - point_y);
         if d >= 0.0 {
@@ -343,7 +343,7 @@ impl LineDef {
 
     /// Determine which side of XY/XY a point is on. Ignores Z
     #[inline]
-    pub fn point_on_side(&self, x: f32, y: f32) -> usize {
+    pub fn point_on_side(&self, x: DoomF32, y: DoomF32) -> usize {
         let dx = x - self.v1_x;
         let dy = y - self.v1_y;
 
@@ -359,14 +359,14 @@ impl LineDef {
 #[derive(Debug, Clone)]
 pub struct Segment {
     // Vertices, from v1 to v2.
-    pub v1_x: f32,
-    pub v1_y: f32,
-    pub v2_x: f32,
-    pub v2_y: f32,
+    pub v1_x: DoomF32,
+    pub v1_y: DoomF32,
+    pub v2_x: DoomF32,
+    pub v2_y: DoomF32,
 
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
-    pub offset: f32,
+    pub offset: DoomF32,
     pub angle: Angle,
 
     pub sidedef: MapPtr<SideDef>,
@@ -384,7 +384,10 @@ impl Segment {
         // 12 top-left (256.0, -1392.0)
         // 4176 top-right (272.0, -1392.0)
         // 4143 bottom-right (272.0, -1408.0)
-        if self.v2_x == 256.0 && self.v2_y == -1392.0 && self.v1_x == 272.0 && self.v1_y == -1392.0
+        if self.v2_x == DoomF32::new(256)
+            && self.v2_y == DoomF32::new(-1392)
+            && self.v1_x == DoomF32::new(272)
+            && self.v1_y == DoomF32::new(-1392)
         {
             dbg!(self.sidedef.bottomtexture);
             dbg!(&self.linedef.front_sidedef);
@@ -399,7 +402,7 @@ impl Segment {
 
     /// Helper to recalcuate the offset of a seg along the linedef line it is
     /// derived from. Required for ZDBSP style nodes.
-    pub fn recalc_offset(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+    pub fn recalc_offset(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> DoomF32 {
         let a = x1 - x2;
         let b = y1 - y2;
         (a * a + b * b).sqrt()
@@ -407,7 +410,7 @@ impl Segment {
 
     /// True if the right side of the segment faces the point
     #[inline]
-    pub fn is_facing_point(&self, point_x: f32, point_y: f32) -> bool {
+    pub fn is_facing_point(&self, point_x: DoomF32, point_y: DoomF32) -> bool {
         let d = (self.v2_y - self.v1_y) * (self.v1_x - point_x)
             - (self.v2_x - self.v1_x) * (self.v1_y - point_y);
         if d <= 0.1 {
@@ -417,7 +420,7 @@ impl Segment {
     }
 
     #[inline]
-    pub fn point_on_side(&self, x: f32, y: f32) -> usize {
+    pub fn point_on_side(&self, x: DoomF32, y: DoomF32) -> usize {
         let dx = x - self.v1_x;
         let dy = y - self.v1_y;
         let delta_x = self.v2_x - self.v1_x;
@@ -444,17 +447,17 @@ pub struct SubSector {
 #[derive(Debug, PartialEq)]
 pub struct Node {
     /// Where the line used for splitting the level starts
-    pub x: f32,
-    pub y: f32,
+    pub x: DoomF32,
+    pub y: DoomF32,
     /// Where the line used for splitting the level ends
-    pub delta_x: f32,
-    pub delta_y: f32,
+    pub delta_x: DoomF32,
+    pub delta_y: DoomF32,
     /// Coordinates of the bounding boxes:
     /// - [0][0] == right box, top-left
     /// - [0][1] == right box, bottom-right
     /// - [1][0] == left box, top-left
     /// - [1][1] == left box, bottom-right
-    pub bboxes: [[(f32, f32); 2]; 2],
+    pub bboxes: [[(DoomF32, DoomF32); 2]; 2],
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
     /// code by inverting the last bit.
@@ -464,8 +467,8 @@ pub struct Node {
 
 #[derive(Default)]
 pub struct Blockmap {
-    pub x_origin: f32,
-    pub y_origin: f32,
+    pub x_origin: DoomF32,
+    pub y_origin: DoomF32,
     pub columns: usize,
     pub rows: usize,
     pub lines: Vec<MapPtr<LineDef>>,
@@ -473,7 +476,16 @@ pub struct Blockmap {
 
 #[cfg(test)]
 mod tests {
-    fn point_on_side(x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) -> usize {
+    use math::DoomF32;
+
+    fn point_on_side(
+        x1: DoomF32,
+        y1: DoomF32,
+        x2: DoomF32,
+        y2: DoomF32,
+        x: DoomF32,
+        y: DoomF32,
+    ) -> usize {
         let r = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1);
         // dbg!(r);
         if r.is_sign_positive() {
@@ -486,10 +498,24 @@ mod tests {
     fn line_side_problem() {
         // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y ==
         // -2944.0
-        let r = point_on_side(832.0, -2944.0, 968.0, -2880.0, 0.0, 0.0);
+        let r = point_on_side(
+            DoomF32::new(832),
+            DoomF32::new(-2944),
+            DoomF32::new(968),
+            DoomF32::new(-2880),
+            DoomF32::new(0),
+            DoomF32::new(0),
+        );
         assert_eq!(r, 1);
 
-        let r = point_on_side(832.0, -2944.0, 968.0, -2880.0, 976.0, -2912.0);
+        let r = point_on_side(
+            DoomF32::new(832),
+            DoomF32::new(-2944),
+            DoomF32::new(968),
+            DoomF32::new(-2880),
+            DoomF32::new(976),
+            DoomF32::new(-2912),
+        );
         assert_eq!(r, 0);
     }
 }

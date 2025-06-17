@@ -1,7 +1,7 @@
-use glam::Vec2;
 use std::f32::consts::TAU;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use crate::doom_f32::DoomF32;
 use crate::trig::{COS_TABLE, SIN_TABLE, TAN_TABLE};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
@@ -10,29 +10,32 @@ pub struct Angle(f32);
 impl Angle {
     /// Will always wrap < 0 to > PI
     #[inline]
-    pub const fn new(mut radians: f32) -> Self {
-        radians %= TAU;
-        if radians < 0.0 {
-            radians += TAU;
+    pub fn new(radians: f32) -> Self {
+        let mut rad = radians;
+        rad %= TAU;
+        if rad < 0.0 {
+            rad += TAU;
         }
-        Angle(radians)
+        Angle(rad)
     }
 
     #[inline]
-    const fn inner_wrap(&mut self) {
-        self.0 %= TAU;
-        if self.0 < 0.0 {
-            self.0 += TAU;
+    fn inner_wrap(&mut self) {
+        let mut rad = self.0;
+        rad %= TAU;
+        if rad < 0.0 {
+            rad += TAU;
         }
+        self.0 = rad;
     }
 
     #[inline]
-    pub const fn rad(&self) -> f32 {
+    pub fn rad(&self) -> f32 {
         self.0
     }
 
     #[inline]
-    const fn table(&self) -> usize {
+    fn table(&self) -> usize {
         let mut idx = (self.0.to_degrees() * 22.755_556) as i32;
         idx &= 8191;
         if idx < 0 {
@@ -44,7 +47,7 @@ impl Angle {
     #[inline]
     pub fn sin(&self) -> f32 {
         if cfg!(not(feature = "trig_lut")) {
-            self.0.sin()
+            (self.0).sin()
         } else {
             SIN_TABLE[self.table()]
         }
@@ -53,7 +56,7 @@ impl Angle {
     #[inline]
     pub fn cos(&self) -> f32 {
         if cfg!(not(feature = "trig_lut")) {
-            self.0.cos()
+            (self.0).cos()
         } else {
             COS_TABLE[self.table()]
         }
@@ -62,7 +65,7 @@ impl Angle {
     #[inline]
     pub fn tan(&self) -> f32 {
         if cfg!(not(feature = "trig_lut")) {
-            self.0.tan()
+            (self.0).tan()
         } else {
             TAN_TABLE[self.table()]
         }
@@ -71,17 +74,12 @@ impl Angle {
     #[inline]
     pub fn sin_cos(&self) -> (f32, f32) {
         if cfg!(not(feature = "trig_lut")) {
-            self.0.sin_cos()
+            let (s, c) = (self.0).sin_cos();
+            ((s), (c))
         } else {
             let idx = self.table();
-            (SIN_TABLE[idx], COS_TABLE[idx])
+            ((SIN_TABLE[idx]), (COS_TABLE[idx]))
         }
-    }
-
-    #[inline(always)]
-    pub fn unit(&self) -> Vec2 {
-        let (y, x) = self.sin_cos();
-        Vec2::new(x, y)
     }
 
     #[inline(always)]
@@ -90,16 +88,12 @@ impl Angle {
         (x, y)
     }
 
-    pub fn from_vector(input: Vec2) -> Self {
-        Angle::new(input.y.atan2(input.x))
-    }
-
     pub fn from_vector_xy(x: f32, y: f32) -> Self {
-        Angle::new(y.atan2(x))
+        Angle::new((y).atan2(x))
     }
 
     #[inline]
-    pub const fn sub_other(self, other: Angle) -> Angle {
+    pub fn sub_other(self, other: Angle) -> Angle {
         Angle::new(self.0 - other.0)
     }
 }
@@ -316,15 +310,8 @@ impl Neg for Angle {
     }
 }
 
-#[inline]
-pub fn point_to_angle_2(point1: Vec2, point2: Vec2) -> Angle {
-    let x = point1.x - point2.x;
-    let y = point1.y - point2.y;
-    Angle::new(y.atan2(x))
-}
-
-pub fn point_to_angle_2_xy(x1: f32, y1: f32, x2: f32, y2: f32) -> Angle {
+pub fn point_to_angle_2_xy(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> Angle {
     let x = x1 - x2;
     let y = y1 - y2;
-    Angle::new(y.atan2(x))
+    Angle::new((y).atan2(x).into())
 }

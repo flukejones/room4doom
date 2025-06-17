@@ -1,7 +1,10 @@
 mod angle;
+mod doom_f32;
 mod fixed_point;
 mod intercept;
 mod macros;
+pub use doom_f32::*;
+mod doom_f32_test;
 
 mod trig;
 pub use fixed_point::*;
@@ -9,14 +12,14 @@ pub use fixed_point::*;
 use std::f32::consts::PI;
 
 pub use angle::*;
-use glam::Vec2;
+
 pub use intercept::*;
 
 const FRACBITS: i32 = 16;
 const FRACUNIT: f32 = (1 << FRACBITS) as f32;
 pub const FRACUNIT_DIV4: f32 = FRACUNIT / 4.0;
 
-/// Convert a Doom `fixed_t` fixed-point float to `f32`
+/// Convert a Doom `fixed_t` fixed-point float to `DoomF32`
 pub const fn fixed_to_float(value: i32) -> f32 {
     value as f32 / FRACUNIT
 }
@@ -90,158 +93,188 @@ pub const fn p_subrandom() -> i32 {
 
 /// True if the line segment from point1 to point2 penetrates the circle
 #[inline]
-pub fn circle_seg_collide(c_origin: Vec2, c_radius: f32, s_start: Vec2, s_end: Vec2) -> bool {
-    let lc = c_origin - s_start;
-    let d = s_end - s_start;
-    let p = project_vec2d(lc, d);
-    let nearest = s_start + p;
+pub fn circle_seg_collide(
+    c_origin_x: DoomF32,
+    c_origin_y: DoomF32,
+    c_radius: DoomF32,
+    s_start_x: DoomF32,
+    s_start_y: DoomF32,
+    s_end_x: DoomF32,
+    s_end_y: DoomF32,
+) -> bool {
+    let lc_x = c_origin_x - s_start_x;
+    let lc_y = c_origin_y - s_start_y;
+    let d_x = s_end_x - s_start_x;
+    let d_y = s_end_y - s_start_y;
+    let (p_x, p_y) = project_vec2d(lc_x, lc_y, d_x, d_y);
+    let nearest_x = s_start_x + p_x;
+    let nearest_y = s_start_y + p_y;
 
-    if circle_point_intersect(c_origin, c_radius, nearest)
-        && p.length() < d.length()
-        && p.dot(d) > f32::EPSILON
+    if circle_point_intersect(c_origin_x, c_origin_y, c_radius, nearest_x, nearest_y)
+        && length(p_x, p_y) < length(d_x, d_y)
+        && dot(p_x, p_y, d_x, d_y) > doom_f32!(f32::EPSILON)
     {
-        // return Some((nearest - c_origin).normalize() * dist);
         return true;
     }
     false
 }
 
 #[inline]
-pub fn circle_line_collide(c_origin: Vec2, c_radius: f32, l_start: Vec2, l_end: Vec2) -> bool {
-    let lc = c_origin - l_start;
-    let p = project_vec2d(lc, l_end - l_start);
-    let nearest = l_start + p;
+pub fn circle_line_collide(
+    c_origin_x: DoomF32,
+    c_origin_y: DoomF32,
+    c_radius: DoomF32,
+    l_start_x: DoomF32,
+    l_start_y: DoomF32,
+    l_end_x: DoomF32,
+    l_end_y: DoomF32,
+) -> bool {
+    let lc_x = c_origin_x - l_start_x;
+    let lc_y = c_origin_y - l_start_y;
+    let (p_x, p_y) = project_vec2d(lc_x, lc_y, l_end_x - l_start_x, l_end_y - l_start_y);
+    let nearest_x = l_start_x + p_x;
+    let nearest_y = l_start_y + p_y;
 
-    circle_point_intersect(c_origin, c_radius, nearest)
+    circle_point_intersect(c_origin_x, c_origin_y, c_radius, nearest_x, nearest_y)
 }
 
 #[inline]
 pub fn circle_line_collide_xy(
-    c_origin_x: f32,
-    c_origin_y: f32,
-    c_radius: f32,
-    l_start_x: f32,
-    l_start_y: f32,
-    l_end_x: f32,
-    l_end_y: f32,
+    c_origin_x: DoomF32,
+    c_origin_y: DoomF32,
+    c_radius: DoomF32,
+    l_start_x: DoomF32,
+    l_start_y: DoomF32,
+    l_end_x: DoomF32,
+    l_end_y: DoomF32,
 ) -> bool {
-    let c_origin = Vec2::new(c_origin_x, c_origin_y);
-    let l_start = Vec2::new(l_start_x, l_start_y);
-    let l_end = Vec2::new(l_end_x, l_end_y);
-    circle_line_collide(c_origin, c_radius, l_start, l_end)
+    circle_line_collide(
+        c_origin_x, c_origin_y, c_radius, l_start_x, l_start_y, l_end_x, l_end_y,
+    )
 }
 
 #[inline]
 pub fn circle_seg_collide_xy(
-    c_origin_x: f32,
-    c_origin_y: f32,
-    c_radius: f32,
-    s_start_x: f32,
-    s_start_y: f32,
-    s_end_x: f32,
-    s_end_y: f32,
+    c_origin_x: DoomF32,
+    c_origin_y: DoomF32,
+    c_radius: DoomF32,
+    s_start_x: DoomF32,
+    s_start_y: DoomF32,
+    s_end_x: DoomF32,
+    s_end_y: DoomF32,
 ) -> bool {
-    let c_origin = Vec2::new(c_origin_x, c_origin_y);
-    let s_start = Vec2::new(s_start_x, s_start_y);
-    let s_end = Vec2::new(s_end_x, s_end_y);
-    circle_seg_collide(c_origin, c_radius, s_start, s_end)
+    circle_seg_collide(
+        c_origin_x, c_origin_y, c_radius, s_start_x, s_start_y, s_end_x, s_end_y,
+    )
 }
 
-/// Do a 2d XY projection. Zeroes out the Z component in the `Vec2` copy
-/// internally.
+/// Do a 2d XY projection.
 #[inline]
-fn project_vec2d(this: Vec2, onto: Vec2) -> Vec2 {
-    let d = onto.dot(onto);
-    if d > 0.0 {
-        let dp = this.dot(onto);
-        return onto * (dp / d);
+fn project_vec2d(
+    this_x: DoomF32,
+    this_y: DoomF32,
+    onto_x: DoomF32,
+    onto_y: DoomF32,
+) -> (DoomF32, DoomF32) {
+    let d = dot(onto_x, onto_y, onto_x, onto_y);
+    if d > ZERO {
+        let dp = dot(this_x, this_y, onto_x, onto_y);
+        return (onto_x * (dp / d), onto_y * (dp / d));
     }
-    onto
+    (onto_x, onto_y)
 }
 
-/// Do a 2d XY intersection. Zeroes out the Z component in the `Vec2` copy
-/// internally.
+/// Do a 2d XY intersection.
 #[inline]
-pub fn circle_point_intersect(origin: Vec2, radius: f32, point: Vec2) -> bool {
-    let dist = point - origin;
-    let len = dist.length();
+pub fn circle_point_intersect(
+    origin_x: DoomF32,
+    origin_y: DoomF32,
+    radius: DoomF32,
+    point_x: DoomF32,
+    point_y: DoomF32,
+) -> bool {
+    let dist_x = point_x - origin_x;
+    let dist_y = point_y - origin_y;
+    let len = length(dist_x, dist_y);
     if len < radius {
-        return true; // Some(len - radius);
+        return true;
     }
     false
 }
 
 #[inline]
 pub fn circle_circle_intersect(
-    origin: Vec2,
-    origin_radius: f32,
-    point: Vec2,
-    point_radius: f32,
+    origin_x: DoomF32,
+    origin_y: DoomF32,
+    origin_radius: DoomF32,
+    point_x: DoomF32,
+    point_y: DoomF32,
+    point_radius: DoomF32,
 ) -> bool {
-    let dist = point - origin;
-    let len = dist.length();
+    let dist_x = point_x - origin_x;
+    let dist_y = point_y - origin_y;
+    let len = length(dist_x, dist_y);
     if len < origin_radius + point_radius {
-        return true; // Some(len - radius);
+        return true;
     }
     false
 }
 
 #[inline]
 pub fn circle_circle_intersect_xy(
-    origin_x: f32,
-    origin_y: f32,
-    origin_radius: f32,
-    point_x: f32,
-    point_y: f32,
-    point_radius: f32,
+    origin_x: DoomF32,
+    origin_y: DoomF32,
+    origin_radius: DoomF32,
+    point_x: DoomF32,
+    point_y: DoomF32,
+    point_radius: DoomF32,
 ) -> bool {
     let len = distance(origin_x, origin_y, point_x, point_y);
     len < origin_radius + point_radius
 }
 
 #[inline]
-pub fn distance(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+pub fn distance(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> DoomF32 {
     let dx = x2 - x1;
     let dy = y2 - y1;
     (dx * dx + dy * dy).sqrt()
 }
 
 #[inline]
-pub fn distance_squared(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+pub fn distance_squared(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> DoomF32 {
     let dx = x2 - x1;
     let dy = y2 - y1;
     dx * dx + dy * dy
 }
 
 #[inline]
-pub fn length(x: f32, y: f32) -> f32 {
+pub fn length(x: DoomF32, y: DoomF32) -> DoomF32 {
     (x * x + y * y).sqrt()
 }
 
 #[inline]
-pub fn length_squared(x: f32, y: f32) -> f32 {
+pub fn length_squared(x: DoomF32, y: DoomF32) -> DoomF32 {
     x * x + y * y
 }
 
 #[inline]
-pub fn dot(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+pub fn dot(x1: DoomF32, y1: DoomF32, x2: DoomF32, y2: DoomF32) -> DoomF32 {
     x1 * x2 + y1 * y2
 }
 
 #[inline]
-pub fn normalize(x: f32, y: f32) -> (f32, f32) {
+pub fn normalize(x: DoomF32, y: DoomF32) -> (DoomF32, DoomF32) {
     let len = length(x, y);
-    if len > 0.0 {
+    if len > ZERO {
         (x / len, y / len)
     } else {
-        (0.0, 0.0)
+        (ZERO, ZERO)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec2;
     use std::f32::consts::{E, FRAC_PI_2, FRAC_PI_4, PI};
 
     const EPSILON: f32 = 0.01;
@@ -252,6 +285,17 @@ mod tests {
             diff < EPSILON,
             "Fixed {} != f32 {}, diff: {}",
             fixed,
+            f,
+            diff
+        );
+    }
+
+    fn assert_doom_f32_eq(doom_val: DoomF32, f: f32) {
+        let diff = (to_f32(doom_val) - f).abs();
+        assert!(
+            diff < EPSILON,
+            "DoomF32 {} != f32 {}, diff: {}",
+            to_f32(doom_val),
             f,
             diff
         );
@@ -321,76 +365,256 @@ mod tests {
         assert_fixed_f32_eq(FixedPoint::SQRT_2, std::f32::consts::SQRT_2);
     }
 
-    // use crate::play::utilities::{circle_point_intersect,
-    // circle_to_line_intercept_basic};
+    #[test]
+    fn test_doom_f32_fixed_point_on() {
+        #[cfg(feature = "fixed_point")]
+        {
+            let a = doom_f32!(3.5);
+            let b = doom_f32!(2.0);
+            assert_doom_f32_eq(a + b, 5.5);
+            assert_doom_f32_eq(a - b, 1.5);
+            assert_doom_f32_eq(a * b, 7.0);
+            assert_doom_f32_eq(a / b, 1.75);
+        }
+    }
 
-    // #[test]
-    // fn circle_vec2_intersect() {
-    //     let r = 1.0;
-    //     let origin = Vec2::new(3.0, 5.0);
-    //     let point = Vec2::new(2.5, 4.5);
-    //     assert!(circle_point_intersect(origin, r, point).is_some());
+    #[test]
+    fn test_doom_f32_fixed_point_off() {
+        #[cfg(not(feature = "fixed_point"))]
+        {
+            let a = doom_f32!(3.5);
+            let b = doom_f32!(2.0);
+            assert_doom_f32_eq(a + b, 5.5);
+            assert_doom_f32_eq(a - b, 1.5);
+            assert_doom_f32_eq(a * b, 7.0);
+            assert_doom_f32_eq(a / b, 1.75);
+        }
+    }
 
-    //     let point = Vec2::new(3.5, 5.5);
-    //     assert!(circle_point_intersect(origin, r, point).is_some());
+    #[test]
+    fn test_circle_point_intersect() {
+        let radius = doom_f32!(1.0);
+        let origin_x = doom_f32!(3.0);
+        let origin_y = doom_f32!(5.0);
 
-    //     let point = Vec2::new(2.0, 4.0);
-    //     assert!(circle_point_intersect(origin, r, point).is_none());
+        let point_x = doom_f32!(2.5);
+        let point_y = doom_f32!(4.5);
+        assert!(circle_point_intersect(
+            origin_x, origin_y, radius, point_x, point_y
+        ));
 
-    //     let point = Vec2::new(4.0, 7.0);
-    //     let r = 2.5;
-    //     assert!(circle_point_intersect(origin, r, point).is_some());
-    // }
+        let point_x = doom_f32!(3.5);
+        let point_y = doom_f32!(5.5);
+        assert!(circle_point_intersect(
+            origin_x, origin_y, radius, point_x, point_y
+        ));
 
-    // #[test]
-    // fn test_circle_to_line_intercept_basic() {
-    //     let r = 5.0;
-    //     let origin = Vec2::new(5.0, 7.0);
-    //     let point1 = Vec2::new(1.0, 3.0);
-    //     let point2 = Vec2::new(7.0, 20.0);
-    //     assert!(circle_to_line_intercept_basic(origin, r, point1,
-    // point2).is_some());
+        let point_x = doom_f32!(2.0);
+        let point_y = doom_f32!(4.0);
+        assert!(!circle_point_intersect(
+            origin_x, origin_y, radius, point_x, point_y
+        ));
+    }
 
-    //     let r = 2.0;
-    //     assert!(circle_to_line_intercept_basic(origin, r, point1,
-    // point2).is_none()); }
+    #[test]
+    fn test_distance_functions() {
+        let x1 = doom_f32!(1.0);
+        let y1 = doom_f32!(2.0);
+        let x2 = doom_f32!(4.0);
+        let y2 = doom_f32!(6.0);
 
-    // #[test]
-    // fn test_line_line_intersection() {
-    //     let origin1 = Vec2::new(5.0, 1.0);
-    //     let origin2 = Vec2::new(5.0, 10.0);
-    //     let point1 = Vec2::new(1.0, 5.0);
-    //     let point2 = Vec2::new(10.0, 5.0);
-    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
+        let dist = distance(x1, y1, x2, y2);
+        assert_doom_f32_eq(dist, 5.0);
 
-    //     let point1 = Vec2::new(5.0, 1.0);
-    //     let point2 = Vec2::new(5.0, 10.0);
-    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
+        let dist_sq = distance_squared(x1, y1, x2, y2);
+        assert_doom_f32_eq(dist_sq, 25.0);
+    }
 
-    //     let point1 = Vec2::new(4.0, 1.0);
-    //     let point2 = Vec2::new(4.0, 10.0);
-    //     assert!(!line_line_intersection(origin1, origin2, point1, point2));
+    #[test]
+    fn test_vector_operations() {
+        let x1 = doom_f32!(3.0);
+        let y1 = doom_f32!(4.0);
+        let x2 = doom_f32!(1.0);
+        let y2 = doom_f32!(2.0);
 
-    //     let origin1 = Vec2::new(1.0, 1.0);
-    //     let origin2 = Vec2::new(10.0, 10.0);
-    //     let point1 = Vec2::new(10.0, 1.0);
-    //     let point2 = Vec2::new(1.0, 10.0);
-    //     assert!(line_line_intersection(origin1, origin2, point1, point2));
-    // }
+        let dot_result = dot(x1, y1, x2, y2);
+        assert_doom_f32_eq(dot_result, 11.0);
+
+        let len = length(x1, y1);
+        assert_doom_f32_eq(len, 5.0);
+
+        let len_sq = length_squared(x1, y1);
+        assert_doom_f32_eq(len_sq, 25.0);
+
+        let (norm_x, norm_y) = normalize(x1, y1);
+        assert_doom_f32_eq(norm_x, 0.6);
+        assert_doom_f32_eq(norm_y, 0.8);
+
+        let (zero_x, zero_y) = normalize(ZERO, ZERO);
+        assert_doom_f32_eq(zero_x, 0.0);
+        assert_doom_f32_eq(zero_y, 0.0);
+    }
+
+    #[test]
+    fn test_circle_circle_intersect() {
+        let origin1_x = doom_f32!(0.0);
+        let origin1_y = doom_f32!(0.0);
+        let radius1 = doom_f32!(2.0);
+
+        let origin2_x = doom_f32!(1.0);
+        let origin2_y = doom_f32!(1.0);
+        let radius2 = doom_f32!(2.0);
+
+        assert!(circle_circle_intersect(
+            origin1_x, origin1_y, radius1, origin2_x, origin2_y, radius2
+        ));
+
+        let origin2_x = doom_f32!(5.0);
+        let origin2_y = doom_f32!(5.0);
+        assert!(!circle_circle_intersect(
+            origin1_x, origin1_y, radius1, origin2_x, origin2_y, radius2
+        ));
+    }
+
+    #[test]
+    fn test_circle_line_collisions() {
+        let c_x = doom_f32!(5.0);
+        let c_y = doom_f32!(5.0);
+        let c_radius = doom_f32!(2.0);
+
+        let l_start_x = doom_f32!(0.0);
+        let l_start_y = doom_f32!(5.0);
+        let l_end_x = doom_f32!(10.0);
+        let l_end_y = doom_f32!(5.0);
+
+        assert!(circle_line_collide(
+            c_x, c_y, c_radius, l_start_x, l_start_y, l_end_x, l_end_y
+        ));
+
+        let l_start_y = doom_f32!(0.0);
+        let l_end_y = doom_f32!(0.0);
+        assert!(!circle_line_collide(
+            c_x, c_y, c_radius, l_start_x, l_start_y, l_end_x, l_end_y
+        ));
+    }
+
+    #[test]
+    fn test_circle_segment_collisions() {
+        let c_x = doom_f32!(5.0);
+        let c_y = doom_f32!(5.0);
+        let c_radius = doom_f32!(1.5);
+
+        let s_start_x = doom_f32!(4.0);
+        let s_start_y = doom_f32!(5.0);
+        let s_end_x = doom_f32!(6.0);
+        let s_end_y = doom_f32!(5.0);
+
+        assert!(circle_seg_collide(
+            c_x, c_y, c_radius, s_start_x, s_start_y, s_end_x, s_end_y
+        ));
+
+        let s_start_x = doom_f32!(0.0);
+        let s_start_y = doom_f32!(0.0);
+        let s_end_x = doom_f32!(1.0);
+        let s_end_y = doom_f32!(1.0);
+        assert!(!circle_seg_collide(
+            c_x, c_y, c_radius, s_start_x, s_start_y, s_end_x, s_end_y
+        ));
+    }
+
+    #[test]
+    fn test_project_vec2d() {
+        let this_x = doom_f32!(3.0);
+        let this_y = doom_f32!(4.0);
+        let onto_x = doom_f32!(1.0);
+        let onto_y = doom_f32!(0.0);
+
+        let (proj_x, proj_y) = project_vec2d(this_x, this_y, onto_x, onto_y);
+        assert_doom_f32_eq(proj_x, 3.0);
+        assert_doom_f32_eq(proj_y, 0.0);
+
+        let onto_x = doom_f32!(0.0);
+        let onto_y = doom_f32!(0.0);
+        let (proj_x, proj_y) = project_vec2d(this_x, this_y, onto_x, onto_y);
+        assert_doom_f32_eq(proj_x, 0.0);
+        assert_doom_f32_eq(proj_y, 0.0);
+    }
+
+    #[test]
+    fn test_fixed_point_conversion() {
+        let f_val = 3.14159;
+        let fixed = float_to_fixed(f_val);
+        let back_to_float = fixed_to_float(fixed);
+        assert!((back_to_float - f_val).abs() < 0.001);
+
+        let negative_val = -2.5;
+        let fixed_neg = float_to_fixed(negative_val);
+        let back_neg = fixed_to_float(fixed_neg);
+        assert!((back_neg - negative_val).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_random_functions() {
+        let r1 = m_random();
+        let r2 = m_random();
+        assert!(r1 >= 0 && r1 < 256);
+        assert!(r2 >= 0 && r2 < 256);
+
+        let p1 = p_random();
+        let p2 = p_random();
+        assert!(p1 >= 0 && p1 < 256);
+        assert!(p2 >= 0 && p2 < 256);
+
+        let sub_r = p_subrandom();
+        assert!(sub_r >= -255 && sub_r <= 255);
+
+        m_clear_random();
+    }
+
+    #[test]
+    fn test_doom_f32_arithmetic_precision() {
+        let a = doom_f32!(0.1);
+        let b = doom_f32!(0.2);
+        let c = a + b;
+
+        #[cfg(not(feature = "fixed_point"))]
+        {
+            assert_doom_f32_eq(c, 0.3);
+        }
+
+        #[cfg(feature = "fixed_point")]
+        {
+            let result = to_f32(c);
+            assert!((result - 0.3).abs() < 0.01, "Expected ~0.3, got {}", result);
+        }
+    }
+
+    #[test]
+    fn test_doom_f32_constants() {
+        assert_doom_f32_eq(ZERO, 0.0);
+        assert_doom_f32_eq(ONE, 1.0);
+        assert_doom_f32_eq(NEG_ONE, -1.0);
+
+        assert!(to_f32(MAX) > 1000.0);
+        assert!(to_f32(MIN) < -1000.0);
+    }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn convert_bam_to_rad() {
-        // DOOM constants
         let ang45: u32 = 0x20000000;
         let ang90: u32 = 0x40000000;
         let ang180: u32 = 0x80000000;
-
         let one: u32 = 1 << 26;
 
         assert_eq!(bam_to_radian(ang45), FRAC_PI_4);
         assert_eq!(bam_to_radian(ang90), FRAC_PI_2);
         assert_eq!(bam_to_radian(ang180), PI);
-        assert_eq!(bam_to_radian(one).to_degrees(), 5.625);
+        let result = to_f32(doom_f32!(bam_to_radian(one))).to_degrees();
+        assert!(
+            (result - 5.625).abs() < 0.01,
+            "Expected ~5.625, got {}",
+            result
+        );
     }
 }

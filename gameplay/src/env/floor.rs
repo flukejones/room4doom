@@ -3,6 +3,7 @@
 //! Doom source name `p_floor`
 use std::ptr::{self, null_mut};
 
+use math::DoomF32;
 use sound_traits::SfxName;
 
 use crate::MapPtr;
@@ -13,11 +14,12 @@ use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
 
 use crate::env::specials::{
-    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
+    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
+    find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
 };
 use crate::env::switch::start_sector_sound;
 
-const FLOORSPEED: f32 = 1.0;
+const FLOORSPEED: DoomF32 = DoomF32::new(1);
 
 #[derive(Debug, Clone, Copy)]
 pub enum FloorKind {
@@ -63,12 +65,12 @@ pub struct FloorMove {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
     pub kind: FloorKind,
-    pub speed: f32,
+    pub speed: DoomF32,
     pub crush: bool,
     pub direction: i32,
     pub newspecial: i16,
     pub texture: usize,
-    pub destheight: f32,
+    pub destheight: DoomF32,
 }
 
 /// EV_DoFloor
@@ -97,7 +99,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
             direction: 0,
             newspecial: 0,
             texture: 0,
-            destheight: 0.0,
+            destheight: 0.into(),
         };
 
         match kind {
@@ -141,14 +143,14 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
                 for line in sec.lines.iter() {
                     if line.flags & LineDefFlags::TwoSided as u32 != 0 {
                         if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
-                            let tmp = level.animations[bottomtexture].num_pics() as f32;
+                            let tmp = level.animations[bottomtexture].num_pics().into();
                             if tmp < min {
                                 min = tmp;
                             }
                         }
                         if let Some(side) = line.back_sidedef.as_ref() {
                             if let Some(bottomtexture) = side.bottomtexture {
-                                let tmp = level.animations[bottomtexture].num_pics() as f32;
+                                let tmp = level.animations[bottomtexture].num_pics().into();
                                 if tmp < min {
                                     min = tmp;
                                 }
@@ -305,7 +307,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
             direction: 1,
             newspecial: 0,
             texture: sector.floorpic,
-            destheight: 0.0,
+            destheight: 0.into(),
         };
 
         match kind {

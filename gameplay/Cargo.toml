@@ -10,6 +10,7 @@ build = "../build.rs"
 null_check = []
 safety_check = []
 hprof = []
+fixed_point = ["math/fixed_point"]
 
 [dependencies]
 math.workspace = true

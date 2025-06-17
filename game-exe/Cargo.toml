@@ -12,7 +12,8 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut"]
+default = ["trig_lut", "fixed_point"]
+fixed_point = ["gameplay/fixed_point"]
 safety_check = ["render-soft/safety_check"]
 debug_draw = ["render-soft/debug_draw"]
 debug_seg_clip = ["render-soft/debug_seg_clip"]

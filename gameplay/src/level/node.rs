@@ -1,3 +1,5 @@
+use math::DoomF32;
+
 use crate::level::map_defs::Node;
 
 // use crate::play::utilities::ray_to_line_intersect;
@@ -8,7 +10,7 @@ impl Node {
     /// Determine with cross-product which side of a splitting line the point is
     /// on
     #[inline]
-    pub const fn point_on_side(&self, x: f32, y: f32) -> usize {
+    pub fn point_on_side(&self, x: DoomF32, y: DoomF32) -> usize {
         let dx = x - self.x;
         let dy = y - self.y;
 
@@ -19,7 +21,7 @@ impl Node {
     }
 
     #[inline]
-    pub const fn point_in_bounds(&self, x: f32, y: f32, side: usize) -> bool {
+    pub fn point_in_bounds(&self, x: DoomF32, y: DoomF32, side: usize) -> bool {
         if x > self.bboxes[side][0].0
             && x < self.bboxes[side][1].0
             && y < self.bboxes[side][0].1

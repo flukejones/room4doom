@@ -146,7 +146,7 @@ impl SoftwareRenderer {
 
         let mut tx = (tr_x * view_sin) - (tr_y * view_cos);
         // too far off the side?
-        if tx.abs() as i32 >= (tz.abs() as i32) * 2 {
+        if tx.abs().into() >= tz.abs().into() * 2 {
             return true;
         }
 

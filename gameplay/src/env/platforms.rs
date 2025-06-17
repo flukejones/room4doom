@@ -10,16 +10,16 @@ use sound_traits::SfxName;
 use crate::MapPtr;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
-    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane
+    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane,
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::Level;
 use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use math::p_random;
+use math::{DoomF32, p_random};
 
-const PLATSPEED: f32 = 1.0;
+const PLATSPEED: DoomF32 = DoomF32::new(1);
 const PLATWAIT: i32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -42,9 +42,9 @@ pub enum PlatKind {
 pub struct Platform {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
-    pub speed: f32,
-    pub low: f32,
-    pub high: f32,
+    pub speed: DoomF32,
+    pub low: DoomF32,
+    pub high: DoomF32,
     pub wait: i32,
     pub count: i32,
     pub status: PlatStatus,
@@ -90,8 +90,8 @@ pub fn ev_do_platform(
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             speed: PLATSPEED,
-            low: 0.0,
-            high: 0.0,
+            low: 0.into(),
+            high: 0.into(),
             wait: 0,
             count: 0,
             status: PlatStatus::InStasis,

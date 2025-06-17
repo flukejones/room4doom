@@ -43,7 +43,7 @@ pub use level::Level;
 pub use level::flags::LineDefFlags;
 pub use level::map_data::MapData;
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
-pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2, point_to_angle_2_xy};
+pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2_xy};
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;

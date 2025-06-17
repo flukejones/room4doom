@@ -53,9 +53,9 @@ impl MapObject {
         }
 
         if self.flags & MapObjFlag::Skullfly as u32 != 0 {
-            self.momx = 0.0;
-            self.momy = 0.0;
-            self.momz = 0.0;
+            self.momx = 0.into();
+            self.momy = 0.into();
+            self.momz = 0.into();
             // extra flag setting here because sometimes float errors stuff it up
             self.flags &= !(MapObjFlag::Skullfly as u32);
             self.set_state(self.info.spawnstate);
@@ -261,13 +261,8 @@ impl MapObject {
         };
 
         unsafe {
-            let mobj = MapObject::spawn_map_object(
-                self.x,
-                self.y,
-                self.floorz as i32,
-                item,
-                &mut *self.level,
-            );
+            let mobj =
+                MapObject::spawn_map_object(self.x, self.y, self.floorz, item, &mut *self.level);
             (*mobj).flags |= MapObjFlag::Dropped as u32;
         }
     }

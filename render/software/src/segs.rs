@@ -597,8 +597,8 @@ impl SegRender {
                             screen_to_angle(self.fov, self.rw_startx, size.half_width_f32());
                         let sky_angle =
                             (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
-                        let sky_column = pic_data
-                            .wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as u32 as usize);
+                        let sky_column =
+                            pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs().into());
 
                         self.dc_iscale = 0.89;
                         self.draw_wall_column(

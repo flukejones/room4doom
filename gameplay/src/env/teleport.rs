@@ -1,5 +1,7 @@
 use std::ptr;
 
+use math::DoomF32;
+
 use crate::info::MapObjKind;
 use crate::level::map_defs::LineDef;
 use crate::thinker::ThinkerData;
@@ -53,13 +55,8 @@ pub fn teleport(
                 }
                 thing.z = endpoint.z;
 
-                let fog = MapObject::spawn_map_object(
-                    old_x,
-                    old_y,
-                    old_z as i32,
-                    MapObjKind::MT_TFOG,
-                    level,
-                );
+                let fog =
+                    MapObject::spawn_map_object(old_x, old_y, old_z, MapObjKind::MT_TFOG, level);
                 unsafe {
                     (*fog).start_sound(sound_traits::SfxName::Telept);
                 }
@@ -68,7 +65,7 @@ pub fn teleport(
                 let fog = MapObject::spawn_map_object(
                     endpoint.x + 20.0 * an.cos(),
                     endpoint.y + 20.0 * an.sin(),
-                    endpoint.z as i32,
+                    endpoint.z,
                     MapObjKind::MT_TFOG,
                     level,
                 );
@@ -80,9 +77,9 @@ pub fn teleport(
                     thing.reactiontime = 18;
                 }
                 thing.angle = endpoint.angle;
-                thing.momx = 0.0;
-                thing.momy = 0.0;
-                thing.momz = 0.0;
+                thing.momx = 0.into();
+                thing.momy = 0.into();
+                thing.momz = 0.into();
 
                 return true;
             }
@@ -93,7 +90,7 @@ pub fn teleport(
 }
 
 /// Doom function nam `P_TeleportMove`
-pub fn teleport_move(x: f32, y: f32, thing: &mut MapObject, level: &mut Level) -> bool {
+pub fn teleport_move(x: DoomF32, y: DoomF32, thing: &mut MapObject, level: &mut Level) -> bool {
     let new_subsect = &mut *level.map_data.point_in_subsector_raw_xy(x, y);
     let floorz = new_subsect.sector.floorheight;
     let ceilzz = new_subsect.sector.ceilingheight;
@@ -115,8 +112,8 @@ pub fn teleport_move(x: f32, y: f32, thing: &mut MapObject, level: &mut Level) -
 
 fn telefrag(
     this_thing: &mut MapObject,
-    new_x: f32,
-    new_y: f32,
+    new_x: DoomF32,
+    new_y: DoomF32,
     sector: &mut Sector,
     game_map: usize,
 ) -> bool {

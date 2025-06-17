@@ -8,7 +8,7 @@ use crate::level::Level;
 use crate::level::map_data::BSPTrace;
 use crate::level::map_defs::{BBox, LineDef, SlopeType};
 
-use math::{FixedPoint, Trace, circle_seg_collide_xy, intercept_vector, point_on_side};
+use math::{DoomF32, FixedPoint, Trace, circle_seg_collide_xy, intercept_vector, point_on_side};
 
 /// Returns -1 if the line runs through the box at all
 #[inline]
@@ -44,7 +44,7 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Intercept {
-    pub frac: f32,
+    pub frac: DoomF32,
     pub line: Option<MapPtr<LineDef>>,
     pub thing: Option<MapPtr<MapObject>>,
 }
@@ -73,8 +73,8 @@ impl Eq for Intercept {}
 
 #[derive(Default)]
 pub struct BestSlide {
-    pub best_slide_frac: f32,
-    pub second_slide_frac: f32,
+    pub best_slide_frac: DoomF32,
+    pub second_slide_frac: DoomF32,
     pub best_slide_line: Option<MapPtr<LineDef>>,
     pub second_slide_line: Option<MapPtr<LineDef>>,
 }
@@ -83,7 +83,7 @@ impl BestSlide {
     #[inline]
     pub fn new() -> Self {
         BestSlide {
-            best_slide_frac: 1.0,
+            best_slide_frac: 1.into(),
             ..Default::default()
         }
     }
@@ -93,13 +93,13 @@ impl BestSlide {
 #[derive(Default, Debug)]
 pub struct PortalZ {
     /// The lowest ceiling of the portal line
-    pub top_z: f32,
+    pub top_z: DoomF32,
     /// The highest floor of the portal line
-    pub bottom_z: f32,
+    pub bottom_z: DoomF32,
     /// Range between `bottom_z` and `top_z`
-    pub range: f32,
+    pub range: DoomF32,
     /// The lowest floor of the portal line
-    pub lowest_z: f32,
+    pub lowest_z: DoomF32,
 }
 
 impl PortalZ {
@@ -113,24 +113,24 @@ impl PortalZ {
         let back = unsafe { line.backsector.as_ref().unwrap_unchecked() };
 
         let mut ww = PortalZ {
-            top_z: 0.0,
-            bottom_z: 0.0,
-            range: 0.0,
-            lowest_z: 0.0,
+            top_z: 0.into(),
+            bottom_z: 0.into(),
+            range: 0.into(),
+            lowest_z: 0.into(),
         };
 
         if front.ceilingheight < back.ceilingheight {
-            ww.top_z = front.ceilingheight;
+            ww.top_z = front.ceilingheight.into();
         } else {
-            ww.top_z = back.ceilingheight;
+            ww.top_z = back.ceilingheight.into();
         }
 
         if front.floorheight > back.floorheight {
-            ww.bottom_z = front.floorheight;
-            ww.lowest_z = back.floorheight;
+            ww.bottom_z = front.floorheight.into();
+            ww.lowest_z = back.floorheight.into();
         } else {
-            ww.bottom_z = back.floorheight;
-            ww.lowest_z = front.floorheight;
+            ww.bottom_z = back.floorheight.into();
+            ww.lowest_z = front.floorheight.into();
         }
         ww.range = ww.top_z - ww.bottom_z;
 
@@ -139,10 +139,10 @@ impl PortalZ {
 }
 
 pub fn path_traverse_xy(
-    origin_x: f32,
-    origin_y: f32,
-    endpoint_x: f32,
-    endpoint_y: f32,
+    origin_x: DoomF32,
+    origin_y: DoomF32,
+    endpoint_x: DoomF32,
+    endpoint_y: DoomF32,
     flags: i32,
     level: &mut Level,
     trav: impl FnMut(&mut Intercept) -> bool,
@@ -188,7 +188,7 @@ pub fn path_traverse_xy(
 
     intercepts.sort();
 
-    traverse_intercepts(&mut intercepts, 1.0, trav)
+    traverse_intercepts(&mut intercepts, 1.into(), trav)
 }
 
 pub fn path_traverse(
@@ -241,13 +241,13 @@ pub fn path_traverse(
 
     intercepts.sort();
 
-    traverse_intercepts(&mut intercepts, 1.0, trav)
+    traverse_intercepts(&mut intercepts, 1.into(), trav)
 }
 
 #[inline]
 pub fn traverse_intercepts(
     intercepts: &mut [Intercept],
-    max_frac: f32,
+    max_frac: DoomF32,
     mut trav: impl FnMut(&mut Intercept) -> bool,
 ) -> bool {
     if intercepts.is_empty() {
@@ -259,7 +259,7 @@ pub fn traverse_intercepts(
 
     while count != 0 {
         count -= 1;
-        let mut dist = f32::MAX;
+        let mut dist = math::MAX;
 
         for i in intercepts.iter_mut() {
             if i.frac < dist {
@@ -277,7 +277,7 @@ pub fn traverse_intercepts(
                 return false;
             }
 
-            (*intercept).frac = f32::MAX;
+            (*intercept).frac = math::MAX;
         }
     }
     true
@@ -294,8 +294,8 @@ pub fn add_line_intercepts(
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(trace, line.v1_x, line.v1_y);
-    let s2 = point_on_side(trace, line.v2_x, line.v2_y);
+    let s1 = point_on_side(trace, line.v1_x.into(), line.v1_y.into());
+    let s2 = point_on_side(trace, line.v2_x.into(), line.v2_y.into());
 
     if s1 == s2 {
         // line isn't crossed
@@ -303,10 +303,10 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(
-        line.v1_x,
-        line.v1_y,
-        line.v2_x - line.v1_x,
-        line.v2_y - line.v1_y,
+        line.v1_x.into(),
+        line.v1_y.into(),
+        (line.v2_x - line.v1_x).into(),
+        (line.v2_y - line.v1_y).into(),
     );
     let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line
@@ -367,15 +367,15 @@ fn add_thing_intercept(
     // Get vector clockwise-perpendicular to trace
     let r = thing.radius;
     let trace_len = (trace.dx * trace.dx + trace.dy * trace.dy).sqrt();
-    let norm_x = if trace_len > 0.0 {
+    let norm_x = if trace_len > math::from_f32(0.0) {
         trace.dy / trace_len
     } else {
-        0.0
+        0.into()
     };
-    let norm_y = if trace_len > 0.0 {
+    let norm_y = if trace_len > math::from_f32(0.0) {
         -trace.dx / trace_len
     } else {
-        0.0
+        0.into()
     };
 
     let p_x = norm_x * r;

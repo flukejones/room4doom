@@ -11,3 +11,4 @@ lazy_static = "*"
 
 [features]
 trig_lut = []
+fixed_point = []

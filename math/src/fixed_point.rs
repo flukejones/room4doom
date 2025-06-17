@@ -518,6 +518,50 @@ impl std::ops::Mul<f32> for FixedPoint {
     }
 }
 
+impl std::ops::Shr<i32> for FixedPoint {
+    type Output = Self;
+
+    fn shr(self, rhs: i32) -> Self::Output {
+        // For fixed point, we need to shift by FRACBITS + rhs to maintain the fixed point format
+        let shift_amount = FRACBITS + rhs;
+
+        // Clamp shift amount to prevent undefined behavior
+        if shift_amount >= 32 {
+            // If shifting by 32 or more bits, result is 0 (or -1 for negative numbers)
+            Self(if self.0 < 0 { -1 } else { 0 })
+        } else if shift_amount < 0 {
+            // If shift amount is negative, we're actually left shifting
+            Self(self.0 << (-shift_amount))
+        } else {
+            Self(self.0 >> shift_amount)
+        }
+    }
+}
+
+impl std::ops::Div<i32> for FixedPoint {
+    type Output = Self;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        if rhs == 0 {
+            return Self(if self.0 < 0 { i32::MIN } else { i32::MAX });
+        }
+
+        // Use i64 to avoid overflow
+        let a = self.0 as i64;
+        let b = rhs as i64;
+        let result = a / b;
+
+        // Saturating conversion to i32
+        if result > i32::MAX as i64 {
+            Self(i32::MAX)
+        } else if result < i32::MIN as i64 {
+            Self(i32::MIN)
+        } else {
+            Self(result as i32)
+        }
+    }
+}
+
 // Safe division for FixedPoint
 impl std::ops::Div<FixedPoint> for FixedPoint {
     type Output = Self;

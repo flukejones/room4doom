@@ -1,3 +1,5 @@
+use math::DoomF32;
+
 use crate::info::StateNum;
 use crate::{MapObject, Player, PspDef};
 use std::fmt;
@@ -6,19 +8,19 @@ use std::fmt;
 pub const TICRATE: i32 = 35;
 
 pub const BFGCELLS: u32 = 40;
-pub const MELEERANGE: f32 = 64.0;
-pub const MISSILERANGE: f32 = 32.0 * 64.0;
-pub const SKULLSPEED: f32 = 20.0;
-pub const FLOATSPEED: f32 = 4.0;
+pub const MELEERANGE: DoomF32 = DoomF32::new(64);
+pub const MISSILERANGE: DoomF32 = DoomF32::new(32 * 64);
+pub const SKULLSPEED: DoomF32 = DoomF32::new(20);
+pub const FLOATSPEED: DoomF32 = DoomF32::new(4);
 
 /// P_MOBJ
-pub static ONFLOORZ: i32 = i32::MIN;
+pub static ONFLOORZ: DoomF32 = DoomF32::new(i32::MIN);
 /// P_MOBJ
-pub static ONCEILINGZ: i32 = i32::MAX;
+pub static ONCEILINGZ: DoomF32 = DoomF32::new(i32::MAX);
 pub static MAXHEALTH: i32 = 100;
-pub static VIEWHEIGHT: f32 = 41.0;
-pub static MAXRADIUS: f32 = 32.0;
-pub const USERANGE: f32 = 64.0;
+pub static VIEWHEIGHT: i32 = 41;
+pub static MAXRADIUS: DoomF32 = DoomF32::new(32);
+pub const USERANGE: DoomF32 = DoomF32::new(64);
 
 /// DOOM version
 pub static DOOM_VERSION: u8 = 109;

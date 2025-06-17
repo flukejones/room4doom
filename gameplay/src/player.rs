@@ -15,7 +15,7 @@ use crate::thing::enemy::noise_alert;
 use crate::thing::{BONUSADD, MapObjFlag, MapObject};
 use crate::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, TIC_CMD_BUTTONS, TicCmd};
 use crate::{GameMode, Skill};
-use math::{Angle, bam_to_radian, fixed_to_float, p_random, point_to_angle_2_xy};
+use math::{Angle, DoomF32, bam_to_radian, fixed_to_float, p_random, point_to_angle_2_xy};
 
 /// 16 pixels of bob
 const MAX_BOB: f32 = 16.0; // 0x100000;
@@ -147,13 +147,13 @@ pub struct Player {
     /// Determine POV,
     ///  including viewpoint bobbing during movement.
     /// Focal origin above r.z
-    pub viewz: f32,
+    pub viewz: DoomF32,
     /// Base height above floor for viewz.
-    pub viewheight: f32,
+    pub viewheight: DoomF32,
     /// Bob/squat speed.
-    pub(crate) deltaviewheight: f32,
+    pub(crate) deltaviewheight: DoomF32,
     /// bounded/scaled total momentum.
-    pub(crate) bob: f32,
+    pub(crate) bob: DoomF32,
     pub(crate) onground: bool,
 
     pub status: PlayerStatus,
@@ -210,13 +210,13 @@ impl Default for Player {
 impl Player {
     pub fn new() -> Player {
         Player {
-            viewz: 0.0,
+            viewz: 0.into(),
             mobj: None,
             attacker: None,
 
-            viewheight: 41.0,
-            deltaviewheight: 1.0,
-            bob: 1.0,
+            viewheight: 41.into(),
+            deltaviewheight: 1.into(),
+            bob: 1.into(),
             onground: true,
             status: PlayerStatus::default(),
             refire: 0,
@@ -245,13 +245,13 @@ impl Player {
                 PspDef {
                     state: Some(unsafe { &STATES[StateNum::PISTOLUP as usize] }),
                     tics: 1,
-                    sx: 0.0,
+                    sx: 0.into(),
                     sy: WEAPONBOTTOM,
                 },
                 PspDef {
                     state: Some(unsafe { &STATES[StateNum::PISTOLFLASH as usize] }),
                     tics: 1,
-                    sx: 0.0,
+                    sx: 0.into(),
                     sy: WEAPONBOTTOM,
                 },
             ],
@@ -295,8 +295,8 @@ impl Player {
             unsafe {
                 (*mobj.level).start_sound(
                     sfx,
-                    mobj.x,
-                    mobj.y,
+                    mobj.x.into(),
+                    mobj.y.into(),
                     self as *const Self as usize, /* pointer cast as a UID */
                 )
             }
@@ -370,7 +370,7 @@ impl Player {
             self.bob = x * x + y * y;
 
             if self.bob > MAX_BOB {
-                self.bob = MAX_BOB;
+                self.bob = MAX_BOB.into();
             }
 
             // TODO: if ((player->cheats & CF_NOMOMENTUM) || !onground)
@@ -386,7 +386,7 @@ impl Player {
             // Need to shunt finesine left by 13 bits?
             // Removed the shifts and division from `angle = (FINEANGLES / 20 * leveltime) &
             // FINEMASK;`
-            let mut bob = 0.0;
+            let mut bob = math::from_f32(0.0);
             if self.head_bob {
                 let angle = (level_time as f32 / 3.0).sin(); // Controls frequency (3.0 seems ideal)
                 bob = self.bob / 3.0 * angle; // Controls depth of bob (2.0 is
@@ -398,21 +398,21 @@ impl Player {
                 self.viewheight += self.deltaviewheight;
 
                 if self.viewheight > VIEWHEIGHT {
-                    self.viewheight = VIEWHEIGHT;
-                    self.deltaviewheight = 0.0;
+                    self.viewheight = VIEWHEIGHT.into();
+                    self.deltaviewheight = 0.into();
                 }
 
-                if self.viewheight < VIEWHEIGHT / 2.0 {
-                    self.viewheight = VIEWHEIGHT / 2.0;
+                if self.viewheight < VIEWHEIGHT / 2 {
+                    self.viewheight = (VIEWHEIGHT / 2).into();
                     if self.deltaviewheight <= 0.0 {
-                        self.deltaviewheight = 1.0;
+                        self.deltaviewheight = 1.into();
                     }
                 }
 
                 if self.deltaviewheight > 0.0 {
                     self.deltaviewheight += 0.25;
                     if self.deltaviewheight <= 0.0 {
-                        self.deltaviewheight = 1.0;
+                        self.deltaviewheight = 1.into();
                     }
                 }
             }
@@ -493,8 +493,8 @@ impl Player {
             self.psprites[position].tics = state.tics;
 
             if state.misc1 != 0 {
-                self.psprites[position].sx = fixed_to_float(state.misc1);
-                self.psprites[position].sy = fixed_to_float(state.misc2);
+                self.psprites[position].sx = fixed_to_float(state.misc1).into();
+                self.psprites[position].sy = fixed_to_float(state.misc2).into();
             }
 
             if let ActFn::P(func) = state.action {
