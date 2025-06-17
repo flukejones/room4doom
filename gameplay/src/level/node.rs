@@ -1,7 +1,6 @@
 use crate::level::map_defs::Node;
 
 // use crate::play::utilities::ray_to_line_intersect;
-use glam::Vec2;
 
 impl Node {
     /// R_PointOnSide
@@ -9,33 +8,22 @@ impl Node {
     /// Determine with cross-product which side of a splitting line the point is
     /// on
     #[inline]
-    pub const fn point_on_side(&self, v: &Vec2) -> usize {
-        let dx = v.x - self.xy.x;
-        let dy = v.y - self.xy.y;
+    pub const fn point_on_side(&self, x: f32, y: f32) -> usize {
+        let dx = x - self.x;
+        let dy = y - self.y;
 
-        if (self.delta.y * dx) > (dy * self.delta.x) {
+        if (self.delta_y * dx) > (dy * self.delta_x) {
             return 0;
         }
         1
     }
 
     #[inline]
-    pub const fn point_on_side_xy(&self, x: f32, y: f32) -> usize {
-        let dx = x - self.xy.x;
-        let dy = y - self.xy.y;
-
-        if (self.delta.y * dx) > (dy * self.delta.x) {
-            return 0;
-        }
-        1
-    }
-
-    #[inline]
-    pub const fn point_in_bounds(&self, v: Vec2, side: usize) -> bool {
-        if v.x > self.bboxes[side][0].x
-            && v.x < self.bboxes[side][1].x
-            && v.y < self.bboxes[side][0].y
-            && v.y > self.bboxes[side][1].y
+    pub const fn point_in_bounds(&self, x: f32, y: f32, side: usize) -> bool {
+        if x > self.bboxes[side][0].0
+            && x < self.bboxes[side][1].0
+            && y < self.bboxes[side][0].1
+            && y > self.bboxes[side][1].1
         {
             return true;
         }

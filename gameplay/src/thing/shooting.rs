@@ -98,14 +98,17 @@ impl MapObject {
         damage: f32,
         bsp_trace: &mut BSPTrace,
     ) {
-        let l = angle.unit() * (bsp_trace.endpoint - bsp_trace.origin).length();
+        let l = angle.unit()
+            * (glam::Vec2::new(bsp_trace.endpoint_x, bsp_trace.endpoint_y)
+                - glam::Vec2::new(bsp_trace.origin_x, bsp_trace.origin_y))
+            .length();
         let mut shoot_traverse = ShootTraverse::new(
             aim_slope,
             attack_range,
             damage,
             self.z + (self.height as i32 >> 1) as f32 + 8.0,
-            bsp_trace.origin.x,
-            bsp_trace.origin.y,
+            bsp_trace.origin_x,
+            bsp_trace.origin_y,
             l.x,
             l.y,
             self.level().sky_num,

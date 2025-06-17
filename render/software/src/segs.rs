@@ -240,7 +240,7 @@ impl SegRender {
         let mobj = unsafe { player.mobj_unchecked() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
-        let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.x, mobj.y); // verified correct
+        let hyp = point_to_dist(seg.v1_x, seg.v1_y, mobj.x, mobj.y); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         ds_p.x1 = start;

@@ -6,16 +6,6 @@ macro_rules! fixed {
 }
 
 #[macro_export]
-macro_rules! fvec2 {
-    ($x:expr, $y:expr) => {
-        $crate::FixedVec2::new($crate::fixed!($x), $crate::fixed!($y))
-    };
-    ($val:expr) => {
-        $crate::FixedVec2::splat($crate::fixed!($val))
-    };
-}
-
-#[macro_export]
 macro_rules! fconst {
     (PI) => {
         $crate::FixedPoint::PI
@@ -67,13 +57,6 @@ macro_rules! fconst {
     };
     (LN_10) => {
         $crate::FixedPoint::LN_10
-    };
-}
-
-#[macro_export]
-macro_rules! f2v {
-    ($vec:expr) => {
-        $crate::FixedVec2::from($vec)
     };
 }
 

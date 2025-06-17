@@ -18,20 +18,20 @@ pub fn box_on_line_side(tmbox: &BBox, ld: &LineDef) -> i32 {
 
     match ld.slopetype {
         SlopeType::Horizontal => {
-            p1 = (tmbox.top > ld.v1.y) as i32;
-            p2 = (tmbox.bottom > ld.v1.y) as i32;
+            p1 = (tmbox.top > ld.v1_y) as i32;
+            p2 = (tmbox.bottom > ld.v1_y) as i32;
         }
         SlopeType::Vertical => {
-            p1 = (tmbox.right > ld.v1.x) as i32;
-            p2 = (tmbox.left > ld.v1.x) as i32;
+            p1 = (tmbox.right > ld.v1_x) as i32;
+            p2 = (tmbox.left > ld.v1_x) as i32;
         }
         SlopeType::Positive => {
-            p1 = ld.point_on_side_xy(tmbox.left, tmbox.top) as i32;
-            p2 = ld.point_on_side_xy(tmbox.right, tmbox.bottom) as i32;
+            p1 = ld.point_on_side(tmbox.left, tmbox.top) as i32;
+            p2 = ld.point_on_side(tmbox.right, tmbox.bottom) as i32;
         }
         SlopeType::Negative => {
-            p1 = ld.point_on_side_xy(tmbox.right, tmbox.top) as i32;
-            p2 = ld.point_on_side_xy(tmbox.left, tmbox.bottom) as i32;
+            p1 = ld.point_on_side(tmbox.right, tmbox.top) as i32;
+            p2 = ld.point_on_side(tmbox.left, tmbox.bottom) as i32;
         }
     }
 
@@ -294,8 +294,8 @@ pub fn add_line_intercepts(
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(trace, line.v1.x, line.v1.y);
-    let s2 = point_on_side(trace, line.v2.x, line.v2.y);
+    let s1 = point_on_side(trace, line.v1_x, line.v1_y);
+    let s2 = point_on_side(trace, line.v2_x, line.v2_y);
 
     if s1 == s2 {
         // line isn't crossed
@@ -303,10 +303,10 @@ pub fn add_line_intercepts(
     }
 
     let dl = Trace::new(
-        line.v1.x,
-        line.v1.y,
-        line.v2.x - line.v1.x,
-        line.v2.y - line.v1.y,
+        line.v1_x,
+        line.v1_y,
+        line.v2_x - line.v1_x,
+        line.v2_y - line.v1_y,
     );
     let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line

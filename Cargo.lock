@@ -425,6 +425,7 @@ name = "render-target"
 version = "0.16.1"
 dependencies = [
  "gameplay",
+ "glam",
  "golem",
  "nanoserde",
  "render-soft",

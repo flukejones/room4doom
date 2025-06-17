@@ -324,8 +324,8 @@ impl MapObject {
         if self.flags & (MapObjFlag::Teleport as u32 | MapObjFlag::Noclip as u32) == 0 {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
-                let side = ld.point_on_side_xy(self.x, self.y);
-                let old_side = ld.point_on_side_xy(old_x, old_y);
+                let side = ld.point_on_side(self.x, self.y);
+                let old_side = ld.point_on_side(old_x, old_y);
                 if side != old_side && ld.special != 0 {
                     cross_special_line(old_side, ld.clone(), self)
                 }
@@ -757,7 +757,7 @@ impl MapObject {
     fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
             if (line.flags as usize) & LineDefFlags::TwoSided as usize == 0 {
-                if line.point_on_side_xy(self.x, self.y) != 0 {
+                if line.point_on_side(self.x, self.y) != 0 {
                     return true; // Don't hit backside
                 }
                 self.blocking_intercept(intercept);
@@ -799,7 +799,7 @@ impl MapObject {
         }
 
         // let side = line.point_on_side(slide_move);
-        let line_angle = Angle::from_vector(line.delta);
+        let line_angle = Angle::from_vector_xy(line.delta_x, line.delta_y);
         // if side == 1 {
         //     //line_angle += FRAC_PI_2;
         //     line_angle = Angle::from_vector(Vec2::new(line.delta.x * -1.0,
@@ -858,10 +858,10 @@ impl MapObject {
         if let Some(line) = &intercept.line {
             debug!(
                 "Line v1 x:{},y:{}, v2 x:{},y:{}, special: {:?} - self.x:{},y:{} - frac {}",
-                line.v1.x,
-                line.v1.y,
-                line.v2.x,
-                line.v2.y,
+                line.v1_x,
+                line.v1_y,
+                line.v2_x,
+                line.v2_y,
                 line.special,
                 self.x as i32,
                 self.y as i32,
@@ -881,7 +881,7 @@ impl MapObject {
                 return true;
             }
 
-            let side = line.point_on_side_xy(self.x, self.y);
+            let side = line.point_on_side(self.x, self.y);
             p_use_special_line(side as i32, line.clone(), self);
         }
         // can't use for than one special line in a row

@@ -94,6 +94,10 @@ impl Angle {
         Angle::new(input.y.atan2(input.x))
     }
 
+    pub fn from_vector_xy(x: f32, y: f32) -> Self {
+        Angle::new(y.atan2(x))
+    }
+
     #[inline]
     pub const fn sub_other(self, other: Angle) -> Angle {
         Angle::new(self.0 - other.0)

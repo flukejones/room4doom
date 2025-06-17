@@ -12,6 +12,7 @@ debug_draw = []
 
 [dependencies]
 gameplay.workspace = true
+glam.workspace = true
 golem.workspace = true
 sdl2.workspace = true
 nanoserde.workspace = true

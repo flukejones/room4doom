@@ -1,7 +1,6 @@
 use crate::MapPtr;
 use crate::thing::MapObject;
 use crate::thinker::{Thinker, ThinkerData};
-use glam::Vec2;
 use log::error;
 use math::Angle;
 
@@ -33,7 +32,8 @@ pub struct Sector {
     pub soundtraversed: i32,
 
     /// origin for any sounds played by the sector
-    pub sound_origin: Vec2,
+    pub sound_origin_x: f32,
+    pub sound_origin_y: f32,
 
     // if == validcount, already checked
     pub validcount: usize,
@@ -250,23 +250,23 @@ pub struct BBox {
 }
 
 impl BBox {
-    pub fn new(v1: Vec2, v2: Vec2) -> Self {
+    pub fn new(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
         let mut bbox = BBox::default();
 
-        if v1.x < v2.x {
-            bbox.left = v1.x;
-            bbox.right = v2.x;
+        if x1 < x2 {
+            bbox.left = x1;
+            bbox.right = x2;
         } else {
-            bbox.left = v2.x;
-            bbox.right = v1.x;
+            bbox.left = x2;
+            bbox.right = x1;
         }
 
-        if v1.y < v2.y {
-            bbox.bottom = v1.y;
-            bbox.top = v2.y;
+        if y1 < y2 {
+            bbox.bottom = y1;
+            bbox.top = y2;
         } else {
-            bbox.bottom = v2.y;
-            bbox.top = v1.y;
+            bbox.bottom = y2;
+            bbox.top = y1;
         }
 
         bbox
@@ -275,10 +275,13 @@ impl BBox {
 
 pub struct LineDef {
     // Vertices, from v1 to v2.
-    pub v1: Vec2,
-    pub v2: Vec2,
+    pub v1_x: f32,
+    pub v1_y: f32,
+    pub v2_x: f32,
+    pub v2_y: f32,
     // Precalculated v2 - v1 for side checking.
-    pub delta: Vec2,
+    pub delta_x: f32,
+    pub delta_y: f32,
     // Animation related.
     pub flags: u32,
     pub special: i16,
@@ -314,8 +317,8 @@ pub struct LineDef {
 impl std::fmt::Debug for LineDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Linedef")
-            .field("v1", &self.v1)
-            .field("v2", &self.v2)
+            .field("v1", &(self.v1_x, self.v1_y))
+            .field("v2", &(self.v2_x, self.v2_y))
             .field("flags", &self.flags)
             .field("tag", &self.tag)
             .field("bbox", &self.bbox)
@@ -329,11 +332,9 @@ impl std::fmt::Debug for LineDef {
 
 impl LineDef {
     /// True if the right side of the segment faces the point
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
+    pub fn is_facing_point(&self, point_x: f32, point_y: f32) -> bool {
+        let d = (self.v2_y - self.v1_y) * (self.v1_x - point_x)
+            - (self.v2_x - self.v1_x) * (self.v1_y - point_y);
         if d >= 0.0 {
             return false;
         }
@@ -342,57 +343,26 @@ impl LineDef {
 
     /// Determine which side of XY/XY a point is on. Ignores Z
     #[inline]
-    pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
-        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
-        // if r.is_sign_positive() {
-        //     return 1; // Back side
-        // }
-        // 0 // Front side
+    pub fn point_on_side(&self, x: f32, y: f32) -> usize {
+        let dx = x - self.v1_x;
+        let dy = y - self.v1_y;
 
-        let dx = v.x - self.v1.x;
-        let dy = v.y - self.v1.y;
-
-        if (dy * self.delta.x) <= (self.delta.y * dx) {
+        if (dy * self.delta_x) <= (self.delta_y * dx) {
             // Front side
             return 0;
         }
         // Backside
         1
-    }
-
-    /// Determine which side of XY/XY a point is on. Ignores Z
-    #[inline]
-    pub fn point_on_side_xy(&self, x: f32, y: f32) -> usize {
-        let dx = x - self.v1.x;
-        let dy = y - self.v1.y;
-
-        if (dy * self.delta.x) <= (self.delta.y * dx) {
-            // Front side
-            return 0;
-        }
-        // Backside
-        1
-    }
-
-    /// True if the right side of the segment faces the point
-    pub fn is_facing_point_xy(&self, x: f32, y: f32) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - x) - (end.x - start.x) * (start.y - y);
-        if d >= 0.0 {
-            return false;
-        }
-        true
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Segment {
     // Vertices, from v1 to v2.
-    pub v1: Vec2,
-    pub v2: Vec2,
+    pub v1_x: f32,
+    pub v1_y: f32,
+    pub v2_x: f32,
+    pub v2_y: f32,
 
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
@@ -414,7 +384,8 @@ impl Segment {
         // 12 top-left (256.0, -1392.0)
         // 4176 top-right (272.0, -1392.0)
         // 4143 bottom-right (272.0, -1408.0)
-        if self.v2 == Vec2::new(256., -1392.) && self.v1 == Vec2::new(272., -1392.) {
+        if self.v2_x == 256.0 && self.v2_y == -1392.0 && self.v1_x == 272.0 && self.v1_y == -1392.0
+        {
             dbg!(self.sidedef.bottomtexture);
             dbg!(&self.linedef.front_sidedef);
             dbg!(&self.linedef.back_sidedef);
@@ -428,32 +399,17 @@ impl Segment {
 
     /// Helper to recalcuate the offset of a seg along the linedef line it is
     /// derived from. Required for ZDBSP style nodes.
-    pub fn recalc_offset(v1: Vec2, v2: Vec2) -> f32 {
-        let a = v1.x - v2.x;
-        let b = v1.y - v2.y;
+    pub fn recalc_offset(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
+        let a = x1 - x2;
+        let b = y1 - y2;
         (a * a + b * b).sqrt()
     }
 
     /// True if the right side of the segment faces the point
     #[inline]
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
-        if d <= 0.1 {
-            return true;
-        }
-        false
-    }
-
-    /// True if the right side of the segment faces the point
-    #[inline]
-    pub fn is_facing_point_xy(&self, x: f32, y: f32) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - x) - (end.x - start.x) * (start.y - y);
+    pub fn is_facing_point(&self, point_x: f32, point_y: f32) -> bool {
+        let d = (self.v2_y - self.v1_y) * (self.v1_x - point_x)
+            - (self.v2_x - self.v1_x) * (self.v1_y - point_y);
         if d <= 0.1 {
             return true;
         }
@@ -461,19 +417,13 @@ impl Segment {
     }
 
     #[inline]
-    pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
-        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
-        // if r.is_sign_positive() {
-        //     return 1; // Back side
-        // }
-        // 0 // Front side
+    pub fn point_on_side(&self, x: f32, y: f32) -> usize {
+        let dx = x - self.v1_x;
+        let dy = y - self.v1_y;
+        let delta_x = self.v2_x - self.v1_x;
+        let delta_y = self.v2_y - self.v1_y;
 
-        let dx = v.x - self.v1.x;
-        let dy = v.y - self.v1.y;
-        let this_delta = self.v2 - self.v1;
-
-        if (dy * this_delta.x) <= (this_delta.y * dx) {
+        if (dy * delta_x) <= (delta_y * dx) {
             // Front side
             return 0;
         }
@@ -494,15 +444,17 @@ pub struct SubSector {
 #[derive(Debug, PartialEq)]
 pub struct Node {
     /// Where the line used for splitting the level starts
-    pub xy: Vec2,
+    pub x: f32,
+    pub y: f32,
     /// Where the line used for splitting the level ends
-    pub delta: Vec2,
+    pub delta_x: f32,
+    pub delta_y: f32,
     /// Coordinates of the bounding boxes:
     /// - [0][0] == right box, top-left
     /// - [0][1] == right box, bottom-right
     /// - [1][0] == left box, top-left
     /// - [1][1] == left box, bottom-right
-    pub bboxes: [[Vec2; 2]; 2],
+    pub bboxes: [[(f32, f32); 2]; 2],
     /// The node children. Doom uses a clever trick where if one node is
     /// selected then the other can also be checked with the same/minimal
     /// code by inverting the last bit.
@@ -521,10 +473,8 @@ pub struct Blockmap {
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec2;
-
-    fn point_on_side(v1: Vec2, v2: Vec2, v: Vec2) -> usize {
-        let r = (v2.x - v1.x) * (v.y - v1.y) - (v2.y - v1.y) * (v.x - v1.x);
+    fn point_on_side(x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) -> usize {
+        let r = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1);
         // dbg!(r);
         if r.is_sign_positive() {
             return 1; // Back side
@@ -536,15 +486,10 @@ mod tests {
     fn line_side_problem() {
         // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y ==
         // -2944.0
-        let v1 = Vec2::new(832.0, -2944.0);
-        let v2 = Vec2::new(968.0, -2880.0);
-
-        let v = Vec2::new(0.0, 0.0);
-        let r = point_on_side(v1, v2, v);
+        let r = point_on_side(832.0, -2944.0, 968.0, -2880.0, 0.0, 0.0);
         assert_eq!(r, 1);
 
-        let v = Vec2::new(976.0, -2912.0);
-        let r = point_on_side(v1, v2, v);
+        let r = point_on_side(832.0, -2944.0, 968.0, -2880.0, 976.0, -2912.0);
         assert_eq!(r, 0);
     }
 }

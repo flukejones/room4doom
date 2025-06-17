@@ -173,10 +173,10 @@ fn change_sector(mut sector: MapPtr<Sector>, crunch: bool) -> bool {
                     thing.x,
                     thing.y,
                     thing.radius,
-                    line.v1.x,
-                    line.v1.y,
-                    line.v2.x,
-                    line.v2.y,
+                    line.v1_x,
+                    line.v1_y,
+                    line.v2_x,
+                    line.v2_y,
                 ) {
                     trace!(
                         "Thing type {:?} is in affected neightbouring sector",

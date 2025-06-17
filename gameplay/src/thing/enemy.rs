@@ -333,9 +333,12 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
     let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
-        v1: Default::default(),
-        v2: Default::default(),
-        delta: Default::default(),
+        v1_x: Default::default(),
+        v1_y: Default::default(),
+        v2_x: Default::default(),
+        v2_y: Default::default(),
+        delta_x: Default::default(),
+        delta_y: Default::default(),
         flags: 0,
         special: 0,
         tag: 666,
@@ -1010,9 +1013,12 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
-        v1: Default::default(),
-        v2: Default::default(),
-        delta: Default::default(),
+        v1_x: Default::default(),
+        v1_y: Default::default(),
+        v2_x: Default::default(),
+        v2_y: Default::default(),
+        delta_x: Default::default(),
+        delta_y: Default::default(),
         flags: 0,
         special: 0,
         tag: 666,

@@ -175,12 +175,12 @@ impl SoftwareRenderer {
         let viewangle = mobj.angle;
 
         // Blocks some zdoom segs rendering
-        if !seg.is_facing_point_xy(mobj.x, mobj.y) {
+        if !seg.is_facing_point(mobj.x, mobj.y) {
             return;
         }
 
-        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
-        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
+        let mut angle1 = vertex_angle_to_object(&Vec2::new(seg.v1_x, seg.v1_y), mobj); // widescreen: Leave as is
+        let mut angle2 = vertex_angle_to_object(&Vec2::new(seg.v2_x, seg.v2_y), mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
         if span.abs() >= PI {
@@ -533,7 +533,7 @@ impl SoftwareRenderer {
         // otherwise get node
         let node = &map.get_nodes()[node_id as usize];
         // find which side the point is on
-        let side = node.point_on_side_xy(mobj.x, mobj.y);
+        let side = node.point_on_side(mobj.x, mobj.y);
         // Recursively divide front space.
         self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
 
@@ -576,17 +576,17 @@ impl SoftwareRenderer {
 
         let boxx;
         let boxy;
-        if mobj.x <= lt.x {
+        if mobj.x <= lt.0 {
             boxx = 0;
-        } else if mobj.x < rb.x {
+        } else if mobj.x < rb.0 {
             boxx = 1;
         } else {
             boxx = 2;
         }
 
-        if mobj.y >= lt.y {
+        if mobj.y >= lt.1 {
             boxy = 0;
-        } else if mobj.y > rb.y {
+        } else if mobj.y > rb.1 {
             boxy = 1;
         } else {
             boxy = 2;
@@ -598,14 +598,14 @@ impl SoftwareRenderer {
         }
 
         let (v1, v2) = match boxpos {
-            0 => (Vec2::new(rb.x, lt.y), Vec2::new(lt.x, rb.y)),
-            1 => (Vec2::new(rb.x, lt.y), lt),
-            2 => (rb, lt),
-            4 => (lt, Vec2::new(lt.x, rb.y)),
-            6 => (rb, Vec2::new(rb.x, lt.y)),
-            8 => (lt, rb),
-            9 => (Vec2::new(lt.x, rb.y), rb),
-            10 => (Vec2::new(lt.x, rb.y), Vec2::new(rb.x, lt.y)),
+            0 => (Vec2::new(rb.0, lt.1), Vec2::new(lt.0, rb.1)),
+            1 => (Vec2::new(rb.0, lt.1), Vec2::new(lt.0, lt.1)),
+            2 => (Vec2::new(rb.0, rb.1), Vec2::new(lt.0, lt.1)),
+            4 => (Vec2::new(lt.0, lt.1), Vec2::new(lt.0, rb.1)),
+            6 => (Vec2::new(rb.0, rb.1), Vec2::new(rb.0, lt.1)),
+            8 => (Vec2::new(lt.0, lt.1), Vec2::new(rb.0, rb.1)),
+            9 => (Vec2::new(lt.0, rb.1), Vec2::new(rb.0, rb.1)),
+            10 => (Vec2::new(lt.0, rb.1), Vec2::new(rb.0, lt.1)),
             _ => (Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
         };
 

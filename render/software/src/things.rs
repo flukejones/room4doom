@@ -334,11 +334,7 @@ impl SoftwareRenderer {
             unsafe {
                 if scale <= vis.scale
                     || (lowscale < vis.scale
-                        && seg
-                            .curline
-                            .as_ref()
-                            .point_on_side(Vec2::new(vis.gx, vis.gy))
-                            == 0)
+                        && seg.curline.as_ref().point_on_side(vis.gx, vis.gy) == 0)
                 {
                     if seg.maskedtexturecol != -1.0 {
                         self.render_masked_seg_range(player, seg, r1, r2, pic_data, rend);

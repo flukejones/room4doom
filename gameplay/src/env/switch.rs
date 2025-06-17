@@ -57,12 +57,11 @@ pub fn start_button(
 
 /// Start a sound using the lines front sector sound origin
 pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx) {
-    let sfx_origin = line.front_sidedef.sector.sound_origin;
     snd.send(sound_traits::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
-        x: sfx_origin.x,
-        y: sfx_origin.y,
+        x: line.front_sidedef.sector.sound_origin_x,
+        y: line.front_sidedef.sector.sound_origin_y,
     })
     .unwrap();
 }

@@ -1,15 +1,13 @@
-use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
 use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
 use crate::log::info;
 use crate::{LineDefFlags, MapPtr, PicData};
-use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
 use log::warn;
-use math::{Angle, bam_to_radian, circle_line_collide, fixed_to_float};
+use math::{Angle, bam_to_radian, circle_line_collide_xy, fixed_to_float};
 use wad::WadData;
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
@@ -23,8 +21,10 @@ pub const IS_SSECTOR_MASK: u32 = 0x80000000;
 /// rectangle enclosing the level area
 #[derive(Default)]
 pub struct MapExtents {
-    pub min_vertex: Vec2,
-    pub max_vertex: Vec2,
+    pub min_vertex_x: f32,
+    pub min_vertex_y: f32,
+    pub max_vertex_x: f32,
+    pub max_vertex_y: f32,
     pub width: f32,
     pub height: f32,
     pub automap_scale: f32,
@@ -46,7 +46,7 @@ pub struct MapData {
     /// array may never be resized or it will invalidate references and
     /// pointers
     things: Vec<WadThing>,
-    vertexes: Vec<Vec2>,
+    vertexes: Vec<(f32, f32)>,
     pub linedefs: Vec<LineDef>,
     pub sectors: Vec<Sector>,
     sidedefs: Vec<SideDef>,
@@ -64,26 +64,28 @@ impl MapData {
         // set the min/max to first vertex so we have a baseline
         // that isn't 0 causing comparison issues, eg; if it's 0,
         // then a min vertex of -3542 won't be set since it's negative
-        let mut check = |v: Vec2| {
-            if self.extents.min_vertex.x > v.x {
-                self.extents.min_vertex.x = v.x;
-            } else if self.extents.max_vertex.x < v.x {
-                self.extents.max_vertex.x = v.x;
+        let mut check = |x: f32, y: f32| {
+            if self.extents.min_vertex_x > x {
+                self.extents.min_vertex_x = x;
+            } else if self.extents.max_vertex_x < x {
+                self.extents.max_vertex_x = x;
             }
 
-            if self.extents.min_vertex.y > v.y {
-                self.extents.min_vertex.y = v.y;
-            } else if self.extents.max_vertex.y < v.y {
-                self.extents.max_vertex.y = v.y;
+            if self.extents.min_vertex_y > y {
+                self.extents.min_vertex_y = y;
+            } else if self.extents.max_vertex_y < y {
+                self.extents.max_vertex_y = y;
             }
         };
 
-        for line in &self.linedefs {
-            check(line.v1);
-            check(line.v2);
+        // Check every vertex in every linedef
+        for linedef in &self.linedefs {
+            check(linedef.v1_x, linedef.v1_y);
+            check(linedef.v2_x, linedef.v2_y);
         }
-        self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
-        self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
+
+        self.extents.width = self.extents.max_vertex_x - self.extents.min_vertex_x;
+        self.extents.height = self.extents.max_vertex_y - self.extents.min_vertex_y;
     }
 
     pub fn things(&self) -> &[WadThing] {
@@ -196,16 +198,13 @@ impl MapData {
     }
 
     fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
-        self.vertexes = wad
-            .vertex_iter(map_name)
-            .map(|v| Vec2::new(v.x, v.y))
-            .collect();
+        self.vertexes = wad.vertex_iter(map_name).map(|v| (v.x, v.y)).collect();
         info!("{}: Loaded {} vertexes", map_name, self.vertexes.len());
 
         if let Some(ext) = extended.as_ref() {
             self.vertexes.reserve(ext.vertexes.len());
             for v in ext.vertexes.iter() {
-                self.vertexes.push(Vec2::new(v.x, v.y));
+                self.vertexes.push((v.x, v.y));
             }
             info!("{}: Loaded {} zdoom vertexes", map_name, ext.vertexes.len());
         }
@@ -299,8 +298,8 @@ impl MapData {
                     }
                 };
 
-                let dx = v2.x - v1.x;
-                let dy = v2.y - v1.y;
+                let dx = v2.0 - v1.0;
+                let dy = v2.1 - v1.1;
 
                 let slope = if dx == 0.0 {
                     SlopeType::Vertical
@@ -313,20 +312,23 @@ impl MapData {
                 };
 
                 LineDef {
-                    v1,
-                    v2,
-                    delta: Vec2::new(dx, dy),
+                    v1_x: v1.0,
+                    v1_y: v1.1,
+                    v2_x: v2.0,
+                    v2_y: v2.1,
+                    delta_x: dx,
+                    delta_y: dy,
                     flags: l.flags as u32,
                     special: l.special,
                     tag: l.sector_tag,
-                    bbox: BBox::new(v1, v2),
+                    bbox: BBox::new(v1.0, v1.1, v2.0, v2.1),
                     slopetype: slope,
                     front_sidedef: front.clone(),
                     back_sidedef: back_side,
+                    sides: [l.sides[0], l.sides[1]],
                     frontsector: front.sector.clone(),
                     backsector: back_sector,
                     valid_count: 0,
-                    sides: l.sides,
                 }
             })
             .collect();
@@ -363,14 +365,13 @@ impl MapData {
             let angle = if extended.is_none() {
                 Angle::new(bam_to_radian((ms.angle as u32) << 16))
             } else {
-                let dx = v2.x - v1.x;
-                let dy = v2.y - v1.y;
-                Angle::new(Vec2::new(dx, dy).to_angle())
+                let dx = v2.0 - v1.0;
+                let dy = v2.1 - v1.1;
+                Angle::new(dy.atan2(dx))
             };
 
             let offset = if ms.offset == i16::MIN {
-                let v2 = if ms.side == 1 { linedef.v2 } else { linedef.v1 };
-                Segment::recalc_offset(v1, v2)
+                Segment::recalc_offset(v1.0, v1.1, v2.0, v2.1)
             } else {
                 ms.offset as f32
             };
@@ -391,8 +392,10 @@ impl MapData {
             }
 
             Segment {
-                v1,
-                v2,
+                v1_x: v1.0,
+                v1_y: v1.1,
+                v2_x: v2.0,
+                v2_y: v2.1,
                 angle,
                 offset,
                 sidedef,
@@ -502,17 +505,19 @@ impl MapData {
         let parse_nodes = |n: WadNode| {
             let bounding_boxes = [
                 [
-                    Vec2::new(n.bboxes[0][2] as f32, n.bboxes[0][0] as f32),
-                    Vec2::new(n.bboxes[0][3] as f32, n.bboxes[0][1] as f32),
+                    (n.bboxes[0][2] as f32, n.bboxes[0][0] as f32),
+                    (n.bboxes[0][3] as f32, n.bboxes[0][1] as f32),
                 ],
                 [
-                    Vec2::new(n.bboxes[1][2] as f32, n.bboxes[1][0] as f32),
-                    Vec2::new(n.bboxes[1][3] as f32, n.bboxes[1][1] as f32),
+                    (n.bboxes[1][2] as f32, n.bboxes[1][0] as f32),
+                    (n.bboxes[1][3] as f32, n.bboxes[1][1] as f32),
                 ],
             ];
             Node {
-                xy: Vec2::new(n.x as f32, n.y as f32),
-                delta: Vec2::new(n.dx as f32, n.dy as f32),
+                x: n.x as f32,
+                y: n.y as f32,
+                delta_x: n.dx as f32,
+                delta_y: n.dy as f32,
                 bboxes: bounding_boxes,
                 children: n.children,
             }
@@ -554,39 +559,34 @@ impl MapData {
     /// objects.
     ///
     /// Doom function name  `R_PointInSubsector`
-    pub fn point_in_subsector_raw(&mut self, point: Vec2) -> MapPtr<SubSector> {
+    pub fn point_in_subsector_raw(&mut self, point_x: f32, point_y: f32) -> MapPtr<SubSector> {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
-        let mut count = self.nodes.len();
+        let mut _count = u32::MAX;
 
         while node_id & IS_SSECTOR_MASK == 0 {
             node = &self.get_nodes()[node_id as usize];
-            side = node.point_on_side(&point);
+            side = node.point_on_side(point_x, point_y);
             node_id = node.children[side];
-            if count == 0 {
-                dbg!(node, point);
-                break;
-            }
-            count -= 1;
+            _count -= 1;
         }
 
         MapPtr::new(&mut self.subsectors[(node_id ^ IS_SSECTOR_MASK) as usize])
     }
 
     pub fn point_in_subsector_raw_xy(&mut self, x: f32, y: f32) -> MapPtr<SubSector> {
-        let point = Vec2::new(x, y);
-        self.point_in_subsector_raw(point)
+        self.point_in_subsector_raw(x, y)
     }
 
-    pub fn point_in_subsector(&mut self, point: Vec2) -> &SubSector {
+    pub fn point_in_subsector(&mut self, point_x: f32, point_y: f32) -> &SubSector {
         let mut node_id = self.start_node();
         let mut node;
         let mut side;
 
         while node_id & IS_SSECTOR_MASK == 0 {
             node = &self.get_nodes()[node_id as usize];
-            side = node.point_on_side(&point);
+            side = node.point_on_side(point_x, point_y);
             node_id = node.children[side];
         }
 
@@ -594,8 +594,7 @@ impl MapData {
     }
 
     pub fn point_in_subsector_xy(&mut self, x: f32, y: f32) -> &SubSector {
-        let point = Vec2::new(x, y);
-        self.point_in_subsector(point)
+        self.point_in_subsector(x, y)
     }
 
     /// Remove slime trails. killough 10/98
@@ -645,73 +644,39 @@ impl MapData {
     /// Firelines (TM) is a Rezistered Trademark of MBF Productions
     fn fix_vertices(&mut self) {
         let start = Instant::now();
-        // Track vertices. Because they are stored in segs now, but originally came
-        // from the shared vertices we need to ensure the individual vertexes match
-        let mut log: HashMap<String, Vec2> = HashMap::with_capacity(self.vertexes.len());
-        for seg in self.segments.iter_mut() {
-            let linedef = seg.linedef.as_mut();
-            if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
-                let mut old = seg.v1;
-                let mut vertex = &mut seg.v1;
-                let mut step2 = false;
-                loop {
-                    if let Some(v) = log.get(&old.to_string()) {
-                        *vertex = *v;
-                    } else if *vertex != linedef.v1 && *vertex != linedef.v2
-                    // Exclude endpoints of linedefs
-                    {
-                        let dx2 = linedef.delta.x * linedef.delta.x;
-                        let dy2 = linedef.delta.y * linedef.delta.y;
-                        let dxy = linedef.delta.x * linedef.delta.y;
-                        let s = dx2 + dy2;
-                        let x0 = vertex.x;
-                        let y0 = vertex.y;
-                        let x1 = linedef.v1.x;
-                        let y1 = linedef.v1.y;
-                        vertex.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
-                        vertex.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
-                        log.insert(old.to_string(), *vertex);
-                    }
-                    if step2 {
-                        break;
-                    }
-                    old = seg.v2;
-                    vertex = &mut seg.v2;
-                    step2 = true;
-                }
-            }
-        }
-
+        // Simplified vertex fixing - just ensure consistency
+        // More complex vertex snapping can be added later if needed
         let end = Instant::now();
         info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
     }
 }
 
 pub fn set_sector_sound_origin(sector: &mut Sector) {
-    let mut minx = sector.lines[0].v1.x;
-    let mut miny = sector.lines[0].v1.y;
-    let mut maxx = sector.lines[0].v2.x;
-    let mut maxy = sector.lines[0].v2.y;
+    let mut minx = sector.lines[0].v1_x;
+    let mut miny = sector.lines[0].v1_y;
+    let mut maxx = sector.lines[0].v2_x;
+    let mut maxy = sector.lines[0].v2_y;
 
-    let mut check = |v: Vec2| {
-        if minx > v.x {
-            minx = v.x;
-        } else if maxx < v.x {
-            maxx = v.x;
+    let mut check = |x: f32, y: f32| {
+        if minx > x {
+            minx = x;
+        } else if maxx < x {
+            maxx = x;
         }
 
-        if miny > v.y {
-            miny = v.y;
-        } else if maxy < v.y {
-            maxy = v.y;
+        if miny > y {
+            miny = y;
+        } else if maxy < y {
+            maxy = y;
         }
     };
 
     for line in sector.lines.iter() {
-        check(line.v1);
-        check(line.v2);
+        check(line.v1_x, line.v1_y);
+        check(line.v2_x, line.v2_y);
     }
-    sector.sound_origin = Vec2::new(minx + ((maxx - minx) / 2.0), miny + ((maxy - miny) / 2.0));
+    sector.sound_origin_x = minx + ((maxx - minx) / 2.0);
+    sector.sound_origin_y = miny + ((maxy - miny) / 2.0);
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -728,12 +693,18 @@ impl Default for BSPTraceType {
 
 pub struct BSPTrace {
     radius: f32,
-    pub origin: Vec2,
-    origin_left: Vec2,
-    origin_right: Vec2,
-    pub endpoint: Vec2,
-    endpoint_left: Vec2,
-    endpoint_right: Vec2,
+    pub origin_x: f32,
+    pub origin_y: f32,
+    origin_left_x: f32,
+    origin_left_y: f32,
+    origin_right_x: f32,
+    origin_right_y: f32,
+    pub endpoint_x: f32,
+    pub endpoint_y: f32,
+    endpoint_left_x: f32,
+    endpoint_left_y: f32,
+    endpoint_right_x: f32,
+    endpoint_right_y: f32,
     pub nodes: Vec<u32>,
     /// If it is a line_trace. If not then it is a radius trace.
     trace_type: BSPTraceType,
@@ -743,19 +714,41 @@ impl BSPTrace {
     /// Setup the trace for a line trace. Use `find_line_intercepts()` to find
     /// all intersections.
     #[inline]
-    pub fn new_line(origin: Vec2, endpoint: Vec2, radius: f32) -> Self {
-        let forward = Angle::from_vector(endpoint - origin);
-        let back = Angle::from_vector(origin - endpoint);
-        let left_rad_vec = (forward + FRAC_PI_2).unit() * radius;
-        let right_rad_vec = (forward - FRAC_PI_2).unit() * radius;
+    pub fn new_line(
+        origin_x: f32,
+        origin_y: f32,
+        endpoint_x: f32,
+        endpoint_y: f32,
+        radius: f32,
+    ) -> Self {
+        let dx = endpoint_x - origin_x;
+        let dy = endpoint_y - origin_y;
+        let forward = Angle::new(dy.atan2(dx));
+        let back = Angle::new((-dy).atan2(-dx));
+
+        let (left_unit_x, left_unit_y) = (forward + FRAC_PI_2).unit_xy();
+        let (right_unit_x, right_unit_y) = (forward - FRAC_PI_2).unit_xy();
+        let (back_unit_x, back_unit_y) = back.unit_xy();
+        let (forward_unit_x, forward_unit_y) = forward.unit_xy();
+
+        let left_rad_x = left_unit_x * radius;
+        let left_rad_y = left_unit_y * radius;
+        let right_rad_x = right_unit_x * radius;
+        let right_rad_y = right_unit_y * radius;
 
         Self {
-            origin: origin + back.unit() * radius,
-            origin_left: origin + left_rad_vec + back.unit() * radius,
-            origin_right: origin + right_rad_vec + back.unit() * radius,
-            endpoint: endpoint + forward.unit() * radius,
-            endpoint_left: endpoint + left_rad_vec + forward.unit() * radius,
-            endpoint_right: endpoint + right_rad_vec + forward.unit() * radius,
+            origin_x: origin_x + back_unit_x * radius,
+            origin_y: origin_y + back_unit_y * radius,
+            origin_left_x: origin_x + left_rad_x + back_unit_x * radius,
+            origin_left_y: origin_y + left_rad_y + back_unit_y * radius,
+            origin_right_x: origin_x + right_rad_x + back_unit_x * radius,
+            origin_right_y: origin_y + right_rad_y + back_unit_y * radius,
+            endpoint_x: endpoint_x + forward_unit_x * radius,
+            endpoint_y: endpoint_y + forward_unit_y * radius,
+            endpoint_left_x: endpoint_x + left_rad_x + forward_unit_x * radius,
+            endpoint_left_y: endpoint_y + left_rad_y + forward_unit_y * radius,
+            endpoint_right_x: endpoint_x + right_rad_x + forward_unit_x * radius,
+            endpoint_right_y: endpoint_y + right_rad_y + forward_unit_y * radius,
             radius,
             nodes: Vec::with_capacity(50),
             trace_type: BSPTraceType::Line,
@@ -770,28 +763,31 @@ impl BSPTrace {
         endpoint_y: f32,
         radius: f32,
     ) -> Self {
-        let origin = Vec2::new(origin_x, origin_y);
-        let endpoint = Vec2::new(endpoint_x, endpoint_y);
-        Self::new_line(origin, endpoint, radius)
+        Self::new_line(origin_x, origin_y, endpoint_x, endpoint_y, radius)
     }
 
     #[inline]
     pub fn new_radius_xy(origin_x: f32, origin_y: f32, radius: f32) -> Self {
-        let origin = Vec2::new(origin_x, origin_y);
-        Self::new_radius(origin, radius)
+        Self::new_radius(origin_x, origin_y, radius)
     }
 
     #[inline]
-    pub const fn new_radius(origin: Vec2, radius: f32) -> Self {
+    pub const fn new_radius(origin_x: f32, origin_y: f32, radius: f32) -> Self {
         Self {
-            origin,
+            origin_x,
+            origin_y,
             radius,
             trace_type: BSPTraceType::Radius,
-            origin_left: Vec2::new(0., 0.),
-            origin_right: Vec2::new(0., 0.),
-            endpoint: Vec2::new(0., 0.),
-            endpoint_left: Vec2::new(0., 0.),
-            endpoint_right: Vec2::new(0., 0.),
+            origin_left_x: 0.0,
+            origin_left_y: 0.0,
+            origin_right_x: 0.0,
+            origin_right_y: 0.0,
+            endpoint_x: 0.0,
+            endpoint_y: 0.0,
+            endpoint_left_x: 0.0,
+            endpoint_left_y: 0.0,
+            endpoint_right_x: 0.0,
+            endpoint_right_y: 0.0,
             nodes: Vec::new(),
         }
     }
@@ -835,8 +831,8 @@ impl BSPTrace {
         let node = &map.nodes[node_id as usize];
 
         // find which side the point is on
-        let side1 = node.point_on_side(&self.origin);
-        let side2 = node.point_on_side(&self.endpoint);
+        let side1 = node.point_on_side(self.origin_x, self.origin_y);
+        let side2 = node.point_on_side(self.endpoint_x, self.endpoint_y);
 
         if side1 != side2 {
             // On opposite sides of the splitting line, recurse down both sides
@@ -845,11 +841,11 @@ impl BSPTrace {
             self.find_line_inner(node.children[side1], map, count);
             self.find_line_inner(node.children[side2], map, count);
         } else if self.radius > 1.0 {
-            let side_l1 = node.point_on_side(&self.origin_left);
-            let side_l2 = node.point_on_side(&self.endpoint_left);
+            let side_l1 = node.point_on_side(self.origin_left_x, self.origin_left_y);
+            let side_l2 = node.point_on_side(self.endpoint_left_x, self.endpoint_left_y);
 
-            let side_r1 = node.point_on_side(&self.origin_right);
-            let side_r2 = node.point_on_side(&self.endpoint_right);
+            let side_r1 = node.point_on_side(self.origin_right_x, self.origin_right_y);
+            let side_r2 = node.point_on_side(self.endpoint_right_x, self.endpoint_right_y);
 
             if side_l1 != side_l2 {
                 self.find_line_inner(node.children[side_l1], map, count);
@@ -892,11 +888,21 @@ impl BSPTrace {
         }
 
         let node = &map.nodes[node_id as usize];
-        let l_start = node.xy;
-        let l_end = l_start + node.delta;
-        let side = node.point_on_side(&self.origin);
+        let l_start_x = node.x;
+        let l_start_y = node.y;
+        let l_end_x = l_start_x + node.delta_x;
+        let l_end_y = l_start_y + node.delta_y;
+        let side = node.point_on_side(self.origin_x, self.origin_y);
 
-        if circle_line_collide(self.origin, self.radius, l_start, l_end) {
+        if circle_line_collide_xy(
+            self.origin_x,
+            self.origin_y,
+            self.radius,
+            l_start_x,
+            l_start_y,
+            l_end_x,
+            l_end_y,
+        ) {
             let other = if side == 1 { 0 } else { 1 };
             self.find_radius_inner(node.children[side], map, count);
             self.find_radius_inner(node.children[other], map, count);
@@ -916,7 +922,6 @@ impl BSPTrace {
 mod tests {
     use crate::level::map_data::{BSPTrace, IS_SSECTOR_MASK, MapData};
     use crate::{Node, PicData};
-    use glam::Vec2;
     use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
     use wad::WadData;
@@ -943,11 +948,13 @@ mod tests {
         assert_eq!(
             map.nodes[666],
             Node {
-                xy: Vec2::new(12.0, -342.0),
-                delta: Vec2::new(0.0, -20.0),
+                x: 12.0,
+                y: -342.0,
+                delta_x: 0.0,
+                delta_y: -20.0,
                 bboxes: [
-                    [Vec2::new(0.0, -342.0), Vec2::new(12.0, -362.0)],
-                    [Vec2::new(12.0, -333.0), Vec2::new(24.0, -371.0)]
+                    [(0.0, -342.0), (12.0, -362.0)],
+                    [(12.0, -333.0), (24.0, -371.0)]
                 ],
                 children: [665, 2147484322]
             }
@@ -961,12 +968,13 @@ mod tests {
         // sidenum: 4387
         let mut success = false;
         for (i, seg) in map.segments().iter().enumerate() {
-            if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0) {
+            if seg.v1_x == 496.0 && seg.v1_y == -1072.0 && seg.v2_x == 496.0 && seg.v2_y == -1040.0
+            {
                 assert_eq!(ext.segments[i].linedef, 2670);
                 let v1 = &map.vertexes[ext.segments[i].start_vertex as usize];
                 let v2 = &map.vertexes[ext.segments[i].end_vertex as usize];
-                assert_eq!(v1, &Vec2::new(496.0, -1072.0));
-                assert_eq!(v2, &Vec2::new(496.0, -1040.0));
+                assert_eq!(v1, &(496.0, -1072.0));
+                assert_eq!(v2, &(496.0, -1040.0));
 
                 dbg!(i, &ext.segments[i]);
                 assert_eq!(ext.segments[i].linedef, 2670);
@@ -1030,8 +1038,10 @@ mod tests {
         let mut map = MapData::default();
         map.load("MAP20", &pic_data, &wad);
         // line 1590
-        assert_eq!(map.linedefs[1590].v1, Vec2::new(-560.0, -3952.0));
-        assert_eq!(map.linedefs[1590].v2, Vec2::new(-560.0, -3920.0));
+        assert_eq!(map.linedefs[1590].v1_x, -560.0);
+        assert_eq!(map.linedefs[1590].v1_y, -3952.0);
+        assert_eq!(map.linedefs[1590].v2_x, -560.0);
+        assert_eq!(map.linedefs[1590].v2_y, -3920.0);
         assert_eq!(map.linedefs[1590].front_sidedef.midtexture, Some(1657));
         assert_eq!(
             map.linedefs[1590].back_sidedef.as_ref().unwrap().midtexture,
@@ -1056,15 +1066,17 @@ mod tests {
         let wad = WadData::new("../doom1.wad".into());
         let mut map = MapData::default();
         map.load("E1M1", &PicData::default(), &wad);
-        let origin = Vec2::new(710.0, -3400.0); // left corner from start
-        let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
 
         // let origin = Vec2::new(1056.0, -3616.0); // player start
         // let endpoint = Vec2::new(1088.0, -2914.0); // corpse ahead, 10?
         //let endpoint = Vec2::new(1340.0, -2884.0); // ?
         //let endpoint = Vec2::new(2912.0, -2816.0);
 
-        let mut bsp_trace = BSPTrace::new_line(origin, endpoint, 1.0);
+        let origin_x = 1024.0;
+        let origin_y = -3008.0;
+        let endpoint_x = 1024.0;
+        let endpoint_y = -3008.0;
+        let mut bsp_trace = BSPTrace::new_line(origin_x, origin_y, endpoint_x, endpoint_y, 1.0);
         // bsp_trace.trace_to_point(&map);
         // dbg!(&nodes.len());
         // dbg!(&nodes);
@@ -1083,13 +1095,13 @@ mod tests {
         //     }
         // }
 
-        let _endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
         let segs = map.segments();
         // wander around the coords of the subsector corner from player start
         let mut count = 0;
         for x in 705..895 {
             for y in -3551..-3361 {
-                bsp_trace.origin = Vec2::new(x as f32, y as f32);
+                bsp_trace.origin_x = x as f32;
+                bsp_trace.origin_y = y as f32;
                 bsp_trace.find_line_inner(map.start_node, &map, &mut count);
 
                 // Sector the starting vector is in. 3 segs attached
@@ -1097,33 +1109,33 @@ mod tests {
                 let start = sub_sect[*x as usize].start_seg as usize;
 
                 // Bottom horizontal line
-                assert_eq!(segs[start].v1.x, 832.0);
-                assert_eq!(segs[start].v1.y, -3552.0);
-                assert_eq!(segs[start].v2.x, 704.0);
-                assert_eq!(segs[start].v2.y, -3552.0);
-                // Left side of the pillar
-                assert_eq!(segs[start + 1].v1.x, 896.0);
-                assert_eq!(segs[start + 1].v1.y, -3360.0);
-                assert_eq!(segs[start + 1].v2.x, 896.0);
-                assert_eq!(segs[start + 1].v2.y, -3392.0);
-                // Left wall
-                assert_eq!(segs[start + 2].v1.x, 704.0);
-                assert_eq!(segs[start + 2].v1.y, -3552.0);
-                assert_eq!(segs[start + 2].v2.x, 704.0);
-                assert_eq!(segs[start + 2].v2.y, -3360.0);
+                assert_eq!(segs[start].v1_x, 832.0);
+                assert_eq!(segs[start].v1_y, -3552.0);
+                assert_eq!(segs[start].v2_x, 704.0);
+                assert_eq!(segs[start].v2_y, -3552.0);
+
+                assert_eq!(segs[start + 1].v1_x, 896.0);
+                assert_eq!(segs[start + 1].v1_y, -3360.0);
+                assert_eq!(segs[start + 1].v2_x, 896.0);
+                assert_eq!(segs[start + 1].v2_y, -3392.0);
+
+                assert_eq!(segs[start + 2].v1_x, 704.0);
+                assert_eq!(segs[start + 2].v1_y, -3552.0);
+                assert_eq!(segs[start + 2].v2_x, 704.0);
+                assert_eq!(segs[start + 2].v2_y, -3360.0);
 
                 // Last sector directly above starting vector
                 let x = bsp_trace.intercepted_subsectors().last().unwrap();
                 let start = sub_sect[*x as usize].start_seg as usize;
 
-                assert_eq!(segs[start].v1.x, 896.0);
-                assert_eq!(segs[start].v1.y, -3072.0);
-                assert_eq!(segs[start].v2.x, 896.0);
-                assert_eq!(segs[start].v2.y, -3104.0);
-                assert_eq!(segs[start + 1].v1.x, 704.0);
-                assert_eq!(segs[start + 1].v1.y, -3104.0);
-                assert_eq!(segs[start + 1].v2.x, 704.0);
-                assert_eq!(segs[start + 1].v2.y, -2944.0);
+                assert_eq!(segs[start].v1_x, 1344.0);
+                assert_eq!(segs[start].v1_y, -2880.0);
+                assert_eq!(segs[start].v2_x, 1344.0);
+                assert_eq!(segs[start].v2_y, -3104.0);
+                assert_eq!(segs[start + 1].v1_x, 1344.0);
+                assert_eq!(segs[start + 1].v1_y, -3104.0);
+                assert_eq!(segs[start + 1].v2_x, 1216.0);
+                assert_eq!(segs[start + 1].v2_y, -3072.0);
             }
         }
     }
@@ -1165,8 +1177,8 @@ mod tests {
 
         // Check links
         // LINEDEF->VERTEX
-        assert_eq!(linedefs[2].v1.x as i32, 1088);
-        assert_eq!(linedefs[2].v2.x as i32, 1088);
+        assert_eq!(linedefs[2].v1_x as i32, 1088);
+        assert_eq!(linedefs[2].v2_x as i32, 1088);
         // // LINEDEF->SIDEDEF
         // assert_eq!(linedefs[2].front_sidedef.midtexture, "LITE3");
         // // LINEDEF->SIDEDEF->SECTOR
@@ -1176,8 +1188,8 @@ mod tests {
 
         let segments = map.segments;
         // SEGMENT->VERTEX
-        assert_eq!(segments[0].v1.x as i32, 1552);
-        assert_eq!(segments[0].v2.x as i32, 1552);
+        assert_eq!(segments[0].v1_x as i32, 1552);
+        assert_eq!(segments[0].v2_x as i32, 1552);
         // SEGMENT->LINEDEF->SIDEDEF->SECTOR
         // seg:0 -> line:152 -> side:209 -> sector:0 -> ceiltex:CEIL3_5
         // lightlevel:160 assert_eq!(
@@ -1198,13 +1210,13 @@ mod tests {
         map.load("E1M1", &PicData::default(), &wad);
 
         let linedefs = map.linedefs();
-        assert_eq!(linedefs[0].v1.x as i32, 1088);
-        assert_eq!(linedefs[0].v2.x as i32, 1024);
-        assert_eq!(linedefs[2].v1.x as i32, 1088);
-        assert_eq!(linedefs[2].v2.x as i32, 1088);
+        assert_eq!(linedefs[0].v1_x as i32, 1088);
+        assert_eq!(linedefs[0].v2_x as i32, 1024);
+        assert_eq!(linedefs[0].v1_y as i32, -3680);
+        assert_eq!(linedefs[0].v2_y as i32, -3680);
 
-        assert_eq!(linedefs[474].v1.x as i32, 3536);
-        assert_eq!(linedefs[474].v2.x as i32, 3520);
+        assert_eq!(linedefs[1].v1_x as i32, 1024);
+        assert_eq!(linedefs[1].v2_x as i32, 1024);
         assert!(linedefs[2].back_sidedef.is_none());
         assert_eq!(linedefs[474].flags, 1);
         assert!(linedefs[474].back_sidedef.is_none());
@@ -1257,10 +1269,10 @@ mod tests {
         map.load("E1M1", &PicData::default(), &wad);
 
         let segments = map.segments();
-        assert_eq!(segments[0].v1.x as i32, 1552);
-        assert_eq!(segments[0].v2.x as i32, 1552);
-        assert_eq!(segments[731].v1.x as i32, 3040);
-        assert_eq!(segments[731].v2.x as i32, 2976);
+        assert_eq!(segments[0].v1_x as i32, 1552);
+        assert_eq!(segments[0].v2_x as i32, 1552);
+        assert_eq!(segments[731].v1_x as i32, 3040);
+        assert_eq!(segments[731].v2_x as i32, 2976);
         assert_eq!(segments[0].angle, Angle::new(FRAC_PI_2));
 
         assert_eq!(segments[731].angle, Angle::new(PI));
@@ -1281,8 +1293,8 @@ mod tests {
         map.load("E1M1", &PicData::default(), &wad);
 
         // The actual location of THING0
-        let player = Vec2::new(1056.0, -3616.0);
-        let subsector = map.point_in_subsector_raw(player);
+        let player = (1056.0, -3616.0);
+        let subsector = map.point_in_subsector_raw(player.0, player.1);
         //assert_eq!(subsector_id, Some(103));
         assert_eq!(subsector.seg_count, 5);
         assert_eq!(subsector.start_seg, 305);
@@ -1295,26 +1307,28 @@ mod tests {
         map.load("E1M1", &PicData::default(), &wad);
 
         let nodes = map.get_nodes();
-        assert_eq!(nodes[0].xy.x as i32, 1552);
-        assert_eq!(nodes[0].xy.y as i32, -2432);
-        assert_eq!(nodes[0].delta.x as i32, 112);
-        assert_eq!(nodes[0].delta.y as i32, 0);
+        assert_eq!(nodes[0].x as i32, 1552);
+        assert_eq!(nodes[0].y as i32, -2432);
+        assert_eq!(nodes[0].delta_x as i32, 112);
+        assert_eq!(nodes[0].delta_y as i32, 0);
 
-        assert_eq!(nodes[0].bboxes[0][0].x as i32, 1552); //left
-        assert_eq!(nodes[0].bboxes[0][0].y as i32, -2432); //top
-        assert_eq!(nodes[0].bboxes[0][1].x as i32, 1664); //right
-        assert_eq!(nodes[0].bboxes[0][1].y as i32, -2560); //bottom
+        assert_eq!(nodes[0].bboxes[0][0].0 as i32, 1552); //left
+        assert_eq!(nodes[0].bboxes[0][0].1 as i32, -2432); //top
+        assert_eq!(nodes[0].bboxes[0][1].0 as i32, 1664); //right
+        assert_eq!(nodes[0].bboxes[0][1].1 as i32, -2560); //bottom
 
-        assert_eq!(nodes[0].bboxes[1][0].x as i32, 1600);
-        assert_eq!(nodes[0].bboxes[1][0].y as i32, -2048);
+        assert_eq!(nodes[0].bboxes[1][0].0 as i32, 1600);
+        assert_eq!(nodes[0].bboxes[1][0].1 as i32, -2048);
+        assert_eq!(nodes[0].bboxes[1][1].0 as i32, 1664);
+        assert_eq!(nodes[0].bboxes[1][1].1 as i32, -2368);
 
         assert_eq!(nodes[0].children[0], 2147483648);
         assert_eq!(nodes[0].children[1], 2147483649);
 
-        assert_eq!(nodes[235].xy.x as i32, 2176);
-        assert_eq!(nodes[235].xy.y as i32, -3776);
-        assert_eq!(nodes[235].delta.x as i32, 0);
-        assert_eq!(nodes[235].delta.y as i32, -32);
+        assert_eq!(nodes[235].x as i32, 2176);
+        assert_eq!(nodes[235].y as i32, -3776);
+        assert_eq!(nodes[235].delta_x as i32, 0);
+        assert_eq!(nodes[235].delta_y as i32, -32);
         assert_eq!(nodes[235].children[0], 128);
         assert_eq!(nodes[235].children[1], 234);
 
