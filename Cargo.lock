@@ -42,36 +42,36 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.9.0"
+version = "2.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
+checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
 name = "bumpalo"
-version = "3.17.0"
+version = "3.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
+checksum = "793db76d6187cd04dff33004d8e6c9cc4e05cd330500379d2394209271b4aeee"
 
 [[package]]
 name = "bytemuck"
-version = "1.22.0"
+version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b1fc10dbac614ebc03540c9dbd60e83887fda27794998c6528f1782047d540"
+checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
 
 [[package]]
 name = "cc"
-version = "1.2.19"
+version = "1.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3a13707ac958681c13b39b458c073d0d9bc8a22cb1b2f4c8e55eb72c13f362"
+checksum = "d487aa071b5f64da6f19a3e848e3578944b726ee5a4854b82172f02aa876bfdc"
 dependencies = [
  "shlex",
 ]
 
 [[package]]
 name = "cfg-if"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 
 [[package]]
 name = "coarse-prof"
@@ -119,7 +119,6 @@ version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "hud-util",
- "log",
  "wad",
 ]
 
@@ -163,9 +162,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
+checksum = "335ff9f135e4384c8150d6f27c6daed433577f86b4750418338c01a1a2528592"
 dependencies = [
  "cfg-if",
  "libc",
@@ -174,9 +173,9 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.30.2"
+version = "0.30.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0e9b6647e9b41d3a5ef02964c6be01311a7f2472fea40595c635c6d046c259e"
+checksum = "50a99dbe56b72736564cfa4b85bf9a33079f16ae8b74983ab06af3b1a3696b11"
 
 [[package]]
 name = "glow"
@@ -271,15 +270,15 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.172"
+version = "0.2.173"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
+checksum = "d8cfeafaffdbc32176b64fb251369d52ea9f0a8fbc6f8759edffef7b525d64bb"
 
 [[package]]
 name = "libmimalloc-sys"
-version = "0.1.42"
+version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec9d6fac27761dabcd4ee73571cdb06b7022dc99089acbe5435691edffaac0f4"
+checksum = "bf88cd67e9de251c1781dbe2f641a1a3ad66eaae831b8a2c38fbdc5ddae16d4d"
 dependencies = [
  "cc",
  "libc",
@@ -291,7 +290,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.9.1",
  "libc",
 ]
 
@@ -313,16 +312,15 @@ name = "menu-doom"
 version = "0.16.1"
 dependencies = [
  "gamestate-traits",
- "log",
  "sound-traits",
  "wad",
 ]
 
 [[package]]
 name = "mimalloc"
-version = "0.1.46"
+version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "995942f432bbb4822a7e9c3faa87a695185b0d09273ba85f097b54f4e458f2af"
+checksum = "b1791cbe101e95af5764f06f20f6760521f7158f69dbf9d6baf941ee1bf6bc40"
 dependencies = [
  "libmimalloc-sys",
 ]
@@ -337,7 +335,7 @@ dependencies = [
 [[package]]
 name = "nanoserde"
 version = "0.2.1"
-source = "git+https://github.com/not-fl3/nanoserde.git#f0a1936869fdcd4298440ae5973010cb28e39b6c"
+source = "git+https://github.com/not-fl3/nanoserde.git#4d74d0f6448f23f99fc31c87a938a4b1f3eede98"
 dependencies = [
  "nanoserde-derive",
 ]
@@ -345,7 +343,7 @@ dependencies = [
 [[package]]
 name = "nanoserde-derive"
 version = "0.2.1"
-source = "git+https://github.com/not-fl3/nanoserde.git#f0a1936869fdcd4298440ae5973010cb28e39b6c"
+source = "git+https://github.com/not-fl3/nanoserde.git#4d74d0f6448f23f99fc31c87a938a4b1f3eede98"
 
 [[package]]
 name = "num-conv"
@@ -418,7 +416,6 @@ dependencies = [
  "glam",
  "math",
  "render-trait",
- "sdl2",
  "wad",
 ]
 
@@ -477,14 +474,14 @@ checksum = "a157657054ffe556d8858504af8a672a054a6e0bd9e8ee531059100c0fa11bb2"
 
 [[package]]
 name = "rustversion"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
+checksum = "8a0d197bd2c9dc6e53b84da9556a69ba4cdfab8619eb41a8bd1cc2027a0f6b1d"
 
 [[package]]
 name = "sdl2"
 version = "0.37.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#ecd03de215f2db2940efa3e902557e8316fdff4e"
+source = "git+https://github.com/flukejones/rust-sdl2#1d7bc112709b4a41017a7eb0e92afafa3c14ba13"
 dependencies = [
  "bitflags 1.3.2",
  "lazy_static",
@@ -495,7 +492,7 @@ dependencies = [
 [[package]]
 name = "sdl2-sys"
 version = "0.37.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#ecd03de215f2db2940efa3e902557e8316fdff4e"
+source = "git+https://github.com/flukejones/rust-sdl2#1d7bc112709b4a41017a7eb0e92afafa3c14ba13"
 dependencies = [
  "cfg-if",
  "libc",
@@ -552,9 +549,7 @@ dependencies = [
 name = "sound-nosnd"
 version = "0.16.1"
 dependencies = [
- "glam",
  "log",
- "nanoserde",
  "sound-traits",
  "wad",
 ]
@@ -580,16 +575,14 @@ name = "statusbar-doom"
 version = "0.16.1"
 dependencies = [
  "gamestate-traits",
- "hud-util",
- "log",
  "wad",
 ]
 
 [[package]]
 name = "syn"
-version = "2.0.100"
+version = "2.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b09a44accad81e1ba1cd74a32461ba89dee89095ba17b32f5d03683b1b1fc2a0"
+checksum = "e4307e30089d6fd6aff212f2da3a1f9e32f3223b1f010fb09b7c95f90f3ca1e8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -685,9 +678,9 @@ dependencies = [
 
 [[package]]
 name = "wasi"
-version = "0.11.0+wasi-snapshot-preview1"
+version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
+checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasm-bindgen"

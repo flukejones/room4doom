@@ -19,7 +19,6 @@ glam.workspace = true
 math.workspace = true
 gameplay.workspace = true
 render-trait.workspace = true
-sdl2.workspace = true
 coarse-prof.workspace = true
 
 [dev-dependencies]

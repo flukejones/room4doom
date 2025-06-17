@@ -28,6 +28,7 @@ use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
+use gamestate_traits::sdl2::render::CanvasBuilder;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{
     GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait, sdl2,
@@ -78,14 +79,24 @@ pub fn d_doom_loop(
         hud_msgs: Messages::new(&game.wad_data),
         finale: Finale::new(&game.wad_data),
     };
+    info!("Loaded subsystems");
+
+    let mut canvas = window
+        .into_canvas()
+        .accelerated()
+        .present_vsync()
+        .target_texture()
+        .build()?;
+    info!("Built display window");
+    canvas.window_mut().show();
+    info!("Setup window canvas");
 
     // Start demo playback and titlescreens +
     if options.episode.is_none() && options.map.is_none() {
         game.start_title();
     }
+    info!("Started title sequence");
 
-    let mut canvas = window.into_canvas().accelerated().present_vsync().build()?;
-    canvas.window_mut().show();
     // BEGIN SETUP
     set_lookdirs(&options);
     let mut render_target = RenderTarget::new(

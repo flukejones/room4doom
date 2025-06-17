@@ -55,11 +55,10 @@ render-soft = { path = "./render/software" }
 coarse-prof = "0.2"
 glam = "*"
 golem = { git = "https://github.com/flukejones/golem/" }
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = [
+sdl2 = { git = "https://github.com/flukejones/rust-sdl2", features = [
     "unsafe_textures",
     "mixer",
 ] }
-#sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", features = ["mixer"] }
 
 argh = "0.1.12"
 

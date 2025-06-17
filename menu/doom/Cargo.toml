@@ -9,4 +9,3 @@ license.workspace = true
 gamestate-traits.workspace = true
 sound-traits.workspace = true
 wad.workspace = true
-log.workspace = true

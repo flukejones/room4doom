@@ -11,7 +11,7 @@ impl Angle {
     /// Will always wrap < 0 to > PI
     #[inline]
     pub const fn new(mut radians: f32) -> Self {
-        radians = radians % TAU;
+        radians %= TAU;
         if radians < 0.0 {
             radians += TAU;
         }
@@ -20,7 +20,7 @@ impl Angle {
 
     #[inline]
     const fn inner_wrap(&mut self) {
-        self.0 = self.0 % TAU;
+        self.0 %= TAU;
         if self.0 < 0.0 {
             self.0 += TAU;
         }
@@ -32,8 +32,8 @@ impl Angle {
     }
 
     #[inline]
-    const fn to_table(&self) -> usize {
-        let mut idx = (self.0.to_degrees() * 22.7555556) as i32;
+    const fn table(&self) -> usize {
+        let mut idx = (self.0.to_degrees() * 22.755_556) as i32;
         idx &= 8191;
         if idx < 0 {
             idx += 8192;
@@ -46,7 +46,7 @@ impl Angle {
         if cfg!(not(feature = "trig_lut")) {
             self.0.sin()
         } else {
-            SIN_TABLE[self.to_table()]
+            SIN_TABLE[self.table()]
         }
     }
 
@@ -55,7 +55,7 @@ impl Angle {
         if cfg!(not(feature = "trig_lut")) {
             self.0.cos()
         } else {
-            COS_TABLE[self.to_table()]
+            COS_TABLE[self.table()]
         }
     }
 
@@ -64,7 +64,7 @@ impl Angle {
         if cfg!(not(feature = "trig_lut")) {
             self.0.tan()
         } else {
-            TAN_TABLE[self.to_table()]
+            TAN_TABLE[self.table()]
         }
     }
 
@@ -73,7 +73,7 @@ impl Angle {
         if cfg!(not(feature = "trig_lut")) {
             self.0.sin_cos()
         } else {
-            let idx = self.to_table();
+            let idx = self.table();
             (SIN_TABLE[idx], COS_TABLE[idx])
         }
     }

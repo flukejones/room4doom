@@ -73,12 +73,12 @@ pub fn read_file(path: PathBuf) -> String {
     let mut file = OpenOptions::new()
         .read(true)
         .open(path.clone())
-        .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
+        .unwrap_or_else(|e| panic!("Couldn't open {path:?}, {e}"));
 
     let mut buf = String::new();
     if file
         .read_to_string(&mut buf)
-        .unwrap_or_else(|e| panic!("Couldn't read {:?}, {}", path, e))
+        .unwrap_or_else(|e| panic!("Couldn't read {path:?}, {e}"))
         == 0
     {
         panic!("File had no data");
@@ -92,7 +92,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
         .create(true)
         .truncate(true)
         .open(path.clone())
-        .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
+        .unwrap_or_else(|e| panic!("Couldn't open {path:?}, {e}"));
 
     file.write_all(FILE_HEADER_STR.as_bytes()).unwrap();
     // SPRITE NAMES
@@ -104,7 +104,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
             .collect::<Vec<String>>()
             .concat();
         file.write_all(s.as_bytes()).unwrap();
-        file.write_all(&[b'\n']).unwrap();
+        file.write_all(b"\n").unwrap();
     }
     file.write_all(ARRAY_END_STR.as_bytes()).unwrap();
 
@@ -117,7 +117,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
             .collect::<Vec<String>>()
             .concat();
         file.write_all(s.as_bytes()).unwrap();
-        file.write_all(&[b'\n']).unwrap();
+        file.write_all(b"\n").unwrap();
     }
     file.write_all(SPRITE_ENUM_END.as_bytes()).unwrap();
 
@@ -130,7 +130,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
             .collect::<Vec<String>>()
             .concat();
         file.write_all(s.as_bytes()).unwrap();
-        file.write_all(&[b'\n']).unwrap();
+        file.write_all(b"\n").unwrap();
     }
     file.write_all(STATE_ENUM_END.as_bytes()).unwrap();
 
@@ -143,7 +143,7 @@ pub fn write_info_file(data: Data, path: PathBuf) {
             .collect::<Vec<String>>()
             .concat();
         file.write_all(s.as_bytes()).unwrap();
-        file.write_all(&[b'\n']).unwrap();
+        file.write_all(b"\n").unwrap();
     }
     file.write_all(MKIND_ENUM_END.as_bytes()).unwrap();
 

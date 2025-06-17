@@ -8,5 +8,3 @@ license.workspace = true
 [dependencies]
 wad.workspace = true
 gamestate-traits.workspace = true
-hud-util.workspace = true
-log.workspace = true
