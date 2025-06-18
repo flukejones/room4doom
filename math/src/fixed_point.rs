@@ -35,11 +35,14 @@ impl FixedPoint {
     pub const fn raw(self) -> i32 {
         self.0
     }
+    pub const fn from_raw(value: i32) -> Self {
+        Self(value)
+    }
 }
 
 impl FixedPoint {
     pub const fn new(value: i32) -> Self {
-        Self(value)
+        Self(value << 16)
     }
 
     pub const fn unit() -> Self {

@@ -1,6 +1,8 @@
 use std::f32::consts::TAU;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use glam::Vec2;
+
 use crate::doom_f32::DoomF32;
 use crate::trig::{COS_TABLE, SIN_TABLE, TAN_TABLE};
 
@@ -80,6 +82,12 @@ impl Angle {
             let idx = self.table();
             ((SIN_TABLE[idx]), (COS_TABLE[idx]))
         }
+    }
+
+    #[inline(always)]
+    pub fn unit_vec2(&self) -> Vec2 {
+        let (y, x) = self.sin_cos();
+        Vec2::new(x, y)
     }
 
     #[inline(always)]

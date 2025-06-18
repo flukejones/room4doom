@@ -61,8 +61,8 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
 
 /// R_PointToAngle
 pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
-    let x = vertex.x - mobj.x;
-    let y = vertex.y - mobj.y;
+    let x = vertex.x - math::to_f32(mobj.x);
+    let y = vertex.y - math::to_f32(mobj.y);
     Angle::new(y.atan2(x))
 }
 

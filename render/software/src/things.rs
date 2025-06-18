@@ -135,8 +135,8 @@ impl SoftwareRenderer {
         let view_sin = player_mobj.angle.sin();
 
         // transform the origin point
-        let tr_x = thing.x - player_mobj.x;
-        let tr_y = thing.y - player_mobj.y;
+        let tr_x = math::to_f32(thing.x - player_mobj.x);
+        let tr_y = math::to_f32(thing.y - player_mobj.y);
         let tz = (tr_x * view_cos) - -(tr_y * view_sin);
 
         // Is it behind the view?
@@ -146,7 +146,7 @@ impl SoftwareRenderer {
 
         let mut tx = (tr_x * view_sin) - (tr_y * view_cos);
         // too far off the side?
-        if tx.abs().into() >= tz.abs().into() * 2 {
+        if tx.abs() >= tz.abs() * 2.0 {
             return true;
         }
 
@@ -203,11 +203,11 @@ impl SoftwareRenderer {
         let vis = self.new_vissprite();
         vis.mobj_flags = thing.flags;
         vis.scale = x_scale * y_scale; // Note: increase Y
-        vis.gx = thing.x;
-        vis.gy = thing.y;
-        vis.gz = thing.z;
-        vis.gzt = thing.z + patch.top_offset as f32;
-        vis.texture_mid = vis.gzt - player.viewz;
+        vis.gx = math::to_f32(thing.x);
+        vis.gy = math::to_f32(thing.y);
+        vis.gz = math::to_f32(thing.z);
+        vis.gzt = math::to_f32(thing.z) + patch.top_offset as f32;
+        vis.texture_mid = vis.gzt - math::to_f32(player.viewz);
         vis.x1 = if x1 < 0.0 { 0.0 } else { x1 };
         vis.x2 = if x2 >= screen_width as f32 {
             screen_width as f32 - 1.0
@@ -334,7 +334,11 @@ impl SoftwareRenderer {
             unsafe {
                 if scale <= vis.scale
                     || (lowscale < vis.scale
-                        && seg.curline.as_ref().point_on_side(vis.gx, vis.gy) == 0)
+                        && seg
+                            .curline
+                            .as_ref()
+                            .point_on_side(vis.gx.into(), vis.gy.into())
+                            == 0)
                 {
                     if seg.maskedtexturecol != -1.0 {
                         self.render_masked_seg_range(player, seg, r1, r2, pic_data, rend);
@@ -422,7 +426,7 @@ impl SoftwareRenderer {
         let patch = pic_data.sprite_patch(frame.lump[0] as u32 as usize);
         let flip = frame.flip[0];
         // 160.0 is pretty much a hardcoded number to center the weapon always
-        let mut tx = sprite.sx - 160.0 - patch.left_offset as f32;
+        let mut tx = math::to_f32(sprite.sx) - 160.0 - patch.left_offset as f32;
         let x_offset = pspritescale / self.y_scale;
         let x1 = size.half_width_f32() + (tx * x_offset);
 
@@ -440,7 +444,7 @@ impl SoftwareRenderer {
         vis.mobj_flags = flags;
         vis.patch = frame.lump[0] as u32 as usize;
         // -(sprite.sy.floor() - patch.top_offset as f32);
-        vis.texture_mid = 100.0 - (sprite.sy - patch.top_offset as f32);
+        vis.texture_mid = 100.0 - (math::to_f32(sprite.sy) - patch.top_offset as f32);
         let tmp = self.seg_renderer.centery - size.half_height_f32();
         if size.hi_res() {
             vis.texture_mid += tmp / 2.0;
@@ -523,23 +527,24 @@ impl SoftwareRenderer {
             // TODO: hmmmm 0.05
             let mut spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep;
 
-            let mut dc_texturemid;
+            let mut dc_texturemid: f32;
             if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                dc_texturemid = if frontsector.floorheight > backsector.floorheight {
+                dc_texturemid = math::to_f32(if frontsector.floorheight > backsector.floorheight {
                     frontsector.floorheight
                 } else {
                     backsector.floorheight
-                };
+                });
 
                 let texture_column = pic_data.wall_pic_column(texnum, 0);
-                dc_texturemid += (texture_column.len() - 1) as f32 - player.viewz;
+                dc_texturemid += (texture_column.len() - 1) as f32 - math::to_f32(player.viewz);
             } else {
-                dc_texturemid = if frontsector.ceilingheight < backsector.ceilingheight {
-                    frontsector.ceilingheight
-                } else {
-                    backsector.ceilingheight
-                };
-                dc_texturemid -= player.viewz;
+                dc_texturemid =
+                    math::to_f32(if frontsector.ceilingheight < backsector.ceilingheight {
+                        frontsector.ceilingheight
+                    } else {
+                        backsector.ceilingheight
+                    });
+                dc_texturemid -= math::to_f32(player.viewz);
             }
             dc_texturemid += seg.sidedef.rowoffset;
 

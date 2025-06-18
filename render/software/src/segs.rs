@@ -240,7 +240,12 @@ impl SegRender {
         let mobj = unsafe { player.mobj_unchecked() };
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
-        let hyp = point_to_dist(seg.v1_x, seg.v1_y, mobj.x, mobj.y); // verified correct
+        let hyp = point_to_dist(
+            seg.v1_x.into(),
+            seg.v1_y.into(),
+            mobj.x.into(),
+            mobj.y.into(),
+        ); // verified correct
         self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
 
         ds_p.x1 = start;
@@ -275,8 +280,8 @@ impl SegRender {
         //  and decide if floor / ceiling marks are needed
         // `seg.sidedef.sector` is the front sector
         let frontsector = &seg.frontsector;
-        self.worldtop = frontsector.ceilingheight - player.viewz;
-        self.worldbottom = frontsector.floorheight - player.viewz;
+        self.worldtop = math::to_f32(frontsector.ceilingheight - player.viewz);
+        self.worldbottom = math::to_f32(frontsector.floorheight - player.viewz);
 
         self.midtexture = false;
         self.toptexture = false;
@@ -300,7 +305,7 @@ impl SegRender {
                 if let Some(mid_tex) = sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
                     let vtop = frontsector.floorheight + texture_column.len() as f32;
-                    self.rw_midtexturemid = vtop - player.viewz;
+                    self.rw_midtexturemid = math::to_f32(vtop - player.viewz);
                 }
             } else {
                 // top of texture at top
@@ -323,7 +328,7 @@ impl SegRender {
 
             if frontsector.floorheight > backsector.floorheight {
                 ds_p.silhouette = SIL_BOTTOM;
-                ds_p.bsilheight = frontsector.floorheight;
+                ds_p.bsilheight = math::to_f32(frontsector.floorheight);
             } else if backsector.floorheight >= player.viewz {
                 ds_p.silhouette = SIL_BOTTOM;
                 ds_p.bsilheight = f32::MAX;
@@ -331,7 +336,7 @@ impl SegRender {
 
             if frontsector.ceilingheight < backsector.ceilingheight {
                 ds_p.silhouette |= SIL_TOP;
-                ds_p.tsilheight = frontsector.ceilingheight;
+                ds_p.tsilheight = math::to_f32(frontsector.ceilingheight);
             } else if backsector.ceilingheight < player.viewz {
                 ds_p.silhouette |= SIL_TOP;
                 ds_p.tsilheight = f32::MIN;
@@ -352,8 +357,8 @@ impl SegRender {
             //     ds_p.tsilheight = f32::MIN;
             // }
 
-            self.worldhigh = backsector.ceilingheight - player.viewz;
-            self.worldlow = backsector.floorheight - player.viewz;
+            self.worldhigh = math::to_f32(backsector.ceilingheight - player.viewz);
+            self.worldlow = math::to_f32(backsector.floorheight - player.viewz);
 
             if frontsector.ceilingpic == pic_data.sky_num()
                 && backsector.ceilingpic == pic_data.sky_num()
@@ -399,7 +404,7 @@ impl SegRender {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     // texture bottom
-                    self.rw_toptexturemid = vtop - player.viewz - 1.0;
+                    self.rw_toptexturemid = math::to_f32(vtop - player.viewz - 1);
                 }
             }
 
@@ -435,7 +440,7 @@ impl SegRender {
             // if self.rw_normalangle.rad() - rdata.rw_angle1.rad() < PI * 2.0 {
             self.rw_offset = -self.rw_offset;
             //  }
-            self.rw_offset += sidedef.textureoffset + seg.offset;
+            self.rw_offset += sidedef.textureoffset + math::to_f32(seg.offset);
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (sidedef.sector.lightlevel >> 4) + player.extralight;
             if (seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0) && self.wall_lights > 0 {
@@ -598,7 +603,7 @@ impl SegRender {
                         let sky_angle =
                             (mobj.angle.rad() + screen_x_degrees + TAU * 2.).to_degrees() * 2.8444; // 2.8444 seems to give the corect skybox width
                         let sky_column =
-                            pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs().into());
+                            pic_data.wall_pic_column(pic_data.sky_pic(), sky_angle.abs() as usize);
 
                         self.dc_iscale = 0.89;
                         self.draw_wall_column(
@@ -618,9 +623,9 @@ impl SegRender {
                     } else {
                         self.draw_flat_column(
                             ceil_tex,
-                            mobj.x,
-                            mobj.y,
-                            ceil_height,
+                            math::to_f32(mobj.x),
+                            math::to_f32(mobj.y),
+                            math::to_f32(ceil_height),
                             flats_total_light,
                             cos,
                             sin,
@@ -657,9 +662,9 @@ impl SegRender {
                     rdata.portal_clip.floorclip[clip_index] = top;
                     self.draw_flat_column(
                         floor_tex,
-                        mobj.x,
-                        mobj.y,
-                        floor_height,
+                        math::to_f32(mobj.x),
+                        math::to_f32(mobj.y),
+                        math::to_f32(floor_height),
                         flats_total_light,
                         cos,
                         sin,
@@ -706,7 +711,7 @@ impl SegRender {
                             sleep(Duration::from_millis(1));
                         }
                     };
-                    rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
+                    rdata.portal_clip.ceilingclip[clip_index] = math::to_f32(player.viewheight);
                     rdata.portal_clip.floorclip[clip_index] = -1.0;
                 }
             } else {

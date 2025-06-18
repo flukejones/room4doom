@@ -76,7 +76,7 @@ pub const fn m_clear_random() {
     unsafe {
         // Not clearing this random as it's used only by screen wipe so far
         RNDINDEX = 0;
-        PRNDINDEX = 0;
+        // PRNDINDEX = 0;
     }
 }
 

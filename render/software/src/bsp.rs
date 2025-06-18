@@ -179,8 +179,8 @@ impl SoftwareRenderer {
             return;
         }
 
-        let mut angle1 = vertex_angle_to_object(&Vec2::new(seg.v1_x, seg.v1_y), mobj); // widescreen: Leave as is
-        let mut angle2 = vertex_angle_to_object(&Vec2::new(seg.v2_x, seg.v2_y), mobj); // widescreen: Leave as is
+        let mut angle1 = vertex_angle_to_object(&Vec2::new(seg.v1_x.into(), seg.v1_y.into()), mobj); // widescreen: Leave as is
+        let mut angle2 = vertex_angle_to_object(&Vec2::new(seg.v2_x.into(), seg.v2_y.into()), mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
         if span.abs() >= PI {
@@ -598,14 +598,38 @@ impl SoftwareRenderer {
         }
 
         let (v1, v2) = match boxpos {
-            0 => (Vec2::new(rb.0, lt.1), Vec2::new(lt.0, rb.1)),
-            1 => (Vec2::new(rb.0, lt.1), Vec2::new(lt.0, lt.1)),
-            2 => (Vec2::new(rb.0, rb.1), Vec2::new(lt.0, lt.1)),
-            4 => (Vec2::new(lt.0, lt.1), Vec2::new(lt.0, rb.1)),
-            6 => (Vec2::new(rb.0, rb.1), Vec2::new(rb.0, lt.1)),
-            8 => (Vec2::new(lt.0, lt.1), Vec2::new(rb.0, rb.1)),
-            9 => (Vec2::new(lt.0, rb.1), Vec2::new(rb.0, rb.1)),
-            10 => (Vec2::new(lt.0, rb.1), Vec2::new(rb.0, lt.1)),
+            0 => (
+                Vec2::new(rb.0.into(), lt.1.into()),
+                Vec2::new(lt.0.into(), rb.1.into()),
+            ),
+            1 => (
+                Vec2::new(rb.0.into(), lt.1.into()),
+                Vec2::new(lt.0.into(), lt.1.into()),
+            ),
+            2 => (
+                Vec2::new(rb.0.into(), rb.1.into()),
+                Vec2::new(lt.0.into(), lt.1.into()),
+            ),
+            4 => (
+                Vec2::new(lt.0.into(), lt.1.into()),
+                Vec2::new(lt.0.into(), rb.1.into()),
+            ),
+            6 => (
+                Vec2::new(rb.0.into(), rb.1.into()),
+                Vec2::new(rb.0.into(), lt.1.into()),
+            ),
+            8 => (
+                Vec2::new(lt.0.into(), lt.1.into()),
+                Vec2::new(rb.0.into(), rb.1.into()),
+            ),
+            9 => (
+                Vec2::new(lt.0.into(), rb.1.into()),
+                Vec2::new(rb.0.into(), rb.1.into()),
+            ),
+            10 => (
+                Vec2::new(lt.0.into(), rb.1.into()),
+                Vec2::new(rb.0.into(), lt.1.into()),
+            ),
             _ => (Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
         };
 

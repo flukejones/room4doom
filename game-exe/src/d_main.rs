@@ -159,8 +159,8 @@ pub fn d_doom_loop(
             game.sound_cmd
                 .send(SoundAction::UpdateListener {
                     uid,
-                    x: mobj.x,
-                    y: mobj.y,
+                    x: mobj.x.into(),
+                    y: mobj.y.into(),
                     angle: mobj.angle.rad(),
                 })
                 .unwrap();

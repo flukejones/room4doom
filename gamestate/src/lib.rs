@@ -597,7 +597,7 @@ impl Game {
         // Player setup from P_SetupLevel
         self.world_info.maxfrags = 0;
         self.world_info.partime = 180;
-        self.players[self.consoleplayer].viewz = 1.0;
+        self.players[self.consoleplayer].viewz = 1.into();
         // TODO: remove after new-game-exe stuff done
 
         self.change_music(MusTrack::None);

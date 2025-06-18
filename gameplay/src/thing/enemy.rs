@@ -123,8 +123,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.movedir < MoveDir::None {
         let delta = actor
             .angle
-            .unit()
-            .angle_to(Angle::from(actor.movedir).unit());
+            .unit_vec2()
+            .angle_to(Angle::from(actor.movedir).unit_vec2());
         if delta > FRAC_PI_4 {
             actor.angle += FRAC_PI_4;
         } else if delta < -FRAC_PI_4 {
@@ -812,14 +812,17 @@ fn a_painshootskull(actor: &mut MapObject, angle: Angle) {
     a_facetarget(actor);
     // TODO: limit amount of skulls
     //
-    let mut d = angle.unit();
-    d += 4.0 + 3.0 * (actor.radius + MOBJINFO[MapObjKind::MT_SKULL as usize].radius) / 2.0;
+    let (mut d_x, mut d_y) = angle.unit_xy();
+    let tmp = 4.0
+        + 3.0 * math::to_f32(actor.radius + MOBJINFO[MapObjKind::MT_SKULL as usize].radius) / 2.0;
+    d_x += tmp;
+    d_y += tmp;
 
     let level = unsafe { &mut *actor.level };
     unsafe {
         let skull = &mut (*MapObject::spawn_map_object(
-            actor.x + d.x,
-            actor.y + d.y,
+            actor.x + d_x,
+            actor.y + d_y,
             actor.z + 8,
             MapObjKind::MT_SKULL,
             level,

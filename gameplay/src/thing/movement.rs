@@ -25,8 +25,8 @@ use super::MapObjFlag;
 
 pub const GRAVITY: DoomF32 = DoomF32::new(1);
 pub const MAXMOVE: DoomF32 = DoomF32::new(30);
-pub const STOPSPEED: f32 = fixed_to_float(0x1000);
-pub const FRICTION: f32 = fixed_to_float(0xE800);
+pub const STOPSPEED: DoomF32 = math::from_i32(0x1000);
+pub const FRICTION: DoomF32 = math::from_i32(0xE800);
 
 //const MAXSPECIALCROSS: i32 = 8;
 pub const PT_ADDLINES: i32 = 1;
@@ -166,8 +166,9 @@ impl MapObject {
         // P_XYMovement
         // `p_try_move` will apply the move if it is valid, and do specials, explodes
         // etc
-        self.momx = self.momx.clamp(-MAXMOVE, MAXMOVE);
-        self.momy = self.momy.clamp(-MAXMOVE, MAXMOVE);
+        // TODO: FIXME
+        self.momx = self.momx; //.clamp(-MAXMOVE, MAXMOVE);
+        self.momy = self.momy; //.clamp(-MAXMOVE, MAXMOVE);
         let mut xmove = self.momx;
         let mut ymove = self.momy;
         let mut ptryx;

@@ -1023,7 +1023,7 @@ impl Player {
                 let attacker = unsafe { &mut *attacker };
                 if !std::ptr::eq(mobj, attacker) {
                     let angle = point_to_angle_2_xy(attacker.x, attacker.y, mobj.x, mobj.y);
-                    let delta = mobj.angle.unit().angle_to(angle.unit());
+                    let delta = mobj.angle.unit_vec2().angle_to(angle.unit_vec2());
 
                     if delta.abs() <= ANG5 {
                         mobj.angle = angle;
