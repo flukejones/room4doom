@@ -399,7 +399,7 @@ impl SegRender {
                     let texture_column = pic_data.wall_pic_column(top_tex, 0);
                     let vtop = backsector.ceilingheight + texture_column.len() as f32;
                     // texture bottom
-                    self.rw_toptexturemid = vtop - player.viewz - 1.0;
+                    self.rw_toptexturemid = vtop - player.viewz;
                 }
             }
 
@@ -826,12 +826,15 @@ impl SegRender {
         };
 
         for _ in y_start..=y_end {
-            let mut select = frac.floor() as i32 as usize;
+            let mut select = (frac.floor() as i32 as usize) & 127;
             if sky && self.sky_doubled {
                 select /= 2;
             }
-            select %= texture_column.len() - 1;
+            if select >= texture_column.len() {
+                return;
+            }
             let tc = texture_column[select];
+            #[cfg(feature = "safety_check")]
             if tc >= colourmap.len() {
                 return;
             }
