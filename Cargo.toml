@@ -16,6 +16,7 @@ members = [
     "sound/traits",
     "sound/sdl2",
     "sound/nosnd",
+    "sound/opl2_emulator",
     "multigen",
     "hud-util",
     "hud-messages/doom",
@@ -48,6 +49,7 @@ statusbar-doom = { path = "./statusbar/doom" }
 sound-traits = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
 sound-nosnd = { path = "./sound/nosnd" }
+opl2_emulator = { path = "./sound/opl2_emulator", features = ["wave_precision"] }
 render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
 render-soft = { path = "./render/software" }

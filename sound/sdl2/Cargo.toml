@@ -12,6 +12,7 @@ build = "../../build.rs"
 sdl2.workspace = true
 wad.workspace = true
 sound-traits.workspace = true
+opl2_emulator.workspace = true
 log.workspace = true
 glam.workspace = true
 nanoserde.workspace = true

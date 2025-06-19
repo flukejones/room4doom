@@ -93,12 +93,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
+    let music_type = match user_config.music_type {
+        config::MusicType::Timidity => sound_sdl2::MusicType::Timidity,
+        config::MusicType::FluidSynth => sound_sdl2::MusicType::FluidSynth,
+        config::MusicType::OPL2 => sound_sdl2::MusicType::OPL2,
+        config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
+    };
+
     let game = Game::new(
         options.clone().into(),
         wad,
         snd_ctx,
         user_config.sfx_vol,
         user_config.mus_vol,
+        music_type,
     );
 
     let num_disp = video_ctx.num_video_displays()?;

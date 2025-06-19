@@ -74,6 +74,8 @@ pub enum MusicType {
     FluidSynth,
     #[default]
     Timidity,
+    OPL2,
+    OPL3,
 }
 
 impl FromStr for MusicType {
@@ -83,6 +85,8 @@ impl FromStr for MusicType {
         match s.to_ascii_lowercase().as_str() {
             "timidity" => Ok(Self::Timidity),
             "fluidsynth" => Ok(Self::FluidSynth),
+            "opl2" => Ok(Self::OPL2),
+            "opl3" => Ok(Self::OPL3),
             _ => Err(std::io::Error::new(
                 std::io::ErrorKind::Unsupported,
                 "Invalid Music type",

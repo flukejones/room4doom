@@ -62,7 +62,7 @@ pub struct CLIOptions {
     /// renderer
     #[argh(option, short = 'S')]
     pub shader: Option<Shaders>,
-    /// music type <fluidsynth, timidity(default)>. Unfinished
+    /// music type <fluidsynth, timidity(default), opl2>
     #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,
     /// enable demo playback (currently bad due to f32 used in movements)

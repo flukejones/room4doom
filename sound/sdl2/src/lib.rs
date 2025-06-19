@@ -1,10 +1,44 @@
+//! SDL2 Sound Backend for Room4Doom
+//!
+//! This module provides SDL2-based audio playback for sound effects and music.
+//! It supports multiple music backends:
+//!
+//! - **SDL_mixer**: Traditional MIDI playback using TiMidity or FluidSynth
+//! - **OPL2 Emulator**: Authentic FM synthesis using the integrated OPL2 emulator
+//!
+//! ## OPL2 Support
+//!
+//! The OPL2 emulator provides authentic Yamaha YM3812 FM synthesis for music playback.
+//! This gives the most accurate reproduction of the original Doom music as it was
+//! intended to be heard on AdLib and Sound Blaster cards.
+//!
+//! ### Configuration
+//!
+//! Set the music type to OPL2 in your configuration:
+//! ```toml
+//! music_type = "OPL2"
+//! ```
+//!
+//! Or use the command line:
+//! ```bash
+//! ./doom --music-type opl2
+//! ```
+//!
+//! ### Features
+//!
+//! - Authentic FM synthesis using OPL2 emulation
+//! - Support for MUS format music files
+//! - Real-time music playback with proper timing
+//! - Volume control and pause/resume functionality
+//! - Automatic fallback to SDL_mixer if OPL2 initialization fails
+
 use std::error::Error;
 use std::f32::consts::TAU;
 use std::fmt::Debug;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use glam::Vec2;
-use log::{debug, info};
+use log::{debug, info, warn};
 use sdl2::AudioSubsystem;
 use sdl2::audio::{AudioCVT, AudioFormat};
 use sdl2::mixer::{AUDIO_S16LSB, Chunk, DEFAULT_CHANNELS, InitFlag, Music, Sdl2MixerContext};
@@ -13,9 +47,19 @@ use wad::WadData;
 
 use crate::info::SFX_INFO_BASE;
 use crate::mus2midi::read_mus_to_midi;
+use crate::opl2::OplPlayer;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MusicType {
+    Timidity,
+    FluidSynth,
+    OPL2,
+    OPL3,
+}
 
 mod info;
 pub mod mus2midi;
+pub mod opl2;
 pub mod timidity;
 
 #[cfg(test)]
@@ -124,6 +168,8 @@ pub struct Snd<'a> {
     tx: SndServerTx,
     chunks: Vec<SfxInfo>,
     music: Option<Music<'a>>,
+    opl_player: Option<OplPlayer>,
+    use_opl2: bool,
     listener: SoundObject<SfxName>,
     sources: [SoundObject<SfxName>; MIXER_CHANNELS as usize],
     sfx_vol: i32,
@@ -133,7 +179,11 @@ pub struct Snd<'a> {
 unsafe impl<'a> Send for Snd<'a> {}
 
 impl<'a> Snd<'a> {
-    pub fn new(audio: AudioSubsystem, wad: &WadData) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        audio: AudioSubsystem,
+        wad: &WadData,
+        music_type: MusicType,
+    ) -> Result<Self, Box<dyn Error>> {
         // let mut timer = sdl.timer()?;
         let frequency = 44_100;
         let format = AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order
@@ -193,6 +243,25 @@ impl<'a> Snd<'a> {
         }
         info!("Initialised {} midi songs", mus_count);
 
+        // Initialize OPL2 player if requested
+        let opl_player = if matches!(music_type, MusicType::OPL2 | MusicType::OPL3) {
+            match OplPlayer::new(&audio, music_type == MusicType::OPL3) {
+                Ok(player) => {
+                    info!("{music_type:?} music player initialized");
+                    Some(player)
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to initialize {music_type:?} player: {e}, falling back to SDL_mixer",
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        let use_opl2 = music_type == MusicType::OPL2 && opl_player.is_some();
+
         let (tx, rx) = channel();
         Ok(Self {
             _audio: audio,
@@ -201,6 +270,8 @@ impl<'a> Snd<'a> {
             tx,
             chunks,
             music: None,
+            opl_player,
+            use_opl2,
             listener: SoundObject::default(),
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
             sfx_vol: 64,
@@ -357,6 +428,35 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
     }
 
     fn start_music(&mut self, music: usize, looping: bool) {
+        // Use OPL2 if configured and available
+        if self.use_opl2 && self.opl_player.is_some() {
+            unsafe {
+                let music_data = MUS_DATA[music].data();
+                if !music_data.is_empty() {
+                    // Convert MUS to MIDI first
+                    if let Some(midi_data) = mus2midi::read_mus_to_midi(music_data) {
+                        if let Some(ref mut opl) = self.opl_player {
+                            if let Err(e) = opl.load_music(midi_data) {
+                                log::error!("Failed to load OPL2 music: {}", e);
+                            } else if let Err(e) = opl.play(looping) {
+                                log::error!("Failed to play OPL2 music: {}", e);
+                            } else {
+                                opl.set_volume(self.mus_vol);
+                                debug!("Playing {} with OPL2", MUS_DATA[music].lump_name());
+                                return;
+                            }
+                        }
+                    } else {
+                        log::error!(
+                            "Failed to convert MUS to MIDI for {}",
+                            MUS_DATA[music].lump_name()
+                        );
+                    }
+                }
+            }
+        }
+
+        // Fall back to SDL_mixer
         unsafe {
             if let Ok(music) = Music::from_static_bytes(MUS_DATA[music].data())
                 .map_err(|e| log::error!("MUS: {}, error: {e}", MUS_DATA[music].lump_name()))
@@ -364,35 +464,55 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
                 music.play(if looping { -1 } else { 0 }).unwrap();
                 self.music = Some(music);
                 Music::set_volume(self.mus_vol);
+                debug!("Playing music with SDL_mixer");
             }
         }
     }
 
     fn pause_music(&mut self) {
+        if let Some(ref mut opl) = self.opl_player {
+            if opl.is_playing().unwrap_or(false) {
+                opl.pause();
+                return;
+            }
+        }
         Music::pause();
     }
 
     fn resume_music(&mut self) {
+        if let Some(ref mut opl) = self.opl_player {
+            opl.resume();
+            // Don't return here - also resume SDL music in case both are active
+        }
         Music::resume();
     }
 
     fn change_music(&mut self, music: usize, looping: bool) {
+        if let Some(ref mut opl) = self.opl_player {
+            opl.stop();
+        }
         Music::halt();
         self.music.take();
         self.start_music(music, looping)
     }
 
     fn stop_music(&mut self) {
+        if let Some(ref mut opl) = self.opl_player {
+            opl.stop();
+        }
         Music::halt();
     }
 
     fn set_mus_volume(&mut self, volume: i32) {
-        Music::set_volume(volume);
         self.mus_vol = volume;
+        if let Some(ref mut opl) = self.opl_player {
+            opl.set_volume(volume);
+        }
+        Music::set_volume(volume);
     }
 
     fn get_mus_volume(&mut self) -> i32 {
-        Music::get_volume()
+        self.mus_vol
     }
 
     fn update_self(&mut self) {}
@@ -405,6 +525,9 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         info!("Shutdown sound server");
         self.stop_sound_all();
         self.stop_music();
+        if let Some(ref mut opl) = self.opl_player {
+            opl.stop();
+        }
     }
 }
 

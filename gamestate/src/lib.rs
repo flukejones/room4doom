@@ -198,6 +198,7 @@ impl Game {
         snd_ctx: AudioSubsystem,
         sfx_vol: i32,
         mus_vol: i32,
+        music_type: sound_sdl2::MusicType,
     ) -> Game {
         let game_type = GameType::identify_version(&wad);
 
@@ -288,7 +289,7 @@ impl Game {
         info!("Init playloop state.");
 
         let snd_thread;
-        let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad) {
+        let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad, music_type) {
             Ok(mut s) => {
                 let tx = s.init().unwrap();
                 snd_thread = std::thread::spawn(move || {
