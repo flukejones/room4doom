@@ -172,7 +172,7 @@ impl MapObject {
         let mut ptryy;
 
         while xmove != 0.0 || ymove != 0.0 {
-            if xmove > MAXMOVE / 2.0 || ymove > MAXMOVE / 2.0 {
+            if xmove >= MAXMOVE / 2.0 || ymove >= MAXMOVE / 2.0 {
                 ptryx = self.xy.x + xmove / 2.0;
                 ptryy = self.xy.y + ymove / 2.0;
                 xmove /= 2.0;

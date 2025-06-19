@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let gl_attr = video_ctx.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
 
     let input = Input::new(sdl_ctx.event_pump()?, (&user_config.input).into());
 

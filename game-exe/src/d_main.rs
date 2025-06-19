@@ -28,7 +28,6 @@ use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
-use gamestate_traits::sdl2::render::CanvasBuilder;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{
     GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait, sdl2,
@@ -68,7 +67,7 @@ pub fn d_doom_loop(
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
     // TODO: check res aspect and set widescreen or no
-    let mut timestep = TimeStep::new(false);
+    let mut timestep = TimeStep::new(true);
     let mut cheats = Cheats::new();
     let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
@@ -333,7 +332,7 @@ fn try_run_tics(
             game.do_advance_demo();
         }
         // Did menu take control?
-        if !menu.ticker(game) {
+        if !menu.ticker(game) && game.wipe_game_state != GameState::ForceWipe {
             game.ticker(machinations); // G_Ticker
         }
         game.game_tic = tics as u32;

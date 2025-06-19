@@ -653,9 +653,6 @@ impl Game {
                 self.check_demo_status();
                 return;
             }
-        } else {
-            self.check_demo_status();
-            return;
         }
 
         if let Some(byte) = self.demo.buffer.next() {
@@ -795,7 +792,9 @@ impl Game {
                 self.options.fast_parm = byte == 1;
             }
             if let Some(byte) = self.demo.buffer.next() {
-                self.options.no_monsters = byte == 1;
+                if !self.options.no_monsters {
+                    self.options.no_monsters = byte == 1;
+                }
             }
             if let Some(byte) = self.demo.buffer.next() {
                 self.consoleplayer = byte as usize;
