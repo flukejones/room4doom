@@ -217,18 +217,8 @@ impl SoftwareRenderer {
         }
 
         let s = rend.draw_buffer().size();
-        let x1 = angle_to_screen(
-            self.seg_renderer.fov,
-            s.half_width_f32(),
-            s.width_f32(),
-            angle1,
-        );
-        let x2 = angle_to_screen(
-            self.seg_renderer.fov,
-            s.half_width_f32(),
-            s.width_f32(),
-            angle2,
-        );
+        let x1 = angle_to_screen(self.projection, s.half_width_f32(), s.width_f32(), angle1);
+        let x2 = angle_to_screen(self.projection, s.half_width_f32(), s.width_f32(), angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {
@@ -645,18 +635,8 @@ impl SoftwareRenderer {
             angle2 = -clipangle;
         }
 
-        let x1 = angle_to_screen(
-            self.seg_renderer.fov,
-            half_screen_width,
-            screen_width,
-            angle1,
-        );
-        let mut x2 = angle_to_screen(
-            self.seg_renderer.fov,
-            half_screen_width,
-            screen_width,
-            angle2,
-        );
+        let x1 = angle_to_screen(self.projection, half_screen_width, screen_width, angle1);
+        let mut x2 = angle_to_screen(self.projection, half_screen_width, screen_width, angle2);
 
         // Does not cross a pixel?
         if x1 == x2 {

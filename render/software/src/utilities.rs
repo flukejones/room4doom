@@ -50,13 +50,12 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
 
 // The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
 // The out value if floored and clamped to the screen width min/max.
-pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
-    let focal = projection(fov, half_screen_width);
+pub fn angle_to_screen(focal: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that
     // two values straddling a line may go one way or the other
-    let t = half_screen_width - t;
-    t.floor().clamp(0.0, screen_width + 1.0)
+    let t = half_screen_width - t + 0.99998474;
+    t.floor().clamp(-1.0, screen_width + 1.0)
 }
 
 /// R_PointToAngle

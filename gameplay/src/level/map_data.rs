@@ -182,6 +182,7 @@ impl MapData {
         // TODO: iterate sector lines to find max bounding box for sector
 
         // The BSP level structure for rendering, movement, collisions etc
+        self.prepass_fix_vertices(map_name, wad, extended.as_ref());
         self.load_segments(map_name, wad, extended.as_ref());
         self.load_subsectors(map_name, wad, extended.as_ref());
         self.load_nodes(map_name, wad, node_type, extended.as_ref());
@@ -192,7 +193,7 @@ impl MapData {
 
         self.set_extents();
         self.set_scale();
-        self.fix_vertices();
+        // self.fix_vertices();
     }
 
     fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
@@ -670,6 +671,64 @@ impl MapData {
                     step2 = true;
                 }
             }
+        }
+
+        let end = Instant::now();
+        info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
+    }
+
+    fn prepass_fix_vertices(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        extended: Option<&WadExtendedMap>,
+    ) {
+        let start = Instant::now();
+        let mut hit = vec![false; self.vertexes.len()];
+
+        let mut parse_segs = |ms: WadSegment| {
+            let v1 = self.vertexes[ms.start_vertex as usize];
+            let v2 = self.vertexes[ms.end_vertex as usize];
+            let linedef = &self.linedefs[ms.linedef as usize];
+
+            if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
+                let vertices = [v1, v2];
+                let vertex_indices = [ms.start_vertex as usize, ms.end_vertex as usize];
+
+                for (&vertex_val, &v_idx) in vertices.iter().zip(vertex_indices.iter()) {
+                    if !hit[v_idx] {
+                        hit[v_idx] = true;
+
+                        if vertex_val != linedef.v1 && vertex_val != linedef.v2 {
+                            let dx2 = linedef.delta.x * linedef.delta.x;
+                            let dy2 = linedef.delta.y * linedef.delta.y;
+                            let dxy = linedef.delta.x * linedef.delta.y;
+                            let s = dx2 + dy2;
+                            let x0 = vertex_val.x;
+                            let y0 = vertex_val.y;
+                            let x1 = linedef.v1.x;
+                            let y1 = linedef.v1.y;
+
+                            let px = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
+                            let py = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
+
+                            // const FRACUNIT: f32 = 65536.0;
+                            // if (px - x0).abs() <= 8.0 * FRACUNIT
+                            //     && (py - y0).abs() <= 8.0 * FRACUNIT
+                            // {
+                            self.vertexes[v_idx].x = px;
+                            self.vertexes[v_idx].y = py;
+                            // }
+                        }
+                    }
+                }
+            }
+        };
+
+        if let Some(ext) = extended.as_ref() {
+            ext.segments.iter().for_each(|s| parse_segs(s.clone()));
+        } else {
+            wad.segment_iter(map_name).for_each(parse_segs);
         }
 
         let end = Instant::now();

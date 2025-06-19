@@ -241,8 +241,7 @@ impl SegRender {
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
         let sin_val = distangle.sin();
-        const MIN_DISTANCE: f32 = 0.001;
-        self.rw_distance = (hyp * sin_val).max(MIN_DISTANCE);
+        self.rw_distance = hyp * sin_val;
 
         ds_p.x1 = start;
         self.rw_startx = ds_p.x1;
@@ -651,7 +650,7 @@ impl SegRender {
 
             if self.markfloor {
                 top = yh + 1.0;
-                if top < rdata.portal_clip.ceilingclip[clip_index] {
+                if top <= rdata.portal_clip.ceilingclip[clip_index] {
                     top = rdata.portal_clip.ceilingclip[clip_index];
                 }
                 if top <= bottom {
