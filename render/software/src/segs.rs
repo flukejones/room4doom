@@ -6,7 +6,7 @@ use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
 use render_trait::{PixelBuffer, RenderTrait, SOFT_PIXEL_CHANNELS};
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::f32::consts::{FRAC_PI_2, TAU};
 use std::ptr::NonNull;
 #[cfg(feature = "debug_draw")]
 use std::thread::sleep;
@@ -208,8 +208,7 @@ impl SegRender {
         // {     dbg!(&seg.sidedef);
         // }
         if start < 0.0 || start > size.width_f32() || start > stop {
-            return;
-            panic!("Bad R_RenderWallRange: {} to {}", start, stop);
+            // panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
 
         // bounds check before getting ref
@@ -241,7 +240,9 @@ impl SegRender {
 
         let distangle = Angle::new(FRAC_PI_2 - offsetangle.rad()); // widescreen: Leave as is
         let hyp = point_to_dist(seg.v1.x, seg.v1.y, mobj.xy); // verified correct
-        self.rw_distance = hyp * distangle.sin(); // Correct??? Seems to be...
+        let sin_val = distangle.sin();
+        const MIN_DISTANCE: f32 = 0.001;
+        self.rw_distance = (hyp * sin_val).max(MIN_DISTANCE);
 
         ds_p.x1 = start;
         self.rw_startx = ds_p.x1;
@@ -256,7 +257,7 @@ impl SegRender {
         ) * self.wide_ratio;
         ds_p.scale1 = self.rw_scale;
 
-        if stop > start {
+        if stop >= start {
             ds_p.scale2 = scale_from_view_angle(
                 mobj.angle + self.screen_x[stop as u32 as usize],
                 self.rw_normalangle,
@@ -438,7 +439,9 @@ impl SegRender {
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
             self.wall_lights = (sidedef.sector.lightlevel >> 4) + player.extralight;
-            if (seg.angle.rad().abs() == PI || seg.angle.rad() == 0.0) && self.wall_lights > 0 {
+            if (seg.angle.rad().abs() == std::f32::consts::PI || seg.angle.rad() == 0.0)
+                && self.wall_lights > 0
+            {
                 self.wall_lights -= 1;
             }
         }
@@ -678,11 +681,17 @@ impl SegRender {
             if self.segtextured {
                 angle = self.rw_centerangle + self.screen_x[self.rw_startx as u32 as usize]; // screen_to_x_view(self.fov, self.rw_startx, size.half_width_f32());
                 // TODO: horizontal position of texture isn't quite right
-                texture_column = (self.rw_offset - angle.tan() * self.rw_distance)
-                    .abs()
-                    .floor() as u32 as usize;
+                let tan_val = angle.tan().clamp(-2048.0, 2048.0);
+                texture_column =
+                    (self.rw_offset - tan_val * self.rw_distance).abs().floor() as u32 as usize;
 
-                self.dc_iscale = 1.0 / self.rw_scale;
+                const MIN_SCALE: f32 = 0.00001;
+                const MAX_ISCALE: f32 = 65536.0;
+                self.dc_iscale = if self.rw_scale.abs() < MIN_SCALE {
+                    MAX_ISCALE
+                } else {
+                    (1.0 / self.rw_scale).clamp(0.0, MAX_ISCALE)
+                };
             }
 
             if self.midtexture {

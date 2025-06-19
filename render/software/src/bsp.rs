@@ -116,20 +116,24 @@ impl SoftwareRenderer {
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
         let screen_ratio = width / height;
-        let mut buf_height = 200;
+        let mut buf_height = 200.0;
 
-        let mut buf_width = (buf_height as f32 * screen_ratio) as usize;
+        let mut buf_width = buf_height * screen_ratio;
         if double {
-            buf_width *= 2;
-            buf_height *= 2;
+            buf_width *= 2.0;
+            buf_height *= 2.0;
         }
-        let fov = corrected_fov_for_height(fov, buf_width as f32, buf_height as f32);
-        let projection = projection(fov, buf_width as f32 / 2.0);
-        let y_scale = y_scale(fov, buf_width as f32, buf_height as f32);
+        let fov = corrected_fov_for_height(fov, buf_width, buf_height);
+        let projection = projection(fov, buf_width / 2.0);
+        let y_scale = y_scale(fov, buf_width, buf_height);
 
         Self {
-            r_data: RenderData::new(buf_width, buf_height),
-            seg_renderer: SegRender::new(fov, buf_width, buf_height),
+            r_data: RenderData::new(buf_width.floor() as usize, buf_height.floor() as usize),
+            seg_renderer: SegRender::new(
+                fov,
+                buf_width.floor() as usize,
+                buf_height.floor() as usize,
+            ),
             new_end: 0,
             solidsegs: [ClipRange {
                 first: 0.0,
@@ -142,8 +146,8 @@ impl SoftwareRenderer {
             next_vissprite: 0,
             y_scale,
             projection,
-            buf_width,
-            buf_height,
+            buf_width: buf_width.floor() as usize,
+            buf_height: buf_height.floor() as usize,
         }
     }
 
@@ -175,15 +179,15 @@ impl SoftwareRenderer {
         let viewangle = mobj.angle;
 
         // Blocks some zdoom segs rendering
-        if !seg.is_facing_point(&mobj.xy) {
-            return;
-        }
+        // if !seg.is_facing_point(&mobj.xy) {
+        //     return;
+        // }
 
         let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
         let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
-        if span.abs() >= PI {
+        if span.abs() > PI {
             return;
         }
 
@@ -197,7 +201,7 @@ impl SoftwareRenderer {
         let mut tspan = angle1 + clipangle;
         if tspan.rad() > 2.0 * clipangle.rad() {
             tspan -= 2.0 * clipangle.rad();
-            if tspan.rad() > span {
+            if tspan.rad() >= span {
                 return;
             }
             angle1 = clipangle;

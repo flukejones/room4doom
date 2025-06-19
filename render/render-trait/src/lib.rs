@@ -65,11 +65,11 @@ impl BufferSize {
     }
 
     pub const fn half_width_f32(&self) -> f32 {
-        self.width_f32 / 2.0
+        self.half_width() as f32
     }
 
     pub const fn half_height_f32(&self) -> f32 {
-        self.height_f32 / 2.0
+        self.half_height() as f32
     }
 }
 

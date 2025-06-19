@@ -55,8 +55,8 @@ pub fn angle_to_screen(fov: f32, half_screen_width: f32, screen_width: f32, angl
     let t = angle.tan() * focal;
     // The root cause of missing columns is this. It must be tipped a little so that
     // two values straddling a line may go one way or the other
-    let t = half_screen_width - t + 0.99998474;
-    t.floor().clamp(-1.0, screen_width + 1.0)
+    let t = half_screen_width - t;
+    t.floor().clamp(0.0, screen_width + 1.0)
 }
 
 /// R_PointToAngle
@@ -80,5 +80,76 @@ pub fn scale_from_view_angle(
     let projection: f32 = screen_width_half;
     let num: f32 = projection * angleb.sin();
     let den: f32 = rw_distance * anglea.sin();
-    num / den
+
+    // return num / den;
+
+    const MIN_DEN: f32 = 0.0001;
+    if den.abs() < MIN_DEN {
+        if num > 0.0 { 64.0 } else { -64.0 }
+    } else {
+        (num / den).clamp(-180.0, 180.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gameplay::Angle;
+
+    #[test]
+    fn test_perpendicular_segment_edge_cases() {
+        let screen_width_half = 160.0;
+        let view_angle = Angle::new(0.0);
+        let rw_normalangle = Angle::new(FRAC_PI_2);
+        let visangle = Angle::new(0.0);
+        let rw_distance = 1.0;
+
+        let scale = scale_from_view_angle(
+            visangle,
+            rw_normalangle,
+            rw_distance,
+            view_angle,
+            screen_width_half,
+        );
+        assert!(scale.is_finite());
+        assert!(scale.abs() <= 64.0);
+    }
+
+    #[test]
+    fn test_zero_distance() {
+        let screen_width_half = 160.0;
+        let view_angle = Angle::new(0.0);
+        let rw_normalangle = Angle::new(0.0);
+        let visangle = Angle::new(0.0);
+        let rw_distance = 0.0;
+
+        let scale = scale_from_view_angle(
+            visangle,
+            rw_normalangle,
+            rw_distance,
+            view_angle,
+            screen_width_half,
+        );
+        assert!(scale.is_finite());
+        assert!(scale.abs() <= 64.0);
+    }
+
+    #[test]
+    fn test_angle_bounds() {
+        let screen_width_half = 160.0;
+        let view_angle = Angle::new(0.0);
+        let rw_normalangle = Angle::new(FRAC_PI_2);
+        let visangle = Angle::new(FRAC_PI_2);
+        let rw_distance = 0.00001;
+
+        let scale = scale_from_view_angle(
+            visangle,
+            rw_normalangle,
+            rw_distance,
+            view_angle,
+            screen_width_half,
+        );
+        assert!(scale.is_finite());
+        assert!(scale.abs() <= 64.0);
+    }
 }
