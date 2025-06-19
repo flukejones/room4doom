@@ -48,14 +48,58 @@ pub fn point_to_dist(x: f32, y: f32, to: Vec2) -> f32 {
     (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
-// The viewangletox LUT as a funtion. Should maybe turn this in back in to a LUT
-// The out value if floored and clamped to the screen width min/max.
-pub fn angle_to_screen(focal: f32, half_screen_width: f32, screen_width: f32, angle: Angle) -> f32 {
-    let t = angle.tan() * focal;
-    // The root cause of missing columns is this. It must be tipped a little so that
-    // two values straddling a line may go one way or the other
-    let t = half_screen_width - t + 0.99998474;
-    t.floor().clamp(-1.0, screen_width + 1.0)
+/// Converts a view-relative angle to screen X coordinate
+///
+/// This implements the original Doom viewangletox LUT functionality.
+/// The algorithm matches the C code:
+/// ```c
+/// focallength = FixedDiv(centerxfrac, finetangent[FINEANGLES / 4 + FieldOfView / 2]);
+/// for (i = 0; i < FINEANGLES / 2; i++) {
+///     int t;
+///     int limit = finetangent[FINEANGLES / 4 + FieldOfView / 2];
+///     if (finetangent[i] > limit)
+///         t = -1;
+///     else if (finetangent[i] < -limit)
+///         t = viewwidth + 1;
+///     else {
+///         t = FixedMul(finetangent[i], focallength);
+///         t = (centerxfrac - t + FRACUNIT - 1) >> FRACBITS;
+///         if (t < -1) t = -1;
+///         else if (t > viewwidth + 1) t = viewwidth + 1;
+///     }
+///     viewangletox[i] = t;
+/// }
+/// ```
+///
+/// # Arguments
+/// * `focal_len` - Focal length (projection distance)
+/// * `half_fov` - Half field of view in radians
+/// * `half_screen_width` - Half screen width in pixels
+/// * `screen_width` - Full screen width in pixels
+/// * `angle` - View-relative angle (0 = straight ahead, + = left, - = right)
+///
+/// # Returns
+/// Screen X coordinate (-1 to screen_width+1)
+pub fn angle_to_screen(
+    focal_len: f32,
+    half_fov: f32,
+    half_screen_width: f32,
+    screen_width: f32,
+    angle: Angle,
+) -> f32 {
+    let limit_angle = Angle::new(half_fov);
+    let limit = limit_angle.tan();
+    let tan_angle = angle.tan();
+
+    if tan_angle > limit {
+        -1.0
+    } else if tan_angle < -limit {
+        screen_width + 1.0
+    } else {
+        let t = tan_angle * focal_len;
+        let t = half_screen_width - t + 0.99998474;
+        t.floor().clamp(-1.0, screen_width + 1.0)
+    }
 }
 
 /// R_PointToAngle
@@ -150,5 +194,58 @@ mod tests {
         );
         assert!(scale.is_finite());
         assert!(scale.abs() <= 64.0);
+    }
+
+    #[test]
+    fn test_angle_to_screen_3440x1440() {
+        let screen_width = 3440.0;
+        let half_screen_width = screen_width / 2.0;
+        let fov = 90.0_f32.to_radians();
+        let half_fov = fov / 2.0;
+        let focal_len = projection(fov, half_screen_width);
+
+        let center_angle = Angle::new(0.0);
+        let center_x = angle_to_screen(
+            focal_len,
+            half_fov,
+            half_screen_width,
+            screen_width,
+            center_angle,
+        );
+
+        // Due to f32 precision limits with large numbers, center may be off by 1 pixel
+        assert!((center_x - half_screen_width.floor()).abs() <= 1.0);
+
+        const FINEANGLES: usize = 8192;
+
+        for i in 0..FINEANGLES / 2 {
+            let view_angle_rad = (i as f32) * std::f32::consts::PI / (FINEANGLES / 2) as f32
+                - std::f32::consts::FRAC_PI_2;
+            let angle = Angle::new(view_angle_rad);
+            let screen_x =
+                angle_to_screen(focal_len, half_fov, half_screen_width, screen_width, angle);
+
+            assert!(screen_x >= -1.0 && screen_x <= screen_width + 1.0);
+        }
+
+        let left_edge = Angle::new(half_fov);
+        let left_x = angle_to_screen(
+            focal_len,
+            half_fov,
+            half_screen_width,
+            screen_width,
+            left_edge,
+        );
+        assert!(left_x <= 1.0);
+
+        let right_edge = Angle::new(-half_fov);
+        let right_x = angle_to_screen(
+            focal_len,
+            half_fov,
+            half_screen_width,
+            screen_width,
+            right_edge,
+        );
+        assert!(right_x >= screen_width - 1.0);
     }
 }

@@ -182,9 +182,7 @@ impl SegRender {
     }
 
     /// R_StoreWallRange - r_segs
-    /// This is called by the BSP clipping functions. The incoming `start` and
-    /// `stop` have already been `.floor()`ed by `angle_to_screen()` function
-    /// called on the segs during BSP traversal.
+    /// This is called by the BSP clipping functions
     ///
     /// # Note
     ///
@@ -202,11 +200,6 @@ impl SegRender {
         #[cfg(feature = "hprof")]
         profile!("store_wall_range");
         let size = rend.draw_buffer().size();
-        // //seg:, x:496.000000, y:-1072.000000
-        // //seg:, x:496.000000, y:-1040.000000
-        // if seg.v1 == Vec2::new(496.0, -1072.0) && seg.v2 == Vec2::new(496.0, -1040.0)
-        // {     dbg!(&seg.sidedef);
-        // }
         if start < 0.0 || start > size.width_f32() || start > stop {
             // panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
@@ -283,13 +276,6 @@ impl SegRender {
         self.bottomtexture = false;
         self.maskedtexture = false;
         self.maskedtexturecol = -1.0;
-
-        // //map20
-        // if seg.v2 == Vec2::new(-560.000000, -3920.000000)
-        //     && seg.v1 == Vec2::new(-560.000000, -3952.000000)
-        // {
-        //     dbg!(seg);
-        // }
 
         if seg.backsector.is_none() {
             // single sided line

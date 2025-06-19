@@ -177,12 +177,12 @@ impl MapData {
         self.load_sectors(map_name, wad, pic_data);
         self.load_sidedefs(map_name, wad, &tex_order);
         self.load_linedefs(map_name, wad);
+        self.prepass_fix_vertices(map_name, wad, extended.as_ref());
         self.load_blockmap(map_name, wad);
         self.load_devils_rejects(map_name, wad);
         // TODO: iterate sector lines to find max bounding box for sector
 
         // The BSP level structure for rendering, movement, collisions etc
-        self.prepass_fix_vertices(map_name, wad, extended.as_ref());
         self.load_segments(map_name, wad, extended.as_ref());
         self.load_subsectors(map_name, wad, extended.as_ref());
         self.load_nodes(map_name, wad, node_type, extended.as_ref());
