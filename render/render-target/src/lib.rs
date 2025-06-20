@@ -2,6 +2,9 @@
 //! game, and a generic `PlayRenderer` for rendering the players view of the
 //! level.
 
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
+
 pub mod shaders;
 pub mod wipe;
 
@@ -9,6 +12,7 @@ use gameplay::{Level, PicData, Player};
 use golem::{ColorFormat, Context, GolemError, Texture, TextureFilter};
 use render_soft::SoftwareRenderer;
 use render_trait::{BufferSize, PixelBuffer, PlayViewRenderer, RenderTrait};
+use render3d::Renderer3D;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
@@ -26,6 +30,10 @@ pub enum RenderApiType {
     /// in memory directly to screen using SDL2
     #[default]
     Software,
+    /// 3D wireframe software renderer that displays Doom levels in true 3D
+    /// space. Shows level geometry as colored wireframes with perspective
+    /// projection.
+    Software3D,
     /// Software framebuffer blitted to screen using OpenGL (and can use
     /// shaders)
     SoftOpenGL,
@@ -74,10 +82,12 @@ impl PixelBuffer for Buffer {
 
     #[inline(always)]
     fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
+        #[cfg(feature = "hprof")]
+        profile!("set_pixel");
         // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
-        if x >= self.size.width || y >= self.size.height {
-            dbg!(x, y);
+        if x >= self.size.width_usize() || y >= self.size.height_usize() {
+            dbg!(x, self.size.width_usize(), y, self.size.height_usize());
             panic!();
         }
 
@@ -193,9 +203,8 @@ impl SoftGLBuffer {
 
 /// A structure holding display data
 pub struct RenderTarget {
-    width: usize,
-    height: usize,
     renderer: SoftwareRenderer,
+    renderer3d: Option<Renderer3D>,
     pub framebuffer: FrameBuffer,
 }
 
@@ -204,7 +213,6 @@ impl RenderTarget {
         double: bool,
         debug: bool,
         canvas: Canvas<Window>,
-        gl_ctx: &golem::Context,
         render_type: RenderApiType,
         shader: Shaders,
     ) -> RenderTarget {
@@ -224,20 +232,55 @@ impl RenderTarget {
                 r.framebuffer.api_type = RenderApiType::Software;
                 r
             }
-            RenderApiType::SoftOpenGL => {
-                let wsize = canvas.window().drawable_size();
+            RenderApiType::Software3D => {
                 let mut r = RenderTarget::build_soft(double, debug, canvas);
-                if r.framebuffer.software.is_some() {
-                    panic!("Rendering already set up for software");
+                if r.framebuffer.soft_opengl.is_some() {
+                    panic!("Rendering already set up for software-opengl");
                 }
-                let gl = SoftGLBuffer::new(r.width, r.height, gl_ctx, shader);
-                gl.set_gl_filter().unwrap();
-                r.framebuffer.soft_opengl = Some(gl);
-                r.framebuffer.api_type = RenderApiType::SoftOpenGL;
-                // let ratio = wsize.1 as f32 * 1.333;
-                // let xp = (wsize.0 as f32 - ratio) / 2.0;
-                gl_ctx.set_viewport(0, 0, wsize.0, wsize.1);
+                let width = r.renderer.buf_width;
+                let height = r.renderer.buf_height;
+                r.renderer3d = Some(Renderer3D::new(
+                    width as f32,
+                    height as f32,
+                    90.0_f32.to_radians(), // TODO: get from config
+                ));
+                r.framebuffer.software = Some(SoftFramebuffer::new(
+                    &r.framebuffer.canvas,
+                    width as u32,
+                    height as u32,
+                ));
+                r.framebuffer.api_type = RenderApiType::Software3D;
                 r
+            }
+            RenderApiType::SoftOpenGL => {
+                // let _gl_ctx = canvas.window().gl_create_context()?;
+                // let gl_ctx = unsafe {
+                //     golem::Context::from_glow(golem::glow::Context::from_loader_function(|s|
+                // {         video_ctx.gl_get_proc_address(s) as *const _
+                //     }))
+                //     .unwrap()
+                // };
+
+                // let gl_attr = video_ctx.gl_attr();
+                // gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+                //
+                // if let Some(gl_ctx) = gl_ctx.as_ref() {
+                //     let wsize = canvas.window().drawable_size();
+                //     let mut r = RenderTarget::build_soft(double, debug, canvas);
+                //     if r.framebuffer.software.is_some() {
+                //         panic!("Rendering already set up for software");
+                //     }
+                //     let gl = SoftGLBuffer::new(r.width, r.height, gl_ctx, shader);
+                //     gl.set_gl_filter().unwrap();
+                //     r.framebuffer.soft_opengl = Some(gl);
+                //     r.framebuffer.api_type = RenderApiType::SoftOpenGL;
+                //     // let ratio = wsize.1 as f32 * 1.333;
+                //     // let xp = (wsize.0 as f32 - ratio) / 2.0;
+                //     gl_ctx.set_viewport(0, 0, wsize.0, wsize.1);
+                //     r
+                // } else {
+                panic!("Can't start SoftOpenGL game with no openGL context")
+                // }
             }
             RenderApiType::OpenGL => todo!(),
             RenderApiType::Vulkan => todo!(),
@@ -268,23 +311,56 @@ impl RenderTarget {
                 soft_opengl: None,
                 canvas,
             },
-            width,
-            height,
             renderer: soft,
+            renderer3d: None,
         }
     }
 }
 
 impl PlayViewRenderer for RenderTarget {
-    fn render_player_view(&mut self, player: &Player, level: &Level, pic_data: &mut PicData) {
+    fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData) {
         let r = &mut self.framebuffer;
         match r.api_type {
             RenderApiType::Software | RenderApiType::SoftOpenGL => {
                 self.renderer.render_player_view(player, level, pic_data, r)
             }
+            RenderApiType::Software3D => {
+                if let Some(ref mut renderer3d) = self.renderer3d {
+                    renderer3d.render_player_view(player, level, pic_data, r);
+                }
+            }
             RenderApiType::OpenGL => todo!(),
             RenderApiType::Vulkan => todo!(),
         }
+    }
+}
+
+impl RenderTarget {
+    /// Set the field of view for the 3D renderer (in radians).
+    ///
+    /// This only affects rendering when using `RenderApiType::Software3D`.
+    /// Typical values range from 1.0 to 2.0 radians (57-114 degrees).
+    pub fn set_3d_fov(&mut self, fov: f32) {
+        if let Some(ref mut renderer3d) = self.renderer3d {
+            renderer3d.set_fov(fov);
+        }
+    }
+
+    /// Check if the current render mode is 3D wireframe.
+    ///
+    /// Returns `true` when using `RenderApiType::Software3D`.
+    pub fn is_3d_mode(&self) -> bool {
+        matches!(self.framebuffer.api_type, RenderApiType::Software3D)
+    }
+
+    /// Get the current render API type.
+    ///
+    /// This indicates which renderer is currently active:
+    /// - `Software`: Traditional 2.5D Doom renderer
+    /// - `Software3D`: 3D wireframe renderer
+    /// - `SoftOpenGL`: 2.5D renderer with OpenGL acceleration
+    pub fn render_type(&self) -> RenderApiType {
+        self.framebuffer.api_type
     }
 }
 
@@ -357,7 +433,7 @@ impl RenderTrait for FrameBuffer {
                 ogl.screen_shader.draw(&ogl.gl_texture).unwrap();
                 self.canvas.window().gl_swap_window();
             }
-            RenderApiType::Software => {
+            RenderApiType::Software | RenderApiType::Software3D => {
                 let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
                 buf.texture
                     .update(None, &self.buffer1.buffer, self.buffer1.stride)
@@ -382,7 +458,7 @@ impl RenderTrait for FrameBuffer {
                 ogl.screen_shader.draw(&ogl.gl_texture).unwrap();
                 self.canvas.window().gl_swap_window();
             }
-            RenderApiType::Software => {
+            RenderApiType::Software | RenderApiType::Software3D => {
                 let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
                 buf.texture
                     .update(None, &self.buffer2.buffer, self.buffer2.stride)
@@ -418,5 +494,24 @@ impl RenderTrait for FrameBuffer {
             self.wipe.reset();
         }
         done
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_render_api_type_software3d() {
+        assert_eq!(RenderApiType::Software3D, RenderApiType::Software3D);
+        assert_ne!(RenderApiType::Software3D, RenderApiType::Software);
+        assert_ne!(RenderApiType::Software3D, RenderApiType::SoftOpenGL);
+    }
+
+    #[test]
+    fn test_render_api_type_default() {
+        let default_type = RenderApiType::default();
+        assert_eq!(default_type, RenderApiType::Software);
+        assert_ne!(default_type, RenderApiType::Software3D);
     }
 }

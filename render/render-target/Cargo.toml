@@ -8,7 +8,8 @@ build = "../../build.rs"
 
 [features]
 safety_check = []
-debug_draw = []
+debug_draw = ["render-soft/debug_draw", "render3d/debug_draw"]
+hprof = ["render-soft/hprof", "render3d/hprof"]
 
 [dependencies]
 gameplay.workspace = true
@@ -17,3 +18,5 @@ sdl2.workspace = true
 nanoserde.workspace = true
 render-trait.workspace = true
 render-soft.workspace = true
+render3d.workspace = true
+coarse-prof.workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "render3d"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../../build.rs"
+
+[features]
+default = []
+hprof = []
+debug_draw = []
+
+[dependencies]
+glam.workspace = true
+math.workspace = true
+gameplay.workspace = true
+render-trait.workspace = true
+coarse-prof.workspace = true
+
+[dev-dependencies]
+wad.workspace = true

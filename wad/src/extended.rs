@@ -228,6 +228,8 @@ impl WadExtendedMap {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::WadData;
     use crate::types::{WadLineDef, WadNode, WadSector, WadSideDef, WadVertex};
 
@@ -237,7 +239,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m3_check_vertex() {
         let name = "MAP03";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
 
         // All verified with crispy
@@ -258,7 +260,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m3_check_subs() {
         let name = "MAP03";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
         assert_eq!(map.subsectors.len(), 4338);
 
@@ -277,7 +279,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m3_check_segs() {
         let name = "MAP03";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
         // numSegs: 14582
         assert_eq!(map.segments.len(), 14582);
@@ -305,7 +307,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m3_check_nodes() {
         let name = "MAP03";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
         // Node: 666
         // no->x: 12, no->y: -342, no->dx: 0, no->dy: -20
@@ -334,7 +336,7 @@ mod tests {
 
     #[test]
     fn extended_nodes_none() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         assert!(WadExtendedMap::parse(&wad, "E1M1").is_none());
     }
 
@@ -342,7 +344,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m3() {
         let name = "MAP03";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
 
         assert_eq!(map.num_org_vertices, 5525); // verified with crispy
@@ -401,7 +403,7 @@ mod tests {
     #[test]
     fn extended_nodes_sunder_m19() {
         let name = "MAP19";
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let map = WadExtendedMap::parse(&wad, name).unwrap();
 
         assert_eq!(map.num_org_vertices, 55802); // verified with slade

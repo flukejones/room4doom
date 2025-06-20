@@ -14,10 +14,10 @@ path = "src/main.rs"
 [features]
 default = ["trig_lut"]
 safety_check = ["render-soft/safety_check"]
-debug_draw = ["render-soft/debug_draw"]
+debug_draw = ["render-target/debug_draw"]
 debug_seg_clip = ["render-soft/debug_seg_clip"]
 debug_seg_invert = ["render-soft/debug_seg_invert"]
-hprof = ["render-soft/hprof"]
+hprof = ["render-target/hprof", "gameplay/hprof"]
 trig_lut = ["render-soft/trig_lut"]
 
 [dependencies]

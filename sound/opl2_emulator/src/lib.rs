@@ -1,11 +1,12 @@
 //! # OPL2/OPL3 Emulator
 //!
-//! A Rust implementation of the Yamaha YMF262 (OPL3) and YM3812 (OPL2) sound chip emulator.
-//! This crate provides a faithful emulation of the classic FM synthesis chips used in
-//! many retro games and sound cards from the 1990s.
+//! A Rust implementation of the Yamaha YMF262 (OPL3) and YM3812 (OPL2) sound
+//! chip emulator. This crate provides a faithful emulation of the classic FM
+//! synthesis chips used in many retro games and sound cards from the 1990s.
 //!
-//! Originally based on the DOSBox OPL emulator implementation, this Rust version maintains
-//! compatibility while providing memory safety and modern error handling.
+//! Originally based on the DOSBox OPL emulator implementation, this Rust
+//! version maintains compatibility while providing memory safety and modern
+//! error handling.
 //!
 //! ## Features
 //!
@@ -52,15 +53,14 @@
 //! chip.generate_block_2(1024, &mut output);
 //!
 //! // Convert to 16-bit samples
-//! let samples_16bit: Vec<i16> = output.iter()
-//!     .map(|&sample| (sample >> 8) as i16)
-//!     .collect();
+//! let samples_16bit: Vec<i16> = output.iter().map(|&sample| (sample >> 8) as i16).collect();
 //! ```
 //!
 //! ## Wave Precision
 //!
-//! The crate supports an optional `wave_precision` feature that increases the precision
-//! of wave calculations at the cost of memory usage. Enable it in your `Cargo.toml`:
+//! The crate supports an optional `wave_precision` feature that increases the
+//! precision of wave calculations at the cost of memory usage. Enable it in
+//! your `Cargo.toml`:
 //!
 //! ```toml
 //! [dependencies]
@@ -80,7 +80,8 @@
 //! - `0xC0-0xC8`: Channel feedback and connection
 //! - `0xE0-0xF5`: Operator waveform select
 //!
-//! For detailed register documentation, refer to the original Yamaha datasheets.
+//! For detailed register documentation, refer to the original Yamaha
+//! datasheets.
 
 use std::f64::consts::PI;
 use std::sync::OnceLock;
@@ -240,13 +241,15 @@ static MUL_TABLE: OnceLock<[u16; 384]> = OnceLock::new();
 static KSL_TABLE: OnceLock<[u8; 8 * 16]> = OnceLock::new();
 /// Thread-safe lazy initialization of tremolo lookup table
 static TREMOLO_TABLE_DATA: OnceLock<[u8; TREMOLO_TABLE]> = OnceLock::new();
-/// Thread-safe lazy initialization of channel offset table (unused in safe implementation)
+/// Thread-safe lazy initialization of channel offset table (unused in safe
+/// implementation)
 static CHAN_OFFSET_TABLE: OnceLock<[u16; 32]> = OnceLock::new();
-/// Thread-safe lazy initialization of operator offset table (unused in safe implementation)
+/// Thread-safe lazy initialization of operator offset table (unused in safe
+/// implementation)
 static OP_OFFSET_TABLE: OnceLock<[u16; 64]> = OnceLock::new();
 
 /// Base wave offsets for different waveforms
-static WAVE_BASE_TABLE: [u16; 8] = [0x000, 0x200, 0x200, 0x800, 0xa00, 0xc00, 0x100, 0x400];
+static WAVE_BASE_TABLE: [u16; 8] = [0x000, 0x200, 0x200, 0x800, 0xA00, 0xC00, 0x100, 0x400];
 
 /// Wave masks for different waveforms
 static WAVE_MASK_TABLE: [u16; 8] = [1023, 1023, 511, 511, 1023, 1023, 512, 1023];
@@ -316,8 +319,8 @@ pub fn init_tables() {
                 (0.5 + 2.0_f64.powf(-1.0 + 0.0 / 256.0) * 4085.0) as i16
             };
             table[0x700 + i] = val;
-            if 0x6ff >= i {
-                table[0x6ff - i] = -val;
+            if 0x6FF >= i {
+                table[0x6FF - i] = -val;
             }
         }
 
@@ -327,13 +330,13 @@ pub fn init_tables() {
             table[0x400 + i] = zero_val; // Zero wave
             table[0x500 + i] = zero_val; // Zero wave
             table[0x900 + i] = zero_val; // Zero wave
-            table[0xc00 + i] = zero_val; // Zero wave
-            table[0xd00 + i] = zero_val; // Zero wave
+            table[0xC00 + i] = zero_val; // Zero wave
+            table[0xD00 + i] = zero_val; // Zero wave
             table[0x800 + i] = table[0x200 + i]; // Half sine
-            table[0xa00 + i] = table[0x200 + i * 2]; // Abs sine
-            table[0xb00 + i] = table[0x000 + i * 2]; // Pulse sine
-            table[0xe00 + i] = table[0x200 + i * 2]; // Saw sine
-            table[0xf00 + i] = table[0x200 + i * 2]; // Square sine
+            table[0xA00 + i] = table[0x200 + i * 2]; // Abs sine
+            table[0xB00 + i] = table[0x000 + i * 2]; // Pulse sine
+            table[0xE00 + i] = table[0x200 + i * 2]; // Saw sine
+            table[0xF00 + i] = table[0x200 + i * 2]; // Square sine
         }
 
         table

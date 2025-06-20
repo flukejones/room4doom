@@ -121,6 +121,7 @@ impl Think for VerticalDoor {
                     false,
                     1,
                     door.direction,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(res, PlaneResult::PastDest) {
@@ -162,6 +163,7 @@ impl Think for VerticalDoor {
                     false,
                     1,
                     door.direction,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(res, PlaneResult::PastDest) {

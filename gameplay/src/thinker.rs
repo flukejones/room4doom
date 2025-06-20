@@ -635,6 +635,7 @@ mod tests {
     use crate::{MAXPLAYERS, PicData, Player};
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
+    use std::path::PathBuf;
     use std::ptr::null_mut;
     use std::sync::mpsc::channel;
 
@@ -660,7 +661,7 @@ mod tests {
 
     #[test]
     fn bad_stuff_thinking() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut map = MapData::default();
         map.load("E1M1", &PicData::default(), &wad);
         let (tx, _rx) = channel();

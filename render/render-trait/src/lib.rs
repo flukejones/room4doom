@@ -114,5 +114,10 @@ pub trait RenderTrait {
 
 pub trait PlayViewRenderer {
     /// Doom function name `R_RenderPlayerView`
-    fn render_player_view(self: &mut Self, player: &Player, level: &Level, pic_data: &mut PicData);
+    fn render_player_view(
+        self: &mut Self,
+        player: &Player,
+        level: &mut Level, // TODO: should not be mutable, temporary thing
+        pic_data: &mut PicData,
+    );
 }

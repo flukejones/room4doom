@@ -3,15 +3,21 @@
 //!
 //! Some of the state is mirrored from the overall game-exe state, or ref by
 //! pointer.
-
+pub mod bsp3d;
 pub mod flags;
 pub mod map_data;
 pub mod map_defs;
 pub mod node;
+// Unused for now. Experiment that didn't pan out
+// pub mod portals;
+pub mod pvs;
+pub mod tests;
+pub mod triangulation;
 
 use std::collections::VecDeque;
 use std::ptr;
 
+use pvs::PVS;
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
 use wad::WadData;
@@ -31,8 +37,11 @@ use self::map_defs::LineDef;
 /// it makes it easier for all involved thinkers and functions to
 /// work with the data, as much of it is interlinked.
 pub struct Level {
+    pub map_name: String,
     /// All the data required to build and display a level
     pub map_data: MapData,
+    /// Potentially Visible Set for visibility culling
+    pub pvs: Option<PVS>,
     /// Thinkers are objects that are not static, like enemies, switches,
     /// platforms, lights etc
     pub thinkers: ThinkerAlloc,
@@ -117,7 +126,9 @@ impl Level {
         // G_CheckSpot
 
         Level {
+            map_name: String::new(),
             map_data,
+            pvs: None,
             thinkers: unsafe { ThinkerAlloc::new(0) },
             options,
             respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
@@ -211,8 +222,10 @@ impl Level {
         self.sky_num = pic_data.sky_num();
 
         self.map_data.load(map_name, pic_data, wad_data);
+        self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;
+
         unsafe {
             self.thinkers = ThinkerAlloc::new(self.map_data.things().len() * 2 + 256);
         }

@@ -1,7 +1,9 @@
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fmt, str};
 
 use crate::types::WadBlockMap;
@@ -30,7 +32,7 @@ pub enum MapLump {
     /// Each `SubSectors`'s geometry is defined by the `Segs` which it contains
     Segs,
     /// Set of segments of a `LineDef` representing a convex subspace
-    SSectors,
+    SubSectors,
     /// BSP with segs, nodes and sub-sector leaves
     Nodes,
     /// Area surrounded by lines, with set ceiling and floor textures/heights
@@ -53,7 +55,7 @@ impl Display for MapLump {
             MapLump::SideDefs => write!(f, "SIDEDEFS"),
             MapLump::Vertexes => write!(f, "VERTEXES"),
             MapLump::Segs => write!(f, "SEGS"),
-            MapLump::SSectors => write!(f, "SSECTORS"),
+            MapLump::SubSectors => write!(f, "SSECTORS"),
             MapLump::Nodes => write!(f, "NODES"),
             MapLump::Sectors => write!(f, "SECTORS"),
             MapLump::Reject => write!(f, "REJECT"),
@@ -171,6 +173,7 @@ impl fmt::Debug for Lump {
 /// directories telling us where each data lump starts
 pub struct WadData {
     pub(super) lumps: Vec<Lump>,
+    file_path: PathBuf,
 }
 
 impl fmt::Debug for WadData {
@@ -180,8 +183,11 @@ impl fmt::Debug for WadData {
 }
 
 impl WadData {
-    pub fn new(file_path: PathBuf) -> WadData {
-        let mut wad = WadData { lumps: Vec::new() };
+    pub fn new(file_path: &Path) -> WadData {
+        let mut wad = WadData {
+            lumps: Vec::new(),
+            file_path: file_path.into(),
+        };
 
         let mut file = File::open(&file_path)
             .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
@@ -311,6 +317,13 @@ impl WadData {
         false
     }
 
+    pub fn wad_name(&self) -> &str {
+        self.file_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+    }
+
     pub fn read_blockmap(&self, map_name: &str) -> Option<WadBlockMap> {
         if let Some(info) = self.find_lump_for_map(map_name, MapLump::Blockmap) {
             if info.data.len() == 0 {
@@ -356,6 +369,19 @@ impl WadData {
         }
         None
     }
+
+    pub fn map_bsp_hash(&self, map_name: &str) -> Option<u64> {
+        let nodes = self.find_lump_for_map(map_name, MapLump::Nodes)?;
+        let segs = self.find_lump_for_map(map_name, MapLump::Segs)?;
+        let subs = self.find_lump_for_map(map_name, MapLump::SubSectors)?;
+
+        let mut hasher = DefaultHasher::new();
+        nodes.data.hash(&mut hasher);
+        segs.data.hash(&mut hasher);
+        subs.data.hash(&mut hasher);
+
+        Some(hasher.finish())
+    }
 }
 
 #[cfg(test)]
@@ -387,7 +413,7 @@ mod tests {
 
     #[test]
     fn load_wad() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         assert_eq!(wad.lumps.len(), 1243);
     }
 
@@ -416,7 +442,7 @@ mod tests {
 
     #[test]
     fn read_all_dirs() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
 
         for i in 0..18 {
             dbg!("{:?}", &wad.lumps[i]);
@@ -430,21 +456,21 @@ mod tests {
 
     #[test]
     fn find_e1m1_things() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Things);
         assert_eq!(things_lump.name, "THINGS");
     }
 
     #[test]
     fn find_e1m2_vertexes() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let things_lump = wad.find_lump_for_map_or_panic("E1M2", MapLump::Vertexes);
         assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
     }
 
     #[test]
     fn find_texture_lump() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let _tex = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(_tex.name, "TEXTURE1");
         assert_eq!(_tex.data.len(), 9234);
@@ -452,7 +478,7 @@ mod tests {
 
     #[test]
     fn find_playpal_lump() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let pal_lump = wad.find_lump_or_panic("PLAYPAL");
         assert_eq!(pal_lump.name, "PLAYPAL");
         assert_eq!(pal_lump.data.len(), 10752);
@@ -460,7 +486,7 @@ mod tests {
 
     #[test]
     fn check_image_patch() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let lump = wad.find_lump_or_panic("WALL01_7");
         assert_eq!(lump.name, "WALL01_7");
         assert_eq!(lump.data.len(), 1304);
@@ -482,7 +508,7 @@ mod tests {
         assert_eq!(header.wad_type(), "PWAD");
         assert_eq!(header.wad_type(), "PWAD");
 
-        let mut wad = WadData::new("/home/luke/DOOM/doom.wad".into());
+        let mut wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom.wad"));
         assert_eq!(wad.lumps.len(), 2306);
         wad.add_file("/home/luke/DOOM/sigil.wad".into());
         assert_eq!(wad.lumps.len(), 2452);
@@ -518,7 +544,7 @@ mod tests {
         assert_eq!(header.wad_type(), "PWAD");
         assert_eq!(header.wad_type(), "PWAD");
 
-        let wad = WadData::new("../sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         assert_eq!(wad.lumps.len(), 2530);
 
         let things_lump = wad.find_lump_for_map_or_panic("MAP10", MapLump::Vertexes);
@@ -547,7 +573,7 @@ mod tests {
 
     #[test]
     fn find_e1m1_blockmap() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Blockmap);
         assert_eq!(things_lump.name, "BLOCKMAP");
 
@@ -689,7 +715,7 @@ mod tests {
     #[test]
     #[ignore = "sunder.wad can't be included in git"]
     fn find_sunder15_reject() {
-        let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
         let things_lump = wad.find_lump_for_map_or_panic("MAP15", MapLump::Reject);
         assert_eq!(things_lump.name, "REJECT");
 

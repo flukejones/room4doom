@@ -3,13 +3,13 @@ use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
 };
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector
 };
 use glam::Vec2;
 use render_trait::{PixelBuffer, RenderTrait};
@@ -78,6 +78,16 @@ pub struct SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
+    fn find_player_subsector_id(map: &MapData, player_sector: &SubSector) -> Option<usize> {
+        let subsectors = map.subsectors();
+        for (i, subsector) in subsectors.iter().enumerate() {
+            if std::ptr::eq(subsector, player_sector) {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn render_player_view(
         &mut self,
         player: &Player,
@@ -104,7 +114,18 @@ impl SoftwareRenderer {
         }
         #[cfg(feature = "hprof")]
         profile!("render_bsp_node begin!");
-        self.render_bsp_node(map, player, map.start_node(), pic_data, rend, &mut count);
+        let player_sector = player.mobj().unwrap().subsector.clone();
+        if let Some(player_subsector_id) = Self::find_player_subsector_id(map, &player_sector) {
+            self.render_bsp_node(
+                map,
+                player,
+                map.start_node(),
+                pic_data,
+                rend,
+                player_subsector_id,
+                &mut count,
+            );
+        }
 
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
@@ -116,24 +137,22 @@ impl SoftwareRenderer {
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
         let screen_ratio = width / height;
-        let mut buf_height = 200.0;
+        let mut height = 200.0;
 
-        let mut buf_width = buf_height * screen_ratio;
+        let mut width = (height * screen_ratio).ceil().max(320.0);
         if double {
-            buf_width *= 2.0;
-            buf_height *= 2.0;
+            width *= 2.0;
+            height *= 2.0;
         }
-        let fov = corrected_fov_for_height(fov, buf_width, buf_height);
-        let projection = projection(fov, buf_width / 2.0);
-        let y_scale = y_scale(fov, buf_width, buf_height);
+        let fov = corrected_fov_for_height(fov, width, height);
+        let projection = projection(fov, width / 2.0);
+        let y_scale = y_scale(fov, width, height);
 
+        let width = width as usize;
+        let height = height as usize;
         Self {
-            r_data: RenderData::new(buf_width.floor() as usize, buf_height.floor() as usize),
-            seg_renderer: SegRender::new(
-                fov,
-                buf_width.floor() as usize,
-                buf_height.floor() as usize,
-            ),
+            r_data: RenderData::new(width, height),
+            seg_renderer: SegRender::new(fov, width, height),
             new_end: 0,
             solidsegs: [ClipRange {
                 first: 0.0,
@@ -146,8 +165,8 @@ impl SoftwareRenderer {
             next_vissprite: 0,
             y_scale,
             projection,
-            buf_width: buf_width.floor() as usize,
-            buf_height: buf_height.floor() as usize,
+            buf_width: width,
+            buf_height: height,
         }
     }
 
@@ -183,8 +202,8 @@ impl SoftwareRenderer {
         //     return;
         // }
 
-        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
-        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
+        let mut angle1 = vertex_angle_to_object(*seg.v1, mobj); // widescreen: Leave as is
+        let mut angle2 = vertex_angle_to_object(*seg.v2, mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
         if span.abs() > PI {
@@ -515,7 +534,7 @@ impl SoftwareRenderer {
         node_id: u32,
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
-
+        player_subsector_id: usize,
         count: &mut usize,
     ) {
         // profile!("render_bsp_node");
@@ -523,17 +542,32 @@ impl SoftwareRenderer {
         let mobj = unsafe { player.mobj_unchecked() };
 
         if node_id & IS_SSECTOR_MASK != 0 {
-            if node_id == u32::MAX {
-                let subsect = &map.subsectors()[0];
-                // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, rend);
+            let subsector_id = if node_id == u32::MAX {
+                0
             } else {
-                // It's a leaf node and is the index to a subsector
-                let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
-                // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, rend);
+                (node_id & !IS_SSECTOR_MASK) as usize
+            };
+
+            if subsector_id < map.subsectors().len() {
+                if !map
+                    .bsp_3d()
+                    .subsector_visible(player_subsector_id, subsector_id)
+                {
+                    return; // Subsector not visible, skip rendering
+                }
+
+                if node_id == u32::MAX {
+                    let subsect = &map.subsectors()[0];
+                    // Check if it should be drawn, then draw
+                    self.draw_subsector(map, player, subsect, pic_data, rend);
+                } else {
+                    // It's a leaf node and is the index to a subsector
+                    let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
+                    // Check if it should be drawn, then draw
+                    self.draw_subsector(map, player, subsect, pic_data, rend);
+                }
+                return;
             }
-            return;
         }
 
         // otherwise get node
@@ -541,7 +575,15 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
+        self.render_bsp_node(
+            map,
+            player,
+            node.children[side],
+            pic_data,
+            rend,
+            player_subsector_id,
+            count,
+        );
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -553,7 +595,15 @@ impl SoftwareRenderer {
             rend.draw_buffer().size().half_width_f32(),
             rend.draw_buffer().size().width_f32(),
         ) {
-            self.render_bsp_node(map, player, node.children[side ^ 1], pic_data, rend, count);
+            self.render_bsp_node(
+                map,
+                player,
+                node.children[side ^ 1],
+                pic_data,
+                rend,
+                player_subsector_id,
+                count,
+            );
         }
     }
 
@@ -618,8 +668,8 @@ impl SoftwareRenderer {
         let clipangle = Angle::new(self.seg_renderer.fov_half);
         let clipangrad = clipangle.rad();
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&v1, mobj);
-        let mut angle2 = vertex_angle_to_object(&v2, mobj);
+        let mut angle1 = vertex_angle_to_object(v1, mobj);
+        let mut angle2 = vertex_angle_to_object(v2, mobj);
 
         let span = angle1 - angle2;
 

@@ -41,7 +41,7 @@ impl Wipe {
         let mut done = true;
         let stepping = disp_buf.size().height_usize() / 100;
         let f = disp_buf.size().height() / 200;
-        for x in (0..self.width as usize).step_by(stepping) {
+        for x in (0..self.width as usize - stepping).step_by(stepping) {
             if self.y[x] < 0 {
                 // This is the offset to start with, sort of like a timer
                 self.y[x] += stepping as i32 / 2;

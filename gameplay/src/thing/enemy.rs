@@ -22,7 +22,7 @@ use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::PortalZ;
 use crate::{
-    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, MapPtr, Sector, Skill, teleport_move
+    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, MapPtr, Sector, Skill, teleport_move,
 };
 use math::{p_random, point_to_angle_2};
 
@@ -332,6 +332,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
     let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
+        num: 0,
         v1: Default::default(),
         v2: Default::default(),
         delta: Default::default(),
@@ -346,6 +347,8 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         backsector: None,
         valid_count: 0,
         sides: [0, 0],
+        default_special: 0,
+        default_tag: 0,
     };
     ev_do_door(MapPtr::new(&mut junk), DoorKind::BlazeOpen, level);
 }
@@ -1008,6 +1011,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     let sector = actor.subsector.sector.clone();
 
     let mut junk = LineDef {
+        num: 0,
         v1: Default::default(),
         v2: Default::default(),
         delta: Default::default(),
@@ -1022,6 +1026,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         backsector: None,
         valid_count: 0,
         sides: [0, 0],
+        default_special: 0,
+        default_tag: 0,
     };
 
     if mode == GameMode::Commercial && map == 7 {

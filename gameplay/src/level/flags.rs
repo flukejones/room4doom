@@ -1,5 +1,7 @@
 /// The flags control some attributes of the line
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LineDefFlags {
+    None = 0,
     /// Players and monsters cannot cross this line. Note that
     /// if there is no sector on the other side, they can't go through the line
     /// anyway, regardless of the flags

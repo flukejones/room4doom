@@ -3,7 +3,8 @@
 //! This module contains the implementation of OPL2/OPL3 operators, which are
 //! the fundamental building blocks of FM synthesis. Each operator generates
 //! a sine wave with controllable frequency, amplitude, and envelope, and can
-//! either be used as a carrier (audible output) or modulator (frequency modulation).
+//! either be used as a carrier (audible output) or modulator (frequency
+//! modulation).
 
 use crate::*;
 
@@ -77,7 +78,7 @@ impl Operator {
     /// # Arguments
     /// * `linear_rates` - Reference to the linear rate lookup table
     pub fn update_decay_direct(&mut self, linear_rates: &[u32; 76]) {
-        let rate = self.reg60 & 0xf;
+        let rate = self.reg60 & 0xF;
         if rate != 0 {
             let val = (rate << 2) + self.ksr;
             self.decay_add = linear_rates[val as usize];
@@ -105,7 +106,7 @@ impl Operator {
     /// # Arguments
     /// * `linear_rates` - Reference to the linear rate lookup table
     pub fn update_release_direct(&mut self, linear_rates: &[u32; 76]) {
-        let rate = self.reg80 & 0xf;
+        let rate = self.reg80 & 0xF;
         if rate != 0 {
             let val = (rate << 2) + self.ksr;
             self.release_add = linear_rates[val as usize];
@@ -128,8 +129,8 @@ impl Operator {
     /// determine the final attenuation. Higher notes can be automatically
     /// attenuated based on the KSL setting to simulate acoustic instruments.
     pub fn update_attenuation(&mut self) {
-        let ksl_base = ((self.chan_data >> SHIFT_KSLBASE) & 0xff) as u8;
-        let tl = (self.reg40 & 0x3f) as u32;
+        let ksl_base = ((self.chan_data >> SHIFT_KSLBASE) & 0xFF) as u8;
+        let tl = (self.reg40 & 0x3F) as u32;
         let ksl_shift = KSL_SHIFT_TABLE[(self.reg40 >> 6) as usize];
 
         self.total_level = (tl << (ENV_BITS - 7)) as i32;
@@ -142,7 +143,7 @@ impl Operator {
     /// current channel frequency data and frequency multiplier setting.
     pub fn update_frequency(&mut self) {
         let freq = self.chan_data & ((1 << 10) - 1);
-        let block = (self.chan_data >> 10) & 0xff;
+        let block = (self.chan_data >> 10) & 0xFF;
 
         #[cfg(feature = "wave_precision")]
         {
@@ -189,7 +190,7 @@ impl Operator {
     /// * `attack_rates` - Reference to the attack rate lookup table
     /// * `linear_rates` - Reference to the linear rate lookup table
     pub fn update_rates_direct(&mut self, attack_rates: &[u32; 76], linear_rates: &[u32; 76]) {
-        let new_ksr = ((self.chan_data >> SHIFT_KEYCODE) & 0xff) as u8;
+        let new_ksr = ((self.chan_data >> SHIFT_KEYCODE) & 0xFF) as u8;
         let new_ksr = if (self.reg20 & MASK_KSR) == 0 {
             new_ksr >> 2
         } else {
@@ -362,8 +363,8 @@ impl Operator {
         }
 
         // Update frequency multiplier and vibrato if changed
-        if (change & (0xf | MASK_VIBRATO)) != 0 {
-            self.freq_mul = freq_mul[(val & 0xf) as usize];
+        if (change & (0xF | MASK_VIBRATO)) != 0 {
+            self.freq_mul = freq_mul[(val & 0xF) as usize];
             self.update_frequency();
         }
     }
@@ -416,10 +417,10 @@ impl Operator {
         let change = self.reg60 ^ val;
         self.reg60 = val;
 
-        if (change & 0x0f) != 0 {
+        if (change & 0x0F) != 0 {
             self.update_decay_direct(linear_rates);
         }
-        if (change & 0xf0) != 0 {
+        if (change & 0xF0) != 0 {
             self.update_attack_direct(attack_rates);
         }
     }
@@ -456,7 +457,7 @@ impl Operator {
         self.sustain_level = ((sustain as u32) << (ENV_BITS - 5)) as i32;
 
         // Update release rate if changed
-        if (change & 0x0f) != 0 {
+        if (change & 0x0F) != 0 {
             self.update_release_direct(linear_rates);
         }
     }
@@ -473,7 +474,8 @@ impl Operator {
     /// Directly processes waveform select register writes
     ///
     /// Register 0xE0 controls:
-    /// - Bit 0-2: Waveform select (0=sine, 1=half-sine, 2=abs-sine, 3=pulse-sine)
+    /// - Bit 0-2: Waveform select (0=sine, 1=half-sine, 2=abs-sine,
+    ///   3=pulse-sine)
     ///
     /// # Arguments
     /// * `val` - The register value

@@ -350,19 +350,16 @@ impl MapObject {
     pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
         #[cfg(feature = "hprof")]
         profile!("check_sight_target");
-        //
-        // check for trivial rejection
-        //
+
         let s1 = self.subsector.sector.num;
         let s2 = target.subsector.sector.num;
-        // self.level().
-        let pnum = s1 * 1 + s2;
+        let sector_count = self.level().map_data.sectors().len() as i32;
+        let pnum = s1 * sector_count + s2;
         let bytenum = pnum >> 3;
         let bitnum = 1 << (pnum & 7);
 
         if !self.level().map_data.get_devils_rejects().is_empty() {
             if self.level().map_data.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
-                // println!("REJECTED");
                 return false;
             }
         }

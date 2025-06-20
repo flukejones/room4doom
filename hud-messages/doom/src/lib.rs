@@ -137,12 +137,14 @@ impl SubsystemTrait for Messages {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::Messages;
     use wad::WadData;
 
     #[test]
     fn check_cycle_through_max() {
-        let wad = WadData::new("../../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../../doom1.wad"));
 
         let mut msgs = Messages::new(&wad);
 

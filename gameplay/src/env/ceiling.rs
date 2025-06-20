@@ -150,6 +150,7 @@ impl Think for CeilingMove {
                     false,
                     1,
                     ceiling.direction,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(res, PlaneResult::PastDest) {
@@ -178,6 +179,7 @@ impl Think for CeilingMove {
                     ceiling.crush,
                     1,
                     ceiling.direction,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(res, PlaneResult::PastDest) {

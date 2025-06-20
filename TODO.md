@@ -1,5 +1,21 @@
 # TODO
 
+## Software 3D rendering
+
+- [X] Masked textures with no upper
+  - [ ] Do not repeat the textures up or down
+  - [ ] Sunder map 20 does something weird.
+- [ ] Sky box
+- [ ] Update textures being used (switch changes, sector floor changes for movers)
+- [ ] Animated wall textures:
+  - change_switch_texture changes the sidedef. Need to add a better method (like what's used for flats)
+  - Level::line_special_list is used for scrolling walls
+- [ ] Unpegged upper aren't being tagged?
+- [ ] Sprites and clipping
+- [-] Moving geometry
+  - [ ] Some glitches where some vertexes actually seem to do off??
+  - [ ] Vertex float precision?
+
 Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to
 2. Software player view needs buffer to draw on to

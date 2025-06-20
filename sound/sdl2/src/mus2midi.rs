@@ -415,6 +415,7 @@ mod tests {
     use std::env::set_var;
     use std::fs::File;
     use std::io::{Read, Write};
+    use std::path::PathBuf;
     use std::time::Duration;
 
     use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
@@ -537,7 +538,7 @@ mod tests {
     #[test]
     #[ignore = "CI doesn't have a sound device"]
     fn play_midi_basic() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
 
         let lump = wad.get_lump("D_E1M8").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();
@@ -576,7 +577,7 @@ mod tests {
             set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
             set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
         }
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
 
         let lump = wad.get_lump("D_E1M1").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();

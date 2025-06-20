@@ -316,7 +316,7 @@ impl WadLineDef {
 /// Each `Segment` record is 12 bytes
 ///
 /// **NOTE**: some internal types are changed for extended node support.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct WadSegment {
     /// The line starts from this point
     pub start_vertex: u32,
@@ -395,7 +395,7 @@ impl WadSegment {
 /// Each `SubSector` record is 4 bytes
 ///
 /// **NOTE**: internal types changed for zdoom extended node compatibility
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct WadSubSector {
     /// How many `Segment`s line this `SubSector`
     pub seg_count: u32,
@@ -599,7 +599,7 @@ impl WadSideDef {
 ///
 /// The child index can be either u16 or u32 depending on if the node is
 /// Original Doom style, or the ZDoom extended node style
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub struct WadNode {
     /// Where the line used for splitting the level starts
     pub x: i16,
@@ -694,11 +694,13 @@ pub struct WadRejectTable(Vec<u8>);
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::WadData;
 
     #[test]
     fn texture1_header_0() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let lump = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(lump.name, "TEXTURE1");
         assert_eq!(lump.data.len(), 9234);
@@ -766,7 +768,7 @@ mod tests {
 
     #[test]
     fn pnames_array() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let lump = wad.find_lump_or_panic("PNAMES");
         assert_eq!(lump.name, "PNAMES");
         assert_eq!(lump.data.len(), 2804);
@@ -808,7 +810,7 @@ mod tests {
     #[test]
     #[ignore = "Registered Doom only"]
     fn texture2_header() {
-        let wad = WadData::new("../../doom.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom.wad"));
         let lump = wad.find_lump_or_panic("TEXTURE2");
         assert_eq!(lump.name, "TEXTURE2");
         assert_eq!(lump.data.len(), 8036);

@@ -157,14 +157,17 @@ pub struct MenuDoom {
 
 impl MenuDoom {
     pub fn new(mode: GameMode, wad: &WadData, buf_width: i32) -> Self {
-        let x_pos = |x: i32| -> i32 { buf_width / 2 - (320 / 2 - x) };
+        // let t = (buf_width / 320).max(1).min(3);
+        let x_pos = |original_x: i32| -> i32 { original_x };
+
         let menus = vec![
             MenuSet::new(
                 MenuIndex::TopLevel,
                 MenuIndex::TopLevel,
                 vec![Title::new("M_DOOM", x_pos(92), 2)], // Header item and position
                 x_pos(97),                                // Sub-items starting X
-                64,                                       /* First item start Y (is incremented by
+                64,                                       /* First item start Y (is incremented
+                                                           * by
                                                            * LINEHEIGHT */
                 vec![
                     MenuItem::new(Status::Ok, "M_NGAME", sel_new_game, 'N'),

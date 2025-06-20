@@ -236,6 +236,7 @@ impl Think for FloorMove {
             false,
             0,
             floor.direction,
+            &mut level.map_data.bsp_3d,
         );
 
         if level.level_time & 7 == 0 {
@@ -365,7 +366,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
                 let floor = FloorMove {
                     thinker: null_mut(),
                     sector: sec.clone(),
-                    kind: FloorKind::LowerFloor,
+                    kind: FloorKind::RaiseFloor,
                     speed,
                     crush: false,
                     direction: 1,

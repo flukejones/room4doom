@@ -13,6 +13,7 @@ members = [
     "render/render-target",
     "render/render-trait",
     "render/software",
+    "render/render3d",
     "sound/traits",
     "sound/sdl2",
     "sound/nosnd",
@@ -52,6 +53,7 @@ sound-nosnd = { path = "./sound/nosnd" }
 opl2_emulator = { path = "./sound/opl2_emulator", features = ["wave_precision"] }
 render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
+render3d = { path = "./render/render3d" }
 render-soft = { path = "./render/software" }
 
 coarse-prof = "0.2"

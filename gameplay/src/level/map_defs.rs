@@ -5,6 +5,7 @@ use glam::Vec2;
 use log::error;
 use math::Angle;
 
+/// The graph slope kind when looking at the map from top down.
 #[derive(Debug)]
 pub enum SlopeType {
     Horizontal,
@@ -28,6 +29,10 @@ pub struct Sector {
     pub lightlevel: usize,
     pub special: i16,
     pub tag: i16,
+    /// Saved special for reference
+    pub default_special: i16,
+    /// Saved tag for reference
+    pub default_tag: i16,
 
     /// 0 = untraversed, 1,2 = sndlines -1
     pub soundtraversed: i32,
@@ -82,6 +87,8 @@ impl Sector {
             lightlevel,
             special,
             tag,
+            default_special: special,
+            default_tag: tag,
             ..Self::default()
         }
     }
@@ -241,7 +248,7 @@ pub struct SideDef {
     pub sector: MapPtr<Sector>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct BBox {
     pub top: f32,
     pub bottom: f32,
@@ -274,6 +281,8 @@ impl BBox {
 }
 
 pub struct LineDef {
+    /// Index position of self. Used as ID for when checking through ref chain.
+    pub num: usize,
     // Vertices, from v1 to v2.
     pub v1: Vec2,
     pub v2: Vec2,
@@ -283,6 +292,11 @@ pub struct LineDef {
     pub flags: u32,
     pub special: i16,
     pub tag: i16,
+
+    /// Saved special for reference
+    pub default_special: i16,
+    /// Saved tag for reference
+    pub default_tag: i16,
 
     // Neat. Another bounding box, for the extent
     //  of the LineDef.
@@ -365,8 +379,8 @@ impl LineDef {
 #[derive(Debug, Clone)]
 pub struct Segment {
     // Vertices, from v1 to v2.
-    pub v1: Vec2,
-    pub v2: Vec2,
+    pub v1: MapPtr<Vec2>,
+    pub v2: MapPtr<Vec2>,
 
     /// Offset distance along the linedef (from `start_vertex`) to the start
     /// of this `Segment`
@@ -383,26 +397,9 @@ pub struct Segment {
 }
 
 impl Segment {
-    pub fn test_panic(&self) -> bool {
-        // vertex:
-        // 12 top-left (256.0, -1392.0)
-        // 4176 top-right (272.0, -1392.0)
-        // 4143 bottom-right (272.0, -1408.0)
-        if self.v2 == Vec2::new(256., -1392.) && self.v1 == Vec2::new(272., -1392.) {
-            dbg!(self.sidedef.bottomtexture);
-            dbg!(&self.linedef.front_sidedef);
-            dbg!(&self.linedef.back_sidedef);
-            dbg!(&self.frontsector);
-            dbg!(&self.backsector);
-            dbg!(self.sidedef != self.linedef.front_sidedef);
-            return true;
-        }
-        false
-    }
-
     /// Helper to recalcuate the offset of a seg along the linedef line it is
     /// derived from. Required for ZDBSP style nodes.
-    pub fn recalc_offset(v1: Vec2, v2: Vec2) -> f32 {
+    pub fn recalc_offset(v1: &Vec2, v2: &Vec2) -> f32 {
         let a = v1.x - v2.x;
         let b = v1.y - v2.y;
         (a * a + b * b).sqrt()
@@ -410,7 +407,7 @@ impl Segment {
 
     /// True if the right side of the segment faces the point
     #[inline]
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
+    pub fn is_facing_point(&self, point: Vec2) -> bool {
         let start = &self.v1;
         let end = &self.v2;
 
@@ -432,7 +429,7 @@ impl Segment {
 
         let dx = v.x - self.v1.x;
         let dy = v.y - self.v1.y;
-        let this_delta = self.v2 - self.v1;
+        let this_delta = *self.v2 - *self.v1;
 
         if (dy * this_delta.x) <= (this_delta.y * dx) {
             // Front side
@@ -443,7 +440,7 @@ impl Segment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SubSector {
     pub sector: MapPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
@@ -452,7 +449,7 @@ pub struct SubSector {
     pub start_seg: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     /// Where the line used for splitting the level starts
     pub xy: Vec2,

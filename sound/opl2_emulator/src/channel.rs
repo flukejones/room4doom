@@ -18,7 +18,8 @@ impl Channel {
     /// Returns a mutable reference to one of the channel's operators
     ///
     /// # Arguments
-    /// * `index` - The operator index (0 or 1), automatically masked to valid range
+    /// * `index` - The operator index (0 or 1), automatically masked to valid
+    ///   range
     ///
     /// # Returns
     /// A mutable reference to the requested operator
@@ -53,7 +54,7 @@ impl Channel {
         self.set_chan_data_direct(data);
 
         let change = self.chan_data ^ data;
-        if (change & (0xff << SHIFT_KEYCODE)) != 0 {
+        if (change & (0xFF << SHIFT_KEYCODE)) != 0 {
             self.op[0].update_rates(chip);
             self.op[1].update_rates(chip);
         }
@@ -65,7 +66,8 @@ impl Channel {
     /// and triggers frequency and attenuation updates on both operators.
     ///
     /// # Arguments
-    /// * `data` - New channel data value containing frequency and key scaling info
+    /// * `data` - New channel data value containing frequency and key scaling
+    ///   info
     pub fn set_chan_data_direct(&mut self, data: u32) {
         let change = self.chan_data ^ data;
         self.chan_data = data;
@@ -77,7 +79,7 @@ impl Channel {
         self.op[1].update_frequency();
 
         // Update attenuation if KSL base changed
-        if (change & (0xff << SHIFT_KSLBASE)) != 0 {
+        if (change & (0xFF << SHIFT_KSLBASE)) != 0 {
             self.op[0].update_attenuation();
             self.op[1].update_attenuation();
         }
@@ -98,10 +100,11 @@ impl Channel {
     /// data and updates the channel accordingly.
     ///
     /// # Arguments
-    /// * `four_op` - Four-operator mode flags (simplified in safe implementation)
+    /// * `four_op` - Four-operator mode flags (simplified in safe
+    ///   implementation)
     /// * `reg08` - Register 0x08 value for composite sine wave mode
     pub fn update_frequency_direct(&mut self, four_op: u8, reg08: u8) {
-        let mut data = self.chan_data & 0xffff;
+        let mut data = self.chan_data & 0xFFFF;
 
         // Look up KSL base value from the initialized table
         let ksl_base = if let Some(ksl_table) = KSL_TABLE.get() {
@@ -110,7 +113,7 @@ impl Channel {
             0
         };
 
-        let mut key_code = (data & 0x1c00) >> 9;
+        let mut key_code = (data & 0x1C00) >> 9;
 
         // Adjust key code based on composite sine wave mode
         if (reg08 & 0x40) != 0 {
@@ -125,7 +128,7 @@ impl Channel {
 
         // Note: Four-operator handling removed for safety
         // In the original implementation, this would update linked channels
-        if (four_op & 0x3f) != 0 {
+        if (four_op & 0x3F) != 0 {
             // TODO: Implement safe multi-channel access if needed
         }
     }
@@ -152,7 +155,7 @@ impl Channel {
             return;
         }
 
-        let change = (self.chan_data ^ val as u32) & 0xff;
+        let change = (self.chan_data ^ val as u32) & 0xFF;
         if change != 0 {
             self.chan_data ^= change;
             self.update_frequency_direct(four_op, reg08);
@@ -175,7 +178,8 @@ impl Channel {
     /// When released, both operators enter their release phase.
     ///
     /// # Arguments
-    /// * `val` - The register value containing frequency high bits and key state
+    /// * `val` - The register value containing frequency high bits and key
+    ///   state
     /// * `reg104` - Register 0x104 value (OPL3 4-op connections)
     /// * `opl3_active` - OPL3 mode flag
     /// * `reg08` - Register 0x08 value
@@ -186,7 +190,7 @@ impl Channel {
         }
 
         // Update frequency high bits if they changed
-        let change = (self.chan_data ^ ((val as u32) << 8)) & 0x1f00;
+        let change = (self.chan_data ^ ((val as u32) << 8)) & 0x1F00;
         if change != 0 {
             self.chan_data ^= change;
             self.update_frequency_direct(four_op, reg08);
@@ -202,14 +206,14 @@ impl Channel {
             // Key on: activate both operators
             self.op[0].key_on(0x1);
             self.op[1].key_on(0x1);
-            if (four_op & 0x3f) != 0 {
+            if (four_op & 0x3F) != 0 {
                 // TODO: Implement safe multi-channel key_on for 4-op mode
             }
         } else {
             // Key off: release both operators
             self.op[0].key_off(0x1);
             self.op[1].key_off(0x1);
-            if (four_op & 0x3f) != 0 {
+            if (four_op & 0x3F) != 0 {
                 // TODO: Implement safe multi-channel key_off for 4-op mode
             }
         }
@@ -286,7 +290,7 @@ impl Channel {
     /// * `chip` - Reference to the chip for accessing register values
     pub fn reset_c0(&mut self, opl3_active: i8, reg_bd: u8) {
         let val = self.reg_c0;
-        self.reg_c0 ^= 0xff; // Force change detection
+        self.reg_c0 ^= 0xFF; // Force change detection
         self.write_c0_direct(val, opl3_active, reg_bd);
     }
 
@@ -349,7 +353,8 @@ impl Channel {
         }
     }
 
-    /// Template method for generating audio samples in different synthesis modes
+    /// Template method for generating audio samples in different synthesis
+    /// modes
     ///
     /// This is the main synthesis engine that handles all the different
     /// operator connection modes and generates the final audio output.
