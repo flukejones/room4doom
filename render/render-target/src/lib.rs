@@ -310,7 +310,7 @@ impl PlayViewRenderer for RenderTarget {
             }
             RenderApiType::Software3D => {
                 if let Some(ref mut renderer3d) = self.renderer3d {
-                    renderer3d.render(player, level, r.draw_buffer());
+                    renderer3d.render(player, level, pic_data, r.draw_buffer());
                 }
             }
             RenderApiType::OpenGL => todo!(),

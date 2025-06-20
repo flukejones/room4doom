@@ -28,6 +28,8 @@ pub struct MapExtents {
     pub width: f32,
     pub height: f32,
     pub automap_scale: f32,
+    pub min_floor: f32,
+    pub max_ceiling: f32,
 }
 
 /// A `Map` contains everything required for building the actual level the
@@ -84,6 +86,19 @@ impl MapData {
         }
         self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
         self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
+
+        let mut min = self.sectors()[0].floorheight;
+        let mut max = self.sectors()[0].ceilingheight;
+        for sector in self.sectors() {
+            if sector.floorheight < min {
+                min = sector.floorheight;
+            }
+            if sector.ceilingheight > max {
+                max = sector.ceilingheight;
+            }
+        }
+        self.extents.min_floor = min;
+        self.extents.max_ceiling = max;
     }
 
     pub fn things(&self) -> &[WadThing] {

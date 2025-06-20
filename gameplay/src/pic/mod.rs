@@ -675,12 +675,80 @@ impl PicData {
     }
 
     #[inline]
-    pub fn sprite_patch(&self, patch_num: usize) -> &SpritePic {
+    pub fn sprite_patch(&self, num: usize) -> &SpritePic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            self.sprite_patches.get_unchecked(patch_num)
+            self.sprite_patches.get_unchecked(num)
         }
         #[cfg(feature = "safety_check")]
-        &self.sprite_patches[patch_num]
+        &self.sprite_patches[num]
+    }
+
+    /// Get an average color sample from a texture using the colourmap.
+    /// This samples multiple points from the texture data and returns
+    /// the average color from the palette.
+    pub fn get_texture_average_color(&self, texture_num: usize) -> WadColour {
+        let texture = self.get_texture(texture_num);
+
+        // Sample points from the texture
+        let mut r_sum = 0u32;
+        let mut g_sum = 0u32;
+        let mut b_sum = 0u32;
+        let mut sample_count = 0u32;
+
+        // Sample evenly across the texture
+        let width = texture.data.len();
+        let height = if width > 0 { texture.data[0].len() } else { 0 };
+
+        if width == 0 || height == 0 {
+            return [0, 0, 0, 0];
+        }
+
+        // Sample every few pixels to get a good average
+        let x_step = (width / 8).max(1);
+        let y_step = (height / 8).max(1);
+
+        for x in (0..width).step_by(x_step) {
+            for y in (0..height).step_by(y_step) {
+                #[cfg(not(feature = "safety_check"))]
+                unsafe {
+                    let c = texture.data.get_unchecked(x).get_unchecked(y);
+                    let cm = self.colourmap.get_unchecked(1).get_unchecked(*c);
+                    let color = self.palette().get_unchecked(*cm);
+                    r_sum += color[0] as u32;
+                    g_sum += color[1] as u32;
+                    b_sum += color[2] as u32;
+                }
+                #[cfg(feature = "safety_check")]
+                {
+                    if let Some(column) = texture.data.get(x) {
+                        if let Some(&c) = column.get(y) {
+                            if let Some(colourmap_row) = self.colourmap.get(1) {
+                                if let Some(&cm) = colourmap_row.get(c) {
+                                    if let Some(color) = self.palette().get(cm) {
+                                        r_sum += color[0] as u32;
+                                        g_sum += color[1] as u32;
+                                        b_sum += color[2] as u32;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                sample_count += 1;
+            }
+        }
+
+        if sample_count == 0 {
+            return [0, 0, 0, 0];
+        }
+
+        // Calculate average
+        [
+            (r_sum / sample_count) as u8,
+            (g_sum / sample_count) as u8,
+            (b_sum / sample_count) as u8,
+            255,
+        ]
     }
 }

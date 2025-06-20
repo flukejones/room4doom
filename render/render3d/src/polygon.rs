@@ -1,0 +1,260 @@
+use glam::{Vec2, Vec3, Vec4};
+
+/// Represents a 3D polygon in world space
+#[derive(Debug, Clone)]
+pub struct Polygon3D {
+    pub vertices: Vec<Vec3>,
+    pub color: [u8; 4],
+    pub polygon_type: PolygonType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PolygonType {
+    Wall,      // Solid wall (one-sided)
+    UpperWall, // Upper texture on two-sided wall
+    LowerWall, // Lower texture on two-sided wall
+    Portal,    // See-through opening
+}
+
+/// Represents a 2D polygon in screen space
+#[derive(Debug, Clone)]
+pub struct Polygon2D {
+    pub vertices: Vec<Vec2>,
+    pub color: [u8; 4],
+    pub polygon_type: PolygonType,
+}
+
+impl Polygon3D {
+    /// Create a vertical quad polygon from a line segment and heights
+    /// The polygon vertices are ordered: bottom-left, bottom-right, top-right, top-left
+    pub fn from_wall_segment(
+        v1: Vec2,
+        v2: Vec2,
+        bottom_height: f32,
+        top_height: f32,
+        color: [u8; 4],
+        polygon_type: PolygonType,
+    ) -> Self {
+        let vertices = vec![
+            Vec3::new(v1.x, v1.y, bottom_height), // bottom-left
+            Vec3::new(v2.x, v2.y, bottom_height), // bottom-right
+            Vec3::new(v2.x, v2.y, top_height),    // top-right
+            Vec3::new(v1.x, v1.y, top_height),    // top-left
+        ];
+
+        Self {
+            vertices,
+            color,
+            polygon_type,
+        }
+    }
+
+    /// Transform polygon to view space
+    pub fn transform(&self, view_matrix: &glam::Mat4) -> Self {
+        let vertices = self
+            .vertices
+            .iter()
+            .map(|v| view_matrix.transform_point3(*v))
+            .collect();
+
+        Self {
+            vertices,
+            color: self.color,
+            polygon_type: self.polygon_type,
+        }
+    }
+
+    /// Project polygon to screen space
+    pub fn project(
+        &self,
+        projection_matrix: &glam::Mat4,
+        screen_width: f32,
+        screen_height: f32,
+    ) -> Option<Polygon2D> {
+        let mut screen_vertices = Vec::new();
+
+        // First pass: project all vertices that are in front of the camera
+        let mut projected_vertices = Vec::new();
+        for vertex in &self.vertices {
+            if vertex.z < -0.01 {
+                // Only project vertices in front of camera
+                // Apply projection matrix (vertex is in view space)
+                let clip = projection_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+
+                if clip.w > 0.0 {
+                    // Perspective divide to get NDC
+                    let ndc = Vec3::new(clip.x / clip.w, clip.y / clip.w, clip.z / clip.w);
+
+                    // Convert NDC to screen space
+                    let screen_x = (ndc.x + 1.0) * 0.5 * screen_width;
+                    let screen_y = (1.0 - ndc.y) * 0.5 * screen_height;
+
+                    projected_vertices.push(Some(Vec2::new(screen_x, screen_y)));
+                } else {
+                    projected_vertices.push(None);
+                }
+            } else {
+                projected_vertices.push(None);
+            }
+        }
+
+        // Second pass: handle edge clipping for vertices behind camera
+        for i in 0..self.vertices.len() {
+            let v1_idx = i;
+            let v2_idx = (i + 1) % self.vertices.len();
+            let v1 = self.vertices[v1_idx];
+            let v2 = self.vertices[v2_idx];
+
+            match (projected_vertices[v1_idx], projected_vertices[v2_idx]) {
+                (Some(p1), Some(_p2)) => {
+                    // Both vertices projected successfully
+                    if screen_vertices.is_empty() || screen_vertices.last() != Some(&p1) {
+                        screen_vertices.push(p1);
+                    }
+                }
+                (Some(p1), None) => {
+                    // v1 is visible, v2 is behind camera - clip edge
+                    if screen_vertices.is_empty() || screen_vertices.last() != Some(&p1) {
+                        screen_vertices.push(p1);
+                    }
+                    // Find intersection with near plane z = -0.01
+                    if v1.z < -0.01 && v2.z > -0.01 {
+                        let t = (-0.01 - v1.z) / (v2.z - v1.z);
+                        let clip_point = v1 + (v2 - v1) * t;
+
+                        let clip = projection_matrix
+                            * Vec4::new(clip_point.x, clip_point.y, clip_point.z, 1.0);
+                        if clip.w > 0.0 {
+                            let ndc = Vec3::new(clip.x / clip.w, clip.y / clip.w, clip.z / clip.w);
+                            let screen_x = (ndc.x + 1.0) * 0.5 * screen_width;
+                            let screen_y = (1.0 - ndc.y) * 0.5 * screen_height;
+                            screen_vertices.push(Vec2::new(screen_x, screen_y));
+                        }
+                    }
+                }
+                (None, Some(_p2)) => {
+                    // v1 is behind camera, v2 is visible - clip edge
+                    if v1.z > -0.01 && v2.z < -0.01 {
+                        let t = (-0.01 - v1.z) / (v2.z - v1.z);
+                        let clip_point = v1 + (v2 - v1) * t;
+
+                        let clip = projection_matrix
+                            * Vec4::new(clip_point.x, clip_point.y, clip_point.z, 1.0);
+                        if clip.w > 0.0 {
+                            let ndc = Vec3::new(clip.x / clip.w, clip.y / clip.w, clip.z / clip.w);
+                            let screen_x = (ndc.x + 1.0) * 0.5 * screen_width;
+                            let screen_y = (1.0 - ndc.y) * 0.5 * screen_height;
+                            screen_vertices.push(Vec2::new(screen_x, screen_y));
+                        }
+                    }
+                }
+                (None, None) => {
+                    // Both vertices behind camera - skip this edge
+                }
+            }
+        }
+
+        // Need at least 3 vertices for a valid polygon
+        if screen_vertices.len() >= 3 {
+            Some(Polygon2D {
+                vertices: screen_vertices,
+                color: self.color,
+                polygon_type: self.polygon_type,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl Polygon2D {
+    /// Get axis-aligned bounding box of polygon
+    pub fn bounds(&self) -> Option<(Vec2, Vec2)> {
+        if self.vertices.is_empty() {
+            return None;
+        }
+
+        let mut min = self.vertices[0];
+        let mut max = self.vertices[0];
+
+        for vertex in &self.vertices[1..] {
+            min.x = min.x.min(vertex.x);
+            min.y = min.y.min(vertex.y);
+            max.x = max.x.max(vertex.x);
+            max.y = max.y.max(vertex.y);
+        }
+
+        Some((min, max))
+    }
+}
+
+/// Portal window for clipping
+#[derive(Debug, Clone)]
+pub struct PortalWindow {
+    pub vertices: Vec<Vec2>,
+}
+
+impl PortalWindow {
+    /// Create from a screen-space polygon
+    pub fn from_polygon(poly: &Polygon2D) -> Self {
+        Self {
+            vertices: poly.vertices.clone(),
+        }
+    }
+
+    /// Clip a polygon to this portal window
+    pub fn clip_polygon(&self, poly: &Polygon2D) -> Option<Polygon2D> {
+        let mut output_vertices = poly.vertices.clone();
+
+        // Sutherland-Hodgman clipping against each edge
+        for i in 0..self.vertices.len() {
+            if output_vertices.is_empty() {
+                return None;
+            }
+
+            let edge_start = self.vertices[i];
+            let edge_end = self.vertices[(i + 1) % self.vertices.len()];
+            let edge_vec = edge_end - edge_start;
+            let edge_normal = Vec2::new(-edge_vec.y, edge_vec.x).normalize();
+
+            let input_vertices = output_vertices;
+            output_vertices = Vec::new();
+
+            for j in 0..input_vertices.len() {
+                let v1 = input_vertices[j];
+                let v2 = input_vertices[(j + 1) % input_vertices.len()];
+
+                let side1 = (v1 - edge_start).dot(edge_normal);
+                let side2 = (v2 - edge_start).dot(edge_normal);
+
+                // Both inside
+                if side1 >= 0.0 && side2 >= 0.0 {
+                    output_vertices.push(v2);
+                }
+                // v1 inside, v2 outside
+                else if side1 >= 0.0 && side2 < 0.0 {
+                    let t = side1 / (side1 - side2);
+                    let intersection = v1 + (v2 - v1) * t;
+                    output_vertices.push(intersection);
+                }
+                // v1 outside, v2 inside
+                else if side1 < 0.0 && side2 >= 0.0 {
+                    let t = side1 / (side1 - side2);
+                    let intersection = v1 + (v2 - v1) * t;
+                    output_vertices.push(intersection);
+                    output_vertices.push(v2);
+                }
+            }
+        }
+
+        if output_vertices.len() >= 3 {
+            Some(Polygon2D {
+                vertices: output_vertices,
+                color: poly.color,
+                polygon_type: poly.polygon_type,
+            })
+        } else {
+            None
+        }
+    }
+}

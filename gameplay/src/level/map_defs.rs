@@ -410,7 +410,7 @@ impl Segment {
 
     /// True if the right side of the segment faces the point
     #[inline]
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
+    pub fn is_facing_point(&self, point: Vec2) -> bool {
         let start = &self.v1;
         let end = &self.v2;
 
