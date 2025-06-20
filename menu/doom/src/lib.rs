@@ -156,15 +156,16 @@ pub struct MenuDoom {
 }
 
 impl MenuDoom {
-    pub fn new(mode: GameMode, wad: &WadData) -> Self {
+    pub fn new(mode: GameMode, wad: &WadData, buf_width: i32) -> Self {
+        let x_pos = |x: i32| -> i32 { buf_width / 2 - (320 / 2 - x) };
         let menus = vec![
             MenuSet::new(
                 MenuIndex::TopLevel,
                 MenuIndex::TopLevel,
-                vec![Title::new("M_DOOM", 92, 2)], // Header item and position
-                97,                                // Sub-items starting X
-                64,                                /* First item start Y (is incremented by
-                                                    * LINEHEIGHT */
+                vec![Title::new("M_DOOM", x_pos(92), 2)], // Header item and position
+                x_pos(97),                                // Sub-items starting X
+                64,                                       /* First item start Y (is incremented by
+                                                           * LINEHEIGHT */
                 vec![
                     MenuItem::new(Status::Ok, "M_NGAME", sel_new_game, 'N'),
                     MenuItem::new(Status::Ok, "M_OPTION", place_holder, 'O'),
@@ -177,8 +178,8 @@ impl MenuDoom {
             MenuSet::new(
                 MenuIndex::Episodes,
                 MenuIndex::TopLevel,
-                vec![Title::new("M_EPISOD", 54, 38)],
-                48,
+                vec![Title::new("M_EPISOD", x_pos(54), 38)],
+                x_pos(48),
                 63,
                 (1..=9)
                     .filter_map(|e| {
@@ -201,8 +202,11 @@ impl MenuDoom {
                 } else {
                     MenuIndex::Episodes
                 },
-                vec![Title::new("M_NEWG", 96, 14), Title::new("M_SKILL", 54, 38)],
-                48,
+                vec![
+                    Title::new("M_NEWG", x_pos(96), 14),
+                    Title::new("M_SKILL", x_pos(54), 38),
+                ],
+                x_pos(48),
                 63,
                 vec![
                     MenuItem::new(Status::Ok, "M_JKILL", sel_skill, 'I'),
@@ -216,7 +220,7 @@ impl MenuDoom {
                 MenuIndex::ReadThis1,
                 MenuIndex::TopLevel,
                 vec![],
-                0,
+                buf_width / 2 - 160,
                 0,
                 match mode {
                     GameMode::Commercial => {
@@ -234,7 +238,7 @@ impl MenuDoom {
                 MenuIndex::ReadThis2,
                 MenuIndex::ReadThis1,
                 vec![],
-                0,
+                buf_width / 2 - 160,
                 0,
                 match mode {
                     GameMode::Commercial => {

@@ -69,8 +69,6 @@ pub fn d_doom_loop(
     // TODO: check res aspect and set widescreen or no
     let mut timestep = TimeStep::new(true);
     let mut cheats = Cheats::new();
-    let mut menu = MenuDoom::new(game.game_type.mode, &game.wad_data);
-    menu.init(&game);
 
     let mut machines = GameSubsystem {
         statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
@@ -106,6 +104,12 @@ pub fn d_doom_loop(
         options.rendering.unwrap_or_default().into(),
         options.shader.unwrap_or_default(),
     );
+    let mut menu = MenuDoom::new(
+        game.game_type.mode,
+        &game.wad_data,
+        render_target.draw_buffer().size().width(),
+    );
+    menu.init(&game);
     // END
 
     loop {
@@ -143,6 +147,12 @@ pub fn d_doom_loop(
                             options.rendering.unwrap_or_default().into(),
                             options.shader.unwrap_or_default(),
                         );
+                        menu = MenuDoom::new(
+                            game.game_type.mode,
+                            &game.wad_data,
+                            render_target.draw_buffer().size().width(),
+                        );
+                        menu.init(&game);
                         // END
                         info!("Resized game window");
                     }
@@ -184,8 +194,9 @@ pub fn d_doom_loop(
 
 fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
     let f = draw_buf.size().height() / 200;
+    let start = draw_buf.size().width() / 2 - 160;
     let mut ytmp = 0;
-    let mut xtmp = f - 1;
+    let mut xtmp = start - 1;
     for column in game.page.cache.columns.iter() {
         for n in 0..f {
             for p in column.pixels.iter() {
@@ -219,7 +230,7 @@ fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
 /// D_Display
 #[allow(clippy::too_many_arguments)]
 fn d_display<R>(
-    rend_target: &mut R,
+    render_target: &mut R,
     menu: &mut impl SubsystemTrait,
     machines: &mut GameSubsystem<
         impl SubsystemTrait,
@@ -250,9 +261,9 @@ fn d_display<R>(
                     } else {
                         let player = &game.players[game.consoleplayer];
                         if game.options.dev_parm {
-                            rend_target.debug_clear();
+                            render_target.debug_clear();
                         }
-                        rend_target.render_player_view(player, level, &mut game.pic_data);
+                        render_target.render_player_view(player, level, &mut game.pic_data);
                     }
                 }
                 _ => {}
@@ -263,11 +274,11 @@ fn d_display<R>(
     match game.gamestate {
         GameState::Level => {
             // TODO: Automap draw
-            machines.statusbar.draw(rend_target.draw_buffer());
-            machines.hud_msgs.draw(rend_target.draw_buffer());
+            machines.statusbar.draw(render_target.draw_buffer());
+            machines.hud_msgs.draw(render_target.draw_buffer());
         }
-        GameState::Intermission => machines.intermission.draw(rend_target.draw_buffer()),
-        GameState::Finale => machines.finale.draw(rend_target.draw_buffer()),
+        GameState::Intermission => machines.intermission.draw(render_target.draw_buffer()),
+        GameState::Finale => machines.finale.draw(render_target.draw_buffer()),
         GameState::DemoScreen => {
             if game.page.cache.name != game.page.name {
                 let lump = game
@@ -276,7 +287,7 @@ fn d_display<R>(
                     .expect("TITLEPIC missing");
                 game.page.cache = WadPatch::from_lump(lump);
             }
-            page_drawer(game, rend_target.draw_buffer());
+            page_drawer(game, render_target.draw_buffer());
         }
         _ => {}
     }
@@ -288,22 +299,22 @@ fn d_display<R>(
     #[cfg(feature = "debug_draw")]
     {
         game.wipe_game_state = game.gamestate;
-        rend_target.flip();
-        rend_target.clear();
+        render_target.flip();
+        render_target.clear();
         return;
     }
 
     if wipe {
-        if rend_target.do_wipe() {
+        if render_target.do_wipe() {
             game.wipe_game_state = game.gamestate;
         }
         // menu is drawn on top of wipes
-        menu.draw(rend_target.blit_buffer());
+        menu.draw(render_target.blit_buffer());
     } else {
-        menu.draw(rend_target.draw_buffer());
-        rend_target.flip();
+        menu.draw(render_target.draw_buffer());
+        render_target.flip();
     }
-    rend_target.blit();
+    render_target.blit();
 }
 
 fn try_run_tics(

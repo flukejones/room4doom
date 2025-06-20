@@ -634,49 +634,6 @@ impl MapData {
     /// code which attempts to fix the same problem.
     ///
     /// Firelines (TM) is a Rezistered Trademark of MBF Productions
-    fn fix_vertices(&mut self) {
-        let start = Instant::now();
-        // Track vertices. Because they are stored in segs now, but originally came
-        // from the shared vertices we need to ensure the individual vertexes match
-        let mut log: HashMap<String, Vec2> = HashMap::with_capacity(self.vertexes.len());
-        for seg in self.segments.iter_mut() {
-            let linedef = seg.linedef.as_mut();
-            if linedef.delta.x != 0.0 && linedef.delta.y != 0.0 {
-                let mut old = seg.v1;
-                let mut vertex = &mut seg.v1;
-                let mut step2 = false;
-                loop {
-                    if let Some(v) = log.get(&old.to_string()) {
-                        *vertex = *v;
-                    } else if *vertex != linedef.v1 && *vertex != linedef.v2
-                    // Exclude endpoints of linedefs
-                    {
-                        let dx2 = linedef.delta.x * linedef.delta.x;
-                        let dy2 = linedef.delta.y * linedef.delta.y;
-                        let dxy = linedef.delta.x * linedef.delta.y;
-                        let s = dx2 + dy2;
-                        let x0 = vertex.x;
-                        let y0 = vertex.y;
-                        let x1 = linedef.v1.x;
-                        let y1 = linedef.v1.y;
-                        vertex.x = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
-                        vertex.y = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
-                        log.insert(old.to_string(), *vertex);
-                    }
-                    if step2 {
-                        break;
-                    }
-                    old = seg.v2;
-                    vertex = &mut seg.v2;
-                    step2 = true;
-                }
-            }
-        }
-
-        let end = Instant::now();
-        info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
-    }
-
     fn prepass_fix_vertices(
         &mut self,
         map_name: &str,
