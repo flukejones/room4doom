@@ -432,6 +432,7 @@ dependencies = [
  "nanoserde",
  "render-soft",
  "render-trait",
+ "render3d",
  "sdl2",
 ]
 
@@ -440,6 +441,17 @@ name = "render-trait"
 version = "0.16.1"
 dependencies = [
  "gameplay",
+ "wad",
+]
+
+[[package]]
+name = "render3d"
+version = "0.16.1"
+dependencies = [
+ "gameplay",
+ "glam",
+ "math",
+ "render-trait",
  "wad",
 ]
 

@@ -1,20 +1,16 @@
 [package]
-name = "render-target"
+name = "render3d"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 build = "../../build.rs"
 
-[features]
-safety_check = []
-debug_draw = []
-
 [dependencies]
+glam.workspace = true
+math.workspace = true
 gameplay.workspace = true
-golem.workspace = true
-sdl2.workspace = true
-nanoserde.workspace = true
 render-trait.workspace = true
-render-soft.workspace = true
-render3d.workspace = true
+
+[dev-dependencies]
+wad.workspace = true
