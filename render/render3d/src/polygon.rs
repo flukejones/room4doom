@@ -14,6 +14,8 @@ pub enum PolygonType {
     UpperWall, // Upper texture on two-sided wall
     LowerWall, // Lower texture on two-sided wall
     Portal,    // See-through opening
+    Floor,     // Floor surface
+    Ceiling,   // Ceiling surface
 }
 
 /// Represents a 2D polygon in screen space
@@ -41,6 +43,25 @@ impl Polygon3D {
             Vec3::new(v2.x, v2.y, top_height),    // top-right
             Vec3::new(v1.x, v1.y, top_height),    // top-left
         ];
+
+        Self {
+            vertices,
+            color,
+            polygon_type,
+        }
+    }
+
+    /// Create a horizontal polygon (floor or ceiling) from a list of 2D vertices
+    pub fn from_horizontal_polygon(
+        vertices_2d: Vec<Vec2>,
+        height: f32,
+        color: [u8; 4],
+        polygon_type: PolygonType,
+    ) -> Self {
+        let vertices = vertices_2d
+            .into_iter()
+            .map(|v| Vec3::new(v.x, v.y, height))
+            .collect();
 
         Self {
             vertices,
@@ -256,5 +277,26 @@ impl PortalWindow {
         } else {
             None
         }
+    }
+
+    /// Check if a point is inside this portal window
+    pub fn contains_point(&self, point: Vec2) -> bool {
+        // Use ray casting algorithm
+        let mut inside = false;
+        let mut j = self.vertices.len() - 1;
+
+        for i in 0..self.vertices.len() {
+            let vi = self.vertices[i];
+            let vj = self.vertices[j];
+
+            if (vi.y > point.y) != (vj.y > point.y)
+                && point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x
+            {
+                inside = !inside;
+            }
+            j = i;
+        }
+
+        inside
     }
 }

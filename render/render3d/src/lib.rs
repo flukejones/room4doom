@@ -1,33 +1,11 @@
 use gameplay::{Level, MapData, MapPtr, Node, PicData, Player, Sector, Segment, SubSector};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::{PixelBuffer, PlayViewRenderer, RenderTrait};
+
 use std::f32::consts::PI;
 
 mod polygon;
 use polygon::{Polygon2D, Polygon3D, PolygonType, PortalWindow};
-
-impl PortalWindow {
-    /// Check if a point is inside this portal window
-    fn contains_point(&self, point: Vec2) -> bool {
-        // Use ray casting algorithm
-        let mut inside = false;
-        let mut j = self.vertices.len() - 1;
-
-        for i in 0..self.vertices.len() {
-            let vi = self.vertices[i];
-            let vj = self.vertices[j];
-
-            if (vi.y > point.y) != (vj.y > point.y)
-                && point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x
-            {
-                inside = !inside;
-            }
-            j = i;
-        }
-
-        inside
-    }
-}
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
@@ -260,10 +238,14 @@ impl Renderer3D {
             }
         }
 
-        // Update occlusion buffer for solid walls
+        // Update occlusion buffer for solid geometry
         if matches!(
             poly.polygon_type,
-            PolygonType::Wall | PolygonType::LowerWall | PolygonType::UpperWall
+            PolygonType::Wall
+                | PolygonType::LowerWall
+                | PolygonType::UpperWall
+                | PolygonType::Floor
+                | PolygonType::Ceiling
         ) {
             if let Some((min, max)) = poly.bounds() {
                 let x_start = min.x.max(0.0) as i32;
@@ -607,6 +589,63 @@ impl Renderer3D {
         (has_solid_wall, portal_window_data)
     }
 
+    /// Triangulate a subsector's floor and ceiling using simple convex polygon triangulation
+    fn triangulate_subsector_floor_ceiling(&self, segments: &[Segment]) -> Vec<Vec<Vec2>> {
+        if segments.is_empty() {
+            return Vec::new();
+        }
+
+        // Collect all unique vertices from segments
+        let mut vertices: Vec<Vec2> = Vec::new();
+        for seg in segments {
+            // Only add vertex if it's not already very close to an existing one
+            let mut found_v1 = false;
+            let mut found_v2 = false;
+
+            for &existing in &vertices {
+                if (seg.v1 - existing).length() < 1.0 {
+                    found_v1 = true;
+                }
+                if (seg.v2 - existing).length() < 1.0 {
+                    found_v2 = true;
+                }
+            }
+
+            if !found_v1 {
+                vertices.push(seg.v1);
+            }
+            if !found_v2 {
+                vertices.push(seg.v2);
+            }
+        }
+
+        if vertices.len() < 3 {
+            return Vec::new();
+        }
+
+        // Calculate centroid
+        let centroid = vertices.iter().fold(Vec2::ZERO, |acc, &v| acc + v) / vertices.len() as f32;
+
+        // Sort vertices by angle from centroid to ensure proper winding order
+        vertices.sort_by(|&a, &b| {
+            let angle_a = (a - centroid).y.atan2((a - centroid).x);
+            let angle_b = (b - centroid).y.atan2((b - centroid).x);
+            angle_a
+                .partial_cmp(&angle_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Create triangles using simple fan triangulation from first vertex
+        let mut triangles = Vec::new();
+        if vertices.len() >= 3 {
+            for i in 1..vertices.len() - 1 {
+                triangles.push(vec![vertices[0], vertices[i], vertices[i + 1]]);
+            }
+        }
+
+        triangles
+    }
+
     /// Main rendering function
     ///
     /// Rendering pipeline:
@@ -662,6 +701,80 @@ impl Renderer3D {
         let end_seg = start_seg + subsector.seg_count as usize;
 
         if let Some(segments) = map.segments().get(start_seg..end_seg) {
+            // Triangulate subsector floor and ceiling
+            let triangles = self.triangulate_subsector_floor_ceiling(segments);
+            let sector = &subsector.sector;
+
+            // Render floor triangles (always occlude)
+            let floor_color = pic_data.get_flat_average_color(sector.floorpic);
+            for triangle in &triangles {
+                let floor_poly = Polygon3D::from_horizontal_polygon(
+                    triangle.clone(),
+                    sector.floorheight,
+                    floor_color,
+                    PolygonType::Floor,
+                );
+
+                if let Some(view_poly) = floor_poly.transform(&self.view_matrix).project(
+                    &self.projection_matrix,
+                    self.width,
+                    self.height,
+                ) {
+                    // Clip to portal stack if needed
+                    let clipped_poly = if self.portal_stack.is_empty() {
+                        view_poly
+                    } else {
+                        let mut current = view_poly;
+                        for portal in &self.portal_stack {
+                            if let Some(clipped) = portal.clip_polygon(&current) {
+                                current = clipped;
+                            } else {
+                                break;
+                            }
+                        }
+                        current
+                    };
+
+                    self.draw_polygon_with_occlusion(buffer, &clipped_poly);
+                }
+            }
+
+            // Render ceiling triangles (occlude unless it's sky)
+            if sector.ceilingpic != pic_data.sky_num() {
+                let ceiling_color = pic_data.get_flat_average_color(sector.ceilingpic);
+                for triangle in &triangles {
+                    let ceiling_poly = Polygon3D::from_horizontal_polygon(
+                        triangle.clone(),
+                        sector.ceilingheight,
+                        ceiling_color,
+                        PolygonType::Ceiling,
+                    );
+
+                    if let Some(view_poly) = ceiling_poly.transform(&self.view_matrix).project(
+                        &self.projection_matrix,
+                        self.width,
+                        self.height,
+                    ) {
+                        // Clip to portal stack if needed
+                        let clipped_poly = if self.portal_stack.is_empty() {
+                            view_poly
+                        } else {
+                            let mut current = view_poly;
+                            for portal in &self.portal_stack {
+                                if let Some(clipped) = portal.clip_polygon(&current) {
+                                    current = clipped;
+                                } else {
+                                    break;
+                                }
+                            }
+                            current
+                        };
+
+                        self.draw_polygon_with_occlusion(buffer, &clipped_poly);
+                    }
+                }
+            }
+
             // First pass: render all segments and collect portal windows
             // let mut portal_data_list = Vec::new();
 

@@ -751,4 +751,63 @@ impl PicData {
             255,
         ]
     }
+
+    /// Get an average color sample from a flat using the colourmap.
+    /// This samples multiple points from the flat data and returns
+    /// the average color from the palette.
+    pub fn get_flat_average_color(&self, flat_num: usize) -> WadColour {
+        let flat = self.get_flat(flat_num);
+
+        // Sample points from the flat
+        let mut r_sum = 0u32;
+        let mut g_sum = 0u32;
+        let mut b_sum = 0u32;
+        let mut sample_count = 0u32;
+
+        // Sample evenly across the 64x64 flat
+        let sample_step = 8; // Sample every 8th pixel
+
+        for x in (0..64).step_by(sample_step) {
+            for y in (0..64).step_by(sample_step) {
+                #[cfg(not(feature = "safety_check"))]
+                unsafe {
+                    let c = flat.data.get_unchecked(y).get_unchecked(x);
+                    let cm = self.colourmap.get_unchecked(1).get_unchecked(*c);
+                    let color = self.palette().get_unchecked(*cm);
+                    r_sum += color[0] as u32;
+                    g_sum += color[1] as u32;
+                    b_sum += color[2] as u32;
+                }
+                #[cfg(feature = "safety_check")]
+                {
+                    if let Some(row) = flat.data.get(y) {
+                        if let Some(&c) = row.get(x) {
+                            if let Some(colourmap_row) = self.colourmap.get(1) {
+                                if let Some(&cm) = colourmap_row.get(c) {
+                                    if let Some(color) = self.palette().get(cm) {
+                                        r_sum += color[0] as u32;
+                                        g_sum += color[1] as u32;
+                                        b_sum += color[2] as u32;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                sample_count += 1;
+            }
+        }
+
+        if sample_count == 0 {
+            return [0, 0, 0, 0];
+        }
+
+        // Calculate average
+        [
+            (r_sum / sample_count) as u8,
+            (g_sum / sample_count) as u8,
+            (b_sum / sample_count) as u8,
+            255,
+        ]
+    }
 }
