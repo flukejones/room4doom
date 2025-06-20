@@ -32,17 +32,20 @@ pub mod tic_cmd;
 pub(crate) mod utilities;
 
 pub use doom_def::{
-    AmmoType, Card, DOOM_VERSION, GameAction, GameMission, GameMode, MAXPLAYERS, PowerType,
-    TICRATE, WEAPON_INFO, WeaponType,
+    AmmoType, Card, DOOM_VERSION, GameAction, GameMission, GameMode, MAXPLAYERS, PowerType, TICRATE, WEAPON_INFO, WeaponType
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;
 pub use info::{MapObjKind, STATES, StateNum};
 pub use lang::english;
 pub use level::Level;
+pub use level::bsp3d::{AABB, BSP3D, BSPLeaf3D, Node3D, SurfaceKind, SurfacePolygon, WallType};
 pub use level::flags::LineDefFlags;
 pub use level::map_data::MapData;
 pub use level::map_defs::{Node, Sector, Segment, SubSector};
+pub use level::portals::{Portal, Portal3D, PortalType};
+pub use level::pvs::PVS;
+pub use level::triangulation::DivLine;
 pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2};
 pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
@@ -82,13 +85,13 @@ pub struct GameOptions {
     pub skill: Skill,
     pub episode: usize,
     pub map: usize,
-    pub respawn_monsters: bool,
-    pub autostart: bool,
     pub hi_res: bool,
     pub verbose: log::LevelFilter,
+    pub respawn_monsters: bool,
+    pub autostart: bool,
     pub enable_demos: bool,
-    /// only true if packets are broadcast
     pub netgame: bool,
+    pub preprocess_pvs: bool,
 }
 
 impl Default for GameOptions {
@@ -111,6 +114,7 @@ impl Default for GameOptions {
             verbose: log::LevelFilter::Info,
             enable_demos: false,
             netgame: false,
+            preprocess_pvs: false,
         }
     }
 }

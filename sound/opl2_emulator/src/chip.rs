@@ -4,13 +4,15 @@
 //! which coordinates all the channels, operators, and global state to
 //! provide a complete FM synthesis system.
 
-use crate::{channel::synth_2percussion, *};
+use crate::channel::synth_2percussion;
+use crate::*;
 
 impl Chip {
     /// Creates a new OPL chip instance
     ///
     /// # Arguments
-    /// * `use_opl3` - Whether to enable OPL3 mode (stereo, 18 channels) or OPL2 mode (mono, 9 channels)
+    /// * `use_opl3` - Whether to enable OPL3 mode (stereo, 18 channels) or OPL2
+    ///   mode (mono, 9 channels)
     ///
     /// # Returns
     /// A new `Chip` instance initialized for the specified mode
@@ -42,10 +44,11 @@ impl Chip {
         self.noise_value
     }
 
-    /// Advances the LFO (Low Frequency Oscillator) and updates modulation values
+    /// Advances the LFO (Low Frequency Oscillator) and updates modulation
+    /// values
     ///
-    /// The LFO provides vibrato (frequency modulation) and tremolo (amplitude modulation)
-    /// effects that can be applied to individual operators.
+    /// The LFO provides vibrato (frequency modulation) and tremolo (amplitude
+    /// modulation) effects that can be applied to individual operators.
     ///
     /// # Arguments
     /// * `samples` - Number of samples to advance the LFO
@@ -182,17 +185,17 @@ impl Chip {
     /// * `reg` - The register address to write to
     /// * `val` - The value to write
     pub fn write_reg(&mut self, reg: u32, val: u8) {
-        match (reg & 0xf0) >> 4 {
+        match (reg & 0xF0) >> 4 {
             0x00 => {
                 if reg == 0x01 {
                     // Waveform select enable
                     self.wave_form_mask = if (val & 0x20) != 0 { 0x7 } else { 0x0 };
                 } else if reg == 0x104 {
                     // OPL3 4-operator connection control
-                    if ((self.reg104 ^ val) & 0x3f) == 0 {
+                    if ((self.reg104 ^ val) & 0x3F) == 0 {
                         return;
                     }
-                    self.reg104 = 0x80 | (val & 0x3f);
+                    self.reg104 = 0x80 | (val & 0x3F);
                 } else if reg == 0x105 {
                     // OPL3 mode enable
                     if ((self.opl3_active as u8 ^ val) & 1) == 0 {
@@ -202,7 +205,7 @@ impl Chip {
                     // Reset all channel configurations when switching modes
                     for i in 0..18 {
                         let reg_c0 = self.chan[i].reg_c0;
-                        self.chan[i].reg_c0 ^= 0xff;
+                        self.chan[i].reg_c0 ^= 0xFF;
                         let opl3_active = self.opl3_active;
                         let reg_bd = self.reg_bd;
                         self.chan[i].write_c0_direct(reg_c0, opl3_active, reg_bd);
@@ -217,7 +220,7 @@ impl Chip {
             }
             0x02 | 0x03 => {
                 // Operator registers 0x20-0x35: characteristics
-                let index = (((reg >> 3) & 0x20) | (reg & 0x1f)) as usize;
+                let index = (((reg >> 3) & 0x20) | (reg & 0x1F)) as usize;
                 let op_index = self.get_operator_index(index);
                 if let Some((ch_idx, op_idx)) = op_index {
                     if ch_idx < 18 && op_idx < 2 {
@@ -232,7 +235,7 @@ impl Chip {
             }
             0x04 | 0x05 => {
                 // Operator registers 0x40-0x55: key scale level and total level
-                let index = (((reg >> 3) & 0x20) | (reg & 0x1f)) as usize;
+                let index = (((reg >> 3) & 0x20) | (reg & 0x1F)) as usize;
                 let op_index = self.get_operator_index(index);
                 if let Some((ch_idx, op_idx)) = op_index {
                     if ch_idx < 18 && op_idx < 2 {
@@ -242,7 +245,7 @@ impl Chip {
             }
             0x06 | 0x07 => {
                 // Operator registers 0x60-0x75: attack rate and decay rate
-                let index = (((reg >> 3) & 0x20) | (reg & 0x1f)) as usize;
+                let index = (((reg >> 3) & 0x20) | (reg & 0x1F)) as usize;
                 let op_index = self.get_operator_index(index);
                 if let Some((ch_idx, op_idx)) = op_index {
                     if ch_idx < 18 && op_idx < 2 {
@@ -256,7 +259,7 @@ impl Chip {
             }
             0x08 | 0x09 => {
                 // Operator registers 0x80-0x95: sustain level and release rate
-                let index = (((reg >> 3) & 0x20) | (reg & 0x1f)) as usize;
+                let index = (((reg >> 3) & 0x20) | (reg & 0x1F)) as usize;
                 let op_index = self.get_operator_index(index);
                 if let Some((ch_idx, op_idx)) = op_index {
                     if ch_idx < 18 && op_idx < 2 {
@@ -264,9 +267,9 @@ impl Chip {
                     }
                 }
             }
-            0x0a => {
+            0x0A => {
                 // Channel registers 0xA0-0xA8: frequency low byte
-                let index = (((reg >> 4) & 0x10) | (reg & 0xf)) as usize;
+                let index = (((reg >> 4) & 0x10) | (reg & 0xF)) as usize;
                 let ch_index = self.get_channel_index(index);
                 if ch_index < 18 {
                     self.chan[ch_index].write_a0_direct(
@@ -277,13 +280,13 @@ impl Chip {
                     );
                 }
             }
-            0x0b => {
-                if reg == 0xbd {
+            0x0B => {
+                if reg == 0xBD {
                     // Rhythm mode control
                     self.write_bd(val);
                 } else {
                     // Channel registers 0xB0-0xB8: frequency high byte and key on/off
-                    let index = (((reg >> 4) & 0x10) | (reg & 0xf)) as usize;
+                    let index = (((reg >> 4) & 0x10) | (reg & 0xF)) as usize;
                     let ch_index = self.get_channel_index(index);
                     if ch_index < 18 {
                         self.chan[ch_index].write_b0_direct(
@@ -295,20 +298,20 @@ impl Chip {
                     }
                 }
             }
-            0x0c => {
+            0x0C => {
                 // Channel registers 0xC0-0xC8: feedback and connection
-                let index = (((reg >> 4) & 0x10) | (reg & 0xf)) as usize;
+                let index = (((reg >> 4) & 0x10) | (reg & 0xF)) as usize;
                 let ch_index = self.get_channel_index(index);
                 if ch_index < 18 {
                     self.chan[ch_index].write_c0_direct(val, self.opl3_active, self.reg_bd);
                 }
             }
-            0x0d => {
+            0x0D => {
                 // Unused register range
             }
-            0x0e | 0x0f => {
+            0x0E | 0x0F => {
                 // Operator registers 0xE0-0xF5: waveform select
-                let index = (((reg >> 3) & 0x20) | (reg & 0x1f)) as usize;
+                let index = (((reg >> 3) & 0x20) | (reg & 0x1F)) as usize;
                 let op_index = self.get_operator_index(index);
                 if let Some((ch_idx, op_idx)) = op_index {
                     if ch_idx < 18 && op_idx < 2 {
@@ -372,7 +375,8 @@ impl Chip {
             // Update LFO for this block
             self.forward_lfo(samples as u32);
 
-            // Process all channels using unsafe pointer manipulation to avoid borrow checker
+            // Process all channels using unsafe pointer manipulation to avoid borrow
+            // checker
             let mut ch_idx = 0;
             while ch_idx < 9 {
                 let chip_ptr = self as *mut Chip;
@@ -414,7 +418,8 @@ impl Chip {
             // Update LFO for this block
             self.forward_lfo(samples as u32);
 
-            // Process all channels using unsafe pointer manipulation to avoid borrow checker
+            // Process all channels using unsafe pointer manipulation to avoid borrow
+            // checker
             let mut ch_idx = 0;
             while ch_idx < 18 {
                 let chip_ptr = self as *mut Chip;

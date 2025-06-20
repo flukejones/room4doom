@@ -816,6 +816,10 @@ pub fn spawn_specials(level: &mut Level) {
                 StrobeFlash::spawn(sector, FASTDARK, false, level);
                 sector.special = 4;
             }
+            8 => {
+                debug!("sector-special #{}: glowing light!", sector.special);
+                Glow::spawn(sector, level);
+            }
             9 => {
                 debug!("sector-special #{}: secret", sector.special);
                 level.total_level_secrets += 1;
@@ -828,19 +832,15 @@ pub fn spawn_specials(level: &mut Level) {
                 debug!("sector-special #{}: strobe fast!", sector.special);
                 StrobeFlash::spawn(sector, FASTDARK, true, level);
             }
-            17 => {
-                debug!("sector-special #{}: fire flicker!", sector.special);
-                FireFlicker::spawn(sector, level);
-            }
-            8 => {
-                debug!("sector-special #{}: glowing light!", sector.special);
-                Glow::spawn(sector, level);
-            }
             14 => {
                 error!(
                     "sector-special #{}: P_SpawnDoorRaiseIn5Mins not implemented",
                     sector.special
                 );
+            }
+            17 => {
+                debug!("sector-special #{}: fire flicker!", sector.special);
+                FireFlicker::spawn(sector, level);
             }
             _ => {
                 // warn!(
@@ -852,6 +852,7 @@ pub fn spawn_specials(level: &mut Level) {
     }
 
     for line in level_iter.map_data.linedefs.iter_mut() {
+        // Scrolling wall
         if line.special == 48 {
             level.line_special_list.push(MapPtr::new(line));
         }

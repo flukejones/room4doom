@@ -241,7 +241,7 @@ pub struct SideDef {
     pub sector: MapPtr<Sector>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct BBox {
     pub top: f32,
     pub bottom: f32,
@@ -410,7 +410,7 @@ impl Segment {
 
     /// True if the right side of the segment faces the point
     #[inline]
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
+    pub fn is_facing_point(&self, point: Vec2) -> bool {
         let start = &self.v1;
         let end = &self.v2;
 
@@ -443,7 +443,7 @@ impl Segment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SubSector {
     pub sector: MapPtr<Sector>,
     /// How many `Segment`s line this `SubSector`
@@ -452,7 +452,7 @@ pub struct SubSector {
     pub start_seg: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     /// Where the line used for splitting the level starts
     pub xy: Vec2,

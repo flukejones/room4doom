@@ -32,6 +32,9 @@ pub enum RenderType {
     /// in memory directly to screen using SDL2
     #[default]
     Software,
+    /// 3D wireframe software renderer that displays Doom levels in true 3D
+    /// space
+    Software3D,
     /// Software framebuffer blitted to screen using OpenGL (and can use
     /// shaders)
     SoftOpenGL,
@@ -47,6 +50,7 @@ impl FromStr for RenderType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "software" => Ok(Self::Software),
+            "software3d" => Ok(Self::Software3D),
             "softopengl" => Ok(Self::SoftOpenGL),
             "cgwg" => Ok(Self::OpenGL),
             "basic" => Ok(Self::Vulkan),
@@ -62,6 +66,7 @@ impl Into<render_target::RenderApiType> for RenderType {
     fn into(self) -> render_target::RenderApiType {
         match self {
             RenderType::Software => render_target::RenderApiType::Software,
+            RenderType::Software3D => render_target::RenderApiType::Software3D,
             RenderType::SoftOpenGL => render_target::RenderApiType::SoftOpenGL,
             RenderType::OpenGL => render_target::RenderApiType::OpenGL,
             RenderType::Vulkan => render_target::RenderApiType::Vulkan,

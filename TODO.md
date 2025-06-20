@@ -1,5 +1,15 @@
 # TODO
 
+## Software 3D rendering
+
+- [ ] Masked textures with no upper
+- [ ] Sprites and clipping
+- [ ] Sky box
+- [ ] Moving geometry
+- [ ] Animated wall textures:
+  - change_switch_texture changes the sidedef. Need to add a better method (like what's used for flats)
+  - Level::line_special_list is used for scrolling walls
+
 Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to
 2. Software player view needs buffer to draw on to

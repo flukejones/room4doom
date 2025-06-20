@@ -484,7 +484,7 @@ impl WadData {
         &self,
         map_name: &str,
     ) -> OffsetIter<WadSubSector, impl Fn(usize) -> WadSubSector + '_> {
-        let info = self.find_lump_for_map_or_panic(map_name, MapLump::SSectors);
+        let info = self.find_lump_for_map_or_panic(map_name, MapLump::SubSectors);
         let item_size = 4;
 
         OffsetIter {
@@ -572,12 +572,14 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::types::*;
     use crate::wad::WadData;
 
     #[test]
     fn things_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut iter = wad.thing_iter("E1M1");
         // All verified with SLADE
 
@@ -600,7 +602,7 @@ mod tests {
 
     #[test]
     fn node_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut iter = wad.node_iter("E1M1");
         // All verified with SLADE
 
@@ -615,7 +617,7 @@ mod tests {
 
     #[test]
     fn palette_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let count = wad.playpal_iter().count();
         assert_eq!(count, 14);
 
@@ -640,7 +642,7 @@ mod tests {
 
     #[test]
     fn pnames_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut iter = wad.pnames_iter();
         // All verified with SLADE
 
@@ -658,7 +660,7 @@ mod tests {
 
     #[test]
     fn texture_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut iter = wad.texture_iter("TEXTURE1");
         // All verified with SLADE
 
@@ -682,14 +684,14 @@ mod tests {
 
     #[test]
     fn patches_doom1_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         assert_eq!(wad.patches_iter().count(), 165);
     }
 
     #[test]
     #[ignore = "doom.wad is commercial"]
     fn patches_doom_iter_commercial() {
-        let wad = WadData::new("../../doom.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom.wad"));
         assert_eq!(wad.patches_iter().count(), 351);
     }
 
@@ -697,7 +699,7 @@ mod tests {
     #[ignore = "doom2.wad is commercial"]
     fn patches_doom2_iter() {
         // W94_1 is missing in DOOM2?
-        let wad = WadData::new("../doom2.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom2.wad"));
         assert_eq!(wad.patches_iter().count(), 469);
     }
 
@@ -705,7 +707,7 @@ mod tests {
     #[ignore = "doom2.wad is commercial"]
     fn w94_1_commercial() {
         // W94_1 has incorrect capitalisation as "w94_1"
-        let wad = WadData::new("../doom2.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom2.wad"));
         let lump = wad.find_lump_or_panic("W94_1");
         assert_eq!(lump.name, "W94_1");
 
@@ -716,7 +718,7 @@ mod tests {
     #[test]
     #[ignore = "doom2.wad is commercial"]
     fn pnames_doom2_iter_commercial() {
-        let wad = WadData::new("../doom2.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom2.wad"));
         let mut iter = wad.pnames_iter();
         // All verified with SLADE
 
@@ -734,7 +736,7 @@ mod tests {
 
     #[test]
     fn patches_doom1_tex19() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let iter: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         let patch = &iter[19];
 
@@ -752,7 +754,7 @@ mod tests {
 
     #[test]
     fn colormap_iter() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut iter = wad.colourmap_iter();
         // All verified with SLADE
 
@@ -789,7 +791,7 @@ mod tests {
 
     #[test]
     fn flats_doom1() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let lump = wad.find_lump_or_panic("NUKAGE3");
         assert_eq!(lump.name, "NUKAGE3");
         assert_eq!(wad.flats_iter().count(), 54);
@@ -798,7 +800,7 @@ mod tests {
     #[ignore = "doom.wad is commercial"]
     #[test]
     fn flats_doom_commercial() {
-        let wad = WadData::new("../../doom.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom.wad"));
         let lump = wad.find_lump_or_panic("NUKAGE3");
         assert_eq!(lump.name, "NUKAGE3");
         assert_eq!(wad.flats_iter().count(), 107);
@@ -807,7 +809,7 @@ mod tests {
     #[ignore = "doom2.wad is commercial"]
     #[test]
     fn flats_doom2_commercial() {
-        let wad = WadData::new("../doom2.wad".into());
+        let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/doom2.wad"));
         let lump = wad.find_lump_or_panic("NUKAGE3");
         assert_eq!(lump.name, "NUKAGE3");
         assert_eq!(wad.flats_iter().count(), 147);

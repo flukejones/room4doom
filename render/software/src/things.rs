@@ -3,8 +3,7 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::{error, warn};
 use gameplay::{
-    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random,
-    point_to_angle_2,
+    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random, point_to_angle_2
 };
 use glam::Vec2;
 use render_trait::{PixelBuffer, RenderTrait};
