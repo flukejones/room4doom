@@ -346,6 +346,8 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         backsector: None,
         valid_count: 0,
         sides: [0, 0],
+        default_special: 0,
+        default_tag: 0,
     };
     ev_do_door(MapPtr::new(&mut junk), DoorKind::BlazeOpen, level);
 }
@@ -1022,6 +1024,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         backsector: None,
         valid_count: 0,
         sides: [0, 0],
+        default_special: 0,
+        default_tag: 0,
     };
 
     if mode == GameMode::Commercial && map == 7 {

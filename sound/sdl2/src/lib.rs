@@ -4,13 +4,14 @@
 //! It supports multiple music backends:
 //!
 //! - **SDL_mixer**: Traditional MIDI playback using TiMidity or FluidSynth
-//! - **OPL2 Emulator**: Authentic FM synthesis using the integrated OPL2 emulator
+//! - **OPL2 Emulator**: Authentic FM synthesis using the integrated OPL2
+//!   emulator
 //!
 //! ## OPL2 Support
 //!
-//! The OPL2 emulator provides authentic Yamaha YM3812 FM synthesis for music playback.
-//! This gives the most accurate reproduction of the original Doom music as it was
-//! intended to be heard on AdLib and Sound Blaster cards.
+//! The OPL2 emulator provides authentic Yamaha YM3812 FM synthesis for music
+//! playback. This gives the most accurate reproduction of the original Doom
+//! music as it was intended to be heard on AdLib and Sound Blaster cards.
 //!
 //! ### Configuration
 //!
@@ -538,13 +539,14 @@ mod tests {
     use crate::mus2midi::read_mus_to_midi;
     use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
     use sound_traits::MUS_DATA;
+    use std::path::PathBuf;
     use std::time::Duration;
     use wad::WadData;
 
     #[ignore = "CI doesn't have a sound device"]
     #[test]
     fn write_map_mus_data() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
 
         unsafe {
             #[allow(static_mut_refs)]

@@ -20,7 +20,7 @@ use crate::level::flags::LineDefFlags;
 use crate::level::map_defs::{LineDef, Sector};
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
-use crate::{Angle, MapObjFlag, MapPtr, PicData, TICRATE};
+use crate::{Angle, BSP3D, MapObjFlag, MapPtr, PicData, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
 use math::circle_line_collide;
@@ -204,7 +204,9 @@ pub fn move_plane(
     crush: bool,
     floor_or_ceiling: i32,
     direction: i32,
+    bsp3d: &mut BSP3D,
 ) -> PlaneResult {
+    let sector_num = sector.num as usize;
     match floor_or_ceiling {
         0 => {
             // FLOOR
@@ -218,9 +220,11 @@ pub fn move_plane(
                     if sector.floorheight - speed < dest {
                         let last_pos = sector.floorheight;
                         sector.floorheight = dest;
+                        bsp3d.move_floor_vertices(sector_num, dest);
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
+                            bsp3d.move_floor_vertices(sector_num, last_pos);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
@@ -228,12 +232,13 @@ pub fn move_plane(
                         // COULD GET CRUSHED
                         let last_pos = sector.floorheight;
                         sector.floorheight -= speed;
-
+                        bsp3d.move_floor_vertices(sector_num, sector.floorheight);
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
+                            bsp3d.move_floor_vertices(sector_num, last_pos);
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -248,20 +253,24 @@ pub fn move_plane(
                     if sector.floorheight + speed > dest {
                         let last_pos = sector.floorheight;
                         sector.floorheight = dest;
+                        bsp3d.move_floor_vertices(sector_num, dest);
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
+                            bsp3d.move_floor_vertices(sector_num, last_pos);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         let last_pos = sector.floorheight;
                         sector.floorheight += speed;
+                        bsp3d.move_floor_vertices(sector_num, sector.floorheight);
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
+                            bsp3d.move_floor_vertices(sector_num, last_pos);
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -282,9 +291,11 @@ pub fn move_plane(
                     if sector.ceilingheight - speed < dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
+                        bsp3d.move_ceiling_vertices(sector_num, dest);
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
+                            bsp3d.move_ceiling_vertices(sector_num, last_pos);
                             change_sector(sector.clone(), crush);
                         }
                         return PlaneResult::PastDest;
@@ -292,12 +303,14 @@ pub fn move_plane(
                         // COULD GET CRUSHED
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight -= speed;
+                        bsp3d.move_ceiling_vertices(sector_num, sector.ceilingheight);
 
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.ceilingheight = last_pos;
+                            bsp3d.move_ceiling_vertices(sector_num, last_pos);
                             change_sector(sector.clone(), crush);
                             return PlaneResult::Crushed;
                         }
@@ -312,15 +325,18 @@ pub fn move_plane(
                     if sector.ceilingheight + speed >= dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
+                        bsp3d.move_ceiling_vertices(sector_num, dest);
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
+                            bsp3d.move_ceiling_vertices(sector_num, last_pos);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         //let last_pos = sector.ceilingheight;
                         sector.ceilingheight += speed;
+                        bsp3d.move_ceiling_vertices(sector_num, sector.ceilingheight);
                         change_sector(sector, crush);
                     }
                 }
@@ -816,6 +832,10 @@ pub fn spawn_specials(level: &mut Level) {
                 StrobeFlash::spawn(sector, FASTDARK, false, level);
                 sector.special = 4;
             }
+            8 => {
+                debug!("sector-special #{}: glowing light!", sector.special);
+                Glow::spawn(sector, level);
+            }
             9 => {
                 debug!("sector-special #{}: secret", sector.special);
                 level.total_level_secrets += 1;
@@ -828,19 +848,15 @@ pub fn spawn_specials(level: &mut Level) {
                 debug!("sector-special #{}: strobe fast!", sector.special);
                 StrobeFlash::spawn(sector, FASTDARK, true, level);
             }
-            17 => {
-                debug!("sector-special #{}: fire flicker!", sector.special);
-                FireFlicker::spawn(sector, level);
-            }
-            8 => {
-                debug!("sector-special #{}: glowing light!", sector.special);
-                Glow::spawn(sector, level);
-            }
             14 => {
                 error!(
                     "sector-special #{}: P_SpawnDoorRaiseIn5Mins not implemented",
                     sector.special
                 );
+            }
+            17 => {
+                debug!("sector-special #{}: fire flicker!", sector.special);
+                FireFlicker::spawn(sector, level);
             }
             _ => {
                 // warn!(
@@ -852,6 +868,7 @@ pub fn spawn_specials(level: &mut Level) {
     }
 
     for line in level_iter.map_data.linedefs.iter_mut() {
+        // Scrolling wall
         if line.special == 48 {
             level.line_special_list.push(MapPtr::new(line));
         }

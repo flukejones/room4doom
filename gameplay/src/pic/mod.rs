@@ -39,13 +39,17 @@ const RADIATIONPAL: usize = 13;
 #[derive(Debug)]
 pub struct FlatPic {
     pub name: String,
-    pub data: [[usize; 64]; 64],
+    pub data: [usize; 64 * 64],
+    pub width: usize,
+    pub height: usize,
 }
 
 #[derive(Debug)]
 pub struct WallPic {
     pub name: String,
-    pub data: Vec<Vec<usize>>,
+    pub data: Vec<usize>,
+    pub width: usize,
+    pub height: usize,
 }
 
 #[derive(Debug)]
@@ -291,10 +295,7 @@ impl PicData {
                 print!(".");
                 skytexture = i;
             }
-            texture_alloc_size += size_of_val(&pic.name);
-            for y in &pic.data {
-                texture_alloc_size += size_of::<usize>() * y.len();
-            }
+            texture_alloc_size += size_of_val(&pic.name) + size_of::<usize>() * pic.data.len();
             if i % 64 == 0 {
                 print!(".");
             }
@@ -334,20 +335,22 @@ impl PicData {
         for (i, wf) in wad.flats_iter().enumerate() {
             let mut flat = FlatPic {
                 name: wf.name.clone(),
-                data: [[0; 64]; 64],
+                data: [0; 64 * 64],
+                width: 64,
+                height: 64,
             };
             let mut outofbounds = false;
-            for (y, col) in wf.data.chunks(64).enumerate() {
-                if y >= 64 || outofbounds {
+            for (x, col) in wf.data.chunks(64).enumerate() {
+                if x >= 64 || outofbounds {
                     outofbounds = true;
                     break;
                 }
-                for (x, px) in col.iter().enumerate() {
-                    if x >= 64 || outofbounds {
+                for (y, px) in col.iter().enumerate() {
+                    if y >= 64 || outofbounds {
                         outofbounds = true;
                         break;
                     }
-                    flat.data[x][y] = *px as usize;
+                    flat.data[x * flat.height + y] = *px as usize;
                 }
             }
             if outofbounds {
@@ -358,7 +361,7 @@ impl PicData {
             }
 
             flat_alloc_size += size_of_val(&flat.name);
-            flat_alloc_size += flat.data.len() * flat.data[0].len() * size_of::<u8>();
+            flat_alloc_size += flat.data.len() * size_of::<usize>();
             if i % 32 == 0 {
                 print!(".");
             }
@@ -376,9 +379,7 @@ impl PicData {
 
     /// Build a texture out of patches and return it
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
-        let mut compose = vec![vec![usize::MAX; texture.height as usize]; texture.width as usize];
-        let mut total_width = 0;
-        let mut total_height = 0;
+        let mut compose = vec![usize::MAX; texture.height as usize * texture.width as usize];
         for wad_tex_patch in texture.patches.iter() {
             let wad_patch = &patches[wad_tex_patch.patch_index];
             // draw patch
@@ -400,36 +401,29 @@ impl PicData {
 
                 for (y, p) in patch_column.pixels.iter().enumerate() {
                     let y_pos = y as i32 + wad_tex_patch.origin_y + patch_column.y_offset;
-                    if y_pos >= 0 && y_pos < texture.height as i32 {
-                        compose[x_pos as usize][y_pos as usize] = *p;
-                    }
-                    if y_pos > total_height {
-                        total_height = y_pos;
+                    let pos = x_pos * texture.height as i32 + y_pos;
+                    if y_pos >= 0 && pos < compose.len() as i32 {
+                        compose[pos as usize] = *p;
                     }
                 }
             }
-            if x_pos > total_width {
-                total_width = x_pos;
-            }
-        }
-        compose.truncate(total_width as usize + 1);
-        for col in compose.iter_mut() {
-            col.truncate(total_height as usize + 1);
         }
 
         debug!("Built texture: {}", &texture.name);
         WallPic {
             name: texture.name,
+            width: texture.width as usize,
+            height: texture.height as usize,
             data: compose,
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn palette(&self) -> &[WadColour] {
         &self.palettes[self.use_pallette].0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set_palette(&mut self, num: usize) {
         self.use_pallette = num.min(self.palettes.len() - 1);
     }
@@ -471,19 +465,19 @@ impl PicData {
 
     /// Get the number of the flat used for the sky texture. Sectors using this
     /// number for the flat will be rendered with the skybox.
-    #[inline]
+    #[inline(always)]
     pub const fn sky_num(&self) -> usize {
         self.sky_num
     }
 
     /// Get the index used by `get_texture()` to return a texture.
-    #[inline]
+    #[inline(always)]
     pub const fn sky_pic(&self) -> usize {
         self.sky_pic
     }
 
     /// Set the correct skybox for the map/episode currently playing
-    #[inline]
+    #[inline(always)]
     pub fn set_sky_pic(&mut self, mode: GameMode, episode: usize, map: usize) {
         if mode == GameMode::Commercial {
             self.sky_pic = self.wallpic_num_for_name("SKY3").expect("SKY3 is missing");
@@ -510,12 +504,12 @@ impl PicData {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn colourmap(&self, index: usize) -> &[usize] {
         &self.colourmap[index]
     }
 
-    #[inline]
+    #[inline(always)]
     fn colourmap_for_scale(&self, scale: f32) -> usize {
         let colourmap = if self.double_res {
             (scale * 7.9) as u32
@@ -527,6 +521,7 @@ impl PicData {
 
     /// Get the correct colourmapping for a light level. The colourmap is
     /// indexed by the Y coordinate of a texture column.
+    #[inline(always)]
     pub fn vert_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
@@ -548,7 +543,7 @@ impl PicData {
             .get_unchecked(self.light_scale[light_level.min(self.light_scale.len() - 1)][colourmap])
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn flat_light_colourmap(&self, mut light_level: usize, mut scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             #[cfg(not(feature = "safety_check"))]
@@ -575,7 +570,7 @@ impl PicData {
         &self.colourmap[self.zlight_scale[light_level][scale]]
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get_texture(&self, num: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -589,7 +584,7 @@ impl PicData {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get_flat(&self, num: usize) -> &FlatPic {
         if num >= self.flat_translation.len() || num >= self.flats.len() {
             panic!()
@@ -606,7 +601,7 @@ impl PicData {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn wallpic_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.walls.iter().enumerate() {
             if tex.name == name {
@@ -616,7 +611,7 @@ impl PicData {
         None
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn flat_num_for_name(&self, name: &str) -> Option<usize> {
         for (i, tex) in self.flats.iter().enumerate() {
             if tex.name == name {
@@ -627,7 +622,7 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
-    #[inline]
+    #[inline(always)]
     pub fn wall_pic(&self, texture: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -639,7 +634,7 @@ impl PicData {
     }
 
     /// Return a ref to the specified column of the requested texture
-    #[inline]
+    #[inline(always)]
     pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
         #[cfg(not(feature = "safety_check"))]
         let texture = unsafe {
@@ -649,22 +644,24 @@ impl PicData {
         #[cfg(feature = "safety_check")]
         let texture = &self.walls[self.wall_translation[texture]];
 
-        texture_column &= texture.data.len() - 1;
+        texture_column &= texture.width - 1;
+        let column_start = texture_column * texture.height;
+        let column_end = column_start + texture.height;
 
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            texture.data.get_unchecked(texture_column)
+            texture.data.get_unchecked(column_start..column_end)
         }
         #[cfg(feature = "safety_check")]
-        &texture.data[texture_column]
+        &texture.data[column_start..column_end]
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn num_textures(&self) -> usize {
         self.walls.len()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -674,13 +671,144 @@ impl PicData {
         &self.sprite_defs[sprite_num]
     }
 
-    #[inline]
-    pub fn sprite_patch(&self, patch_num: usize) -> &SpritePic {
+    #[inline(always)]
+    pub fn sprite_patch(&self, num: usize) -> &SpritePic {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            self.sprite_patches.get_unchecked(patch_num)
+            self.sprite_patches.get_unchecked(num)
         }
         #[cfg(feature = "safety_check")]
-        &self.sprite_patches[patch_num]
+        &self.sprite_patches[num]
+    }
+
+    /// Get an average color sample from a texture using the colourmap.
+    /// This samples multiple points from the texture data and returns
+    /// the average color from the palette.
+    pub fn get_texture_average_color(
+        &self,
+        light: usize,
+        scale: f32,
+        texture_num: usize,
+    ) -> WadColour {
+        let texture = self.get_texture(texture_num);
+
+        // Sample points from the texture
+        let mut r_sum = 0u32;
+        let mut g_sum = 0u32;
+        let mut b_sum = 0u32;
+        let mut sample_count = 0u32;
+
+        // Sample evenly across the texture
+        let width = texture.width;
+        let height = texture.height;
+
+        // Sample every few pixels to get a good average
+        let x_step = (width / 8).max(1);
+        let y_step = (height / 8).max(1);
+
+        for x in (0..width).step_by(x_step) {
+            for y in (0..height).step_by(y_step) {
+                #[cfg(not(feature = "safety_check"))]
+                unsafe {
+                    let c = texture.data.get_unchecked(x * texture.height + y);
+                    let colourmap = self.vert_light_colourmap(light, scale);
+                    // TODO: fix c being out of range of colourmap sometimes
+                    if let Some(cm) = colourmap.get(*c as usize) {
+                        if let Some(color) = self.palette().get(*cm) {
+                            r_sum += color[0] as u32;
+                            g_sum += color[1] as u32;
+                            b_sum += color[2] as u32;
+                        }
+                    }
+                }
+                #[cfg(feature = "safety_check")]
+                {
+                    if let Some(column) = texture.data.get(x) {
+                        if let Some(&c) = column.get(y) {
+                            let colourmap = self.vert_light_colourmap(light, scale);
+                            if let Some(&cm) = colourmap.get(c as usize) {
+                                if let Some(color) = self.palette().get(cm) {
+                                    r_sum += color[0] as u32;
+                                    g_sum += color[1] as u32;
+                                    b_sum += color[2] as u32;
+                                }
+                            }
+                        }
+                    }
+                }
+                sample_count += 1;
+            }
+        }
+
+        if sample_count == 0 {
+            return [0, 0, 0, 0];
+        }
+
+        // Calculate average
+        [
+            (r_sum / sample_count) as u8,
+            (g_sum / sample_count) as u8,
+            (b_sum / sample_count) as u8,
+            255,
+        ]
+    }
+
+    /// Get an average color sample from a flat using the colourmap.
+    /// This samples multiple points from the flat data and returns
+    /// the average color from the palette.
+    pub fn get_flat_average_color(&self, light: usize, scale: usize, flat_num: usize) -> WadColour {
+        let flat = self.get_flat(flat_num);
+
+        // Sample points from the flat
+        let mut r_sum = 0u32;
+        let mut g_sum = 0u32;
+        let mut b_sum = 0u32;
+        let mut sample_count = 0u32;
+
+        // Sample evenly across the 64x64 flat
+        let sample_step = 8; // Sample every 8th pixel
+
+        for x in (0..64).step_by(sample_step) {
+            for y in (0..64).step_by(sample_step) {
+                #[cfg(not(feature = "safety_check"))]
+                unsafe {
+                    let c = flat.data.get_unchecked(y * 64 + x);
+                    let cm = self.flat_light_colourmap(light, scale).get_unchecked(*c);
+                    let color = self.palette().get_unchecked(*cm);
+                    r_sum += color[0] as u32;
+                    g_sum += color[1] as u32;
+                    b_sum += color[2] as u32;
+                }
+                #[cfg(feature = "safety_check")]
+                {
+                    if let Some(row) = flat.data.get(y) {
+                        if let Some(&c) = row.get(x) {
+                            if let Some(colourmap_row) = self.colourmap.get(1) {
+                                if let Some(&cm) = colourmap_row.get(c) {
+                                    if let Some(color) = self.palette().get(cm) {
+                                        r_sum += color[0] as u32;
+                                        g_sum += color[1] as u32;
+                                        b_sum += color[2] as u32;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                sample_count += 1;
+            }
+        }
+
+        if sample_count == 0 {
+            return [0, 0, 0, 0];
+        }
+
+        // Calculate average
+        [
+            (r_sum / sample_count) as u8,
+            (g_sum / sample_count) as u8,
+            (b_sum / sample_count) as u8,
+            255,
+        ]
     }
 }

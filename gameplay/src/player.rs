@@ -5,8 +5,7 @@ use log::{debug, error, info};
 use sound_traits::SfxName;
 
 use crate::doom_def::{
-    ActFn, AmmoType, BFGCELLS, CLIP_AMMO, Card, MAX_AMMO, MAXHEALTH, MAXPLAYERS, PowerDuration,
-    PowerType, VIEWHEIGHT, WEAPON_INFO, WeaponType,
+    ActFn, AmmoType, BFGCELLS, CLIP_AMMO, Card, MAX_AMMO, MAXHEALTH, MAXPLAYERS, PowerDuration, PowerType, VIEWHEIGHT, WEAPON_INFO, WeaponType
 };
 use crate::info::{STATES, SpriteNum, StateNum};
 use crate::level::Level;

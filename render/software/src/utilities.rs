@@ -103,7 +103,7 @@ pub fn angle_to_screen(
 }
 
 /// R_PointToAngle
-pub fn vertex_angle_to_object(vertex: &Vec2, mobj: &MapObject) -> Angle {
+pub fn vertex_angle_to_object(vertex: Vec2, mobj: &MapObject) -> Angle {
     let x = vertex.x - mobj.xy.x;
     let y = vertex.y - mobj.xy.y;
     Angle::new(y.atan2(x))

@@ -204,6 +204,7 @@ impl Think for Platform {
                     platform.crush,
                     0,
                     1,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(
@@ -248,6 +249,7 @@ impl Think for Platform {
                     false,
                     0,
                     -1,
+                    &mut level.map_data.bsp_3d,
                 );
 
                 if matches!(res, PlaneResult::PastDest) {

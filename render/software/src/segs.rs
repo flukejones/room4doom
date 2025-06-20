@@ -869,7 +869,7 @@ impl SegRender {
         y_end = y_end.min(pixels.size().height_usize() - 1);
 
         let pal = pic_data.palette();
-        let tex_len = texture.data.len() - 1; // always square
+        let tex_len = texture.height - 1; // always square
         let mut pos = pixels.get_buf_index(self.rw_startx as u32 as usize, y_start);
 
         for y_slope in self.yslopes[self.look_yslope][y_start..=y_end].iter() {
@@ -887,7 +887,7 @@ impl SegRender {
 
             #[cfg(not(feature = "safety_check"))]
             unsafe {
-                let tc = *texture.data.get_unchecked(x_step).get_unchecked(y_step);
+                let tc = texture.data[x_step * texture.height + y_step];
                 let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
                 pixels
                     .buf_mut()

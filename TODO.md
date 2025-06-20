@@ -1,5 +1,19 @@
 # TODO
 
+## Software 3D rendering
+
+- [X] Masked textures with no upper
+- [ ] Sprites and clipping
+- [ ] Sky box
+- [ ] Peg textures to vertex (such as peg bottom of door texture to door bottom vertexes)
+- [-] Moving geometry
+  - [ ] Some glitches where some vertexes are not correctly unlinked. Such as
+        where a sector 1 floor is equal to sector 2 ceiling
+- [ ] Vertex float precision?
+- [ ] Animated wall textures:
+  - change_switch_texture changes the sidedef. Need to add a better method (like what's used for flats)
+  - Level::line_special_list is used for scrolling walls
+
 Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to
 2. Software player view needs buffer to draw on to

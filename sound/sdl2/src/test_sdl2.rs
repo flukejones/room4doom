@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use sound_traits::{SfxName, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
@@ -6,7 +8,7 @@ use crate::{MusicType, Snd};
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_weapons_snd() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::Timidity).unwrap();
@@ -59,7 +61,7 @@ fn play_weapons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_demons_snd() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::Timidity).unwrap();
@@ -104,7 +106,7 @@ fn play_demons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_music() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::OPL2).unwrap();
@@ -127,7 +129,7 @@ fn play_music() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_opl2_music() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::OPL2).unwrap();
