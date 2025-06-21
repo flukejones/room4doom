@@ -268,6 +268,13 @@ pub struct PortalWindow {
 }
 
 impl PortalWindow {
+    /// Create from a screen-space polygon
+    pub fn from_polygon(poly: &Polygon2D) -> Self {
+        Self {
+            vertices: poly.vertices.clone(),
+        }
+    }
+
     /// Clip a polygon to this portal window
     pub fn clip_polygon(&self, poly: &Polygon2D) -> Option<Polygon2D> {
         let mut output_vertices = poly.vertices.clone();

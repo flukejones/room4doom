@@ -760,35 +760,34 @@ impl Renderer3D {
             }
 
             // First pass: render all segments and collect portal windows
-            // let mut portal_data_list = Vec::new();
-
+            let mut portal_data_list = Vec::new();
             for seg in segments {
                 // TODO: Do we still need this portal stack stuff?
                 // Render the segment (solid walls only) and get portal window if any
-                let (_, _portal_data) = self.render_segment(buffer, seg, player_pos, pic_data);
+                let (_, portal_data) = self.render_segment(buffer, seg, player_pos, pic_data);
 
                 // If this segment has a portal window, save it for recursive rendering
-                // if let Some((portal_poly, back_sector)) = portal_data {
-                //     portal_data_list.push((portal_poly, back_sector));
-                // }
+                if let Some((portal_poly, back_sector)) = portal_data {
+                    portal_data_list.push((portal_poly, back_sector));
+                }
             }
 
             // Second pass: recursively render through portals
-            // for (portal_poly, _back_sector) in portal_data_list {
-            //     if self.portal_stack.len() < 4 {
-            //         // Limit recursion depth
-            //         // Add this portal to the stack
-            //         let portal_window = PortalWindow::from_polygon(&portal_poly);
-            //         self.portal_stack.push(portal_window);
+            for (portal_poly, _back_sector) in portal_data_list {
+                if self.portal_stack.len() < 4 {
+                    // Limit recursion depth
+                    // Add this portal to the stack
+                    let portal_window = PortalWindow::from_polygon(&portal_poly);
+                    self.portal_stack.push(portal_window);
 
-            //         // Recursively render through the portal using BSP traversal
-            //         // This ensures proper depth ordering
-            //         self.render_bsp_node(map, buffer, 0, player_pos);
+                    // Recursively render through the portal using BSP traversal
+                    // This ensures proper depth ordering
+                    self.render_bsp_node(map, buffer, 0, player_pos, pic_data);
 
-            //         // Remove this portal from the stack
-            //         self.portal_stack.pop();
-            //     }
-            // }
+                    // Remove this portal from the stack
+                    self.portal_stack.pop();
+                }
+            }
         }
     }
 
