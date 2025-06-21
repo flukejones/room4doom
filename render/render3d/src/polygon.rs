@@ -6,7 +6,6 @@ pub enum PolygonType {
     Wall,      // Solid wall (one-sided)
     UpperWall, // Upper texture on two-sided wall
     LowerWall, // Lower texture on two-sided wall
-    Portal,    // See-through opening
     Floor,     // Floor surface
     Ceiling,   // Ceiling surface
 }

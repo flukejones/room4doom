@@ -31,6 +31,7 @@ use self::map_defs::LineDef;
 /// it makes it easier for all involved thinkers and functions to
 /// work with the data, as much of it is interlinked.
 pub struct Level {
+    pub map_name: String,
     /// All the data required to build and display a level
     pub map_data: MapData,
     /// Thinkers are objects that are not static, like enemies, switches,
@@ -117,6 +118,7 @@ impl Level {
         // G_CheckSpot
 
         Level {
+            map_name: String::new(),
             map_data,
             thinkers: unsafe { ThinkerAlloc::new(0) },
             options,
@@ -211,6 +213,7 @@ impl Level {
         self.sky_num = pic_data.sky_num();
 
         self.map_data.load(map_name, pic_data, wad_data);
+        self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;
         unsafe {

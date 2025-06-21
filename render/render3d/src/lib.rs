@@ -1,4 +1,4 @@
-use gameplay::{Level, MapData, MapPtr, Node, PicData, Player, Sector, Segment, SubSector};
+use gameplay::{Level, MapData, Node, PicData, Player, Segment, SubSector};
 use glam::{Mat4, Vec2, Vec3};
 use render_trait::PixelBuffer;
 
@@ -13,34 +13,27 @@ use crate::polygon::segment_to_polygons;
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
-/// A 3D software renderer for Doom levels.
-///
-/// This renderer displays the level geometry in true 3D space,
-/// showing floors, ceilings, walls, and portal connections with different colors.
-pub struct Renderer3D {
-    width: u32,
-    height: u32,
-    fov: f32,
-    view_matrix: Mat4,
-    projection_matrix: Mat4,
-
-    occlusion_buffer: OcclusionBuffer,
-
-    bsp_polygon_generator: BSPPolygons,
-    render_filled: bool,
-}
-
 /// Tracks occlusion using horizontal spans
 #[derive(Clone, Debug)]
 struct OcclusionBuffer {
     /// For each X column, track multiple occluded spans to handle portals
     spans: Vec<Vec<(f32, f32)>>, // List of (top_y, bottom_y) spans per column
+    /// Pre-allocated temporary buffer for merging spans
+    merge_buffer: Vec<(f32, f32)>,
 }
 
 impl OcclusionBuffer {
     fn new(width: usize) -> Self {
         Self {
-            spans: vec![Vec::new(); width],
+            spans: vec![Vec::with_capacity(16); width], // Pre-allocate some capacity
+            merge_buffer: Vec::with_capacity(32),       // Pre-allocate merge buffer
+        }
+    }
+
+    /// Reset the buffer for reuse without reallocation
+    fn reset(&mut self) {
+        for spans in self.spans.iter_mut() {
+            spans.clear();
         }
     }
 
@@ -68,7 +61,9 @@ impl OcclusionBuffer {
         // Merge overlapping spans
         if self.spans[x].len() > 1 {
             self.spans[x].sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            let mut merged = Vec::new();
+
+            // Reuse the pre-allocated merge buffer
+            self.merge_buffer.clear();
             let mut current = self.spans[x][0];
 
             for &(t, b) in &self.spans[x][1..] {
@@ -77,12 +72,14 @@ impl OcclusionBuffer {
                     current.1 = current.1.max(b);
                 } else {
                     // Non-overlapping span - save current and start new
-                    merged.push(current);
+                    self.merge_buffer.push(current);
                     current = (t, b);
                 }
             }
-            merged.push(current);
-            self.spans[x] = merged;
+            self.merge_buffer.push(current);
+
+            // Swap with the original buffer to avoid allocation
+            std::mem::swap(&mut self.spans[x], &mut self.merge_buffer);
         }
     }
 
@@ -98,6 +95,23 @@ impl OcclusionBuffer {
         }
         false
     }
+}
+
+/// A 3D software renderer for Doom levels.
+///
+/// This renderer displays the level geometry in true 3D space,
+/// showing floors, ceilings, walls with different colors.
+pub struct Renderer3D {
+    width: u32,
+    height: u32,
+    fov: f32,
+    view_matrix: Mat4,
+    projection_matrix: Mat4,
+    occlusion_buffer: OcclusionBuffer,
+    intersection_buffer: Vec<f32>,
+    map_name: String,
+    bsp_polygon_generator: BSPPolygons,
+    render_filled: bool,
 }
 
 impl Renderer3D {
@@ -120,6 +134,8 @@ impl Renderer3D {
             view_matrix: Mat4::IDENTITY,
             projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
             occlusion_buffer: OcclusionBuffer::new(width as usize),
+            intersection_buffer: Vec::with_capacity(256), // Pre-allocate for polygon intersections
+            map_name: String::new(),
             bsp_polygon_generator: BSPPolygons::new(),
             render_filled: true, // Default to filled mode
         }
@@ -135,6 +151,10 @@ impl Renderer3D {
         self.projection_matrix = Mat4::perspective_rh_gl(self.fov, aspect, near, far);
         // Resize occlusion buffer
         self.occlusion_buffer = OcclusionBuffer::new(width as usize);
+        // Ensure intersection buffer has capacity
+        if self.intersection_buffer.capacity() < 256 {
+            self.intersection_buffer = Vec::with_capacity(256);
+        }
     }
 
     /// Sets the field of view and updates the projection matrix.
@@ -172,8 +192,9 @@ impl Renderer3D {
     }
 
     /// Draw polygon with span-based occlusion
-    /// Draw polygon with occlusion checking
     fn draw_polygon_with_occlusion(&mut self, buffer: &mut impl PixelBuffer, poly: &Polygon2D) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_polygon_with_occlusion");
         if self.render_filled {
             // Draw filled polygon
             self.draw_filled_polygon(buffer, poly);
@@ -185,7 +206,6 @@ impl Renderer3D {
 
                 // Clip line to screen bounds
                 if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
-                    // Draw the line with occlusion checking
                     self.draw_line_with_occlusion(buffer, clipped_v1, clipped_v2, poly.color);
                 }
             }
@@ -215,12 +235,11 @@ impl Renderer3D {
                             let v1 = poly.vertices[i];
                             let v2 = poly.vertices[(i + 1) % poly.vertices.len()];
 
-                            if (v1.x <= x as f32 && v2.x >= x as f32)
-                                || (v2.x <= x as f32 && v1.x >= x as f32)
-                            {
+                            let xf = x as f32;
+                            if (v1.x <= xf && v2.x >= xf) || (v2.x <= xf && v1.x >= xf) {
                                 // Edge crosses this X column
                                 let t = if (v2.x - v1.x).abs() > 0.001 {
-                                    (x as f32 - v1.x) / (v2.x - v1.x)
+                                    (xf - v1.x) / (v2.x - v1.x)
                                 } else {
                                     0.5
                                 };
@@ -239,6 +258,8 @@ impl Renderer3D {
 
     /// Draw filled polygon using scanline algorithm
     fn draw_filled_polygon(&mut self, buffer: &mut impl PixelBuffer, poly: &Polygon2D) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_filled_polygon");
         if poly.vertices.len() < 3 {
             return;
         }
@@ -250,7 +271,8 @@ impl Renderer3D {
 
             // Scanline fill
             for y in y_start..=y_end {
-                let mut intersections = Vec::new();
+                // Reuse our pre-allocated intersection buffer
+                self.intersection_buffer.clear();
 
                 // Find intersections with polygon edges at this scanline
                 for i in 0..poly.vertices.len() {
@@ -264,28 +286,26 @@ impl Renderer3D {
                         // Calculate intersection point
                         let t = (y as f32 - v1.y) / (v2.y - v1.y);
                         let x = v1.x + (v2.x - v1.x) * t;
-                        intersections.push(x);
+                        self.intersection_buffer.push(x);
                     }
                 }
 
                 // Sort intersections and fill between pairs
-                intersections.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                self.intersection_buffer
+                    .sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-                for chunk in intersections.chunks(2) {
-                    if chunk.len() == 2 {
-                        let x_start = chunk[0].max(0.0) as i32;
-                        let x_end = chunk[1].min(self.width as f32 - 1.0) as i32;
+                // Process pairs of intersections
+                let mut i = 0;
+                while i + 1 < self.intersection_buffer.len() {
+                    let x_start = self.intersection_buffer[i].max(0.0) as i32;
+                    let x_end = self.intersection_buffer[i + 1].min(self.width as f32 - 1.0) as i32;
+                    i += 2;
 
-                        for x in x_start..=x_end {
-                            if x >= 0 && y >= 0 && x < self.width as i32 && y < self.height as i32 {
-                                let x_idx = x as usize;
-                                if x_idx < self.occlusion_buffer.spans.len() {
-                                    // Only draw if pixel is not occluded
-                                    if !self.occlusion_buffer.is_point_occluded(x_idx, y as f32) {
-                                        buffer.set_pixel(x as usize, y as usize, &poly.color);
-                                    }
-                                }
-                            }
+                    for x in x_start..=x_end {
+                        let x_idx = x as usize;
+                        // Only draw if pixel is not occluded
+                        if !self.occlusion_buffer.is_point_occluded(x_idx, y as f32) {
+                            buffer.set_pixel(x_idx, y as usize, &poly.color);
                         }
                     }
                 }
@@ -465,23 +485,20 @@ impl Renderer3D {
     ///
     /// If back.floor > front.floor, draw a step up
     /// If back.ceiling < front.ceiling, draw overhead geometry
-    /// Returns (has_solid_wall, optional_portal_data)
     fn render_segment(
         &mut self,
         buffer: &mut impl PixelBuffer,
         seg: &Segment,
         player_pos: Vec2,
         pic_data: &mut PicData,
-    ) -> (bool, Option<(Polygon2D, MapPtr<Sector>)>) {
+    ) {
         // Skip back-facing segments for performance
         if self.is_segment_front_facing(seg, player_pos) {
-            return (false, None);
+            return;
         }
 
         // Convert segment to 3D polygons
         let polygons = segment_to_polygons(seg, pic_data);
-
-        let mut has_solid_wall = false;
 
         // First pass: render solid polygons
         for poly in polygons {
@@ -509,52 +526,8 @@ impl Renderer3D {
             ) {
                 // Draw polygon with occlusion
                 self.draw_polygon_with_occlusion(buffer, &screen_poly);
-
-                if matches!(
-                    screen_poly.polygon_type,
-                    PolygonType::Wall | PolygonType::LowerWall | PolygonType::UpperWall
-                ) {
-                    has_solid_wall = true;
-                }
             }
         }
-
-        // Second pass: compute portal windows for recursive rendering
-        let mut portal_window_data = None;
-
-        if let Some(back_sector) = &seg.backsector {
-            let front_floor = seg.frontsector.floorheight;
-            let front_ceiling = seg.frontsector.ceilingheight;
-            let back_floor = back_sector.floorheight;
-            let back_ceiling = back_sector.ceilingheight;
-
-            let portal_bottom = front_floor.max(back_floor);
-            let portal_top = front_ceiling.min(back_ceiling);
-
-            if portal_top > portal_bottom {
-                // Create portal window polygon for clipping only
-                let portal_poly = Polygon3D::from_wall_segment(
-                    seg.v1,
-                    seg.v2,
-                    portal_bottom,
-                    portal_top,
-                    [0, 0, 0, 0], // Invisible - not for drawing
-                    PolygonType::Portal,
-                );
-
-                // Transform and project to screen
-                let view_poly = portal_poly.transform(&self.view_matrix);
-                if let Some(screen_poly) = view_poly.project(
-                    &self.projection_matrix,
-                    self.width as f32,
-                    self.height as f32,
-                ) {
-                    portal_window_data = Some((screen_poly, back_sector.clone()));
-                }
-            }
-        }
-
-        (has_solid_wall, portal_window_data)
     }
 
     /// Get pre-triangulated subsector floor/ceiling data
@@ -580,20 +553,19 @@ impl Renderer3D {
         pic_data: &mut PicData,
         buffer: &mut impl PixelBuffer,
     ) {
-        // Update camera transformation matrix
         self.update_view_matrix(player);
-
-        // Clear screen to black
+        // TODO: make this an option
         buffer.clear_with_colour(&[0, 0, 0, 255]);
 
-        // Generate BSP polygons for all subsectors (once per frame)
-        self.bsp_polygon_generator
-            .generate_polygons(&level.map_data);
+        // Generate BSP polygons for all subsectors (once)
+        if self.map_name != level.map_name {
+            self.bsp_polygon_generator
+                .generate_polygons(&level.map_data);
+            self.map_name = level.map_name.clone();
+        }
 
-        // Reset occlusion buffer, portal stack and stats
-        self.occlusion_buffer = OcclusionBuffer::new(self.width as usize);
+        self.occlusion_buffer.reset();
 
-        // Get player position for front-face culling
         let player_pos = if let Some(mobj) = player.mobj() {
             mobj.xy
         } else {
@@ -610,8 +582,7 @@ impl Renderer3D {
         );
     }
 
-    /// Render subsector with portal support
-    fn render_subsector_with_portals(
+    fn render_subsector(
         &mut self,
         map: &MapData,
         buffer: &mut impl PixelBuffer,
@@ -689,9 +660,7 @@ impl Renderer3D {
                 }
             }
 
-            // First pass: render all segments and collect portal windows
             for seg in segments {
-                // TODO: Do we still need this portal stack stuff?
                 self.render_segment(buffer, seg, player_pos, pic_data);
             }
         }
@@ -728,7 +697,7 @@ impl Renderer3D {
 
             if subsector_id < map.subsectors().len() {
                 let subsector = &map.subsectors()[subsector_id];
-                self.render_subsector_with_portals(map, buffer, subsector, player_pos, pic_data);
+                self.render_subsector(map, buffer, subsector, player_pos, pic_data);
             }
             return;
         }
