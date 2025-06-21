@@ -45,6 +45,50 @@ impl OcclusionBuffer {
         false
     }
 
+    /// Get the visible (non-occluded) spans for a column within a given Y range
+    /// Returns a list of (top, bottom) pairs representing visible regions
+    pub fn get_visible_spans(&self, x: usize, y_min: f32, y_max: f32) -> Vec<(f32, f32)> {
+        if x >= self.spans.len() || y_min >= y_max {
+            return vec![(y_min, y_max)];
+        }
+
+        let occluded = &self.spans[x];
+        if occluded.is_empty() {
+            return vec![(y_min, y_max)];
+        }
+
+        let mut visible = Vec::new();
+        let mut current_y = y_min;
+
+        // Iterate through occluded spans and find gaps
+        for &(occ_top, occ_bottom) in occluded {
+            // Skip occluded spans that don't overlap our range
+            if occ_bottom < y_min || occ_top > y_max {
+                continue;
+            }
+
+            // If there's a gap before this occluded span, it's visible
+            if current_y < occ_top && current_y < y_max {
+                visible.push((current_y, occ_top.min(y_max)));
+            }
+
+            // Update current position to after the occluded span
+            current_y = occ_bottom.max(current_y);
+
+            // If we've passed the end of our range, we're done
+            if current_y >= y_max {
+                break;
+            }
+        }
+
+        // If there's still visible space at the end
+        if current_y < y_max {
+            visible.push((current_y, y_max));
+        }
+
+        visible
+    }
+
     /// Begin collecting spans for a new polygon
     pub fn begin_polygon(&mut self) {
         // Clear temporary polygon spans
@@ -205,5 +249,42 @@ mod tests {
         assert!(!buffer.is_point_occluded(5, 15.0)); // Outside polygon
         assert!(buffer.is_point_occluded(15, 15.0)); // Inside polygon
         assert!(!buffer.is_point_occluded(25, 15.0)); // Outside polygon
+    }
+
+    #[test]
+    fn test_get_visible_spans() {
+        let mut buffer = OcclusionBuffer::new(100, 100);
+
+        // Test with no occlusion
+        let visible = buffer.get_visible_spans(15, 0.0, 100.0);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0], (0.0, 100.0));
+
+        // Add occluded region from 20-40
+        buffer.add_polygon_span(15, 20.0, 40.0);
+        buffer.merge_polygon_spans();
+
+        // Check visible spans
+        let visible = buffer.get_visible_spans(15, 0.0, 100.0);
+        assert_eq!(visible.len(), 2);
+        assert_eq!(visible[0], (0.0, 20.0));
+        assert_eq!(visible[1], (40.0, 100.0));
+
+        // Add another occluded region from 60-80
+        buffer.begin_polygon();
+        buffer.add_polygon_span(15, 60.0, 80.0);
+        buffer.merge_polygon_spans();
+
+        // Check visible spans with multiple occlusions
+        let visible = buffer.get_visible_spans(15, 0.0, 100.0);
+        assert_eq!(visible.len(), 3);
+        assert_eq!(visible[0], (0.0, 20.0));
+        assert_eq!(visible[1], (40.0, 60.0));
+        assert_eq!(visible[2], (80.0, 100.0));
+
+        // Test partial range query
+        let visible = buffer.get_visible_spans(15, 30.0, 70.0);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0], (40.0, 60.0));
     }
 }
