@@ -26,6 +26,7 @@ pub struct Renderer3D {
 
     occlusion_buffer: OcclusionBuffer,
 
+    map_name: String,
     portal_stack: Vec<PortalWindow>,
     bsp_polygon_generator: BSPPolygons,
     render_filled: bool,
@@ -122,6 +123,7 @@ impl Renderer3D {
             projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
             occlusion_buffer: OcclusionBuffer::new(width as usize),
             portal_stack: Vec::new(),
+            map_name: String::new(),
             bsp_polygon_generator: BSPPolygons::new(),
             render_filled: true, // Default to filled mode
         }
@@ -625,9 +627,12 @@ impl Renderer3D {
         // Clear screen to black
         buffer.clear_with_colour(&[0, 0, 0, 255]);
 
-        // Generate BSP polygons for all subsectors (once per frame)
-        self.bsp_polygon_generator
-            .generate_polygons(&level.map_data);
+        // Generate BSP polygons for all subsectors (once)
+        if self.map_name != level.map_name {
+            self.bsp_polygon_generator
+                .generate_polygons(&level.map_data);
+            self.map_name = level.map_name.clone();
+        }
 
         // Reset occlusion buffer, portal stack and stats
         self.occlusion_buffer = OcclusionBuffer::new(self.width as usize);
