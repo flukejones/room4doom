@@ -9,6 +9,7 @@ build = "../../build.rs"
 [features]
 safety_check = []
 debug_draw = []
+hprof = ["render-soft/hprof", "render3d/hprof"]
 
 [dependencies]
 gameplay.workspace = true

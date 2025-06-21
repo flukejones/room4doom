@@ -1,15 +1,6 @@
 use gameplay::{PicData, Segment};
 use glam::{Vec2, Vec3, Vec4};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PolygonType {
-    Wall,      // Solid wall (one-sided)
-    UpperWall, // Upper texture on two-sided wall
-    LowerWall, // Lower texture on two-sided wall
-    Floor,     // Floor surface
-    Ceiling,   // Ceiling surface
-}
-
 /// Convert a segment into 3D polygons based on floor/ceiling heights
 pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> {
     let mut polygons = Vec::new();
@@ -39,7 +30,6 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
                 } else {
                     [128, 128, 128, 255]
                 }, // Gray
-                PolygonType::LowerWall,
             ));
         }
 
@@ -55,7 +45,6 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
                 } else {
                     [64, 64, 64, 255]
                 }, // Dark gray
-                PolygonType::UpperWall,
             ));
         }
 
@@ -73,7 +62,6 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
             } else {
                 [255, 255, 255, 255]
             }, // White for solid walls
-            PolygonType::Wall,
         ));
     }
 
@@ -85,7 +73,6 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
 pub struct Polygon3D {
     pub vertices: Vec<Vec3>,
     pub color: [u8; 4],
-    pub polygon_type: PolygonType,
 }
 
 impl Polygon3D {
@@ -97,7 +84,6 @@ impl Polygon3D {
         bottom_height: f32,
         top_height: f32,
         color: [u8; 4],
-        polygon_type: PolygonType,
     ) -> Self {
         let vertices = vec![
             Vec3::new(v1.x, v1.y, bottom_height), // bottom-left
@@ -106,11 +92,7 @@ impl Polygon3D {
             Vec3::new(v1.x, v1.y, top_height),    // top-left
         ];
 
-        Self {
-            vertices,
-            color,
-            polygon_type,
-        }
+        Self { vertices, color }
     }
 
     /// Transform polygon to view space
@@ -124,7 +106,6 @@ impl Polygon3D {
         Self {
             vertices,
             color: self.color,
-            polygon_type: self.polygon_type,
         }
     }
 
@@ -223,7 +204,6 @@ impl Polygon3D {
             Some(Polygon2D {
                 vertices: screen_vertices,
                 color: self.color,
-                polygon_type: self.polygon_type,
             })
         } else {
             None
@@ -236,7 +216,6 @@ impl Polygon3D {
 pub struct Polygon2D {
     pub vertices: Vec<Vec2>,
     pub color: [u8; 4],
-    pub polygon_type: PolygonType,
 }
 
 impl Polygon2D {

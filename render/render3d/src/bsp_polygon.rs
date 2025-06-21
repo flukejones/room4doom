@@ -276,29 +276,11 @@ impl BSPPolygons {
         }
     }
 
-    /// Get the generated polygon for a subsector
-    pub fn get_subsector_polygon(&self, subsector_id: usize) -> Option<&[Vec2]> {
-        self.subsector_polygons
-            .get(subsector_id)
-            .map(|v| v.as_slice())
-    }
-
     /// Get the triangulated data for a subsector (for floor/ceiling rendering)
     pub fn get_subsector_triangles(&self, subsector_id: usize) -> Option<&[Triangle]> {
         self.subsector_triangles
             .get(subsector_id)
             .map(|v| v.as_slice())
-    }
-
-    /// Get all generated polygons
-    pub fn get_all_polygons(&self) -> &[Vec<Vec2>] {
-        &self.subsector_polygons
-    }
-
-    /// Clear all generated polygons (for memory management)
-    pub fn clear(&mut self) {
-        self.subsector_polygons.clear();
-        self.subsector_triangles.clear();
     }
 
     /// Triangulate a subsector polygon into triangles using fan triangulation

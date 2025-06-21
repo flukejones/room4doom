@@ -448,6 +448,7 @@ dependencies = [
 name = "render3d"
 version = "0.16.1"
 dependencies = [
+ "coarse-prof",
  "gameplay",
  "glam",
  "math",
