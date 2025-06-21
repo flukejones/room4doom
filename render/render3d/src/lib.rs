@@ -1,28 +1,34 @@
 use gameplay::{Level, MapData, MapPtr, Node, PicData, Player, Sector, Segment, SubSector};
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use render_trait::{PixelBuffer, PlayViewRenderer, RenderTrait};
+use render_trait::PixelBuffer;
 
 use std::f32::consts::PI;
 
+mod bsp_polygon;
 mod polygon;
+use bsp_polygon::{BSPPolygons, Triangle};
 use polygon::{Polygon2D, Polygon3D, PolygonType, PortalWindow};
+
+use crate::polygon::segment_to_polygons;
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
-/// A 3D wireframe renderer for Doom levels.
+/// A 3D software renderer for Doom levels.
 ///
-/// This renderer displays the level geometry as wireframes in true 3D space,
+/// This renderer displays the level geometry in true 3D space,
 /// showing floors, ceilings, walls, and portal connections with different colors.
 pub struct Renderer3D {
-    width: f32,
-    height: f32,
+    width: u32,
+    height: u32,
     fov: f32,
     view_matrix: Mat4,
     projection_matrix: Mat4,
-    /// Tracks occlusion using spans
+
     occlusion_buffer: OcclusionBuffer,
-    /// Stack of portal windows for recursive portal rendering
+
     portal_stack: Vec<PortalWindow>,
+    bsp_polygon_generator: BSPPolygons,
+    render_filled: bool,
 }
 
 /// Tracks occlusion using horizontal spans
@@ -108,23 +114,23 @@ impl Renderer3D {
         let near = 0.1;
         let far = 10000.0;
 
-        let projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
-
         Self {
-            width,
-            height,
+            width: width as u32,
+            height: height as u32,
             fov,
             view_matrix: Mat4::IDENTITY,
-            projection_matrix,
+            projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
             occlusion_buffer: OcclusionBuffer::new(width as usize),
             portal_stack: Vec::new(),
+            bsp_polygon_generator: BSPPolygons::new(),
+            render_filled: true, // Default to filled mode
         }
     }
 
     /// Resizes the renderer viewport and updates the projection matrix.
     pub fn resize(&mut self, width: f32, height: f32) {
-        self.width = width;
-        self.height = height;
+        self.width = width as u32;
+        self.height = height as u32;
         let aspect = width / height;
         let near = 0.1;
         let far = 10000.0;
@@ -136,10 +142,20 @@ impl Renderer3D {
     /// Sets the field of view and updates the projection matrix.
     pub fn set_fov(&mut self, fov: f32) {
         self.fov = fov;
-        let aspect = self.width / self.height;
+        let aspect = self.width as f32 / self.height as f32;
         let near = 0.1;
         let far = 10000.0;
         self.projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
+    }
+
+    /// Set whether to render filled polygons or wireframes
+    pub fn set_render_filled(&mut self, filled: bool) {
+        self.render_filled = filled;
+    }
+
+    /// Get current rendering mode
+    pub fn is_render_filled(&self) -> bool {
+        self.render_filled
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -157,84 +173,23 @@ impl Renderer3D {
         }
     }
 
-    /// Convert a segment into 3D polygons based on floor/ceiling heights
-    fn segment_to_polygons(&self, seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> {
-        let mut polygons = Vec::new();
-
-        let v1 = seg.v1;
-        let v2 = seg.v2;
-        let front_floor = seg.frontsector.floorheight;
-        let front_ceiling = seg.frontsector.ceilingheight;
-
-        if let Some(back_sector) = &seg.backsector {
-            // Two-sided line - may have upper wall, lower wall, and portal
-            let back_floor = back_sector.floorheight;
-            let back_ceiling = back_sector.ceilingheight;
-
-            // Lower wall (step up) - if back floor is higher than front floor
-            if back_floor > front_floor {
-                polygons.push(Polygon3D::from_wall_segment(
-                    v1,
-                    v2,
-                    front_floor,
-                    back_floor,
-                    if let Some(t) = seg.sidedef.bottomtexture {
-                        pic_data.get_texture_average_color(t)
-                    } else {
-                        [128, 128, 128, 255]
-                    }, // Gray
-                    PolygonType::LowerWall,
-                ));
-            }
-
-            // Upper wall (overhead) - if back ceiling is lower than front ceiling
-            if back_ceiling < front_ceiling {
-                polygons.push(Polygon3D::from_wall_segment(
-                    v1,
-                    v2,
-                    back_ceiling,
-                    front_ceiling,
-                    if let Some(t) = seg.sidedef.toptexture {
-                        pic_data.get_texture_average_color(t)
-                    } else {
-                        [64, 64, 64, 255]
-                    }, // Dark gray
-                    PolygonType::UpperWall,
-                ));
-            }
-
-            // Portal opening - no polygon needed, just used for clipping
-            // The portal area is defined by the gap between upper and lower walls
-        } else {
-            // One-sided line - solid wall from floor to ceiling
-            polygons.push(Polygon3D::from_wall_segment(
-                v1,
-                v2,
-                front_floor,
-                front_ceiling,
-                if let Some(t) = seg.sidedef.midtexture {
-                    pic_data.get_texture_average_color(t)
-                } else {
-                    [255, 255, 255, 255]
-                }, // White for solid walls
-                PolygonType::Wall,
-            ));
-        }
-
-        polygons
-    }
-
     /// Draw polygon with span-based occlusion
+    /// Draw polygon with occlusion checking
     fn draw_polygon_with_occlusion(&mut self, buffer: &mut impl PixelBuffer, poly: &Polygon2D) {
-        // Draw each edge of the polygon
-        for i in 0..poly.vertices.len() {
-            let v1 = poly.vertices[i];
-            let v2 = poly.vertices[(i + 1) % poly.vertices.len()];
+        if self.render_filled {
+            // Draw filled polygon
+            self.draw_filled_polygon(buffer, poly);
+        } else {
+            // Draw polygon as wireframe (edge-only)
+            for i in 0..poly.vertices.len() {
+                let v1 = poly.vertices[i];
+                let v2 = poly.vertices[(i + 1) % poly.vertices.len()];
 
-            // Clip line to screen bounds
-            if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
-                // Draw the line with occlusion checking
-                self.draw_line_with_occlusion(buffer, clipped_v1, clipped_v2, poly.color);
+                // Clip line to screen bounds
+                if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
+                    // Draw the line with occlusion checking
+                    self.draw_line_with_occlusion(buffer, clipped_v1, clipped_v2, poly.color);
+                }
             }
         }
 
@@ -249,7 +204,7 @@ impl Renderer3D {
         ) {
             if let Some((min, max)) = poly.bounds() {
                 let x_start = min.x.max(0.0) as i32;
-                let x_end = max.x.min(self.width - 1.0) as i32;
+                let x_end = max.x.min(self.width as f32 - 1.0) as i32;
 
                 for x in x_start..=x_end {
                     if x >= 0 && (x as usize) < self.occlusion_buffer.spans.len() {
@@ -278,6 +233,62 @@ impl Renderer3D {
                         }
 
                         self.occlusion_buffer.update_span(x as usize, y_min, y_max);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Draw filled polygon using scanline algorithm
+    fn draw_filled_polygon(&mut self, buffer: &mut impl PixelBuffer, poly: &Polygon2D) {
+        if poly.vertices.len() < 3 {
+            return;
+        }
+
+        // Get bounding box
+        if let Some((min, max)) = poly.bounds() {
+            let y_start = min.y.max(0.0) as i32;
+            let y_end = max.y.min(self.height as f32 - 1.0) as i32;
+
+            // Scanline fill
+            for y in y_start..=y_end {
+                let mut intersections = Vec::new();
+
+                // Find intersections with polygon edges at this scanline
+                for i in 0..poly.vertices.len() {
+                    let v1 = poly.vertices[i];
+                    let v2 = poly.vertices[(i + 1) % poly.vertices.len()];
+
+                    // Check if edge crosses this scanline
+                    if (v1.y <= y as f32 && v2.y > y as f32)
+                        || (v2.y <= y as f32 && v1.y > y as f32)
+                    {
+                        // Calculate intersection point
+                        let t = (y as f32 - v1.y) / (v2.y - v1.y);
+                        let x = v1.x + (v2.x - v1.x) * t;
+                        intersections.push(x);
+                    }
+                }
+
+                // Sort intersections and fill between pairs
+                intersections.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+                for chunk in intersections.chunks(2) {
+                    if chunk.len() == 2 {
+                        let x_start = chunk[0].max(0.0) as i32;
+                        let x_end = chunk[1].min(self.width as f32 - 1.0) as i32;
+
+                        for x in x_start..=x_end {
+                            if x >= 0 && y >= 0 && x < self.width as i32 && y < self.height as i32 {
+                                let x_idx = x as usize;
+                                if x_idx < self.occlusion_buffer.spans.len() {
+                                    // Only draw if pixel is not occluded
+                                    if !self.occlusion_buffer.is_point_occluded(x_idx, y as f32) {
+                                        buffer.set_pixel(x as usize, y as usize, &poly.color);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -358,13 +369,13 @@ impl Renderer3D {
     fn compute_outcode(&self, x: f32, y: f32) -> u8 {
         let mut code = 0;
 
-        if y > self.height {
+        if y > self.height as f32 {
             code |= 1; // Above
         } else if y < 0.0 {
             code |= 2; // Below
         }
 
-        if x > self.width {
+        if x > self.width as f32 {
             code |= 4; // Right
         } else if x < 0.0 {
             code |= 8; // Left
@@ -409,16 +420,16 @@ impl Renderer3D {
             // Find intersection point with viewport boundary
             if (outcode_out & 1) != 0 {
                 // Point is above viewport (y > height)
-                x = p1.x + (p2.x - p1.x) * (self.height - p1.y) / (p2.y - p1.y);
-                y = self.height;
+                x = p1.x + (p2.x - p1.x) * (self.height as f32 - p1.y) / (p2.y - p1.y);
+                y = self.height as f32;
             } else if (outcode_out & 2) != 0 {
                 // Point is below viewport (y < 0)
                 x = p1.x + (p2.x - p1.x) * (0.0 - p1.y) / (p2.y - p1.y);
                 y = 0.0;
             } else if (outcode_out & 4) != 0 {
                 // Point is to the right of viewport (x > width)
-                y = p1.y + (p2.y - p1.y) * (self.width - p1.x) / (p2.x - p1.x);
-                x = self.width;
+                y = p1.y + (p2.y - p1.y) * (self.width as f32 - p1.x) / (p2.x - p1.x);
+                x = self.width as f32;
             } else if (outcode_out & 8) != 0 {
                 // Point is to the left of viewport (x < 0)
                 y = p1.y + (p2.y - p1.y) * (0.0 - p1.x) / (p2.x - p1.x);
@@ -469,16 +480,8 @@ impl Renderer3D {
             return (false, None);
         }
 
-        // Temporarily disable frustum culling for debugging
-        /*
-        if !self.is_segment_in_frustum(seg) {
-            self.culling_stats.segments_culled_frustum += 1;
-            return (false, None);
-        }
-        */
-
         // Convert segment to 3D polygons
-        let polygons = self.segment_to_polygons(seg, pic_data);
+        let polygons = segment_to_polygons(seg, pic_data);
 
         let mut has_solid_wall = false;
 
@@ -501,9 +504,11 @@ impl Renderer3D {
             }
 
             // Project to screen space
-            if let Some(screen_poly) =
-                view_poly.project(&self.projection_matrix, self.width, self.height)
-            {
+            if let Some(screen_poly) = view_poly.project(
+                &self.projection_matrix,
+                self.width as f32,
+                self.height as f32,
+            ) {
                 // Apply portal clipping if we're looking through portals
                 let clipped_poly = if !self.portal_stack.is_empty() {
                     let mut current = screen_poly.clone();
@@ -564,9 +569,11 @@ impl Renderer3D {
 
                 // Transform and project to screen
                 let view_poly = portal_poly.transform(&self.view_matrix);
-                if let Some(mut screen_poly) =
-                    view_poly.project(&self.projection_matrix, self.width, self.height)
-                {
+                if let Some(mut screen_poly) = view_poly.project(
+                    &self.projection_matrix,
+                    self.width as f32,
+                    self.height as f32,
+                ) {
                     // Clip portal window against existing portal stack
                     let mut clipped = true;
                     for existing_portal in &self.portal_stack {
@@ -589,61 +596,12 @@ impl Renderer3D {
         (has_solid_wall, portal_window_data)
     }
 
-    /// Triangulate a subsector's floor and ceiling using simple convex polygon triangulation
-    fn triangulate_subsector_floor_ceiling(&self, segments: &[Segment]) -> Vec<Vec<Vec2>> {
-        if segments.is_empty() {
-            return Vec::new();
-        }
-
-        // Collect all unique vertices from segments
-        let mut vertices: Vec<Vec2> = Vec::new();
-        for seg in segments {
-            // Only add vertex if it's not already very close to an existing one
-            let mut found_v1 = false;
-            let mut found_v2 = false;
-
-            for &existing in &vertices {
-                if (seg.v1 - existing).length() < 1.0 {
-                    found_v1 = true;
-                }
-                if (seg.v2 - existing).length() < 1.0 {
-                    found_v2 = true;
-                }
-            }
-
-            if !found_v1 {
-                vertices.push(seg.v1);
-            }
-            if !found_v2 {
-                vertices.push(seg.v2);
-            }
-        }
-
-        if vertices.len() < 3 {
-            return Vec::new();
-        }
-
-        // Calculate centroid
-        let centroid = vertices.iter().fold(Vec2::ZERO, |acc, &v| acc + v) / vertices.len() as f32;
-
-        // Sort vertices by angle from centroid to ensure proper winding order
-        vertices.sort_by(|&a, &b| {
-            let angle_a = (a - centroid).y.atan2((a - centroid).x);
-            let angle_b = (b - centroid).y.atan2((b - centroid).x);
-            angle_a
-                .partial_cmp(&angle_b)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        // Create triangles using simple fan triangulation from first vertex
-        let mut triangles = Vec::new();
-        if vertices.len() >= 3 {
-            for i in 1..vertices.len() - 1 {
-                triangles.push(vec![vertices[0], vertices[i], vertices[i + 1]]);
-            }
-        }
-
-        triangles
+    /// Get pre-triangulated subsector floor/ceiling data
+    fn get_subsector_triangles(&self, subsector_idx: usize) -> Vec<Triangle> {
+        self.bsp_polygon_generator
+            .get_subsector_triangles(subsector_idx)
+            .map(|triangles| triangles.to_vec())
+            .unwrap_or_default()
     }
 
     /// Main rendering function
@@ -654,7 +612,7 @@ impl Renderer3D {
     /// 3. Iterate through all level segments
     /// 4. Cull back-facing segments
     /// 5. Project and render visible segments
-    pub fn render(
+    pub fn render_player_view(
         &mut self,
         player: &Player,
         level: &Level,
@@ -666,6 +624,10 @@ impl Renderer3D {
 
         // Clear screen to black
         buffer.clear_with_colour(&[0, 0, 0, 255]);
+
+        // Generate BSP polygons for all subsectors (once per frame)
+        self.bsp_polygon_generator
+            .generate_polygons(&level.map_data);
 
         // Reset occlusion buffer, portal stack and stats
         self.occlusion_buffer = OcclusionBuffer::new(self.width as usize);
@@ -701,24 +663,39 @@ impl Renderer3D {
         let end_seg = start_seg + subsector.seg_count as usize;
 
         if let Some(segments) = map.segments().get(start_seg..end_seg) {
-            // Triangulate subsector floor and ceiling
-            let triangles = self.triangulate_subsector_floor_ceiling(segments);
+            // Get subsector index for BSP polygon lookup
+            let subsector_idx = map
+                .subsectors()
+                .iter()
+                .position(|s| std::ptr::eq(s, subsector))
+                .unwrap_or(0);
+
+            // Get pre-triangulated floor and ceiling data
+            let triangles = self.get_subsector_triangles(subsector_idx);
             let sector = &subsector.sector;
 
+            let light = subsector.sector.lightlevel >> 4;
+            let scale = 5;
             // Render floor triangles (always occlude)
-            let floor_color = pic_data.get_flat_average_color(sector.floorpic);
+            let floor_color = pic_data.get_flat_average_color(light, scale, sector.floorpic);
             for triangle in &triangles {
-                let floor_poly = Polygon3D::from_horizontal_polygon(
-                    triangle.clone(),
-                    sector.floorheight,
-                    floor_color,
-                    PolygonType::Floor,
-                );
+                // Create 3D vertices at floor height
+                let floor_vertices = triangle
+                    .vertices
+                    .iter()
+                    .map(|v| Vec3::new(v.x, v.y, sector.floorheight))
+                    .collect();
+
+                let floor_poly = Polygon3D {
+                    vertices: floor_vertices,
+                    color: floor_color,
+                    polygon_type: PolygonType::Floor,
+                };
 
                 if let Some(view_poly) = floor_poly.transform(&self.view_matrix).project(
                     &self.projection_matrix,
-                    self.width,
-                    self.height,
+                    self.width as f32,
+                    self.height as f32,
                 ) {
                     // Clip to portal stack if needed
                     let clipped_poly = if self.portal_stack.is_empty() {
@@ -741,19 +718,26 @@ impl Renderer3D {
 
             // Render ceiling triangles (occlude unless it's sky)
             if sector.ceilingpic != pic_data.sky_num() {
-                let ceiling_color = pic_data.get_flat_average_color(sector.ceilingpic);
+                let ceiling_color =
+                    pic_data.get_flat_average_color(light, scale, sector.ceilingpic);
                 for triangle in &triangles {
-                    let ceiling_poly = Polygon3D::from_horizontal_polygon(
-                        triangle.clone(),
-                        sector.ceilingheight,
-                        ceiling_color,
-                        PolygonType::Ceiling,
-                    );
+                    // Create 3D vertices at ceiling height
+                    let ceiling_vertices = triangle
+                        .vertices
+                        .iter()
+                        .map(|v| Vec3::new(v.x, v.y, sector.ceilingheight))
+                        .collect();
+
+                    let ceiling_poly = Polygon3D {
+                        vertices: ceiling_vertices,
+                        color: ceiling_color,
+                        polygon_type: PolygonType::Ceiling,
+                    };
 
                     if let Some(view_poly) = ceiling_poly.transform(&self.view_matrix).project(
                         &self.projection_matrix,
-                        self.width,
-                        self.height,
+                        self.width as f32,
+                        self.height as f32,
                     ) {
                         // Clip to portal stack if needed
                         let clipped_poly = if self.portal_stack.is_empty() {
@@ -884,8 +868,8 @@ impl Renderer3D {
                                 let ndc =
                                     Vec3::new(clip.x / clip.w, clip.y / clip.w, clip.z / clip.w);
                                 let screen_pos = Vec2::new(
-                                    (ndc.x + 1.0) * 0.5 * self.width,
-                                    (1.0 - ndc.y) * 0.5 * self.height,
+                                    (ndc.x + 1.0) * 0.5 * self.width as f32,
+                                    (1.0 - ndc.y) * 0.5 * self.height as f32,
                                 );
                                 let mut point_visible = true;
                                 for portal in &self.portal_stack {
@@ -956,53 +940,33 @@ impl Renderer3D {
             return false;
         }
 
-        // Calculate frustum plane parameters
-        let aspect = self.width / self.height;
-        let half_fov_y = self.fov / 2.0;
-        let tan_half_fov_y = half_fov_y.tan();
-        let tan_half_fov_x = aspect * tan_half_fov_y;
+        // // Calculate frustum plane parameters
+        // let aspect = self.width as f32 / self.height as f32;
+        // let half_fov_y = self.fov / 2.0;
+        // let tan_half_fov_y = half_fov_y.tan();
+        // let tan_half_fov_x = aspect * tan_half_fov_y;
 
-        // Left plane: x < -z * tan(fov_x/2)
-        if view_corners.iter().all(|p| p.x < p.z * tan_half_fov_x) {
-            return false;
-        }
+        // // Left plane: x < -z * tan(fov_x/2)
+        // if view_corners.iter().all(|p| p.x < p.z * tan_half_fov_x) {
+        //     return false;
+        // }
 
-        // Right plane: x > -z * tan(fov_x/2)
-        if view_corners.iter().all(|p| p.x > -p.z * tan_half_fov_x) {
-            return false;
-        }
+        // // Right plane: x > -z * tan(fov_x/2)
+        // if view_corners.iter().all(|p| p.x > -p.z * tan_half_fov_x) {
+        //     return false;
+        // }
 
-        // Bottom plane: y < -z * tan(fov_y/2)
-        if view_corners.iter().all(|p| p.y < p.z * tan_half_fov_y) {
-            return false;
-        }
+        // // Bottom plane: y < -z * tan(fov_y/2)
+        // if view_corners.iter().all(|p| p.y < p.z * tan_half_fov_y) {
+        //     return false;
+        // }
 
-        // Top plane: y > -z * tan(fov_y/2)
-        if view_corners.iter().all(|p| p.y > -p.z * tan_half_fov_y) {
-            return false;
-        }
+        // // Top plane: y > -z * tan(fov_y/2)
+        // if view_corners.iter().all(|p| p.y > -p.z * tan_half_fov_y) {
+        //     return false;
+        // }
 
         true
-    }
-}
-
-impl PlayViewRenderer for Renderer3D {
-    fn render_player_view(&mut self, _player: &Player, _level: &Level, _pic_data: &mut PicData) {
-        // This method is called by the game engine, but we don't have access to the buffer here
-        // The actual rendering happens in the render() method
-    }
-}
-
-impl Renderer3D {
-    /// Renders using a RenderTrait implementation.
-    pub fn render_with_trait(
-        &mut self,
-        player: &Player,
-        level: &Level,
-        pic_data: &mut PicData,
-        renderer: &mut impl RenderTrait,
-    ) {
-        self.render(player, level, pic_data, renderer.draw_buffer());
     }
 }
 
@@ -1015,8 +979,8 @@ mod tests {
     #[test]
     fn test_renderer_creation() {
         let renderer = Renderer3D::new(640.0, 480.0, 90.0);
-        assert_eq!(renderer.width, 640.0);
-        assert_eq!(renderer.height, 480.0);
+        assert_eq!(renderer.width, 640);
+        assert_eq!(renderer.height, 480);
     }
 
     #[test]
@@ -1059,20 +1023,44 @@ mod tests {
     #[test]
     fn test_outcode_computation() {
         let renderer = Renderer3D::new(640.0, 480.0, 90.0);
-
         // Point inside viewport
         assert_eq!(renderer.compute_outcode(320.0, 240.0), 0);
-
         // Point above viewport
         assert_eq!(renderer.compute_outcode(320.0, 500.0), 1);
-
         // Point below viewport
         assert_eq!(renderer.compute_outcode(320.0, -10.0), 2);
+    }
 
+    #[test]
+    fn test_render_mode() {
+        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0);
+        // Default should be filled mode
+        assert!(renderer.is_render_filled());
+        // Test setting wireframe mode
+        renderer.set_render_filled(false);
+        assert!(!renderer.is_render_filled());
+        // Test setting back to filled
+        renderer.set_render_filled(true);
+        assert!(renderer.is_render_filled());
+    }
+
+    #[test]
+    fn test_outcode_computation_extended() {
+        let renderer = Renderer3D::new(640.0, 480.0, 90.0);
         // Point to the right of viewport
         assert_eq!(renderer.compute_outcode(700.0, 240.0), 4);
-
         // Point to the left of viewport
         assert_eq!(renderer.compute_outcode(-10.0, 240.0), 8);
+    }
+
+    #[test]
+    fn test_triangulation_integration() {
+        let renderer = Renderer3D::new(640.0, 480.0, 90.0);
+        // Test that triangulation data is empty initially
+        let triangles = renderer.get_subsector_triangles(0);
+        assert!(triangles.is_empty());
+        // Test that the method handles invalid indices gracefully
+        let triangles = renderer.get_subsector_triangles(999);
+        assert!(triangles.is_empty());
     }
 }

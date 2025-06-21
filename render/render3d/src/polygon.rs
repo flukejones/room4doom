@@ -1,12 +1,5 @@
+use gameplay::{PicData, Segment};
 use glam::{Vec2, Vec3, Vec4};
-
-/// Represents a 3D polygon in world space
-#[derive(Debug, Clone)]
-pub struct Polygon3D {
-    pub vertices: Vec<Vec3>,
-    pub color: [u8; 4],
-    pub polygon_type: PolygonType,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PolygonType {
@@ -18,10 +11,80 @@ pub enum PolygonType {
     Ceiling,   // Ceiling surface
 }
 
-/// Represents a 2D polygon in screen space
+/// Convert a segment into 3D polygons based on floor/ceiling heights
+pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> {
+    let mut polygons = Vec::new();
+
+    let v1 = seg.v1;
+    let v2 = seg.v2;
+    let front_floor = seg.frontsector.floorheight;
+    let front_ceiling = seg.frontsector.ceilingheight;
+
+    // (sidedef.sector.lightlevel >> 4) + player.extralight
+    let light = seg.sidedef.sector.lightlevel >> 4;
+    let scale = 1.0;
+    if let Some(back_sector) = &seg.backsector {
+        // Two-sided line - may have upper wall, lower wall, and portal
+        let back_floor = back_sector.floorheight;
+        let back_ceiling = back_sector.ceilingheight;
+
+        // Lower wall (step up) - if back floor is higher than front floor
+        if back_floor > front_floor {
+            polygons.push(Polygon3D::from_wall_segment(
+                v1,
+                v2,
+                front_floor,
+                back_floor,
+                if let Some(t) = seg.sidedef.bottomtexture {
+                    pic_data.get_texture_average_color(light, scale, t)
+                } else {
+                    [128, 128, 128, 255]
+                }, // Gray
+                PolygonType::LowerWall,
+            ));
+        }
+
+        // Upper wall (overhead) - if back ceiling is lower than front ceiling
+        if back_ceiling < front_ceiling {
+            polygons.push(Polygon3D::from_wall_segment(
+                v1,
+                v2,
+                back_ceiling,
+                front_ceiling,
+                if let Some(t) = seg.sidedef.toptexture {
+                    pic_data.get_texture_average_color(light, scale, t)
+                } else {
+                    [64, 64, 64, 255]
+                }, // Dark gray
+                PolygonType::UpperWall,
+            ));
+        }
+
+        // Portal opening - no polygon needed, just used for clipping
+        // The portal area is defined by the gap between upper and lower walls
+    } else {
+        // One-sided line - solid wall from floor to ceiling
+        polygons.push(Polygon3D::from_wall_segment(
+            v1,
+            v2,
+            front_floor,
+            front_ceiling,
+            if let Some(t) = seg.sidedef.midtexture {
+                pic_data.get_texture_average_color(light, scale, t)
+            } else {
+                [255, 255, 255, 255]
+            }, // White for solid walls
+            PolygonType::Wall,
+        ));
+    }
+
+    polygons
+}
+
+/// Represents a 3D polygon in world space
 #[derive(Debug, Clone)]
-pub struct Polygon2D {
-    pub vertices: Vec<Vec2>,
+pub struct Polygon3D {
+    pub vertices: Vec<Vec3>,
     pub color: [u8; 4],
     pub polygon_type: PolygonType,
 }
@@ -43,25 +106,6 @@ impl Polygon3D {
             Vec3::new(v2.x, v2.y, top_height),    // top-right
             Vec3::new(v1.x, v1.y, top_height),    // top-left
         ];
-
-        Self {
-            vertices,
-            color,
-            polygon_type,
-        }
-    }
-
-    /// Create a horizontal polygon (floor or ceiling) from a list of 2D vertices
-    pub fn from_horizontal_polygon(
-        vertices_2d: Vec<Vec2>,
-        height: f32,
-        color: [u8; 4],
-        polygon_type: PolygonType,
-    ) -> Self {
-        let vertices = vertices_2d
-            .into_iter()
-            .map(|v| Vec3::new(v.x, v.y, height))
-            .collect();
 
         Self {
             vertices,
@@ -188,6 +232,14 @@ impl Polygon3D {
     }
 }
 
+/// Represents a 2D polygon in screen space
+#[derive(Debug, Clone)]
+pub struct Polygon2D {
+    pub vertices: Vec<Vec2>,
+    pub color: [u8; 4],
+    pub polygon_type: PolygonType,
+}
+
 impl Polygon2D {
     /// Get axis-aligned bounding box of polygon
     pub fn bounds(&self) -> Option<(Vec2, Vec2)> {
@@ -216,13 +268,6 @@ pub struct PortalWindow {
 }
 
 impl PortalWindow {
-    /// Create from a screen-space polygon
-    pub fn from_polygon(poly: &Polygon2D) -> Self {
-        Self {
-            vertices: poly.vertices.clone(),
-        }
-    }
-
     /// Clip a polygon to this portal window
     pub fn clip_polygon(&self, poly: &Polygon2D) -> Option<Polygon2D> {
         let mut output_vertices = poly.vertices.clone();

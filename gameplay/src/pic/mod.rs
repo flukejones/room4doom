@@ -687,7 +687,12 @@ impl PicData {
     /// Get an average color sample from a texture using the colourmap.
     /// This samples multiple points from the texture data and returns
     /// the average color from the palette.
-    pub fn get_texture_average_color(&self, texture_num: usize) -> WadColour {
+    pub fn get_texture_average_color(
+        &self,
+        light: usize,
+        scale: f32,
+        texture_num: usize,
+    ) -> WadColour {
         let texture = self.get_texture(texture_num);
 
         // Sample points from the texture
@@ -713,7 +718,7 @@ impl PicData {
                 #[cfg(not(feature = "safety_check"))]
                 unsafe {
                     let c = texture.data.get_unchecked(x).get_unchecked(y);
-                    let cm = self.colourmap.get_unchecked(1).get_unchecked(*c);
+                    let cm = self.vert_light_colourmap(light, scale).get_unchecked(*c);
                     let color = self.palette().get_unchecked(*cm);
                     r_sum += color[0] as u32;
                     g_sum += color[1] as u32;
@@ -755,7 +760,7 @@ impl PicData {
     /// Get an average color sample from a flat using the colourmap.
     /// This samples multiple points from the flat data and returns
     /// the average color from the palette.
-    pub fn get_flat_average_color(&self, flat_num: usize) -> WadColour {
+    pub fn get_flat_average_color(&self, light: usize, scale: usize, flat_num: usize) -> WadColour {
         let flat = self.get_flat(flat_num);
 
         // Sample points from the flat
@@ -772,7 +777,7 @@ impl PicData {
                 #[cfg(not(feature = "safety_check"))]
                 unsafe {
                     let c = flat.data.get_unchecked(y).get_unchecked(x);
-                    let cm = self.colourmap.get_unchecked(1).get_unchecked(*c);
+                    let cm = self.flat_light_colourmap(light, scale).get_unchecked(*c);
                     let color = self.palette().get_unchecked(*cm);
                     r_sum += color[0] as u32;
                     g_sum += color[1] as u32;
