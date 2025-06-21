@@ -1,5 +1,5 @@
 use gameplay::{Level, MapData, MapPtr, Node, PicData, Player, Sector, Segment, SubSector};
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3};
 use render_trait::PixelBuffer;
 
 use std::f32::consts::PI;
@@ -7,7 +7,7 @@ use std::f32::consts::PI;
 mod bsp_polygon;
 mod polygon;
 use bsp_polygon::{BSPPolygons, Triangle};
-use polygon::{Polygon2D, Polygon3D, PolygonType, PortalWindow};
+use polygon::{Polygon2D, Polygon3D, PolygonType};
 
 use crate::polygon::segment_to_polygons;
 
@@ -26,7 +26,6 @@ pub struct Renderer3D {
 
     occlusion_buffer: OcclusionBuffer,
 
-    portal_stack: Vec<PortalWindow>,
     bsp_polygon_generator: BSPPolygons,
     render_filled: bool,
 }
@@ -121,7 +120,6 @@ impl Renderer3D {
             view_matrix: Mat4::IDENTITY,
             projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
             occlusion_buffer: OcclusionBuffer::new(width as usize),
-            portal_stack: Vec::new(),
             bsp_polygon_generator: BSPPolygons::new(),
             render_filled: true, // Default to filled mode
         }
@@ -509,34 +507,11 @@ impl Renderer3D {
                 self.width as f32,
                 self.height as f32,
             ) {
-                // Apply portal clipping if we're looking through portals
-                let clipped_poly = if !self.portal_stack.is_empty() {
-                    let mut current = screen_poly.clone();
-                    let mut fully_clipped = false;
-
-                    for portal in &self.portal_stack {
-                        if let Some(clipped) = portal.clip_polygon(&current) {
-                            current = clipped;
-                        } else {
-                            // Completely clipped away by portal
-                            fully_clipped = true;
-                            break;
-                        }
-                    }
-
-                    if fully_clipped {
-                        continue;
-                    }
-                    current
-                } else {
-                    screen_poly
-                };
-
                 // Draw polygon with occlusion
-                self.draw_polygon_with_occlusion(buffer, &clipped_poly);
+                self.draw_polygon_with_occlusion(buffer, &screen_poly);
 
                 if matches!(
-                    clipped_poly.polygon_type,
+                    screen_poly.polygon_type,
                     PolygonType::Wall | PolygonType::LowerWall | PolygonType::UpperWall
                 ) {
                     has_solid_wall = true;
@@ -556,7 +531,7 @@ impl Renderer3D {
             let portal_bottom = front_floor.max(back_floor);
             let portal_top = front_ceiling.min(back_ceiling);
 
-            if portal_top > portal_bottom && self.portal_stack.len() < 8 {
+            if portal_top > portal_bottom {
                 // Create portal window polygon for clipping only
                 let portal_poly = Polygon3D::from_wall_segment(
                     seg.v1,
@@ -569,26 +544,12 @@ impl Renderer3D {
 
                 // Transform and project to screen
                 let view_poly = portal_poly.transform(&self.view_matrix);
-                if let Some(mut screen_poly) = view_poly.project(
+                if let Some(screen_poly) = view_poly.project(
                     &self.projection_matrix,
                     self.width as f32,
                     self.height as f32,
                 ) {
-                    // Clip portal window against existing portal stack
-                    let mut clipped = true;
-                    for existing_portal in &self.portal_stack {
-                        if let Some(clipped_poly) = existing_portal.clip_polygon(&screen_poly) {
-                            screen_poly = clipped_poly;
-                        } else {
-                            // Completely clipped away
-                            clipped = false;
-                            break;
-                        }
-                    }
-
-                    if clipped {
-                        portal_window_data = Some((screen_poly, back_sector.clone()));
-                    }
+                    portal_window_data = Some((screen_poly, back_sector.clone()));
                 }
             }
         }
@@ -631,7 +592,6 @@ impl Renderer3D {
 
         // Reset occlusion buffer, portal stack and stats
         self.occlusion_buffer = OcclusionBuffer::new(self.width as usize);
-        self.portal_stack.clear();
 
         // Get player position for front-face culling
         let player_pos = if let Some(mobj) = player.mobj() {
@@ -697,22 +657,7 @@ impl Renderer3D {
                     self.width as f32,
                     self.height as f32,
                 ) {
-                    // Clip to portal stack if needed
-                    let clipped_poly = if self.portal_stack.is_empty() {
-                        view_poly
-                    } else {
-                        let mut current = view_poly;
-                        for portal in &self.portal_stack {
-                            if let Some(clipped) = portal.clip_polygon(&current) {
-                                current = clipped;
-                            } else {
-                                break;
-                            }
-                        }
-                        current
-                    };
-
-                    self.draw_polygon_with_occlusion(buffer, &clipped_poly);
+                    self.draw_polygon_with_occlusion(buffer, &view_poly);
                 }
             }
 
@@ -739,54 +684,15 @@ impl Renderer3D {
                         self.width as f32,
                         self.height as f32,
                     ) {
-                        // Clip to portal stack if needed
-                        let clipped_poly = if self.portal_stack.is_empty() {
-                            view_poly
-                        } else {
-                            let mut current = view_poly;
-                            for portal in &self.portal_stack {
-                                if let Some(clipped) = portal.clip_polygon(&current) {
-                                    current = clipped;
-                                } else {
-                                    break;
-                                }
-                            }
-                            current
-                        };
-
-                        self.draw_polygon_with_occlusion(buffer, &clipped_poly);
+                        self.draw_polygon_with_occlusion(buffer, &view_poly);
                     }
                 }
             }
 
             // First pass: render all segments and collect portal windows
-            let mut portal_data_list = Vec::new();
             for seg in segments {
                 // TODO: Do we still need this portal stack stuff?
-                // Render the segment (solid walls only) and get portal window if any
-                let (_, portal_data) = self.render_segment(buffer, seg, player_pos, pic_data);
-
-                // If this segment has a portal window, save it for recursive rendering
-                if let Some((portal_poly, back_sector)) = portal_data {
-                    portal_data_list.push((portal_poly, back_sector));
-                }
-            }
-
-            // Second pass: recursively render through portals
-            for (portal_poly, _back_sector) in portal_data_list {
-                if self.portal_stack.len() < 4 {
-                    // Limit recursion depth
-                    // Add this portal to the stack
-                    let portal_window = PortalWindow::from_polygon(&portal_poly);
-                    self.portal_stack.push(portal_window);
-
-                    // Recursively render through the portal using BSP traversal
-                    // This ensures proper depth ordering
-                    self.render_bsp_node(map, buffer, 0, player_pos, pic_data);
-
-                    // Remove this portal from the stack
-                    self.portal_stack.pop();
-                }
+                self.render_segment(buffer, seg, player_pos, pic_data);
             }
         }
     }
@@ -836,67 +742,8 @@ impl Renderer3D {
 
             // Check if back side bounding box is in view
             if self.bbox_in_view(node, player_pos, side ^ 1) {
-                // Also check if bbox is visible through current portal stack
-                // TODO: add a max and min height to the nodes
-                let mut bbox_visible = true;
-                if !self.portal_stack.is_empty() {
-                    // Project bbox corners to screen and check against portal windows
-                    let bbox = &node.bboxes[side ^ 1];
-                    let min = map.get_map_extents().min_floor;
-                    let max = map.get_map_extents().max_ceiling;
-                    let corners = [
-                        Vec3::new(bbox[0].x, bbox[0].y, min),
-                        Vec3::new(bbox[1].x, bbox[0].y, min),
-                        Vec3::new(bbox[0].x, bbox[1].y, min),
-                        Vec3::new(bbox[1].x, bbox[1].y, min),
-                        Vec3::new(bbox[0].x, bbox[0].y, max),
-                        Vec3::new(bbox[1].x, bbox[0].y, max),
-                        Vec3::new(bbox[0].x, bbox[1].y, max),
-                        Vec3::new(bbox[1].x, bbox[1].y, max),
-                    ];
-
-                    // Check if any corner is visible through portal stack
-                    bbox_visible = false;
-                    for corner in &corners {
-                        let view_pos = self.view_matrix.transform_point3(*corner);
-                        if view_pos.z < -0.1 {
-                            // Project to screen space
-                            let clip = self.projection_matrix
-                                * Vec4::new(view_pos.x, view_pos.y, view_pos.z, 1.0);
-                            if clip.w > 0.0 {
-                                let ndc =
-                                    Vec3::new(clip.x / clip.w, clip.y / clip.w, clip.z / clip.w);
-                                let screen_pos = Vec2::new(
-                                    (ndc.x + 1.0) * 0.5 * self.width as f32,
-                                    (1.0 - ndc.y) * 0.5 * self.height as f32,
-                                );
-                                let mut point_visible = true;
-                                for portal in &self.portal_stack {
-                                    // Simple point-in-polygon test for portal window
-                                    if !portal.contains_point(screen_pos) {
-                                        point_visible = false;
-                                        break;
-                                    }
-                                }
-                                if point_visible {
-                                    bbox_visible = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if bbox_visible {
-                    // Render back side
-                    self.render_bsp_node(
-                        map,
-                        buffer,
-                        node.children[side ^ 1],
-                        player_pos,
-                        pic_data,
-                    );
-                }
+                // Render back side
+                self.render_bsp_node(map, buffer, node.children[side ^ 1], player_pos, pic_data);
             }
         }
     }
