@@ -295,10 +295,8 @@ impl Renderer3D {
         view_poly: &Polygon3D,
         screen_poly: &Polygon2D,
     ) {
-        // Extract depth values from view space vertices
         let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
 
-        // Test visibility using depth buffer
         if self
             .depth_buffer
             .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
@@ -326,7 +324,6 @@ impl Renderer3D {
                 return; // Skip if entirely outside
             }
 
-            // Draw the polygon
             if self.render_filled {
                 self.draw_filled(rend, poly);
             } else {
@@ -355,7 +352,7 @@ impl Renderer3D {
                 }
             }
         } else {
-            return; // Skip degenerate polygons
+            return;
         }
     }
 
@@ -544,22 +541,17 @@ impl Renderer3D {
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_segment");
-        // Skip back-facing segments for performance
         if self.is_segment_front_facing(seg, player_pos) {
             return;
         }
-        // Convert segment to 3D polygons
         let polygons = segment_to_polygons(seg, pic_data);
 
-        // First pass: render solid polygons
         for poly in polygons {
-            // Transform polygon to view space
             let view_poly = poly.transform(&self.view_matrix);
 
-            // Simple check - at least one vertex should be in front
             let mut any_in_front = false;
             for v in &view_poly.vertices {
-                if v.z < -0.01 {
+                if v.z < -0.1 {
                     any_in_front = true;
                     break;
                 }
@@ -579,27 +571,76 @@ impl Renderer3D {
         }
     }
 
-    fn render_subsector(
+    fn render_flat(
+        &mut self,
+        light: usize,
+        scale: usize,
+        triangles: &[Triangle],
+        sector_height: f32,
+        sector_pic: usize,
+        pic_data: &mut PicData,
+        rend: &mut impl RenderTrait,
+    ) {
+        #[cfg(feature = "hprof")]
+        profile!("render_flat");
+
+        let colour = if sector_pic == pic_data.sky_num() {
+            [32, 16, 16, 255]
+        } else {
+            pic_data.get_flat_average_color(light, scale, sector_pic)
+        };
+
+        for triangle in triangles {
+            // Create 3D vertices at required height height
+            let vertices = triangle
+                .vertices
+                .iter()
+                .map(|v| Vec3::new(v.x, v.y, sector_height))
+                .collect();
+
+            let poly = Polygon3D {
+                vertices,
+                color: colour,
+            };
+
+            let view_poly = poly.transform(&self.view_matrix);
+
+            let mut any_in_front = false;
+            for v in &view_poly.vertices {
+                if v.z < -0.01 {
+                    any_in_front = true;
+                    break;
+                }
+            }
+
+            if !any_in_front {
+                continue;
+            }
+
+            // Project to screen space
+            if let Some(screen_poly) = view_poly.project(
+                &self.projection_matrix,
+                self.width as f32,
+                self.height as f32,
+            ) {
+                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
+            }
+        }
+    }
+
+    fn render_flats(
         &mut self,
         map: &MapData,
         rend: &mut impl RenderTrait,
         subsector: &SubSector,
-        player_pos: Vec2,
         pic_data: &mut PicData,
     ) {
-        #[cfg(feature = "hprof")]
-        profile!("render_subsector");
-        let start_seg = subsector.start_seg as usize;
-        let end_seg = start_seg + subsector.seg_count as usize;
-
-        // Get subsector index for BSP polygon lookup
         let subsector_idx = map
             .subsectors()
             .iter()
             .position(|s| std::ptr::eq(s, subsector))
             .unwrap_or(0);
 
-        // Get pre-triangulated floor and ceiling data
         let triangles = self.get_subsector_triangles(subsector_idx);
         let sector = &subsector.sector;
 
@@ -625,68 +666,50 @@ impl Renderer3D {
             pic_data,
             rend,
         );
+    }
+
+    fn render_subsector(
+        &mut self,
+        map: &MapData,
+        rend: &mut impl RenderTrait,
+        subsector: &SubSector,
+        player_pos: Vec2,
+        pic_data: &mut PicData,
+    ) {
+        #[cfg(feature = "hprof")]
+        profile!("render_subsector");
+        let start_seg = subsector.start_seg as usize;
+        let end_seg = start_seg + subsector.seg_count as usize;
 
         if let Some(segments) = map.segments().get(start_seg..end_seg) {
             for seg in segments {
-                self.render_segment(rend, seg, player_pos, pic_data);
-            }
-        }
-    }
+                let front_sector = seg.frontsector.clone();
+                self.render_flats(map, rend, subsector, pic_data);
 
-    fn render_flat(
-        &mut self,
-        light: usize,
-        scale: usize,
-        triangles: &[Triangle],
-        sector_height: f32,
-        sector_pic: usize,
-        pic_data: &mut PicData,
-        rend: &mut impl RenderTrait,
-    ) {
-        #[cfg(feature = "hprof")]
-        profile!("render_flat");
-
-        let colour = if sector_pic == pic_data.sky_num() {
-            [32, 16, 16, 255]
-        } else {
-            pic_data.get_flat_average_color(light, scale, sector_pic)
-        };
-        for triangle in triangles {
-            // TODO: prebuild this
-            // Create 3D vertices at required height height
-            let vertices = triangle
-                .vertices
-                .iter()
-                .map(|v| Vec3::new(v.x, v.y, sector_height))
-                .collect();
-
-            let poly = Polygon3D {
-                vertices,
-                color: colour,
-            };
-
-            // Transform to view space
-            let view_poly = poly.transform(&self.view_matrix);
-
-            // Simple check - at least one vertex should be in front
-            let mut any_in_front = false;
-            for v in &view_poly.vertices {
-                if v.z < -0.01 {
-                    any_in_front = true;
-                    break;
+                if let Some(back_sector) = seg.backsector.clone() {
+                    // Doors. Block view
+                    if back_sector.ceilingheight <= front_sector.floorheight
+                        || back_sector.floorheight >= front_sector.ceilingheight
+                        || back_sector.ceilingheight != front_sector.ceilingheight
+                        || back_sector.floorheight != front_sector.floorheight
+                    {
+                        self.render_segment(rend, seg, player_pos, pic_data);
+                        continue;
+                    }
+                    // Reject empty lines used for triggers and special events.
+                    // Identical floor and ceiling on both sides, identical light levels
+                    // on both sides, and no middle texture.
+                    if back_sector.ceilingpic == front_sector.ceilingpic
+                        && back_sector.floorpic == front_sector.floorpic
+                        && back_sector.lightlevel == front_sector.lightlevel
+                        && seg.sidedef.midtexture.is_none()
+                    {
+                        continue;
+                    }
+                    // self.render_segment(rend, seg, player_pos, pic_data);
+                    continue;
                 }
-            }
-            if !any_in_front {
-                continue;
-            }
-
-            // Project to screen space
-            if let Some(screen_poly) = view_poly.project(
-                &self.projection_matrix,
-                self.width as f32,
-                self.height as f32,
-            ) {
-                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
+                self.render_segment(rend, seg, player_pos, pic_data);
             }
         }
     }
