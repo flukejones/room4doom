@@ -35,7 +35,8 @@ pub struct Renderer3D {
     map_name: String,
     bsp_polygons: BSPPolygons,
     render_filled: bool,
-    use_depth_buffer: bool,
+    near_z: f32,
+    far_z: f32,
 }
 
 impl Renderer3D {
@@ -67,8 +68,9 @@ impl Renderer3D {
             intersection_buffer: Vec::with_capacity(256), // Pre-allocate for polygon intersections
             map_name: String::new(),
             bsp_polygons: BSPPolygons::new(),
-            render_filled: true,    // Default to filled mode
-            use_depth_buffer: true, // Enable depth buffer by default for performance
+            render_filled: true,
+            near_z: near,
+            far_z: far,
         }
     }
 
@@ -81,9 +83,7 @@ impl Renderer3D {
 
         // Update projection matrix with new aspect ratio
         let aspect = width / height;
-        let near = 0.1;
-        let far = 10000.0;
-        self.projection_matrix = Mat4::perspective_rh_gl(self.fov, aspect, near, far);
+        self.projection_matrix = Mat4::perspective_rh_gl(self.fov, aspect, self.near_z, self.far_z);
 
         // Resize depth buffer
         self.depth_buffer.resize(width as usize, height as usize);
@@ -96,9 +96,7 @@ impl Renderer3D {
     pub fn set_fov(&mut self, fov: f32) {
         self.fov = fov;
         let aspect = self.width as f32 / self.height as f32;
-        let near = 0.1;
-        let far = 10000.0;
-        self.projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
+        self.projection_matrix = Mat4::perspective_rh_gl(fov, aspect, self.near_z, self.far_z);
     }
 
     /// Set whether to render filled polygons or wireframes
@@ -109,16 +107,6 @@ impl Renderer3D {
     /// Get current rendering mode
     pub fn is_render_filled(&self) -> bool {
         self.render_filled
-    }
-
-    /// Enable or disable depth buffer optimization
-    pub fn set_use_depth_buffer(&mut self, enabled: bool) {
-        self.use_depth_buffer = enabled;
-    }
-
-    /// Get current depth buffer usage
-    pub fn is_depth_buffer_enabled(&self) -> bool {
-        self.use_depth_buffer
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -300,41 +288,6 @@ impl Renderer3D {
     // RENDERING PRIMITIVES
     // ==========================================
 
-    /// Test if a polygon is potentially visible using depth buffer
-    /// Returns true if any vertex of the polygon might be visible
-    fn is_polygon_potentially_visible(
-        &self,
-        view_poly: &Polygon3D,
-        screen_poly: &Polygon2D,
-    ) -> bool {
-        #[cfg(feature = "hprof")]
-        profile!("is_polygon_potentially_visible");
-
-        // Extract depth values from view space vertices
-        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
-
-        // Test visibility using depth buffer
-        self.depth_buffer
-            .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
-    }
-
-    /// Update depth buffer with polygon depth information
-    fn update_polygon_depth(&mut self, view_poly: &Polygon3D, screen_poly: &Polygon2D) {
-        if !self.use_depth_buffer {
-            return;
-        }
-
-        #[cfg(feature = "hprof")]
-        profile!("update_polygon_depth");
-
-        // Extract depth values from view space vertices
-        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
-
-        // Update depth buffer
-        self.depth_buffer
-            .update_polygon_depth(&screen_poly.vertices, &depths);
-    }
-
     /// Helper method to render polygon with optional depth buffer testing
     fn render_polygon_with_depth_test(
         &mut self,
@@ -342,25 +295,27 @@ impl Renderer3D {
         view_poly: &Polygon3D,
         screen_poly: &Polygon2D,
     ) {
-        let should_render = if self.use_depth_buffer {
-            self.is_polygon_potentially_visible(view_poly, screen_poly)
-        } else {
-            true
-        };
+        // Extract depth values from view space vertices
+        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
 
-        if should_render {
+        // Test visibility using depth buffer
+        if self
+            .depth_buffer
+            .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
+        {
             // Draw polygon with occlusion
-            self.draw_polygon_with_occlusion(rend, screen_poly);
-
+            self.draw_polygon(rend, screen_poly);
             // Update depth buffer with this polygon's depth
-            self.update_polygon_depth(view_poly, screen_poly);
+            // TODO: this is working like an occlusion buffer for now
+            // self.depth_buffer
+            //     .update_polygon_depth(&screen_poly.vertices, &depths);
         }
     }
 
     /// Draw polygon with span-based occlusion
-    fn draw_polygon_with_occlusion(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
+    fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
         #[cfg(feature = "hprof")]
-        profile!("draw_polygon_with_occlusion");
+        profile!("draw_polygon");
         // Check if polygon is completely outside screen bounds
         if let Some((min, max)) = poly.bounds() {
             if min.x > self.width_minus_one
@@ -373,7 +328,7 @@ impl Renderer3D {
 
             // Draw the polygon
             if self.render_filled {
-                self.draw_filled_polygon(rend, poly);
+                self.draw_filled(rend, poly);
             } else {
                 // Draw polygon as wireframe (edge-only)
                 let vertices = &poly.vertices;
@@ -395,24 +350,17 @@ impl Renderer3D {
                     // Clip line to screen bounds
                     if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
                         // Draw the line with occlusion checking
-                        self.draw_line_with_occlusion(rend, clipped_v1, clipped_v2, poly.color);
+                        self.draw_line(rend, clipped_v1, clipped_v2, poly.color);
                     }
                 }
             }
-
-            // // Update depth buffer with polygon depth information if polygon is large enough
-            // if max.x - min.x > 4.0 || max.y - min.y > 4.0 {
-            //     let vertices: Vec<Vec2> = poly.vertices.clone();
-            //     let depths: Vec<f32> = vertices.iter().map(|_| 0.0).collect(); // Default depth for 2D polygons
-            //     self.depth_buffer.update_polygon_depth(&vertices, &depths);
-            // }
         } else {
             return; // Skip degenerate polygons
         }
     }
 
     /// Draw filled polygon using scanline algorithm
-    fn draw_filled_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
+    fn draw_filled(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
         #[cfg(feature = "hprof")]
         profile!("draw_filled_polygon");
         if poly.vertices.len() < 3 {
@@ -494,7 +442,7 @@ impl Renderer3D {
                                     );
 
                                     // Update depth buffer
-                                    self.depth_buffer.set_depth(
+                                    self.depth_buffer.set_depth_unchecked(
                                         x as usize,
                                         y as usize,
                                         default_depth,
@@ -511,15 +459,9 @@ impl Renderer3D {
     }
 
     /// Draw line with occlusion checking
-    fn draw_line_with_occlusion(
-        &mut self,
-        rend: &mut impl RenderTrait,
-        p1: Vec2,
-        p2: Vec2,
-        color: [u8; 4],
-    ) {
+    fn draw_line(&mut self, rend: &mut impl RenderTrait, p1: Vec2, p2: Vec2, color: [u8; 4]) {
         #[cfg(feature = "hprof")]
-        profile!("draw_line_with_occlusion");
+        profile!("draw_line");
         let x1 = p1.x as i32;
         let y1 = p1.y as i32;
         let x2 = p2.x as i32;
@@ -559,7 +501,6 @@ impl Renderer3D {
 
         // Draw pixels based on depth buffer visibility
         let line_depth = 0.0; // Default depth for 2D lines
-
         for (x, y) in pixels {
             // Check if this pixel is visible in depth buffer
             if self
@@ -569,7 +510,7 @@ impl Renderer3D {
                 rend.draw_buffer().set_pixel(x as usize, y as usize, &color);
                 // Update depth buffer with this pixel
                 self.depth_buffer
-                    .set_depth(x as usize, y as usize, line_depth);
+                    .set_depth_unchecked(x as usize, y as usize, line_depth);
             }
         }
     }
@@ -839,7 +780,9 @@ impl Renderer3D {
         profile!("render_player_view");
         self.update_view_matrix(player);
         // TODO: make this an option
-        // rend.draw_buffer().clear_with_colour(&[0, 0, 0, 255]);
+        if !self.render_filled {
+            rend.draw_buffer().clear_with_colour(&[0, 0, 0, 255]);
+        }
 
         // Generate BSP polygons for all subsectors (once)
         if self.map_name != level.map_name {
@@ -960,66 +903,5 @@ mod tests {
         // Test that the method handles invalid indices gracefully
         let triangles = renderer.get_subsector_triangles(999);
         assert!(triangles.is_empty());
-    }
-
-    #[test]
-    fn test_depth_buffer_integration() {
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0);
-
-        // Enable depth buffer for testing
-        renderer.set_use_depth_buffer(true);
-        assert!(renderer.is_depth_buffer_enabled());
-
-        // Create test polygons
-        let close_poly = Polygon3D {
-            vertices: vec![
-                Vec3::new(-1.0, -1.0, -5.0),
-                Vec3::new(1.0, -1.0, -5.0),
-                Vec3::new(1.0, 1.0, -5.0),
-                Vec3::new(-1.0, 1.0, -5.0),
-            ],
-            color: [255, 0, 0, 255],
-        };
-
-        let far_poly = Polygon3D {
-            vertices: vec![
-                Vec3::new(-1.0, -1.0, -10.0),
-                Vec3::new(1.0, -1.0, -10.0),
-                Vec3::new(1.0, 1.0, -10.0),
-                Vec3::new(-1.0, 1.0, -10.0),
-            ],
-            color: [0, 255, 0, 255],
-        };
-
-        // Project polygons to screen space
-        if let Some(close_screen) = close_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
-            if let Some(far_screen) = far_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
-                // Initially both should be visible (depth buffer is clear)
-                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
-                assert!(renderer.is_polygon_potentially_visible(&far_poly, &far_screen));
-
-                // Update depth buffer with close polygon
-                renderer.update_polygon_depth(&close_poly, &close_screen);
-
-                // Close polygon should still be visible, far polygon should be occluded
-                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
-                // Note: far polygon might still be visible due to conservative testing
-                // but it should be less likely to pass all visibility tests
-            }
-        }
-
-        // Test depth buffer reset
-        renderer.depth_buffer.reset();
-        // After reset, both should be visible again
-        if let Some(close_screen) = close_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
-            if let Some(far_screen) = far_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
-                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
-                assert!(renderer.is_polygon_potentially_visible(&far_poly, &far_screen));
-            }
-        }
-
-        // Test disabling depth buffer
-        renderer.set_use_depth_buffer(false);
-        assert!(!renderer.is_depth_buffer_enabled());
     }
 }

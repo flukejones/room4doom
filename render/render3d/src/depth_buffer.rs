@@ -73,12 +73,18 @@ impl DepthBuffer {
 
     /// Set depth at pixel coordinates (unchecked)
     #[inline]
-    fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) {
+    pub fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
+        if x >= self.width || y >= self.height {
+            return false;
+        }
+
         let index = y * self.width + x;
         unsafe {
-            let slot = self.depths.get_unchecked_mut(index);
-            if depth < *slot {
-                *slot = depth;
+            if depth < *self.depths.get_unchecked(index) {
+                *self.depths.get_unchecked_mut(index) = depth;
+                true
+            } else {
+                false
             }
         }
     }
@@ -308,55 +314,6 @@ impl DepthBuffer {
         // For simplicity, use the closest vertex depth
         // In a more sophisticated implementation, you could use proper barycentric interpolation
         closest_depth
-    }
-
-    /// Update depth buffer with a polygon's depth values
-    /// This should be called after a polygon is successfully rendered
-    pub fn update_polygon_depth(&mut self, vertices: &[Vec2], depths: &[f32]) {
-        #[cfg(feature = "hprof")]
-        profile!("update_polygon_depth");
-
-        if vertices.len() != depths.len() || vertices.len() < 3 {
-            return;
-        }
-
-        // Clip polygon to view
-        let clipped_vertices = self.clip_polygon_to_view(vertices);
-        if clipped_vertices.is_empty() {
-            return;
-        }
-
-        // Update depth buffer at key points
-        self.update_depth_at_vertices(&clipped_vertices, vertices, depths);
-    }
-
-    /// Update depth buffer at polygon vertices and key points
-    fn update_depth_at_vertices(
-        &mut self,
-        clipped_vertices: &[Vec2],
-        original_vertices: &[Vec2],
-        depths: &[f32],
-    ) {
-        // Update at clipped vertices
-        for vertex in clipped_vertices {
-            let depth = self.interpolate_depth_at_point(*vertex, original_vertices, depths);
-            let x = vertex.x.round() as usize;
-            let y = vertex.y.round() as usize;
-            if x < self.width && y < self.height {
-                self.set_depth_unchecked(x, y, depth);
-            }
-        }
-
-        // Update at center if polygon is large enough
-        if clipped_vertices.len() >= 3 {
-            let center = self.compute_polygon_center(clipped_vertices);
-            let center_depth = self.interpolate_depth_at_point(center, original_vertices, depths);
-            let x = center.x.round() as usize;
-            let y = center.y.round() as usize;
-            if x < self.width && y < self.height {
-                self.set_depth_unchecked(x, y, center_depth);
-            }
-        }
     }
 }
 

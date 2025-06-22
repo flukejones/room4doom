@@ -20,7 +20,7 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
 
         // Lower wall (step up) - if back floor is higher than front floor
         if back_floor > front_floor {
-            polygons.push(Polygon3D::from_wall_segment(
+            polygons.extend(Polygon3D::from_wall_segment(
                 v1,
                 v2,
                 front_floor,
@@ -35,7 +35,7 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
 
         // Upper wall (overhead) - if back ceiling is lower than front ceiling
         if back_ceiling < front_ceiling {
-            polygons.push(Polygon3D::from_wall_segment(
+            polygons.extend(Polygon3D::from_wall_segment(
                 v1,
                 v2,
                 back_ceiling,
@@ -52,7 +52,7 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
         // The portal area is defined by the gap between upper and lower walls
     } else {
         // One-sided line - solid wall from floor to ceiling
-        polygons.push(Polygon3D::from_wall_segment(
+        polygons.extend(Polygon3D::from_wall_segment(
             v1,
             v2,
             front_floor,
@@ -76,23 +76,32 @@ pub struct Polygon3D {
 }
 
 impl Polygon3D {
-    /// Create a vertical quad polygon from a line segment and heights
-    /// The polygon vertices are ordered: bottom-left, bottom-right, top-right, top-left
+    /// Create two triangle polygons from a line segment and heights
+    /// Returns two triangles that form the wall quad
     pub fn from_wall_segment(
         v1: Vec2,
         v2: Vec2,
         bottom_height: f32,
         top_height: f32,
         color: [u8; 4],
-    ) -> Self {
-        let vertices = vec![
-            Vec3::new(v1.x, v1.y, bottom_height), // bottom-left
-            Vec3::new(v2.x, v2.y, bottom_height), // bottom-right
-            Vec3::new(v2.x, v2.y, top_height),    // top-right
-            Vec3::new(v1.x, v1.y, top_height),    // top-left
-        ];
+    ) -> Vec<Self> {
+        let bottom_left = Vec3::new(v1.x, v1.y, bottom_height);
+        let bottom_right = Vec3::new(v2.x, v2.y, bottom_height);
+        let top_right = Vec3::new(v2.x, v2.y, top_height);
+        let top_left = Vec3::new(v1.x, v1.y, top_height);
 
-        Self { vertices, color }
+        vec![
+            // First triangle: bottom-left, bottom-right, top-right
+            Self {
+                vertices: vec![bottom_left, bottom_right, top_right],
+                color,
+            },
+            // Second triangle: bottom-left, top-right, top-left
+            Self {
+                vertices: vec![bottom_left, top_right, top_left],
+                color,
+            },
+        ]
     }
 
     /// Transform polygon to view space
@@ -236,5 +245,48 @@ impl Polygon2D {
         }
 
         Some((min, max))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wall_segment_to_triangles() {
+        let v1 = Vec2::new(0.0, 0.0);
+        let v2 = Vec2::new(10.0, 0.0);
+        let bottom_height = 0.0;
+        let top_height = 8.0;
+        let color = [255, 255, 255, 255];
+
+        let triangles = Polygon3D::from_wall_segment(v1, v2, bottom_height, top_height, color);
+
+        // Should return exactly 2 triangles
+        assert_eq!(triangles.len(), 2);
+
+        // Each triangle should have exactly 3 vertices
+        for triangle in &triangles {
+            assert_eq!(triangle.vertices.len(), 3);
+            assert_eq!(triangle.color, color);
+        }
+
+        // Verify the triangles cover the expected wall area
+        let expected_vertices = [
+            Vec3::new(0.0, 0.0, 0.0),  // bottom-left
+            Vec3::new(10.0, 0.0, 0.0), // bottom-right
+            Vec3::new(10.0, 0.0, 8.0), // top-right
+            Vec3::new(0.0, 0.0, 8.0),  // top-left
+        ];
+
+        // First triangle: bottom-left, bottom-right, top-right
+        assert_eq!(triangles[0].vertices[0], expected_vertices[0]);
+        assert_eq!(triangles[0].vertices[1], expected_vertices[1]);
+        assert_eq!(triangles[0].vertices[2], expected_vertices[2]);
+
+        // Second triangle: bottom-left, top-right, top-left
+        assert_eq!(triangles[1].vertices[0], expected_vertices[0]);
+        assert_eq!(triangles[1].vertices[1], expected_vertices[2]);
+        assert_eq!(triangles[1].vertices[2], expected_vertices[3]);
     }
 }
