@@ -37,6 +37,7 @@ pub struct Renderer3D {
     render_filled: bool,
     near_z: f32,
     far_z: f32,
+    vertex_depths: [f32; 3],
 }
 
 impl Renderer3D {
@@ -53,7 +54,7 @@ impl Renderer3D {
     /// * `fov` - Field of view in radians
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let aspect = width / height;
-        let near = 0.1;
+        let near = 1.0;
         let far = 10000.0;
 
         Self {
@@ -71,6 +72,7 @@ impl Renderer3D {
             render_filled: true,
             near_z: near,
             far_z: far,
+            vertex_depths: [0.0; 3],
         }
     }
 
@@ -295,11 +297,15 @@ impl Renderer3D {
         view_poly: &Polygon3D,
         screen_poly: &Polygon2D,
     ) {
-        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
+        self.vertex_depths = [
+            view_poly.vertices[0].z,
+            view_poly.vertices[1].z,
+            view_poly.vertices[2].z,
+        ];
 
         if self
             .depth_buffer
-            .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
+            .is_polygon_potentially_visible(&screen_poly.vertices, &self.vertex_depths)
         {
             // Draw polygon with occlusion
             self.draw_polygon(rend, screen_poly);
@@ -551,7 +557,7 @@ impl Renderer3D {
 
             let mut any_in_front = false;
             for v in &view_poly.vertices {
-                if v.z < -0.1 {
+                if v.z < self.near_z {
                     any_in_front = true;
                     break;
                 }
@@ -565,6 +571,7 @@ impl Renderer3D {
                 &self.projection_matrix,
                 self.width as f32,
                 self.height as f32,
+                self.near_z,
             ) {
                 self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
             }
@@ -592,11 +599,23 @@ impl Renderer3D {
 
         for triangle in triangles {
             // Create 3D vertices at required height height
-            let vertices = triangle
-                .vertices
-                .iter()
-                .map(|v| Vec3::new(v.x, v.y, sector_height))
-                .collect();
+            let vertices = [
+                Vec3::new(
+                    triangle.vertices[0].x,
+                    triangle.vertices[0].y,
+                    sector_height,
+                ),
+                Vec3::new(
+                    triangle.vertices[1].x,
+                    triangle.vertices[1].y,
+                    sector_height,
+                ),
+                Vec3::new(
+                    triangle.vertices[2].x,
+                    triangle.vertices[2].y,
+                    sector_height,
+                ),
+            ];
 
             let poly = Polygon3D {
                 vertices,
@@ -607,7 +626,7 @@ impl Renderer3D {
 
             let mut any_in_front = false;
             for v in &view_poly.vertices {
-                if v.z < -0.01 {
+                if v.z < self.near_z {
                     any_in_front = true;
                     break;
                 }
@@ -622,6 +641,7 @@ impl Renderer3D {
                 &self.projection_matrix,
                 self.width as f32,
                 self.height as f32,
+                self.near_z,
             ) {
                 self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
             }
@@ -682,10 +702,9 @@ impl Renderer3D {
         let end_seg = start_seg + subsector.seg_count as usize;
 
         if let Some(segments) = map.segments().get(start_seg..end_seg) {
+            self.render_flats(map, rend, subsector, pic_data);
             for seg in segments {
                 let front_sector = seg.frontsector.clone();
-                self.render_flats(map, rend, subsector, pic_data);
-
                 if let Some(back_sector) = seg.backsector.clone() {
                     // Doors. Block view
                     if back_sector.ceilingheight <= front_sector.floorheight

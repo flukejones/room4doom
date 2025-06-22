@@ -68,11 +68,13 @@ pub fn segment_to_polygons(seg: &Segment, pic_data: &PicData) -> Vec<Polygon3D> 
     polygons
 }
 
+pub const POLYGON3D_VERTEX_COUNT: usize = 3;
+pub const POLYGON3D_RGBA_SIZE: usize = 4;
 /// Represents a 3D polygon in world space
 #[derive(Debug, Clone)]
 pub struct Polygon3D {
-    pub vertices: Vec<Vec3>,
-    pub color: [u8; 4],
+    pub vertices: [Vec3; POLYGON3D_VERTEX_COUNT],
+    pub color: [u8; POLYGON3D_RGBA_SIZE],
 }
 
 impl Polygon3D {
@@ -93,12 +95,12 @@ impl Polygon3D {
         vec![
             // First triangle: bottom-left, bottom-right, top-right
             Self {
-                vertices: vec![bottom_left, bottom_right, top_right],
+                vertices: [bottom_left, bottom_right, top_right],
                 color,
             },
             // Second triangle: bottom-left, top-right, top-left
             Self {
-                vertices: vec![bottom_left, top_right, top_left],
+                vertices: [bottom_left, top_right, top_left],
                 color,
             },
         ]
@@ -106,11 +108,11 @@ impl Polygon3D {
 
     /// Transform polygon to view space
     pub fn transform(&self, view_matrix: &glam::Mat4) -> Self {
-        let vertices = self
-            .vertices
-            .iter()
-            .map(|v| view_matrix.transform_point3(*v))
-            .collect();
+        let vertices = [
+            view_matrix.transform_point3(self.vertices[0]),
+            view_matrix.transform_point3(self.vertices[1]),
+            view_matrix.transform_point3(self.vertices[2]),
+        ];
 
         Self {
             vertices,
@@ -124,13 +126,14 @@ impl Polygon3D {
         projection_matrix: &glam::Mat4,
         screen_width: f32,
         screen_height: f32,
+        near_z: f32,
     ) -> Option<Polygon2D> {
         let mut screen_vertices = Vec::new();
 
         // First pass: project all vertices that are in front of the camera
         let mut projected_vertices = Vec::new();
         for vertex in &self.vertices {
-            if vertex.z < -0.01 {
+            if vertex.z < near_z {
                 // Only project vertices in front of camera
                 // Apply projection matrix (vertex is in view space)
                 let clip = projection_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
@@ -153,9 +156,9 @@ impl Polygon3D {
         }
 
         // Second pass: handle edge clipping for vertices behind camera
-        for i in 0..self.vertices.len() {
+        for i in 0..POLYGON3D_VERTEX_COUNT {
             let v1_idx = i;
-            let v2_idx = (i + 1) % self.vertices.len();
+            let v2_idx = (i + 1) % POLYGON3D_VERTEX_COUNT;
             let v1 = self.vertices[v1_idx];
             let v2 = self.vertices[v2_idx];
 
@@ -171,9 +174,9 @@ impl Polygon3D {
                     if screen_vertices.is_empty() || screen_vertices.last() != Some(&p1) {
                         screen_vertices.push(p1);
                     }
-                    // Find intersection with near plane z = -0.01
-                    if v1.z < -0.01 && v2.z > -0.01 {
-                        let t = (-0.01 - v1.z) / (v2.z - v1.z);
+                    // Find intersection with near plane
+                    if v1.z < -near_z && v2.z > -near_z {
+                        let t = (-near_z - v1.z) / (v2.z - v1.z);
                         let clip_point = v1 + (v2 - v1) * t;
 
                         let clip = projection_matrix
@@ -188,8 +191,8 @@ impl Polygon3D {
                 }
                 (None, Some(_p2)) => {
                     // v1 is behind camera, v2 is visible - clip edge
-                    if v1.z > -0.01 && v2.z < -0.01 {
-                        let t = (-0.01 - v1.z) / (v2.z - v1.z);
+                    if v1.z > -near_z && v2.z < -near_z {
+                        let t = (-near_z - v1.z) / (v2.z - v1.z);
                         let clip_point = v1 + (v2 - v1) * t;
 
                         let clip = projection_matrix
@@ -224,7 +227,7 @@ impl Polygon3D {
 #[derive(Debug, Clone)]
 pub struct Polygon2D {
     pub vertices: Vec<Vec2>,
-    pub color: [u8; 4],
+    pub color: [u8; POLYGON3D_RGBA_SIZE],
 }
 
 impl Polygon2D {
@@ -267,7 +270,6 @@ mod tests {
 
         // Each triangle should have exactly 3 vertices
         for triangle in &triangles {
-            assert_eq!(triangle.vertices.len(), 3);
             assert_eq!(triangle.color, color);
         }
 
