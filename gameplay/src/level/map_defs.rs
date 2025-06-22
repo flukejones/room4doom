@@ -456,6 +456,10 @@ pub struct SubSector {
 pub struct Node {
     /// Where the line used for splitting the level starts
     pub xy: Vec2,
+    /// The minimum height of this subsector
+    pub min_z: f32,
+    /// The maximum height of this subsector
+    pub max_z: f32,
     /// Where the line used for splitting the level ends
     pub delta: Vec2,
     /// Coordinates of the bounding boxes:

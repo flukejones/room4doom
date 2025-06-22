@@ -200,6 +200,7 @@ impl MapData {
         // The BSP level structure for rendering, movement, collisions etc
         self.load_segments(map_name, wad, extended.as_ref());
         self.load_subsectors(map_name, wad, extended.as_ref());
+        // Should always be last to ensure we can access subsectors and sectors during it
         self.load_nodes(map_name, wad, node_type, extended.as_ref());
 
         for sector in &mut self.sectors {
@@ -531,6 +532,8 @@ impl MapData {
                 delta: Vec2::new(n.dx as f32, n.dy as f32),
                 bboxes: bounding_boxes,
                 children: n.children,
+                min_z: 0.0,
+                max_z: 0.0,
             }
         };
 
@@ -562,7 +565,53 @@ impl MapData {
             info!("{}: Fixed bsp node children", map_name);
         }
 
+        // Calculate min_z and max_z for each node
+        self.calculate_node_z_bounds();
+
         self.start_node = (self.nodes.len() - 1) as u32;
+    }
+
+    fn calculate_node_z_bounds(&mut self) {
+        // First pass: calculate z-bounds for subsectors
+        let mut subsector_bounds = vec![(f32::MAX, f32::MIN); self.subsectors.len()];
+
+        for (i, subsector) in self.subsectors.iter().enumerate() {
+            subsector_bounds[i] = (subsector.sector.floorheight, subsector.sector.ceilingheight);
+        }
+
+        // Second pass: calculate z-bounds for nodes in reverse order (bottom-up)
+        for i in (0..self.nodes.len()).rev() {
+            let mut min_z = f32::MAX;
+            let mut max_z = f32::MIN;
+
+            for child_idx in 0..2 {
+                let child_id = self.nodes[i].children[child_idx];
+
+                if child_id & IS_SSECTOR_MASK != 0 {
+                    // Child is a subsector
+                    let subsector_idx = if child_id == u32::MAX {
+                        0
+                    } else {
+                        (child_id & !IS_SSECTOR_MASK) as usize
+                    };
+
+                    let (sub_min_z, sub_max_z) = subsector_bounds[subsector_idx];
+                    min_z = min_z.min(sub_min_z);
+                    max_z = max_z.max(sub_max_z);
+                } else {
+                    // Child is another node
+                    let child_node_idx = child_id as usize;
+                    min_z = min_z.min(self.nodes[child_node_idx].min_z);
+                    max_z = max_z.max(self.nodes[child_node_idx].max_z);
+                }
+            }
+
+            // Update current node's z bounds
+            self.nodes[i].min_z = min_z;
+            self.nodes[i].max_z = max_z;
+        }
+
+        info!("Calculated z-bounds for all BSP nodes");
     }
 
     /// Get a raw pointer to the subsector a point is in. This is mostly used to
@@ -951,7 +1000,9 @@ mod tests {
                     [Vec2::new(0.0, -342.0), Vec2::new(12.0, -362.0)],
                     [Vec2::new(12.0, -333.0), Vec2::new(24.0, -371.0)]
                 ],
-                children: [665, 2147484322]
+                children: [665, 2147484322],
+                min_z: 0.0,
+                max_z: 0.0
             }
         );
 

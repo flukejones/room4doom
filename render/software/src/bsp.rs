@@ -183,8 +183,8 @@ impl SoftwareRenderer {
         //     return;
         // }
 
-        let mut angle1 = vertex_angle_to_object(&seg.v1, mobj); // widescreen: Leave as is
-        let mut angle2 = vertex_angle_to_object(&seg.v2, mobj); // widescreen: Leave as is
+        let mut angle1 = vertex_angle_to_object(seg.v1, mobj); // widescreen: Leave as is
+        let mut angle2 = vertex_angle_to_object(seg.v2, mobj); // widescreen: Leave as is
 
         let span = (angle1 - angle2).rad();
         if span.abs() > PI {
@@ -618,8 +618,8 @@ impl SoftwareRenderer {
         let clipangle = Angle::new(self.seg_renderer.fov_half);
         let clipangrad = clipangle.rad();
         // Reset to correct angles
-        let mut angle1 = vertex_angle_to_object(&v1, mobj);
-        let mut angle2 = vertex_angle_to_object(&v2, mobj);
+        let mut angle1 = vertex_angle_to_object(v1, mobj);
+        let mut angle2 = vertex_angle_to_object(v2, mobj);
 
         let span = angle1 - angle2;
 

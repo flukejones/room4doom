@@ -147,14 +147,14 @@ impl Renderer3D {
 
         // Get all 8 corners of the bounding box (assuming floor and ceiling heights)
         let corners = [
-            Vec3::new(min.x, min.y, -1000.0), // bottom corners
-            Vec3::new(max.x, min.y, -1000.0),
-            Vec3::new(min.x, max.y, -1000.0),
-            Vec3::new(max.x, max.y, -1000.0),
-            Vec3::new(min.x, min.y, 1000.0), // top corners
-            Vec3::new(max.x, min.y, 1000.0),
-            Vec3::new(min.x, max.y, 1000.0),
-            Vec3::new(max.x, max.y, 1000.0),
+            Vec3::new(min.x, min.y, node.min_z), // bottom corners
+            Vec3::new(max.x, min.y, node.min_z),
+            Vec3::new(min.x, max.y, node.min_z),
+            Vec3::new(max.x, max.y, node.min_z),
+            Vec3::new(min.x, min.y, node.max_z), // top corners
+            Vec3::new(max.x, min.y, node.max_z),
+            Vec3::new(min.x, max.y, node.max_z),
+            Vec3::new(max.x, max.y, node.max_z),
         ];
 
         // Transform corners to view space
