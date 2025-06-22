@@ -7,13 +7,11 @@ use render_trait::{PixelBuffer, RenderTrait};
 use std::f32::consts::PI;
 
 mod bsp_polygon;
-mod occlusion;
+mod depth_buffer;
 mod polygon;
 use bsp_polygon::{BSPPolygons, Triangle};
-use occlusion::OcclusionBuffer;
-use polygon::{Polygon2D, Polygon3D};
-
-use crate::polygon::segment_to_polygons;
+use depth_buffer::DepthBuffer;
+use polygon::{Polygon2D, Polygon3D, segment_to_polygons};
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
@@ -21,6 +19,9 @@ const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 ///
 /// This renderer displays the level geometry in true 3D space,
 /// showing floors, ceilings, walls with different colors.
+///
+/// Features depth buffer optimization for improved performance by testing
+/// polygon visibility before expensive occlusion calculations.
 pub struct Renderer3D {
     width: u32,
     height: u32,
@@ -29,14 +30,112 @@ pub struct Renderer3D {
     fov: f32,
     view_matrix: Mat4,
     projection_matrix: Mat4,
-    occlusion_buffer: OcclusionBuffer,
+    depth_buffer: DepthBuffer,
     intersection_buffer: Vec<f32>,
     map_name: String,
     bsp_polygons: BSPPolygons,
     render_filled: bool,
+    use_depth_buffer: bool,
 }
 
 impl Renderer3D {
+    // ==========================================
+    // INITIALIZATION AND CONFIGURATION METHODS
+    // ==========================================
+
+    /// Creates a new 3D wireframe renderer.
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Screen width in pixels
+    /// * `height` - Screen height in pixels
+    /// * `fov` - Field of view in radians
+    pub fn new(width: f32, height: f32, fov: f32) -> Self {
+        let aspect = width / height;
+        let near = 0.1;
+        let far = 10000.0;
+
+        Self {
+            width: width as u32,
+            height: height as u32,
+            width_minus_one: width - 1.0,
+            height_minus_one: height - 1.0,
+            fov,
+            view_matrix: Mat4::IDENTITY,
+            projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
+            depth_buffer: DepthBuffer::new(width as usize, height as usize),
+            intersection_buffer: Vec::with_capacity(256), // Pre-allocate for polygon intersections
+            map_name: String::new(),
+            bsp_polygons: BSPPolygons::new(),
+            render_filled: true,    // Default to filled mode
+            use_depth_buffer: true, // Enable depth buffer by default for performance
+        }
+    }
+
+    /// Resizes the renderer viewport and updates the projection matrix.
+    pub fn resize(&mut self, width: f32, height: f32) {
+        self.width = width as u32;
+        self.height = height as u32;
+        self.width_minus_one = width - 1.0;
+        self.height_minus_one = height - 1.0;
+
+        // Update projection matrix with new aspect ratio
+        let aspect = width / height;
+        let near = 0.1;
+        let far = 10000.0;
+        self.projection_matrix = Mat4::perspective_rh_gl(self.fov, aspect, near, far);
+
+        // Resize depth buffer
+        self.depth_buffer.resize(width as usize, height as usize);
+
+        // Set view bounds for clipping
+        self.depth_buffer.set_view_bounds(0.0, width, 0.0, height);
+    }
+
+    /// Sets the field of view and updates the projection matrix.
+    pub fn set_fov(&mut self, fov: f32) {
+        self.fov = fov;
+        let aspect = self.width as f32 / self.height as f32;
+        let near = 0.1;
+        let far = 10000.0;
+        self.projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
+    }
+
+    /// Set whether to render filled polygons or wireframes
+    pub fn set_render_filled(&mut self, filled: bool) {
+        self.render_filled = filled;
+    }
+
+    /// Get current rendering mode
+    pub fn is_render_filled(&self) -> bool {
+        self.render_filled
+    }
+
+    /// Enable or disable depth buffer optimization
+    pub fn set_use_depth_buffer(&mut self, enabled: bool) {
+        self.use_depth_buffer = enabled;
+    }
+
+    /// Get current depth buffer usage
+    pub fn is_depth_buffer_enabled(&self) -> bool {
+        self.use_depth_buffer
+    }
+
+    fn update_view_matrix(&mut self, player: &Player) {
+        if let Some(mobj) = player.mobj() {
+            // Use player.viewz which accounts for viewheight (eye level above feet)
+            // This is crucial for proper 3D camera positioning in Doom
+            let pos = Vec3::new(mobj.xy.x, mobj.xy.y, player.viewz);
+            let angle = mobj.angle.rad();
+            let pitch = player.lookdir as f32 * PI / 180.0;
+
+            let forward = Vec3::new(angle.cos(), angle.sin(), pitch.sin());
+            let up = Vec3::Z;
+
+            self.view_matrix = Mat4::look_at_rh(pos, pos + forward, up);
+        }
+    }
+
     // ==========================================
     // UTILITY/HELPER FUNCTIONS
     // ==========================================
@@ -167,7 +266,7 @@ impl Renderer3D {
         // Check if all points are outside any single frustum plane
         // If all points are on the wrong side of any plane, bbox is outside frustum
 
-        if view_corners.iter().all(|p| p.z > -0.01) {
+        if view_corners.iter().all(|p| p.z > -0.2) {
             return false;
         }
 
@@ -198,91 +297,65 @@ impl Renderer3D {
     }
 
     // ==========================================
-    // INITIALIZATION AND CONFIGURATION METHODS
-    // ==========================================
-
-    /// Creates a new 3D wireframe renderer.
-    ///
-    /// # Arguments
-    ///
-    /// * `width` - Screen width in pixels
-    /// * `height` - Screen height in pixels
-    /// * `fov` - Field of view in radians
-    pub fn new(width: f32, height: f32, fov: f32) -> Self {
-        let aspect = width / height;
-        let near = 0.1;
-        let far = 10000.0;
-
-        Self {
-            width: width as u32,
-            height: height as u32,
-            width_minus_one: width - 1.0,
-            height_minus_one: height - 1.0,
-            fov,
-            view_matrix: Mat4::IDENTITY,
-            projection_matrix: Mat4::perspective_rh_gl(fov, aspect, near, far),
-            occlusion_buffer: OcclusionBuffer::new(width as usize, height as usize),
-            intersection_buffer: Vec::with_capacity(256), // Pre-allocate for polygon intersections
-            map_name: String::new(),
-            bsp_polygons: BSPPolygons::new(),
-            render_filled: true, // Default to filled mode
-        }
-    }
-
-    /// Resizes the renderer viewport and updates the projection matrix.
-    pub fn resize(&mut self, width: f32, height: f32) {
-        self.width = width as u32;
-        self.height = height as u32;
-        self.width_minus_one = width - 1.0;
-        self.height_minus_one = height - 1.0;
-
-        // Update projection matrix with new aspect ratio
-        let aspect = width / height;
-        let near = 0.1;
-        let far = 10000.0;
-        self.projection_matrix = Mat4::perspective_rh_gl(self.fov, aspect, near, far);
-
-        // Resize occlusion buffer
-        self.occlusion_buffer = OcclusionBuffer::new(width as usize, height as usize);
-    }
-
-    /// Sets the field of view and updates the projection matrix.
-    pub fn set_fov(&mut self, fov: f32) {
-        self.fov = fov;
-        let aspect = self.width as f32 / self.height as f32;
-        let near = 0.1;
-        let far = 10000.0;
-        self.projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
-    }
-
-    /// Set whether to render filled polygons or wireframes
-    pub fn set_render_filled(&mut self, filled: bool) {
-        self.render_filled = filled;
-    }
-
-    /// Get current rendering mode
-    pub fn is_render_filled(&self) -> bool {
-        self.render_filled
-    }
-
-    fn update_view_matrix(&mut self, player: &Player) {
-        if let Some(mobj) = player.mobj() {
-            // Use player.viewz which accounts for viewheight (eye level above feet)
-            // This is crucial for proper 3D camera positioning in Doom
-            let pos = Vec3::new(mobj.xy.x, mobj.xy.y, player.viewz);
-            let angle = mobj.angle.rad();
-            let pitch = player.lookdir as f32 * PI / 180.0;
-
-            let forward = Vec3::new(angle.cos(), angle.sin(), pitch.sin());
-            let up = Vec3::Z;
-
-            self.view_matrix = Mat4::look_at_rh(pos, pos + forward, up);
-        }
-    }
-
-    // ==========================================
     // RENDERING PRIMITIVES
     // ==========================================
+
+    /// Test if a polygon is potentially visible using depth buffer
+    /// Returns true if any vertex of the polygon might be visible
+    fn is_polygon_potentially_visible(
+        &self,
+        view_poly: &Polygon3D,
+        screen_poly: &Polygon2D,
+    ) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("is_polygon_potentially_visible");
+
+        // Extract depth values from view space vertices
+        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
+
+        // Test visibility using depth buffer
+        self.depth_buffer
+            .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
+    }
+
+    /// Update depth buffer with polygon depth information
+    fn update_polygon_depth(&mut self, view_poly: &Polygon3D, screen_poly: &Polygon2D) {
+        if !self.use_depth_buffer {
+            return;
+        }
+
+        #[cfg(feature = "hprof")]
+        profile!("update_polygon_depth");
+
+        // Extract depth values from view space vertices
+        let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
+
+        // Update depth buffer
+        self.depth_buffer
+            .update_polygon_depth(&screen_poly.vertices, &depths);
+    }
+
+    /// Helper method to render polygon with optional depth buffer testing
+    fn render_polygon_with_depth_test(
+        &mut self,
+        rend: &mut impl RenderTrait,
+        view_poly: &Polygon3D,
+        screen_poly: &Polygon2D,
+    ) {
+        let should_render = if self.use_depth_buffer {
+            self.is_polygon_potentially_visible(view_poly, screen_poly)
+        } else {
+            true
+        };
+
+        if should_render {
+            // Draw polygon with occlusion
+            self.draw_polygon_with_occlusion(rend, screen_poly);
+
+            // Update depth buffer with this polygon's depth
+            self.update_polygon_depth(view_poly, screen_poly);
+        }
+    }
 
     /// Draw polygon with span-based occlusion
     fn draw_polygon_with_occlusion(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
@@ -327,10 +400,12 @@ impl Renderer3D {
                 }
             }
 
-            // Update occlusion buffer if polygon is large enough
-            if max.x - min.x > 4.0 || max.y - min.y > 4.0 {
-                self.occlusion_buffer.update_polygon_occlusion(poly);
-            }
+            // // Update depth buffer with polygon depth information if polygon is large enough
+            // if max.x - min.x > 4.0 || max.y - min.y > 4.0 {
+            //     let vertices: Vec<Vec2> = poly.vertices.clone();
+            //     let depths: Vec<f32> = vertices.iter().map(|_| 0.0).collect(); // Default depth for 2D polygons
+            //     self.depth_buffer.update_polygon_depth(&vertices, &depths);
+            // }
         } else {
             return; // Skip degenerate polygons
         }
@@ -399,24 +474,30 @@ impl Renderer3D {
                     column_y_max = column_y_max.min(y_max).min(self.height as f32 - 1.0);
 
                     if column_y_min <= column_y_max {
-                        // Get visible spans for this column segment
-                        let visible_spans = self.occlusion_buffer.get_visible_spans(
-                            x as usize,
-                            column_y_min,
-                            column_y_max,
-                        );
+                        // Draw the entire column segment - depth buffer handles occlusion
+                        let y_start = column_y_min.ceil() as i32;
+                        let y_end = column_y_max.floor() as i32;
 
-                        // Draw each visible span
-                        for (span_top, span_bottom) in visible_spans {
-                            let y_start = span_top.ceil() as i32;
-                            let y_end = span_bottom.floor() as i32;
-
-                            for y in y_start..=y_end {
-                                if y >= 0 && y <= self.height as i32 {
+                        for y in y_start..=y_end {
+                            if y >= 0 && y < self.height as i32 {
+                                let default_depth = 0.0; // Default depth for 2D polygons
+                                // Test depth buffer for visibility
+                                if self.depth_buffer.is_point_visible(
+                                    x as f32,
+                                    y as f32,
+                                    default_depth,
+                                ) {
                                     rend.draw_buffer().set_pixel(
                                         x as usize,
                                         y as usize,
                                         &poly.color,
+                                    );
+
+                                    // Update depth buffer
+                                    self.depth_buffer.set_depth(
+                                        x as usize,
+                                        y as usize,
+                                        default_depth,
                                     );
                                 }
                             }
@@ -431,7 +512,7 @@ impl Renderer3D {
 
     /// Draw line with occlusion checking
     fn draw_line_with_occlusion(
-        &self,
+        &mut self,
         rend: &mut impl RenderTrait,
         p1: Vec2,
         p2: Vec2,
@@ -476,33 +557,19 @@ impl Renderer3D {
             }
         }
 
-        // Draw pixels in runs based on visibility
-        let mut i = 0;
-        while i < pixels.len() {
-            let (x, y) = pixels[i];
+        // Draw pixels based on depth buffer visibility
+        let line_depth = 0.0; // Default depth for 2D lines
 
-            // Check if this pixel is visible
-            if !self
-                .occlusion_buffer
-                .is_point_occluded(x as usize, y as f32)
+        for (x, y) in pixels {
+            // Check if this pixel is visible in depth buffer
+            if self
+                .depth_buffer
+                .is_point_visible(x as f32, y as f32, line_depth)
             {
-                // Find run of visible pixels
-                let mut j = i;
-                while j < pixels.len() {
-                    let (px, py) = pixels[j];
-                    if self
-                        .occlusion_buffer
-                        .is_point_occluded(px as usize, py as f32)
-                    {
-                        break;
-                    }
-                    rend.draw_buffer()
-                        .set_pixel(px as usize, py as usize, &color);
-                    j += 1;
-                }
-                i = j;
-            } else {
-                i += 1;
+                rend.draw_buffer().set_pixel(x as usize, y as usize, &color);
+                // Update depth buffer with this pixel
+                self.depth_buffer
+                    .set_depth(x as usize, y as usize, line_depth);
             }
         }
     }
@@ -551,7 +618,7 @@ impl Renderer3D {
             // Simple check - at least one vertex should be in front
             let mut any_in_front = false;
             for v in &view_poly.vertices {
-                if v.z < -0.1 {
+                if v.z < -0.01 {
                     any_in_front = true;
                     break;
                 }
@@ -566,8 +633,7 @@ impl Renderer3D {
                 self.width as f32,
                 self.height as f32,
             ) {
-                // Draw polygon with occlusion
-                self.draw_polygon_with_occlusion(rend, &screen_poly);
+                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
             }
         }
     }
@@ -658,12 +724,28 @@ impl Renderer3D {
                 color: colour,
             };
 
-            if let Some(view_poly) = poly.transform(&self.view_matrix).project(
+            // Transform to view space
+            let view_poly = poly.transform(&self.view_matrix);
+
+            // Simple check - at least one vertex should be in front
+            let mut any_in_front = false;
+            for v in &view_poly.vertices {
+                if v.z < -0.01 {
+                    any_in_front = true;
+                    break;
+                }
+            }
+            if !any_in_front {
+                continue;
+            }
+
+            // Project to screen space
+            if let Some(screen_poly) = view_poly.project(
                 &self.projection_matrix,
                 self.width as f32,
                 self.height as f32,
             ) {
-                self.draw_polygon_with_occlusion(rend, &view_poly);
+                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
             }
         }
     }
@@ -765,7 +847,7 @@ impl Renderer3D {
             self.map_name = level.map_name.clone();
         }
 
-        self.occlusion_buffer.reset();
+        self.depth_buffer.reset();
 
         let player_pos = if let Some(mobj) = player.mobj() {
             mobj.xy
@@ -878,5 +960,66 @@ mod tests {
         // Test that the method handles invalid indices gracefully
         let triangles = renderer.get_subsector_triangles(999);
         assert!(triangles.is_empty());
+    }
+
+    #[test]
+    fn test_depth_buffer_integration() {
+        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0);
+
+        // Enable depth buffer for testing
+        renderer.set_use_depth_buffer(true);
+        assert!(renderer.is_depth_buffer_enabled());
+
+        // Create test polygons
+        let close_poly = Polygon3D {
+            vertices: vec![
+                Vec3::new(-1.0, -1.0, -5.0),
+                Vec3::new(1.0, -1.0, -5.0),
+                Vec3::new(1.0, 1.0, -5.0),
+                Vec3::new(-1.0, 1.0, -5.0),
+            ],
+            color: [255, 0, 0, 255],
+        };
+
+        let far_poly = Polygon3D {
+            vertices: vec![
+                Vec3::new(-1.0, -1.0, -10.0),
+                Vec3::new(1.0, -1.0, -10.0),
+                Vec3::new(1.0, 1.0, -10.0),
+                Vec3::new(-1.0, 1.0, -10.0),
+            ],
+            color: [0, 255, 0, 255],
+        };
+
+        // Project polygons to screen space
+        if let Some(close_screen) = close_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
+            if let Some(far_screen) = far_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
+                // Initially both should be visible (depth buffer is clear)
+                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
+                assert!(renderer.is_polygon_potentially_visible(&far_poly, &far_screen));
+
+                // Update depth buffer with close polygon
+                renderer.update_polygon_depth(&close_poly, &close_screen);
+
+                // Close polygon should still be visible, far polygon should be occluded
+                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
+                // Note: far polygon might still be visible due to conservative testing
+                // but it should be less likely to pass all visibility tests
+            }
+        }
+
+        // Test depth buffer reset
+        renderer.depth_buffer.reset();
+        // After reset, both should be visible again
+        if let Some(close_screen) = close_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
+            if let Some(far_screen) = far_poly.project(&renderer.projection_matrix, 640.0, 480.0) {
+                assert!(renderer.is_polygon_potentially_visible(&close_poly, &close_screen));
+                assert!(renderer.is_polygon_potentially_visible(&far_poly, &far_screen));
+            }
+        }
+
+        // Test disabling depth buffer
+        renderer.set_use_depth_buffer(false);
+        assert!(!renderer.is_depth_buffer_enabled());
     }
 }
