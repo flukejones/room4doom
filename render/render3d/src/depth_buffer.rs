@@ -6,8 +6,8 @@ use glam::Vec2;
 /// Depth buffer for visibility testing with efficient polygon clipping
 #[derive(Clone, Debug)]
 pub struct DepthBuffer {
-    /// Depth values for each pixel (z-coordinate in view space)
-    /// Negative values indicate closer objects (following view space convention)
+    /// Depth values for each pixel (z-coordinate from view space)
+    /// Less negative values indicate closer objects (view space convention)
     depths: Box<[f32]>,
     /// Screen dimensions
     width: usize,
@@ -23,7 +23,7 @@ impl DepthBuffer {
     /// Create a new depth buffer with given dimensions
     pub fn new(width: usize, height: usize) -> Self {
         let size = width * height;
-        let depths = vec![f32::INFINITY; size].into_boxed_slice();
+        let depths = vec![-f32::INFINITY; size].into_boxed_slice();
 
         Self {
             depths,
@@ -41,14 +41,15 @@ impl DepthBuffer {
         #[cfg(feature = "hprof")]
         profile!("depth_buffer_reset");
 
-        // Reset all depths to infinity (farthest possible)
-        self.depths.fill(f32::INFINITY);
+        // Reset all depths to negative infinity (farthest possible in view space)
+        // Any finite negative depth value will be considered closer
+        self.depths.fill(-f32::INFINITY);
     }
 
     /// Resize the depth buffer - recreates the buffer
     pub fn resize(&mut self, width: usize, height: usize) {
         let size = width * height;
-        self.depths = vec![f32::INFINITY; size].into_boxed_slice();
+        self.depths = vec![-f32::INFINITY; size].into_boxed_slice();
         self.width = width;
         self.height = height;
         self.view_left = 0.0;
@@ -72,25 +73,29 @@ impl DepthBuffer {
     }
 
     /// Set depth at pixel coordinates (unchecked)
+    /// For view space Z: closer objects have less negative Z values (higher numerically)
     #[inline]
-    fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) {
+    pub fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         let index = y * self.width + x;
         unsafe {
-            let slot = self.depths.get_unchecked_mut(index);
-            if depth < *slot {
-                *slot = depth;
+            if depth > *self.depths.get_unchecked(index) {
+                *self.depths.get_unchecked_mut(index) = depth;
+                true
+            } else {
+                false
             }
         }
     }
 
     /// Set the depth value at a specific pixel if it's closer than existing depth
+    /// For view space Z: closer objects have less negative Z values (higher numerically)
     pub fn set_depth(&mut self, x: usize, y: usize, depth: f32) -> bool {
         if x >= self.width || y >= self.height {
             return false;
         }
 
         let index = y * self.width + x;
-        if depth < self.depths[index] {
+        if depth > self.depths[index] {
             self.depths[index] = depth;
             true
         } else {
@@ -99,6 +104,7 @@ impl DepthBuffer {
     }
 
     /// Test if a point is visible (closer than stored depth)
+    /// For view space Z: closer objects have less negative Z values (higher numerically)
     pub fn is_point_visible(&self, x: f32, y: f32, depth: f32) -> bool {
         if x < 0.0 || y < 0.0 {
             return false;
@@ -112,7 +118,7 @@ impl DepthBuffer {
         }
 
         let stored_depth = self.get_depth_unchecked(pixel_x, pixel_y);
-        depth < stored_depth
+        depth > stored_depth
     }
 
     /// Clip polygon to view frustum using Sutherland-Hodgman algorithm
@@ -288,7 +294,12 @@ impl DepthBuffer {
     }
 
     /// Interpolate depth at a point using barycentric coordinates
-    fn interpolate_depth_at_point(&self, point: Vec2, vertices: &[Vec2], depths: &[f32]) -> f32 {
+    pub fn interpolate_depth_at_point(
+        &self,
+        point: Vec2,
+        vertices: &[Vec2],
+        depths: &[f32],
+    ) -> f32 {
         if vertices.len() < 3 || depths.len() != vertices.len() {
             return depths.get(0).copied().unwrap_or(0.0);
         }
@@ -309,55 +320,6 @@ impl DepthBuffer {
         // In a more sophisticated implementation, you could use proper barycentric interpolation
         closest_depth
     }
-
-    /// Update depth buffer with a polygon's depth values
-    /// This should be called after a polygon is successfully rendered
-    pub fn update_polygon_depth(&mut self, vertices: &[Vec2], depths: &[f32]) {
-        #[cfg(feature = "hprof")]
-        profile!("update_polygon_depth");
-
-        if vertices.len() != depths.len() || vertices.len() < 3 {
-            return;
-        }
-
-        // Clip polygon to view
-        let clipped_vertices = self.clip_polygon_to_view(vertices);
-        if clipped_vertices.is_empty() {
-            return;
-        }
-
-        // Update depth buffer at key points
-        self.update_depth_at_vertices(&clipped_vertices, vertices, depths);
-    }
-
-    /// Update depth buffer at polygon vertices and key points
-    fn update_depth_at_vertices(
-        &mut self,
-        clipped_vertices: &[Vec2],
-        original_vertices: &[Vec2],
-        depths: &[f32],
-    ) {
-        // Update at clipped vertices
-        for vertex in clipped_vertices {
-            let depth = self.interpolate_depth_at_point(*vertex, original_vertices, depths);
-            let x = vertex.x.round() as usize;
-            let y = vertex.y.round() as usize;
-            if x < self.width && y < self.height {
-                self.set_depth_unchecked(x, y, depth);
-            }
-        }
-
-        // Update at center if polygon is large enough
-        if clipped_vertices.len() >= 3 {
-            let center = self.compute_polygon_center(clipped_vertices);
-            let center_depth = self.interpolate_depth_at_point(center, original_vertices, depths);
-            let x = center.x.round() as usize;
-            let y = center.y.round() as usize;
-            if x < self.width && y < self.height {
-                self.set_depth_unchecked(x, y, center_depth);
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -367,7 +329,7 @@ mod tests {
     #[test]
     fn test_depth_buffer_creation() {
         let buffer = DepthBuffer::new(100, 100);
-        // Test that initial depths are infinity by testing visibility
+        // Test that initial depths are negative infinity by testing visibility
         assert!(buffer.is_point_visible(0.0, 0.0, -1.0)); // Should be visible since buffer is empty
         assert!(buffer.is_point_visible(99.0, 99.0, -1.0));
     }
@@ -382,11 +344,11 @@ mod tests {
         // Set a depth value
         assert!(buffer.set_depth(50, 50, -5.0));
 
-        // Closer points should be visible
-        assert!(buffer.is_point_visible(50.0, 50.0, -10.0));
+        // Closer points should be visible (less negative Z)
+        assert!(buffer.is_point_visible(50.0, 50.0, -1.0));
 
-        // Farther points should not be visible
-        assert!(!buffer.is_point_visible(50.0, 50.0, -1.0));
+        // Farther points should not be visible (more negative Z)
+        assert!(!buffer.is_point_visible(50.0, 50.0, -10.0));
 
         // Points at the same depth should not be visible (not closer)
         assert!(!buffer.is_point_visible(50.0, 50.0, -5.0));
@@ -451,7 +413,7 @@ mod tests {
         // Block some pixels
         for x in 10..=50 {
             for y in 10..=50 {
-                buffer.set_depth(x, y, -20.0);
+                buffer.set_depth(x, y, -5.0);
             }
         }
 
@@ -467,5 +429,35 @@ mod tests {
         buffer.resize(100, 100);
         // After resize, all depths should be reset - test by checking visibility
         assert!(buffer.is_point_visible(25.0, 25.0, -1.0)); // Should be visible since buffer was reset
+    }
+
+    #[test]
+    fn test_view_space_depth_ordering() {
+        let mut buffer = DepthBuffer::new(100, 100);
+
+        // In view space, objects have negative Z values
+        // Closer objects have less negative Z (higher numerical values)
+        let far_depth = -10.0; // Farther from camera
+        let close_depth = -5.0; // Closer to camera
+
+        // Initially, set a far object
+        assert!(buffer.set_depth(50, 50, far_depth));
+
+        // Verify the far object is there
+        assert!(!buffer.is_point_visible(50.0, 50.0, -15.0)); // Even farther object not visible
+        assert!(buffer.is_point_visible(50.0, 50.0, -8.0)); // Closer object should be visible
+
+        // Now try to place a closer object - this should succeed
+        assert!(buffer.set_depth(50, 50, close_depth));
+
+        // Verify the closer object replaced the far one
+        assert!(!buffer.is_point_visible(50.0, 50.0, -6.0)); // Slightly farther than close_depth
+        assert!(buffer.is_point_visible(50.0, 50.0, -4.0)); // Even closer should be visible
+
+        // Try to place a farther object over the closer one - this should fail
+        assert!(!buffer.set_depth(50, 50, far_depth));
+
+        // Verify the closer object is still there
+        assert!(buffer.is_point_visible(50.0, 50.0, -4.0)); // Even closer should still be visible
     }
 }

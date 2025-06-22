@@ -254,7 +254,7 @@ impl Renderer3D {
         // Check if all points are outside any single frustum plane
         // If all points are on the wrong side of any plane, bbox is outside frustum
 
-        if view_corners.iter().all(|p| p.z > -0.2) {
+        if view_corners.iter().all(|p| p.z > -0.1) {
             return false;
         }
 
@@ -295,7 +295,6 @@ impl Renderer3D {
         view_poly: &Polygon3D,
         screen_poly: &Polygon2D,
     ) {
-        // Extract depth values from view space vertices
         let depths: Vec<f32> = view_poly.vertices.iter().map(|v| v.z).collect();
 
         // Test visibility using depth buffer
@@ -303,16 +302,13 @@ impl Renderer3D {
             .depth_buffer
             .is_polygon_potentially_visible(&screen_poly.vertices, &depths)
         {
-            // Draw polygon with occlusion
-            self.draw_polygon(rend, screen_poly);
-            // Update depth buffer with this polygon's depth
-            self.depth_buffer
-                .update_polygon_depth(&screen_poly.vertices, &depths);
+            // Draw polygon with depth information
+            self.draw_polygon(rend, screen_poly, &depths);
         }
     }
 
     /// Draw polygon with span-based occlusion
-    fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
+    fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D, depths: &[f32]) {
         #[cfg(feature = "hprof")]
         profile!("draw_polygon");
         // Check if polygon is completely outside screen bounds
@@ -327,7 +323,7 @@ impl Renderer3D {
 
             // Draw the polygon
             if self.render_filled {
-                self.draw_filled(rend, poly);
+                self.draw_filled(rend, poly, depths);
             } else {
                 // Draw polygon as wireframe (edge-only)
                 let vertices = &poly.vertices;
@@ -359,7 +355,7 @@ impl Renderer3D {
     }
 
     /// Draw filled polygon using scanline algorithm
-    fn draw_filled(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
+    fn draw_filled(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D, depths: &[f32]) {
         #[cfg(feature = "hprof")]
         profile!("draw_filled_polygon");
         if poly.vertices.len() < 3 {
@@ -427,24 +423,22 @@ impl Renderer3D {
 
                         for y in y_start..=y_end {
                             if y >= 0 && y < self.height as i32 {
-                                let default_depth = 0.0; // Default depth for 2D polygons
-                                // Test depth buffer for visibility
-                                if self.depth_buffer.is_point_visible(
-                                    x as f32,
-                                    y as f32,
-                                    default_depth,
+                                // Interpolate depth for this pixel
+                                let pixel_depth = self.depth_buffer.interpolate_depth_at_point(
+                                    Vec2::new(x as f32, y as f32),
+                                    &poly.vertices,
+                                    depths,
+                                );
+                                // Set pixel and update depth buffer in one go
+                                if self.depth_buffer.set_depth_unchecked(
+                                    x as usize,
+                                    y as usize,
+                                    pixel_depth,
                                 ) {
                                     rend.draw_buffer().set_pixel(
                                         x as usize,
                                         y as usize,
                                         &poly.color,
-                                    );
-
-                                    // Update depth buffer
-                                    self.depth_buffer.set_depth(
-                                        x as usize,
-                                        y as usize,
-                                        default_depth,
                                     );
                                 }
                             }
@@ -558,7 +552,7 @@ impl Renderer3D {
             // Simple check - at least one vertex should be in front
             let mut any_in_front = false;
             for v in &view_poly.vertices {
-                if v.z < -0.01 {
+                if v.z < -0.1 {
                     any_in_front = true;
                     break;
                 }
