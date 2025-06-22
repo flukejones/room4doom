@@ -167,8 +167,7 @@ impl Renderer3D {
         // Check if all points are outside any single frustum plane
         // If all points are on the wrong side of any plane, bbox is outside frustum
 
-        // Near plane check (z > -0.1)
-        if view_corners.iter().all(|p| p.z > -0.1) {
+        if view_corners.iter().all(|p| p.z > -0.01) {
             return false;
         }
 
@@ -184,22 +183,14 @@ impl Renderer3D {
         let tan_half_fov_x = aspect * tan_half_fov_y;
 
         // Left plane: x < -z * tan(fov_x/2)
-        if view_corners.iter().all(|p| p.x < p.z * tan_half_fov_x) {
-            return false;
-        }
-
+        if view_corners.iter().all(|p| p.x < p.z * tan_half_fov_x) &&
         // Right plane: x > -z * tan(fov_x/2)
-        if view_corners.iter().all(|p| p.x > -p.z * tan_half_fov_x) {
-            return false;
-        }
-
+         view_corners.iter().all(|p| p.x > -p.z * tan_half_fov_x) &&
         // Bottom plane: y < -z * tan(fov_y/2)
-        if view_corners.iter().all(|p| p.y < p.z * tan_half_fov_y) {
-            return false;
-        }
-
+         view_corners.iter().all(|p| p.y < p.z * tan_half_fov_y) &&
         // Top plane: y > -z * tan(fov_y/2)
-        if view_corners.iter().all(|p| p.y > -p.z * tan_half_fov_y) {
+         view_corners.iter().all(|p| p.y > -p.z * tan_half_fov_y)
+        {
             return false;
         }
 
@@ -594,12 +585,6 @@ impl Renderer3D {
         let start_seg = subsector.start_seg as usize;
         let end_seg = start_seg + subsector.seg_count as usize;
 
-        if let Some(segments) = map.segments().get(start_seg..end_seg) {
-            for seg in segments {
-                self.render_segment(rend, seg, player_pos, pic_data);
-            }
-        }
-
         // Get subsector index for BSP polygon lookup
         let subsector_idx = map
             .subsectors()
@@ -633,6 +618,12 @@ impl Renderer3D {
             pic_data,
             rend,
         );
+
+        if let Some(segments) = map.segments().get(start_seg..end_seg) {
+            for seg in segments {
+                self.render_segment(rend, seg, player_pos, pic_data);
+            }
+        }
     }
 
     fn render_flat(
@@ -647,29 +638,32 @@ impl Renderer3D {
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_flat");
-        if sector_pic != pic_data.sky_num() {
-            let colour = pic_data.get_flat_average_color(light, scale, sector_pic);
-            for triangle in triangles {
-                // TODO: prebuild this
-                // Create 3D vertices at required height height
-                let vertices = triangle
-                    .vertices
-                    .iter()
-                    .map(|v| Vec3::new(v.x, v.y, sector_height))
-                    .collect();
 
-                let poly = Polygon3D {
-                    vertices,
-                    color: colour,
-                };
+        let colour = if sector_pic == pic_data.sky_num() {
+            [32, 16, 16, 255]
+        } else {
+            pic_data.get_flat_average_color(light, scale, sector_pic)
+        };
+        for triangle in triangles {
+            // TODO: prebuild this
+            // Create 3D vertices at required height height
+            let vertices = triangle
+                .vertices
+                .iter()
+                .map(|v| Vec3::new(v.x, v.y, sector_height))
+                .collect();
 
-                if let Some(view_poly) = poly.transform(&self.view_matrix).project(
-                    &self.projection_matrix,
-                    self.width as f32,
-                    self.height as f32,
-                ) {
-                    self.draw_polygon_with_occlusion(rend, &view_poly);
-                }
+            let poly = Polygon3D {
+                vertices,
+                color: colour,
+            };
+
+            if let Some(view_poly) = poly.transform(&self.view_matrix).project(
+                &self.projection_matrix,
+                self.width as f32,
+                self.height as f32,
+            ) {
+                self.draw_polygon_with_occlusion(rend, &view_poly);
             }
         }
     }
@@ -748,7 +742,7 @@ impl Renderer3D {
     ///
     /// Rendering pipeline:
     /// 1. Update view matrix based on player position/orientation
-    /// 2. Clear framebuffer
+    /// 2. Clear framebuffer (or not)
     /// 3. Iterate through all level segments
     /// 4. Cull back-facing segments
     /// 5. Project and render visible segments
@@ -763,7 +757,7 @@ impl Renderer3D {
         profile!("render_player_view");
         self.update_view_matrix(player);
         // TODO: make this an option
-        rend.draw_buffer().clear_with_colour(&[0, 0, 0, 255]);
+        // rend.draw_buffer().clear_with_colour(&[0, 0, 0, 255]);
 
         // Generate BSP polygons for all subsectors (once)
         if self.map_name != level.map_name {
