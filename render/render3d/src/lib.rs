@@ -54,7 +54,7 @@ impl Renderer3D {
     /// * `fov` - Field of view in radians
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let aspect = width / height;
-        let near = 1.0;
+        let near = 0.1;
         let far = 10000.0;
 
         Self {
@@ -119,7 +119,11 @@ impl Renderer3D {
             let angle = mobj.angle.rad();
             let pitch = player.lookdir as f32 * PI / 180.0;
 
-            let forward = Vec3::new(angle.cos(), angle.sin(), pitch.sin());
+            let forward = Vec3::new(
+                angle.cos() * pitch.cos(),
+                angle.sin() * pitch.cos(),
+                pitch.sin(),
+            );
             let up = Vec3::Z;
 
             self.view_matrix = Mat4::look_at_rh(pos, pos + forward, up);
@@ -230,9 +234,19 @@ impl Renderer3D {
     fn bbox_in_view(&mut self, node: &Node, _player_pos: Vec2, side: usize) -> bool {
         #[cfg(feature = "hprof")]
         profile!("bbox_in_view");
+
+        // TEMPORARILY DISABLE FRUSTUM CULLING TO TEST IF IT'S THE CAUSE
+        return true;
+
+        /*
         let bbox = &node.bboxes[side];
         let min = bbox[0];
         let max = bbox[1];
+
+        // Debug: Check if Z bounds are properly set
+        if node.min_z == 0.0 && node.max_z == 0.0 {
+            println!("WARNING: BSP node has Z bounds of 0.0, 0.0 - may cause culling issues");
+        }
 
         // Get all 8 corners of the bounding box (assuming floor and ceiling heights)
         let corners = [
@@ -284,6 +298,7 @@ impl Renderer3D {
         }
 
         true
+        */
     }
 
     // ==========================================
