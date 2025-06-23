@@ -209,7 +209,6 @@ impl RenderTarget {
         double: bool,
         debug: bool,
         canvas: Canvas<Window>,
-        gl_ctx: &golem::Context,
         render_type: RenderApiType,
         shader: Shaders,
     ) -> RenderTarget {
@@ -250,19 +249,34 @@ impl RenderTarget {
                 r
             }
             RenderApiType::SoftOpenGL => {
-                let wsize = canvas.window().drawable_size();
-                let mut r = RenderTarget::build_soft(double, debug, canvas);
-                if r.framebuffer.software.is_some() {
-                    panic!("Rendering already set up for software");
-                }
-                let gl = SoftGLBuffer::new(r.width, r.height, gl_ctx, shader);
-                gl.set_gl_filter().unwrap();
-                r.framebuffer.soft_opengl = Some(gl);
-                r.framebuffer.api_type = RenderApiType::SoftOpenGL;
-                // let ratio = wsize.1 as f32 * 1.333;
-                // let xp = (wsize.0 as f32 - ratio) / 2.0;
-                gl_ctx.set_viewport(0, 0, wsize.0, wsize.1);
-                r
+                // let _gl_ctx = canvas.window().gl_create_context()?;
+                // let gl_ctx = unsafe {
+                //     golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
+                //         video_ctx.gl_get_proc_address(s) as *const _
+                //     }))
+                //     .unwrap()
+                // };
+
+                // let gl_attr = video_ctx.gl_attr();
+                // gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+                //
+                // if let Some(gl_ctx) = gl_ctx.as_ref() {
+                //     let wsize = canvas.window().drawable_size();
+                //     let mut r = RenderTarget::build_soft(double, debug, canvas);
+                //     if r.framebuffer.software.is_some() {
+                //         panic!("Rendering already set up for software");
+                //     }
+                //     let gl = SoftGLBuffer::new(r.width, r.height, gl_ctx, shader);
+                //     gl.set_gl_filter().unwrap();
+                //     r.framebuffer.soft_opengl = Some(gl);
+                //     r.framebuffer.api_type = RenderApiType::SoftOpenGL;
+                //     // let ratio = wsize.1 as f32 * 1.333;
+                //     // let xp = (wsize.0 as f32 - ratio) / 2.0;
+                //     gl_ctx.set_viewport(0, 0, wsize.0, wsize.1);
+                //     r
+                // } else {
+                panic!("Can't start SoftOpenGL game with no openGL context")
+                // }
             }
             RenderApiType::OpenGL => todo!(),
             RenderApiType::Vulkan => todo!(),

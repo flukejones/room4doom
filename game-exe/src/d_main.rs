@@ -62,7 +62,7 @@ pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
     window: Window,
-    gl_ctx: golem::Context,
+    gl_ctx: Option<golem::Context>,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
@@ -100,7 +100,6 @@ pub fn d_doom_loop(
         options.hi_res,
         options.dev_parm,
         canvas,
-        &gl_ctx,
         options.rendering.unwrap_or_default().into(),
         options.shader.unwrap_or_default(),
     );
@@ -143,7 +142,6 @@ pub fn d_doom_loop(
                             options.hi_res,
                             options.dev_parm,
                             canvas,
-                            &gl_ctx,
                             options.rendering.unwrap_or_default().into(),
                             options.shader.unwrap_or_default(),
                         );
@@ -196,7 +194,7 @@ fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
     let f = draw_buf.size().height() / 200;
     let start = draw_buf.size().width() / 2 - 160;
     let mut ytmp = 0;
-    let mut xtmp = start - 1;
+    let mut xtmp = (start - 1).max(0);
     for column in game.page.cache.columns.iter() {
         for n in 0..f {
             for p in column.pixels.iter() {

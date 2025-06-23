@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     let mut window = video_ctx
         .window("ROOM4DOOM", 0, 0)
-        .opengl()
+        // .opengl()
         .hidden()
         .build()?;
 
@@ -127,23 +127,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let _gl_ctx = window.gl_create_context()?;
-    let gl_ctx = unsafe {
-        golem::Context::from_glow(golem::glow::Context::from_loader_function(|s| {
-            video_ctx.gl_get_proc_address(s) as *const _
-        }))
-        .unwrap()
-    };
-
-    let gl_attr = video_ctx.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-
     let input = Input::new(sdl_ctx.event_pump()?, (&user_config.input).into());
 
     sdl_ctx.mouse().show_cursor(false);
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, gl_ctx, options)?;
+    d_doom_loop(game, input, window, None, options)?;
     Ok(())
 }

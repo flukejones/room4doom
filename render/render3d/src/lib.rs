@@ -232,6 +232,7 @@ impl Renderer3D {
     /// Check if a bounding box is potentially visible using frustum culling
     /// Check if a bounding box is potentially visible using frustum culling
     fn bbox_in_view(&mut self, node: &Node, _player_pos: Vec2, side: usize) -> bool {
+        return true;
         #[cfg(feature = "hprof")]
         profile!("bbox_in_view");
         let bbox = &node.bboxes[side];
