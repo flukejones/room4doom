@@ -718,23 +718,26 @@ impl PicData {
                 #[cfg(not(feature = "safety_check"))]
                 unsafe {
                     let c = texture.data.get_unchecked(x).get_unchecked(y);
-                    let cm = self.vert_light_colourmap(light, scale).get_unchecked(*c);
-                    let color = self.palette().get_unchecked(*cm);
-                    r_sum += color[0] as u32;
-                    g_sum += color[1] as u32;
-                    b_sum += color[2] as u32;
+                    let colourmap = self.vert_light_colourmap(light, scale);
+                    // TODO: fix c being out of range of colourmap sometimes
+                    if let Some(cm) = colourmap.get(*c as usize) {
+                        if let Some(color) = self.palette().get(*cm) {
+                            r_sum += color[0] as u32;
+                            g_sum += color[1] as u32;
+                            b_sum += color[2] as u32;
+                        }
+                    }
                 }
                 #[cfg(feature = "safety_check")]
                 {
                     if let Some(column) = texture.data.get(x) {
                         if let Some(&c) = column.get(y) {
-                            if let Some(colourmap_row) = self.colourmap.get(1) {
-                                if let Some(&cm) = colourmap_row.get(c) {
-                                    if let Some(color) = self.palette().get(cm) {
-                                        r_sum += color[0] as u32;
-                                        g_sum += color[1] as u32;
-                                        b_sum += color[2] as u32;
-                                    }
+                            let colourmap = self.vert_light_colourmap(light, scale);
+                            if let Some(&cm) = colourmap.get(c as usize) {
+                                if let Some(color) = self.palette().get(cm) {
+                                    r_sum += color[0] as u32;
+                                    g_sum += color[1] as u32;
+                                    b_sum += color[2] as u32;
                                 }
                             }
                         }
