@@ -481,7 +481,7 @@ impl MapData {
             };
 
             for l in wadblock.line_indexes {
-                if l != 0 && l != -1 {
+                if l > 0 {
                     let linedef = MapPtr::new(&mut self.linedefs[l as usize]);
                     blockmap.lines.push(linedef);
                 }
