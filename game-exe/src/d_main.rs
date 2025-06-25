@@ -192,7 +192,7 @@ pub fn d_doom_loop(
 
 fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
     let f = draw_buf.size().height() / 200;
-    let start = draw_buf.size().width() / 2 - 160;
+    let start = 0; //draw_buf.size().width() / 2 - 160;
     let mut ytmp = 0;
     let mut xtmp = (start - 1).max(0);
     for column in game.page.cache.columns.iter() {
@@ -201,6 +201,9 @@ fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
                 let colour = game.pic_data.palette()[*p];
                 for _ in 0..f {
                     let x = (xtmp - n) as usize;
+                    if x >= draw_buf.size().width_usize() {
+                        continue;
+                    }
                     let y = (ytmp + column.y_offset * f) as usize;
                     draw_buf.set_pixel(
                         x, // - (image.left_offset as i32),

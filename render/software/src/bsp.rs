@@ -116,24 +116,22 @@ impl SoftwareRenderer {
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
         let screen_ratio = width / height;
-        let mut buf_height = 200.0;
+        let mut height = 200.0;
 
-        let mut buf_width = buf_height * screen_ratio;
+        let mut width = (height * screen_ratio).ceil().max(320.0);
         if double {
-            buf_width *= 2.0;
-            buf_height *= 2.0;
+            width *= 2.0;
+            height *= 2.0;
         }
-        let fov = corrected_fov_for_height(fov, buf_width, buf_height);
-        let projection = projection(fov, buf_width / 2.0);
-        let y_scale = y_scale(fov, buf_width, buf_height);
+        let fov = corrected_fov_for_height(fov, width, height);
+        let projection = projection(fov, width / 2.0);
+        let y_scale = y_scale(fov, width, height);
 
+        let width = width as usize;
+        let height = height as usize;
         Self {
-            r_data: RenderData::new(buf_width.floor() as usize, buf_height.floor() as usize),
-            seg_renderer: SegRender::new(
-                fov,
-                buf_width.floor() as usize,
-                buf_height.floor() as usize,
-            ),
+            r_data: RenderData::new(width, height),
+            seg_renderer: SegRender::new(fov, width, height),
             new_end: 0,
             solidsegs: [ClipRange {
                 first: 0.0,
@@ -146,8 +144,8 @@ impl SoftwareRenderer {
             next_vissprite: 0,
             y_scale,
             projection,
-            buf_width: buf_width.floor() as usize,
-            buf_height: buf_height.floor() as usize,
+            buf_width: width,
+            buf_height: height,
         }
     }
 

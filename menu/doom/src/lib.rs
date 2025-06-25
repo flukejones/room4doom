@@ -157,7 +157,9 @@ pub struct MenuDoom {
 
 impl MenuDoom {
     pub fn new(mode: GameMode, wad: &WadData, buf_width: i32) -> Self {
-        let x_pos = |x: i32| -> i32 { buf_width / 2 - (320 / 2 - x) };
+        // let t = (buf_width / 320).max(1).min(3);
+        let x_pos = |original_x: i32| -> i32 { original_x };
+
         let menus = vec![
             MenuSet::new(
                 MenuIndex::TopLevel,

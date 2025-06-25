@@ -80,8 +80,8 @@ impl PixelBuffer for Buffer {
     fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
         // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
-        if x >= self.size.width || y >= self.size.height {
-            dbg!(x, y);
+        if x >= self.size.width_usize() || y >= self.size.height_usize() {
+            dbg!(x, self.size.width_usize(), y, self.size.height_usize());
             panic!();
         }
 
@@ -197,8 +197,6 @@ impl SoftGLBuffer {
 
 /// A structure holding display data
 pub struct RenderTarget {
-    width: usize,
-    height: usize,
     renderer: SoftwareRenderer,
     renderer3d: Option<Renderer3D>,
     pub framebuffer: FrameBuffer,
@@ -307,8 +305,6 @@ impl RenderTarget {
                 soft_opengl: None,
                 canvas,
             },
-            width,
-            height,
             renderer: soft,
             renderer3d: None,
         }
