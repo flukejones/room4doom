@@ -241,7 +241,7 @@ pub struct SideDef {
     pub sector: MapPtr<Sector>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct BBox {
     pub top: f32,
     pub bottom: f32,
@@ -452,16 +452,16 @@ pub struct SubSector {
     pub start_seg: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     /// Where the line used for splitting the level starts
     pub xy: Vec2,
+    /// Where the line used for splitting the level ends
+    pub delta: Vec2,
     /// The minimum height of this subsector
     pub min_z: f32,
     /// The maximum height of this subsector
     pub max_z: f32,
-    /// Where the line used for splitting the level ends
-    pub delta: Vec2,
     /// Coordinates of the bounding boxes:
     /// - [0][0] == right box, top-left
     /// - [0][1] == right box, bottom-right

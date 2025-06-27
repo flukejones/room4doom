@@ -122,6 +122,8 @@ pub struct Game {
     /// Contains the full wad file. Wads are tiny in terms of today's memory use
     /// so it doesn't hurt to store the full file in ram. May change later.
     pub wad_data: WadData,
+    /// Name of the main WAD file for caching purposes
+    pub wad_name: String,
     /// gametic at level start
     level_start_tic: u32,
     /// The complete `Level` data encompassing the everything everywhere all at
@@ -200,6 +202,7 @@ impl Game {
         mus_vol: i32,
         music_type: sound_sdl2::MusicType,
     ) -> Game {
+        let wad_name = wad.wad_name().to_lowercase();
         let game_type = GameType::identify_version(&wad);
 
         // make sure map + episode aren't 0 from CLI option block
@@ -333,6 +336,7 @@ impl Game {
 
         Game {
             wad_data: wad,
+            wad_name,
             level_start_tic: 0,
             level: None,
             demo: DemoData {

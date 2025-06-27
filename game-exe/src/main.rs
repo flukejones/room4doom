@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let video_ctx = sdl_ctx.video()?;
     info!("Init SDL2 video");
 
-    let wad = WadData::new(user_config.iwad.clone().into());
+    let mut wad = WadData::new(user_config.iwad.clone().into());
     setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
 
     let music_type = match user_config.music_type {
@@ -99,6 +99,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         config::MusicType::OPL2 => sound_sdl2::MusicType::OPL2,
         config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
     };
+
+    // Check if PVS preprocessing was requested
+    if options.preprocess_pvs {
+        info!("Starting PVS preprocessing...");
+        if !options.pwad.is_empty() {
+            for pwad in options.pwad.iter() {
+                wad.add_file(pwad.into());
+                info!("Added: {}", pwad);
+            }
+        }
+        preprocess_pvs_for_wads(&wad, &user_config)?;
+        info!("PVS preprocessing completed. Exiting.");
+        return Ok(());
+    }
 
     let game = Game::new(
         options.clone().into(),
@@ -134,5 +148,74 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().capture(true);
 
     d_doom_loop(game, input, window, None, options)?;
+    Ok(())
+}
+
+fn preprocess_pvs_for_wads(wad: &WadData, config: &UserConfig) -> Result<(), Box<dyn Error>> {
+    let wad_name = std::path::Path::new(&config.iwad)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_lowercase();
+
+    info!("Processing PVS for WAD: {}", wad_name);
+
+    let maps = get_all_maps(wad);
+    info!("Found {} maps to process", maps.len());
+
+    for map_name in maps {
+        info!("Processing PVS for map: {}", map_name);
+
+        match process_map_pvs(wad, &wad_name, &map_name) {
+            Ok(_) => info!("Successfully processed PVS for {}", map_name),
+            Err(e) => log::error!("Failed to process PVS for {}: {}", map_name, e),
+        }
+    }
+
+    Ok(())
+}
+
+fn get_all_maps(wad: &WadData) -> Vec<String> {
+    let mut maps = Vec::new();
+
+    // Look for Doom 1 episode maps (E1M1-E4M9)
+    for episode in 1..=9 {
+        for map in 1..=9 {
+            let map_name = format!("E{}M{}", episode, map);
+            if wad.lump_exists(&map_name) {
+                maps.push(map_name);
+            }
+        }
+    }
+
+    // Look for Doom 2 maps (MAP01-MAP32)
+    for map in 1..=99 {
+        let map_name = format!("MAP{:02}", map);
+        if wad.lump_exists(&map_name) {
+            maps.push(map_name);
+        }
+    }
+
+    maps
+}
+
+fn process_map_pvs(wad: &WadData, wad_name: &str, map_name: &str) -> Result<(), Box<dyn Error>> {
+    let mut map_data = gameplay::MapData::default();
+    let pic_data = gameplay::PicData::default();
+    map_data.load(map_name, &pic_data, wad);
+
+    let cache_path = gameplay::PVS::get_pvs_cache_path(wad_name, map_name)?;
+    info!("Saving PVS data to {cache_path:?}");
+    map_data.pvs().unwrap().save_to_file(&cache_path)?;
+
+    // gameplay::PVS::build_and_cache(
+    //     wad_name,
+    //     map_name,
+    //     &subsectors,
+    //     &segments,
+    //     &linedefs,
+    //     &nodes,
+    // )?;
+
     Ok(())
 }

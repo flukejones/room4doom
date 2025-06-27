@@ -68,6 +68,9 @@ pub struct CLIOptions {
     /// enable demo playback (currently bad due to f32 used in movements)
     #[argh(switch, short = 'E')]
     pub enable_demos: bool,
+    /// preprocess PVS data for loaded WADs and exit
+    #[argh(switch)]
+    pub preprocess_pvs: bool,
 }
 
 impl From<CLIOptions> for GameOptions {
@@ -90,6 +93,7 @@ impl From<CLIOptions> for GameOptions {
             autostart: false,
             enable_demos: g.enable_demos,
             netgame: false,
+            preprocess_pvs: g.preprocess_pvs,
         }
     }
 }

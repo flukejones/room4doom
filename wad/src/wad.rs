@@ -171,6 +171,7 @@ impl fmt::Debug for Lump {
 /// directories telling us where each data lump starts
 pub struct WadData {
     pub(super) lumps: Vec<Lump>,
+    file_path: PathBuf,
 }
 
 impl fmt::Debug for WadData {
@@ -181,7 +182,10 @@ impl fmt::Debug for WadData {
 
 impl WadData {
     pub fn new(file_path: PathBuf) -> WadData {
-        let mut wad = WadData { lumps: Vec::new() };
+        let mut wad = WadData {
+            lumps: Vec::new(),
+            file_path: file_path.clone(),
+        };
 
         let mut file = File::open(&file_path)
             .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
@@ -309,6 +313,13 @@ impl WadData {
             }
         }
         false
+    }
+
+    pub fn wad_name(&self) -> &str {
+        self.file_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
     }
 
     pub fn read_blockmap(&self, map_name: &str) -> Option<WadBlockMap> {

@@ -3,15 +3,19 @@
 //!
 //! Some of the state is mirrored from the overall game-exe state, or ref by
 //! pointer.
+#[cfg(test)]
+pub mod tests;
 
 pub mod flags;
 pub mod map_data;
 pub mod map_defs;
 pub mod node;
+pub mod pvs;
 
 use std::collections::VecDeque;
 use std::ptr;
 
+use pvs::PVS;
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
 use wad::WadData;
@@ -34,6 +38,8 @@ pub struct Level {
     pub map_name: String,
     /// All the data required to build and display a level
     pub map_data: MapData,
+    /// Potentially Visible Set for visibility culling
+    pub pvs: Option<PVS>,
     /// Thinkers are objects that are not static, like enemies, switches,
     /// platforms, lights etc
     pub thinkers: ThinkerAlloc,
@@ -120,6 +126,7 @@ impl Level {
         Level {
             map_name: String::new(),
             map_data,
+            pvs: None,
             thinkers: unsafe { ThinkerAlloc::new(0) },
             options,
             respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
@@ -216,6 +223,10 @@ impl Level {
         self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;
+
+        // Load PVS data if available
+        self.load_pvs(wad_data);
+
         unsafe {
             self.thinkers = ThinkerAlloc::new(self.map_data.things().len() * 2 + 256);
         }
@@ -240,5 +251,39 @@ impl Level {
         self.snd_command
             .send(SoundAction::StartSfx { uid, sfx, x, y })
             .unwrap();
+    }
+
+    /// Load PVS data from cache if available
+    fn load_pvs(&mut self, _wad_data: &WadData) {
+        const DOOM1_LARGEST_MAP_SUBSECTORS: usize = 250; // Approximate for E2M7
+
+        let wad_name = self
+            .options
+            .iwad
+            .split('/')
+            .last()
+            .unwrap_or("unknown")
+            .to_lowercase()
+            .replace(".wad", "");
+
+        let subsector_count = self.map_data.subsectors().len();
+
+        // Only use cached PVS if subsector count is under the threshold
+        if subsector_count >= DOOM1_LARGEST_MAP_SUBSECTORS {
+            if let Some(pvs) = PVS::load_from_cache(&wad_name, &self.map_name, subsector_count) {
+                log::info!("Loaded PVS cache for {} ({})", self.map_name, wad_name);
+                self.pvs = Some(pvs);
+                return;
+            }
+        }
+
+        log::info!(
+            "Building PVS for {} ({} subsectors)",
+            self.map_name,
+            subsector_count
+        );
+
+        // let pvs = PVS::build(&pvs_subsectors, &pvs_segments, &pvs_linedefs);
+        // self.pvs = Some(pvs);
     }
 }

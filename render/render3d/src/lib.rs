@@ -38,6 +38,7 @@ pub struct Renderer3D {
     near_z: f32,
     far_z: f32,
     vertex_depths: [f32; 3],
+    render_aabb: bool,
 }
 
 impl Renderer3D {
@@ -73,6 +74,7 @@ impl Renderer3D {
             near_z: near,
             far_z: far,
             vertex_depths: [0.0; 3],
+            render_aabb: false,
         }
     }
 
@@ -109,6 +111,14 @@ impl Renderer3D {
     /// Get current rendering mode
     pub fn is_render_filled(&self) -> bool {
         self.render_filled
+    }
+
+    pub fn set_render_aabb(&mut self, enabled: bool) {
+        self.render_aabb = enabled;
+    }
+
+    pub fn is_render_aabb(&self) -> bool {
+        self.render_aabb
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -307,6 +317,16 @@ impl Renderer3D {
         view_poly: &Polygon3D,
         screen_poly: &Polygon2D,
     ) {
+        if let Some((min, max)) = screen_poly.bounds() {
+            if min.x > self.width_minus_one
+                || max.x < 0.0
+                || min.y > self.height_minus_one
+                || max.y < 0.0
+            {
+                return; // Skip if entirely outside
+            }
+        }
+
         self.vertex_depths = [
             view_poly.vertices[0].z,
             view_poly.vertices[1].z,
@@ -319,10 +339,7 @@ impl Renderer3D {
         {
             // Draw polygon with occlusion
             self.draw_polygon(rend, screen_poly);
-            // Update depth buffer with this polygon's depth
             // TODO: this is working like an occlusion buffer for now
-            // self.depth_buffer
-            //     .update_polygon_depth(&screen_poly.vertices, &depths);
         }
     }
 
@@ -330,45 +347,32 @@ impl Renderer3D {
     fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
         #[cfg(feature = "hprof")]
         profile!("draw_polygon");
-        // Check if polygon is completely outside screen bounds
-        if let Some((min, max)) = poly.bounds() {
-            if min.x > self.width_minus_one
-                || max.x < 0.0
-                || min.y > self.height_minus_one
-                || max.y < 0.0
-            {
-                return; // Skip if entirely outside
-            }
+        if self.render_filled {
+            self.draw_filled(rend, poly);
+        } else {
+            // Draw polygon as wireframe (edge-only)
+            let vertices = &poly.vertices;
+            let vertex_count = vertices.len();
 
-            if self.render_filled {
-                self.draw_filled(rend, poly);
-            } else {
-                // Draw polygon as wireframe (edge-only)
-                let vertices = &poly.vertices;
-                let vertex_count = vertices.len();
+            for i in 0..vertex_count {
+                let v1 = vertices[i];
+                let v2 = vertices[(i + 1) % vertex_count];
 
-                for i in 0..vertex_count {
-                    let v1 = vertices[i];
-                    let v2 = vertices[(i + 1) % vertex_count];
+                // Quick reject for lines outside screen
+                if (v1.x < 0.0 && v2.x < 0.0)
+                    || (v1.x > self.width_minus_one && v2.x > self.width_minus_one)
+                    || (v1.y < 0.0 && v2.y < 0.0)
+                    || (v1.y > self.height_minus_one && v2.y > self.height_minus_one)
+                {
+                    continue;
+                }
 
-                    // Quick reject for lines outside screen
-                    if (v1.x < 0.0 && v2.x < 0.0)
-                        || (v1.x > self.width_minus_one && v2.x > self.width_minus_one)
-                        || (v1.y < 0.0 && v2.y < 0.0)
-                        || (v1.y > self.height_minus_one && v2.y > self.height_minus_one)
-                    {
-                        continue;
-                    }
-
-                    // Clip line to screen bounds
-                    if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
-                        // Draw the line with occlusion checking
-                        self.draw_line(rend, clipped_v1, clipped_v2, poly.color);
-                    }
+                // Clip line to screen bounds
+                if let Some((clipped_v1, clipped_v2)) = self.clip_line(v1, v2) {
+                    // Draw the line with occlusion checking
+                    self.draw_line(rend, clipped_v1, clipped_v2, poly.color);
                 }
             }
-        } else {
-            return;
         }
     }
 
@@ -524,6 +528,143 @@ impl Renderer3D {
                 // Update depth buffer with this pixel
                 self.depth_buffer
                     .set_depth_unchecked(x as usize, y as usize, line_depth);
+            }
+        }
+    }
+
+    fn get_aabb_color(&self, subsector_id: u32) -> [u8; 4] {
+        const COLORS: [[u8; 4]; 64] = [
+            [255, 0, 0, 255],
+            [0, 255, 0, 255],
+            [0, 0, 255, 255],
+            [255, 255, 0, 255],
+            [255, 0, 255, 255],
+            [0, 255, 255, 255],
+            [255, 128, 0, 255],
+            [128, 255, 0, 255],
+            [0, 255, 128, 255],
+            [0, 128, 255, 255],
+            [128, 0, 255, 255],
+            [255, 0, 128, 255],
+            [255, 64, 64, 255],
+            [64, 255, 64, 255],
+            [64, 64, 255, 255],
+            [255, 255, 64, 255],
+            [255, 64, 255, 255],
+            [64, 255, 255, 255],
+            [192, 96, 48, 255],
+            [48, 192, 96, 255],
+            [96, 48, 192, 255],
+            [192, 192, 48, 255],
+            [192, 48, 192, 255],
+            [48, 192, 192, 255],
+            [255, 192, 128, 255],
+            [128, 255, 192, 255],
+            [192, 128, 255, 255],
+            [255, 255, 128, 255],
+            [255, 128, 255, 255],
+            [128, 255, 255, 255],
+            [224, 112, 56, 255],
+            [56, 224, 112, 255],
+            [112, 56, 224, 255],
+            [224, 224, 56, 255],
+            [224, 56, 224, 255],
+            [56, 224, 224, 255],
+            [160, 80, 40, 255],
+            [40, 160, 80, 255],
+            [80, 40, 160, 255],
+            [160, 160, 40, 255],
+            [160, 40, 160, 255],
+            [40, 160, 160, 255],
+            [255, 160, 80, 255],
+            [80, 255, 160, 255],
+            [160, 80, 255, 255],
+            [255, 255, 80, 255],
+            [255, 80, 255, 255],
+            [80, 255, 255, 255],
+            [128, 64, 32, 255],
+            [32, 128, 64, 255],
+            [64, 32, 128, 255],
+            [128, 128, 32, 255],
+            [128, 32, 128, 255],
+            [32, 128, 128, 255],
+            [200, 100, 50, 255],
+            [50, 200, 100, 255],
+            [100, 50, 200, 255],
+            [200, 200, 50, 255],
+            [200, 50, 200, 255],
+            [50, 200, 200, 255],
+            [144, 72, 36, 255],
+            [36, 144, 72, 255],
+            [72, 36, 144, 255],
+            [144, 144, 36, 255],
+        ];
+
+        let hash = subsector_id.wrapping_mul(2654435761) % 64;
+        COLORS[hash as usize]
+    }
+
+    fn render_node_aabb(
+        &mut self,
+        rend: &mut impl RenderTrait,
+        node: &Node,
+        node_id: u32,
+        side: usize,
+        sector_height: f32,
+    ) {
+        if !self.render_aabb {
+            return;
+        }
+
+        let bbox = &node.bboxes[side];
+        let min_point = bbox[0];
+        let max_point = bbox[1];
+        let color = self.get_aabb_color(node_id);
+
+        let triangle1_vertices = [
+            Vec3::new(min_point.x, min_point.y, sector_height),
+            Vec3::new(max_point.x, min_point.y, sector_height),
+            Vec3::new(max_point.x, max_point.y, sector_height),
+        ];
+
+        let triangle2_vertices = [
+            Vec3::new(min_point.x, min_point.y, sector_height),
+            Vec3::new(max_point.x, max_point.y, sector_height),
+            Vec3::new(min_point.x, max_point.y, sector_height),
+        ];
+
+        let poly1 = Polygon3D {
+            vertices: triangle1_vertices,
+            color,
+        };
+
+        let poly2 = Polygon3D {
+            vertices: triangle2_vertices,
+            color,
+        };
+
+        for poly in [poly1, poly2] {
+            let view_poly = poly.transform(&self.view_matrix);
+
+            let mut any_in_front = false;
+            for v in &view_poly.vertices {
+                if v.z < self.near_z {
+                    any_in_front = true;
+                    break;
+                }
+            }
+
+            if !any_in_front {
+                continue;
+            }
+
+            if let Some(screen_poly) = view_poly.project(
+                &self.projection_matrix,
+                self.width as f32,
+                self.height as f32,
+                self.near_z,
+            ) {
+                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
             }
         }
     }
@@ -713,6 +854,7 @@ impl Renderer3D {
 
         if let Some(segments) = map.segments().get(start_seg..end_seg) {
             self.render_flats(map, rend, subsector, pic_data);
+
             for seg in segments {
                 let front_sector = seg.frontsector.clone();
                 if let Some(back_sector) = seg.backsector.clone() {
@@ -764,22 +906,21 @@ impl Renderer3D {
             if subsector_id < map.subsectors().len() {
                 let subsector = &map.subsectors()[subsector_id];
 
-                // TODO: we need to rebuild this for maps at map load. It works but not well
-                // let s1 = player_sector.sector.num;
-                // let s2 = subsector.sector.num;
-                // // self.level().
-                // let pnum = s1 * 1 + s2;
-                // let bytenum = pnum >> 3;
-                // let bitnum = 1 << (pnum & 7);
-
-                // if !map.get_devils_rejects().is_empty() {
-                //     if map.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
-                //         // println!("REJECTED");
-                //         return;
-                //     }
-                // }
+                // Use PVS to determine if this subsector is visible from player's subsector
+                let player_subsector_id = self.find_player_subsector_id(map, player_sector);
+                if let Some(player_id) = player_subsector_id {
+                    if !map.subsector_visible(player_id, subsector_id) {
+                        return; // Subsector not visible, skip rendering
+                    }
+                }
 
                 self.render_subsector(map, rend, subsector, player_pos, pic_data);
+                // Render AABB for both sides if enabled
+                if let Some(node) = map.get_nodes().get(subsector_id as usize) {
+                    let side = node.point_on_side(&player_pos);
+                    self.render_node_aabb(rend, node, node_id, side, subsector.sector.floorheight);
+                    // self.render_node_aabb(rend, node, node_id, side ^ 1);
+                }
             }
             return;
         }
@@ -860,6 +1001,17 @@ impl Renderer3D {
             &player_sector,
             pic_data,
         );
+    }
+
+    /// Find the subsector ID that matches the given player subsector
+    fn find_player_subsector_id(&self, map: &MapData, player_sector: &SubSector) -> Option<usize> {
+        let subsectors = map.subsectors();
+        for (i, subsector) in subsectors.iter().enumerate() {
+            if std::ptr::eq(subsector, player_sector) {
+                return Some(i);
+            }
+        }
+        None
     }
 }
 
