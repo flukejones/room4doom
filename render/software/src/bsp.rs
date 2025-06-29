@@ -78,6 +78,16 @@ pub struct SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
+    fn find_player_subsector_id(map: &MapData, player_sector: &SubSector) -> Option<usize> {
+        let subsectors = map.subsectors();
+        for (i, subsector) in subsectors.iter().enumerate() {
+            if std::ptr::eq(subsector, player_sector) {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn render_player_view(
         &mut self,
         player: &Player,
@@ -104,7 +114,18 @@ impl SoftwareRenderer {
         }
         #[cfg(feature = "hprof")]
         profile!("render_bsp_node begin!");
-        self.render_bsp_node(map, player, map.start_node(), pic_data, rend, &mut count);
+        let player_sector = player.mobj().unwrap().subsector.clone();
+        if let Some(player_subsector_id) = Self::find_player_subsector_id(map, &player_sector) {
+            self.render_bsp_node(
+                map,
+                player,
+                map.start_node(),
+                pic_data,
+                rend,
+                player_subsector_id,
+                &mut count,
+            );
+        }
 
         trace!("BSP traversals for render: {count}");
         // TODO: netupdate again
@@ -513,7 +534,7 @@ impl SoftwareRenderer {
         node_id: u32,
         pic_data: &PicData,
         rend: &mut impl RenderTrait,
-
+        player_subsector_id: usize,
         count: &mut usize,
     ) {
         // profile!("render_bsp_node");
@@ -521,17 +542,31 @@ impl SoftwareRenderer {
         let mobj = unsafe { player.mobj_unchecked() };
 
         if node_id & IS_SSECTOR_MASK != 0 {
-            if node_id == u32::MAX {
-                let subsect = &map.subsectors()[0];
-                // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, rend);
+            let subsector_id = if node_id == u32::MAX {
+                0
             } else {
-                // It's a leaf node and is the index to a subsector
-                let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
-                // Check if it should be drawn, then draw
-                self.draw_subsector(map, player, subsect, pic_data, rend);
+                (node_id & !IS_SSECTOR_MASK) as usize
+            };
+
+            if subsector_id < map.subsectors().len() {
+                let subsector = &map.subsectors()[subsector_id];
+
+                if !map.subsector_visible(player_subsector_id, subsector_id) {
+                    return; // Subsector not visible, skip rendering
+                }
+
+                if node_id == u32::MAX {
+                    let subsect = &map.subsectors()[0];
+                    // Check if it should be drawn, then draw
+                    self.draw_subsector(map, player, subsect, pic_data, rend);
+                } else {
+                    // It's a leaf node and is the index to a subsector
+                    let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
+                    // Check if it should be drawn, then draw
+                    self.draw_subsector(map, player, subsect, pic_data, rend);
+                }
+                return;
             }
-            return;
         }
 
         // otherwise get node
@@ -539,7 +574,15 @@ impl SoftwareRenderer {
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
         // Recursively divide front space.
-        self.render_bsp_node(map, player, node.children[side], pic_data, rend, count);
+        self.render_bsp_node(
+            map,
+            player,
+            node.children[side],
+            pic_data,
+            rend,
+            player_subsector_id,
+            count,
+        );
 
         // Possibly divide back space.
         // check if each corner of the BB is in the FOV
@@ -551,7 +594,15 @@ impl SoftwareRenderer {
             rend.draw_buffer().size().half_width_f32(),
             rend.draw_buffer().size().width_f32(),
         ) {
-            self.render_bsp_node(map, player, node.children[side ^ 1], pic_data, rend, count);
+            self.render_bsp_node(
+                map,
+                player,
+                node.children[side ^ 1],
+                pic_data,
+                rend,
+                player_subsector_id,
+                count,
+            );
         }
     }
 

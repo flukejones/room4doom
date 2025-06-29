@@ -81,7 +81,7 @@ pub fn d_doom_loop(
     let mut canvas = window
         .into_canvas()
         .accelerated()
-        .present_vsync()
+        // .present_vsync()
         .target_texture()
         .build()?;
     info!("Built display window");

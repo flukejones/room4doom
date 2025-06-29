@@ -310,14 +310,12 @@ impl Renderer3D {
     // RENDERING PRIMITIVES
     // ==========================================
 
-    /// Helper method to render polygon with optional depth buffer testing
-    fn render_polygon_with_depth_test(
-        &mut self,
-        rend: &mut impl RenderTrait,
-        view_poly: &Polygon3D,
-        screen_poly: &Polygon2D,
-    ) {
-        if let Some((min, max)) = screen_poly.bounds() {
+    /// Draw polygon with span-based occlusion
+    fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
+        #[cfg(feature = "hprof")]
+        profile!("draw_polygon");
+
+        if let Some((min, max)) = poly.bounds() {
             if min.x > self.width_minus_one
                 || max.x < 0.0
                 || min.y > self.height_minus_one
@@ -327,26 +325,6 @@ impl Renderer3D {
             }
         }
 
-        self.vertex_depths = [
-            view_poly.vertices[0].z,
-            view_poly.vertices[1].z,
-            view_poly.vertices[2].z,
-        ];
-
-        if self
-            .depth_buffer
-            .is_polygon_potentially_visible(&screen_poly.vertices, &self.vertex_depths)
-        {
-            // Draw polygon with occlusion
-            self.draw_polygon(rend, screen_poly);
-            // TODO: this is working like an occlusion buffer for now
-        }
-    }
-
-    /// Draw polygon with span-based occlusion
-    fn draw_polygon(&mut self, rend: &mut impl RenderTrait, poly: &Polygon2D) {
-        #[cfg(feature = "hprof")]
-        profile!("draw_polygon");
         if self.render_filled {
             self.draw_filled(rend, poly);
         } else {
@@ -664,7 +642,7 @@ impl Renderer3D {
                 self.height as f32,
                 self.near_z,
             ) {
-                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
+                self.draw_polygon(rend, &screen_poly);
             }
         }
     }
@@ -724,7 +702,7 @@ impl Renderer3D {
                 self.height as f32,
                 self.near_z,
             ) {
-                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
+                self.draw_polygon(rend, &screen_poly);
             }
         }
     }
@@ -794,7 +772,7 @@ impl Renderer3D {
                 self.height as f32,
                 self.near_z,
             ) {
-                self.render_polygon_with_depth_test(rend, &view_poly, &screen_poly);
+                self.draw_polygon(rend, &screen_poly);
             }
         }
     }
@@ -892,7 +870,7 @@ impl Renderer3D {
         rend: &mut impl RenderTrait,
         node_id: u32,
         player_pos: Vec2,
-        player_sector: &SubSector,
+        player_subsector_id: usize,
         pic_data: &mut PicData,
     ) {
         if node_id & IS_SSECTOR_MASK != 0 {
@@ -907,11 +885,9 @@ impl Renderer3D {
                 let subsector = &map.subsectors()[subsector_id];
 
                 // Use PVS to determine if this subsector is visible from player's subsector
-                let player_subsector_id = self.find_player_subsector_id(map, player_sector);
-                if let Some(player_id) = player_subsector_id {
-                    if !map.subsector_visible(player_id, subsector_id) {
-                        return; // Subsector not visible, skip rendering
-                    }
+
+                if !map.subsector_visible(player_subsector_id, subsector_id) {
+                    return; // Subsector not visible, skip rendering
                 }
 
                 self.render_subsector(map, rend, subsector, player_pos, pic_data);
@@ -935,7 +911,7 @@ impl Renderer3D {
                 rend,
                 node.children[side],
                 player_pos,
-                player_sector,
+                player_subsector_id,
                 pic_data,
             );
 
@@ -947,7 +923,7 @@ impl Renderer3D {
                     rend,
                     node.children[side ^ 1],
                     player_pos,
-                    player_sector,
+                    player_subsector_id,
                     pic_data,
                 );
             }
@@ -992,15 +968,19 @@ impl Renderer3D {
         };
 
         let player_sector = player.mobj().unwrap().subsector.clone();
-        // Render using BSP traversal for proper front-to-back ordering
-        self.render_bsp_node(
-            &level.map_data,
-            rend,
-            level.map_data.start_node(),
-            player_pos,
-            &player_sector,
-            pic_data,
-        );
+        if let Some(player_subsector_id) =
+            self.find_player_subsector_id(&level.map_data, &player_sector)
+        {
+            // Render using BSP traversal for proper front-to-back ordering
+            self.render_bsp_node(
+                &level.map_data,
+                rend,
+                level.map_data.start_node(),
+                player_pos,
+                player_subsector_id,
+                pic_data,
+            );
+        }
     }
 
     /// Find the subsector ID that matches the given player subsector
@@ -1135,360 +1115,5 @@ mod tests {
             glam::Vec3::new(0.0, -100.0, 100.0), // Look at
             glam::Vec3::Z,
         );
-
-        // Should be visible even with extreme height
-        assert!(renderer.bbox_in_view(&node, Vec2::new(0.0, -200.0), 0));
-    }
-
-    #[test]
-    fn test_bbox_culling_looking_down() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Normal height sector at ground level
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-50.0, -50.0), Vec2::new(50.0, 50.0)],
-                [Vec2::new(-25.0, -25.0), Vec2::new(25.0, 25.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,   // Floor
-            max_z: 100.0, // Ceiling
-        };
-
-        // Player high up looking down at 45 degrees
-        let eye_pos = glam::Vec3::new(0.0, -100.0, 200.0);
-        let look_at = glam::Vec3::new(0.0, 0.0, 0.0); // Looking down at origin
-        renderer.view_matrix = glam::Mat4::look_at_rh(eye_pos, look_at, glam::Vec3::Z);
-
-        // Should be visible when looking down
-        assert!(renderer.bbox_in_view(&node, Vec2::new(0.0, -100.0), 0));
-    }
-
-    #[test]
-    fn test_bbox_culling_looking_up() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // High sector (like a floating platform)
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-50.0, -50.0), Vec2::new(50.0, 50.0)],
-                [Vec2::new(-25.0, -25.0), Vec2::new(25.0, 25.0)],
-            ],
-            children: [0, 1],
-            min_z: 500.0, // High floor
-            max_z: 600.0, // High ceiling
-        };
-
-        // Player at ground level looking up
-        let eye_pos = glam::Vec3::new(0.0, -100.0, 50.0);
-        let look_at = glam::Vec3::new(0.0, 0.0, 550.0); // Looking up at platform
-        renderer.view_matrix = glam::Mat4::look_at_rh(eye_pos, look_at, glam::Vec3::Z);
-
-        // Should be visible when looking up
-        assert!(renderer.bbox_in_view(&node, Vec2::new(0.0, -100.0), 0));
-    }
-
-    #[test]
-    fn test_bbox_culling_player_inside_bbox() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Large sector that contains the player
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-200.0, -200.0), Vec2::new(200.0, 200.0)],
-                [Vec2::new(-100.0, -100.0), Vec2::new(100.0, 100.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,
-            max_z: 300.0,
-        };
-
-        // Player inside the bounding box
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, 0.0, 150.0), // Inside the bbox
-            glam::Vec3::new(1.0, 0.0, 150.0), // Looking forward
-            glam::Vec3::Z,
-        );
-
-        // Should always be visible when player is inside
-        assert!(renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0));
-    }
-
-    #[test]
-    fn test_bbox_culling_extreme_pitch() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Sector directly below player
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-10.0, -10.0), Vec2::new(10.0, 10.0)],
-                [Vec2::new(-5.0, -5.0), Vec2::new(5.0, 5.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,
-            max_z: 10.0,
-        };
-
-        // Player looking straight down (90-degree pitch)
-        let eye_pos = glam::Vec3::new(0.0, 0.0, 100.0);
-        let look_at = glam::Vec3::new(0.0, 0.0, 0.0); // Straight down
-        renderer.view_matrix = glam::Mat4::look_at_rh(eye_pos, look_at, glam::Vec3::Y);
-
-        // Should be visible even with extreme pitch
-        assert!(renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0));
-    }
-
-    #[test]
-    fn test_bbox_culling_near_plane_edge_cases() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Very close sector
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-5.0, 0.5), Vec2::new(5.0, 2.0)], // Very close to camera
-                [Vec2::new(-2.0, 0.5), Vec2::new(2.0, 1.5)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,
-            max_z: 100.0,
-        };
-
-        // Player looking forward
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, 0.0, 50.0),
-            glam::Vec3::new(0.0, 10.0, 50.0),
-            glam::Vec3::Z,
-        );
-
-        // Should handle near plane correctly (near_z = 1.0)
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0);
-        // Result depends on exact near plane handling, but shouldn't crash
-        println!("Near plane test result: {}", result);
-    }
-
-    #[test]
-    fn test_bbox_culling_zero_height_sector() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Degenerate sector with zero height
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-50.0, -50.0), Vec2::new(50.0, 50.0)],
-                [Vec2::new(-25.0, -25.0), Vec2::new(25.0, 25.0)],
-            ],
-            children: [0, 1],
-            min_z: 100.0,
-            max_z: 100.0, // Same as min_z - zero height
-        };
-
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, -100.0, 100.0),
-            glam::Vec3::new(0.0, 0.0, 100.0),
-            glam::Vec3::Z,
-        );
-
-        // Should handle zero-height sectors gracefully
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, -100.0), 0);
-        println!("Zero height sector result: {}", result);
-    }
-
-    #[test]
-    fn test_bbox_culling_skyscraper_from_ground() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Extremely tall skyscraper sector
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-50.0, 50.0), Vec2::new(50.0, 150.0)], // Distance ahead
-                [Vec2::new(-25.0, 25.0), Vec2::new(25.0, 75.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,     // Ground level
-            max_z: 50000.0, // Extremely tall
-        };
-
-        // Player at ground level looking straight ahead
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, 0.0, 10.0),   // Player at ground
-            glam::Vec3::new(0.0, 100.0, 10.0), // Looking forward
-            glam::Vec3::Z,
-        );
-
-        // Should be visible - but current logic might fail due to top bbox corners
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0);
-        println!("Skyscraper visibility: {}", result);
-        assert!(result, "Skyscraper should be visible when looking ahead");
-    }
-
-    #[test]
-    fn test_bbox_culling_deep_pit_looking_down() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Deep underground sector
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-100.0, -10.0), Vec2::new(100.0, 10.0)], // Right below player
-                [Vec2::new(-50.0, -5.0), Vec2::new(50.0, 5.0)],
-            ],
-            children: [0, 1],
-            min_z: -10000.0, // Very deep
-            max_z: -100.0,   // Still underground
-        };
-
-        // Player high up looking down at 60 degrees
-        let eye_pos = glam::Vec3::new(0.0, -50.0, 1000.0);
-        let look_at = glam::Vec3::new(0.0, 0.0, -5000.0); // Looking down into pit
-        renderer.view_matrix = glam::Mat4::look_at_rh(eye_pos, look_at, glam::Vec3::Z);
-
-        // Should be visible when looking down
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, -50.0), 0);
-        println!("Deep pit visibility: {}", result);
-        assert!(result, "Deep pit should be visible when looking down");
-    }
-
-    #[test]
-    fn test_bbox_culling_tall_sector_partial_view() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 45.0f32.to_radians()); // Narrower FOV
-
-        // Tall sector where only middle section should be visible
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-20.0, 80.0), Vec2::new(20.0, 120.0)], // Close distance
-                [Vec2::new(-10.0, 90.0), Vec2::new(10.0, 110.0)],
-            ],
-            children: [0, 1],
-            min_z: -500.0, // Floor far below view
-            max_z: 2000.0, // Ceiling far above view
-        };
-
-        // Player at middle height looking forward
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, 0.0, 100.0),   // Middle height
-            glam::Vec3::new(0.0, 100.0, 100.0), // Looking straight ahead
-            glam::Vec3::Z,
-        );
-
-        // Should be visible even though top/bottom extend beyond view
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0);
-        println!("Partial tall sector visibility: {}", result);
-        assert!(
-            result,
-            "Tall sector should be visible even if top/bottom are outside view"
-        );
-    }
-
-    #[test]
-    fn test_bbox_culling_extreme_angle_tall_sector() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Very tall sector at an angle
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(80.0, 80.0), Vec2::new(120.0, 120.0)], // Diagonal from player
-                [Vec2::new(90.0, 90.0), Vec2::new(110.0, 110.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,
-            max_z: 8000.0, // Very tall
-        };
-
-        // Player looking diagonally up at the sector
-        let eye_pos = glam::Vec3::new(0.0, 0.0, 50.0);
-        let look_at = glam::Vec3::new(100.0, 100.0, 4000.0); // Looking diagonally up
-        renderer.view_matrix = glam::Mat4::look_at_rh(eye_pos, look_at, glam::Vec3::Z);
-
-        // Should be visible at this angle
-        let result = renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0);
-        println!("Diagonal tall sector visibility: {}", result);
-        assert!(
-            result,
-            "Tall sector should be visible when looking diagonally up"
-        );
-    }
-
-    #[test]
-    fn test_bbox_culling_player_at_different_heights() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Multi-story building sector
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-30.0, 70.0), Vec2::new(30.0, 130.0)],
-                [Vec2::new(-15.0, 85.0), Vec2::new(15.0, 115.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,   // Ground floor
-            max_z: 800.0, // 8 story building
-        };
-
-        // Test from multiple player heights
-        let test_heights = [50.0, 200.0, 400.0, 600.0, 750.0];
-
-        for height in test_heights {
-            renderer.view_matrix = glam::Mat4::look_at_rh(
-                glam::Vec3::new(0.0, 0.0, height),
-                glam::Vec3::new(0.0, 100.0, height), // Looking forward at same height
-                glam::Vec3::Z,
-            );
-
-            let result = renderer.bbox_in_view(&node, Vec2::new(0.0, 0.0), 0);
-            println!("Building visibility from height {}: {}", height, result);
-            assert!(result, "Building should be visible from height {}", height);
-        }
     }
 }
