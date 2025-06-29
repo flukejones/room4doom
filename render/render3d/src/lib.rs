@@ -892,7 +892,7 @@ impl Renderer3D {
         rend: &mut impl RenderTrait,
         node_id: u32,
         player_pos: Vec2,
-        player_sector: &SubSector,
+        player_subsector_id: usize,
         pic_data: &mut PicData,
     ) {
         if node_id & IS_SSECTOR_MASK != 0 {
@@ -907,11 +907,9 @@ impl Renderer3D {
                 let subsector = &map.subsectors()[subsector_id];
 
                 // Use PVS to determine if this subsector is visible from player's subsector
-                let player_subsector_id = self.find_player_subsector_id(map, player_sector);
-                if let Some(player_id) = player_subsector_id {
-                    if !map.subsector_visible(player_id, subsector_id) {
-                        return; // Subsector not visible, skip rendering
-                    }
+
+                if !map.subsector_visible(player_subsector_id, subsector_id) {
+                    return; // Subsector not visible, skip rendering
                 }
 
                 self.render_subsector(map, rend, subsector, player_pos, pic_data);
@@ -935,7 +933,7 @@ impl Renderer3D {
                 rend,
                 node.children[side],
                 player_pos,
-                player_sector,
+                player_subsector_id,
                 pic_data,
             );
 
@@ -947,7 +945,7 @@ impl Renderer3D {
                     rend,
                     node.children[side ^ 1],
                     player_pos,
-                    player_sector,
+                    player_subsector_id,
                     pic_data,
                 );
             }
@@ -992,15 +990,19 @@ impl Renderer3D {
         };
 
         let player_sector = player.mobj().unwrap().subsector.clone();
-        // Render using BSP traversal for proper front-to-back ordering
-        self.render_bsp_node(
-            &level.map_data,
-            rend,
-            level.map_data.start_node(),
-            player_pos,
-            &player_sector,
-            pic_data,
-        );
+        if let Some(player_subsector_id) =
+            self.find_player_subsector_id(&level.map_data, &player_sector)
+        {
+            // Render using BSP traversal for proper front-to-back ordering
+            self.render_bsp_node(
+                &level.map_data,
+                rend,
+                level.map_data.start_node(),
+                player_pos,
+                player_subsector_id,
+                pic_data,
+            );
+        }
     }
 
     /// Find the subsector ID that matches the given player subsector
