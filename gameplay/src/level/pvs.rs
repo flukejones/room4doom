@@ -245,10 +245,28 @@ impl PVS {
 
         let source_aabb = &subsector_aabbs[from_subsector];
         let mut test_points = Vec::new();
-        test_points.push(Vec2::new(source_aabb.left, source_aabb.top));
-        test_points.push(Vec2::new(source_aabb.right, source_aabb.top));
-        test_points.push(Vec2::new(source_aabb.left, source_aabb.bottom));
-        test_points.push(Vec2::new(source_aabb.right, source_aabb.bottom));
+
+        let aabb_points = vec![
+            Vec2::new(source_aabb.left, source_aabb.top),
+            Vec2::new(source_aabb.right, source_aabb.top),
+            Vec2::new(source_aabb.left, source_aabb.bottom),
+            Vec2::new(source_aabb.right, source_aabb.bottom),
+        ];
+
+        for &point in &aabb_points {
+            let mut behind_all_segments = true;
+            for seg in &from_segments {
+                let cross = (point.y - seg.v1.y) * (seg.v2.x - seg.v1.x)
+                    - (point.x - seg.v1.x) * (seg.v2.y - seg.v1.y);
+                if cross >= -f32::EPSILON {
+                    behind_all_segments = false;
+                    break;
+                }
+            }
+            if !behind_all_segments {
+                test_points.push(point);
+            }
+        }
         for seg in &from_segments {
             if !test_points.contains(&seg.v1) {
                 test_points.push(seg.v1);
