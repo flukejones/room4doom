@@ -341,6 +341,10 @@ impl PVS {
     ) -> bool {
         #[cfg(feature = "hprof")]
         profile!("test_point_to_target_visibility");
+
+        // Get source subsector segments for blocking and backwards raycast checking
+        let from_segments = self.get_subsector_segments(&subsectors[from_subsector], segments);
+
         // Create a minimal swept volume from source point to target center
         let direction = target_center - source_point;
         let length = direction.length();
@@ -367,7 +371,28 @@ impl PVS {
 
         // Test if ANY line of sight to target points is clear
         for target_point in target_points {
+            // Check if this raycast should be allowed based on source segment orientations
+            let ray_direction = *target_point - source_point;
+            if !self.is_backwards_raycast_allowed(source_point, ray_direction, &from_segments) {
+                continue; // Skip rays that go backwards from segments that don't allow it
+            }
+
             let mut this_line_blocked = false;
+
+            // First check source subsector segments for blocking
+            for seg in &from_segments {
+                if seg.backsector.is_some() {
+                    continue; // Skip two-sided segments
+                }
+                if self.line_intersects_ray(seg, source_point, *target_point) {
+                    this_line_blocked = true;
+                    break;
+                }
+            }
+
+            if this_line_blocked {
+                continue; // Try next target point
+            }
             for &subsector_idx in &intersecting_subsectors {
                 if subsector_idx == from_subsector
                     || subsector_idx == to_subsector
@@ -824,6 +849,55 @@ impl PVS {
 
     pub fn subsector_count(&self) -> usize {
         self.subsector_count
+    }
+
+    /// Check if backwards raycast is allowed for a segment based on its linedef
+    fn is_backwards_raycast_allowed(
+        &self,
+        source_point: Vec2,
+        ray_direction: Vec2,
+        segments: &[&Segment],
+    ) -> bool {
+        for seg in segments {
+            let linedef = &seg.linedef;
+
+            // Check if both segment endpoints are between (not on) the linedef vertices
+            let seg_v1_between = self.is_point_between_on_line(seg.v1, linedef.v1, linedef.v2);
+            let seg_v2_between = self.is_point_between_on_line(seg.v2, linedef.v1, linedef.v2);
+
+            if seg_v1_between && seg_v2_between {
+                // Both endpoints are between linedef vertices, check if ray goes backwards
+                let seg_direction = seg.v2 - seg.v1;
+                let dot_product = ray_direction.normalize().dot(seg_direction.normalize());
+
+                // If ray goes significantly backwards from segment direction, block it
+                if dot_product < -0.5 {
+                    return false;
+                }
+            }
+        }
+        true // Allow raycast
+    }
+
+    /// Check if a point lies between two other points on the same line (not including endpoints)
+    fn is_point_between_on_line(&self, point: Vec2, line_start: Vec2, line_end: Vec2) -> bool {
+        let line_vec = line_end - line_start;
+        let point_vec = point - line_start;
+
+        // Check if point is on the line using cross product
+        let cross = line_vec.x * point_vec.y - line_vec.y * point_vec.x;
+        if cross.abs() > 1e-6 {
+            return false; // Not on the same line
+        }
+
+        // Check if point is between the endpoints using dot product
+        let line_length_sq = line_vec.length_squared();
+        if line_length_sq < 1e-12 {
+            return false; // Degenerate line
+        }
+
+        let projection = point_vec.dot(line_vec) / line_length_sq;
+        projection > 0.0 && projection < 1.0 // Between but not on endpoints
     }
 }
 
