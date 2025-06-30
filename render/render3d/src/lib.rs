@@ -70,7 +70,7 @@ impl Renderer3D {
             intersection_buffer: Vec::with_capacity(256), // Pre-allocate for polygon intersections
             map_name: String::new(),
             bsp_polygons: BSPPolygons::new(),
-            render_filled: true,
+            render_filled: false,
             near_z: near,
             far_z: far,
             vertex_depths: [0.0; 3],

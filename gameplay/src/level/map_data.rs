@@ -775,7 +775,6 @@ impl MapData {
         self.pvs = Some(PVS::build(
             &self.subsectors,
             &self.segments,
-            &self.linedefs,
             &mut self.nodes,
             self.start_node,
         ));

@@ -8,7 +8,7 @@
 use coarse_prof::profile;
 
 use crate::level::map_data::IS_SSECTOR_MASK;
-use crate::level::map_defs::{BBox, LineDef, Node, Segment, SubSector};
+use crate::level::map_defs::{BBox, Node, Segment, SubSector};
 use crc32fast::Hasher;
 use glam::Vec2;
 use log::info;
@@ -150,7 +150,6 @@ impl PVS {
     pub fn build(
         subsectors: &[SubSector],
         segments: &[Segment],
-        linedefs: &[LineDef],
         nodes: &mut [Node],
         start_node: u32,
     ) -> Self {
@@ -196,7 +195,6 @@ impl PVS {
                     to_idx,
                     subsectors,
                     segments,
-                    linedefs,
                     nodes,
                     start_node,
                     &subsector_aabbs,
@@ -236,7 +234,6 @@ impl PVS {
         to_subsector: usize,
         subsectors: &[SubSector],
         segments: &[Segment],
-        _linedefs: &[LineDef],
         nodes: &[Node],
         start_node: u32,
         subsector_aabbs: &[BBox],
@@ -246,45 +243,43 @@ impl PVS {
         let from_segments = self.get_subsector_segments(&subsectors[from_subsector], segments);
         let to_segments = self.get_subsector_segments(&subsectors[to_subsector], segments);
 
-        if from_segments.is_empty() || to_segments.is_empty() {
-            return false;
+        let source_aabb = &subsector_aabbs[from_subsector];
+        let mut test_points = Vec::new();
+        test_points.push(Vec2::new(source_aabb.left, source_aabb.top));
+        test_points.push(Vec2::new(source_aabb.right, source_aabb.top));
+        test_points.push(Vec2::new(source_aabb.left, source_aabb.bottom));
+        test_points.push(Vec2::new(source_aabb.right, source_aabb.bottom));
+        for seg in &from_segments {
+            if !test_points.contains(&seg.v1) {
+                test_points.push(seg.v1);
+            }
+            if !test_points.contains(&seg.v2) {
+                test_points.push(seg.v2);
+            }
         }
 
-        let source_aabb = &subsector_aabbs[from_subsector];
         let target_aabb = &subsector_aabbs[to_subsector];
-
         let target_center = Vec2::new(
             (target_aabb.left + target_aabb.right) * 0.5,
             (target_aabb.bottom + target_aabb.top) * 0.5,
         );
-
-        // Collect test points for source subsector
-
-        let mut test_points = Vec::new();
-        for seg in &from_segments {
-            test_points.push(seg.v1);
-            test_points.push(seg.v2);
+        // Check for blocking segments in intersecting subsectors
+        // We need to test against multiple target points, not just the center
+        let mut target_points = vec![
+            // target_center, // replace with seg vertexes not in this array
+            Vec2::new(target_aabb.left, target_aabb.bottom),
+            Vec2::new(target_aabb.right, target_aabb.bottom),
+            Vec2::new(target_aabb.right, target_aabb.top),
+            Vec2::new(target_aabb.left, target_aabb.top),
+        ];
+        for seg in &to_segments {
+            if !target_points.contains(&seg.v1) {
+                target_points.push(seg.v1);
+            }
+            if !target_points.contains(&seg.v2) {
+                target_points.push(seg.v2);
+            }
         }
-
-        let aabb = &subsector_aabbs[from_subsector];
-        test_points.push(Vec2::new(aabb.left, aabb.top));
-        test_points.push(Vec2::new(aabb.right, aabb.top));
-        test_points.push(Vec2::new(aabb.left, aabb.bottom));
-        test_points.push(Vec2::new(aabb.right, aabb.bottom));
-
-        // Remove duplicates
-        test_points.sort_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
-        });
-        test_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
-
-        // Always add source AABB centerpoint
-        test_points.push(Vec2::new(
-            (source_aabb.left + source_aabb.right) * 0.5,
-            (source_aabb.bottom + source_aabb.top) * 0.5,
-        ));
 
         // Test visibility from each source point to target
         // Only return false if ALL points are blocked
@@ -293,6 +288,7 @@ impl PVS {
             let visible = self.test_point_to_target_visibility(
                 source_point,
                 target_center,
+                &target_points,
                 target_aabb,
                 nodes,
                 start_node,
@@ -316,6 +312,7 @@ impl PVS {
         &self,
         source_point: Vec2,
         target_center: Vec2,
+        target_points: &[Vec2],
         target_aabb: &BBox,
         nodes: &[Node],
         start_node: u32,
@@ -350,26 +347,14 @@ impl PVS {
         let intersecting_subsectors =
             self.find_intersecting_subsectors(&swept_volume, nodes, start_node);
 
-        // Check for blocking segments in intersecting subsectors
-        // We need to test against multiple target points, not just the center
-        let target_points = vec![
-            target_center,
-            Vec2::new(target_aabb.left, target_aabb.bottom),
-            Vec2::new(target_aabb.right, target_aabb.bottom),
-            Vec2::new(target_aabb.right, target_aabb.top),
-            Vec2::new(target_aabb.left, target_aabb.top),
-        ];
-
         // Test if ANY line of sight to target points is clear
-        for &target_point in &target_points {
+        for target_point in target_points {
             let mut this_line_blocked = false;
-
             for &subsector_idx in &intersecting_subsectors {
-                if subsector_idx == from_subsector || subsector_idx == to_subsector {
-                    continue;
-                }
-
-                if subsector_idx >= subsectors.len() {
+                if subsector_idx == from_subsector
+                    || subsector_idx == to_subsector
+                    || subsector_idx >= subsectors.len()
+                {
                     continue;
                 }
 
@@ -381,20 +366,18 @@ impl PVS {
                         continue; // Skip two-sided segments
                     }
 
-                    // Simple line intersection test
-                    if self.line_intersects_ray(seg, source_point, target_point) {
+                    if self.line_intersects_ray(seg, source_point, *target_point) {
                         this_line_blocked = true;
-                        break; // This line is blocked, try next target point
+                        break; // This ray is blocked, try next target point
                     }
                 }
 
                 if this_line_blocked {
-                    break; // No need to check more subsectors for this line
+                    break;
                 }
             }
-
             if !this_line_blocked {
-                return true; // Found at least one clear line of sight
+                return true;
             }
         }
         false // All lines of sight are blocked
@@ -785,10 +768,9 @@ impl PVS {
         map_name: &str,
         subsectors: &[SubSector],
         segments: &[Segment],
-        linedefs: &[LineDef],
         nodes: &mut [Node],
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let pvs = Self::build(subsectors, segments, linedefs, nodes, 0);
+        let pvs = Self::build(subsectors, segments, nodes, 0);
 
         let cache_path = Self::get_pvs_cache_path(wad_name, map_name)?;
         pvs.save_to_file(&cache_path)?;
@@ -831,7 +813,7 @@ impl PVS {
 mod tests {
     use super::*;
     use crate::MapPtr;
-    use crate::level::map_defs::{Sector, SideDef};
+    use crate::level::map_defs::{LineDef, Sector, SideDef};
 
     fn create_test_sector() -> MapPtr<Sector> {
         let mut sector = Sector::new(0, 0.0, 128.0, 0, 0, 160, 0, 0);
