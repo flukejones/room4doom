@@ -138,6 +138,8 @@ pub struct PVS {
     sectors: Vec<Sector>,
     segments: Vec<Segment>,
     subsector_aabbs: Vec<BBox>,
+    segment_bboxes: Vec<BBox>,
+    blocking_segments: Vec<usize>,
 }
 
 impl PVS {
@@ -153,10 +155,13 @@ impl PVS {
                 adjacency: Vec::new(),
             },
             sector_visibility: SectorVisibilityMatrix::new(0),
+
             subsectors: Vec::new(),
             sectors: Vec::new(),
             segments: Vec::new(),
             subsector_aabbs: Vec::new(),
+            segment_bboxes: Vec::new(),
+            blocking_segments: Vec::new(),
         }
     }
 
@@ -236,6 +241,31 @@ impl PVS {
         log::info!(
             "BSP AABB calculation took {:.2}s",
             bsp_start.elapsed().as_secs_f32()
+        );
+
+        // Precompute segment bounding boxes and identify blocking segments
+        log::info!("Precomputing segment optimizations...");
+        let seg_opt_start = std::time::Instant::now();
+        pvs.segment_bboxes.reserve(pvs.segments.len());
+        for (idx, segment) in pvs.segments.iter().enumerate() {
+            let bbox = BBox {
+                left: segment.v1.x.min(segment.v2.x),
+                right: segment.v1.x.max(segment.v2.x),
+                bottom: segment.v1.y.min(segment.v2.y),
+                top: segment.v1.y.max(segment.v2.y),
+            };
+            pvs.segment_bboxes.push(bbox);
+
+            // Only blocking segments (one-sided walls) matter for ray intersection
+            if segment.backsector.is_none() {
+                pvs.blocking_segments.push(idx);
+            }
+        }
+        log::info!(
+            "Segment optimization took {:.2}ms ({} blocking segments of {})",
+            seg_opt_start.elapsed().as_secs_f32() * 1000.0,
+            pvs.blocking_segments.len(),
+            pvs.segments.len()
         );
 
         // Phase 1: Portal discovery
@@ -575,7 +605,15 @@ impl PVS {
     fn build_subsector_visibility(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("build_subsector_visibility");
+
+        let function_start = std::time::Instant::now();
+        log::info!(
+            "Starting subsector visibility calculation for {} subsectors",
+            self.subsector_count
+        );
+
         // Build subsector to sector mapping
+        let mapping_start = std::time::Instant::now();
         let mut subsector_to_sector = vec![0; self.subsector_count];
         let mut sector_map = HashMap::new();
 
@@ -590,12 +628,21 @@ impl PVS {
             };
             subsector_to_sector[subsector_idx] = sector_idx;
         }
+        log::info!(
+            "Subsector to sector mapping took {:.2}ms",
+            mapping_start.elapsed().as_secs_f32() * 1000.0
+        );
 
         let total_pairs = (self.subsector_count * self.subsector_count) as f32;
         let mut processed_pairs = 0;
         let mut last_progress_time = std::time::Instant::now();
+        let mut sector_visibility_checks = 0;
+        let mut sector_visibility_skipped = 0;
+        let mut line_of_sight_tests = 0;
+        let mut line_of_sight_passed = 0;
 
         // Self-visibility for all subsectors
+
         for source_subsector_idx in 0..self.subsector_count {
             self.visibility_data
                 .set_visible(source_subsector_idx, source_subsector_idx);
@@ -608,7 +655,19 @@ impl PVS {
                 let now = std::time::Instant::now();
                 if now.duration_since(last_progress_time).as_secs() >= 1 {
                     let progress = (processed_pairs as f32 / total_pairs) * 100.0;
-                    log::info!("Subsector visibility progress: {:.1}%", progress);
+                    let elapsed = function_start.elapsed().as_secs_f32();
+                    let estimated_total = elapsed / (progress / 100.0);
+                    let remaining = estimated_total - elapsed;
+                    log::info!(
+                        "Subsector visibility progress: {:.1}% - {:.1}s elapsed, ~{:.1}s remaining, sector checks: {}/{}, LOS tests: {}/{}",
+                        progress,
+                        elapsed,
+                        remaining,
+                        sector_visibility_checks,
+                        sector_visibility_checks + sector_visibility_skipped,
+                        line_of_sight_passed,
+                        line_of_sight_tests
+                    );
                     last_progress_time = now;
                 }
 
@@ -623,8 +682,11 @@ impl PVS {
                     .sector_visibility
                     .is_visible(source_sector_idx, target_sector_idx)
                 {
+                    sector_visibility_skipped += 1;
                     continue;
                 }
+
+                sector_visibility_checks += 1;
 
                 // // Same sector: always visible
                 // if source_sector_idx == target_sector_idx {
@@ -634,12 +696,24 @@ impl PVS {
                 // }
 
                 // Test line of sight between subsector centers
+                line_of_sight_tests += 1;
                 if self.test_subsector_line_of_sight(source_subsector_idx, target_subsector_idx) {
+                    line_of_sight_passed += 1;
                     self.visibility_data
                         .set_visible(source_subsector_idx, target_subsector_idx);
                 }
             }
         }
+
+        let total_time = function_start.elapsed().as_secs_f32();
+        log::info!(
+            "Subsector visibility calculation complete in {:.2}s - Sector visibility: {}/{} passed, Line of sight: {}/{} passed",
+            total_time,
+            sector_visibility_checks,
+            sector_visibility_checks + sector_visibility_skipped,
+            line_of_sight_passed,
+            line_of_sight_tests
+        );
     }
 
     fn test_subsector_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
@@ -848,39 +922,35 @@ impl PVS {
     fn test_geometric_ray_intersection(&self, ray_start: Vec2, ray_end: Vec2) -> bool {
         #[cfg(feature = "hprof")]
         profile!("test_geometric_ray_intersection");
-        let ray_dir = ray_end - ray_start;
-        let ray_length = ray_dir.length();
+        let ray_length = (ray_end - ray_start).length();
 
         if ray_length < 0.1 {
             return true; // Points are essentially the same
         }
 
-        // Create a simple bounding box around the ray to limit search
-        let min_x = ray_start.x.min(ray_end.x) - 1.0;
-        let max_x = ray_start.x.max(ray_end.x) + 1.0;
-        let min_y = ray_start.y.min(ray_end.y) - 1.0;
-        let max_y = ray_start.y.max(ray_end.y) + 1.0;
+        // Create ray bounding box for culling
+        let ray_min_x = ray_start.x.min(ray_end.x) - 1.0;
+        let ray_max_x = ray_start.x.max(ray_end.x) + 1.0;
+        let ray_min_y = ray_start.y.min(ray_end.y) - 1.0;
+        let ray_max_y = ray_start.y.max(ray_end.y) + 1.0;
 
-        // Test against one-sided segments that could potentially intersect
-        for segment in &self.segments {
-            // Only test one-sided segments (walls that can block)
-            if segment.backsector.is_some() {
-                continue;
-            }
+        // Test only against precomputed blocking segments
+        for &seg_idx in &self.blocking_segments {
+            let seg_bbox = &self.segment_bboxes[seg_idx];
+            let segment = &self.segments[seg_idx];
 
-            // Quick bounding box test to skip distant segments
-            let seg_min_x = segment.v1.x.min(segment.v2.x);
-            let seg_max_x = segment.v1.x.max(segment.v2.x);
-            let seg_min_y = segment.v1.y.min(segment.v2.y);
-            let seg_max_y = segment.v1.y.max(segment.v2.y);
-
-            if seg_max_x < min_x || seg_min_x > max_x || seg_max_y < min_y || seg_min_y > max_y {
+            // Fast bounding box test using precomputed bbox
+            if seg_bbox.right < ray_min_x
+                || seg_bbox.left > ray_max_x
+                || seg_bbox.top < ray_min_y
+                || seg_bbox.bottom > ray_max_y
+            {
                 continue;
             }
 
             // Detailed line intersection test
             if self.line_intersects_ray(segment, ray_start, ray_end) {
-                return false; // Ray is blocked
+                return false; // Ray is blocked - early exit
             }
         }
 
@@ -1183,6 +1253,8 @@ impl PVS {
             sectors: Vec::new(),
             segments: Vec::new(),
             subsector_aabbs: Vec::new(),
+            segment_bboxes: Vec::new(),
+            blocking_segments: Vec::new(),
         })
     }
 
