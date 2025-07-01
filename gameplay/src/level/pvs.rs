@@ -286,6 +286,7 @@ pub struct PVS {
 
     subsectors: Vec<SubSector>,
     sectors: Vec<Sector>,
+    segments: Vec<Segment>,
 }
 
 impl PVS {
@@ -302,6 +303,7 @@ impl PVS {
             cache: PVSCache::new(),
             subsectors: Vec::new(),
             sectors: Vec::new(),
+            segments: Vec::new(),
         }
     }
 
@@ -320,7 +322,7 @@ impl PVS {
         );
 
         let mut pvs = Self::new(subsectors.len());
-        // Store subsector data - we'll work with indices instead of cloning
+        // Store subsector and segment data
         pvs.subsectors.reserve(subsectors.len());
         for subsector in subsectors {
             let ss = SubSector {
@@ -329,6 +331,21 @@ impl PVS {
                 start_seg: subsector.start_seg,
             };
             pvs.subsectors.push(ss);
+        }
+
+        pvs.segments.reserve(segments.len());
+        for segment in segments {
+            let seg = Segment {
+                v1: segment.v1,
+                v2: segment.v2,
+                offset: segment.offset,
+                angle: segment.angle,
+                sidedef: segment.sidedef.clone(),
+                linedef: segment.linedef.clone(),
+                frontsector: segment.frontsector.clone(),
+                backsector: segment.backsector.clone(),
+            };
+            pvs.segments.push(seg);
         }
 
         // Build proper sector mapping from subsectors
@@ -746,9 +763,216 @@ impl PVS {
             return false;
         }
 
-        // If sectors can see each other, allow subsector visibility
-        // In a full implementation, this would do geometric ray testing
-        true
+        // Perform finegrained geometric ray testing
+        self.test_geometric_line_of_sight(from_idx, to_idx)
+    }
+
+    fn test_geometric_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
+        // Calculate AABBs for both subsectors
+        let from_aabb = self.calculate_subsector_aabb(from_idx);
+        let to_aabb = self.calculate_subsector_aabb(to_idx);
+
+        // Generate test points for source subsector
+        let mut from_points = Vec::new();
+
+        // Add segment vertices
+        let from_segments = self.get_subsector_segments(from_idx);
+        for segment in &from_segments {
+            from_points.push(segment.v1);
+            from_points.push(segment.v2);
+        }
+
+        // Add AABB corner points
+        from_points.push(Vec2::new(from_aabb.left, from_aabb.bottom));
+        from_points.push(Vec2::new(from_aabb.right, from_aabb.bottom));
+        from_points.push(Vec2::new(from_aabb.left, from_aabb.top));
+        from_points.push(Vec2::new(from_aabb.right, from_aabb.top));
+
+        // Add center point (most important)
+        let from_center = Vec2::new(
+            (from_aabb.left + from_aabb.right) * 0.5,
+            (from_aabb.bottom + from_aabb.top) * 0.5,
+        );
+        from_points.push(from_center);
+
+        // Generate test points for target subsector
+        let mut to_points = Vec::new();
+
+        // Add segment vertices
+        let to_segments = self.get_subsector_segments(to_idx);
+        for segment in &to_segments {
+            to_points.push(segment.v1);
+            to_points.push(segment.v2);
+        }
+
+        // Add AABB corner points
+        to_points.push(Vec2::new(to_aabb.left, to_aabb.bottom));
+        to_points.push(Vec2::new(to_aabb.right, to_aabb.bottom));
+        to_points.push(Vec2::new(to_aabb.left, to_aabb.top));
+        to_points.push(Vec2::new(to_aabb.right, to_aabb.top));
+
+        // Add center point (most important)
+        let to_center = Vec2::new(
+            (to_aabb.left + to_aabb.right) * 0.5,
+            (to_aabb.bottom + to_aabb.top) * 0.5,
+        );
+        to_points.push(to_center);
+
+        // Remove duplicate points to avoid redundant tests
+        from_points.sort_by(|a, b| {
+            a.x.partial_cmp(&b.x)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
+        });
+        from_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
+
+        to_points.sort_by(|a, b| {
+            a.x.partial_cmp(&b.x)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
+        });
+        to_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
+
+        // Test multiple ray combinations, prioritize center-to-center
+        // Center to center test first (most reliable)
+        if self.test_geometric_ray_intersection(from_center, to_center) {
+            return true;
+        }
+
+        // Test center to all target points
+        for &to_point in &to_points {
+            if self.test_geometric_ray_intersection(from_center, to_point) {
+                return true;
+            }
+        }
+
+        // Test all source points to center
+        for &from_point in &from_points {
+            if self.test_geometric_ray_intersection(from_point, to_center) {
+                return true;
+            }
+        }
+
+        // Finally test all combinations (more expensive)
+        for &from_point in &from_points {
+            for &to_point in &to_points {
+                if self.test_geometric_ray_intersection(from_point, to_point) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn calculate_subsector_aabb(&self, subsector_idx: usize) -> BBox {
+        let segments = self.get_subsector_segments(subsector_idx);
+
+        if segments.is_empty() {
+            return BBox::default();
+        }
+
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+
+        for segment in segments {
+            min_x = min_x.min(segment.v1.x).min(segment.v2.x);
+            max_x = max_x.max(segment.v1.x).max(segment.v2.x);
+            min_y = min_y.min(segment.v1.y).min(segment.v2.y);
+            max_y = max_y.max(segment.v1.y).max(segment.v2.y);
+        }
+
+        BBox {
+            left: min_x,
+            right: max_x,
+            bottom: min_y,
+            top: max_y,
+        }
+    }
+
+    fn get_subsector_segments(&self, subsector_idx: usize) -> Vec<&Segment> {
+        if subsector_idx >= self.subsectors.len() {
+            return Vec::new();
+        }
+
+        let subsector = &self.subsectors[subsector_idx];
+        let start = subsector.start_seg as usize;
+        let count = subsector.seg_count as usize;
+
+        self.segments
+            .get(start..start + count)
+            .map(|slice| slice.iter().collect())
+            .unwrap_or_default()
+    }
+
+    fn test_geometric_ray_intersection(&self, ray_start: Vec2, ray_end: Vec2) -> bool {
+        let ray_dir = ray_end - ray_start;
+        let ray_length = ray_dir.length();
+
+        if ray_length < 0.1 {
+            return true; // Points are essentially the same
+        }
+
+        // Create a simple bounding box around the ray to limit search
+        let min_x = ray_start.x.min(ray_end.x) - 1.0;
+        let max_x = ray_start.x.max(ray_end.x) + 1.0;
+        let min_y = ray_start.y.min(ray_end.y) - 1.0;
+        let max_y = ray_start.y.max(ray_end.y) + 1.0;
+
+        // Test against one-sided segments that could potentially intersect
+        for segment in &self.segments {
+            // Only test one-sided segments (walls that can block)
+            if segment.backsector.is_some() {
+                continue;
+            }
+
+            // Quick bounding box test to skip distant segments
+            let seg_min_x = segment.v1.x.min(segment.v2.x);
+            let seg_max_x = segment.v1.x.max(segment.v2.x);
+            let seg_min_y = segment.v1.y.min(segment.v2.y);
+            let seg_max_y = segment.v1.y.max(segment.v2.y);
+
+            if seg_max_x < min_x || seg_min_x > max_x || seg_max_y < min_y || seg_min_y > max_y {
+                continue;
+            }
+
+            // Detailed line intersection test
+            if self.line_intersects_ray(segment, ray_start, ray_end) {
+                return false; // Ray is blocked
+            }
+        }
+
+        true // Ray is not blocked
+    }
+
+    fn get_subsector_segments_by_ref(&self, subsector: &SubSector) -> Vec<&Segment> {
+        let start = subsector.start_seg as usize;
+        let count = subsector.seg_count as usize;
+
+        self.segments
+            .get(start..start + count)
+            .map(|slice| slice.iter().collect())
+            .unwrap_or_default()
+    }
+
+    fn line_intersects_ray(&self, segment: &Segment, ray_start: Vec2, ray_end: Vec2) -> bool {
+        let seg_dir = segment.v2 - segment.v1;
+        let ray_dir = ray_end - ray_start;
+        let to_seg_start = segment.v1 - ray_start;
+
+        let cross = ray_dir.x * seg_dir.y - ray_dir.y * seg_dir.x;
+
+        if cross.abs() < 1e-8 {
+            return false; // Parallel lines
+        }
+
+        let t = (to_seg_start.x * seg_dir.y - to_seg_start.y * seg_dir.x) / cross;
+        let u = (to_seg_start.x * ray_dir.y - to_seg_start.y * ray_dir.x) / cross;
+
+        const EPSILON: f32 = 0.01;
+        t >= EPSILON && t <= 1.0 - EPSILON && u >= EPSILON && u <= 1.0 - EPSILON
     }
 
     fn calculate_subsector_center(&self, subsector_idx: usize) -> Vec2 {
@@ -970,6 +1194,7 @@ impl PVS {
             cache: PVSCache::new(),
             subsectors: Vec::new(),
             sectors: Vec::new(),
+            segments: Vec::new(),
         })
     }
 
