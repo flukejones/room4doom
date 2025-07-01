@@ -4,7 +4,7 @@ use coarse_prof::profile;
 use crate::MapPtr;
 use crate::level::map_defs::{BBox, Sector, Segment, SubSector};
 use glam::Vec2;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -27,145 +27,6 @@ pub enum PortalType {
     Open,
 }
 
-#[derive(Debug, Clone)]
-pub struct ViewFrustum {
-    pub origin: Vec2,
-    pub planes: Vec<FrustumPlane>,
-    pub min_z: f32,
-    pub max_z: f32,
-    pub is_empty: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct FrustumPlane {
-    pub normal: Vec2,
-    pub distance: f32,
-}
-
-impl ViewFrustum {
-    pub fn from_sector_bounds(sector_center: Vec2, target_center: Vec2) -> Self {
-        let direction = target_center - sector_center;
-        let half_width = 64.0; // Default frustum width
-
-        let perpendicular = Vec2::new(-direction.y, direction.x).normalize();
-        let left_edge = sector_center + perpendicular * half_width;
-        let right_edge = sector_center - perpendicular * half_width;
-
-        let mut planes = Vec::new();
-
-        // Left plane
-        let left_normal = Vec2::new(
-            -(target_center.y - left_edge.y),
-            target_center.x - left_edge.x,
-        )
-        .normalize();
-        planes.push(FrustumPlane {
-            normal: left_normal,
-            distance: left_normal.dot(left_edge),
-        });
-
-        // Right plane
-        let right_normal = Vec2::new(
-            -(target_center.y - right_edge.y),
-            target_center.x - right_edge.x,
-        )
-        .normalize();
-        planes.push(FrustumPlane {
-            normal: right_normal,
-            distance: right_normal.dot(right_edge),
-        });
-
-        Self {
-            origin: sector_center,
-            planes,
-            min_z: -32768.0,
-            max_z: 32768.0,
-            is_empty: false,
-        }
-    }
-
-    pub fn from_points(origin: Vec2, target: Vec2) -> Self {
-        Self::from_sector_bounds(origin, target)
-    }
-
-    pub fn clip_through_portal(&self, portal: &Portal) -> Option<Self> {
-        if !self.intersects_bbox(&portal.opening_rect) {
-            return None;
-        }
-
-        if self.get_area() < 0.1 {
-            return None;
-        }
-
-        let mut clipped = self.clone();
-
-        // Add portal edges as clipping planes
-        let portal_edges = [
-            (portal.opening_rect.left, portal.opening_rect.top),
-            (portal.opening_rect.right, portal.opening_rect.top),
-            (portal.opening_rect.right, portal.opening_rect.bottom),
-            (portal.opening_rect.left, portal.opening_rect.bottom),
-        ];
-
-        for i in 0..4 {
-            let p1 = Vec2::new(portal_edges[i].0, portal_edges[i].1);
-            let p2 = Vec2::new(portal_edges[(i + 1) % 4].0, portal_edges[(i + 1) % 4].1);
-
-            let edge_normal = Vec2::new(-(p2.y - p1.y), p2.x - p1.x).normalize();
-
-            clipped.planes.push(FrustumPlane {
-                normal: edge_normal,
-                distance: edge_normal.dot(p1),
-            });
-        }
-
-        if clipped.planes.len() > 16 {
-            clipped.is_empty = true;
-            return None;
-        }
-
-        Some(clipped)
-    }
-
-    pub fn contains_point(&self, point: Vec2) -> bool {
-        for plane in &self.planes {
-            if plane.normal.dot(point) - plane.distance < -0.1 {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn intersects_bbox(&self, bbox: &BBox) -> bool {
-        let corners = [
-            Vec2::new(bbox.left, bbox.top),
-            Vec2::new(bbox.right, bbox.top),
-            Vec2::new(bbox.right, bbox.bottom),
-            Vec2::new(bbox.left, bbox.bottom),
-        ];
-
-        for corner in &corners {
-            if self.contains_point(*corner) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    pub fn get_area(&self) -> f32 {
-        if self.planes.len() < 3 {
-            return 1000.0;
-        }
-
-        let mut area = 1000.0f32;
-        for _ in 0..self.planes.len() {
-            area *= 0.8;
-        }
-        area.max(0.0)
-    }
-}
-
 pub struct PortalGraph {
     pub nodes: Vec<PortalNode>,
     pub adjacency: Vec<Vec<usize>>,
@@ -176,12 +37,6 @@ pub struct PortalNode {
     pub portal: Portal,
     pub connected_portals: Vec<usize>,
     pub sector_pair: (usize, usize),
-}
-
-pub struct PortalPath {
-    pub portals: Vec<usize>,
-    pub total_cost: f32,
-    pub valid: bool,
 }
 
 pub struct SectorVisibilityMatrix {
@@ -200,6 +55,8 @@ impl SectorVisibilityMatrix {
     }
 
     pub fn set_visible(&mut self, from: usize, to: usize) {
+        #[cfg(feature = "hprof")]
+        profile!("sector_visibility_matrix_set_visible");
         let bit_index = from * self.size + to;
         let word_index = bit_index / 32;
         let bit_offset = bit_index % 32;
@@ -207,6 +64,8 @@ impl SectorVisibilityMatrix {
     }
 
     pub fn is_visible(&self, from: usize, to: usize) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("sector_visibility_matrix_is_visible");
         let bit_index = from * self.size + to;
         let word_index = bit_index / 32;
         let bit_offset = bit_index % 32;
@@ -221,8 +80,10 @@ pub struct CompactPVS {
 
 impl CompactPVS {
     pub fn new(subsector_count: usize) -> Self {
-        let bits_needed = subsector_count * subsector_count;
-        let words_needed = (bits_needed + 31) / 32;
+        #[cfg(feature = "hprof")]
+        profile!("compact_pvs_new");
+        let bit_count = subsector_count * subsector_count;
+        let words_needed = (bit_count + 31) / 32;
 
         Self {
             subsector_count,
@@ -231,6 +92,8 @@ impl CompactPVS {
     }
 
     pub fn set_visible(&mut self, from: usize, to: usize) {
+        #[cfg(feature = "hprof")]
+        profile!("compact_pvs_set_visible");
         let bit_index = from * self.subsector_count + to;
         let word_index = bit_index / 32;
         let bit_offset = bit_index % 32;
@@ -245,6 +108,8 @@ impl CompactPVS {
     }
 
     pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
+        #[cfg(feature = "hprof")]
+        profile!("compact_pvs_get_visible_subsectors");
         let mut visible = Vec::new();
         for to in 0..self.subsector_count {
             if self.is_visible(from, to) {
@@ -255,23 +120,9 @@ impl CompactPVS {
     }
 
     pub fn memory_usage(&self) -> usize {
+        #[cfg(feature = "hprof")]
+        profile!("compact_pvs_memory_usage");
         std::mem::size_of::<Self>() + self.data.len() * std::mem::size_of::<u32>()
-    }
-}
-
-pub struct PVSCache {
-    portal_paths: HashMap<(usize, usize), Option<PortalPath>>,
-    frustum_clips: HashMap<(u64, usize), Option<ViewFrustum>>,
-    segment_pairs: HashMap<(usize, usize), bool>,
-}
-
-impl PVSCache {
-    pub fn new() -> Self {
-        Self {
-            portal_paths: HashMap::new(),
-            frustum_clips: HashMap::new(),
-            segment_pairs: HashMap::new(),
-        }
     }
 }
 
@@ -282,15 +133,17 @@ pub struct PVS {
     portals: Vec<Portal>,
     portal_graph: PortalGraph,
     sector_visibility: SectorVisibilityMatrix,
-    cache: PVSCache,
 
     subsectors: Vec<SubSector>,
     sectors: Vec<Sector>,
     segments: Vec<Segment>,
+    subsector_aabbs: Vec<BBox>,
 }
 
 impl PVS {
     pub fn new(subsector_count: usize) -> Self {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_new");
         Self {
             subsector_count,
             visibility_data: CompactPVS::new(subsector_count),
@@ -300,18 +153,18 @@ impl PVS {
                 adjacency: Vec::new(),
             },
             sector_visibility: SectorVisibilityMatrix::new(0),
-            cache: PVSCache::new(),
             subsectors: Vec::new(),
             sectors: Vec::new(),
             segments: Vec::new(),
+            subsector_aabbs: Vec::new(),
         }
     }
 
     pub fn build(
         subsectors: &[SubSector],
         segments: &[Segment],
-        _nodes: &mut [crate::level::map_defs::Node],
-        _start_node: u32,
+        nodes: &mut [crate::level::map_defs::Node],
+        start_node: u32,
     ) -> Self {
         #[cfg(feature = "hprof")]
         profile!("pvs_build");
@@ -320,6 +173,8 @@ impl PVS {
             "Building portal-based PVS for {} subsectors",
             subsectors.len()
         );
+
+        let phase_start = std::time::Instant::now();
 
         let mut pvs = Self::new(subsectors.len());
         // Store subsector and segment data
@@ -367,8 +222,30 @@ impl PVS {
 
         pvs.sector_visibility = SectorVisibilityMatrix::new(pvs.sectors.len());
 
+        // Pre-calculate BSP-based AABBs for all subsectors with orphaned space fixing
+        log::info!("Pre-calculating BSP AABBs...");
+        let bsp_start = std::time::Instant::now();
+        let mut subsector_aabbs = Vec::with_capacity(subsectors.len());
+        for (subsector_idx, _subsector) in subsectors.iter().enumerate() {
+            let bsp_aabb = pvs.find_and_fix_subsector_bsp_aabb(subsector_idx, nodes, start_node);
+            subsector_aabbs.push(bsp_aabb);
+        }
+
+        // Store the BSP AABBs for later use
+        pvs.subsector_aabbs = subsector_aabbs;
+        log::info!(
+            "BSP AABB calculation took {:.2}s",
+            bsp_start.elapsed().as_secs_f32()
+        );
+
         // Phase 1: Portal discovery
+        log::info!("Phase 1: Portal discovery...");
+        let portal_start = std::time::Instant::now();
         pvs.portals = pvs.discover_portals(segments);
+        log::info!(
+            "Portal discovery took {:.2}s",
+            portal_start.elapsed().as_secs_f32()
+        );
         let mut open_portals = 0;
         let mut middle_texture_portals = 0;
         let mut height_diff_portals = 0;
@@ -395,7 +272,13 @@ impl PVS {
         );
 
         // Phase 2: Build portal graph
+        log::info!("Phase 2: Building portal graph...");
+        let graph_start = std::time::Instant::now();
         pvs.portal_graph = pvs.build_portal_graph();
+        log::info!(
+            "Portal graph building took {:.2}s",
+            graph_start.elapsed().as_secs_f32()
+        );
         log::info!(
             "Built portal graph with {} nodes, {} unique sectors",
             pvs.portal_graph.nodes.len(),
@@ -403,7 +286,13 @@ impl PVS {
         );
 
         // Phase 3: Build sector visibility
+        log::info!("Phase 3: Building sector visibility...");
+        let sector_vis_start = std::time::Instant::now();
         pvs.build_sector_visibility();
+        log::info!(
+            "Sector visibility building took {:.2}s",
+            sector_vis_start.elapsed().as_secs_f32()
+        );
         let mut visible_sector_pairs = 0;
         for i in 0..pvs.sectors.len() {
             for j in 0..pvs.sectors.len() {
@@ -448,10 +337,17 @@ impl PVS {
             pvs.subsector_count,
             (pvs.subsector_count * pvs.subsector_count) / (pvs.sectors.len() * pvs.sectors.len())
         );
+        log::info!(
+            "Total PVS build time: {:.2}s",
+            phase_start.elapsed().as_secs_f32()
+        );
+        coarse_prof::write(&mut std::io::stdout()).unwrap();
         pvs
     }
 
     fn discover_portals(&self, segments: &[Segment]) -> Vec<Portal> {
+        #[cfg(feature = "hprof")]
+        profile!("discover_portals");
         let mut portals = Vec::new();
 
         for segment in segments {
@@ -485,6 +381,8 @@ impl PVS {
         back: &MapPtr<Sector>,
         segment: &Segment,
     ) -> PortalType {
+        #[cfg(feature = "hprof")]
+        profile!("classify_portal");
         // Check for middle texture - but only block if it's truly opaque
         if segment.sidedef.midtexture.is_some() {
             unsafe {
@@ -538,6 +436,8 @@ impl PVS {
     }
 
     fn build_portal_graph(&self) -> PortalGraph {
+        #[cfg(feature = "hprof")]
+        profile!("build_portal_graph");
         let mut graph = PortalGraph {
             nodes: Vec::with_capacity(self.portals.len()),
             adjacency: vec![Vec::new(); self.portals.len()],
@@ -584,6 +484,8 @@ impl PVS {
     }
 
     fn portals_are_adjacent(&self, portal1: &Portal, portal2: &Portal) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("portals_are_adjacent");
         portal1.front_sector == portal2.front_sector
             || portal1.front_sector == portal2.back_sector
             || portal1.back_sector == portal2.front_sector
@@ -591,6 +493,8 @@ impl PVS {
     }
 
     fn build_sector_visibility(&mut self) {
+        #[cfg(feature = "hprof")]
+        profile!("build_sector_visibility");
         // Start with no visibility
         for source_idx in 0..self.sectors.len() {
             // Self-visibility
@@ -635,6 +539,8 @@ impl PVS {
         visited: &mut [bool],
         depth: usize,
     ) {
+        #[cfg(feature = "hprof")]
+        profile!("explore_sector_visibility");
         const MAX_DEPTH: usize = 16;
 
         if depth >= MAX_DEPTH || visited[current_idx] {
@@ -667,6 +573,8 @@ impl PVS {
     }
 
     fn build_subsector_visibility(&mut self) {
+        #[cfg(feature = "hprof")]
+        profile!("build_subsector_visibility");
         // Build subsector to sector mapping
         let mut subsector_to_sector = vec![0; self.subsector_count];
         let mut sector_map = HashMap::new();
@@ -735,6 +643,8 @@ impl PVS {
     }
 
     fn test_subsector_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("test_subsector_line_of_sight");
         let from_sector_ptr = self.subsectors[from_idx].sector.inner as usize;
         let to_sector_ptr = self.subsectors[to_idx].sector.inner as usize;
 
@@ -767,20 +677,26 @@ impl PVS {
         self.test_geometric_line_of_sight(from_idx, to_idx)
     }
 
+    // TODO: Replace this with something like a swept volume? Project lines on a
+    // plane perpendicular to the line of sight from center to center, if our source projection
+    // is fully occluded by lines between source and target then the target is not visible.
+    // Portal lines should be excluded.
     fn test_geometric_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
-        // Calculate AABBs for both subsectors
-        let from_aabb = self.calculate_subsector_aabb(from_idx);
-        let to_aabb = self.calculate_subsector_aabb(to_idx);
+        #[cfg(feature = "hprof")]
+        profile!("test_geometric_line_of_sight");
+        // Use pre-calculated BSP AABBs with orphaned space fixes
+        let from_aabb = &self.subsector_aabbs[from_idx];
+        let to_aabb = &self.subsector_aabbs[to_idx];
 
         // Generate test points for source subsector
         let mut from_points = Vec::new();
 
         // Add segment vertices
         let from_segments = self.get_subsector_segments(from_idx);
-        for segment in &from_segments {
-            from_points.push(segment.v1);
-            from_points.push(segment.v2);
-        }
+        // for segment in &from_segments {
+        //     from_points.push(segment.v1);
+        //     from_points.push(segment.v2);
+        // }
 
         // Add AABB corner points
         from_points.push(Vec2::new(from_aabb.left, from_aabb.bottom));
@@ -789,21 +705,30 @@ impl PVS {
         from_points.push(Vec2::new(from_aabb.right, from_aabb.top));
 
         // Add center point (most important)
-        let from_center = Vec2::new(
-            (from_aabb.left + from_aabb.right) * 0.5,
-            (from_aabb.bottom + from_aabb.top) * 0.5,
-        );
-        from_points.push(from_center);
+        // let from_center = Vec2::new(
+        //     (from_aabb.left + from_aabb.right) * 0.5,
+        //     (from_aabb.bottom + from_aabb.top) * 0.5,
+        // );
+        // from_points.push(from_center);
+
+        // Add middle points for long/narrow subsectors
+        if from_segments.len() >= 2 {
+            let mid_point = Vec2::new(
+                (from_segments[0].v1.x + from_segments[from_segments.len() - 1].v2.x) * 0.5,
+                (from_segments[0].v1.y + from_segments[from_segments.len() - 1].v2.y) * 0.5,
+            );
+            from_points.push(mid_point);
+        }
 
         // Generate test points for target subsector
         let mut to_points = Vec::new();
 
         // Add segment vertices
         let to_segments = self.get_subsector_segments(to_idx);
-        for segment in &to_segments {
-            to_points.push(segment.v1);
-            to_points.push(segment.v2);
-        }
+        // for segment in &to_segments {
+        //     to_points.push(segment.v1);
+        //     to_points.push(segment.v2);
+        // }
 
         // Add AABB corner points
         to_points.push(Vec2::new(to_aabb.left, to_aabb.bottom));
@@ -812,46 +737,55 @@ impl PVS {
         to_points.push(Vec2::new(to_aabb.right, to_aabb.top));
 
         // Add center point (most important)
-        let to_center = Vec2::new(
-            (to_aabb.left + to_aabb.right) * 0.5,
-            (to_aabb.bottom + to_aabb.top) * 0.5,
-        );
-        to_points.push(to_center);
+        // let to_center = Vec2::new(
+        //     (to_aabb.left + to_aabb.right) * 0.5,
+        //     (to_aabb.bottom + to_aabb.top) * 0.5,
+        // );
+        // to_points.push(to_center);
+
+        // Add middle points for long/narrow subsectors
+        if to_segments.len() >= 2 {
+            let mid_point = Vec2::new(
+                (to_segments[0].v1.x + to_segments[to_segments.len() - 1].v2.x) * 0.5,
+                (to_segments[0].v1.y + to_segments[to_segments.len() - 1].v2.y) * 0.5,
+            );
+            to_points.push(mid_point);
+        }
 
         // Remove duplicate points to avoid redundant tests
-        from_points.sort_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
-        });
-        from_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
+        // from_points.sort_by(|a, b| {
+        //     a.x.partial_cmp(&b.x)
+        //         .unwrap_or(std::cmp::Ordering::Equal)
+        //         .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
+        // });
+        // from_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
 
-        to_points.sort_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
-        });
-        to_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
+        // to_points.sort_by(|a, b| {
+        //     a.x.partial_cmp(&b.x)
+        //         .unwrap_or(std::cmp::Ordering::Equal)
+        //         .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
+        // });
+        // to_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
 
         // Test multiple ray combinations, prioritize center-to-center
-        // Center to center test first (most reliable)
-        if self.test_geometric_ray_intersection(from_center, to_center) {
-            return true;
-        }
+        // // Center to center test first (most reliable)
+        // if self.test_geometric_ray_intersection(from_center, to_center) {
+        //     return true;
+        // }
 
-        // Test center to all target points
-        for &to_point in &to_points {
-            if self.test_geometric_ray_intersection(from_center, to_point) {
-                return true;
-            }
-        }
+        // // Test center to all target points
+        // for &to_point in &to_points {
+        //     if self.test_geometric_ray_intersection(from_center, to_point) {
+        //         return true;
+        //     }
+        // }
 
-        // Test all source points to center
-        for &from_point in &from_points {
-            if self.test_geometric_ray_intersection(from_point, to_center) {
-                return true;
-            }
-        }
+        // // Test all source points to center
+        // for &from_point in &from_points {
+        //     if self.test_geometric_ray_intersection(from_point, to_center) {
+        //         return true;
+        //     }
+        // }
 
         // Finally test all combinations (more expensive)
         for &from_point in &from_points {
@@ -866,6 +800,8 @@ impl PVS {
     }
 
     fn calculate_subsector_aabb(&self, subsector_idx: usize) -> BBox {
+        #[cfg(feature = "hprof")]
+        profile!("calculate_subsector_aabb");
         let segments = self.get_subsector_segments(subsector_idx);
 
         if segments.is_empty() {
@@ -892,22 +828,26 @@ impl PVS {
         }
     }
 
-    fn get_subsector_segments(&self, subsector_idx: usize) -> Vec<&Segment> {
-        if subsector_idx >= self.subsectors.len() {
+    fn get_subsector_segments(&self, subsector_index: usize) -> Vec<Segment> {
+        #[cfg(feature = "hprof")]
+        profile!("get_subsector_segments");
+        if subsector_index >= self.subsectors.len() {
             return Vec::new();
         }
 
-        let subsector = &self.subsectors[subsector_idx];
+        let subsector = &self.subsectors[subsector_index];
         let start = subsector.start_seg as usize;
         let count = subsector.seg_count as usize;
 
         self.segments
             .get(start..start + count)
-            .map(|slice| slice.iter().collect())
+            .map(|slice| slice.iter().cloned().collect())
             .unwrap_or_default()
     }
 
     fn test_geometric_ray_intersection(&self, ray_start: Vec2, ray_end: Vec2) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("test_geometric_ray_intersection");
         let ray_dir = ray_end - ray_start;
         let ray_length = ray_dir.length();
 
@@ -947,17 +887,9 @@ impl PVS {
         true // Ray is not blocked
     }
 
-    fn get_subsector_segments_by_ref(&self, subsector: &SubSector) -> Vec<&Segment> {
-        let start = subsector.start_seg as usize;
-        let count = subsector.seg_count as usize;
-
-        self.segments
-            .get(start..start + count)
-            .map(|slice| slice.iter().collect())
-            .unwrap_or_default()
-    }
-
     fn line_intersects_ray(&self, segment: &Segment, ray_start: Vec2, ray_end: Vec2) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("line_intersects_ray");
         let seg_dir = segment.v2 - segment.v1;
         let ray_dir = ray_end - ray_start;
         let to_seg_start = segment.v1 - ray_start;
@@ -975,140 +907,188 @@ impl PVS {
         t >= EPSILON && t <= 1.0 - EPSILON && u >= EPSILON && u <= 1.0 - EPSILON
     }
 
-    fn calculate_subsector_center(&self, subsector_idx: usize) -> Vec2 {
-        // For now, use a simple approach - in a full implementation this would
-        // calculate the actual geometric center of the subsector
-        Vec2::new(subsector_idx as f32 * 64.0, subsector_idx as f32 * 64.0)
-    }
-
-    fn test_ray_intersection(&self, from: Vec2, to: Vec2) -> bool {
-        // Test ray from 'from' to 'to' against all portal openings
-        // For now, use a simplified test that allows most rays through
-
-        let ray_dir = to - from;
-        let ray_length = ray_dir.length();
-
-        if ray_length < 0.1 {
-            return true;
-        }
-
-        // Check intersection with portal openings
-        for portal in &self.portals {
-            // Skip if portal doesn't block (is open)
-            if matches!(portal.portal_type, PortalType::Open) {
-                continue;
-            }
-
-            // Simple bounding box intersection test
-            // Skip intersection test - we already filtered out truly blocking portals
-            // in the portal classification phase
-        }
-
-        true
-    }
-
-    fn ray_intersects_rect(
+    /// Find the BSP node AABB for a given subsector and fix missing space coverage
+    fn find_and_fix_subsector_bsp_aabb(
         &self,
-        ray_start: Vec2,
-        ray_end: Vec2,
-        rect_min: Vec2,
-        rect_max: Vec2,
-    ) -> bool {
-        let ray_dir = ray_end - ray_start;
+        target_subsector_idx: usize,
+        nodes: &mut [crate::level::map_defs::Node],
+        start_node: u32,
+    ) -> BBox {
+        #[cfg(feature = "hprof")]
+        profile!("find_and_fix_subsector_bsp_aabb");
+        const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
-        // Simple AABB intersection test
-        let t_min_x = (rect_min.x - ray_start.x) / ray_dir.x;
-        let t_max_x = (rect_max.x - ray_start.x) / ray_dir.x;
-        let t_min_y = (rect_min.y - ray_start.y) / ray_dir.y;
-        let t_max_y = (rect_max.y - ray_start.y) / ray_dir.y;
+        if let Some((aabb, parent_node_idx, side)) = self
+            .traverse_bsp_for_subsector_aabb_with_parent(
+                target_subsector_idx,
+                nodes,
+                start_node,
+                None,
+                0,
+            )
+        {
+            // Check if we need to fix missing space coverage
+            self.fix_missing_space_coverage(parent_node_idx, side, nodes);
 
-        let t_min = t_min_x.min(t_max_x).max(t_min_y.min(t_max_y));
-        let t_max = t_min_x.max(t_max_x).min(t_min_y.max(t_max_y));
-
-        t_max >= 0.0 && t_min <= t_max && t_min <= 1.0
+            // Return the potentially updated AABB
+            if let Some(updated_aabb) = self.traverse_bsp_for_subsector_aabb_with_parent(
+                target_subsector_idx,
+                nodes,
+                start_node,
+                None,
+                0,
+            ) {
+                updated_aabb.0
+            } else {
+                aabb
+            }
+        } else {
+            // Fallback to segment-based AABB if BSP lookup fails
+            self.calculate_subsector_aabb(target_subsector_idx)
+        }
     }
 
-    fn find_portal_path(&self, from_sector: usize, to_sector: usize) -> Option<PortalPath> {
-        #[derive(Debug)]
-        struct PathNode {
-            sector: usize,
-            cost: f32,
-            path: Vec<usize>,
+    /// Recursively traverse BSP tree to find the AABB for a specific subsector with parent info
+    fn traverse_bsp_for_subsector_aabb_with_parent(
+        &self,
+        target_subsector_idx: usize,
+        nodes: &[crate::level::map_defs::Node],
+        node_index: u32,
+        parent_node_idx: Option<usize>,
+        parent_side: usize,
+    ) -> Option<(BBox, Option<usize>, usize)> {
+        #[cfg(feature = "hprof")]
+        profile!("traverse_bsp_for_subsector_aabb_with_parent");
+        const IS_SSECTOR_MASK: u32 = 0x8000_0000;
+
+        if node_index & IS_SSECTOR_MASK != 0 {
+            // This is a subsector leaf
+            let subsector_index = (node_index & !IS_SSECTOR_MASK) as usize;
+            if subsector_index == target_subsector_idx {
+                // Found our target subsector! Return the parent node's AABB for this side
+                if let Some(parent_idx) = parent_node_idx {
+                    let parent = &nodes[parent_idx];
+                    let bbox_pair = &parent.bboxes[parent_side];
+                    let aabb = BBox {
+                        left: bbox_pair[0].x.min(bbox_pair[1].x),
+                        right: bbox_pair[0].x.max(bbox_pair[1].x),
+                        bottom: bbox_pair[0].y.min(bbox_pair[1].y),
+                        top: bbox_pair[0].y.max(bbox_pair[1].y),
+                    };
+                    return Some((aabb, Some(parent_idx), parent_side));
+                }
+            }
+            return None;
         }
 
-        impl PartialEq for PathNode {
-            fn eq(&self, other: &Self) -> bool {
-                self.cost == other.cost
-            }
+        if (node_index as usize) >= nodes.len() {
+            return None;
         }
 
-        impl Eq for PathNode {}
+        let node = &nodes[node_index as usize];
 
-        impl PartialOrd for PathNode {
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                other.cost.partial_cmp(&self.cost)
-            }
-        }
-
-        impl Ord for PathNode {
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
-            }
-        }
-
-        let mut heap = BinaryHeap::new();
-        let mut visited = HashMap::new();
-
-        heap.push(PathNode {
-            sector: from_sector,
-            cost: 0.0,
-            path: Vec::new(),
-        });
-
-        while let Some(current) = heap.pop() {
-            if current.sector == to_sector {
-                return Some(PortalPath {
-                    portals: current.path,
-                    total_cost: current.cost,
-                    valid: true,
-                });
-            }
-
-            if visited.contains_key(&current.sector) {
-                continue;
-            }
-            visited.insert(current.sector, current.cost);
-
-            // Explore adjacent sectors through portals
-            for (portal_idx, portal_node) in self.portal_graph.nodes.iter().enumerate() {
-                let (next_sector, portal_cost) = if portal_node.sector_pair.0 == current.sector {
-                    (portal_node.sector_pair.1, 1.0)
-                } else if portal_node.sector_pair.1 == current.sector {
-                    (portal_node.sector_pair.0, 1.0)
-                } else {
-                    continue;
-                };
-
-                let new_cost = current.cost + portal_cost;
-                let mut new_path = current.path.clone();
-                new_path.push(portal_idx);
-
-                heap.push(PathNode {
-                    sector: next_sector,
-                    cost: new_cost,
-                    path: new_path,
-                });
+        // Check both children, passing this node as the parent
+        for child_idx in 0..2 {
+            let child_id = node.children[child_idx];
+            if let Some(result) = self.traverse_bsp_for_subsector_aabb_with_parent(
+                target_subsector_idx,
+                nodes,
+                child_id,
+                Some(node_index as usize),
+                child_idx,
+            ) {
+                return Some(result);
             }
         }
 
         None
     }
 
-    pub(super) fn set_visible(&mut self, from: usize, to: usize) {
-        self.visibility_data.set_visible(from, to);
+    /// Fix missing space coverage by extending this subsector's AABB to cover uncovered parent space
+    fn fix_missing_space_coverage(
+        &self,
+        parent_node_idx: Option<usize>,
+        target_side: usize,
+        nodes: &mut [crate::level::map_defs::Node],
+    ) {
+        #[cfg(feature = "hprof")]
+        profile!("fix_missing_space_coverage");
+        let Some(parent_idx) = parent_node_idx else {
+            return;
+        };
+        if parent_idx >= nodes.len() {
+            return;
+        }
+
+        let parent_node = &nodes[parent_idx];
+
+        // Get parent's full AABB (union of both sides)
+        let parent_bbox_0 = &parent_node.bboxes[0];
+        let parent_bbox_1 = &parent_node.bboxes[1];
+        let parent_full_aabb = BBox {
+            left: parent_bbox_0[0]
+                .x
+                .min(parent_bbox_0[1].x)
+                .min(parent_bbox_1[0].x.min(parent_bbox_1[1].x)),
+            right: parent_bbox_0[0]
+                .x
+                .max(parent_bbox_0[1].x)
+                .max(parent_bbox_1[0].x.max(parent_bbox_1[1].x)),
+            bottom: parent_bbox_0[0]
+                .y
+                .min(parent_bbox_0[1].y)
+                .min(parent_bbox_1[0].y.min(parent_bbox_1[1].y)),
+            top: parent_bbox_0[0]
+                .y
+                .max(parent_bbox_0[1].y)
+                .max(parent_bbox_1[0].y.max(parent_bbox_1[1].y)),
+        };
+
+        // Get target's current AABB
+        let target_bbox_pair = &parent_node.bboxes[target_side];
+        let current_aabb = BBox {
+            left: target_bbox_pair[0].x.min(target_bbox_pair[1].x),
+            right: target_bbox_pair[0].x.max(target_bbox_pair[1].x),
+            bottom: target_bbox_pair[0].y.min(target_bbox_pair[1].y),
+            top: target_bbox_pair[0].y.max(target_bbox_pair[1].y),
+        };
+
+        // Check if this subsector should be extended to better cover parent space
+        let should_extend = current_aabb.left > parent_full_aabb.left
+            || current_aabb.right < parent_full_aabb.right
+            || current_aabb.bottom > parent_full_aabb.bottom
+            || current_aabb.top < parent_full_aabb.top;
+
+        if should_extend {
+            // Extend this subsector's AABB toward the parent's bounds
+            let mut extended_aabb = current_aabb.clone();
+
+            // Extend toward parent bounds where there might be missing coverage
+            if current_aabb.left > parent_full_aabb.left {
+                extended_aabb.left = parent_full_aabb.left;
+            }
+            if current_aabb.right < parent_full_aabb.right {
+                extended_aabb.right = parent_full_aabb.right;
+            }
+            if current_aabb.bottom > parent_full_aabb.bottom {
+                extended_aabb.bottom = parent_full_aabb.bottom;
+            }
+            if current_aabb.top < parent_full_aabb.top {
+                extended_aabb.top = parent_full_aabb.top;
+            }
+
+            // Update the BSP node's bounding box for this side
+            let parent_node = &mut nodes[parent_idx];
+            parent_node.bboxes[target_side][0].x = extended_aabb.left;
+            parent_node.bboxes[target_side][0].y = extended_aabb.bottom;
+            parent_node.bboxes[target_side][1].x = extended_aabb.right;
+            parent_node.bboxes[target_side][1].y = extended_aabb.top;
+        }
     }
 
     pub fn is_visible(&self, from: usize, to: usize) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_is_visible");
         if from >= self.subsector_count || to >= self.subsector_count {
             return false;
         }
@@ -1116,6 +1096,8 @@ impl PVS {
     }
 
     pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_get_visible_subsectors");
         if from >= self.subsector_count {
             return Vec::new();
         }
@@ -1123,12 +1105,16 @@ impl PVS {
     }
 
     pub fn memory_usage(&self) -> usize {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_memory_usage");
         self.visibility_data.memory_usage()
             + self.portals.len() * std::mem::size_of::<Portal>()
             + self.portal_graph.nodes.len() * std::mem::size_of::<PortalNode>()
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_save_to_file");
         let mut file = std::fs::File::create(path)?;
 
         use std::io::Write;
@@ -1148,7 +1134,9 @@ impl PVS {
         Ok(())
     }
 
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_load_from_file");
         let mut file = std::fs::File::open(path)?;
 
         use std::io::Read;
@@ -1191,10 +1179,10 @@ impl PVS {
                 adjacency: Vec::new(),
             },
             sector_visibility: SectorVisibilityMatrix::new(0),
-            cache: PVSCache::new(),
             subsectors: Vec::new(),
             sectors: Vec::new(),
             segments: Vec::new(),
+            subsector_aabbs: Vec::new(),
         })
     }
 
@@ -1202,6 +1190,8 @@ impl PVS {
         wad_name: &str,
         map_name: &str,
     ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("get_pvs_cache_path");
         let cache_dir = dirs::cache_dir()
             .ok_or("Could not determine cache directory")?
             .join("room4doom")
@@ -1221,6 +1211,8 @@ impl PVS {
         nodes: &mut [crate::level::map_defs::Node],
         start_node: u32,
     ) -> Self {
+        #[cfg(feature = "hprof")]
+        profile!("build_and_cache");
         let pvs = Self::build(subsectors, segments, nodes, start_node);
 
         if let Ok(cache_path) = Self::get_pvs_cache_path(wad_name, map_name) {
@@ -1239,6 +1231,8 @@ impl PVS {
         map_name: &str,
         expected_subsectors: usize,
     ) -> Option<Self> {
+        #[cfg(feature = "hprof")]
+        profile!("load_from_cache");
         match Self::get_pvs_cache_path(wad_name, map_name) {
             Ok(cache_path) => {
                 if cache_path.exists() {
@@ -1261,6 +1255,8 @@ impl PVS {
     }
 
     pub fn subsector_count(&self) -> usize {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_subsector_count");
         self.subsector_count
     }
 }
@@ -1291,18 +1287,6 @@ mod tests {
     fn test_pvs_creation() {
         let pvs = PVS::new(100);
         assert_eq!(pvs.subsector_count(), 100);
-    }
-
-    #[test]
-    fn test_visibility_setting() {
-        let mut pvs = PVS::new(10);
-
-        assert!(!pvs.is_visible(0, 1));
-        pvs.set_visible(0, 1);
-        assert!(pvs.is_visible(0, 1));
-
-        let visible = pvs.get_visible_subsectors(0);
-        assert!(visible.contains(&1));
     }
 
     #[test]
@@ -1343,18 +1327,6 @@ mod tests {
         let portals = pvs.discover_portals(&[segment]);
         assert_eq!(portals.len(), 1);
         assert_eq!(portals[0].portal_type, PortalType::Open);
-    }
-
-    #[test]
-    fn test_frustum_clipping() {
-        let origin = Vec2::new(0.0, 0.0);
-        let target = Vec2::new(100.0, 0.0);
-        let frustum = ViewFrustum::from_points(origin, target);
-
-        // Basic functionality test - just ensure frustum was created
-        assert!(!frustum.is_empty);
-        assert!(frustum.planes.len() >= 2);
-        assert_eq!(frustum.origin, origin);
     }
 
     #[test]

@@ -9,17 +9,6 @@ mod pvs_tests {
     }
 
     #[test]
-    fn test_visibility_setting() {
-        let mut pvs = PVS::new(3);
-
-        // New API only supports setting visible, not blocking
-        pvs.set_visible(0, 1);
-
-        assert!(pvs.is_visible(0, 1));
-        assert!(!pvs.is_visible(1, 2)); // Default is not visible
-    }
-
-    #[test]
     fn test_pvs_integration() {
         let pvs = PVS::new(2);
 
@@ -33,32 +22,6 @@ mod pvs_tests {
         // Test memory usage calculation
         let memory = pvs.memory_usage();
         assert!(memory > 0);
-    }
-
-    #[test]
-    fn test_portal_based_visibility() {
-        let mut pvs = PVS::new(10);
-
-        // Set some visibility relationships
-        pvs.set_visible(0, 1);
-        pvs.set_visible(0, 2);
-        pvs.set_visible(1, 3);
-
-        // Test individual visibility
-        assert!(pvs.is_visible(0, 1));
-        assert!(pvs.is_visible(0, 2));
-        assert!(pvs.is_visible(1, 3));
-        assert!(!pvs.is_visible(2, 3)); // Not set, so not visible
-
-        // Test get_visible_subsectors
-        let visible_from_0 = pvs.get_visible_subsectors(0);
-        assert!(visible_from_0.contains(&1));
-        assert!(visible_from_0.contains(&2));
-        assert!(!visible_from_0.contains(&3));
-
-        let visible_from_1 = pvs.get_visible_subsectors(1);
-        assert!(visible_from_1.contains(&3));
-        assert!(!visible_from_1.contains(&2));
     }
 
     #[test]
