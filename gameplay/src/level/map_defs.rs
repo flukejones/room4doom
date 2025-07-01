@@ -443,7 +443,7 @@ impl Segment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SubSector {
     pub sector: MapPtr<Sector>,
     /// How many `Segment`s line this `SubSector`

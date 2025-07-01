@@ -1,84 +1,107 @@
+//! Portal-based Potentially Visible Set (PVS) implementation for Doom-style BSP maps.
+//!
+//! This module provides efficient visibility culling by precomputing which subsectors
+//! can see each other through portals (connections between sectors). The PVS data
+//! structure allows for O(1) visibility queries during rendering, significantly
+//! improving performance by avoiding unnecessary geometry processing.
+//!
+//! ## PVS Building Process
+//!
+//! The PVS construction follows a streamlined 4-phase approach optimized for Doom's BSP structure:
+//!
+//! ### Phase 1: Portal Discovery
+//! - Scans all two-sided line segments (linedefs) to identify sector connections
+//! - Classifies portals as either "Open" (static openings) or "Movable" (doors/platforms)
+//! - Calculates valid Z-height ranges for each portal based on floor/ceiling heights
+//! - Records which sectors each portal connects for implicit connectivity tracking
+//!
+//! ### Phase 2: Portal Graph Construction
+//! - Builds a graph where nodes represent sector pairs connected by portals
+//! - Creates adjacency lists for efficient portal traversal algorithms
+//! - Sector connectivity is implicit in the portal relationships (no separate phase needed)
+//!
+//! ### Phase 3: Subsector-Level Visibility
+//! - For each subsector pair, uses portal graph to check if parent sectors are connected
+//! - Performs on-demand portal traversal to determine sector reachability
+//! - Proceeds with geometric testing only for subsectors in connected sectors
+//! - Uses BSP-derived AABBs to generate multiple test points per subsector
+//!
+//! ### Phase 4: Geometric Validation
+//! - Casts multiple rays between subsector test points to handle complex geometry
+//! - Performs 3D intersection tests considering floor/ceiling heights at portals
+//! - Accounts for movable geometry by using expanded height ranges
+//! - Optimizes ray tests by pre-filtering against blocking segments
+//!
+//! The final result is a compact bit-matrix storing subsector-to-subsector visibility
+//! that can be queried in O(1) time during rendering. This approach eliminates the need
+//! for a separate sector visibility matrix, making the algorithm more memory-efficient
+//! while maintaining the same filtering benefits. PVS data can be cached to disk
+//! to avoid recomputation between runs.
+
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
-use crate::MapPtr;
+use crate::level::map_data::IS_SSECTOR_MASK;
 use crate::level::map_defs::{BBox, Sector, Segment, SubSector};
+use crate::{MapPtr, Node};
 use glam::Vec2;
 use std::collections::HashMap;
 use std::path::Path;
 
+const MAX_SECTOR_DEPTH: usize = 16;
+
+// Ray casting constants
+const MIN_RAY_LENGTH: f32 = 0.1;
+const RAY_ENDPOINT_TOLERANCE: f32 = 1.0;
+const INWARD_OFFSET_DISTANCE: f32 = 8.0;
+const RAY_BBOX_PADDING: f32 = 1.0;
+
+// Height testing constants
+const ZERO_HEIGHT_TOLERANCE: f32 = 0.1;
+const MAX_STEP_HEIGHT: f32 = 24.0;
+const MOVEMENT_RANGE: f32 = 128.0;
+const PLAYER_EYE_HEIGHT: f32 = 1.0;
+
+// Point deduplication
+const POINT_DEDUP_TOLERANCE: f32 = 0.1;
+
+/// Connection between two sectors through a portal (door, window, etc.)
 #[derive(Debug, Clone)]
 pub struct Portal {
-    pub segment: MapPtr<crate::level::map_defs::LineDef>,
-    pub opening_rect: BBox,
     pub front_sector: MapPtr<Sector>,
     pub back_sector: MapPtr<Sector>,
     pub portal_type: PortalType,
-    pub normal: Vec2,
-    pub center: Vec2,
+    pub z_position: f32,
+    pub z_range: f32,
 }
 
+/// Type of portal connection between sectors
 #[derive(Debug, Clone, PartialEq)]
 pub enum PortalType {
-    FloorHeight(f32, f32),
-    CeilingHeight(f32, f32),
-    LightLevel(usize, usize),
-    MiddleTexture,
+    Movable,
     Open,
 }
 
+/// Graph representation of portal connections between sectors
 pub struct PortalGraph {
     pub nodes: Vec<PortalNode>,
     pub adjacency: Vec<Vec<usize>>,
 }
 
+/// Node in the portal graph representing a sector pair connection
 #[derive(Debug)]
 pub struct PortalNode {
-    pub portal: Portal,
-    pub connected_portals: Vec<usize>,
     pub sector_pair: (usize, usize),
 }
 
-pub struct SectorVisibilityMatrix {
-    size: usize,
-    data: Vec<u32>,
-}
-
-impl SectorVisibilityMatrix {
-    pub fn new(sector_count: usize) -> Self {
-        let bits_needed = sector_count * sector_count;
-        let words_needed = (bits_needed + 31) / 32;
-        Self {
-            size: sector_count,
-            data: vec![0; words_needed],
-        }
-    }
-
-    pub fn set_visible(&mut self, from: usize, to: usize) {
-        #[cfg(feature = "hprof")]
-        profile!("sector_visibility_matrix_set_visible");
-        let bit_index = from * self.size + to;
-        let word_index = bit_index / 32;
-        let bit_offset = bit_index % 32;
-        self.data[word_index] |= 1u32 << bit_offset;
-    }
-
-    pub fn is_visible(&self, from: usize, to: usize) -> bool {
-        #[cfg(feature = "hprof")]
-        profile!("sector_visibility_matrix_is_visible");
-        let bit_index = from * self.size + to;
-        let word_index = bit_index / 32;
-        let bit_offset = bit_index % 32;
-        (self.data[word_index] & (1u32 << bit_offset)) != 0
-    }
-}
-
+/// Compact bit-packed Potentially Visible Set data structure
 pub struct CompactPVS {
     subsector_count: usize,
     data: Vec<u32>,
 }
 
 impl CompactPVS {
+    /// Creates a new compact PVS for the given number of subsectors
     pub fn new(subsector_count: usize) -> Self {
         #[cfg(feature = "hprof")]
         profile!("compact_pvs_new");
@@ -91,6 +114,7 @@ impl CompactPVS {
         }
     }
 
+    /// Marks subsector `to` as visible from subsector `from`
     pub fn set_visible(&mut self, from: usize, to: usize) {
         #[cfg(feature = "hprof")]
         profile!("compact_pvs_set_visible");
@@ -100,6 +124,7 @@ impl CompactPVS {
         self.data[word_index] |= 1u32 << bit_offset;
     }
 
+    /// Returns true if subsector `to` is visible from subsector `from`
     pub fn is_visible(&self, from: usize, to: usize) -> bool {
         let bit_index = from * self.subsector_count + to;
         let word_index = bit_index / 32;
@@ -107,6 +132,7 @@ impl CompactPVS {
         (self.data[word_index] & (1u32 << bit_offset)) != 0
     }
 
+    /// Returns all subsectors visible from the given subsector
     pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
         #[cfg(feature = "hprof")]
         profile!("compact_pvs_get_visible_subsectors");
@@ -119,6 +145,7 @@ impl CompactPVS {
         visible
     }
 
+    /// Returns memory usage in bytes
     pub fn memory_usage(&self) -> usize {
         #[cfg(feature = "hprof")]
         profile!("compact_pvs_memory_usage");
@@ -126,23 +153,30 @@ impl CompactPVS {
     }
 }
 
+/// Portal-based Potentially Visible Set for efficient visibility culling
 pub struct PVS {
     pub(super) subsector_count: usize,
     pub(super) visibility_data: CompactPVS,
 
     portals: Vec<Portal>,
     portal_graph: PortalGraph,
-    sector_visibility: SectorVisibilityMatrix,
+    sector_connectivity: Vec<Vec<bool>>,
 
-    subsectors: Vec<SubSector>,
+    pub(super) subsectors: Vec<SubSector>,
     sectors: Vec<Sector>,
     segments: Vec<Segment>,
     subsector_aabbs: Vec<BBox>,
     segment_bboxes: Vec<BBox>,
     blocking_segments: Vec<usize>,
+    extended_aabb_segments: Vec<Option<usize>>,
 }
 
 impl PVS {
+    // ============================================================================
+    // PUBLIC API FUNCTIONS
+    // ============================================================================
+
+    /// Creates a new PVS for the given number of subsectors
     pub fn new(subsector_count: usize) -> Self {
         #[cfg(feature = "hprof")]
         profile!("pvs_new");
@@ -154,17 +188,18 @@ impl PVS {
                 nodes: Vec::new(),
                 adjacency: Vec::new(),
             },
-            sector_visibility: SectorVisibilityMatrix::new(0),
-
+            sector_connectivity: Vec::new(),
             subsectors: Vec::new(),
             sectors: Vec::new(),
             segments: Vec::new(),
             subsector_aabbs: Vec::new(),
             segment_bboxes: Vec::new(),
             blocking_segments: Vec::new(),
+            extended_aabb_segments: Vec::new(),
         }
     }
 
+    /// Builds PVS data from map geometry using portal-based visibility
     pub fn build(
         subsectors: &[SubSector],
         segments: &[Segment],
@@ -182,6 +217,7 @@ impl PVS {
         let phase_start = std::time::Instant::now();
 
         let mut pvs = Self::new(subsectors.len());
+
         // Store subsector and segment data
         pvs.subsectors.reserve(subsectors.len());
         for subsector in subsectors {
@@ -225,25 +261,26 @@ impl PVS {
             pvs.sectors.push(Sector::default());
         }
 
-        pvs.sector_visibility = SectorVisibilityMatrix::new(pvs.sectors.len());
-
-        // Pre-calculate BSP-based AABBs for all subsectors with orphaned space fixing
+        // Pre-calculate BSP-based AABBs for all subsectors
         log::info!("Pre-calculating BSP AABBs...");
         let bsp_start = std::time::Instant::now();
         let mut subsector_aabbs = Vec::with_capacity(subsectors.len());
+        let mut extended_aabb_segments = Vec::with_capacity(subsectors.len());
         for (subsector_idx, _subsector) in subsectors.iter().enumerate() {
-            let bsp_aabb = pvs.find_and_fix_subsector_bsp_aabb(subsector_idx, nodes, start_node);
+            let (bsp_aabb, extended_segment_id) =
+                pvs.find_and_fix_subsector_bsp_aabb(subsector_idx, nodes, start_node);
             subsector_aabbs.push(bsp_aabb);
+            extended_aabb_segments.push(extended_segment_id);
         }
 
-        // Store the BSP AABBs for later use
         pvs.subsector_aabbs = subsector_aabbs;
+        pvs.extended_aabb_segments = extended_aabb_segments;
         log::info!(
             "BSP AABB calculation took {:.2}s",
             bsp_start.elapsed().as_secs_f32()
         );
 
-        // Precompute segment bounding boxes and identify blocking segments
+        // Precompute segment optimizations
         log::info!("Precomputing segment optimizations...");
         let seg_opt_start = std::time::Instant::now();
         pvs.segment_bboxes.reserve(pvs.segments.len());
@@ -256,7 +293,6 @@ impl PVS {
             };
             pvs.segment_bboxes.push(bbox);
 
-            // Only blocking segments (one-sided walls) matter for ray intersection
             if segment.backsector.is_none() {
                 pvs.blocking_segments.push(idx);
             }
@@ -276,29 +312,20 @@ impl PVS {
             "Portal discovery took {:.2}s",
             portal_start.elapsed().as_secs_f32()
         );
-        let mut open_portals = 0;
-        let mut middle_texture_portals = 0;
-        let mut height_diff_portals = 0;
-        let mut light_diff_portals = 0;
 
+        let mut open_portals = 0;
+        let mut movable_portals = 0;
         for portal in &pvs.portals {
             match portal.portal_type {
                 PortalType::Open => open_portals += 1,
-                PortalType::MiddleTexture => middle_texture_portals += 1,
-                PortalType::FloorHeight(_, _) | PortalType::CeilingHeight(_, _) => {
-                    height_diff_portals += 1
-                }
-                PortalType::LightLevel(_, _) => light_diff_portals += 1,
+                PortalType::Movable => movable_portals += 1,
             }
         }
-
         log::info!(
-            "Discovered {} portals: {} open, {} middle texture, {} height diff, {} light diff",
+            "Discovered {} portals: {} open, {} movable",
             pvs.portals.len(),
             open_portals,
-            middle_texture_portals,
-            height_diff_portals,
-            light_diff_portals
+            movable_portals
         );
 
         // Phase 2: Build portal graph
@@ -315,57 +342,32 @@ impl PVS {
             pvs.sectors.len()
         );
 
-        // Phase 3: Build sector visibility
-        log::info!("Phase 3: Building sector visibility...");
-        let sector_vis_start = std::time::Instant::now();
-        pvs.build_sector_visibility();
+        // Phase 3: Build sector connectivity matrix
+        log::info!("Phase 3: Building sector connectivity matrix...");
+        let connectivity_start = std::time::Instant::now();
+        pvs.build_sector_connectivity();
         log::info!(
-            "Sector visibility building took {:.2}s",
-            sector_vis_start.elapsed().as_secs_f32()
-        );
-        let mut visible_sector_pairs = 0;
-        for i in 0..pvs.sectors.len() {
-            for j in 0..pvs.sectors.len() {
-                if pvs.sector_visibility.is_visible(i, j) {
-                    visible_sector_pairs += 1;
-                }
-            }
-        }
-        log::info!(
-            "Sector visibility: {}/{} pairs visible",
-            visible_sector_pairs,
-            pvs.sectors.len() * pvs.sectors.len()
+            "Sector connectivity building took {:.2}s",
+            connectivity_start.elapsed().as_secs_f32()
         );
 
         // Phase 4: Build subsector visibility
-        log::info!("Starting subsector visibility calculation...");
+        log::info!("Phase 4: Starting subsector visibility calculation...");
         let start_time = std::time::Instant::now();
         pvs.build_subsector_visibility();
         let elapsed = start_time.elapsed();
 
-        let mut visible_subsector_pairs = 0;
-        for i in 0..pvs.subsector_count {
-            for j in 0..pvs.subsector_count {
-                if pvs.visibility_data.is_visible(i, j) {
-                    visible_subsector_pairs += 1;
-                }
-            }
-        }
         log::info!(
-            "Subsector visibility: {}/{} pairs visible (took {:.2}s)",
-            visible_subsector_pairs,
-            pvs.subsector_count * pvs.subsector_count,
+            "Subsector visibility building took {:.2}s",
             elapsed.as_secs_f32()
         );
 
+        log::info!("Portal-based PVS build complete - eliminated separate sector visibility phase");
         log::info!(
-            "Portal-based PVS build complete - optimized O(sectors²) approach instead of O(subsectors²)"
-        );
-        log::info!(
-            "Performance: {} sectors vs {} subsectors = {}x speedup potential",
+            "Performance: {} sectors, {} subsectors, {} portals",
             pvs.sectors.len(),
             pvs.subsector_count,
-            (pvs.subsector_count * pvs.subsector_count) / (pvs.sectors.len() * pvs.sectors.len())
+            pvs.portals.len()
         );
         log::info!(
             "Total PVS build time: {:.2}s",
@@ -375,6 +377,202 @@ impl PVS {
         pvs
     }
 
+    /// Returns true if subsector `to` is visible from subsector `from`
+    pub fn is_visible(&self, from: usize, to: usize) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_is_visible");
+        if from >= self.subsector_count || to >= self.subsector_count {
+            return false;
+        }
+        self.visibility_data.is_visible(from, to)
+    }
+
+    /// Returns all subsectors visible from the given subsector
+    pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_get_visible_subsectors");
+        if from >= self.subsector_count {
+            return Vec::new();
+        }
+        self.visibility_data.get_visible_subsectors(from)
+    }
+
+    /// Returns total memory usage in bytes
+    pub fn memory_usage(&self) -> usize {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_memory_usage");
+        self.visibility_data.memory_usage()
+            + self.portals.len() * std::mem::size_of::<Portal>()
+            + self.portal_graph.nodes.len() * std::mem::size_of::<PortalNode>()
+            + self
+                .portal_graph
+                .adjacency
+                .iter()
+                .map(|adj| adj.len() * std::mem::size_of::<usize>())
+                .sum::<usize>()
+    }
+
+    /// Returns the number of subsectors in this PVS
+    pub fn subsector_count(&self) -> usize {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_subsector_count");
+        self.subsector_count
+    }
+
+    /// Builds PVS data and saves it to cache
+    pub fn build_and_cache(
+        wad_name: &str,
+        map_name: &str,
+        subsectors: &[SubSector],
+        segments: &[Segment],
+        nodes: &mut [crate::level::map_defs::Node],
+        start_node: u32,
+    ) -> Self {
+        #[cfg(feature = "hprof")]
+        profile!("build_and_cache");
+        let pvs = Self::build(subsectors, segments, nodes, start_node);
+
+        if let Ok(cache_path) = Self::get_pvs_cache_path(wad_name, map_name) {
+            if let Err(e) = pvs.save_to_file(&cache_path) {
+                log::warn!("Failed to save PVS cache: {}", e);
+            } else {
+                log::info!("Saved PVS cache to {:?}", cache_path);
+            }
+        }
+
+        pvs
+    }
+
+    /// Saves PVS data to a binary file for caching
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_save_to_file");
+        let mut file = std::fs::File::create(path)?;
+        use std::io::Write;
+
+        // Write header and data sizes
+        file.write_all(b"PVS2")?;
+        file.write_all(&self.subsector_count.to_le_bytes())?;
+        file.write_all(&self.visibility_data.data.len().to_le_bytes())?;
+
+        // Write visibility data as bytes
+        let data_bytes: Vec<u8> = self
+            .visibility_data
+            .data
+            .iter()
+            .flat_map(|&word| word.to_le_bytes())
+            .collect();
+        file.write_all(&data_bytes)?;
+
+        Ok(())
+    }
+
+    /// Attempts to load PVS data from cache, returns None if unavailable or invalid
+    pub fn load_from_cache(
+        wad_name: &str,
+        map_name: &str,
+        expected_subsectors: usize,
+    ) -> Option<Self> {
+        #[cfg(feature = "hprof")]
+        profile!("load_from_cache");
+        match Self::get_pvs_cache_path(wad_name, map_name) {
+            Ok(cache_path) => {
+                if cache_path.exists() {
+                    match Self::load_from_file(&cache_path) {
+                        Ok(pvs) => {
+                            if pvs.subsector_count == expected_subsectors {
+                                Some(pvs)
+                            } else {
+                                None
+                            }
+                        }
+                        Err(_) => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
+    /// Loads PVS data from a binary cache file
+    pub fn load_from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("pvs_load_from_file");
+        let mut file = std::fs::File::open(path)?;
+        use std::io::Read;
+
+        // Read and validate header
+        let mut header = [0u8; 4];
+        file.read_exact(&mut header)?;
+        if &header != b"PVS2" {
+            return Err("Invalid PVS file format".into());
+        }
+
+        // Read sizes
+        let mut size_buffer = [0u8; 8];
+        file.read_exact(&mut size_buffer)?;
+        let subsector_count = usize::from_le_bytes(size_buffer);
+
+        file.read_exact(&mut size_buffer)?;
+        let data_len = usize::from_le_bytes(size_buffer);
+
+        // Read visibility data as bytes then convert to u32 words
+        let mut data_bytes = vec![0u8; data_len * 4];
+        file.read_exact(&mut data_bytes)?;
+        let data: Vec<u32> = data_bytes
+            .chunks_exact(4)
+            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .collect();
+
+        let visibility_data = CompactPVS {
+            subsector_count,
+            data,
+        };
+
+        Ok(Self {
+            subsector_count,
+            visibility_data,
+            portals: Vec::new(),
+            portal_graph: PortalGraph {
+                nodes: Vec::new(),
+                adjacency: Vec::new(),
+            },
+            sector_connectivity: Vec::new(),
+            subsectors: Vec::new(),
+            sectors: Vec::new(),
+            segments: Vec::new(),
+            subsector_aabbs: Vec::new(),
+            segment_bboxes: Vec::new(),
+            blocking_segments: Vec::new(),
+            extended_aabb_segments: Vec::new(),
+        })
+    }
+
+    /// Returns the cache file path for the given WAD and map
+    pub fn get_pvs_cache_path(
+        wad_name: &str,
+        map_name: &str,
+    ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        #[cfg(feature = "hprof")]
+        profile!("get_pvs_cache_path");
+        let cache_dir = dirs::cache_dir()
+            .ok_or("Could not determine cache directory")?
+            .join("room4doom")
+            .join("pvs");
+
+        std::fs::create_dir_all(&cache_dir)?;
+
+        let filename = format!("{}_{}.pvs", wad_name, map_name);
+        Ok(cache_dir.join(filename))
+    }
+
+    // ============================================================================
+    // PHASE 1: PORTAL DISCOVERY
+    // ============================================================================
+
+    /// Discovers portal connections between sectors by examining two-sided segments
     fn discover_portals(&self, segments: &[Segment]) -> Vec<Portal> {
         #[cfg(feature = "hprof")]
         profile!("discover_portals");
@@ -384,18 +582,15 @@ impl PVS {
             if let Some(back_sector) = &segment.backsector {
                 let portal_type = self.classify_portal(&segment.frontsector, back_sector, segment);
 
-                let opening_rect = BBox::new(segment.v1, segment.v2);
-                let normal = (segment.v2 - segment.v1).perp().normalize();
-                let center = (segment.v1 + segment.v2) * 0.5;
+                let (z_position, z_range) =
+                    self.calculate_portal_z_range(&segment.frontsector, back_sector, &portal_type);
 
                 let portal = Portal {
-                    segment: segment.linedef.clone(),
-                    opening_rect,
                     front_sector: segment.frontsector.clone(),
                     back_sector: back_sector.clone(),
                     portal_type,
-                    normal,
-                    center,
+                    z_position,
+                    z_range,
                 };
 
                 portals.push(portal);
@@ -405,66 +600,252 @@ impl PVS {
         portals
     }
 
-    fn classify_portal(
-        &self,
-        front: &MapPtr<Sector>,
-        back: &MapPtr<Sector>,
-        segment: &Segment,
-    ) -> PortalType {
+    /// Classifies a portal as either movable (doors/platforms) or open based on sector properties
+    fn classify_portal(&self, front: &Sector, back: &Sector, _segment: &Segment) -> PortalType {
         #[cfg(feature = "hprof")]
         profile!("classify_portal");
-        // Check for middle texture - but only block if it's truly opaque
-        if segment.sidedef.midtexture.is_some() {
-            unsafe {
-                let front_sector = &*front.inner;
-                let back_sector = &*back.inner;
 
-                // Don't block if sectors have same floor/ceiling (movable geometry)
-                if (front_sector.floorheight - back_sector.floorheight).abs() < 0.1
-                    && (front_sector.ceilingheight - back_sector.ceilingheight).abs() < 0.1
-                {
-                    return PortalType::Open;
-                }
-
-                // Don't block if floor and ceiling are the same (thin sector)
-                if (front_sector.floorheight - front_sector.ceilingheight).abs() < 0.1
-                    || (back_sector.floorheight - back_sector.ceilingheight).abs() < 0.1
-                {
-                    return PortalType::Open;
-                }
-            }
-
-            return PortalType::MiddleTexture;
+        if self.is_movable_sector(&front) || self.is_movable_sector(&back) {
+            return PortalType::Movable;
         }
 
-        // Compare sector properties to determine portal type
-        unsafe {
-            let front_sector = &*front.inner;
-            let back_sector = &*back.inner;
-
-            // Check floor height differences
-            if (front_sector.floorheight - back_sector.floorheight).abs() > 0.1 {
-                return PortalType::FloorHeight(front_sector.floorheight, back_sector.floorheight);
-            }
-
-            // Check ceiling height differences
-            if (front_sector.ceilingheight - back_sector.ceilingheight).abs() > 0.1 {
-                return PortalType::CeilingHeight(
-                    front_sector.ceilingheight,
-                    back_sector.ceilingheight,
-                );
-            }
-
-            // Check light level differences
-            if front_sector.lightlevel != back_sector.lightlevel {
-                return PortalType::LightLevel(front_sector.lightlevel, back_sector.lightlevel);
-            }
-        }
-
-        // Default to open portal
         PortalType::Open
     }
 
+    /// Returns true if a sector can move (doors, platforms, etc.)
+    /// Checks both active movement and potential movement based on special type
+    fn is_movable_sector(&self, sector: &Sector) -> bool {
+        if sector.specialdata.is_some() {
+            return true;
+        }
+
+        // Check if sector has special types that indicate movable floors/ceilings/doors
+        // Based on Doom sector specials for moving floors, ceilings, doors, etc.
+        matches!(sector.special,
+            1..=11 |    // Various door types
+            16..=19 |   // Door close/open types
+            25..=27 |   // Ceiling crush types
+            36..=37 |   // Floor lower types
+            38..=40 |   // Floor raise types
+            41..=47 |   // Ceiling lower/raise types
+            60..=69 |   // Floor lower/raise types
+            70..=79 |   // Floor turbo types
+            80..=86 |   // Stair building types
+            87..=90 |   // Floor/ceiling types
+            100..=104 | // Various floor types
+            109..=111 | // Door types
+            114..=116 | // Door/floor types
+            117..=119 | // Door types
+            120..=127 | // Floor types
+            140..=150   // Floor/ceiling/door types
+        )
+    }
+
+    /// Calculates the valid Z range for a portal based on sector heights and movement
+    /// Returns (z_position, z_range) representing the floor height and height span
+    fn calculate_portal_z_range(
+        &self,
+        front_sector: &Sector,
+        back_sector: &Sector,
+        portal_type: &PortalType,
+    ) -> (f32, f32) {
+        match portal_type {
+            PortalType::Movable => {
+                let mut min_floor = front_sector.floorheight.min(back_sector.floorheight);
+                let mut max_ceiling = front_sector.ceilingheight.max(back_sector.ceilingheight);
+
+                // Expand range for movable geometry
+                if let Some(data) = front_sector.specialdata {
+                    unsafe {
+                        match (*data).data() {
+                            crate::thinker::ThinkerData::FloorMove(floor_move) => {
+                                if floor_move.direction == -1 {
+                                    min_floor = min_floor.min(floor_move.destheight);
+                                } else {
+                                    max_ceiling = max_ceiling.max(floor_move.destheight);
+                                }
+                            }
+                            crate::thinker::ThinkerData::CeilingMove(ceiling_move) => {
+                                min_floor = min_floor.min(ceiling_move.bottomheight);
+                                max_ceiling = max_ceiling.max(ceiling_move.topheight);
+                            }
+                            crate::thinker::ThinkerData::VerticalDoor(door) => {
+                                max_ceiling = max_ceiling.max(door.topheight);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                if let Some(data) = back_sector.specialdata {
+                    unsafe {
+                        match (*data).data() {
+                            crate::thinker::ThinkerData::FloorMove(floor_move) => {
+                                if floor_move.direction == -1 {
+                                    min_floor = min_floor.min(floor_move.destheight);
+                                } else {
+                                    max_ceiling = max_ceiling.max(floor_move.destheight);
+                                }
+                            }
+                            crate::thinker::ThinkerData::CeilingMove(ceiling_move) => {
+                                min_floor = min_floor.min(ceiling_move.bottomheight);
+                                max_ceiling = max_ceiling.max(ceiling_move.topheight);
+                            }
+                            crate::thinker::ThinkerData::VerticalDoor(door) => {
+                                max_ceiling = max_ceiling.max(door.topheight);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                (min_floor, max_ceiling - min_floor)
+            }
+            PortalType::Open => {
+                let min_floor = front_sector.floorheight.min(back_sector.floorheight);
+                let max_ceiling = front_sector.ceilingheight.max(back_sector.ceilingheight);
+                (min_floor, max_ceiling - min_floor)
+            }
+        }
+    }
+
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+
+    /// Builds a mapping from subsector sector pointers to sequential indices
+    fn build_sector_mapping(&self) -> HashMap<usize, usize> {
+        let mut sector_map = HashMap::new();
+        for subsector in &self.subsectors {
+            let sector_ptr = subsector.sector.inner as usize;
+            if !sector_map.contains_key(&sector_ptr) {
+                sector_map.insert(sector_ptr, sector_map.len());
+            }
+        }
+        sector_map
+    }
+
+    /// Reports progress for long-running subsector visibility calculations
+    fn report_progress(
+        &self,
+        processed_pairs: usize,
+        total_pairs: f32,
+        function_start: std::time::Instant,
+        sector_visibility_checks: usize,
+        sector_visibility_skipped: usize,
+        line_of_sight_passed: usize,
+        line_of_sight_tests: usize,
+    ) {
+        let progress = (processed_pairs as f32 / total_pairs) * 100.0;
+        let elapsed = function_start.elapsed().as_secs_f32();
+        let estimated_total = elapsed / (progress / 100.0);
+        let remaining = estimated_total - elapsed;
+        log::info!(
+            "Subsector visibility progress: {:.1}% - {:.1}s elapsed, ~{:.1}s remaining, sector checks: {}/{}, LOS tests: {}/{}",
+            progress,
+            elapsed,
+            remaining,
+            sector_visibility_checks,
+            sector_visibility_checks + sector_visibility_skipped,
+            line_of_sight_passed,
+            line_of_sight_tests
+        );
+    }
+
+    /// Generates test points for geometric ray testing from subsector segments
+    fn generate_test_points_from_subsector(&self, subsector_idx: usize, aabb: &BBox) -> Vec<Vec2> {
+        let segments = self.get_subsector_segments(subsector_idx);
+        let mut points = Vec::with_capacity(segments.len() * 2 + 4);
+
+        // Special handling for single-segment single-sided subsectors
+        if segments.len() == 1 && segments[0].backsector.is_none() {
+            let segment = &segments[0];
+            self.add_aabb_corners(aabb, segment, &mut points);
+        } else {
+            // Standard handling for multi-segment or two-sided subsectors
+            for segment in &segments {
+                if !points.contains(&segment.v1) {
+                    points.push(segment.v1);
+                }
+                if !points.contains(&segment.v2) {
+                    points.push(segment.v2);
+                }
+
+                // let midpoint = (segment.v1 + segment.v2) * 0.5;
+                // if segment.backsector.is_none() {
+                //     let seg_dir = segment.v2 - segment.v1;
+                //     let inward_normal = Vec2::new(seg_dir.y, -seg_dir.x).normalize();
+                //     let inward_point = midpoint + inward_normal * INWARD_OFFSET_DISTANCE;
+                //     points.push(inward_point);
+                // } else {
+                //     points.push(midpoint);
+                // }
+            }
+
+            // If AABB was extended for a specific segment, add AABB corners
+            if let Some(extended_segment_idx) = self.extended_aabb_segments[subsector_idx] {
+                if extended_segment_idx < self.segments.len() {
+                    let extended_segment = &self.segments[extended_segment_idx];
+                    for segment in &segments {
+                        if segment.v1 == extended_segment.v1 && segment.v2 == extended_segment.v2 {
+                            let v = Vec2::new(aabb.left, aabb.bottom);
+                            if !points.contains(&v) {
+                                points.push(v);
+                            }
+                            let v = Vec2::new(aabb.right, aabb.bottom);
+                            if !points.contains(&v) {
+                                points.push(v);
+                            }
+                            let v = Vec2::new(aabb.left, aabb.top);
+                            if !points.contains(&v) {
+                                points.push(v);
+                            }
+                            let v = Vec2::new(aabb.right, aabb.top);
+                            if !points.contains(&v) {
+                                points.push(v);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        points
+    }
+
+    /// Returns AABB corners that are on the "front" side of a segment (not behind it)
+    fn add_aabb_corners(&self, aabb: &BBox, segment: &Segment, corners: &mut Vec<Vec2>) {
+        // Calculate segment normal (perpendicular vector pointing to the front)
+        let seg_dir = segment.v2 - segment.v1;
+        let normal = Vec2::new(-seg_dir.y, seg_dir.x).normalize();
+
+        // Filter corners that are in front of the segment
+        for corner in [
+            Vec2::new(aabb.left, aabb.bottom),
+            Vec2::new(aabb.right, aabb.bottom),
+            Vec2::new(aabb.left, aabb.top),
+            Vec2::new(aabb.right, aabb.top),
+        ] {
+            let to_corner = corner - segment.v1;
+            if to_corner.dot(normal) >= 0.0 {
+                corners.push(corner);
+            }
+        }
+
+        if corners.is_empty() {
+            corners.push(Vec2::new(
+                (aabb.left + aabb.right) * 0.5,
+                (aabb.bottom + aabb.top) * 0.5,
+            ));
+        }
+    }
+
+    // ============================================================================
+    // PHASE 2: PORTAL GRAPH BUILDING
+    // ============================================================================
+
+    /// Builds a graph representation of portal connections for traversal algorithms
     fn build_portal_graph(&self) -> PortalGraph {
         #[cfg(feature = "hprof")]
         profile!("build_portal_graph");
@@ -474,13 +855,7 @@ impl PVS {
         };
 
         // Create sector mapping
-        let mut sector_map = HashMap::new();
-        for (_i, subsector) in self.subsectors.iter().enumerate() {
-            let sector_ptr = subsector.sector.inner as usize;
-            if !sector_map.contains_key(&sector_ptr) {
-                sector_map.insert(sector_ptr, sector_map.len());
-            }
-        }
+        let sector_map = self.build_sector_mapping();
 
         // Create nodes
         for portal in self.portals.iter() {
@@ -494,8 +869,6 @@ impl PVS {
                 .unwrap_or(0);
 
             graph.nodes.push(PortalNode {
-                portal: portal.clone(),
-                connected_portals: Vec::new(),
                 sector_pair: (front_sector_idx, back_sector_idx),
             });
         }
@@ -513,6 +886,7 @@ impl PVS {
         graph
     }
 
+    /// Returns true if two portals share a common sector
     fn portals_are_adjacent(&self, portal1: &Portal, portal2: &Portal) -> bool {
         #[cfg(feature = "hprof")]
         profile!("portals_are_adjacent");
@@ -522,86 +896,72 @@ impl PVS {
             || portal1.back_sector == portal2.back_sector
     }
 
-    fn build_sector_visibility(&mut self) {
+    // ============================================================================
+    // PHASE 3: SECTOR CONNECTIVITY
+    // ============================================================================
+
+    /// Pre-computes sector connectivity matrix for efficient subsector filtering
+    fn build_sector_connectivity(&mut self) {
         #[cfg(feature = "hprof")]
-        profile!("build_sector_visibility");
-        // Start with no visibility
-        for source_idx in 0..self.sectors.len() {
-            // Self-visibility
-            self.sector_visibility.set_visible(source_idx, source_idx);
+        profile!("build_sector_connectivity");
 
-            // Find portals connected to this sector
-            let connected_portals: Vec<_> = self
-                .portal_graph
-                .nodes
-                .iter()
-                .enumerate()
-                .filter(|(_, node)| {
-                    node.sector_pair.0 == source_idx || node.sector_pair.1 == source_idx
-                })
-                .map(|(_, node)| {
-                    let target_sector = if node.sector_pair.0 == source_idx {
-                        node.sector_pair.1
-                    } else {
-                        node.sector_pair.0
-                    };
-                    target_sector
-                })
-                .collect();
+        let sector_count = self.sectors.len();
+        let mut connectivity = vec![vec![false; sector_count]; sector_count];
 
-            // For each connected portal, mark the other sector as visible
-            for target_sector in connected_portals {
-                self.sector_visibility
-                    .set_visible(source_idx, target_sector);
-
-                // Recursively explore through open portals (depth-limited)
-                let mut visited = vec![false; self.sectors.len()];
-                visited[source_idx] = true;
-                self.explore_sector_visibility(source_idx, target_sector, &mut visited, 0);
-            }
-        }
-    }
-
-    fn explore_sector_visibility(
-        &mut self,
-        source_idx: usize,
-        current_idx: usize,
-        visited: &mut [bool],
-        depth: usize,
-    ) {
-        #[cfg(feature = "hprof")]
-        profile!("explore_sector_visibility");
-        const MAX_DEPTH: usize = 16;
-
-        if depth >= MAX_DEPTH || visited[current_idx] {
-            return;
+        // Mark self-connectivity
+        for i in 0..sector_count {
+            connectivity[i][i] = true;
         }
 
-        visited[current_idx] = true;
-        self.sector_visibility.set_visible(source_idx, current_idx);
+        // For each sector, find connected sectors within depth limit
+        for source_sector in 0..sector_count {
+            let mut visited = vec![false; sector_count];
+            let mut stack = vec![(source_sector, 0)];
+            visited[source_sector] = true;
 
-        // Find portals from current sector - allow all portal types for exploration
-        let connected_portals: Vec<_> = self
-            .portal_graph
-            .nodes
-            .iter()
-            .filter(|node| node.sector_pair.0 == current_idx || node.sector_pair.1 == current_idx)
-            .map(|node| {
-                if node.sector_pair.0 == current_idx {
-                    node.sector_pair.1
-                } else {
-                    node.sector_pair.0
+            while let Some((current_sector, depth)) = stack.pop() {
+                connectivity[source_sector][current_sector] = true;
+
+                if depth >= MAX_SECTOR_DEPTH {
+                    continue;
                 }
-            })
-            .collect();
 
-        for next_sector in connected_portals {
-            if !visited[next_sector] {
-                self.explore_sector_visibility(source_idx, next_sector, visited, depth + 1);
+                // Find connected sectors through portals
+                for node in &self.portal_graph.nodes {
+                    let next_sector = if node.sector_pair.0 == current_sector {
+                        node.sector_pair.1
+                    } else if node.sector_pair.1 == current_sector {
+                        node.sector_pair.0
+                    } else {
+                        continue;
+                    };
+
+                    if next_sector < sector_count && !visited[next_sector] {
+                        visited[next_sector] = true;
+                        stack.push((next_sector, depth + 1));
+                    }
+                }
             }
         }
+
+        self.sector_connectivity = connectivity;
     }
 
+    /// Checks if two sectors are connected through pre-computed connectivity matrix
+    fn are_sectors_connected(&self, from_sector: usize, to_sector: usize) -> bool {
+        if from_sector >= self.sector_connectivity.len()
+            || to_sector >= self.sector_connectivity.len()
+        {
+            return false;
+        }
+        self.sector_connectivity[from_sector][to_sector]
+    }
+
+    // ============================================================================
+    // PHASE 4: SUBSECTOR VISIBILITY BUILDING
+    // ============================================================================
+
+    /// Builds subsector-to-subsector visibility using on-demand portal connectivity checks
     fn build_subsector_visibility(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("build_subsector_visibility");
@@ -614,19 +974,12 @@ impl PVS {
 
         // Build subsector to sector mapping
         let mapping_start = std::time::Instant::now();
+        let sector_map = self.build_sector_mapping();
         let mut subsector_to_sector = vec![0; self.subsector_count];
-        let mut sector_map = HashMap::new();
 
         for (subsector_idx, subsector) in self.subsectors.iter().enumerate() {
             let sector_ptr = subsector.sector.inner as usize;
-            let sector_idx = if let Some(&idx) = sector_map.get(&sector_ptr) {
-                idx
-            } else {
-                let new_idx = sector_map.len();
-                sector_map.insert(sector_ptr, new_idx);
-                new_idx
-            };
-            subsector_to_sector[subsector_idx] = sector_idx;
+            subsector_to_sector[subsector_idx] = sector_map.get(&sector_ptr).copied().unwrap_or(0);
         }
         log::info!(
             "Subsector to sector mapping took {:.2}ms",
@@ -641,8 +994,6 @@ impl PVS {
         let mut line_of_sight_tests = 0;
         let mut line_of_sight_passed = 0;
 
-        // Self-visibility for all subsectors
-
         for source_subsector_idx in 0..self.subsector_count {
             self.visibility_data
                 .set_visible(source_subsector_idx, source_subsector_idx);
@@ -654,19 +1005,14 @@ impl PVS {
                 // Progress reporting every 1 second
                 let now = std::time::Instant::now();
                 if now.duration_since(last_progress_time).as_secs() >= 1 {
-                    let progress = (processed_pairs as f32 / total_pairs) * 100.0;
-                    let elapsed = function_start.elapsed().as_secs_f32();
-                    let estimated_total = elapsed / (progress / 100.0);
-                    let remaining = estimated_total - elapsed;
-                    log::info!(
-                        "Subsector visibility progress: {:.1}% - {:.1}s elapsed, ~{:.1}s remaining, sector checks: {}/{}, LOS tests: {}/{}",
-                        progress,
-                        elapsed,
-                        remaining,
+                    self.report_progress(
+                        processed_pairs,
+                        total_pairs,
+                        function_start,
                         sector_visibility_checks,
-                        sector_visibility_checks + sector_visibility_skipped,
+                        sector_visibility_skipped,
                         line_of_sight_passed,
-                        line_of_sight_tests
+                        line_of_sight_tests,
                     );
                     last_progress_time = now;
                 }
@@ -677,27 +1023,17 @@ impl PVS {
 
                 let target_sector_idx = subsector_to_sector[target_subsector_idx];
 
-                // Check if sectors can see each other
-                if !self
-                    .sector_visibility
-                    .is_visible(source_sector_idx, target_sector_idx)
-                {
+                // Check if sectors are connected through portals (coarse filter)
+                if !self.are_sectors_connected(source_sector_idx, target_sector_idx) {
                     sector_visibility_skipped += 1;
                     continue;
                 }
 
                 sector_visibility_checks += 1;
 
-                // // Same sector: always visible
-                // if source_sector_idx == target_sector_idx {
-                //     self.visibility_data
-                //         .set_visible(source_subsector_idx, target_subsector_idx);
-                //     continue;
-                // }
-
                 // Test line of sight between subsector centers
                 line_of_sight_tests += 1;
-                if self.test_subsector_line_of_sight(source_subsector_idx, target_subsector_idx) {
+                if self.can_subsector_see_subsector(source_subsector_idx, target_subsector_idx) {
                     line_of_sight_passed += 1;
                     self.visibility_data
                         .set_visible(source_subsector_idx, target_subsector_idx);
@@ -716,155 +1052,66 @@ impl PVS {
         );
     }
 
-    fn test_subsector_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
+    /// Tests if one subsector can see another through geometric line-of-sight analysis
+    /// Returns true if there is an unobstructed line of sight between the subsectors
+    fn can_subsector_see_subsector(&self, from_idx: usize, to_idx: usize) -> bool {
         #[cfg(feature = "hprof")]
-        profile!("test_subsector_line_of_sight");
+        profile!("can_subsector_see_subsector");
         let from_sector_ptr = self.subsectors[from_idx].sector.inner as usize;
         let to_sector_ptr = self.subsectors[to_idx].sector.inner as usize;
 
-        // Same sector - always visible
         if from_sector_ptr == to_sector_ptr {
             return true;
         }
 
-        // Build sector mapping to check sector-level visibility
-        let mut sector_map = HashMap::new();
-        for subsector in &self.subsectors {
-            let sector_ptr = subsector.sector.inner as usize;
-            if !sector_map.contains_key(&sector_ptr) {
-                sector_map.insert(sector_ptr, sector_map.len());
-            }
-        }
+        let sector_map = self.build_sector_mapping();
 
         let from_sector_idx = sector_map.get(&from_sector_ptr).copied().unwrap_or(0);
         let to_sector_idx = sector_map.get(&to_sector_ptr).copied().unwrap_or(0);
 
-        // Check if sectors can see each other (this handles indirect connections)
-        if !self
-            .sector_visibility
-            .is_visible(from_sector_idx, to_sector_idx)
-        {
+        // Check if sectors are connected through portals (this handles indirect connections)
+        if !self.are_sectors_connected(from_sector_idx, to_sector_idx) {
             return false;
         }
 
-        // Perform finegrained geometric ray testing
-        self.test_geometric_line_of_sight(from_idx, to_idx)
+        // Check portal-based visibility for movable geometry
+        let from_sector = &*self.subsectors[from_idx].sector;
+        let to_sector = &*self.subsectors[to_idx].sector;
+
+        if let Some(portal) = self.find_portal_between_sectors(from_sector_idx, to_sector_idx) {
+            match portal.portal_type {
+                PortalType::Movable => {
+                    if !self.can_see_through_movable_portal(&from_sector, &to_sector) {
+                        return false;
+                    }
+                }
+                PortalType::Open => {
+                    if !self.test_height_range_overlap(&from_sector, &to_sector) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        self.has_line_of_sight(from_idx, to_idx)
     }
 
-    // TODO: Replace this with something like a swept volume? Project lines on a
-    // plane perpendicular to the line of sight from center to center, if our source projection
-    // is fully occluded by lines between source and target then the target is not visible.
-    // Portal lines should be excluded.
-    fn test_geometric_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
+    /// Performs fine ray testing between subsectors using multiple test points
+    /// Returns true if any ray between the subsectors has an unobstructed path
+    fn has_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
         #[cfg(feature = "hprof")]
-        profile!("test_geometric_line_of_sight");
+        profile!("has_geometric_line_of_sight");
+
         // Use pre-calculated BSP AABBs with orphaned space fixes
         let from_aabb = &self.subsector_aabbs[from_idx];
         let to_aabb = &self.subsector_aabbs[to_idx];
 
-        // Generate test points for source subsector
-        let mut from_points = Vec::new();
+        let from_points = self.generate_test_points_from_subsector(from_idx, from_aabb);
+        let to_points = self.generate_test_points_from_subsector(to_idx, to_aabb);
 
-        // Add segment vertices
-        let from_segments = self.get_subsector_segments(from_idx);
-        // for segment in &from_segments {
-        //     from_points.push(segment.v1);
-        //     from_points.push(segment.v2);
-        // }
-
-        // Add AABB corner points
-        from_points.push(Vec2::new(from_aabb.left, from_aabb.bottom));
-        from_points.push(Vec2::new(from_aabb.right, from_aabb.bottom));
-        from_points.push(Vec2::new(from_aabb.left, from_aabb.top));
-        from_points.push(Vec2::new(from_aabb.right, from_aabb.top));
-
-        // Add center point (most important)
-        // let from_center = Vec2::new(
-        //     (from_aabb.left + from_aabb.right) * 0.5,
-        //     (from_aabb.bottom + from_aabb.top) * 0.5,
-        // );
-        // from_points.push(from_center);
-
-        // Add middle points for long/narrow subsectors
-        if from_segments.len() >= 2 {
-            let mid_point = Vec2::new(
-                (from_segments[0].v1.x + from_segments[from_segments.len() - 1].v2.x) * 0.5,
-                (from_segments[0].v1.y + from_segments[from_segments.len() - 1].v2.y) * 0.5,
-            );
-            from_points.push(mid_point);
-        }
-
-        // Generate test points for target subsector
-        let mut to_points = Vec::new();
-
-        // Add segment vertices
-        let to_segments = self.get_subsector_segments(to_idx);
-        // for segment in &to_segments {
-        //     to_points.push(segment.v1);
-        //     to_points.push(segment.v2);
-        // }
-
-        // Add AABB corner points
-        to_points.push(Vec2::new(to_aabb.left, to_aabb.bottom));
-        to_points.push(Vec2::new(to_aabb.right, to_aabb.bottom));
-        to_points.push(Vec2::new(to_aabb.left, to_aabb.top));
-        to_points.push(Vec2::new(to_aabb.right, to_aabb.top));
-
-        // Add center point (most important)
-        // let to_center = Vec2::new(
-        //     (to_aabb.left + to_aabb.right) * 0.5,
-        //     (to_aabb.bottom + to_aabb.top) * 0.5,
-        // );
-        // to_points.push(to_center);
-
-        // Add middle points for long/narrow subsectors
-        if to_segments.len() >= 2 {
-            let mid_point = Vec2::new(
-                (to_segments[0].v1.x + to_segments[to_segments.len() - 1].v2.x) * 0.5,
-                (to_segments[0].v1.y + to_segments[to_segments.len() - 1].v2.y) * 0.5,
-            );
-            to_points.push(mid_point);
-        }
-
-        // Remove duplicate points to avoid redundant tests
-        // from_points.sort_by(|a, b| {
-        //     a.x.partial_cmp(&b.x)
-        //         .unwrap_or(std::cmp::Ordering::Equal)
-        //         .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
-        // });
-        // from_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
-
-        // to_points.sort_by(|a, b| {
-        //     a.x.partial_cmp(&b.x)
-        //         .unwrap_or(std::cmp::Ordering::Equal)
-        //         .then_with(|| a.y.partial_cmp(&b.y).unwrap_or(std::cmp::Ordering::Equal))
-        // });
-        // to_points.dedup_by(|a, b| (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1);
-
-        // Test multiple ray combinations, prioritize center-to-center
-        // // Center to center test first (most reliable)
-        // if self.test_geometric_ray_intersection(from_center, to_center) {
-        //     return true;
-        // }
-
-        // // Test center to all target points
-        // for &to_point in &to_points {
-        //     if self.test_geometric_ray_intersection(from_center, to_point) {
-        //         return true;
-        //     }
-        // }
-
-        // // Test all source points to center
-        // for &from_point in &from_points {
-        //     if self.test_geometric_ray_intersection(from_point, to_center) {
-        //         return true;
-        //     }
-        // }
-
-        // Finally test all combinations (more expensive)
         for &from_point in &from_points {
             for &to_point in &to_points {
-                if self.test_geometric_ray_intersection(from_point, to_point) {
+                if self.is_ray_unobstructed(from_point, to_point, from_idx, to_idx) {
                     return true;
                 }
             }
@@ -873,35 +1120,11 @@ impl PVS {
         false
     }
 
-    fn calculate_subsector_aabb(&self, subsector_idx: usize) -> BBox {
-        #[cfg(feature = "hprof")]
-        profile!("calculate_subsector_aabb");
-        let segments = self.get_subsector_segments(subsector_idx);
+    // ============================================================================
+    // GEOMETRIC TESTING FUNCTIONS
+    // ============================================================================
 
-        if segments.is_empty() {
-            return BBox::default();
-        }
-
-        let mut min_x = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut min_y = f32::MAX;
-        let mut max_y = f32::MIN;
-
-        for segment in segments {
-            min_x = min_x.min(segment.v1.x).min(segment.v2.x);
-            max_x = max_x.max(segment.v1.x).max(segment.v2.x);
-            min_y = min_y.min(segment.v1.y).min(segment.v2.y);
-            max_y = max_y.max(segment.v1.y).max(segment.v2.y);
-        }
-
-        BBox {
-            left: min_x,
-            right: max_x,
-            bottom: min_y,
-            top: max_y,
-        }
-    }
-
+    /// Returns all line segments that belong to a specific subsector
     fn get_subsector_segments(&self, subsector_index: usize) -> Vec<Segment> {
         #[cfg(feature = "hprof")]
         profile!("get_subsector_segments");
@@ -919,20 +1142,28 @@ impl PVS {
             .unwrap_or_default()
     }
 
-    fn test_geometric_ray_intersection(&self, ray_start: Vec2, ray_end: Vec2) -> bool {
+    /// Tests if a 3D ray from one subsector to another is blocked by geometry
+    /// Returns true if the ray has an unobstructed path, false if blocked
+    fn is_ray_unobstructed(
+        &self,
+        ray_start: Vec2,
+        ray_end: Vec2,
+        from_subsector: usize,
+        to_subsector: usize,
+    ) -> bool {
         #[cfg(feature = "hprof")]
-        profile!("test_geometric_ray_intersection");
+        profile!("is_ray_unobstructed");
         let ray_length = (ray_end - ray_start).length();
 
-        if ray_length < 0.1 {
+        if ray_length < MIN_RAY_LENGTH {
             return true; // Points are essentially the same
         }
 
         // Create ray bounding box for culling
-        let ray_min_x = ray_start.x.min(ray_end.x) - 1.0;
-        let ray_max_x = ray_start.x.max(ray_end.x) + 1.0;
-        let ray_min_y = ray_start.y.min(ray_end.y) - 1.0;
-        let ray_max_y = ray_start.y.max(ray_end.y) + 1.0;
+        let ray_min_x = ray_start.x.min(ray_end.x) - RAY_BBOX_PADDING;
+        let ray_max_x = ray_start.x.max(ray_end.x) + RAY_BBOX_PADDING;
+        let ray_min_y = ray_start.y.min(ray_end.y) - RAY_BBOX_PADDING;
+        let ray_max_y = ray_start.y.max(ray_end.y) + RAY_BBOX_PADDING;
 
         // Test only against precomputed blocking segments
         for &seg_idx in &self.blocking_segments {
@@ -948,89 +1179,291 @@ impl PVS {
                 continue;
             }
 
-            // Detailed line intersection test
-            if self.line_intersects_ray(segment, ray_start, ray_end) {
-                return false; // Ray is blocked - early exit
+            // Test intersection and Z range - if ray hits segment, check if it can pass through
+            if let Some(intersection_point) =
+                self.find_ray_segment_intersection_point(segment, ray_start, ray_end)
+            {
+                // Ignore intersections that occur exactly at the ray start point
+                let distance_from_start = (intersection_point - ray_start).length();
+                if distance_from_start < RAY_ENDPOINT_TOLERANCE {
+                    continue;
+                }
+
+                // Also ignore intersections very close to the ray end point
+                let distance_from_end = (intersection_point - ray_end).length();
+                if distance_from_end < RAY_ENDPOINT_TOLERANCE {
+                    continue;
+                }
+
+                let front_sector = &*segment.frontsector;
+                if let Some(back_sector_ptr) = &segment.backsector {
+                    let back_sector = &**back_sector_ptr;
+
+                    // Find portal between these sectors for Z range checking
+                    if let Some(portal) = self.find_portal_between_sectors(
+                        front_sector.num as usize,
+                        back_sector.num as usize,
+                    ) {
+                        // For movable portals (doors), use more permissive visibility test
+                        if portal.portal_type == PortalType::Movable {
+                            let movable_result =
+                                self.can_see_through_movable_portal(front_sector, back_sector);
+                            if !movable_result {
+                                return false; // Ray blocked by movable portal
+                            }
+                        } else {
+                            // For open portals, check if ray passes through or hits floor/ceiling
+                            let z_blocked = self.is_ray_blocked_by_portal_height(
+                                portal,
+                                ray_start,
+                                ray_end,
+                                intersection_point,
+                                from_subsector,
+                                to_subsector,
+                            );
+                            if z_blocked {
+                                return false; // Ray blocked by floor/ceiling at portal
+                            }
+                        }
+                    } else {
+                        // No portal found, use standard height overlap check
+                        let height_overlap =
+                            self.test_height_range_overlap(front_sector, back_sector);
+                        if !height_overlap {
+                            return false; // Ray blocked by height difference
+                        }
+                    }
+                } else {
+                    return false; // Single-sided wall always blocks ray
+                }
             }
         }
 
         true // Ray is not blocked
     }
 
-    fn line_intersects_ray(&self, segment: &Segment, ray_start: Vec2, ray_end: Vec2) -> bool {
-        #[cfg(feature = "hprof")]
-        profile!("line_intersects_ray");
-        let seg_dir = segment.v2 - segment.v1;
+    /// Tests 2D ray-segment intersection and returns the intersection point if found
+    /// Returns Some(Vec2) with the intersection point, or None if no intersection
+    fn find_ray_segment_intersection_point(
+        &self,
+        segment: &Segment,
+        ray_start: Vec2,
+        ray_end: Vec2,
+    ) -> Option<Vec2> {
+        let seg_v1 = segment.v1;
+        let seg_v2 = segment.v2;
+
         let ray_dir = ray_end - ray_start;
-        let to_seg_start = segment.v1 - ray_start;
+        let seg_dir = seg_v2 - seg_v1;
 
-        let cross = ray_dir.x * seg_dir.y - ray_dir.y * seg_dir.x;
+        let det = ray_dir.x * seg_dir.y - ray_dir.y * seg_dir.x;
 
-        if cross.abs() < 1e-8 {
-            return false; // Parallel lines
+        if det.abs() < f32::EPSILON {
+            return None; // Lines are parallel
         }
 
-        let t = (to_seg_start.x * seg_dir.y - to_seg_start.y * seg_dir.x) / cross;
-        let u = (to_seg_start.x * ray_dir.y - to_seg_start.y * ray_dir.x) / cross;
+        let to_seg = seg_v1 - ray_start;
+        let t = (to_seg.x * seg_dir.y - to_seg.y * seg_dir.x) / det;
+        let u = (to_seg.x * ray_dir.y - to_seg.y * ray_dir.x) / det;
 
-        const EPSILON: f32 = 0.01;
-        t >= EPSILON && t <= 1.0 - EPSILON && u >= EPSILON && u <= 1.0 - EPSILON
+        if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
+            Some(ray_start + ray_dir * t)
+        } else {
+            None
+        }
     }
 
-    /// Find the BSP node AABB for a given subsector and fix missing space coverage
+    // ============================================================================
+    // PORTAL AND HEIGHT TESTING FUNCTIONS
+    // ============================================================================
+
+    /// Finds a portal connection between two specific sectors
+    /// Returns Some(portal) if a connection exists, None otherwise
+    fn find_portal_between_sectors(&self, from_sector: usize, to_sector: usize) -> Option<&Portal> {
+        self.portals.iter().find(|portal| {
+            let front_idx = portal.front_sector.num as usize;
+            let back_idx = portal.back_sector.num as usize;
+            (front_idx == from_sector && back_idx == to_sector)
+                || (front_idx == to_sector && back_idx == from_sector)
+        })
+    }
+
+    /// Tests visibility through movable portals using expanded height ranges
+    /// Returns true if visibility is possible through the movable portal
+    fn can_see_through_movable_portal(&self, from_sector: &Sector, to_sector: &Sector) -> bool {
+        let from_movable = self.is_movable_sector(from_sector);
+        let to_movable = self.is_movable_sector(to_sector);
+
+        // For PVS calculations, assume doors/movable sectors can be in open state
+        if from_movable || to_movable {
+            // Use expanded height range for movable sectors to account for movement
+            let movement_range = MOVEMENT_RANGE;
+            return self.test_height_range_overlap_with_expansion(
+                from_sector,
+                to_sector,
+                movement_range,
+            );
+        }
+
+        self.test_height_range_overlap(from_sector, to_sector)
+    }
+
+    /// Tests if two sectors have overlapping height ranges for visibility
+    /// Returns true if sectors can potentially see each other based on floor/ceiling heights
+    pub(super) fn test_height_range_overlap(
+        &self,
+        from_sector: &Sector,
+        to_sector: &Sector,
+    ) -> bool {
+        self.test_height_range_overlap_with_expansion(from_sector, to_sector, 0.0)
+    }
+
+    /// Tests if two sectors have overlapping height ranges for visibility
+    /// Returns true if sectors can potentially see each other based on floor/ceiling heights
+    /// Can optionally expand ranges for movable geometry
+    fn test_height_range_overlap_with_expansion(
+        &self,
+        from_sector: &Sector,
+        to_sector: &Sector,
+        expansion: f32,
+    ) -> bool {
+        let from_floor = from_sector.floorheight - expansion;
+        let from_ceiling = from_sector.ceilingheight + expansion;
+        let to_floor = to_sector.floorheight - expansion;
+        let to_ceiling = to_sector.ceilingheight + expansion;
+
+        // Handle zero-height sectors (closed doors) - they can see neighbors
+        if (from_sector.ceilingheight - from_sector.floorheight).abs() < ZERO_HEIGHT_TOLERANCE
+            || (to_sector.ceilingheight - to_sector.floorheight).abs() < ZERO_HEIGHT_TOLERANCE
+        {
+            return true;
+        }
+
+        // More permissive check for staircase visibility - allow if there's any vertical overlap
+        // or if height difference is reasonable for stairs/platforms
+        let height_diff = (from_sector.floorheight - to_sector.floorheight).abs();
+
+        // Allow visibility if sectors overlap or are within reasonable step height
+        from_floor.max(to_floor) < from_ceiling.min(to_ceiling) || height_diff <= MAX_STEP_HEIGHT
+    }
+
+    /// Tests if a 3D ray is blocked by floor or ceiling when passing through a portal
+    /// Returns true if ray is blocked by floor/ceiling, false if ray passes through
+    pub(super) fn is_ray_blocked_by_portal_height(
+        &self,
+        portal: &Portal,
+        ray_start: Vec2,
+        ray_end: Vec2,
+        intersection_point: Vec2,
+        from_subsector: usize,
+        to_subsector: usize,
+    ) -> bool {
+        // Get source and target sectors from subsectors
+        let from_sector = &*self.subsectors[from_subsector].sector;
+        let to_sector = &*self.subsectors[to_subsector].sector;
+
+        // Calculate interpolation factor based on 2D distance along ray
+        let ray_length = (ray_end - ray_start).length();
+        let intersection_distance = (intersection_point - ray_start).length();
+        let t = if ray_length > 0.0 {
+            intersection_distance / ray_length
+        } else {
+            0.0
+        };
+
+        // Test multiple ray heights - if any pass through, visibility is allowed
+        let portal_floor = portal.z_position;
+        let portal_ceiling = portal.z_position + portal.z_range;
+
+        // Player eye height from floor (standard Doom player height)
+        let player_eye_height = PLAYER_EYE_HEIGHT;
+
+        // Test 1: Source center (player eye level) to target bottom
+        let ray1_from_z = from_sector.floorheight + player_eye_height;
+        let ray1_to_z = to_sector.floorheight;
+        let ray1_z_at_intersection = ray1_from_z + (ray1_to_z - ray1_from_z) * t;
+
+        // Test 2: Source center (player eye level) to target top
+        let ray2_from_z = from_sector.floorheight + player_eye_height;
+        let ray2_to_z = to_sector.ceilingheight;
+        let ray2_z_at_intersection = ray2_from_z + (ray2_to_z - ray2_from_z) * t;
+
+        // Test 3: Source floor to target center
+        let ray3_from_z = from_sector.floorheight;
+        let ray3_to_z =
+            to_sector.floorheight + (to_sector.ceilingheight - to_sector.floorheight) * 0.5;
+        let ray3_z_at_intersection = ray3_from_z + (ray3_to_z - ray3_from_z) * t;
+
+        // Test 4: Source ceiling to target center
+        let ray4_from_z = from_sector.ceilingheight;
+        let ray4_to_z =
+            to_sector.floorheight + (to_sector.ceilingheight - to_sector.floorheight) * 0.5;
+        let ray4_z_at_intersection = ray4_from_z + (ray4_to_z - ray4_from_z) * t;
+
+        // Check if any ray passes through portal
+        let ray1_passes =
+            ray1_z_at_intersection >= portal_floor && ray1_z_at_intersection <= portal_ceiling;
+        let ray2_passes =
+            ray2_z_at_intersection >= portal_floor && ray2_z_at_intersection <= portal_ceiling;
+        let ray3_passes =
+            ray3_z_at_intersection >= portal_floor && ray3_z_at_intersection <= portal_ceiling;
+        let ray4_passes =
+            ray4_z_at_intersection >= portal_floor && ray4_z_at_intersection <= portal_ceiling;
+
+        // Ray is blocked only if ALL rays are blocked
+        !(ray1_passes || ray2_passes || ray3_passes || ray4_passes)
+    }
+
+    // ============================================================================
+    // BSP TREE FUNCTIONS
+    // ============================================================================
+
+    /// Finds the BSP node AABB for a given subsector and fixes missing space coverage
     fn find_and_fix_subsector_bsp_aabb(
         &self,
         target_subsector_idx: usize,
-        nodes: &mut [crate::level::map_defs::Node],
+        nodes: &mut [Node],
         start_node: u32,
-    ) -> BBox {
-        #[cfg(feature = "hprof")]
-        profile!("find_and_fix_subsector_bsp_aabb");
-        const IS_SSECTOR_MASK: u32 = 0x8000_0000;
-
-        if let Some((aabb, parent_node_idx, side)) = self
-            .traverse_bsp_for_subsector_aabb_with_parent(
-                target_subsector_idx,
-                nodes,
-                start_node,
-                None,
-                0,
-            )
+    ) -> (BBox, Option<usize>) {
+        if let Some((aabb, parent_node_idx, side)) =
+            self.find_subsector_aabb_in_bsp_tree(target_subsector_idx, nodes, start_node, None, 0)
         {
             // Check if we need to fix missing space coverage
-            self.fix_missing_space_coverage(parent_node_idx, side, nodes);
+            let extended_segment_id =
+                self.fix_missing_space_coverage(target_subsector_idx, parent_node_idx, side, nodes);
 
-            // Return the potentially updated AABB
-            if let Some(updated_aabb) = self.traverse_bsp_for_subsector_aabb_with_parent(
-                target_subsector_idx,
-                nodes,
-                start_node,
-                None,
-                0,
-            ) {
-                updated_aabb.0
+            // If we extended a segment, we need to recalculate the AABB
+            if extended_segment_id.is_some() {
+                if let Some(updated_aabb) = self.find_subsector_aabb_in_bsp_tree(
+                    target_subsector_idx,
+                    nodes,
+                    start_node,
+                    None,
+                    0,
+                ) {
+                    (updated_aabb.0, extended_segment_id)
+                } else {
+                    (aabb, extended_segment_id)
+                }
             } else {
-                aabb
+                // No changes made, return original AABB
+                (aabb, extended_segment_id)
             }
         } else {
-            // Fallback to segment-based AABB if BSP lookup fails
-            self.calculate_subsector_aabb(target_subsector_idx)
+            (BBox::default(), None)
         }
     }
 
-    /// Recursively traverse BSP tree to find the AABB for a specific subsector with parent info
-    fn traverse_bsp_for_subsector_aabb_with_parent(
+    /// Recursively traverses BSP tree to find the AABB for a specific subsector with parent info
+    /// Returns Some((aabb, parent_node_index, parent_side)) if found, None otherwise
+    fn find_subsector_aabb_in_bsp_tree(
         &self,
         target_subsector_idx: usize,
-        nodes: &[crate::level::map_defs::Node],
+        nodes: &[Node],
         node_index: u32,
         parent_node_idx: Option<usize>,
         parent_side: usize,
     ) -> Option<(BBox, Option<usize>, usize)> {
-        #[cfg(feature = "hprof")]
-        profile!("traverse_bsp_for_subsector_aabb_with_parent");
-        const IS_SSECTOR_MASK: u32 = 0x8000_0000;
-
         if node_index & IS_SSECTOR_MASK != 0 {
             // This is a subsector leaf
             let subsector_index = (node_index & !IS_SSECTOR_MASK) as usize;
@@ -1060,7 +1493,7 @@ impl PVS {
         // Check both children, passing this node as the parent
         for child_idx in 0..2 {
             let child_id = node.children[child_idx];
-            if let Some(result) = self.traverse_bsp_for_subsector_aabb_with_parent(
+            if let Some(result) = self.find_subsector_aabb_in_bsp_tree(
                 target_subsector_idx,
                 nodes,
                 child_id,
@@ -1074,20 +1507,20 @@ impl PVS {
         None
     }
 
-    /// Fix missing space coverage by extending this subsector's AABB to cover uncovered parent space
+    /// Fixes missing space coverage by extending this subsector's AABB to cover uncovered parent space
+    /// Returns Some(segment_index) if a segment was extended, None otherwise
     fn fix_missing_space_coverage(
         &self,
+        target_subsector_idx: usize,
         parent_node_idx: Option<usize>,
         target_side: usize,
-        nodes: &mut [crate::level::map_defs::Node],
-    ) {
-        #[cfg(feature = "hprof")]
-        profile!("fix_missing_space_coverage");
+        nodes: &mut [Node],
+    ) -> Option<usize> {
         let Some(parent_idx) = parent_node_idx else {
-            return;
+            return None;
         };
         if parent_idx >= nodes.len() {
-            return;
+            return None;
         }
 
         let parent_node = &nodes[parent_idx];
@@ -1153,183 +1586,18 @@ impl PVS {
             parent_node.bboxes[target_side][0].y = extended_aabb.bottom;
             parent_node.bboxes[target_side][1].x = extended_aabb.right;
             parent_node.bboxes[target_side][1].y = extended_aabb.top;
-        }
-    }
 
-    pub fn is_visible(&self, from: usize, to: usize) -> bool {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_is_visible");
-        if from >= self.subsector_count || to >= self.subsector_count {
-            return false;
-        }
-        self.visibility_data.is_visible(from, to)
-    }
-
-    pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_get_visible_subsectors");
-        if from >= self.subsector_count {
-            return Vec::new();
-        }
-        self.visibility_data.get_visible_subsectors(from)
-    }
-
-    pub fn memory_usage(&self) -> usize {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_memory_usage");
-        self.visibility_data.memory_usage()
-            + self.portals.len() * std::mem::size_of::<Portal>()
-            + self.portal_graph.nodes.len() * std::mem::size_of::<PortalNode>()
-    }
-
-    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_save_to_file");
-        let mut file = std::fs::File::create(path)?;
-
-        use std::io::Write;
-
-        // Write header
-        file.write_all(b"PVS2")?; // Version 2 for portal-based
-        file.write_all(&self.subsector_count.to_le_bytes())?;
-
-        // Write visibility data
-        let data_len = self.visibility_data.data.len();
-        file.write_all(&data_len.to_le_bytes())?;
-
-        for &word in &self.visibility_data.data {
-            file.write_all(&word.to_le_bytes())?;
-        }
-
-        Ok(())
-    }
-
-    pub fn load_from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_load_from_file");
-        let mut file = std::fs::File::open(path)?;
-
-        use std::io::Read;
-
-        // Read header
-        let mut header = [0u8; 4];
-        file.read_exact(&mut header)?;
-
-        if &header != b"PVS2" {
-            return Err("Invalid PVS file format".into());
-        }
-
-        let mut subsector_count_bytes = [0u8; 8];
-        file.read_exact(&mut subsector_count_bytes)?;
-        let subsector_count = usize::from_le_bytes(subsector_count_bytes);
-
-        // Read visibility data
-        let mut data_len_bytes = [0u8; 8];
-        file.read_exact(&mut data_len_bytes)?;
-        let data_len = usize::from_le_bytes(data_len_bytes);
-
-        let mut data = vec![0u32; data_len];
-        for word in &mut data {
-            let mut word_bytes = [0u8; 4];
-            file.read_exact(&mut word_bytes)?;
-            *word = u32::from_le_bytes(word_bytes);
-        }
-
-        let visibility_data = CompactPVS {
-            subsector_count,
-            data,
-        };
-
-        Ok(Self {
-            subsector_count,
-            visibility_data,
-            portals: Vec::new(),
-            portal_graph: PortalGraph {
-                nodes: Vec::new(),
-                adjacency: Vec::new(),
-            },
-            sector_visibility: SectorVisibilityMatrix::new(0),
-            subsectors: Vec::new(),
-            sectors: Vec::new(),
-            segments: Vec::new(),
-            subsector_aabbs: Vec::new(),
-            segment_bboxes: Vec::new(),
-            blocking_segments: Vec::new(),
-        })
-    }
-
-    pub fn get_pvs_cache_path(
-        wad_name: &str,
-        map_name: &str,
-    ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-        #[cfg(feature = "hprof")]
-        profile!("get_pvs_cache_path");
-        let cache_dir = dirs::cache_dir()
-            .ok_or("Could not determine cache directory")?
-            .join("room4doom")
-            .join("pvs");
-
-        std::fs::create_dir_all(&cache_dir)?;
-
-        let filename = format!("{}_{}.pvs", wad_name, map_name);
-        Ok(cache_dir.join(filename))
-    }
-
-    pub fn build_and_cache(
-        wad_name: &str,
-        map_name: &str,
-        subsectors: &[SubSector],
-        segments: &[Segment],
-        nodes: &mut [crate::level::map_defs::Node],
-        start_node: u32,
-    ) -> Self {
-        #[cfg(feature = "hprof")]
-        profile!("build_and_cache");
-        let pvs = Self::build(subsectors, segments, nodes, start_node);
-
-        if let Ok(cache_path) = Self::get_pvs_cache_path(wad_name, map_name) {
-            if let Err(e) = pvs.save_to_file(&cache_path) {
-                log::warn!("Failed to save PVS cache: {}", e);
-            } else {
-                log::info!("Saved PVS cache to {:?}", cache_path);
-            }
-        }
-
-        pvs
-    }
-
-    pub fn load_from_cache(
-        wad_name: &str,
-        map_name: &str,
-        expected_subsectors: usize,
-    ) -> Option<Self> {
-        #[cfg(feature = "hprof")]
-        profile!("load_from_cache");
-        match Self::get_pvs_cache_path(wad_name, map_name) {
-            Ok(cache_path) => {
-                if cache_path.exists() {
-                    match Self::load_from_file(&cache_path) {
-                        Ok(pvs) => {
-                            if pvs.subsector_count == expected_subsectors {
-                                Some(pvs)
-                            } else {
-                                None
-                            }
-                        }
-                        Err(_) => None,
-                    }
-                } else {
-                    None
+            // Find the first segment in this subsector and return its index
+            if target_subsector_idx < self.subsectors.len() {
+                let subsector = &self.subsectors[target_subsector_idx];
+                let first_segment_idx = subsector.start_seg as usize;
+                if first_segment_idx < self.segments.len() {
+                    return Some(first_segment_idx);
                 }
             }
-            Err(_) => None,
         }
-    }
 
-    pub fn subsector_count(&self) -> usize {
-        #[cfg(feature = "hprof")]
-        profile!("pvs_subsector_count");
-        self.subsector_count
+        None
     }
 }
 

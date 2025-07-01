@@ -15,6 +15,11 @@ use polygon::{Polygon2D, Polygon3D, segment_to_polygons};
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
+enum AABBSide {
+    Left,
+    Right,
+}
+
 /// A 3D software renderer for Doom levels.
 ///
 /// This renderer displays the level geometry in true 3D space,
@@ -74,7 +79,7 @@ impl Renderer3D {
             near_z: near,
             far_z: far,
             vertex_depths: [0.0; 3],
-            render_aabb: false,
+            render_aabb: true,
         }
     }
 
@@ -111,14 +116,6 @@ impl Renderer3D {
     /// Get current rendering mode
     pub fn is_render_filled(&self) -> bool {
         self.render_filled
-    }
-
-    pub fn set_render_aabb(&mut self, enabled: bool) {
-        self.render_aabb = enabled;
-    }
-
-    pub fn is_render_aabb(&self) -> bool {
-        self.render_aabb
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -510,76 +507,24 @@ impl Renderer3D {
         }
     }
 
-    fn get_aabb_color(&self, subsector_id: u32) -> [u8; 4] {
-        const COLORS: [[u8; 4]; 64] = [
-            [255, 0, 0, 255],
-            [0, 255, 0, 255],
-            [0, 0, 255, 255],
-            [255, 255, 0, 255],
-            [255, 0, 255, 255],
-            [0, 255, 255, 255],
-            [255, 128, 0, 255],
-            [128, 255, 0, 255],
-            [0, 255, 128, 255],
-            [0, 128, 255, 255],
-            [128, 0, 255, 255],
-            [255, 0, 128, 255],
-            [255, 64, 64, 255],
-            [64, 255, 64, 255],
-            [64, 64, 255, 255],
-            [255, 255, 64, 255],
-            [255, 64, 255, 255],
-            [64, 255, 255, 255],
-            [192, 96, 48, 255],
-            [48, 192, 96, 255],
-            [96, 48, 192, 255],
-            [192, 192, 48, 255],
-            [192, 48, 192, 255],
-            [48, 192, 192, 255],
+    fn get_aabb_color(&self, aabb: AABBSide, is_parent: bool) -> [u8; 4] {
+        const COLORS: [[u8; 4]; 4] = [
             [255, 192, 128, 255],
             [128, 255, 192, 255],
             [192, 128, 255, 255],
-            [255, 255, 128, 255],
-            [255, 128, 255, 255],
-            [128, 255, 255, 255],
-            [224, 112, 56, 255],
-            [56, 224, 112, 255],
-            [112, 56, 224, 255],
-            [224, 224, 56, 255],
-            [224, 56, 224, 255],
-            [56, 224, 224, 255],
-            [160, 80, 40, 255],
-            [40, 160, 80, 255],
-            [80, 40, 160, 255],
-            [160, 160, 40, 255],
-            [160, 40, 160, 255],
-            [40, 160, 160, 255],
-            [255, 160, 80, 255],
-            [80, 255, 160, 255],
-            [160, 80, 255, 255],
-            [255, 255, 80, 255],
-            [255, 80, 255, 255],
-            [80, 255, 255, 255],
-            [128, 64, 32, 255],
-            [32, 128, 64, 255],
-            [64, 32, 128, 255],
-            [128, 128, 32, 255],
-            [128, 32, 128, 255],
-            [32, 128, 128, 255],
-            [200, 100, 50, 255],
-            [50, 200, 100, 255],
-            [100, 50, 200, 255],
-            [200, 200, 50, 255],
-            [200, 50, 200, 255],
-            [50, 200, 200, 255],
-            [144, 72, 36, 255],
-            [36, 144, 72, 255],
-            [72, 36, 144, 255],
-            [144, 144, 36, 255],
+            [255, 255, 255, 255],
         ];
-
-        let hash = subsector_id.wrapping_mul(2654435761) % 64;
-        COLORS[hash as usize]
+        if is_parent {
+            match aabb {
+                AABBSide::Left => COLORS[2],
+                AABBSide::Right => COLORS[3],
+            }
+        } else {
+            match aabb {
+                AABBSide::Left => COLORS[0],
+                AABBSide::Right => COLORS[1],
+            }
+        }
     }
 
     fn render_node_aabb(
@@ -588,16 +533,20 @@ impl Renderer3D {
         node: &Node,
         node_id: u32,
         side: usize,
+        is_parent: bool,
         sector_height: f32,
     ) {
-        if !self.render_aabb {
-            return;
-        }
-
         let bbox = &node.bboxes[side];
         let min_point = bbox[0];
         let max_point = bbox[1];
-        let color = self.get_aabb_color(node_id);
+        let aabb = if side == 0 {
+            AABBSide::Left
+        } else if side == 1 {
+            AABBSide::Right
+        } else {
+            AABBSide::Left
+        };
+        let color = self.get_aabb_color(aabb, is_parent);
 
         let triangle1_vertices = [
             Vec3::new(min_point.x, min_point.y, sector_height),
@@ -872,6 +821,7 @@ impl Renderer3D {
         player_pos: Vec2,
         player_subsector_id: usize,
         pic_data: &mut PicData,
+        parent_node: Option<(&Node, u32)>,
     ) {
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a subsector
@@ -882,20 +832,53 @@ impl Renderer3D {
             };
 
             if subsector_id < map.subsectors().len() {
-                let subsector = &map.subsectors()[subsector_id];
-
                 // Use PVS to determine if this subsector is visible from player's subsector
-
                 if !map.subsector_visible(player_subsector_id, subsector_id) {
                     return; // Subsector not visible, skip rendering
                 }
 
+                let subsector = &map.subsectors()[subsector_id];
                 self.render_subsector(map, rend, subsector, player_pos, pic_data);
                 // Render AABB for both sides if enabled
-                if let Some(node) = map.get_nodes().get(subsector_id as usize) {
-                    let side = node.point_on_side(&player_pos);
-                    self.render_node_aabb(rend, node, node_id, side, subsector.sector.floorheight);
-                    // self.render_node_aabb(rend, node, node_id, side ^ 1);
+                if self.render_aabb && subsector_id == player_subsector_id {
+                    if let Some(node) = map.get_nodes().get(subsector_id) {
+                        let side = node.point_on_side(&player_pos);
+                        self.render_node_aabb(
+                            rend,
+                            node,
+                            node_id,
+                            side,
+                            false,
+                            subsector.sector.floorheight,
+                        );
+                        self.render_node_aabb(
+                            rend,
+                            node,
+                            node_id,
+                            side ^ 1,
+                            false,
+                            subsector.sector.floorheight,
+                        );
+                    }
+                    if let Some((parent_node, parent_node_id)) = parent_node {
+                        let parent_side = parent_node.point_on_side(&player_pos);
+                        self.render_node_aabb(
+                            rend,
+                            parent_node,
+                            parent_node_id,
+                            parent_side,
+                            true,
+                            subsector.sector.floorheight,
+                        );
+                        self.render_node_aabb(
+                            rend,
+                            parent_node,
+                            parent_node_id,
+                            parent_side ^ 1,
+                            true,
+                            subsector.sector.floorheight,
+                        );
+                    }
                 }
             }
             return;
@@ -913,6 +896,7 @@ impl Renderer3D {
                 player_pos,
                 player_subsector_id,
                 pic_data,
+                Some((node, node_id)),
             );
 
             // Check if back side bounding box is in view
@@ -925,6 +909,7 @@ impl Renderer3D {
                     player_pos,
                     player_subsector_id,
                     pic_data,
+                    Some((node, node_id)),
                 );
             }
         }
@@ -979,15 +964,15 @@ impl Renderer3D {
                 player_pos,
                 player_subsector_id,
                 pic_data,
+                None,
             );
         }
     }
 
     /// Find the subsector ID that matches the given player subsector
     fn find_player_subsector_id(&self, map: &MapData, player_sector: &SubSector) -> Option<usize> {
-        let subsectors = map.subsectors();
-        for (i, subsector) in subsectors.iter().enumerate() {
-            if std::ptr::eq(subsector, player_sector) {
+        for (i, subsector) in map.subsectors().iter().enumerate() {
+            if *subsector == *player_sector {
                 return Some(i);
             }
         }
@@ -1087,33 +1072,5 @@ mod tests {
         // Test that the method handles invalid indices gracefully
         let triangles = renderer.get_subsector_triangles(999);
         assert!(triangles.is_empty());
-    }
-
-    #[test]
-    fn test_bbox_culling_tall_sectors() {
-        use gameplay::Node;
-        use glam::Vec2;
-
-        let mut renderer = Renderer3D::new(640.0, 480.0, 90.0f32.to_radians());
-
-        // Test extremely tall sector (like a skyscraper)
-        let node = Node {
-            xy: Vec2::new(0.0, 0.0),
-            delta: Vec2::new(1.0, 0.0),
-            bboxes: [
-                [Vec2::new(-100.0, -100.0), Vec2::new(100.0, 100.0)],
-                [Vec2::new(-50.0, -50.0), Vec2::new(50.0, 50.0)],
-            ],
-            children: [0, 1],
-            min_z: 0.0,     // Floor
-            max_z: 10000.0, // Very tall ceiling
-        };
-
-        // Player at ground level looking straight ahead
-        renderer.view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, -200.0, 100.0), // Player position
-            glam::Vec3::new(0.0, -100.0, 100.0), // Look at
-            glam::Vec3::Z,
-        );
     }
 }
