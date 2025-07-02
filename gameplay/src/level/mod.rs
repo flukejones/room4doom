@@ -224,7 +224,6 @@ impl Level {
         self.animations = animations;
         self.switch_list = switch_list;
 
-        // Load PVS data if available
         self.load_pvs(wad_data);
 
         unsafe {
@@ -254,7 +253,7 @@ impl Level {
     }
 
     /// Load PVS data from cache if available
-    fn load_pvs(&mut self, _wad_data: &WadData) {
+    fn load_pvs(&mut self, wad_data: &WadData) {
         const DOOM1_LARGEST_MAP_SUBSECTORS: usize = 250; // Approximate for E2M7
 
         let wad_name = self
@@ -270,7 +269,10 @@ impl Level {
 
         // Only use cached PVS if subsector count is under the threshold
         if subsector_count >= DOOM1_LARGEST_MAP_SUBSECTORS {
-            if let Some(pvs) = PVS::load_from_cache(&wad_name, &self.map_name, subsector_count) {
+            let hash = wad_data.map_bsp_hash(&self.map_name).unwrap_or_default();
+            if let Some(pvs) =
+                PVS::load_from_cache(&wad_name, &self.map_name, hash, subsector_count)
+            {
                 log::info!("Loaded PVS cache for {} ({})", self.map_name, wad_name);
                 self.pvs = Some(pvs);
                 return;
@@ -282,8 +284,5 @@ impl Level {
             self.map_name,
             subsector_count
         );
-
-        // let pvs = PVS::build(&pvs_subsectors, &pvs_segments, &pvs_linedefs);
-        // self.pvs = Some(pvs);
     }
 }

@@ -40,6 +40,7 @@
 
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
+use log::info;
 
 use crate::level::map_data::IS_SSECTOR_MASK;
 use crate::level::map_defs::{BBox, Sector, Segment, SubSector};
@@ -53,7 +54,6 @@ const MAX_SECTOR_DEPTH: usize = 16;
 // Ray casting constants
 const MIN_RAY_LENGTH: f32 = 0.1;
 const RAY_ENDPOINT_TOLERANCE: f32 = 1.0;
-const INWARD_OFFSET_DISTANCE: f32 = 8.0;
 const RAY_BBOX_PADDING: f32 = 1.0;
 
 // Height testing constants
@@ -61,9 +61,6 @@ const ZERO_HEIGHT_TOLERANCE: f32 = 0.1;
 const MAX_STEP_HEIGHT: f32 = 24.0;
 const MOVEMENT_RANGE: f32 = 128.0;
 const PLAYER_EYE_HEIGHT: f32 = 1.0;
-
-// Point deduplication
-const POINT_DEDUP_TOLERANCE: f32 = 0.1;
 
 /// Connection between two sectors through a portal (door, window, etc.)
 #[derive(Debug, Clone)]
@@ -132,6 +129,7 @@ impl CompactPVS {
         (self.data[word_index] & (1u32 << bit_offset)) != 0
     }
 
+    // TODO: cahce this in BSP leaves
     /// Returns all subsectors visible from the given subsector
     pub fn get_visible_subsectors(&self, from: usize) -> Vec<usize> {
         #[cfg(feature = "hprof")]
@@ -268,7 +266,7 @@ impl PVS {
         let mut extended_aabb_segments = Vec::with_capacity(subsectors.len());
         for (subsector_idx, _subsector) in subsectors.iter().enumerate() {
             let (bsp_aabb, extended_segment_id) =
-                pvs.find_and_fix_subsector_bsp_aabb(subsector_idx, nodes, start_node);
+                pvs.fix_subsector_bsp_aabb(subsector_idx, nodes, start_node);
             subsector_aabbs.push(bsp_aabb);
             extended_aabb_segments.push(extended_segment_id);
         }
@@ -419,30 +417,6 @@ impl PVS {
         self.subsector_count
     }
 
-    /// Builds PVS data and saves it to cache
-    pub fn build_and_cache(
-        wad_name: &str,
-        map_name: &str,
-        subsectors: &[SubSector],
-        segments: &[Segment],
-        nodes: &mut [crate::level::map_defs::Node],
-        start_node: u32,
-    ) -> Self {
-        #[cfg(feature = "hprof")]
-        profile!("build_and_cache");
-        let pvs = Self::build(subsectors, segments, nodes, start_node);
-
-        if let Ok(cache_path) = Self::get_pvs_cache_path(wad_name, map_name) {
-            if let Err(e) = pvs.save_to_file(&cache_path) {
-                log::warn!("Failed to save PVS cache: {}", e);
-            } else {
-                log::info!("Saved PVS cache to {:?}", cache_path);
-            }
-        }
-
-        pvs
-    }
-
     /// Saves PVS data to a binary file for caching
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "hprof")]
@@ -471,13 +445,15 @@ impl PVS {
     pub fn load_from_cache(
         wad_name: &str,
         map_name: &str,
+        map_hash: u64,
         expected_subsectors: usize,
     ) -> Option<Self> {
         #[cfg(feature = "hprof")]
         profile!("load_from_cache");
-        match Self::get_pvs_cache_path(wad_name, map_name) {
+        match Self::get_pvs_cache_path(wad_name, map_name, map_hash) {
             Ok(cache_path) => {
                 if cache_path.exists() {
+                    info!("Found PVS data at {cache_path:?}");
                     match Self::load_from_file(&cache_path) {
                         Ok(pvs) => {
                             if pvs.subsector_count == expected_subsectors {
@@ -554,6 +530,7 @@ impl PVS {
     pub fn get_pvs_cache_path(
         wad_name: &str,
         map_name: &str,
+        map_hash: u64,
     ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
         #[cfg(feature = "hprof")]
         profile!("get_pvs_cache_path");
@@ -564,7 +541,7 @@ impl PVS {
 
         std::fs::create_dir_all(&cache_dir)?;
 
-        let filename = format!("{}_{}.pvs", wad_name, map_name);
+        let filename = format!("{wad_name}_{map_name}_{map_hash}.pvs");
         Ok(cache_dir.join(filename))
     }
 
@@ -775,7 +752,7 @@ impl PVS {
                 // if segment.backsector.is_none() {
                 //     let seg_dir = segment.v2 - segment.v1;
                 //     let inward_normal = Vec2::new(seg_dir.y, -seg_dir.x).normalize();
-                //     let inward_point = midpoint + inward_normal * INWARD_OFFSET_DISTANCE;
+                //     let inward_point = midpoint + inward_normal * 128.0;
                 //     points.push(inward_point);
                 // } else {
                 //     points.push(midpoint);
@@ -854,10 +831,7 @@ impl PVS {
             adjacency: vec![Vec::new(); self.portals.len()],
         };
 
-        // Create sector mapping
         let sector_map = self.build_sector_mapping();
-
-        // Create nodes
         for portal in self.portals.iter() {
             let front_sector_idx = sector_map
                 .get(&(portal.front_sector.inner as usize))
@@ -1100,7 +1074,7 @@ impl PVS {
     /// Returns true if any ray between the subsectors has an unobstructed path
     fn has_line_of_sight(&self, from_idx: usize, to_idx: usize) -> bool {
         #[cfg(feature = "hprof")]
-        profile!("has_geometric_line_of_sight");
+        profile!("has_line_of_sight");
 
         // Use pre-calculated BSP AABBs with orphaned space fixes
         let from_aabb = &self.subsector_aabbs[from_idx];
@@ -1160,24 +1134,24 @@ impl PVS {
         }
 
         // Create ray bounding box for culling
-        let ray_min_x = ray_start.x.min(ray_end.x) - RAY_BBOX_PADDING;
-        let ray_max_x = ray_start.x.max(ray_end.x) + RAY_BBOX_PADDING;
-        let ray_min_y = ray_start.y.min(ray_end.y) - RAY_BBOX_PADDING;
-        let ray_max_y = ray_start.y.max(ray_end.y) + RAY_BBOX_PADDING;
+        // let ray_min_x = ray_start.x.min(ray_end.x) - RAY_BBOX_PADDING;
+        // let ray_max_x = ray_start.x.max(ray_end.x) + RAY_BBOX_PADDING;
+        // let ray_min_y = ray_start.y.min(ray_end.y) - RAY_BBOX_PADDING;
+        // let ray_max_y = ray_start.y.max(ray_end.y) + RAY_BBOX_PADDING;
 
         // Test only against precomputed blocking segments
         for &seg_idx in &self.blocking_segments {
-            let seg_bbox = &self.segment_bboxes[seg_idx];
+            // let seg_bbox = &self.segment_bboxes[seg_idx];
             let segment = &self.segments[seg_idx];
 
-            // Fast bounding box test using precomputed bbox
-            if seg_bbox.right < ray_min_x
-                || seg_bbox.left > ray_max_x
-                || seg_bbox.top < ray_min_y
-                || seg_bbox.bottom > ray_max_y
-            {
-                continue;
-            }
+            // // Fast bounding box test using precomputed bbox
+            // if seg_bbox.right < ray_min_x
+            //     || seg_bbox.left > ray_max_x
+            //     || seg_bbox.top < ray_min_y
+            //     || seg_bbox.bottom > ray_max_y
+            // {
+            //     continue;
+            // }
 
             // Test intersection and Z range - if ray hits segment, check if it can pass through
             if let Some(intersection_point) =
@@ -1250,6 +1224,8 @@ impl PVS {
         ray_start: Vec2,
         ray_end: Vec2,
     ) -> Option<Vec2> {
+        #[cfg(feature = "hprof")]
+        profile!("find_ray_segment_intersection_point");
         let seg_v1 = segment.v1;
         let seg_v2 = segment.v2;
 
@@ -1280,6 +1256,8 @@ impl PVS {
     /// Finds a portal connection between two specific sectors
     /// Returns Some(portal) if a connection exists, None otherwise
     fn find_portal_between_sectors(&self, from_sector: usize, to_sector: usize) -> Option<&Portal> {
+        #[cfg(feature = "hprof")]
+        profile!("find_portal_between_sectors");
         self.portals.iter().find(|portal| {
             let front_idx = portal.front_sector.num as usize;
             let back_idx = portal.back_sector.num as usize;
@@ -1291,13 +1269,15 @@ impl PVS {
     /// Tests visibility through movable portals using expanded height ranges
     /// Returns true if visibility is possible through the movable portal
     fn can_see_through_movable_portal(&self, from_sector: &Sector, to_sector: &Sector) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("can_see_through_movable_portal");
         let from_movable = self.is_movable_sector(from_sector);
         let to_movable = self.is_movable_sector(to_sector);
 
         // For PVS calculations, assume doors/movable sectors can be in open state
         if from_movable || to_movable {
             // Use expanded height range for movable sectors to account for movement
-            let movement_range = MOVEMENT_RANGE;
+            let movement_range = MOVEMENT_RANGE; // TODO: get this from surrounding sectors
             return self.test_height_range_overlap_with_expansion(
                 from_sector,
                 to_sector,
@@ -1327,6 +1307,8 @@ impl PVS {
         to_sector: &Sector,
         expansion: f32,
     ) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("test_height_range_overlap_with_expansion");
         let from_floor = from_sector.floorheight - expansion;
         let from_ceiling = from_sector.ceilingheight + expansion;
         let to_floor = to_sector.floorheight - expansion;
@@ -1358,6 +1340,8 @@ impl PVS {
         from_subsector: usize,
         to_subsector: usize,
     ) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("is_ray_blocked_by_portal_height");
         // Get source and target sectors from subsectors
         let from_sector = &*self.subsectors[from_subsector].sector;
         let to_sector = &*self.subsectors[to_subsector].sector;
@@ -1376,7 +1360,7 @@ impl PVS {
         let portal_ceiling = portal.z_position + portal.z_range;
 
         // Player eye height from floor (standard Doom player height)
-        let player_eye_height = PLAYER_EYE_HEIGHT;
+        let player_eye_height = PLAYER_EYE_HEIGHT; // TODO: use portal Z center
 
         // Test 1: Source center (player eye level) to target bottom
         let ray1_from_z = from_sector.floorheight + player_eye_height;
@@ -1419,20 +1403,21 @@ impl PVS {
     // ============================================================================
 
     /// Finds the BSP node AABB for a given subsector and fixes missing space coverage
-    fn find_and_fix_subsector_bsp_aabb(
+    fn fix_subsector_bsp_aabb(
         &self,
         target_subsector_idx: usize,
         nodes: &mut [Node],
         start_node: u32,
     ) -> (BBox, Option<usize>) {
+        #[cfg(feature = "hprof")]
+        profile!("fix_subsector_bsp_aabb");
         if let Some((aabb, parent_node_idx, side)) =
             self.find_subsector_aabb_in_bsp_tree(target_subsector_idx, nodes, start_node, None, 0)
         {
-            // Check if we need to fix missing space coverage
             let extended_segment_id =
                 self.fix_missing_space_coverage(target_subsector_idx, parent_node_idx, side, nodes);
 
-            // If we extended a segment, we need to recalculate the AABB
+            // If we extended an AABB, we need to recalculate it
             if extended_segment_id.is_some() {
                 if let Some(updated_aabb) = self.find_subsector_aabb_in_bsp_tree(
                     target_subsector_idx,
@@ -1446,7 +1431,6 @@ impl PVS {
                     (aabb, extended_segment_id)
                 }
             } else {
-                // No changes made, return original AABB
                 (aabb, extended_segment_id)
             }
         } else {
@@ -1508,7 +1492,7 @@ impl PVS {
     }
 
     /// Fixes missing space coverage by extending this subsector's AABB to cover uncovered parent space
-    /// Returns Some(segment_index) if a segment was extended, None otherwise
+    /// Returns Some(segment_index) if the AABB was extended, None otherwise
     fn fix_missing_space_coverage(
         &self,
         target_subsector_idx: usize,
@@ -1547,7 +1531,6 @@ impl PVS {
                 .max(parent_bbox_1[0].y.max(parent_bbox_1[1].y)),
         };
 
-        // Get target's current AABB
         let target_bbox_pair = &parent_node.bboxes[target_side];
         let current_aabb = BBox {
             left: target_bbox_pair[0].x.min(target_bbox_pair[1].x),
@@ -1563,10 +1546,7 @@ impl PVS {
             || current_aabb.top < parent_full_aabb.top;
 
         if should_extend {
-            // Extend this subsector's AABB toward the parent's bounds
             let mut extended_aabb = current_aabb.clone();
-
-            // Extend toward parent bounds where there might be missing coverage
             if current_aabb.left > parent_full_aabb.left {
                 extended_aabb.left = parent_full_aabb.left;
             }
@@ -1587,7 +1567,7 @@ impl PVS {
             parent_node.bboxes[target_side][1].x = extended_aabb.right;
             parent_node.bboxes[target_side][1].y = extended_aabb.top;
 
-            // Find the first segment in this subsector and return its index
+            // Find the first segment in this subsector and return its index for reference
             if target_subsector_idx < self.subsectors.len() {
                 let subsector = &self.subsectors[target_subsector_idx];
                 let first_segment_idx = subsector.start_seg as usize;

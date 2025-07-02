@@ -39,7 +39,7 @@ mod pvs_tests {
             }
         };
 
-        let wad = wad::WadData::new(PathBuf::from(wad_path));
+        let wad = wad::WadData::new(&PathBuf::from(wad_path));
         let mut map_data = MapData::default();
         map_data.load("E1M6", &PicData::default(), &wad);
         map_data.build_pvs();
@@ -170,7 +170,7 @@ mod pvs_tests {
             }
         };
 
-        let wad = wad::WadData::new(PathBuf::from(wad_path));
+        let wad = wad::WadData::new(&PathBuf::from(wad_path));
         let mut map_data = MapData::default();
         map_data.load("E1M2", &PicData::default(), &wad);
         map_data.build_pvs();

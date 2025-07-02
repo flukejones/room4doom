@@ -220,10 +220,10 @@ impl MapData {
 
         self.set_extents();
         self.set_scale();
-        // self.fix_vertices();
 
         // Build PVS data for visibility culling (use cache if available)
-        self.load_or_build_pvs(wad.wad_name(), map_name);
+        let hash = wad.map_bsp_hash(map_name).unwrap_or_default();
+        self.load_or_build_pvs(wad.wad_name(), map_name, hash);
     }
 
     fn load_vertexes(&mut self, map_name: &str, wad: &WadData, extended: Option<&WadExtendedMap>) {
@@ -780,8 +780,10 @@ impl MapData {
         ));
     }
 
-    pub fn load_or_build_pvs(&mut self, wad_name: &str, map_name: &str) {
-        if let Some(cached_pvs) = PVS::load_from_cache(wad_name, map_name, self.subsectors.len()) {
+    pub fn load_or_build_pvs(&mut self, wad_name: &str, map_name: &str, map_hash: u64) {
+        if let Some(cached_pvs) =
+            PVS::load_from_cache(wad_name, map_name, map_hash, self.subsectors.len())
+        {
             self.pvs = Some(cached_pvs);
         } else {
             self.build_pvs();

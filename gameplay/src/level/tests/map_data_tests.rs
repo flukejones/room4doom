@@ -3,6 +3,7 @@ use crate::{Node, PicData};
 use glam::Vec2;
 use math::Angle;
 use std::f32::consts::{FRAC_PI_2, PI};
+use std::path::PathBuf;
 use wad::WadData;
 use wad::extended::WadExtendedMap;
 use wad::types::{WadLineDef, WadSideDef};
@@ -10,7 +11,7 @@ use wad::types::{WadLineDef, WadSideDef};
 #[ignore = "sunder.wad can't be included in git"]
 #[test]
 fn check_nodes_of_sunder_m3() {
-    let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+    let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
     let ext = WadExtendedMap::parse(&wad, "MAP03").unwrap();
     assert_eq!(ext.num_org_vertices, 5525); // verified with crispy
     assert_eq!(ext.vertexes.len(), 996); // verified with crispy
@@ -69,7 +70,7 @@ fn check_nodes_of_sunder_m3() {
 #[test]
 fn check_nodes_of_sunder_m20() {
     let name = "MAP20";
-    let wad = WadData::new("/home/luke/DOOM/sunder.wad".into());
+    let wad = WadData::new(&PathBuf::from("/home/luke/DOOM/sunder.wad"));
     let ext = WadExtendedMap::parse(&wad, name).unwrap();
     // orgVerts: 54347
     // newVerts: 25125
@@ -139,7 +140,7 @@ fn check_nodes_of_sunder_m20() {
 
 #[test]
 fn test_tracing_bsp() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
     let origin = Vec2::new(710.0, -3400.0); // left corner from start
@@ -216,7 +217,7 @@ fn test_tracing_bsp() {
 
 #[test]
 fn check_e1m1_things() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -243,7 +244,7 @@ fn check_e1m1_things() {
 #[test]
 #[allow(clippy::float_cmp)]
 fn check_e1m1_lump_pointers() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -279,7 +280,7 @@ fn check_e1m1_lump_pointers() {
 
 #[test]
 fn check_e1m1_linedefs() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -303,7 +304,7 @@ fn check_e1m1_linedefs() {
 #[test]
 #[allow(clippy::float_cmp)]
 fn check_e1m1_sectors() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -322,7 +323,7 @@ fn check_e1m1_sectors() {
 #[test]
 #[allow(clippy::float_cmp)]
 fn check_e1m1_sidedefs() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -338,7 +339,7 @@ fn check_e1m1_sidedefs() {
 #[test]
 #[allow(clippy::float_cmp)]
 fn check_e1m1_segments() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -362,7 +363,7 @@ fn check_e1m1_segments() {
 
 #[test]
 fn find_vertex_using_bsptree() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 
@@ -376,7 +377,7 @@ fn find_vertex_using_bsptree() {
 
 #[test]
 fn check_nodes_of_e1m1() {
-    let wad = WadData::new("../doom1.wad".into());
+    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
     let mut map = MapData::default();
     map.load("E1M1", &PicData::default(), &wad);
 

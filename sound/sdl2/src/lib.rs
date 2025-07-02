@@ -538,13 +538,13 @@ mod tests {
     use crate::mus2midi::read_mus_to_midi;
     use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
     use sound_traits::MUS_DATA;
-    use std::time::Duration;
+    use std::{path::PathBuf, time::Duration};
     use wad::WadData;
 
     #[ignore = "CI doesn't have a sound device"]
     #[test]
     fn write_map_mus_data() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
 
         unsafe {
             #[allow(static_mut_refs)]

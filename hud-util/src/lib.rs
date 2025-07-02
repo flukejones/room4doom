@@ -191,12 +191,14 @@ impl HUDString {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::{get_patch_for_char, load_char_patches};
     use wad::WadData;
 
     #[test]
     fn load_and_check_chars() {
-        let wad = WadData::new("../doom1.wad".into());
+        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         load_char_patches(&wad);
 
         let l = get_patch_for_char('!').unwrap();

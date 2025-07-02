@@ -549,8 +549,6 @@ impl SoftwareRenderer {
             };
 
             if subsector_id < map.subsectors().len() {
-                let subsector = &map.subsectors()[subsector_id];
-
                 if !map.subsector_visible(player_subsector_id, subsector_id) {
                     return; // Subsector not visible, skip rendering
                 }
