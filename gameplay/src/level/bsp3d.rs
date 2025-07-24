@@ -126,7 +126,7 @@ pub enum SurfaceKind {
         /// texture direction in radians (0 = east, π/2 = north)
         texture_direction: f32,
         wall_type: WallType,
-        wall_flags: WallTexPin,
+        wall_tex_pin: WallTexPin,
     },
     Horizontal {
         /// Is a tag or index to patch
@@ -566,69 +566,13 @@ impl BSP3D {
         true
     }
 
-    fn calculate_texture_offset(
-        &self,
-        segment: &Segment,
-        wall_type: WallType,
-        front_height: f32,
-        back_height: f32,
-        texture_id: Option<usize>,
-        pic_data: Option<&PicData>,
-    ) -> f32 {
-        match wall_type {
-            WallType::Bottom => {
-                if segment.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                    if let (Some(tex_id), Some(pic_data)) = (texture_id, pic_data) {
-                        let texture = pic_data.get_texture(tex_id);
-                        let tex_height = texture.height as f32;
-                        segment.sidedef.rowoffset + front_height + tex_height
-                    } else {
-                        segment.sidedef.rowoffset + front_height
-                    }
-                } else {
-                    segment.sidedef.rowoffset + back_height
-                }
-            }
-            WallType::Top => {
-                if segment.linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
-                    segment.sidedef.rowoffset + front_height
-                } else {
-                    if let (Some(tex_id), Some(pic_data)) = (texture_id, pic_data) {
-                        let texture = pic_data.get_texture(tex_id);
-                        let tex_height = texture.height as f32;
-                        segment.sidedef.rowoffset + back_height + tex_height
-                    } else {
-                        segment.sidedef.rowoffset + back_height
-                    }
-                }
-            }
-            WallType::Middle => segment.sidedef.rowoffset + front_height,
-            WallType::Door => segment.sidedef.rowoffset,
-        }
-    }
-
-    fn create_bottom_wall_surface(
-        &self,
-        segment: &Segment,
-        pic_data: &PicData,
-        front_ceiling: f32,
-        back_floor: f32,
-    ) -> SurfaceKind {
-        self.create_vertical_surface_kind(
-            segment,
-            segment.sidedef.bottomtexture,
-            WallType::Bottom,
-            front_ceiling,
-            back_floor,
-            Some(pic_data),
-        )
+    fn create_bottom_wall_surface(&self, segment: &Segment) -> SurfaceKind {
+        self.create_vertical_surface_kind(segment, segment.sidedef.bottomtexture, WallType::Bottom)
     }
 
     fn create_top_wall_surface(
         &self,
         segment: &Segment,
-        front_ceiling: f32,
-        back_ceiling: f32,
         back_sector: &Sector,
         pic_data: &PicData,
     ) -> SurfaceKind {
@@ -639,42 +583,15 @@ impl BSP3D {
         } else {
             segment.sidedef.toptexture
         };
-        self.create_vertical_surface_kind(
-            segment,
-            texture,
-            WallType::Top,
-            front_ceiling,
-            back_ceiling,
-            None,
-        )
+        self.create_vertical_surface_kind(segment, texture, WallType::Top)
     }
 
-    fn create_middle_wall_surface(&self, segment: &Segment, world_top: f32) -> SurfaceKind {
-        self.create_vertical_surface_kind(
-            segment,
-            segment.sidedef.midtexture,
-            WallType::Middle,
-            world_top,
-            0.0,
-            None,
-        )
+    fn create_middle_wall_surface(&self, segment: &Segment) -> SurfaceKind {
+        self.create_vertical_surface_kind(segment, segment.sidedef.midtexture, WallType::Middle)
     }
 
-    fn create_one_sided_wall_surface(&self, segment: &Segment, sector: &Sector) -> SurfaceKind {
-        let (front_height, back_height) =
-            if segment.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
-                (sector.floorheight, 0.0)
-            } else {
-                (sector.ceilingheight, 0.0)
-            };
-        self.create_vertical_surface_kind(
-            segment,
-            segment.sidedef.midtexture,
-            WallType::Middle,
-            front_height,
-            back_height,
-            None,
-        )
+    fn create_one_sided_wall_surface(&self, segment: &Segment) -> SurfaceKind {
+        self.create_vertical_surface_kind(segment, segment.sidedef.midtexture, WallType::Middle)
     }
 
     fn add_wall_polygons(
@@ -708,14 +625,13 @@ impl BSP3D {
         front_sector: &Sector,
         back_sector: &Sector,
         pic_data: &PicData,
-    ) -> (f32, f32, f32) {
+    ) -> (f32, f32) {
         let tex_id = segment.sidedef.midtexture.unwrap();
         let texture = pic_data.get_texture(tex_id);
         let tex_height = texture.height as f32;
 
         let mut world_bot = front_sector.ceilingheight - tex_height;
         let mut world_top = front_sector.ceilingheight;
-        let mut rowoffset = world_top + segment.sidedef.rowoffset;
 
         if segment.frontsector.ceilingpic == pic_data.sky_num()
             && back_sector.ceilingpic == pic_data.sky_num()
@@ -723,16 +639,14 @@ impl BSP3D {
             world_bot = back_sector.floorheight.max(front_sector.floorheight);
             world_top = front_sector.ceilingheight.min(back_sector.ceilingheight)
                 + segment.sidedef.rowoffset;
-            rowoffset = world_top;
         } else if back_sector.ceilingheight < front_sector.ceilingheight {
             world_bot = back_sector
                 .floorheight
                 .max(back_sector.ceilingheight - tex_height);
             world_top = back_sector.ceilingheight;
-            rowoffset = world_top;
         }
 
-        (world_bot, world_top, rowoffset)
+        (world_bot, world_top)
     }
 
     fn generate_floor_ceiling_polygons(
@@ -918,8 +832,7 @@ impl BSP3D {
 
         // Lower wall (if back floor is higher)
         if back_floor > front_floor {
-            let surface_kind =
-                self.create_bottom_wall_surface(segment, pic_data, front_ceiling, back_floor);
+            let surface_kind = self.create_bottom_wall_surface(segment);
             self.add_wall_polygons(
                 leaf,
                 segment,
@@ -933,13 +846,7 @@ impl BSP3D {
 
         // Upper wall (if back ceiling is lower)
         if back_ceiling < front_ceiling {
-            let surface_kind = self.create_top_wall_surface(
-                segment,
-                front_ceiling,
-                back_ceiling,
-                back_sector,
-                pic_data,
-            );
+            let surface_kind = self.create_top_wall_surface(segment, back_sector, pic_data);
             self.add_wall_polygons(
                 leaf,
                 segment,
@@ -953,13 +860,13 @@ impl BSP3D {
 
         // Middle texture (masked texture)
         if segment.sidedef.midtexture.is_some() {
-            let (world_bot, world_top, rowoffset) = self.calculate_middle_texture_bounds(
+            let (world_bot, world_top) = self.calculate_middle_texture_bounds(
                 segment,
                 &subsector.sector,
                 back_sector,
                 pic_data,
             );
-            let surface_kind = self.create_middle_wall_surface(segment, rowoffset);
+            let surface_kind = self.create_middle_wall_surface(segment);
             self.add_wall_polygons(
                 leaf,
                 segment,
@@ -979,7 +886,7 @@ impl BSP3D {
         subsector: &SubSector,
         subsector_id: usize,
     ) {
-        let surface_kind = self.create_one_sided_wall_surface(segment, &subsector.sector);
+        let surface_kind = self.create_one_sided_wall_surface(segment);
         self.add_wall_polygons(
             leaf,
             segment,
@@ -1152,17 +1059,17 @@ impl BSP3D {
         let surface_kind_with_direction = match surface_kind {
             SurfaceKind::Vertical {
                 texture,
-                tex_x_offset: textureoffset,
-                tex_y_offset: rowoffset,
+                tex_x_offset,
+                tex_y_offset,
                 wall_type,
                 ..
             } => SurfaceKind::Vertical {
                 texture,
-                tex_x_offset: textureoffset,
-                tex_y_offset: rowoffset,
+                tex_x_offset,
+                tex_y_offset,
                 texture_direction,
                 wall_type,
-                wall_flags: WallTexPin::from(linedef_flags),
+                wall_tex_pin: WallTexPin::from(linedef_flags),
             },
             other => other,
         };
@@ -1651,15 +1558,13 @@ impl BSP3D {
         if let (Some(bottom_v1), Some(bottom_v2), Some(top_v1), Some(top_v2)) =
             (bottom_v1, bottom_v2, top_v1, top_v2)
         {
-            let tex_y_offset =
-                self.calculate_texture_offset(segment, WallType::Door, 0.0, 0.0, None, None);
             let surface_kind = SurfaceKind::Vertical {
                 texture: segment.sidedef.midtexture,
                 tex_x_offset: segment.sidedef.textureoffset,
-                tex_y_offset,
+                tex_y_offset: segment.sidedef.rowoffset,
                 texture_direction: 0.0,
-                wall_type: WallType::Middle,
-                wall_flags: WallTexPin::from(segment.linedef.flags),
+                wall_type: WallType::Door,
+                wall_tex_pin: WallTexPin::from(segment.linedef.flags),
             };
 
             let door_sector_num = self.subsector_leaves[door_subsector_id]
@@ -1718,26 +1623,15 @@ impl BSP3D {
         segment: &Segment,
         texture: Option<usize>,
         wall_type: WallType,
-        front_height: f32,
-        back_height: f32,
-        pic_data: Option<&PicData>,
     ) -> SurfaceKind {
         let adjusted_tex_x_offset = segment.sidedef.textureoffset + segment.offset;
-        let tex_y_offset = self.calculate_texture_offset(
-            segment,
-            wall_type,
-            front_height,
-            back_height,
-            texture,
-            pic_data,
-        );
         SurfaceKind::Vertical {
             texture,
             tex_x_offset: adjusted_tex_x_offset,
-            tex_y_offset,
+            tex_y_offset: segment.sidedef.rowoffset,
             texture_direction: 0.0,
             wall_type,
-            wall_flags: WallTexPin::from(segment.linedef.flags),
+            wall_tex_pin: WallTexPin::from(segment.linedef.flags),
         }
     }
 
@@ -1905,7 +1799,7 @@ impl BSP3D {
             tex_y_offset: 0.0,
             texture_direction: 0.0,
             wall_type: WallType::Middle,
-            wall_flags: WallTexPin::from(segment.linedef.flags),
+            wall_tex_pin: WallTexPin::from(segment.linedef.flags),
         };
 
         // Create two triangles for the wall quad

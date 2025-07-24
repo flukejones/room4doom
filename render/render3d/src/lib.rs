@@ -1,7 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon
+    AABB, BSP3D, Level, MapData, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon,
+    WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 #[cfg(feature = "debug_draw")]
@@ -11,12 +12,11 @@ use render_trait::RenderTrait;
 use std::f32::consts::PI;
 
 mod depth_buffer;
-mod primitives;
+mod render;
 #[cfg(test)]
 mod tests;
 
 use depth_buffer::DepthBuffer;
-pub(crate) use primitives::*;
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 
@@ -396,22 +396,14 @@ impl Renderer3D {
         }
 
         if self.screen_vertices_len >= 3 {
-            let screen_poly = ScreenPoly {
-                vertices: self.screen_vertices_buffer[..self.screen_vertices_len].to_vec(),
-            };
-
             let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
-            let tex_coords_copy = self.tex_coords_buffer[..self.tex_coords_len].to_vec();
-            let inv_w_copy = self.inv_w_buffer[..self.inv_w_len].to_vec();
-            self.draw_textured_polygon(
+            self.draw_polygon(
                 polygon,
-                bsp3d,
-                &screen_poly,
-                &tex_coords_copy,
-                &inv_w_copy,
                 brightness,
                 pic_data,
                 rend,
+                #[cfg(feature = "debug_draw")]
+                bsp3d,
                 #[cfg(feature = "debug_draw")]
                 {
                     let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
@@ -440,23 +432,53 @@ impl Renderer3D {
         match surface_kind {
             SurfaceKind::Vertical {
                 texture: Some(tex_id),
-                tex_x_offset: textureoffset,
-                tex_y_offset: rowoffset,
+                tex_x_offset,
+                tex_y_offset,
                 texture_direction,
-                ..
+                wall_tex_pin,
+                wall_type,
             } => {
                 let texture = pic_data.get_texture(*tex_id);
                 let tex_width = texture.width as f32;
                 let tex_height = texture.height as f32;
 
+                // TODO: get rid of this sin/cos by precalculate and store in surface
                 let polygon_dir = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
                 let v1 = original_vertices[0];
                 let pos_from_start = world_pos - v1;
                 let u = pos_from_start.x * polygon_dir.x + pos_from_start.y * polygon_dir.y;
-                let v = -world_pos.z + tex_height;
+
+                let wall_bottom_z = original_vertices
+                    .iter()
+                    .map(|v| v.z)
+                    .fold(f32::INFINITY, f32::min);
+                let wall_top_z = original_vertices
+                    .iter()
+                    .map(|v| v.z)
+                    .fold(f32::NEG_INFINITY, f32::max);
+
+                let v = match wall_type {
+                    WallType::Door => -world_pos.z + wall_bottom_z + tex_height, // unused?
+                    WallType::Top => {
+                        if matches!(wall_tex_pin, WallTexPin::UnpegTop) {
+                            world_pos.z - wall_top_z
+                        } else {
+                            -world_pos.z + wall_bottom_z + tex_height // correct, do not touch
+                        }
+                    }
+                    WallType::Middle => -world_pos.z + wall_top_z, // correct
+                    WallType::Bottom => {
+                        if matches!(wall_tex_pin, WallTexPin::UnpegBottom) {
+                            world_pos.z + wall_bottom_z - tex_height
+                        } else {
+                            world_pos.z - wall_top_z // correct, do not touch
+                        }
+                    }
+                };
+
                 (
-                    (u + textureoffset) / tex_width,
-                    (v + rowoffset) / tex_height,
+                    (u + tex_x_offset) / tex_width,
+                    (v + tex_y_offset) / tex_height,
                 )
             }
             SurfaceKind::Horizontal {

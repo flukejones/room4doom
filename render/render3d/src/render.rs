@@ -1,7 +1,9 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
-use gameplay::{BSP3D, FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
+#[cfg(feature = "debug_draw")]
+use gameplay::BSP3D;
+use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
 #[cfg(not(feature = "debug_draw"))]
 use glam::Vec2;
 #[cfg(feature = "debug_draw")]
@@ -17,8 +19,28 @@ const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
 
 /// Represents a 2D polygon in screen space
 #[derive(Debug, Clone)]
-pub struct ScreenPoly {
-    pub vertices: Vec<Vec2>,
+pub struct ScreenPoly<'a>(&'a [Vec2]);
+
+impl<'a> ScreenPoly<'a> {
+    /// Get axis-aligned bounding box of polygon
+    #[inline(always)]
+    pub fn bounds(&self) -> Option<(Vec2, Vec2)> {
+        if self.0.is_empty() {
+            return None;
+        }
+
+        let mut min = self.0[0];
+        let mut max = self.0[0];
+
+        for vertex in &self.0[1..] {
+            min.x = min.x.min(vertex.x);
+            min.y = min.y.min(vertex.y);
+            max.x = max.x.max(vertex.x);
+            max.y = max.y.max(vertex.y);
+        }
+
+        Some((min, max))
+    }
 }
 
 // TODO: completely change the Texture format to all be one
@@ -253,46 +275,23 @@ impl TriangleInterpolator {
     }
 }
 
-impl ScreenPoly {
-    /// Get axis-aligned bounding box of polygon
-    #[inline(always)]
-    pub fn bounds(&self) -> Option<(Vec2, Vec2)> {
-        if self.vertices.is_empty() {
-            return None;
-        }
-
-        let mut min = self.vertices[0];
-        let mut max = self.vertices[0];
-
-        for vertex in &self.vertices[1..] {
-            min.x = min.x.min(vertex.x);
-            min.y = min.y.min(vertex.y);
-            max.x = max.x.max(vertex.x);
-            max.y = max.y.max(vertex.y);
-        }
-
-        Some((min, max))
-    }
-}
-
 impl Renderer3D {
     #[inline(always)]
-    pub(super) fn draw_textured_polygon(
+    pub(super) fn draw_polygon(
         &mut self,
         polygon: &SurfacePolygon,
-        _bsp3d: &BSP3D,
-        screen_poly: &ScreenPoly,
-        tex_coords: &[Vec2],
-        inv_w: &[f32],
         brightness: usize,
         pic_data: &mut PicData,
         rend: &mut impl RenderTrait,
+        #[cfg(feature = "debug_draw")] bsp3d: &BSP3D,
         #[cfg(feature = "debug_draw")] outline_color: Option<[u8; 4]>,
     ) {
         #[cfg(feature = "hprof")]
-        profile!("draw_textured_polygon");
+        profile!("draw_polygon");
 
-        if screen_poly.vertices.len() < 3 || tex_coords.len() < 3 || inv_w.len() < 3 {
+        let screen_poly = ScreenPoly(&self.screen_vertices_buffer[..self.screen_vertices_len]);
+
+        if screen_poly.0.len() < 3 || self.tex_coords_len < 3 || self.inv_w_len < 3 {
             return;
         }
         let bounds = match screen_poly.bounds() {
@@ -300,15 +299,18 @@ impl Renderer3D {
             None => return,
         };
 
-        let interpolator = match TriangleInterpolator::new(&screen_poly.vertices, tex_coords, inv_w)
-        {
+        let interpolator = match TriangleInterpolator::new(
+            &screen_poly.0,
+            &self.tex_coords_buffer[..self.tex_coords_len],
+            &self.inv_w_buffer[..self.inv_w_len],
+        ) {
             Some(interpolator) => interpolator,
             None => return,
         };
 
         // Cache frequently used values
         let texture_sampler = TextureSampler::new(&polygon.surface_kind, pic_data);
-        let vertices = &screen_poly.vertices;
+        let vertices = &screen_poly.0;
         let vertex_count = vertices.len();
         let width_f32 = self.width as f32;
         let height_f32 = self.height as f32;
@@ -406,7 +408,7 @@ impl Renderer3D {
 
         // Draw polygon normals after the main polygon rendering (if enabled)
         #[cfg(feature = "debug_draw")]
-        self.draw_polygon_normals(polygon, _bsp3d, screen_poly, inv_w, rend);
+        self.draw_polygon_normals(polygon, bsp3d, screen_poly, inv_w, rend);
     }
 
     #[cfg(feature = "debug_draw")]
