@@ -6,7 +6,8 @@
 use faces::DoomguyFace;
 use gamestate_traits::util::{draw_num_pixels, get_num_sprites, get_st_key_sprites};
 use gamestate_traits::{
-    AmmoType, GameMode, GameTraits, PixelBuffer, PlayerStatus, Scancode, SubsystemTrait, WEAPON_INFO, WeaponType
+    AmmoType, DrawBuffer, GameMode, GameTraits, PlayerStatus, Scancode, SubsystemTrait,
+    WEAPON_INFO, WeaponType,
 };
 use std::collections::HashMap;
 use wad::WadData;
@@ -62,7 +63,7 @@ impl Statusbar {
             .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 
-    fn draw_health_pixels(&self, big: bool, face: bool, pixels: &mut impl PixelBuffer) {
+    fn draw_health_pixels(&self, big: bool, face: bool, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
 
         let nums = if big { &self.big_nums } else { &self.lil_nums };
@@ -95,7 +96,7 @@ impl Statusbar {
         draw_num_pixels(h, x, self.screen_height - 2 - y, 0, nums, self, pixels);
     }
 
-    fn draw_armour_pixels(&self, face: bool, pixels: &mut impl PixelBuffer) {
+    fn draw_armour_pixels(&self, face: bool, pixels: &mut impl DrawBuffer) {
         if self.status.armorpoints <= 0 {
             return;
         }
@@ -121,7 +122,7 @@ impl Statusbar {
         draw_num_pixels(h, x, self.screen_height - 2 - y, 0, nums, self, pixels);
     }
 
-    fn draw_ammo_big_pixels(&self, pixels: &mut impl PixelBuffer) {
+    fn draw_ammo_big_pixels(&self, pixels: &mut impl DrawBuffer) {
         if matches!(self.status.readyweapon, WeaponType::NoChange) {
             return;
         }
@@ -151,7 +152,7 @@ impl Statusbar {
         );
     }
 
-    fn draw_keys_pixels(&self, pixels: &mut impl PixelBuffer) {
+    fn draw_keys_pixels(&self, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
         let height = self.keys[3].height as i32 * f;
         let width = self.keys[0].width as i32 * f;
@@ -183,7 +184,7 @@ impl Statusbar {
         }
     }
 
-    fn draw_weapons_pixels(&self, pixels: &mut impl PixelBuffer) {
+    fn draw_weapons_pixels(&self, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
         let y = self.grey_nums[0].height as i32 * f;
         let x = self.grey_nums[0].width as i32 * f;
@@ -219,7 +220,7 @@ impl Statusbar {
         }
     }
 
-    fn draw_face_pixels(&self, mut big: bool, upper: bool, pixels: &mut impl PixelBuffer) {
+    fn draw_face_pixels(&self, mut big: bool, upper: bool, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
         if upper {
             big = true;
@@ -274,7 +275,7 @@ impl SubsystemTrait for Statusbar {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.screen_width = buffer.size().width();
         self.screen_height = buffer.size().height();
 

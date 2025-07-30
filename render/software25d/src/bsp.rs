@@ -3,16 +3,16 @@ use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
 };
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
 };
 use glam::Vec2;
-use render_trait::{PixelBuffer, RenderTrait};
+use render_trait::DrawBuffer;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::mem;
 
@@ -93,12 +93,12 @@ impl SoftwareRenderer {
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         let map = &level.map_data;
 
         // TODO: pull duplicate functionality out to a function
-        self.clear(rend.draw_buffer().size().width_f32());
+        self.clear(rend.size().width_f32());
         let mut count = 0;
         // TODO: netupdate
 
@@ -107,10 +107,8 @@ impl SoftwareRenderer {
 
         self.seg_renderer.clear();
         unsafe {
-            self.seg_renderer.set_view_pitch(
-                player.lookdir as i16,
-                rend.draw_buffer().size().half_height_f32(),
-            );
+            self.seg_renderer
+                .set_view_pitch(player.lookdir as i16, rend.size().half_height_f32());
         }
         #[cfg(feature = "hprof")]
         profile!("render_bsp_node begin!");
@@ -189,7 +187,7 @@ impl SoftwareRenderer {
         seg: &'a Segment,
         front_sector: &'a Sector,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("add_line");
@@ -235,7 +233,7 @@ impl SoftwareRenderer {
             angle2 = Angle::default() - clipangle;
         }
 
-        let s = rend.draw_buffer().size();
+        let s = rend.size();
         let x1 = angle_to_screen(
             self.projection,
             self.seg_renderer.fov_half,
@@ -298,7 +296,7 @@ impl SoftwareRenderer {
         player: &Player,
         subsect: &SubSector,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_subsector");
@@ -307,7 +305,7 @@ impl SoftwareRenderer {
         self.add_sprites(
             player,
             front_sector,
-            rend.draw_buffer().size().width() as u32,
+            rend.size().width() as u32,
             pic_data,
         );
 
@@ -336,7 +334,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         object: &Player,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         let mut next;
 
@@ -442,7 +440,7 @@ impl SoftwareRenderer {
         seg: &Segment,
         player: &Player,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -533,7 +531,7 @@ impl SoftwareRenderer {
         player: &Player,
         node_id: u32,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
         player_subsector_id: usize,
         count: &mut usize,
     ) {
@@ -592,8 +590,8 @@ impl SoftwareRenderer {
             node,
             mobj,
             side ^ 1,
-            rend.draw_buffer().size().half_width_f32(),
-            rend.draw_buffer().size().width_f32(),
+            rend.size().half_width_f32(),
+            rend.size().width_f32(),
         ) {
             self.render_bsp_node(
                 map,

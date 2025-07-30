@@ -5,9 +5,7 @@ use gameplay::{
     WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
-#[cfg(feature = "debug_draw")]
-use render_trait::PixelBuffer;
-use render_trait::RenderTrait;
+use render_trait::DrawBuffer;
 
 use std::f32::consts::PI;
 
@@ -27,7 +25,7 @@ const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 ///
 /// Features depth buffer optimization for improved performance by testing
 /// polygon visibility before expensive occlusion calculations.
-pub struct Renderer3D {
+pub struct Software3D {
     width: u32,
     height: u32,
     width_minus_one: f32,
@@ -48,7 +46,7 @@ pub struct Renderer3D {
     inv_w_len: usize,
 }
 
-impl Renderer3D {
+impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let near = 0.01;
         let far = 10000.0;
@@ -189,7 +187,7 @@ impl Renderer3D {
         player_subsector_id: usize,
         player_light: usize,
         pic_data: &mut PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a subsector
@@ -262,7 +260,7 @@ impl Renderer3D {
         sectors: &[Sector],
         pic_data: &mut PicData,
         player_light: usize,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         const VERT_COUNT: usize = 3;
         self.screen_vertices_len = 0;
@@ -521,7 +519,7 @@ impl Renderer3D {
         player: &Player,
         level: &mut Level,
         pic_data: &mut PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_player_view");
@@ -533,9 +531,6 @@ impl Renderer3D {
         } = &level.map_data;
 
         self.update_view_matrix(player);
-        // TODO: make this an option
-        #[cfg(feature = "debug_draw")]
-        rend.draw_buffer().clear_with_colour(&[255, 100, 180, 255]);
 
         self.depth_buffer.reset();
 

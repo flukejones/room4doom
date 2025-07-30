@@ -1,4 +1,4 @@
-use gamestate_traits::{GameTraits, PixelBuffer, Scancode, SubsystemTrait, TICRATE};
+use gamestate_traits::{DrawBuffer, GameTraits, Scancode, SubsystemTrait, TICRATE};
 use hud_util::{HUD_STRING, HUDString, load_char_patches};
 use wad::WadData;
 use wad::types::WadPalette;
@@ -63,7 +63,7 @@ impl Messages {
         }
     }
 
-    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut impl PixelBuffer) {
+    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut impl DrawBuffer) {
         let f = buffer.size().height() / 200;
 
         let x = 10;
@@ -128,7 +128,7 @@ impl SubsystemTrait for Messages {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.screen_width = buffer.size().width();
         self.screen_height = buffer.size().height();
         self.draw_wrapped(self, buffer);

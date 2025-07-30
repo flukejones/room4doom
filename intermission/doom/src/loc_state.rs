@@ -1,5 +1,5 @@
 use crate::{Intermission, MAP_POINTS, SHOW_NEXT_LOC_DELAY, State, TICRATE, TITLE_Y};
-use gamestate_traits::{GameMode, PixelBuffer, SubsystemTrait};
+use gamestate_traits::{DrawBuffer, GameMode, SubsystemTrait};
 use wad::types::WadPatch;
 
 impl Intermission {
@@ -26,7 +26,7 @@ impl Intermission {
         lv: usize,
         patch: &WadPatch,
         scale: i32,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut impl DrawBuffer,
     ) {
         let ep = self.level_info.episode;
         let point = MAP_POINTS[ep][lv];
@@ -37,7 +37,7 @@ impl Intermission {
         self.draw_patch_pixels(patch, x * scale, y * scale, pixels);
     }
 
-    pub(super) fn draw_enter_level_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
+    pub(super) fn draw_enter_level_pixels(&self, scale: i32, buffer: &mut impl DrawBuffer) {
         let half = buffer.size().width() / 2;
         let mut y = TITLE_Y * scale;
         self.draw_patch_pixels(
@@ -51,7 +51,7 @@ impl Intermission {
         self.draw_patch_pixels(patch, half - patch.width as i32 * scale / 2, y, buffer);
     }
 
-    pub(super) fn draw_next_loc_pixels(&self, scale: i32, buffer: &mut impl PixelBuffer) {
+    pub(super) fn draw_next_loc_pixels(&self, scale: i32, buffer: &mut impl DrawBuffer) {
         // Background
         self.draw_patch_pixels(self.get_bg(), 0, 0, buffer);
         self.draw_animated_bg_pixels(scale, buffer);

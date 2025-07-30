@@ -1,11 +1,12 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations
+    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations,
 };
 use gameplay::{TICRATE, m_random};
 use gamestate_traits::{
-    GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, WorldEndPlayerInfo, WorldInfo
+    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, WorldEndPlayerInfo,
+    WorldInfo,
 };
 use log::warn;
 use wad::WadData;
@@ -238,7 +239,7 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl PixelBuffer) {
+    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl DrawBuffer) {
         if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
@@ -345,7 +346,7 @@ impl SubsystemTrait for Intermission {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         let scale = buffer.size().height() / 200;
 
         // TODO: stats and next are two different screens.

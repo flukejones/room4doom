@@ -4,7 +4,7 @@
 //! could make this fully generic with a little work, or use it as the basis for
 //! a different menu.
 
-use gamestate_traits::{GameMode, GameTraits, PixelBuffer, Scancode, Skill, SubsystemTrait};
+use gamestate_traits::{DrawBuffer, GameMode, GameTraits, Scancode, Skill, SubsystemTrait};
 use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
@@ -343,7 +343,7 @@ impl MenuDoom {
             .unwrap_or_else(|| panic!("{name} not in cache"))
     }
 
-    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
+    fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
 
         if self.active || self.in_help {
@@ -545,7 +545,7 @@ impl SubsystemTrait for MenuDoom {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.draw_pixels(buffer)
     }
 }

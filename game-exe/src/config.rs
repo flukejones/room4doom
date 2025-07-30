@@ -5,7 +5,6 @@ use dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
 use nanoserde::{DeRon, SerRon};
-use render_target::shaders::Shaders;
 use sound_sdl2::timidity::GusMemSize;
 use std::fs::{File, OpenOptions, create_dir};
 use std::io::{Read, Write};
@@ -32,12 +31,8 @@ pub enum RenderType {
     /// in memory directly to screen using SDL2
     #[default]
     Software,
-    /// 3D wireframe software renderer that displays Doom levels in true 3D
-    /// space
+    /// Full 3D software rendering
     Software3D,
-    /// Software framebuffer blitted to screen using OpenGL (and can use
-    /// shaders)
-    SoftOpenGL,
     /// OpenGL
     OpenGL,
     /// Vulkan
@@ -51,9 +46,6 @@ impl FromStr for RenderType {
         match s.to_ascii_lowercase().as_str() {
             "software" => Ok(Self::Software),
             "software3d" => Ok(Self::Software3D),
-            "softopengl" => Ok(Self::SoftOpenGL),
-            "cgwg" => Ok(Self::OpenGL),
-            "basic" => Ok(Self::Vulkan),
             _ => Err(std::io::Error::new(
                 std::io::ErrorKind::Unsupported,
                 "Invalid rendering type",
@@ -67,7 +59,6 @@ impl Into<render_target::RenderApiType> for RenderType {
         match self {
             RenderType::Software => render_target::RenderApiType::Software,
             RenderType::Software3D => render_target::RenderApiType::Software3D,
-            RenderType::SoftOpenGL => render_target::RenderApiType::SoftOpenGL,
             RenderType::OpenGL => render_target::RenderApiType::OpenGL,
             RenderType::Vulkan => render_target::RenderApiType::Vulkan,
         }
@@ -108,7 +99,6 @@ pub struct UserConfig {
     pub fullscreen: bool,
     pub hi_res: bool,
     pub renderer: RenderType,
-    pub shader: Option<Shaders>,
     pub sfx_vol: i32,
     pub mus_vol: i32,
     pub music_type: MusicType,
@@ -206,14 +196,6 @@ impl UserConfig {
             }
         } else {
             cli.rendering = Some(self.renderer);
-        }
-
-        if cli.shader.is_some() {
-            if cli.shader != self.shader {
-                self.shader = cli.shader;
-            }
-        } else {
-            cli.shader = self.shader;
         }
 
         if let Some(f) = cli.fullscreen {

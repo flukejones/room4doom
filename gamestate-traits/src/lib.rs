@@ -6,9 +6,10 @@ pub mod util;
 
 use gameplay::MAXPLAYERS;
 pub use gameplay::{
-    AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO, WeaponType, WorldEndPlayerInfo, m_random
+    AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO,
+    WeaponType, WorldEndPlayerInfo, m_random,
 };
-pub use render_trait::{PixelBuffer, PlayViewRenderer, RenderTrait};
+pub use render_trait::{DrawBuffer, GameRenderer};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};
@@ -120,10 +121,10 @@ pub trait SubsystemTrait {
     fn get_palette(&self) -> &WadPalette;
 
     /// Draw this Machination to the `PixelBuf`.
-    fn draw(&mut self, buffer: &mut impl PixelBuffer);
+    fn draw(&mut self, buffer: &mut impl DrawBuffer);
 
     /// Free method, requires `get_palette()` to be implemented
-    fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut impl PixelBuffer) {
+    fn draw_patch_pixels(&self, patch: &WadPatch, x: i32, y: i32, pixels: &mut impl DrawBuffer) {
         let mut xtmp = 0;
         let mut ytmp = 0;
 

@@ -12,8 +12,8 @@ members = [
     "menu/doom",
     "render/render-target",
     "render/render-trait",
-    "render/software",
-    "render/render3d",
+    "render/software25d",
+    "render/software3d",
     "sound/traits",
     "sound/sdl2",
     "sound/nosnd",
@@ -53,15 +53,14 @@ sound-nosnd = { path = "./sound/nosnd" }
 opl2_emulator = { path = "./sound/opl2_emulator", features = ["wave_precision"] }
 render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
-render3d = { path = "./render/render3d" }
-render-soft = { path = "./render/software" }
+software3d = { path = "./render/software3d" }
+software25d = { path = "./render/software25d" }
 
 coarse-prof = "0.2"
 glam = "*"
-golem = { git = "https://github.com/flukejones/golem/" }
 sdl2 = { git = "https://github.com/flukejones/rust-sdl2", features = [
     "unsafe_textures",
-    "mixer",
+    "mixer","bundled"
 ] }
 
 argh = "0.1.12"

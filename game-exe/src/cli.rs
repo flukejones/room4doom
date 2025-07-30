@@ -1,6 +1,5 @@
 use argh::FromArgs;
 use gameplay::{GameOptions, Skill, log};
-use render_target::shaders::Shaders;
 
 use crate::config::{self, MusicType};
 
@@ -58,10 +57,6 @@ pub struct CLIOptions {
     /// rendering type <software, software3d, softopengl>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
-    /// screen shader <lottes, lottesbasic>, not used with Software
-    /// renderer
-    #[argh(option, short = 'S')]
-    pub shader: Option<Shaders>,
     /// music type <fluidsynth, timidity(default), opl2>
     #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,

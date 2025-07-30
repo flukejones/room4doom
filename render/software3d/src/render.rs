@@ -8,9 +8,9 @@ use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
 use glam::Vec2;
 #[cfg(feature = "debug_draw")]
 use glam::{Vec2, Vec3, Vec4};
-use render_trait::{PixelBuffer, RenderTrait};
+use render_trait::DrawBuffer;
 
-use crate::Renderer3D;
+use crate::Software3D;
 
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
@@ -275,14 +275,14 @@ impl TriangleInterpolator {
     }
 }
 
-impl Renderer3D {
+impl Software3D {
     #[inline(always)]
     pub(super) fn draw_polygon(
         &mut self,
         polygon: &SurfacePolygon,
         brightness: usize,
         pic_data: &mut PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
         #[cfg(feature = "debug_draw")] bsp3d: &BSP3D,
         #[cfg(feature = "debug_draw")] outline_color: Option<[u8; 4]>,
     ) {
@@ -387,17 +387,13 @@ impl Renderer3D {
                         #[cfg(feature = "debug_draw")]
                         if outline_color.is_some() {
                             if self.is_edge_pixel(x as f32, y_float, vertices) {
-                                rend.draw_buffer().set_pixel(
-                                    x,
-                                    y,
-                                    &outline_color.unwrap_or([0, 0, 0, 0]),
-                                );
+                                rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
                             } else {
-                                rend.draw_buffer().set_pixel(x, y, &color);
+                                rend.set_pixel(x, y, &color);
                             }
                         }
                         #[cfg(not(feature = "debug_draw"))]
-                        rend.draw_buffer().set_pixel(x, y, &color);
+                        rend.set_pixel(x, y, &color);
                     }
 
                     interp_state.step_x();
@@ -454,7 +450,7 @@ impl Renderer3D {
         bsp3d: &BSP3D,
         screen_poly: &ScreenPoly,
         inv_w: &[f32],
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         if screen_poly.0.len() < 3 || inv_w.len() < 3 {
             return;
@@ -518,7 +514,7 @@ impl Renderer3D {
         start_depth: f32,
         end_depth: f32,
         color: &[u8; 4],
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         let dx = end.x - start.x;
         let dy = end.y - start.y;
@@ -540,7 +536,7 @@ impl Renderer3D {
 
             if x < self.width as usize && y < self.height as usize {
                 if self.depth_buffer.test_and_set_depth_unchecked(x, y, depth) {
-                    rend.draw_buffer().set_pixel(x, y, color);
+                    rend.set_pixel(x, y, color);
                 }
             }
         }

@@ -5,7 +5,7 @@ use gameplay::log::warn;
 use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
-use render_trait::{PixelBuffer, RenderTrait, SOFT_PIXEL_CHANNELS};
+use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::ptr::NonNull;
 #[cfg(feature = "debug_draw")]
@@ -195,11 +195,11 @@ impl SegRender {
         player: &Player,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("store_wall_range");
-        let size = rend.draw_buffer().size();
+        let size = rend.size();
         if start < 0.0 || start > size.width_f32() || start > stop {
             // panic!("Bad R_RenderWallRange: {} to {}", start, stop);
         }
@@ -468,7 +468,7 @@ impl SegRender {
 
         #[cfg(feature = "debug_seg_clip")]
         {
-            self.draw_debug_clipping(rdata, rend.draw_buffer());
+            self.draw_debug_clipping(rdata, rend);
             rend.debug_blit_draw_buffer();
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -537,7 +537,7 @@ impl SegRender {
         mobj: &MapObject,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_seg_loop");
@@ -549,7 +549,7 @@ impl SegRender {
         let mut mid: f32;
         let mut angle;
         let mut texture_column = 0;
-        let size = rend.draw_buffer().size().clone();
+        let size = rend.size().clone();
         let sidedef = seg.sidedef.clone();
 
         let flats_total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
@@ -596,7 +596,7 @@ impl SegRender {
                             bottom as i32,
                             true,
                             pic_data,
-                            rend.draw_buffer(),
+                            rend,
                         );
                         #[cfg(feature = "debug_draw")]
                         {
@@ -615,7 +615,7 @@ impl SegRender {
                             top as u32 as usize,
                             bottom as u32 as usize,
                             pic_data,
-                            rend.draw_buffer(),
+                            rend,
                         );
                         #[cfg(feature = "debug_draw")]
                         {
@@ -653,7 +653,7 @@ impl SegRender {
                         top as u32 as usize,
                         bottom as u32 as usize,
                         pic_data,
-                        rend.draw_buffer(),
+                        rend,
                     );
                     #[cfg(feature = "debug_draw")]
                     {
@@ -690,7 +690,7 @@ impl SegRender {
                             yh as i32,
                             false,
                             pic_data,
-                            rend.draw_buffer(),
+                            rend,
                         );
                         #[cfg(feature = "debug_draw")]
                         {
@@ -720,7 +720,7 @@ impl SegRender {
                                 mid as i32,
                                 false,
                                 pic_data,
-                                rend.draw_buffer(),
+                                rend,
                             );
                             #[cfg(feature = "debug_draw")]
                             {
@@ -754,7 +754,7 @@ impl SegRender {
                                 yh as i32,
                                 false,
                                 pic_data,
-                                rend.draw_buffer(),
+                                rend,
                             );
                             #[cfg(feature = "debug_draw")]
                             {
@@ -802,7 +802,7 @@ impl SegRender {
         mut y_end: i32,
         sky: bool,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_wall_column");
@@ -862,7 +862,7 @@ impl SegRender {
         y_start: usize,
         mut y_end: usize,
         pic_data: &PicData,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_flat_column");

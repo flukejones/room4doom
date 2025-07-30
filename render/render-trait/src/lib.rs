@@ -3,6 +3,34 @@ use gameplay::{Level, PicData, Player};
 /// channels should match pixel format
 pub const SOFT_PIXEL_CHANNELS: usize = 4;
 
+pub trait GameRenderer {
+    // Core 3D rendering
+    fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData);
+
+    // Buffer management & presentation
+    fn flip_and_present(&mut self);
+    fn flip(&mut self);
+
+    /// Get the framebuffer used for direct draw access
+    fn draw_buffer(&mut self) -> &mut impl DrawBuffer;
+
+    // Screen effects
+    fn do_wipe(&mut self) -> bool;
+
+    fn buffer_size(&self) -> &BufferSize;
+}
+
+pub trait DrawBuffer {
+    // Direct pixel access
+    fn size(&self) -> &BufferSize;
+    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; 4]);
+    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS];
+    fn get_buf_index(&self, x: usize, y: usize) -> usize;
+    fn pitch(&self) -> usize;
+    fn buf_mut(&mut self) -> &mut [u8]; // TODO: remove this
+    fn debug_blit_draw_buffer(&mut self);
+}
+
 #[derive(Clone, Copy)]
 pub struct BufferSize {
     hi_res: bool,
@@ -71,53 +99,4 @@ impl BufferSize {
     pub const fn half_height_f32(&self) -> f32 {
         self.half_height() as f32
     }
-}
-
-pub trait PixelBuffer {
-    fn size(&self) -> &BufferSize;
-    fn clear(&mut self);
-    fn clear_with_colour(&mut self, colour: &[u8; SOFT_PIXEL_CHANNELS]);
-    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]);
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS];
-    fn buf_mut(&mut self) -> &mut [u8];
-    /// The pitch that should be added/subtracted to go up or down the Y while
-    /// keeping X position
-    fn pitch(&self) -> usize;
-    /// Amount of colour channels, e.g: [R, G, B] == 3
-    fn channels(&self) -> usize;
-    /// Get an index point for this coord to copy a colour array too
-    fn get_buf_index(&self, x: usize, y: usize) -> usize;
-}
-
-pub trait RenderTrait {
-    /// Get the buffer currently being drawn to
-    fn draw_buffer(&mut self) -> &mut impl PixelBuffer;
-
-    /// Get the buffer that will be blitted to screen
-    fn blit_buffer(&mut self) -> &mut impl PixelBuffer;
-
-    /// Throw buffer1 at the screen
-    fn blit(&mut self);
-
-    /// for debug
-    fn debug_blit_draw_buffer(&mut self);
-
-    fn debug_clear(&mut self);
-
-    fn clear(&mut self);
-
-    fn flip(&mut self);
-
-    /// Must do a blit after to show the results
-    fn do_wipe(&mut self) -> bool;
-}
-
-pub trait PlayViewRenderer {
-    /// Doom function name `R_RenderPlayerView`
-    fn render_player_view(
-        self: &mut Self,
-        player: &Player,
-        level: &mut Level, // TODO: should not be mutable, temporary thing
-        pic_data: &mut PicData,
-    );
 }

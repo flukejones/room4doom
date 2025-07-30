@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gamestate_traits::{PixelBuffer, SubsystemTrait};
+use gamestate_traits::{DrawBuffer, SubsystemTrait};
 use log::warn;
 use wad::WadData;
 use wad::types::{WAD_PATCH, WadPatch};
@@ -123,7 +123,7 @@ impl HUDString {
         mut x: i32,
         mut y: i32,
         machination: &impl SubsystemTrait,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
         let f = pixels.size().height() / 200;
         let width = pixels.size().width();
@@ -182,7 +182,7 @@ impl HUDString {
         x: i32,
         y: i32,
         machination: &impl SubsystemTrait,
-        pixels: &mut impl PixelBuffer,
+        pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
         self.draw_pixels(x, y, machination, pixels);
         Some(())

@@ -29,9 +29,7 @@ use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::sdl2::event::{Event, WindowEvent};
 use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::video::Window;
-use gamestate_traits::{
-    GameState, PixelBuffer, PlayViewRenderer, RenderTrait, SubsystemTrait, sdl2,
-};
+use gamestate_traits::{DrawBuffer, GameRenderer, GameState, SubsystemTrait, sdl2};
 use hud_doom::Messages;
 use input::Input;
 use intermission_doom::Intermission;
@@ -62,7 +60,6 @@ pub fn d_doom_loop(
     mut game: Game,
     mut input: Input,
     window: Window,
-    gl_ctx: Option<golem::Context>,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: implement an openGL or Vulkan renderer
@@ -80,7 +77,7 @@ pub fn d_doom_loop(
 
     let mut canvas = window
         .into_canvas()
-        .accelerated()
+        // .accelerated()
         // .present_vsync()
         .target_texture()
         .build()?;
@@ -101,12 +98,11 @@ pub fn d_doom_loop(
         options.dev_parm,
         canvas,
         options.rendering.unwrap_or_default().into(),
-        options.shader.unwrap_or_default(),
     );
     let mut menu = MenuDoom::new(
         game.game_type.mode,
         &game.wad_data,
-        render_target.draw_buffer().size().width(),
+        render_target.buffer_size().width(),
     );
     menu.init(&game);
     // END
@@ -137,18 +133,15 @@ pub fn d_doom_loop(
                     sdl2::event::WindowEvent::SizeChanged(..) => {
                         // BEGIN SETUP
                         set_lookdirs(&options);
-                        let canvas = render_target.framebuffer.canvas;
-                        render_target = RenderTarget::new(
+                        render_target = render_target.resize(
                             options.hi_res,
                             options.dev_parm,
-                            canvas,
                             options.rendering.unwrap_or_default().into(),
-                            options.shader.unwrap_or_default(),
                         );
                         menu = MenuDoom::new(
                             game.game_type.mode,
                             &game.wad_data,
-                            render_target.draw_buffer().size().width(),
+                            render_target.buffer_size().width(),
                         );
                         menu.init(&game);
                         // END
@@ -186,11 +179,10 @@ pub fn d_doom_loop(
 
     // Explicit drop to ensure shutdown happens
     drop(game);
-    drop(gl_ctx);
     Ok(())
 }
 
-fn page_drawer(game: &mut Game, draw_buf: &mut impl PixelBuffer) {
+fn page_drawer(game: &mut Game, draw_buf: &mut impl DrawBuffer) {
     let f = draw_buf.size().height() / 200;
     let start = 0; //draw_buf.size().width() / 2 - 160;
     let mut ytmp = 0;
@@ -241,7 +233,7 @@ fn d_display<R>(
     >,
     game: &mut Game,
 ) where
-    R: RenderTrait + PlayViewRenderer,
+    R: GameRenderer,
 {
     let wipe = game.gamestate != game.wipe_game_state;
     let automap_active = false;
@@ -261,9 +253,6 @@ fn d_display<R>(
                         error!("Active console player has no MapObject, can't render player view");
                     } else {
                         let player = &game.players[game.consoleplayer];
-                        if game.options.dev_parm {
-                            render_target.debug_clear();
-                        }
                         render_target.render_player_view(player, level, &mut game.pic_data);
                     }
                 }
@@ -293,29 +282,17 @@ fn d_display<R>(
         _ => {}
     }
 
-    // draw_buf.clear();
-    // net update does i/o and buildcmds...
-    // TODO: NetUpdate(); // send out any new accumulation
-
-    // #[cfg(feature = "debug_draw")]
-    // {
-    //     game.wipe_game_state = game.gamestate;
-    //     render_target.flip();
-    //     render_target.clear();
-    //     return;
-    // }
-
     if wipe {
         if render_target.do_wipe() {
             game.wipe_game_state = game.gamestate;
         }
         // menu is drawn on top of wipes
-        menu.draw(render_target.blit_buffer());
+        render_target.flip();
+        menu.draw(render_target.draw_buffer());
     } else {
         menu.draw(render_target.draw_buffer());
-        render_target.flip();
     }
-    render_target.blit();
+    render_target.flip_and_present();
 }
 
 fn try_run_tics(

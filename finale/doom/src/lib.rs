@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    GameMode, GameTraits, MusTrack, PixelBuffer, Scancode, SubsystemTrait, TICRATE
+    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, TICRATE,
 };
 use hud_util::{HUD_STRING, HUDString, load_char_patches};
 use wad::WadData;
@@ -39,7 +39,7 @@ impl Finale {
         }
     }
 
-    fn draw_pixels(&mut self, pixels: &mut impl PixelBuffer) {
+    fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
         let f = pixels.size().height() / 200;
         self.screen_width = pixels.size().width();
         self.screen_height = pixels.size().height();
@@ -151,7 +151,7 @@ impl SubsystemTrait for Finale {
         &self.palette
     }
 
-    fn draw(&mut self, buffer: &mut impl PixelBuffer) {
+    fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.draw_pixels(buffer);
     }
 }

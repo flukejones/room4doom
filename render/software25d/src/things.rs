@@ -3,10 +3,11 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::{error, warn};
 use gameplay::{
-    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random, point_to_angle_2
+    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random,
+    point_to_angle_2,
 };
 use glam::Vec2;
-use render_trait::{PixelBuffer, RenderTrait};
+use render_trait::DrawBuffer;
 
 use super::bsp::SoftwareRenderer;
 use super::defs::DrawSeg;
@@ -246,7 +247,7 @@ impl SoftwareRenderer {
         clip_bottom: &[f32],
         clip_top: &[f32],
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         let patch = pic_data.sprite_patch(vis.patch);
 
@@ -291,7 +292,7 @@ impl SoftwareRenderer {
                     top,
                     bottom,
                     pic_data,
-                    rend.draw_buffer(),
+                    rend,
                 );
             }
 
@@ -305,9 +306,9 @@ impl SoftwareRenderer {
         player: &Player,
         vis: &VisSprite,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.draw_buffer().size().clone();
+        let size = rend.size().clone();
         let mut clip_bottom = vec![-2.0; size.width_usize()];
         let mut clip_top = vec![-2.0; size.width_usize()];
 
@@ -385,7 +386,7 @@ impl SoftwareRenderer {
         &mut self,
         player: &Player,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         if let Some(mobj) = player.mobj() {
             let light = mobj.subsector.sector.lightlevel;
@@ -406,9 +407,9 @@ impl SoftwareRenderer {
         light: usize,
         flags: u32,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.draw_buffer().size().clone();
+        let size = rend.size().clone();
         let f = size.height() / 200;
         let pspriteiscale = 0.99 / f as f32;
         let pspritescale = f as f32;
@@ -480,7 +481,7 @@ impl SoftwareRenderer {
         &mut self,
         player: &Player,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
@@ -508,9 +509,9 @@ impl SoftwareRenderer {
         x1: f32,
         x2: f32,
         pic_data: &PicData,
-        rend: &mut impl RenderTrait,
+        rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.draw_buffer().size().clone();
+        let size = rend.size().clone();
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
 
@@ -605,7 +606,7 @@ impl SoftwareRenderer {
                         top,
                         bottom,
                         pic_data,
-                        rend.draw_buffer(),
+                        rend,
                     );
 
                     self.seg_renderer.openings[index] = f32::MAX;
@@ -628,7 +629,7 @@ fn draw_masked_column(
     yl: f32,
     mut yh: f32,
     pic_data: &PicData,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut impl DrawBuffer,
 ) {
     if yh >= pixels.size().height_f32() {
         yh = pixels.size().height_f32() - 1.0;

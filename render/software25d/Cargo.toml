@@ -1,5 +1,5 @@
 [package]
-name = "render-soft"
+name = "software25d"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -1,5 +1,5 @@
 use crate::SubsystemTrait;
-use render_trait::PixelBuffer;
+use render_trait::{DrawBuffer, GameRenderer};
 use std::mem::MaybeUninit;
 use wad::WadData;
 use wad::types::{WAD_PATCH, WadPatch};
@@ -38,7 +38,7 @@ pub fn draw_num_pixels(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl SubsystemTrait,
-    pixels: &mut impl PixelBuffer,
+    pixels: &mut impl DrawBuffer,
 ) -> i32 {
     let f = pixels.size().height() / 200;
     let width = nums[0].width as i32 * f;
@@ -70,7 +70,7 @@ pub fn draw_num(
     pad: usize,
     nums: &[WadPatch],
     drawer: &impl SubsystemTrait,
-    buffer: &mut impl PixelBuffer,
+    buffer: &mut impl DrawBuffer,
 ) -> i32 {
     // TODO: remove duplicated functionality
     draw_num_pixels(p, x, y, pad, nums, drawer, buffer)

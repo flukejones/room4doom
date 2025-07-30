@@ -106,11 +106,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     for n in 0..num_disp {
         info!("Found display {:?}", video_ctx.display_name(n)?);
     }
-    let mut window = video_ctx
-        .window("ROOM4DOOM", 0, 0)
-        // .opengl()
-        .hidden()
-        .build()?;
+
+    let mut window = video_ctx.window("ROOM4DOOM", 0, 0).hidden().build()?;
 
     if let Some(fullscreen) = options.fullscreen {
         if fullscreen {
@@ -126,7 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, None, options)?;
+    d_doom_loop(game, input, window, options)?;
     Ok(())
 }
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use gameplay::m_random;
 
-use crate::PixelBuffer;
+use crate::buffers::DrawBuffer;
 
 pub(crate) struct Wipe {
     y: Vec<i32>,
@@ -35,12 +35,12 @@ impl Wipe {
 
     pub(crate) fn do_melt_pixels(
         &mut self,
-        disp_buf: &mut impl PixelBuffer, // Display from this buffer
-        draw_buf: &mut impl PixelBuffer, /* Draw to this buffer */
+        disp_buf: &mut DrawBuffer, // Display from this buffer
+        draw_buf: &mut DrawBuffer, /* Draw to this buffer */
     ) -> bool {
         let mut done = true;
-        let stepping = disp_buf.size().height_usize() / 100;
-        let f = disp_buf.size().height() / 200;
+        let stepping = disp_buf.size.height_usize() / 100;
+        let f = disp_buf.size.height() / 200;
         for x in (0..self.width as usize - stepping).step_by(stepping) {
             if self.y[x] < 0 {
                 // This is the offset to start with, sort of like a timer

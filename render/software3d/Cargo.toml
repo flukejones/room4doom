@@ -1,5 +1,5 @@
 [package]
-name = "render3d"
+name = "software3d"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
