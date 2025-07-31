@@ -10,11 +10,12 @@
 - [ ] Animated wall textures:
   - change_switch_texture changes the sidedef. Need to add a better method (like what's used for flats)
   - Level::line_special_list is used for scrolling walls
-- [ ] Unpegged upper aren't being tagged?
+- [X] Unpegged upper aren't being tagged?
 - [ ] Sprites and clipping
-- [-] Moving geometry
+- [X] Moving geometry
   - [ ] Some glitches where some vertexes actually seem to do off??
   - [ ] Vertex float precision?
+- [ ] Missing subsectors due to negative space left from clipping
 
 Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to

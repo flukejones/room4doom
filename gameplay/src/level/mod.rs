@@ -77,6 +77,10 @@ pub struct Level {
     pub animations: Vec<PicAnimation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
+    /// List of used buttons. Typically these buttons or switches are timed.
+    pub(super) button_list: Vec<Button>,
+    /// Scrolling walls
+    pub(super) line_special_list: Vec<MapPtr<LineDef>>,
 
     /// Tracks which players are currently active, set by d_net.c loop.
     /// This is a raw pointer to the array in `Game`, and must not be modified
@@ -90,9 +94,7 @@ pub struct Level {
 
     /// Marker count for lines checked
     pub(super) valid_count: usize,
-    /// List of used buttons. Typically these buttons or switches are timed.
-    pub(super) button_list: Vec<Button>,
-    pub(super) line_special_list: Vec<MapPtr<LineDef>>,
+
     /// Provides ability for things to start a sound
     pub(super) snd_command: SndServerTx,
 

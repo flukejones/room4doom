@@ -36,6 +36,8 @@ fn get_movement_type(line_special: i16) -> Option<MovementType> {
         6 | 25 | 40 | 44 | 72 | 73 | 77 | 141 => Some(MovementType::Ceiling),
         // Platforms (floor movement)
         10 | 22 | 53 | 87 | 88 | 95 | 120 | 121 => Some(MovementType::Floor),
+        // Shootlines
+        24 | 46 | 47 => Some(MovementType::Floor),
         // Stairs (floor movement)
         8 | 100 => Some(MovementType::Floor),
         _ => None,
@@ -59,7 +61,7 @@ fn create_sector_tag_movement_mapping(
                         let num = sector.num as usize;
                         if movement_type != MovementType::None && !mapping.contains_key(&num) {
                             mapping.insert(num, movement_type);
-                            break;
+                            // break;
                         }
                     }
                 }
@@ -191,7 +193,6 @@ pub enum SurfaceKind {
 #[derive(Debug, Clone)]
 pub struct SurfacePolygon {
     pub sector_id: usize,
-    pub subsector_id: usize,
     pub surface_kind: SurfaceKind,
     pub vertices: Vec<usize>,
     pub normal: Vec3,
@@ -201,7 +202,6 @@ pub struct SurfacePolygon {
 impl SurfacePolygon {
     fn new(
         sector_id: usize,
-        subsector_id: usize,
         surface_kind: SurfaceKind,
         vertices: Vec<usize>,
         normal: Vec3,
@@ -214,7 +214,6 @@ impl SurfacePolygon {
 
         Self {
             sector_id,
-            subsector_id,
             surface_kind,
             vertices,
             normal,
@@ -656,7 +655,6 @@ impl BSP3D {
                 top_height,
                 WallType::Upper,
                 texture,
-                front_sector.num as usize,
                 front_subsector_id,
                 vertex_tracking,
                 sector_movement_map,
@@ -683,7 +681,6 @@ impl BSP3D {
                 WallType::Lower,
                 texture,
                 front_sector.num as usize,
-                front_subsector_id,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -707,7 +704,6 @@ impl BSP3D {
                 WallType::Middle,
                 texture,
                 front_sector.num as usize,
-                front_subsector_id,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -736,7 +732,6 @@ impl BSP3D {
                 WallType::Middle,
                 texture,
                 front_sector.num as usize,
-                front_subsector_id,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -756,7 +751,6 @@ impl BSP3D {
         wall_type: WallType,
         texture: usize,
         sector_id: usize,
-        subsector_id: usize,
         vertex_tracking: &mut VertexTracking,
         sector_movement_map: &HashMap<usize, MovementType>,
     ) -> Vec<SurfacePolygon> {
@@ -897,7 +891,6 @@ impl BSP3D {
 
         let triangle1 = SurfacePolygon::new(
             sector_id,
-            subsector_id,
             surface_kind.clone(),
             vec![bottom_start, bottom_end, top_start],
             normal,
@@ -906,7 +899,6 @@ impl BSP3D {
 
         let triangle2 = SurfacePolygon::new(
             sector_id,
-            subsector_id,
             surface_kind,
             vec![top_start, bottom_end, top_end],
             normal,
@@ -1000,7 +992,6 @@ impl BSP3D {
 
             let floor_polygon = SurfacePolygon::new(
                 subsector.sector.num as usize,
-                subsector_id,
                 self.create_horizontal_surface_kind(subsector.sector.floorpic),
                 floor_vertices,
                 Vec3::new(0.0, 0.0, 1.0),
@@ -1030,7 +1021,6 @@ impl BSP3D {
 
             let ceiling_polygon = SurfacePolygon::new(
                 subsector.sector.num as usize,
-                subsector_id,
                 self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
                 ceiling_vertices,
                 Vec3::new(0.0, 0.0, -1.0),
