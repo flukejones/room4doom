@@ -6,6 +6,9 @@
 //! - Coloumaps and light scaling
 //! - Sprites (patches and frame sets)
 
+#[cfg(feature = "hprof")]
+use coarse_prof::profile;
+
 mod animations;
 pub use animations::*;
 mod switches;
@@ -523,6 +526,8 @@ impl PicData {
     /// indexed by the Y coordinate of a texture column.
     #[inline(always)]
     pub fn vert_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
+        #[cfg(feature = "hprof")]
+        profile!("vert_light_colourmap");
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }

@@ -178,7 +178,7 @@ pub enum SurfaceKind {
         texture: Option<usize>,
         tex_x_offset: f32,
         tex_y_offset: f32,
-        texture_direction: f32,
+        texture_direction: Vec3,
         wall_type: WallType,
         wall_tex_pin: WallTexPin,
         /// For texture alignment
@@ -186,7 +186,8 @@ pub enum SurfaceKind {
     },
     Horizontal {
         texture: usize,
-        texture_direction: f32,
+        tex_cos: f32,
+        tex_sin: f32,
     },
 }
 
@@ -878,6 +879,7 @@ impl BSP3D {
         };
 
         let texture_direction = wall_direction.y.atan2(wall_direction.x);
+        let texture_direction = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
 
         let surface_kind = SurfaceKind::Vertical {
             texture: Some(texture),
@@ -1124,7 +1126,8 @@ impl BSP3D {
         const TEXTURE_DIRECTION: f32 = std::f32::consts::PI / 2.0;
         SurfaceKind::Horizontal {
             texture,
-            texture_direction: TEXTURE_DIRECTION,
+            tex_cos: TEXTURE_DIRECTION.cos(),
+            tex_sin: TEXTURE_DIRECTION.sin(),
         }
     }
 

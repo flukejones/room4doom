@@ -102,6 +102,8 @@ impl<'a> TextureSampler<'a> {
 
     #[inline(always)]
     fn sample(&'a self, u: f32, v: f32, colourmap: &[usize], pic_data: &'a PicData) -> &'a [u8; 4] {
+        #[cfg(feature = "hprof")]
+        profile!("texture sample");
         // The unsafe unchecked access gains 10fps or more. Depending on level.
         match self {
             TextureSampler::Vertical {
@@ -355,6 +357,7 @@ impl Software3D {
                 continue;
             }
 
+            const LIGHT_MOD: f32 = LIGHT_RANGE * LIGHT_SCALE;
             let mut i = 0;
             while i < intersection_count - 1 {
                 let x_start = self.x_intersections[i].max(0.0).ceil() as i32;
@@ -367,23 +370,23 @@ impl Software3D {
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
 
-                    let bright_scale = ((inv_z - LIGHT_MIN_Z) * LIGHT_RANGE) * LIGHT_SCALE;
-                    let colourmap = pic_data.vert_light_colourmap(brightness, bright_scale);
-                    #[cfg(feature = "debug_draw")]
-                    let mut color = texture_sampler.sample(u, v, colourmap, pic_data);
-                    #[cfg(not(feature = "debug_draw"))]
-                    let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                    if color[3] == 0 {
-                        interp_state.step_x();
-                        continue;
-                    }
-
                     let x = x as usize;
                     let y = y as usize;
                     if self
                         .depth_buffer
                         .test_and_set_depth_unchecked(x, y, 1.0 - inv_z)
                     {
+                        let bright_scale = (inv_z - LIGHT_MIN_Z) * LIGHT_MOD;
+                        let colourmap = pic_data.vert_light_colourmap(brightness, bright_scale);
+                        #[cfg(feature = "debug_draw")]
+                        let mut color = texture_sampler.sample(u, v, colourmap, pic_data);
+                        #[cfg(not(feature = "debug_draw"))]
+                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                        if color[3] == 0 {
+                            interp_state.step_x();
+                            continue;
+                        }
+
                         #[cfg(feature = "debug_draw")]
                         if outline_color.is_some() {
                             if self.is_edge_pixel(x as f32, y_float, vertices) {

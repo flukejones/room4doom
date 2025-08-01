@@ -445,10 +445,10 @@ impl Software3D {
                 let tex_height = texture.height as f32;
 
                 // TODO: get rid of this sin/cos by precalculate and store in surface
-                let polygon_dir = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
                 let v1 = original_vertices[0];
                 let pos_from_start = world_pos - v1;
-                let u = pos_from_start.x * polygon_dir.x + pos_from_start.y * polygon_dir.y;
+                let u =
+                    pos_from_start.x * texture_direction.x + pos_from_start.y * texture_direction.y;
 
                 let wall_bottom_z = original_vertices
                     .iter()
@@ -491,7 +491,8 @@ impl Software3D {
             }
             SurfaceKind::Horizontal {
                 texture,
-                texture_direction,
+                tex_cos,
+                tex_sin,
             } => {
                 let flat = pic_data.get_flat(*texture);
                 let tex_width = flat.width as f32;
@@ -502,10 +503,8 @@ impl Software3D {
                 let world_v = world_pos.y;
 
                 // Step 2: Apply texture direction transformation
-                let cos_angle = texture_direction.cos();
-                let sin_angle = texture_direction.sin();
-                let final_u = world_u * cos_angle - world_v * sin_angle;
-                let final_v = world_u * sin_angle + world_v * cos_angle;
+                let final_u = world_u * tex_cos - world_v * tex_sin;
+                let final_v = world_u * tex_sin + world_v * tex_cos;
 
                 (final_u / tex_width, final_v / tex_height)
             }
