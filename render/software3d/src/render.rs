@@ -101,30 +101,54 @@ impl<'a> TextureSampler<'a> {
     }
 
     #[inline(always)]
-    fn sample(&'a self, u: f32, v: f32, colourmap: &[usize], pic_data: &'a PicData) -> &'a [u8; 4] {
+    fn sample(
+        &'a self,
+        u: f32,
+        v: f32,
+        dudx: f32,
+        dvdx: f32,
+        dudy: f32,
+        dvdy: f32,
+        colourmap: &[usize],
+        pic_data: &'a PicData,
+    ) -> &'a [u8; 4] {
         #[cfg(feature = "hprof")]
         profile!("texture sample");
-        // The unsafe unchecked access gains 10fps or more. Depending on level.
         match self {
             TextureSampler::Vertical {
                 texture,
                 width,
                 height,
-                width_mask,
-                height_mask,
+                ..
             } => {
-                let tex_x = (u.fract().abs() * width).min(*width_mask);
-                let tex_y = (v.fract().abs() * height).min(*height_mask);
-                unsafe {
-                    let color_index = *texture.data.get_unchecked(
-                        tex_x as u32 as usize * texture.height + tex_y as u32 as usize,
-                    );
-                    // Skip blank pixels in masked textures
+                // Calculate mip level based on texture coordinate derivatives
+                let mip_level = self.calculate_mip_level(dudx, dvdx, dudy, dvdy, *width, *height);
+
+                if mip_level == 0 || mip_level > texture.mip_levels.len() {
+                    // Use base texture
+                    let tex_x = (u.abs() * width) as usize % texture.width;
+                    let tex_y = (v.abs() * height) as usize % texture.height;
+                    let color_index = texture.data[tex_x * texture.height + tex_y];
+
                     if color_index == usize::MAX {
                         return &[0, 0, 0, 0];
                     }
-                    let lit_color_index = colourmap.get_unchecked(color_index);
-                    pic_data.palette().get_unchecked(*lit_color_index)
+
+                    let lit_color_index = colourmap[color_index];
+                    &pic_data.palette()[lit_color_index]
+                } else {
+                    // Use mip level
+                    let mip = &texture.mip_levels[mip_level - 1];
+                    let tex_x = (u.abs() * mip.width as f32) as usize % mip.width;
+                    let tex_y = (v.abs() * mip.height as f32) as usize % mip.height;
+                    let color_index = mip.data[tex_x * mip.height + tex_y];
+
+                    if color_index == usize::MAX {
+                        return &[0, 0, 0, 0];
+                    }
+
+                    let lit_color_index = colourmap[color_index];
+                    &pic_data.palette()[lit_color_index]
                 }
             }
             TextureSampler::Horizontal {
@@ -132,16 +156,69 @@ impl<'a> TextureSampler<'a> {
                 width,
                 height,
             } => {
-                let tex_x = ((u.abs() * width) as i32 as usize) & 63;
-                let tex_y = ((v.abs() * height) as i32 as usize) & 63;
-                unsafe {
-                    let color_index = texture.data.get_unchecked(tex_x * texture.height + tex_y);
-                    let lit_color_index = colourmap.get_unchecked(*color_index);
-                    pic_data.palette().get_unchecked(*lit_color_index)
+                // Calculate mip level for floors
+                let mip_level = self.calculate_mip_level(dudx, dvdx, dudy, dvdy, *width, *height);
+
+                if mip_level == 0 || mip_level > texture.mip_levels.len() {
+                    // Use base texture with proper 64x64 masking
+                    let tex_x = ((u.abs() * width) as usize) & 63;
+                    let tex_y = ((v.abs() * height) as usize) & 63;
+                    let color_index = texture.data[tex_x * 64 + tex_y];
+                    let lit_color_index = colourmap[color_index];
+                    &pic_data.palette()[lit_color_index]
+                } else {
+                    // Use mip level
+                    let mip = &texture.mip_levels[mip_level - 1];
+                    let tex_x = (u.abs() * mip.width as f32) as usize % mip.width;
+                    let tex_y = (v.abs() * mip.height as f32) as usize % mip.height;
+                    let color_index = mip.data[tex_x * mip.height + tex_y];
+                    let lit_color_index = colourmap[color_index];
+                    &pic_data.palette()[lit_color_index]
                 }
             }
             TextureSampler::Sky => &[32, 32, 32, 255],
             TextureSampler::Untextured => &[32, 32, 32, 255],
+        }
+    }
+
+    #[inline(always)]
+    fn calculate_mip_level(
+        &self,
+        dudx: f32,
+        dvdx: f32,
+        dudy: f32,
+        dvdy: f32,
+        width: f32,
+        height: f32,
+    ) -> usize {
+        // Scale derivatives by texture size
+        let dudx_scaled = dudx * width;
+        let dvdx_scaled = dvdx * height;
+        let dudy_scaled = dudy * width;
+        let dvdy_scaled = dvdy * height;
+
+        // Calculate the maximum rate of change
+        let delta_max_sqr = (dudx_scaled * dudx_scaled + dvdx_scaled * dvdx_scaled)
+            .max(dudy_scaled * dudy_scaled + dvdy_scaled * dvdy_scaled);
+
+        // Be conservative with mip level selection
+        let min_dimension = width.min(height);
+        let aspect_ratio = width.max(height) / min_dimension;
+
+        // Higher threshold for narrow textures to prevent banding
+        let threshold = if aspect_ratio > 4.0 {
+            16.0 // Much higher threshold for narrow textures
+        } else if aspect_ratio > 2.0 {
+            8.0 // Higher threshold for rectangular textures
+        } else {
+            4.0 // Standard threshold for square textures
+        };
+
+        if delta_max_sqr <= threshold || min_dimension < 32.0 {
+            0 // Use base texture
+        } else {
+            let level = (delta_max_sqr.sqrt().log2() - 2.0).max(0.0).floor() as usize;
+            level.min(3) // Cap at reasonable mip level
         }
     }
 }
@@ -152,6 +229,8 @@ struct InterpolationState {
     current_inv_w: f32,
     tex_dx: Vec2,
     inv_w_dx: f32,
+    tex_dy: Vec2,
+    inv_w_dy: f32,
 }
 
 impl InterpolationState {
@@ -170,6 +249,20 @@ impl InterpolationState {
     fn step_x(&mut self) {
         self.current_tex += self.tex_dx;
         self.current_inv_w += self.inv_w_dx;
+    }
+
+    #[inline(always)]
+    fn get_derivatives(&self) -> (f32, f32, f32, f32) {
+        let w = self.current_inv_w;
+        let w_inv = 1.0 / w;
+
+        // Calculate texture coordinate derivatives
+        let dudx = (self.tex_dx.x * w - self.current_tex.x * self.inv_w_dx) * w_inv * w_inv;
+        let dvdx = (self.tex_dx.y * w - self.current_tex.y * self.inv_w_dx) * w_inv * w_inv;
+        let dudy = (self.tex_dy.x * w - self.current_tex.x * self.inv_w_dy) * w_inv * w_inv;
+        let dvdy = (self.tex_dy.y * w - self.current_tex.y * self.inv_w_dy) * w_inv * w_inv;
+
+        (dudx, dvdx, dudy, dvdy)
     }
 }
 
@@ -260,7 +353,7 @@ impl TriangleInterpolator {
         let interp_tex = self.tex0 * a + self.tex1 * b + self.tex2 * c;
         let interp_inv_w = self.inv_w0 * a + self.inv_w1 * b + self.inv_w2 * c;
 
-        // Calculate per-pixel increments for texture coordinates
+        // Calculate per-pixel increments for X direction
         let tex_dx = self.tex0 * self.da_dx
             + self.tex1 * self.db_dx
             + self.tex2 * (-self.da_dx - self.db_dx);
@@ -268,11 +361,20 @@ impl TriangleInterpolator {
             + self.inv_w1 * self.db_dx
             + self.inv_w2 * (-self.da_dx - self.db_dx);
 
+        // Calculate per-pixel increments for Y direction
+        let da_dy = (self.v2.x - self.v1.x) / self.denom;
+        let db_dy = (self.v0.x - self.v2.x) / self.denom;
+
+        let tex_dy = self.tex0 * da_dy + self.tex1 * db_dy + self.tex2 * (-da_dy - db_dy);
+        let inv_w_dy = self.inv_w0 * da_dy + self.inv_w1 * db_dy + self.inv_w2 * (-da_dy - db_dy);
+
         InterpolationState {
             current_tex: interp_tex,
             current_inv_w: interp_inv_w,
             tex_dx,
             inv_w_dx,
+            tex_dy,
+            inv_w_dy,
         }
     }
 }
@@ -361,7 +463,7 @@ impl Software3D {
             const LIGHT_MOD: f32 = LIGHT_RANGE * LIGHT_SCALE;
             let mut i = 0;
             while i < intersection_count - 1 {
-                let x_start = self.x_intersections[i].max(0.0).ceil() as u32 as usize;
+                let x_start = self.x_intersections[i].max(0.1).ceil() as u32 as usize;
                 let x_end =
                     self.x_intersections[i + 1].min(width_f32 - 1.0).floor() as u32 as usize;
 
@@ -372,32 +474,36 @@ impl Software3D {
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
 
-                    let y = y_float as u32 as usize;
-                    if self
-                        .depth_buffer
-                        .test_and_set_depth_unchecked(x, y, 1.0 - inv_z)
-                    {
-                        let bright_scale = (inv_z - LIGHT_MIN_Z) * LIGHT_MOD;
-                        let colourmap = pic_data.vert_light_colourmap(brightness, bright_scale);
-                        #[cfg(feature = "debug_draw")]
-                        let mut color = texture_sampler.sample(u, v, colourmap, pic_data);
-                        #[cfg(not(feature = "debug_draw"))]
-                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                        if color[3] == 0 {
-                            interp_state.step_x();
-                            continue;
-                        }
+                    let bright_scale = (inv_z - LIGHT_MIN_Z) * LIGHT_MOD;
+                    let colourmap = pic_data.vert_light_colourmap(brightness, bright_scale);
+                    // let colourmap = pic_data.get_brightness_colormap(brightness as u8);
+                    let (dudx, dvdx, dudy, dvdy) = interp_state.get_derivatives();
+                    #[cfg(feature = "debug_draw")]
+                    let mut color =
+                        texture_sampler.sample(u, v, dudx, dvdx, dudy, dvdy, colourmap, pic_data);
+                    #[cfg(not(feature = "debug_draw"))]
+                    let color =
+                        texture_sampler.sample(u, v, dudx, dvdx, dudy, dvdy, colourmap, pic_data);
+                    if color[3] == 0 {
+                        interp_state.step_x();
+                        continue;
+                    }
 
+                    if self.depth_buffer.test_and_set_depth_unchecked(
+                        x,
+                        y_float as usize,
+                        1.0 - inv_z,
+                    ) {
                         #[cfg(feature = "debug_draw")]
                         if outline_color.is_some() {
                             if self.is_edge_pixel(x as f32, y_float, vertices) {
                                 rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
                             } else {
-                                rend.set_pixel(x, y, &color);
+                                rend.set_pixel(x, y_float as usize, &color);
                             }
                         }
                         #[cfg(not(feature = "debug_draw"))]
-                        rend.set_pixel(x, y, &color);
+                        rend.set_pixel(x, y_float as usize, &color);
                     }
 
                     interp_state.step_x();
