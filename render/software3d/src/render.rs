@@ -323,11 +323,11 @@ impl Software3D {
         let y_start = y_min as i32;
         let y_end = y_max as i32;
 
+        let mut y_float = y_start as f32;
         // Main rendering loops
-        for y in y_start..=y_end {
+        for _ in y_start..=y_end {
             #[cfg(feature = "hprof")]
             profile!("draw_textured_polygon Y loop");
-            let y_float = y as f32;
 
             let mut intersection_count = 0;
             for i in 0..vertex_count {
@@ -354,14 +354,16 @@ impl Software3D {
             }
 
             if intersection_count < 2 {
+                y_float += 1.0;
                 continue;
             }
 
             const LIGHT_MOD: f32 = LIGHT_RANGE * LIGHT_SCALE;
             let mut i = 0;
             while i < intersection_count - 1 {
-                let x_start = self.x_intersections[i].max(0.0).ceil() as i32;
-                let x_end = self.x_intersections[i + 1].min(width_f32 - 1.0).floor() as i32;
+                let x_start = self.x_intersections[i].max(0.0).ceil() as u32 as usize;
+                let x_end =
+                    self.x_intersections[i + 1].min(width_f32 - 1.0).floor() as u32 as usize;
 
                 let mut interp_state = interpolator.init_scanline(x_start as f32, y_float);
 
@@ -370,8 +372,7 @@ impl Software3D {
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
 
-                    let x = x as usize;
-                    let y = y as usize;
+                    let y = y_float as u32 as usize;
                     if self
                         .depth_buffer
                         .test_and_set_depth_unchecked(x, y, 1.0 - inv_z)
@@ -403,6 +404,7 @@ impl Software3D {
                 }
                 i += 1;
             }
+            y_float += 1.0;
         }
 
         // Draw polygon normals after the main polygon rendering (if enabled)
@@ -533,11 +535,11 @@ impl Software3D {
         let depth_step = (end_depth - start_depth) / steps as f32;
 
         for i in 0..=steps {
-            let x = (start.x + x_step * i as f32) as usize;
-            let y = (start.y + y_step * i as f32) as usize;
+            let x = (start.x + x_step * i as f32) as u32 as usize;
+            let y = (start.y + y_step * i as f32) as u32 as usize;
             let depth = start_depth + depth_step * i as f32;
 
-            if x < self.width as usize && y < self.height as usize {
+            if x < self.width as u32 as usize && y < self.height as u32 as usize {
                 if self.depth_buffer.test_and_set_depth_unchecked(x, y, depth) {
                     rend.set_pixel(x, y, color);
                 }
