@@ -10,7 +10,7 @@ mod segs;
 mod things;
 mod utilities;
 
-pub use bsp::SoftwareRenderer;
+pub use bsp::Software25D;
 
 /// We store most of what is needed for rendering in various functions here to
 /// avoid having to pass too many things in args through multiple function

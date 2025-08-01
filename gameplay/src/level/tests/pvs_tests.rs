@@ -2,7 +2,6 @@
 mod pvs_tests {
     use crate::PicData;
     use crate::level::map_data::MapData;
-    use crate::level::pvs::PVS;
     use std::path::{Path, PathBuf};
 
     #[test]

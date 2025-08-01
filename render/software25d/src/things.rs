@@ -9,7 +9,7 @@ use gameplay::{
 use glam::Vec2;
 use render_trait::DrawBuffer;
 
-use super::bsp::SoftwareRenderer;
+use super::bsp::Software25D;
 use super::defs::DrawSeg;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
@@ -82,7 +82,7 @@ impl VisSprite {
     }
 }
 
-impl SoftwareRenderer {
+impl Software25D {
     pub(crate) fn add_sprites<'a>(
         &'a mut self,
         player: &Player,

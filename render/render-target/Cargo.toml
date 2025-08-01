@@ -8,7 +8,7 @@ build = "../../build.rs"
 
 [features]
 safety_check = []
-debug_draw = ["software25d/debug_draw", "software3d/debug_draw"]
+debug_draw = ["software3d/debug_draw"]
 hprof = ["software25d/hprof", "software3d/hprof"]
 trig_lut = ["software25d/trig_lut"]
 

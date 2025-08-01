@@ -1,46 +1,38 @@
-//! A generic `PixelBuf` that can be drawn to and is blitted to screen by the
-//! game, and a generic `PlayRenderer` for rendering the players view of the
-//! level.
-
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
-mod buffers;
 pub mod wipe;
 
-use buffers::DrawBuffer;
 use gameplay::{Level, PicData, Player};
 use render_trait::{BufferSize, GameRenderer};
-use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::rect::Rect;
+use sdl2::render::{Canvas, TextureCreator};
+use sdl2::video::{Window, WindowContext};
 use software3d::Software3D;
-use software25d::SoftwareRenderer;
+use software25d::Software25D;
 use wipe::Wipe;
-
-use crate::buffers::SdlBuffer;
 
 /// channels should match pixel format
 const SOFT_PIXEL_CHANNELS: usize = 4;
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
-pub enum RenderApiType {
+pub enum RenderType {
     /// Purely software. Typically used with blitting a framebuffer maintained
     /// in memory directly to screen using SDL2
     #[default]
     Software,
     /// Fully 3D software rendering.
     Software3D,
-    /// OpenGL
-    OpenGL,
-    /// Vulkan
-    Vulkan,
 }
 
 /// A structure holding display data
 pub struct RenderTarget {
-    software: SoftwareRenderer,
+    /// Classic 2.5D rendering, draws to a framebuffer
+    software: Software25D,
+    /// Full 3D software rendering, draws to a framebuffer
     software3d: Software3D,
     framebuffer: FrameBuffer,
+    api_type: RenderType,
 }
 
 impl RenderTarget {
@@ -48,53 +40,37 @@ impl RenderTarget {
         double: bool,
         debug: bool,
         canvas: Canvas<Window>,
-        render_type: RenderApiType,
+        render_type: RenderType,
     ) -> RenderTarget {
         let render_target = match render_type {
-            RenderApiType::Software => {
+            RenderType::Software => {
                 let mut r = RenderTarget::build_soft(double, debug, canvas);
-                let width = r.software.buf_width;
-                let height = r.software.buf_height;
-                r.framebuffer.software = Some(SdlBuffer::new(
-                    &r.framebuffer.canvas,
-                    width as u32,
-                    height as u32,
-                ));
-                r.framebuffer.api_type = RenderApiType::Software;
+                r.api_type = RenderType::Software;
                 r
             }
-            RenderApiType::Software3D => {
+            RenderType::Software3D => {
                 let mut r = RenderTarget::build_soft(double, debug, canvas);
-                let width = r.software.buf_width;
-                let height = r.software.buf_height;
                 r.software3d = Software3D::new(
-                    width as f32,
-                    height as f32,
+                    r.software.buf_width as f32,
+                    r.software.buf_height as f32,
                     90.0_f32.to_radians(), // TODO: get from config
                 );
-                r.framebuffer.software = Some(SdlBuffer::new(
-                    &r.framebuffer.canvas,
-                    width as u32,
-                    height as u32,
-                ));
-                r.framebuffer.api_type = RenderApiType::Software3D;
+                r.api_type = RenderType::Software3D;
                 r
             }
-            RenderApiType::OpenGL => todo!(),
-            RenderApiType::Vulkan => todo!(),
         };
 
         render_target
     }
 
-    pub fn resize(self, double: bool, debug: bool, render_type: RenderApiType) -> Self {
+    pub fn resize(self, double: bool, debug: bool, render_type: RenderType) -> Self {
         let canvas = self.framebuffer.canvas;
         Self::new(double, debug, canvas, render_type)
     }
 
     fn build_soft(double: bool, debug: bool, canvas: Canvas<Window>) -> Self {
         let size = canvas.window().size();
-        let soft = SoftwareRenderer::new(
+        let soft = Software25D::new(
             90f32.to_radians(),
             size.0 as f32,
             size.1 as f32,
@@ -104,13 +80,25 @@ impl RenderTarget {
         let width = soft.buf_width;
         let height = soft.buf_height;
 
+        let wsize = canvas.window().drawable_size();
+        let texture_creator = canvas.texture_creator();
+        let texture = texture_creator
+            .create_texture_streaming(
+                Some(sdl2::pixels::PixelFormatEnum::RGBA32),
+                width as u32,
+                height as u32,
+            )
+            .unwrap();
+
         Self {
             framebuffer: FrameBuffer {
                 wipe: Wipe::new(width as i32, height as i32),
-                api_type: RenderApiType::Software3D,
                 buffer1: DrawBuffer::new(width, height),
                 buffer2: DrawBuffer::new(width, height),
-                software: None,
+                // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
+                crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
+                _tc: texture_creator,
+                texture,
                 canvas,
             },
             software: soft,
@@ -119,6 +107,7 @@ impl RenderTarget {
                 height as f32,
                 90.0_f32.to_radians(), // TODO: get from config
             ),
+            api_type: RenderType::Software3D,
         }
     }
 }
@@ -126,18 +115,13 @@ impl RenderTarget {
 impl GameRenderer for RenderTarget {
     fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData) {
         let r = &mut self.framebuffer;
-        match r.api_type {
-            RenderApiType::Software => self.software.render_player_view(player, level, pic_data, r),
-            RenderApiType::Software3D => {
-                self.software3d
-                    .render_player_view(player, level, pic_data, r);
-            }
-            RenderApiType::OpenGL => todo!(),
-            RenderApiType::Vulkan => todo!(),
+        match self.api_type {
+            RenderType::Software => self.software.draw_view(player, level, pic_data, r),
+            RenderType::Software3D => self.software3d.draw_view(player, level, pic_data, r),
         }
     }
 
-    fn draw_buffer(&mut self) -> &mut impl render_trait::DrawBuffer {
+    fn frame_buffer(&mut self) -> &mut impl render_trait::DrawBuffer {
         &mut self.framebuffer
     }
 
@@ -159,16 +143,74 @@ impl GameRenderer for RenderTarget {
     }
 }
 
+struct DrawBuffer {
+    size: BufferSize,
+    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
+    buffer: Vec<u8>,
+    stride: usize,
+}
+
+impl DrawBuffer {
+    fn new(width: usize, height: usize) -> Self {
+        Self {
+            size: BufferSize::new(width, height),
+            buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS + SOFT_PIXEL_CHANNELS],
+            stride: width * SOFT_PIXEL_CHANNELS,
+        }
+    }
+}
+
+impl DrawBuffer {
+    /// Read the colour of a single pixel at X|Y
+    #[inline]
+    pub fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
+        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
+        let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
+        let end = pos + SOFT_PIXEL_CHANNELS;
+        slice.copy_from_slice(&self.buffer[pos..end]);
+        slice
+    }
+
+    #[inline(always)]
+    pub fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
+        #[cfg(feature = "hprof")]
+        profile!("set_pixel");
+        // Shitty safeguard. Need to find actual cause of fail
+        #[cfg(feature = "safety_check")]
+        if x >= self.size.width_usize() || y >= self.size.height_usize() {
+            dbg!(x, self.size.width_usize(), y, self.size.height_usize());
+            panic!();
+        }
+
+        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
+        #[cfg(not(feature = "safety_check"))]
+        unsafe {
+            self.buffer
+                .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
+                .copy_from_slice(colour);
+        }
+        #[cfg(feature = "safety_check")]
+        self.buffer[pos..pos + SOFT_PIXEL_CHANNELS].copy_from_slice(colour);
+    }
+
+    #[inline(always)]
+    pub fn pitch(&self) -> usize {
+        self.size.width_usize() * SOFT_PIXEL_CHANNELS
+    }
+
+    #[inline(always)]
+    pub fn get_buf_index(&self, x: usize, y: usize) -> usize {
+        y * self.size.width_usize() * SOFT_PIXEL_CHANNELS + x * SOFT_PIXEL_CHANNELS
+    }
+}
+
 pub struct FrameBuffer {
     wipe: Wipe,
-    api_type: RenderApiType,
-    /// Software rendering draws to the software buffer. If OpenGL or Vulkan are
-    /// used then the menus and HUD are drawn to this and blitted on top of the
-    /// player view
     buffer1: DrawBuffer,
     buffer2: DrawBuffer,
-    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
-    software: Option<SdlBuffer>,
+    crop_rect: Rect,
+    _tc: TextureCreator<WindowContext>,
+    texture: sdl2::render::Texture,
     canvas: Canvas<Window>,
 }
 
@@ -179,20 +221,13 @@ impl FrameBuffer {
 
     /// Throw buffer1 at the screen
     fn blit(&mut self) {
-        match self.api_type {
-            RenderApiType::Software | RenderApiType::Software3D => {
-                let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
-                buf.texture
-                    .update(None, &self.buffer1.buffer, self.buffer1.stride)
-                    .unwrap();
-                self.canvas
-                    .copy(&buf.texture, None, Some(buf.crop_rect))
-                    .unwrap();
-                self.canvas.present();
-            }
-            RenderApiType::OpenGL => todo!(),
-            RenderApiType::Vulkan => todo!(),
-        }
+        self.texture
+            .update(None, &self.buffer1.buffer, self.buffer1.stride)
+            .unwrap();
+        self.canvas
+            .copy(&self.texture, None, Some(self.crop_rect))
+            .unwrap();
+        self.canvas.present();
     }
 
     /// Must do a blit after to show the results
@@ -208,17 +243,17 @@ impl FrameBuffer {
 }
 
 impl render_trait::DrawBuffer for FrameBuffer {
+    /// Really only used by seg drawing in plain renderer to draw chunks
+    fn buf_mut(&mut self) -> &mut [u8] {
+        &mut self.buffer2.buffer
+    }
+
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
         self.buffer2.get_buf_index(x, y)
     }
 
     fn pitch(&self) -> usize {
         self.buffer2.pitch()
-    }
-
-    /// Really only used by seg drawing in plain renderer to draw chunks
-    fn buf_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer2.buffer
     }
 
     fn size(&self) -> &BufferSize {
@@ -231,16 +266,5 @@ impl render_trait::DrawBuffer for FrameBuffer {
 
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         self.buffer2.read_pixel(x, y)
-    }
-
-    fn debug_blit_draw_buffer(&mut self) {
-        let buf = unsafe { self.software.as_mut().unwrap_unchecked() };
-        buf.texture
-            .update(None, &self.buffer2.buffer, self.buffer2.stride)
-            .unwrap();
-        self.canvas
-            .copy(&buf.texture, None, Some(buf.crop_rect))
-            .unwrap();
-        self.canvas.present();
     }
 }

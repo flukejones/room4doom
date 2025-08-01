@@ -8,10 +8,6 @@ use glam::Vec2;
 use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::ptr::NonNull;
-#[cfg(feature = "debug_draw")]
-use std::thread::sleep;
-#[cfg(feature = "debug_draw")]
-use std::time::Duration;
 
 use crate::utilities::{point_to_dist, scale_from_view_angle};
 
@@ -466,13 +462,6 @@ impl SegRender {
 
         self.render_seg_loop(seg, player, mobj, rdata, pic_data, rend);
 
-        #[cfg(feature = "debug_seg_clip")]
-        {
-            self.draw_debug_clipping(rdata, rend);
-            rend.debug_blit_draw_buffer();
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-
         let ds_p = &mut rdata.drawsegs[rdata.ds_p];
         if (ds_p.silhouette & SIL_TOP != 0 || self.maskedtexture) && ds_p.sprtopclip.is_none() {
             for (i, n) in rdata
@@ -598,11 +587,6 @@ impl SegRender {
                             pic_data,
                             rend,
                         );
-                        #[cfg(feature = "debug_draw")]
-                        {
-                            rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(1));
-                        }
                     } else {
                         self.draw_flat_column(
                             ceil_tex,
@@ -617,11 +601,6 @@ impl SegRender {
                             pic_data,
                             rend,
                         );
-                        #[cfg(feature = "debug_draw")]
-                        {
-                            rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(1));
-                        }
                     }
                     // Must clip walls to floors if drawn
                     rdata.portal_clip.ceilingclip[clip_index] = bottom;
@@ -655,11 +634,6 @@ impl SegRender {
                         pic_data,
                         rend,
                     );
-                    #[cfg(feature = "debug_draw")]
-                    {
-                        rend.debug_blit_draw_buffer();
-                        sleep(Duration::from_millis(1));
-                    }
                 }
             }
 
@@ -692,11 +666,6 @@ impl SegRender {
                             pic_data,
                             rend,
                         );
-                        #[cfg(feature = "debug_draw")]
-                        {
-                            rend.debug_blit_draw_buffer();
-                            sleep(Duration::from_millis(1));
-                        }
                     };
                     rdata.portal_clip.ceilingclip[clip_index] = player.viewheight;
                     rdata.portal_clip.floorclip[clip_index] = -1.0;
@@ -722,11 +691,6 @@ impl SegRender {
                                 pic_data,
                                 rend,
                             );
-                            #[cfg(feature = "debug_draw")]
-                            {
-                                rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(1));
-                            }
                         }
                         rdata.portal_clip.ceilingclip[clip_index] = mid;
                     } else {
@@ -756,11 +720,6 @@ impl SegRender {
                                 pic_data,
                                 rend,
                             );
-                            #[cfg(feature = "debug_draw")]
-                            {
-                                rend.debug_blit_draw_buffer();
-                                sleep(Duration::from_millis(1));
-                            }
                             rdata.portal_clip.floorclip[clip_index] = mid;
                         }
                     } else {

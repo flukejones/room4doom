@@ -514,7 +514,7 @@ impl Software3D {
         }
     }
 
-    pub fn render_player_view(
+    pub fn draw_view(
         &mut self,
         player: &Player,
         level: &mut Level,

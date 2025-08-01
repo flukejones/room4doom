@@ -12,7 +12,7 @@ pub trait GameRenderer {
     fn flip(&mut self);
 
     /// Get the framebuffer used for direct draw access
-    fn draw_buffer(&mut self) -> &mut impl DrawBuffer;
+    fn frame_buffer(&mut self) -> &mut impl DrawBuffer;
 
     // Screen effects
     fn do_wipe(&mut self) -> bool;
@@ -28,9 +28,9 @@ pub trait DrawBuffer {
     fn get_buf_index(&self, x: usize, y: usize) -> usize;
     fn pitch(&self) -> usize;
     fn buf_mut(&mut self) -> &mut [u8]; // TODO: remove this
-    fn debug_blit_draw_buffer(&mut self);
 }
 
+/// Exists mostly to hold a bunch of pre-computed values for a very fast 2.5D rendering
 #[derive(Clone, Copy)]
 pub struct BufferSize {
     hi_res: bool,

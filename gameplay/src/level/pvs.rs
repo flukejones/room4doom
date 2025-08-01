@@ -14,7 +14,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 // Ray casting constants
 const MIN_RAY_LENGTH: f32 = 0.1;
 const RAY_ENDPOINT_TOLERANCE: f32 = 0.1;
-const MAX_DISTANCE: f32 = 4096.0;
 
 /// Compact bit-packed Potentially Visible Set data structure
 pub struct CompactPVS {
@@ -817,24 +816,6 @@ impl PVS {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MapPtr;
-    use crate::level::map_defs::*;
-
-    fn create_test_sector() -> Sector {
-        Sector::default()
-    }
-
-    fn create_test_sidedef() -> crate::level::map_defs::SideDef {
-        let mut sector = create_test_sector();
-        crate::level::map_defs::SideDef {
-            textureoffset: 0.0,
-            rowoffset: 0.0,
-            toptexture: None,
-            bottomtexture: None,
-            midtexture: None,
-            sector: MapPtr::new(&mut sector),
-        }
-    }
 
     #[test]
     fn test_compact_pvs() {

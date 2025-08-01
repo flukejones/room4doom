@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use gameplay::m_random;
 
-use crate::buffers::DrawBuffer;
+use crate::DrawBuffer;
 
 pub(crate) struct Wipe {
     y: Vec<i32>,

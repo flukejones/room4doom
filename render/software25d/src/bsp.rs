@@ -51,7 +51,7 @@ const IS_SSECTOR_MASK: u32 = 0x80000000;
 ///   *one* entry through ds_p it then inserts/incs pointer to next drawseg in
 ///   the array when finished
 /// - R_DrawPlanes, r_plane.c, checks only for overflow of drawsegs
-pub struct SoftwareRenderer {
+pub struct Software25D {
     /// index in to self.solidsegs
     new_end: usize,
     solidsegs: [ClipRange; MAX_SEGS],
@@ -77,7 +77,7 @@ pub struct SoftwareRenderer {
     pub buf_height: usize,
 }
 
-impl SoftwareRenderer {
+impl Software25D {
     fn find_player_subsector_id(map: &MapData, player_sector: &SubSector) -> Option<usize> {
         let subsectors = map.subsectors();
         for (i, subsector) in subsectors.iter().enumerate() {
@@ -88,7 +88,7 @@ impl SoftwareRenderer {
         None
     }
 
-    pub fn render_player_view(
+    pub fn draw_view(
         &mut self,
         player: &Player,
         level: &Level,
@@ -133,7 +133,7 @@ impl SoftwareRenderer {
         // TODO: netupdate again
     }
 
-    pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> SoftwareRenderer {
+    pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> Software25D {
         let screen_ratio = width / height;
         let mut height = 200.0;
 
@@ -302,12 +302,7 @@ impl SoftwareRenderer {
         profile!("draw_subsector");
         let front_sector = &subsect.sector;
 
-        self.add_sprites(
-            player,
-            front_sector,
-            rend.size().width() as u32,
-            pic_data,
-        );
+        self.add_sprites(player, front_sector, rend.size().width() as u32, pic_data);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
             let seg = &map.segments()[i as usize];

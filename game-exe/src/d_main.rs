@@ -264,11 +264,11 @@ fn d_display<R>(
     match game.gamestate {
         GameState::Level => {
             // TODO: Automap draw
-            machines.statusbar.draw(render_target.draw_buffer());
-            machines.hud_msgs.draw(render_target.draw_buffer());
+            machines.statusbar.draw(render_target.frame_buffer());
+            machines.hud_msgs.draw(render_target.frame_buffer());
         }
-        GameState::Intermission => machines.intermission.draw(render_target.draw_buffer()),
-        GameState::Finale => machines.finale.draw(render_target.draw_buffer()),
+        GameState::Intermission => machines.intermission.draw(render_target.frame_buffer()),
+        GameState::Finale => machines.finale.draw(render_target.frame_buffer()),
         GameState::DemoScreen => {
             if game.page.cache.name != game.page.name {
                 let lump = game
@@ -277,7 +277,7 @@ fn d_display<R>(
                     .expect("TITLEPIC missing");
                 game.page.cache = WadPatch::from_lump(lump);
             }
-            page_drawer(game, render_target.draw_buffer());
+            page_drawer(game, render_target.frame_buffer());
         }
         _ => {}
     }
@@ -288,9 +288,9 @@ fn d_display<R>(
         }
         // menu is drawn on top of wipes
         render_target.flip();
-        menu.draw(render_target.draw_buffer());
+        menu.draw(render_target.frame_buffer());
     } else {
-        menu.draw(render_target.draw_buffer());
+        menu.draw(render_target.frame_buffer());
     }
     render_target.flip_and_present();
 }

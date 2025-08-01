@@ -1,5 +1,5 @@
 use crate::SubsystemTrait;
-use render_trait::{DrawBuffer, GameRenderer};
+use render_trait::DrawBuffer;
 use std::mem::MaybeUninit;
 use wad::WadData;
 use wad::types::{WAD_PATCH, WadPatch};

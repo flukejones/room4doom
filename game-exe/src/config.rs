@@ -33,10 +33,6 @@ pub enum RenderType {
     Software,
     /// Full 3D software rendering
     Software3D,
-    /// OpenGL
-    OpenGL,
-    /// Vulkan
-    Vulkan,
 }
 
 impl FromStr for RenderType {
@@ -54,13 +50,11 @@ impl FromStr for RenderType {
     }
 }
 
-impl Into<render_target::RenderApiType> for RenderType {
-    fn into(self) -> render_target::RenderApiType {
+impl Into<render_target::RenderType> for RenderType {
+    fn into(self) -> render_target::RenderType {
         match self {
-            RenderType::Software => render_target::RenderApiType::Software,
-            RenderType::Software3D => render_target::RenderApiType::Software3D,
-            RenderType::OpenGL => render_target::RenderApiType::OpenGL,
-            RenderType::Vulkan => render_target::RenderApiType::Vulkan,
+            RenderType::Software => render_target::RenderType::Software,
+            RenderType::Software3D => render_target::RenderType::Software3D,
         }
     }
 }

@@ -2,7 +2,7 @@
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{MovementType, SurfaceKind, WallType};
+    use crate::{MovementType, SurfaceKind};
 
     #[test]
     fn test_door_vertex_sharing() {
@@ -112,7 +112,7 @@ mod tests {
         let mut wall_polygon_vertices = HashMap::new();
         for (&linedef_id, segments) in &tracked_linedefs {
             if [148, 150, 151, 152, 153].contains(&linedef_id) {
-                for &(seg_idx, segment) in segments {
+                for &(seg_idx, _) in segments {
                     // Find subsector containing this segment
                     let subsectors = &map.subsectors;
                     for (subsector_id, subsector) in subsectors.iter().enumerate() {
@@ -264,7 +264,7 @@ mod tests {
 
         // Check that floor vertices did NOT move
         println!("\nChecking floor stability:");
-        for ((subsector_id, floor_poly_idx), original_vertices) in &floor_polygon_vertices {
+        for ((subsector_id, floor_poly_idx), _) in &floor_polygon_vertices {
             if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id) {
                 if let Some(polygon) = leaf.polygons.get(*floor_poly_idx) {
                     let mut floor_moved = false;
@@ -293,7 +293,7 @@ mod tests {
         println!(
             "\nChecking wall movement (148 should shrink, 150,151 should stay, 152,153 should move):"
         );
-        for ((linedef_id, subsector_id, poly_idx), original_vertices) in &wall_polygon_vertices {
+        for ((linedef_id, subsector_id, poly_idx), _) in &wall_polygon_vertices {
             if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id) {
                 if let Some(polygon) = leaf.polygons.get(*poly_idx) {
                     let should_move = [148, 152, 153].contains(linedef_id);
