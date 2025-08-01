@@ -3,6 +3,17 @@ use gameplay::{Level, PicData, Player};
 /// channels should match pixel format
 pub const SOFT_PIXEL_CHANNELS: usize = 4;
 
+pub trait PlayRender {
+    // Core 3D rendering
+    fn render_player_view(
+        &mut self,
+        player: &Player,
+        level: &Level,
+        pic_data: &mut PicData,
+        buffer: &mut impl DrawBuffer,
+    );
+}
+
 pub trait GameRenderer {
     // Core 3D rendering
     fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData);

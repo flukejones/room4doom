@@ -5,6 +5,7 @@ pub mod wipe;
 
 use gameplay::{Level, PicData, Player};
 use render_trait::{BufferSize, GameRenderer};
+use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
@@ -25,14 +26,18 @@ pub enum RenderType {
     Software3D,
 }
 
+pub enum Renderer {
+    /// Purely software. Typically used with blitting a framebuffer maintained
+    /// in memory directly to screen using SDL2
+    Software(Software25D),
+    /// Fully 3D software rendering.
+    Software3D(Software3D),
+}
+
 /// A structure holding display data
 pub struct RenderTarget {
-    /// Classic 2.5D rendering, draws to a framebuffer
-    software: Software25D,
-    /// Full 3D software rendering, draws to a framebuffer
-    software3d: Software3D,
+    renderer: Renderer,
     framebuffer: FrameBuffer,
-    api_type: RenderType,
 }
 
 impl RenderTarget {
@@ -42,82 +47,61 @@ impl RenderTarget {
         canvas: Canvas<Window>,
         render_type: RenderType,
     ) -> RenderTarget {
-        let render_target = match render_type {
-            RenderType::Software => {
-                let mut r = RenderTarget::build_soft(double, debug, canvas);
-                r.api_type = RenderType::Software;
-                r
-            }
-            RenderType::Software3D => {
-                let mut r = RenderTarget::build_soft(double, debug, canvas);
-                r.software3d = Software3D::new(
-                    r.software.buf_width as f32,
-                    r.software.buf_height as f32,
-                    90.0_f32.to_radians(), // TODO: get from config
-                );
-                r.api_type = RenderType::Software3D;
-                r
-            }
-        };
-
-        render_target
-    }
-
-    pub fn resize(self, double: bool, debug: bool, render_type: RenderType) -> Self {
-        let canvas = self.framebuffer.canvas;
-        Self::new(double, debug, canvas, render_type)
-    }
-
-    fn build_soft(double: bool, debug: bool, canvas: Canvas<Window>) -> Self {
         let size = canvas.window().size();
-        let soft = Software25D::new(
-            90f32.to_radians(),
-            size.0 as f32,
-            size.1 as f32,
-            double,
-            debug,
-        );
-        let width = soft.buf_width;
-        let height = soft.buf_height;
+        let aspect_ratio = size.0 as f32 / size.1 as f32;
+        let buf_height = if double { 400 } else { 200 };
+        let buf_width = (buf_height as f32 * aspect_ratio) as u32;
+
+        // let (buf_width, buf_height) = if double { (640, 400) } else { (320, 200) };
 
         let wsize = canvas.window().drawable_size();
         let texture_creator = canvas.texture_creator();
         let texture = texture_creator
-            .create_texture_streaming(
-                Some(sdl2::pixels::PixelFormatEnum::RGBA32),
-                width as u32,
-                height as u32,
-            )
+            .create_texture_streaming(Some(PixelFormatEnum::RGBA32), buf_width, buf_height)
             .unwrap();
 
         Self {
             framebuffer: FrameBuffer {
-                wipe: Wipe::new(width as i32, height as i32),
-                buffer1: DrawBuffer::new(width, height),
-                buffer2: DrawBuffer::new(width, height),
+                wipe: Wipe::new(buf_width as i32, buf_height as i32),
+                buffer1: DrawBuffer::new(buf_width as usize, buf_height as usize),
+                buffer2: DrawBuffer::new(buf_width as usize, buf_height as usize),
                 // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
                 crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
                 _tc: texture_creator,
                 texture,
                 canvas,
             },
-            software: soft,
-            software3d: Software3D::new(
-                width as f32,
-                height as f32,
-                90.0_f32.to_radians(), // TODO: get from config
-            ),
-            api_type: RenderType::Software3D,
+            renderer: match render_type {
+                RenderType::Software => Renderer::Software(Software25D::new(
+                    90f32.to_radians(),
+                    buf_width as f32,
+                    buf_height as f32,
+                    double,
+                    debug,
+                )),
+                RenderType::Software3D => {
+                    Renderer::Software3D(Software3D::new(
+                        buf_width as f32,
+                        buf_height as f32,
+                        90.0_f32.to_radians(), // TODO: get from config
+                    ))
+                }
+            },
         }
+    }
+
+    pub fn resize(self, double: bool, debug: bool, render_type: RenderType) -> Self {
+        let canvas = self.framebuffer.canvas;
+        Self::new(double, debug, canvas, render_type)
     }
 }
 
 impl GameRenderer for RenderTarget {
     fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData) {
-        let r = &mut self.framebuffer;
-        match self.api_type {
-            RenderType::Software => self.software.draw_view(player, level, pic_data, r),
-            RenderType::Software3D => self.software3d.draw_view(player, level, pic_data, r),
+        let f = &mut self.framebuffer;
+        match &mut self.renderer {
+            Renderer::Software(r) => r.draw_view(player, level, pic_data, f),
+            Renderer::Software3D(r) => r.draw_view(player, level, pic_data, f),
         }
     }
 

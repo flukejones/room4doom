@@ -78,16 +78,6 @@ pub struct Software25D {
 }
 
 impl Software25D {
-    fn find_player_subsector_id(map: &MapData, player_sector: &SubSector) -> Option<usize> {
-        let subsectors = map.subsectors();
-        for (i, subsector) in subsectors.iter().enumerate() {
-            if std::ptr::eq(subsector, player_sector) {
-                return Some(i);
-            }
-        }
-        None
-    }
-
     pub fn draw_view(
         &mut self,
         player: &Player,
@@ -131,6 +121,16 @@ impl Software25D {
         profile!("draw_masked");
         self.draw_masked(player, pic_data, rend);
         // TODO: netupdate again
+    }
+
+    fn find_player_subsector_id(map: &MapData, player_sector: &SubSector) -> Option<usize> {
+        let subsectors = map.subsectors();
+        for (i, subsector) in subsectors.iter().enumerate() {
+            if std::ptr::eq(subsector, player_sector) {
+                return Some(i);
+            }
+        }
+        None
     }
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> Software25D {

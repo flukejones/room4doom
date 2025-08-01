@@ -9,7 +9,7 @@ pub use gameplay::{
     AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO,
     WeaponType, WorldEndPlayerInfo, m_random,
 };
-pub use render_trait::{DrawBuffer, GameRenderer};
+pub use render_trait::{DrawBuffer, GameRenderer, PlayRender};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
 pub use sound_traits::{MusTrack, SfxName};

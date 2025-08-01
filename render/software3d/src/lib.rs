@@ -517,7 +517,7 @@ impl Software3D {
     pub fn draw_view(
         &mut self,
         player: &Player,
-        level: &mut Level,
+        level: &Level,
         pic_data: &mut PicData,
         rend: &mut impl DrawBuffer,
     ) {
