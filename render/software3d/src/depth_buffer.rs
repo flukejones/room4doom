@@ -64,24 +64,28 @@ impl DepthBuffer {
         self.view_bottom = bottom;
     }
 
-    /// Set depth at pixel coordinates (unchecked)
     #[inline]
-    pub fn test_and_set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
+    pub fn test_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> usize {
         #[cfg(feature = "hprof")]
         profile!("set_depth_unchecked");
-        if x >= self.width || y >= self.height {
-            return false;
-        }
+        // if x >= self.width || y >= self.height {
+        //     return usize::MAX;
+        // }
 
         let index = y * self.width + x;
         unsafe {
             let t = self.depths.get_unchecked_mut(index);
-            if depth < *t {
-                *t = depth;
-                true
-            } else {
-                false
-            }
+            if depth < *t { index } else { usize::MAX }
+        }
+    }
+
+    /// Set depth at pixel coordinates (unchecked)
+    #[inline]
+    pub fn set_depth_unchecked(&mut self, depth: f32, index: usize) {
+        #[cfg(feature = "hprof")]
+        profile!("set_depth_unchecked");
+        unsafe {
+            *self.depths.get_unchecked_mut(index) = depth;
         }
     }
 }

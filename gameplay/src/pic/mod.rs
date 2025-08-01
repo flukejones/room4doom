@@ -29,6 +29,7 @@ const MAXLIGHTZ: usize = 128;
 const LIGHTLEVELS: i32 = 16;
 const NUMCOLORMAPS: i32 = 32;
 const MAXLIGHTSCALE: i32 = 48;
+const LIGHTMAP_LEN: usize = 48 * 16;
 pub const INVERSECOLORMAP: i32 = 32;
 const STARTREDPALS: usize = 1;
 const NUMREDPALS: usize = 8;
@@ -42,11 +43,20 @@ pub struct FlatPic {
     pub data: [usize; 64 * 64],
     pub width: usize,
     pub height: usize,
+    pub mip_levels: Vec<MipLevel>,
 }
 
 #[derive(Debug)]
 pub struct WallPic {
     pub name: String,
+    pub data: Vec<usize>,
+    pub width: usize,
+    pub height: usize,
+    pub mip_levels: Vec<MipLevel>,
+}
+
+#[derive(Debug)]
+pub struct MipLevel {
     pub data: Vec<usize>,
     pub width: usize,
     pub height: usize,
@@ -71,7 +81,7 @@ pub struct PicData {
     // Usually 34 blocks of 256, each u8 being an index in to the palette
     colourmap: [Colourmap; COLOURMAP_LEN],
     // 16 groups of 48 sets of indexes to colourmap
-    light_scale: [[usize; 48]; 16],
+    light_scale: [usize; LIGHTMAP_LEN],
     // 16 groups of 128 sets of palette
     zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
@@ -100,7 +110,7 @@ impl Default for PicData {
         Self {
             palettes: Default::default(),
             colourmap: [[0; 256]; COLOURMAP_LEN],
-            light_scale: [[0; 48]; 16],
+            light_scale: [0; LIGHTMAP_LEN],
             zlight_scale: [[0usize; 128]; 16],
             use_fixed_colourmap: Default::default(),
             walls: Default::default(),
@@ -189,6 +199,125 @@ impl PicData {
         }
     }
 
+    fn generate_mip_levels(data: &[usize], width: usize, height: usize) -> Vec<MipLevel> {
+        let mut mips = Vec::new();
+
+        // Don't create mipmaps for textures smaller than 32x32
+        if width < 32 || height < 32 {
+            return mips;
+        }
+
+        // Don't create mipmaps for very narrow textures (common in Doom walls)
+        let aspect_ratio = width.max(height) as f32 / width.min(height) as f32;
+        if aspect_ratio > 8.0 {
+            return mips;
+        }
+
+        let mut current_width = width;
+        let mut current_height = height;
+        let mut current_data = data.to_vec();
+
+        // Generate mip levels, stopping at 4x4 minimum
+        while current_width > 4 && current_height > 4 {
+            current_width /= 2;
+            current_height /= 2;
+
+            let mut new_data = vec![0usize; current_width * current_height];
+
+            for y in 0..current_height {
+                for x in 0..current_width {
+                    let src_x = x * 2;
+                    let src_y = y * 2;
+                    let src_width = current_width * 2;
+
+                    // Sample 2x2 block
+                    let samples = [
+                        current_data[src_y * src_width + src_x],
+                        current_data[src_y * src_width + src_x.min(src_width - 1)],
+                        current_data[(src_y + 1).min(current_height * 2 - 1) * src_width + src_x],
+                        current_data[(src_y + 1).min(current_height * 2 - 1) * src_width
+                            + src_x.min(src_width - 1)],
+                    ];
+
+                    // Find most common non-transparent pixel
+                    let mut opaque_samples = Vec::new();
+                    let mut transparent_count = 0;
+
+                    for &sample in &samples {
+                        if sample == usize::MAX {
+                            transparent_count += 1;
+                        } else {
+                            opaque_samples.push(sample);
+                        }
+                    }
+
+                    // If majority is transparent, use transparency
+                    // Otherwise use first opaque sample
+                    new_data[y * current_width + x] = if transparent_count >= 2 {
+                        usize::MAX
+                    } else if !opaque_samples.is_empty() {
+                        opaque_samples[0]
+                    } else {
+                        usize::MAX
+                    };
+                }
+            }
+
+            mips.push(MipLevel {
+                data: new_data.clone(),
+                width: current_width,
+                height: current_height,
+            });
+
+            current_data = new_data;
+        }
+
+        mips
+    }
+
+    fn generate_flat_mip_levels(data: &[usize; 64 * 64]) -> Vec<MipLevel> {
+        let mut mips = Vec::new();
+        let mut current_width = 64;
+        let mut current_height = 64;
+        let mut current_data: Vec<usize> = data.to_vec();
+
+        // Generate mip levels for 64x64 flats: 32x32, 16x16, 8x8, 4x4
+        while current_width > 4 && current_height > 4 {
+            current_width /= 2;
+            current_height /= 2;
+
+            let mut new_data = vec![0usize; current_width * current_height];
+
+            for y in 0..current_height {
+                for x in 0..current_width {
+                    let src_x = x * 2;
+                    let src_y = y * 2;
+
+                    // Sample 2x2 block from 64x64 data
+                    let samples = [
+                        current_data[src_y * (current_width * 2) + src_x],
+                        current_data[src_y * (current_width * 2) + src_x + 1],
+                        current_data[(src_y + 1) * (current_width * 2) + src_x],
+                        current_data[(src_y + 1) * (current_width * 2) + src_x + 1],
+                    ];
+
+                    // For floors, just use first sample (floors are usually solid)
+                    new_data[y * current_width + x] = samples[0];
+                }
+            }
+
+            mips.push(MipLevel {
+                data: new_data.clone(),
+                width: current_width,
+                height: current_height,
+            });
+
+            current_data = new_data;
+        }
+
+        mips
+    }
+
     fn init_palette(wad: &WadData) -> [WadPalette; PALLETE_LEN] {
         print!(".");
         let mut tmp = [WadPalette::default(); PALLETE_LEN];
@@ -217,9 +346,9 @@ impl PicData {
     }
 
     /// Populate the indexes to colourmaps
-    fn init_light_scales() -> [[usize; 48]; 16] {
+    fn init_light_scales() -> [usize; LIGHTMAP_LEN] {
         print!(".");
-        let mut tmp = [[0; 48]; 16];
+        let mut tmp = [0; LIGHTMAP_LEN];
         for i in 0..LIGHTLEVELS {
             let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
             for j in 0..MAXLIGHTSCALE {
@@ -230,7 +359,7 @@ impl PicData {
                 level = level.min(NUMCOLORMAPS - 1);
                 // TODO: maybe turn this in to indexing? of colourmaps
                 // tmp[i as usize][j as usize].copy_from_slice(&colourmap[level as usize]);
-                tmp[i as usize][j as usize] = level as usize;
+                tmp[i as usize * 48 + j as usize] = level as usize;
             }
         }
         tmp
@@ -338,6 +467,7 @@ impl PicData {
                 data: [0; 64 * 64],
                 width: 64,
                 height: 64,
+                mip_levels: Vec::new(),
             };
             let mut outofbounds = false;
             for (x, col) in wf.data.chunks(64).enumerate() {
@@ -366,6 +496,8 @@ impl PicData {
                 print!(".");
             }
 
+            // Generate mipmaps for the flat
+            flat.mip_levels = Self::generate_flat_mip_levels(&flat.data);
             flats.push(flat);
         }
 
@@ -410,11 +542,14 @@ impl PicData {
         }
 
         debug!("Built texture: {}", &texture.name);
+        let mip_levels =
+            Self::generate_mip_levels(&compose, texture.width as usize, texture.height as usize);
         WallPic {
             name: texture.name,
             width: texture.width as usize,
             height: texture.height as usize,
             data: compose,
+            mip_levels,
         }
     }
 
@@ -511,12 +646,22 @@ impl PicData {
 
     #[inline(always)]
     fn colourmap_for_scale(&self, scale: f32) -> usize {
-        let colourmap = if self.double_res {
-            (scale * 7.9) as u32
-        } else {
-            (scale * 15.8) as u32
-        };
+        // let colourmap = if self.double_res {
+        //     (scale * 7.9) as u32
+        // } else {
+        let colourmap = (scale * 15.8) as u32;
+        // };
         colourmap.min(MAXLIGHTSCALE as u32 - 1) as usize
+    }
+
+    #[inline(always)]
+    pub fn base_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
+        let colourmap = (wall_scale as u32).min(47) as usize;
+        unsafe {
+            // unchecked reduces instruction count from ~8 down to 1
+            let i = self.light_scale.get_unchecked(light_level * 48 + colourmap);
+            self.colourmap.get_unchecked(*i)
+        }
     }
 
     /// Get the correct colourmapping for a light level. The colourmap is
@@ -531,16 +676,13 @@ impl PicData {
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             // unchecked reduces instruction count from ~8 down to 1
-            let i = self
-                .light_scale
-                .get_unchecked(light_level.min(self.light_scale.len() - 1))
-                .get_unchecked(colourmap);
+            let i = self.light_scale.get_unchecked(light_level * 48 + colourmap);
             self.colourmap.get_unchecked(*i)
         }
         #[cfg(feature = "safety_check")]
         &self
             .colourmap
-            .get_unchecked(self.light_scale[light_level.min(self.light_scale.len() - 1)][colourmap])
+            .get_unchecked(self.light_scale[light_level.min(15) * 48 + colourmap])
     }
 
     #[inline(always)]

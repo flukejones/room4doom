@@ -22,7 +22,7 @@ use d_main::d_doom_loop;
 use gamestate::Game;
 
 use crate::config::UserConfig;
-use gameplay::{PicData, log};
+use gameplay::{MapData, PVS, PicData, log};
 use input::Input;
 use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
 
@@ -182,8 +182,20 @@ fn process_map_pvs(
     if !cache_path.exists() {
         let mut map_data = gameplay::MapData::default();
         map_data.load(map_name, &pic_data, wad);
+
+        let MapData {
+            subsectors,
+            segments,
+            bsp_3d,
+            pvs,
+            ..
+        } = &mut map_data;
+
+        // Ensure length is correct
+        *pvs = PVS::new(subsectors.len());
+        pvs.build(subsectors, segments, bsp_3d);
         info!("Saving PVS data to {cache_path:?}");
-        map_data.bsp_3d.pvs().save_to_file(&cache_path)?;
+        map_data.pvs().save_to_file(&cache_path)?;
     } else {
         warn!("{cache_path:?} exists, skipping");
     }

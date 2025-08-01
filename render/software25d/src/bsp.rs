@@ -542,10 +542,7 @@ impl Software25D {
             };
 
             if subsector_id < map.subsectors().len() {
-                if !map
-                    .bsp_3d()
-                    .subsector_visible(player_subsector_id, subsector_id)
-                {
+                if !map.subsector_visible(player_subsector_id, subsector_id) {
                     return; // Subsector not visible, skip rendering
                 }
 

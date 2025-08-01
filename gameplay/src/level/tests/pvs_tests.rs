@@ -51,10 +51,10 @@ mod pvs_tests {
         // 681
         let can_see_131 = target_131_subs
             .iter()
-            .any(|&target| map_data.bsp_3d.subsector_visible(player_subsector, target));
+            .any(|&target| map_data.subsector_visible(player_subsector, target));
         let can_see_681 = target_681_subs
             .iter()
-            .any(|&target| map_data.bsp_3d.subsector_visible(player_subsector, target));
+            .any(|&target| map_data.subsector_visible(player_subsector, target));
 
         assert!(
             can_see_131 && can_see_681,
@@ -71,7 +71,7 @@ mod pvs_tests {
             let visibility_exists = source_subsectors.iter().any(|&source| {
                 target_subsectors
                     .iter()
-                    .any(|&target| map_data.bsp_3d.subsector_visible(source, target))
+                    .any(|&target| map_data.subsector_visible(source, target))
             });
 
             println!(
@@ -166,7 +166,7 @@ mod pvs_tests {
 
         // Test visibility from player start to linedef 355
         let can_see_355 = linedef_355_subsectors.iter().any(|&target| {
-            let visible = map_data.bsp_3d.subsector_visible(player_subsector, target);
+            let visible = map_data.subsector_visible(player_subsector, target);
             println!(
                 "Player subsector {} -> Linedef 355 subsector {}: {}",
                 player_subsector,
@@ -205,7 +205,7 @@ mod pvs_tests {
         );
         let mut visible_in_same_sector = 0;
         for &target in &same_sector_subsectors {
-            let visible = map_data.bsp_3d.subsector_visible(player_subsector, target);
+            let visible = map_data.subsector_visible(player_subsector, target);
             if visible {
                 visible_in_same_sector += 1;
             }
@@ -242,7 +242,7 @@ mod pvs_tests {
 
         let mut visible_nearby = 0;
         for &(target, distance) in nearby_with_distance.iter().take(15) {
-            let visible = map_data.bsp_3d.subsector_visible(player_subsector, target);
+            let visible = map_data.subsector_visible(player_subsector, target);
             if visible {
                 visible_nearby += 1;
             }
@@ -268,7 +268,7 @@ mod pvs_tests {
                 let target_subsectors = find_linedef_subsectors(&map_data, linedef_idx);
                 let visible_count = target_subsectors
                     .iter()
-                    .filter(|&&target| map_data.bsp_3d.subsector_visible(player_subsector, target))
+                    .filter(|&&target| map_data.subsector_visible(player_subsector, target))
                     .count();
                 println!(
                     "  Linedef {}: {}/{} subsectors visible",
@@ -283,7 +283,7 @@ mod pvs_tests {
         let linedef_159_subsectors = find_linedef_subsectors(&map_data, 159);
         let can_see_159 = linedef_159_subsectors
             .iter()
-            .any(|&target| map_data.bsp_3d.subsector_visible(player_subsector, target));
+            .any(|&target| map_data.subsector_visible(player_subsector, target));
 
         println!("\n=== LINEDEF 159 SPECIFIC TEST ===");
         println!("Linedef 159 is in subsectors: {:?}", linedef_159_subsectors);
@@ -327,7 +327,7 @@ mod pvs_tests {
         let mut visibility_found = false;
         for &source in &source_subsectors {
             for &target in &target_subsectors {
-                if map_data.bsp_3d.subsector_visible(source, target) {
+                if map_data.subsector_visible(source, target) {
                     println!(
                         "Linedef 138 subsector {} -> Linedef 922 subsector {}: visible",
                         source, target
@@ -392,7 +392,7 @@ mod pvs_tests {
         // Test visibility from point to linedef 922 subsectors
         let mut visibility_found = false;
         for &target in &target_subsectors {
-            if map_data.bsp_3d.subsector_visible(source_subsector, target) {
+            if map_data.subsector_visible(source_subsector, target) {
                 println!(
                     "Point (-320, 608) subsector {} -> Linedef 922 subsector {}: visible",
                     source_subsector, target
@@ -499,9 +499,7 @@ mod pvs_tests {
 
         // Test visibility from subsector 59 to target subsector
         let source_subsector = 59;
-        let is_visible = map_data
-            .bsp_3d
-            .subsector_visible(source_subsector, target_subsector);
+        let is_visible = map_data.subsector_visible(source_subsector, target_subsector);
 
         println!(
             "Subsector {} -> Subsector {} (containing vertex -720,464): {}",
@@ -551,9 +549,7 @@ mod pvs_tests {
         println!("Vertex (-720, 464) is in subsector {}", target_subsector);
 
         // Test visibility from source to target subsector
-        let is_visible = map_data
-            .bsp_3d
-            .subsector_visible(source_subsector, target_subsector);
+        let is_visible = map_data.subsector_visible(source_subsector, target_subsector);
 
         println!(
             "Subsector {} (containing vertex -320,576) -> Subsector {} (containing vertex -720,464): {}",
@@ -633,9 +629,7 @@ mod pvs_tests {
         println!("Distance: {:.2}", distance);
 
         // Check visibility
-        let is_visible = map_data
-            .bsp_3d
-            .subsector_visible(source_subsector, target_subsector);
+        let is_visible = map_data.subsector_visible(source_subsector, target_subsector);
         println!("PVS visibility: {}", is_visible);
 
         // Check nearby subsectors for comparison
@@ -644,7 +638,7 @@ mod pvs_tests {
             (source_subsector.saturating_sub(2))..=(source_subsector + 2).min(subsectors.len() - 1)
         {
             if nearby != source_subsector {
-                let nearby_visible = map_data.bsp_3d.subsector_visible(nearby, target_subsector);
+                let nearby_visible = map_data.subsector_visible(nearby, target_subsector);
                 let nearby_distance =
                     calculate_subsector_distance(&map_data, nearby, target_subsector);
                 println!(
@@ -685,9 +679,7 @@ mod pvs_tests {
         }
 
         // Test visibility to subsector 44
-        let visible_44 = map_data
-            .bsp_3d
-            .subsector_visible(source_subsector, target_subsector_44);
+        let visible_44 = map_data.subsector_visible(source_subsector, target_subsector_44);
         let distance_44 =
             calculate_subsector_distance(&map_data, source_subsector, target_subsector_44);
 
@@ -709,7 +701,7 @@ mod pvs_tests {
         // Test visibility to linedef 140 subsectors
         let mut linedef_140_visible = false;
         for &target in &linedef_140_subsectors {
-            let visible = map_data.bsp_3d.subsector_visible(source_subsector, target);
+            let visible = map_data.subsector_visible(source_subsector, target);
             let distance = calculate_subsector_distance(&map_data, source_subsector, target);
 
             println!(
@@ -800,9 +792,7 @@ mod pvs_tests {
         println!("Distance: {:.2}", distance);
 
         // Check visibility
-        let is_visible = map_data
-            .bsp_3d
-            .subsector_visible(source_subsector, target_subsector);
+        let is_visible = map_data.subsector_visible(source_subsector, target_subsector);
         println!("PVS visibility: {}", is_visible);
 
         // Check nearby subsectors for comparison
@@ -811,7 +801,7 @@ mod pvs_tests {
             (source_subsector.saturating_sub(2))..=(source_subsector + 2).min(subsectors.len() - 1)
         {
             if nearby != source_subsector {
-                let nearby_visible = map_data.bsp_3d.subsector_visible(nearby, target_subsector);
+                let nearby_visible = map_data.subsector_visible(nearby, target_subsector);
                 let nearby_distance =
                     calculate_subsector_distance(&map_data, nearby, target_subsector);
                 println!(
@@ -827,7 +817,7 @@ mod pvs_tests {
             (target_subsector.saturating_sub(2))..=(target_subsector + 2).min(subsectors.len() - 1)
         {
             if nearby != target_subsector {
-                let nearby_visible = map_data.bsp_3d.subsector_visible(source_subsector, nearby);
+                let nearby_visible = map_data.subsector_visible(source_subsector, nearby);
                 let nearby_distance =
                     calculate_subsector_distance(&map_data, source_subsector, nearby);
                 println!(
@@ -865,7 +855,7 @@ mod pvs_tests {
         // Test visibility from subsector 238 to linedef 140 subsectors
         let mut linedef_140_visible = false;
         for &target in &linedef_140_subsectors {
-            let visible = map_data.bsp_3d.subsector_visible(source_subsector, target);
+            let visible = map_data.subsector_visible(source_subsector, target);
             let distance = calculate_subsector_distance(&map_data, source_subsector, target);
 
             println!(
@@ -925,7 +915,7 @@ mod pvs_tests {
         // Test visibility from subsector 223 to linedef 531 subsectors
         let mut linedef_531_visible = false;
         for &target in &linedef_531_subsectors {
-            let visible = map_data.bsp_3d.subsector_visible(source_subsector, target);
+            let visible = map_data.subsector_visible(source_subsector, target);
             let distance = calculate_subsector_distance(&map_data, source_subsector, target);
 
             println!(
@@ -968,14 +958,14 @@ mod pvs_tests {
         println!("=== PVS Findings Summary ===");
 
         // Test case 1: Subsector 59 -> 74
-        let vis_59_74 = map_data.bsp_3d.subsector_visible(59, 74);
+        let vis_59_74 = map_data.subsector_visible(59, 74);
         println!("1. Subsector 59 -> 74: {} (should be visible)", vis_59_74);
 
         // Test case 2: Subsector 238 -> Linedef 140 subsectors
         let linedef_140_subs = find_linedef_subsectors(&map_data, 140);
         let mut vis_238_140 = false;
         for &target in &linedef_140_subs {
-            if map_data.bsp_3d.subsector_visible(238, target) {
+            if map_data.subsector_visible(238, target) {
                 vis_238_140 = true;
                 break;
             }
@@ -989,7 +979,7 @@ mod pvs_tests {
         let linedef_531_subs = find_linedef_subsectors(&map_data, 531);
         let mut vis_223_531 = false;
         for &target in &linedef_531_subs {
-            if map_data.bsp_3d.subsector_visible(223, target) {
+            if map_data.subsector_visible(223, target) {
                 vis_223_531 = true;
                 break;
             }

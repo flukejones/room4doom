@@ -16,10 +16,11 @@ const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_SCALE: f32 = 8.0;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
+const LIGHT_MOD: f32 = LIGHT_RANGE * LIGHT_SCALE * 15.8;
 
 /// Represents a 2D polygon in screen space
 #[derive(Debug, Clone)]
-pub struct ScreenPoly<'a>(&'a [Vec2]);
+pub struct ScreenPoly<'a>(pub &'a [Vec2]);
 
 impl<'a> ScreenPoly<'a> {
     /// Get axis-aligned bounding box of polygon
@@ -65,27 +66,34 @@ enum TextureSampler<'a> {
 
 impl<'a> TextureSampler<'a> {
     #[inline(always)]
-    fn new(surface_kind: &SurfaceKind, pic_data: &'a PicData) -> Self {
+    fn new(
+        surface_kind: &SurfaceKind,
+        pic_data: &'a PicData,
+        sky_pic: usize,
+        sky_num: usize,
+    ) -> Self {
         match surface_kind {
             SurfaceKind::Vertical {
                 texture: Some(tex_id),
                 ..
             } => {
-                if *tex_id == pic_data.sky_pic() {
+                if *tex_id == sky_pic {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.wall_pic(*tex_id);
+                    let width_f32 = texture.width as f32;
+                    let height_f32 = texture.height as f32;
                     TextureSampler::Vertical {
                         texture,
-                        width: texture.width as f32,
-                        height: texture.height as f32,
-                        width_mask: texture.width as f32 - 1.0,
-                        height_mask: texture.height as f32 - 1.0,
+                        width: width_f32,
+                        height: height_f32,
+                        width_mask: width_f32 - 1.0,
+                        height_mask: height_f32 - 1.0,
                     }
                 }
             }
             SurfaceKind::Horizontal { texture, .. } => {
-                if *texture == pic_data.sky_num() {
+                if *texture == sky_num {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.get_flat(*texture);
@@ -102,44 +110,39 @@ impl<'a> TextureSampler<'a> {
 
     #[inline(always)]
     fn sample(&'a self, u: f32, v: f32, colourmap: &[usize], pic_data: &'a PicData) -> &'a [u8; 4] {
-        // The unsafe unchecked access gains 10fps or more. Depending on level.
-        match self {
-            TextureSampler::Vertical {
-                texture,
-                width,
-                height,
-                width_mask,
-                height_mask,
-            } => {
-                let tex_x = (u.fract().abs() * width).min(*width_mask);
-                let tex_y = (v.fract().abs() * height).min(*height_mask);
-                unsafe {
-                    let color_index = *texture.data.get_unchecked(
-                        tex_x as u32 as usize * texture.height + tex_y as u32 as usize,
-                    );
-                    // Skip blank pixels in masked textures
+        unsafe {
+            match self {
+                TextureSampler::Vertical {
+                    texture,
+                    width,
+                    height,
+                    width_mask,
+                    height_mask,
+                } => {
+                    let tex_x = (u.fract().abs() * width).min(*width_mask) as usize;
+                    let tex_y = (v.fract().abs() * height).min(*height_mask) as usize;
+                    let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == usize::MAX {
-                        return &[0, 0, 0, 0];
+                        &[0, 0, 0, 0]
+                    } else {
+                        let lit_color_index = *colourmap.get_unchecked(color_index);
+                        pic_data.palette().get_unchecked(lit_color_index)
                     }
-                    let lit_color_index = colourmap.get_unchecked(color_index);
-                    pic_data.palette().get_unchecked(*lit_color_index)
                 }
-            }
-            TextureSampler::Horizontal {
-                texture,
-                width,
-                height,
-            } => {
-                let tex_x = ((u.abs() * width) as i32 as usize) & 63;
-                let tex_y = ((v.abs() * height) as i32 as usize) & 63;
-                unsafe {
-                    let color_index = texture.data.get_unchecked(tex_x * texture.height + tex_y);
-                    let lit_color_index = colourmap.get_unchecked(*color_index);
-                    pic_data.palette().get_unchecked(*lit_color_index)
+                TextureSampler::Horizontal {
+                    texture,
+                    width,
+                    height,
+                } => {
+                    let tex_x = ((u.abs() * width) as usize) & 63;
+                    let tex_y = ((v.abs() * height) as usize) & 63;
+                    let color_index = *texture.data.get_unchecked(tex_x * 64 + tex_y);
+                    let lit_color_index = *colourmap.get_unchecked(color_index);
+                    pic_data.palette().get_unchecked(lit_color_index)
                 }
+                TextureSampler::Sky => &[32, 32, 32, 255],
+                TextureSampler::Untextured => &[32, 32, 32, 255],
             }
-            TextureSampler::Sky => &[32, 32, 32, 255],
-            TextureSampler::Untextured => &[32, 32, 32, 255],
         }
     }
 }
@@ -155,7 +158,7 @@ struct InterpolationState {
 impl InterpolationState {
     #[inline(always)]
     fn get_current_uv(&self) -> (f32, f32, f32) {
-        if self.current_inv_w > 0.00001 {
+        if self.current_inv_w > 0.0 {
             let w = 1.0 / self.current_inv_w;
             let corrected_tex = self.current_tex * w;
             (corrected_tex.x, corrected_tex.y, self.current_inv_w)
@@ -192,9 +195,36 @@ struct TriangleInterpolator {
 impl TriangleInterpolator {
     #[inline(always)]
     fn new(screen_verts: &[Vec2], tex_coords: &[Vec2], inv_w: &[f32]) -> Option<Self> {
-        // Find the best triangle for interpolation
+        // Fast path for triangles - no need to search for best triangle
+        if screen_verts.len() == 3 {
+            let v0 = screen_verts[0];
+            let v1 = screen_verts[1];
+            let v2 = screen_verts[2];
+
+            let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+            let da_dx = (v1.y - v2.y) / denom;
+            let db_dx = (v2.y - v0.y) / denom;
+
+            return Some(TriangleInterpolator {
+                v0,
+                v1,
+                v2,
+                tex0: tex_coords[0],
+                tex1: tex_coords[1],
+                tex2: tex_coords[2],
+                inv_w0: inv_w[0],
+                inv_w1: inv_w[1],
+                inv_w2: inv_w[2],
+                denom,
+                da_dx,
+                db_dx,
+            });
+        }
+
+        // For polygons with more than 3 vertices, find the best triangle
         let mut best_triangle = None;
         let mut best_area = 0.0;
+        let mut best_denom = 0.0;
 
         for i in 1..screen_verts.len() - 1 {
             let v0 = screen_verts[0];
@@ -210,6 +240,7 @@ impl TriangleInterpolator {
             if area > best_area {
                 best_area = area;
                 best_triangle = Some((0, i, i + 1));
+                best_denom = denom;
             }
         }
 
@@ -218,7 +249,7 @@ impl TriangleInterpolator {
         let v1 = screen_verts[i1];
         let v2 = screen_verts[i2];
 
-        let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+        let denom = best_denom;
 
         // Pre-compute barycentric derivatives
         let da_dx = (v1.y - v2.y) / denom;
@@ -258,7 +289,7 @@ impl TriangleInterpolator {
         let interp_tex = self.tex0 * a + self.tex1 * b + self.tex2 * c;
         let interp_inv_w = self.inv_w0 * a + self.inv_w1 * b + self.inv_w2 * c;
 
-        // Calculate per-pixel increments for texture coordinates
+        // Calculate per-pixel increments for X direction
         let tex_dx = self.tex0 * self.da_dx
             + self.tex1 * self.db_dx
             + self.tex2 * (-self.da_dx - self.db_dx);
@@ -309,7 +340,10 @@ impl Software3D {
         };
 
         // Cache frequently used values
-        let texture_sampler = TextureSampler::new(&polygon.surface_kind, pic_data);
+        let sky_pic = pic_data.sky_pic();
+        let sky_num = pic_data.sky_num();
+        let texture_sampler =
+            TextureSampler::new(&polygon.surface_kind, pic_data, sky_pic, sky_num);
         let vertices = &screen_poly.0;
         let vertex_count = vertices.len();
         let width_f32 = self.width as f32;
@@ -321,84 +355,69 @@ impl Software3D {
         let y_start = y_min as i32;
         let y_end = y_max as i32;
 
-        // Main rendering loops
         for y in y_start..=y_end {
-            #[cfg(feature = "hprof")]
-            profile!("draw_textured_polygon Y loop");
-            let y_float = y as f32;
-
-            let mut intersection_count = 0;
+            let y_f = y as f32;
+            let mut count = 0;
             for i in 0..vertex_count {
                 let v1 = vertices[i];
                 let v2 = vertices[(i + 1) % vertex_count];
-
-                if (v1.y <= y_float && v2.y >= y_float) || (v2.y <= y_float && v1.y >= y_float) {
-                    let t = (y_float - v1.y) / (v2.y - v1.y);
-                    if t >= 0.0 && t <= 1.0 {
-                        let x = v1.x + (v2.x - v1.x) * t;
-                        if intersection_count < 64 {
-                            // Insert in sorted order (insertion sort)
-                            let mut insert_pos = intersection_count;
-                            while insert_pos > 0 && self.x_intersections[insert_pos - 1] > x {
-                                self.x_intersections[insert_pos] =
-                                    self.x_intersections[insert_pos - 1];
-                                insert_pos -= 1;
-                            }
-                            self.x_intersections[insert_pos] = x;
-                            intersection_count += 1;
-                        }
+                if (v1.y < y_f && v2.y >= y_f) || (v2.y < y_f && v1.y >= y_f) {
+                    let t = (y_f - v1.y) / (v2.y - v1.y);
+                    if t >= 0.0 && t <= 1.0 && count < 16 {
+                        self.x_intersections[count] = v1.x + (v2.x - v1.x) * t;
+                        count += 1;
                     }
                 }
             }
-
-            if intersection_count < 2 {
+            if count < 2 {
                 continue;
             }
+            self.x_intersections[..count].sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
 
             let mut i = 0;
-            while i < intersection_count - 1 {
-                let x_start = self.x_intersections[i].max(0.0).ceil() as i32;
-                let x_end = self.x_intersections[i + 1].min(width_f32 - 1.0).floor() as i32;
-
-                let mut interp_state = interpolator.init_scanline(x_start as f32, y_float);
-
+            while i + 1 < count {
+                let x_f = self.x_intersections[i].max(0.1).ceil();
+                let x_start = x_f as u32 as usize;
+                i += 1;
+                let x_end = self.x_intersections[i].min(width_f32 - 1.0).floor() as u32 as usize;
+                let mut interp_state = interpolator.init_scanline(x_f, y_f);
                 for x in x_start..=x_end {
                     #[cfg(feature = "hprof")]
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
-
-                    let bright_scale = ((inv_z - LIGHT_MIN_Z) * LIGHT_RANGE) * LIGHT_SCALE;
-                    let colourmap = pic_data.vert_light_colourmap(brightness, bright_scale);
-                    #[cfg(feature = "debug_draw")]
-                    let mut color = texture_sampler.sample(u, v, colourmap, pic_data);
-                    #[cfg(not(feature = "debug_draw"))]
-                    let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                    if color[3] == 0 {
-                        interp_state.step_x();
-                        continue;
-                    }
-
-                    let x = x as usize;
-                    let y = y as usize;
-                    if self
-                        .depth_buffer
-                        .test_and_set_depth_unchecked(x, y, 1.0 - inv_z)
-                    {
+                    let depth = 1.0 - inv_z;
+                    let index = self.depth_buffer.test_depth_unchecked(x, y as usize, depth);
+                    if index != usize::MAX {
+                        let bright_scale = (inv_z - LIGHT_MIN_Z) * LIGHT_MOD;
+                        let colourmap = pic_data.base_colourmap(brightness, bright_scale);
+                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
                         #[cfg(feature = "debug_draw")]
-                        if outline_color.is_some() {
-                            if self.is_edge_pixel(x as f32, y_float, vertices) {
-                                rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
-                            } else {
-                                rend.set_pixel(x, y, &color);
-                            }
+                        let mut color = color;
+
+                        // TODO: need a separate masked texture draw
+                        // This conditional causes a 15fps loss
+                        if color[3] == 0 {
+                            interp_state.step_x();
+                            continue;
                         }
                         #[cfg(not(feature = "debug_draw"))]
-                        rend.set_pixel(x, y, &color);
+                        rend.set_pixel(x, y as usize, &color);
+                        self.depth_buffer.set_depth_unchecked(depth, index);
+                        #[cfg(feature = "debug_draw")]
+                        if outline_color.is_some() {
+                            if self.is_edge_pixel(x as f32, y_f, vertices) {
+                                rend.set_pixel(
+                                    x,
+                                    y as usize,
+                                    &outline_color.unwrap_or([0, 0, 0, 0]),
+                                );
+                            } else {
+                                rend.set_pixel(x, y as usize, &color);
+                            }
+                        }
                     }
-
                     interp_state.step_x();
                 }
-                i += 1;
             }
         }
 
@@ -530,11 +549,11 @@ impl Software3D {
         let depth_step = (end_depth - start_depth) / steps as f32;
 
         for i in 0..=steps {
-            let x = (start.x + x_step * i as f32) as usize;
-            let y = (start.y + y_step * i as f32) as usize;
+            let x = (start.x + x_step * i as f32) as u32 as usize;
+            let y = (start.y + y_step * i as f32) as u32 as usize;
             let depth = start_depth + depth_step * i as f32;
 
-            if x < self.width as usize && y < self.height as usize {
+            if x < self.width as u32 as usize && y < self.height as u32 as usize {
                 if self.depth_buffer.test_and_set_depth_unchecked(x, y, depth) {
                     rend.set_pixel(x, y, color);
                 }

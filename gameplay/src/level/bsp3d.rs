@@ -178,7 +178,7 @@ pub enum SurfaceKind {
         texture: Option<usize>,
         tex_x_offset: f32,
         tex_y_offset: f32,
-        texture_direction: f32,
+        texture_direction: Vec3,
         wall_type: WallType,
         wall_tex_pin: WallTexPin,
         /// For texture alignment
@@ -186,7 +186,8 @@ pub enum SurfaceKind {
     },
     Horizontal {
         texture: usize,
-        texture_direction: f32,
+        tex_cos: f32,
+        tex_sin: f32,
     },
 }
 
@@ -222,20 +223,11 @@ impl SurfacePolygon {
     }
 
     pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
-        if let Some(&first_vertex_idx) = self.vertices.first() {
-            let first_vertex = vertex_positions[first_vertex_idx];
-            let view_vector = (point - first_vertex).normalize_or_zero();
-            let dot_product = self.normal.dot(view_vector);
-            // Dynamic epsilon based on how horizontal the normal is
-            let epsilon = if self.normal.z.abs() > 0.9 {
-                -0.5 // More lenient for horizontal surfaces
-            } else {
-                -0.01
-            };
-            dot_product.is_nan() || dot_product > epsilon
-        } else {
-            false
-        }
+        let first_vertex_idx = unsafe { *self.vertices.get_unchecked(0) };
+        let first_vertex = vertex_positions[first_vertex_idx];
+        let view_vector = (point - first_vertex).normalize_or_zero();
+        let dot_product = self.normal.dot(view_vector);
+        dot_product.is_sign_positive() || dot_product.is_nan()
     }
 }
 
@@ -326,21 +318,18 @@ pub struct BSP3D {
     nodes: Vec<Node3D>,
     pub subsector_leaves: Vec<BSPLeaf3D>,
     root_node: u32,
-    pvs: PVS,
     pub vertices: Vec<Vec3>,
     pub(crate) sector_subsectors: Vec<Vec<usize>>,
 }
 
 impl BSP3D {
     pub fn new(
-        map_name: &str,
         root_node: u32,
         nodes: &[Node],
         subsectors: &[SubSector],
         segments: &[Segment],
         sectors: &[Sector],
         linedefs: &[LineDef],
-        wad: &WadData,
         pic_data: &PicData,
     ) -> Self {
         #[cfg(feature = "hprof")]
@@ -350,7 +339,6 @@ impl BSP3D {
             nodes: Vec::new(),
             subsector_leaves: Vec::new(),
             root_node,
-            pvs: PVS::new(subsectors.len()),
             vertices: Vec::new(),
             sector_subsectors: vec![Vec::new(); sectors.len()],
         };
@@ -380,23 +368,7 @@ impl BSP3D {
 
         bsp3d.update_all_aabbs();
 
-        if let Some(cached_pvs) = PVS::load_from_cache(
-            map_name,
-            wad.map_bsp_hash(map_name).unwrap_or_default(),
-            subsectors.len(),
-        ) {
-            bsp3d.pvs = cached_pvs;
-        }
-
         bsp3d
-    }
-
-    pub fn pvs(&self) -> &PVS {
-        &self.pvs
-    }
-
-    pub fn subsector_visible(&self, from: usize, to: usize) -> bool {
-        self.pvs.is_visible(from, to)
     }
 
     pub fn nodes(&self) -> &[Node3D] {
@@ -431,8 +403,9 @@ impl BSP3D {
         }
     }
 
+    #[inline(always)]
     pub fn vertex_get(&self, idx: usize) -> Vec3 {
-        self.vertices[idx]
+        unsafe { *self.vertices.get_unchecked(idx) }
     }
 
     pub fn get_polygon_vertices(&self, polygon: &SurfacePolygon) -> Vec<Vec3> {
@@ -878,6 +851,7 @@ impl BSP3D {
         };
 
         let texture_direction = wall_direction.y.atan2(wall_direction.x);
+        let texture_direction = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
 
         let surface_kind = SurfaceKind::Vertical {
             texture: Some(texture),
@@ -1124,7 +1098,8 @@ impl BSP3D {
         const TEXTURE_DIRECTION: f32 = std::f32::consts::PI / 2.0;
         SurfaceKind::Horizontal {
             texture,
-            texture_direction: TEXTURE_DIRECTION,
+            tex_cos: TEXTURE_DIRECTION.cos(),
+            tex_sin: TEXTURE_DIRECTION.sin(),
         }
     }
 
@@ -1180,7 +1155,6 @@ impl Default for BSP3D {
             nodes: Vec::new(),
             subsector_leaves: Vec::new(),
             root_node: 0,
-            pvs: PVS::new(0),
             vertices: Vec::new(),
             sector_subsectors: Vec::new(),
         }

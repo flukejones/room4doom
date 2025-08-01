@@ -50,7 +50,7 @@ pub use level::map_defs::{Node, Sector, Segment, SubSector};
 pub use level::pvs::PVS;
 pub use level::triangulation::DivLine;
 pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2};
-pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
+pub use pic::{FlatPic, MipLevel, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
 use std::error::Error;

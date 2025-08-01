@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 const MIN_RAY_LENGTH: f32 = 0.1;
 const RAY_ENDPOINT_TOLERANCE: f32 = 0.1;
 
+#[derive(Default)]
 /// Compact bit-packed Potentially Visible Set data structure
 pub struct CompactPVS {
     subsector_count: usize,
@@ -82,6 +83,7 @@ impl CompactPVS {
     }
 }
 
+#[derive(Default)]
 /// Portal-based Potentially Visible Set for efficient visibility culling
 pub struct PVS {
     pub(super) subsector_count: usize,
@@ -106,37 +108,35 @@ impl PVS {
     }
 
     /// Builds PVS data from map geometry using portal-based visibility
-    pub fn build(subsectors: &[SubSector], segments: &[Segment], bsp: &BSP3D) -> Self {
+    pub fn build(&mut self, subsectors: &[SubSector], segments: &[Segment], bsp: &BSP3D) {
         #[cfg(feature = "hprof")]
         profile!("pvs_build");
 
         log::info!("Building PVS for {} subsectors", subsectors.len());
         let phase_start = std::time::Instant::now();
-        let mut pvs = Self::new(subsectors.len());
 
         // Precompute segment optimizations
         log::info!("Precomputing segment optimizations...");
         let seg_opt_start = std::time::Instant::now();
         for (idx, segment) in segments.iter().enumerate() {
             if segment.backsector.is_none() {
-                pvs.blocking_segments.push(idx);
+                self.blocking_segments.push(idx);
             }
         }
         log::info!(
             "Segment optimization took {:.2}ms ({} blocking segments of {})",
             seg_opt_start.elapsed().as_secs_f32() * 1000.0,
-            pvs.blocking_segments.len(),
+            self.blocking_segments.len(),
             segments.len()
         );
 
-        pvs.build_subsector_visibility(segments, subsectors, bsp);
+        self.build_subsector_visibility(segments, subsectors, bsp);
 
         log::info!(
             "Total PVS build time: {:.2}s",
             phase_start.elapsed().as_secs_f32()
         );
         coarse_prof::write(&mut std::io::stdout()).unwrap();
-        pvs
     }
 
     /// Returns true if subsector `to` is visible from subsector `from`

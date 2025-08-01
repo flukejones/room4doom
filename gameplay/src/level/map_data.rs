@@ -5,7 +5,7 @@ use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, Slop
 
 use crate::level::bsp3d::BSP3D;
 use crate::log::info;
-use crate::{LineDefFlags, MapPtr, PicData};
+use crate::{LineDefFlags, MapPtr, PVS, PicData};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
@@ -62,6 +62,7 @@ pub struct MapData {
     pub start_node: u32,
     /// Precomputed visibility between subsectors
     pub bsp_3d: BSP3D,
+    pub pvs: PVS,
 }
 
 impl MapData {
@@ -230,16 +231,30 @@ impl MapData {
 
         // Build 3D BSP
         self.bsp_3d = BSP3D::new(
-            map_name,
             self.start_node,
             &self.nodes,
             &self.subsectors,
             &self.segments,
             &self.sectors,
             &self.linedefs,
-            wad,
             pic_data,
         );
+
+        if let Some(cached_pvs) = PVS::load_from_cache(
+            map_name,
+            wad.map_bsp_hash(map_name).unwrap_or_default(),
+            self.subsectors.len(),
+        ) {
+            self.pvs = cached_pvs;
+        }
+    }
+
+    pub fn pvs(&self) -> &PVS {
+        &self.pvs
+    }
+
+    pub fn subsector_visible(&self, from: usize, to: usize) -> bool {
+        self.pvs.is_visible(from, to)
     }
 
     fn load_vertexes(

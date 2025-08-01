@@ -1,8 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon,
-    WallTexPin, WallType,
+    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
+    SurfacePolygon, WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -144,33 +144,14 @@ impl Software3D {
             clip_corners.push(clip_pos);
         }
 
-        // Test against frustum planes using clip coordinates
-        // Be more conservative - only cull if AABB is completely outside a plane
-        // and add small epsilon to avoid precision issues
-        const EPSILON: f32 = 0.01;
-
-        // Left plane: x >= -w
-        if clip_corners.iter().all(|c| c.x < -c.w - EPSILON) {
-            return true;
-        }
-        // Right plane: x <= w
-        if clip_corners.iter().all(|c| c.x > c.w + EPSILON) {
-            return true;
-        }
-        // Bottom plane: y >= -w
-        if clip_corners.iter().all(|c| c.y < -c.w - EPSILON) {
-            return true;
-        }
-        // Top plane: y <= w
-        if clip_corners.iter().all(|c| c.y > c.w + EPSILON) {
-            return true;
-        }
-        // Near plane: z >= -w
-        if clip_corners.iter().all(|c| c.z < -c.w - EPSILON) {
-            return true;
-        }
-        // Far plane: z <= w
-        if clip_corners.iter().all(|c| c.z > c.w + EPSILON) {
+        // If bounding box is fully outside any frustum plane, cull immediately
+        if clip_corners.iter().all(|c| c.x < -c.w)
+            || clip_corners.iter().all(|c| c.x > c.w)
+            || clip_corners.iter().all(|c| c.y < -c.w)
+            || clip_corners.iter().all(|c| c.y > c.w)
+            || clip_corners.iter().all(|c| c.z < -c.w)
+            || clip_corners.iter().all(|c| c.z > c.w)
+        {
             return true;
         }
 
@@ -182,6 +163,7 @@ impl Software3D {
         &mut self,
         node_id: u32,
         bsp3d: &BSP3D,
+        pvs: &PVS,
         sectors: &[Sector],
         player_pos: Vec3,
         player_subsector_id: usize,
@@ -197,10 +179,20 @@ impl Software3D {
                 (node_id & !IS_SSECTOR_MASK) as usize
             };
 
-            // if bsp3d.subsector_visible(player_subsector_id, subsector_id) {
+            if let Some(aabb) = bsp3d.get_node_aabb(node_id) {
+                if self.is_bbox_outside_fov(aabb) {
+                    return;
+                }
+            }
+            if !pvs.is_visible(player_subsector_id, subsector_id) {
+                return;
+            }
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
                 for poly_surface in &leaf.polygons {
                     if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                        if self.should_cull_polygon_bounds(&poly_surface, bsp3d) {
+                            continue;
+                        }
                         self.render_surface_polygon(
                             &poly_surface,
                             bsp3d,
@@ -211,8 +203,8 @@ impl Software3D {
                         );
                     }
                 }
-                // }
             }
+
             return;
         }
 
@@ -226,6 +218,7 @@ impl Software3D {
         self.render_bsp3d_node(
             node.children[side],
             bsp3d,
+            pvs,
             sectors,
             player_pos,
             player_subsector_id,
@@ -241,6 +234,7 @@ impl Software3D {
                 self.render_bsp3d_node(
                     back_child_id,
                     bsp3d,
+                    pvs,
                     sectors,
                     player_pos,
                     player_subsector_id,
@@ -250,6 +244,106 @@ impl Software3D {
                 );
             }
         }
+    }
+
+    fn overlap(min_v: f32, max_v: f32, w0: f32, w1: f32) -> bool {
+        max_v >= -w0 && min_v <= w0 || max_v >= -w1 && min_v <= w1
+    }
+
+    /// Early screen bounds check to reject polygons with all vertices outside frustum
+    fn should_cull_polygon_bounds(&self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
+        let mut all_vertices_outside_left = true;
+        let mut all_vertices_outside_right = true;
+        let mut all_vertices_outside_top = true;
+        let mut all_vertices_outside_bottom = true;
+
+        let mut clip_vertices = Vec::with_capacity(polygon.vertices.len());
+
+        for &vertex_idx in &polygon.vertices {
+            let vertex = bsp3d.vertex_get(vertex_idx);
+            let view_pos = self.view_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+
+            let clip_pos = self.projection_matrix * view_pos;
+            clip_vertices.push(clip_pos);
+
+            if clip_pos.x >= -clip_pos.w {
+                all_vertices_outside_left = false;
+            }
+            if clip_pos.x <= clip_pos.w {
+                all_vertices_outside_right = false;
+            }
+            if clip_pos.y >= -clip_pos.w {
+                all_vertices_outside_bottom = false;
+            }
+            if clip_pos.y <= clip_pos.w {
+                all_vertices_outside_top = false;
+            }
+        }
+
+        if all_vertices_outside_left
+            || all_vertices_outside_right
+            || all_vertices_outside_top
+            || all_vertices_outside_bottom
+        {
+            return true;
+        }
+
+        // Test edges of polygon for intersection with frustum by bounding box overlap check in clip space
+        for i in 0..clip_vertices.len() {
+            let v0 = clip_vertices[i];
+            let v1 = clip_vertices[(i + 1) % clip_vertices.len()];
+
+            let edge_min_x = v0.x.min(v1.x);
+            let edge_max_x = v0.x.max(v1.x);
+            let edge_min_y = v0.y.min(v1.y);
+            let edge_max_y = v0.y.max(v1.y);
+            let edge_min_z = v0.z.min(v1.z);
+            let edge_max_z = v0.z.max(v1.z);
+
+            let w0 = v0.w;
+            let w1 = v1.w;
+
+            let is_inside_frustum = |v: &Vec4| {
+                v.x >= -v.w && v.x <= v.w && v.y >= -v.w && v.y <= v.w && v.z >= -v.w && v.z <= v.w
+            };
+
+            if is_inside_frustum(&v0) || is_inside_frustum(&v1) {
+                return false;
+            }
+
+            let overlap_x = Self::overlap(edge_min_x, edge_max_x, w0, w1);
+            let overlap_y = Self::overlap(edge_min_y, edge_max_y, w0, w1);
+            let overlap_z = Self::overlap(edge_min_z, edge_max_z, w0, w1);
+
+            if overlap_x && overlap_y && overlap_z {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Calculate screen area of projected polygon vertices
+    fn calculate_screen_area(&self, vertices: &[Vec2]) -> f32 {
+        if vertices.len() < 3 {
+            return 0.0;
+        }
+
+        // Shoelace formula for polygon area
+        let mut area = 0.0;
+        let n = vertices.len();
+        for i in 0..n {
+            let j = (i + 1) % n;
+            area += vertices[i].x * vertices[j].y;
+            area -= vertices[j].x * vertices[i].y;
+        }
+        (area * 0.5).abs()
+    }
+
+    /// Check if polygon should be culled based on screen area
+    fn should_cull_polygon_area(&self, screen_vertices: &[Vec2]) -> bool {
+        let area = self.calculate_screen_area(screen_vertices);
+        area < 1.0 // Cull polygons smaller than 1 pixel
     }
 
     /// Render a surface polygon
@@ -266,13 +360,15 @@ impl Software3D {
         self.screen_vertices_len = 0;
         self.tex_coords_len = 0;
         self.inv_w_len = 0;
+
+        // Calculate polygon depth bounds for hierarchical culling
         let view_projection = self.projection_matrix * self.view_matrix;
 
         let mut projected_vertices = [None; VERT_COUNT];
+        let polygon_vertices = bsp3d.get_polygon_vertices(polygon);
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let vertex = bsp3d.vertex_get(vertex_idx);
             let clip_pos = view_projection * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-            let polygon_vertices = bsp3d.get_polygon_vertices(polygon);
             let (u, v) = self.calculate_tex_coords(
                 vertex,
                 &polygon.surface_kind,
@@ -340,7 +436,6 @@ impl Software3D {
                             self.screen_vertices_len += 1;
 
                             // Interpolate texture coordinates for clipped vertex
-                            let polygon_vertices = bsp3d.get_polygon_vertices(polygon);
                             let (u_clip, v_clip) = self.calculate_tex_coords(
                                 clip_point_world,
                                 &polygon.surface_kind,
@@ -371,7 +466,6 @@ impl Software3D {
 
                             let clip_point_world = v1_world + (v2_world - v1_world) * t;
                             // Interpolate texture coordinates for clipped vertex
-                            let polygon_vertices = bsp3d.get_polygon_vertices(polygon);
                             let (u_clip, v_clip) = self.calculate_tex_coords(
                                 clip_point_world,
                                 &polygon.surface_kind,
@@ -397,6 +491,13 @@ impl Software3D {
         }
 
         if self.screen_vertices_len >= 3 {
+            // Area-based culling: reject tiny polygons
+            if self
+                .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
+            {
+                return;
+            }
+
             let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
             self.draw_polygon(
                 polygon,
@@ -444,11 +545,10 @@ impl Software3D {
                 let tex_width = texture.width as f32;
                 let tex_height = texture.height as f32;
 
-                // TODO: get rid of this sin/cos by precalculate and store in surface
-                let polygon_dir = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
                 let v1 = original_vertices[0];
                 let pos_from_start = world_pos - v1;
-                let u = pos_from_start.x * polygon_dir.x + pos_from_start.y * polygon_dir.y;
+                let u =
+                    pos_from_start.x * texture_direction.x + pos_from_start.y * texture_direction.y;
 
                 let wall_bottom_z = original_vertices
                     .iter()
@@ -491,7 +591,8 @@ impl Software3D {
             }
             SurfaceKind::Horizontal {
                 texture,
-                texture_direction,
+                tex_cos,
+                tex_sin,
             } => {
                 let flat = pic_data.get_flat(*texture);
                 let tex_width = flat.width as f32;
@@ -502,10 +603,8 @@ impl Software3D {
                 let world_v = world_pos.y;
 
                 // Step 2: Apply texture direction transformation
-                let cos_angle = texture_direction.cos();
-                let sin_angle = texture_direction.sin();
-                let final_u = world_u * cos_angle - world_v * sin_angle;
-                let final_v = world_u * sin_angle + world_v * cos_angle;
+                let final_u = world_u * tex_cos - world_v * tex_sin;
+                let final_v = world_u * tex_sin + world_v * tex_cos;
 
                 (final_u / tex_width, final_v / tex_height)
             }
@@ -527,6 +626,7 @@ impl Software3D {
             sectors,
             subsectors,
             bsp_3d,
+            pvs,
             ..
         } = &level.map_data;
 
@@ -548,6 +648,7 @@ impl Software3D {
             self.render_bsp3d_node(
                 root_node,
                 bsp_3d,
+                pvs,
                 sectors,
                 player_pos,
                 player_subsector_id,
