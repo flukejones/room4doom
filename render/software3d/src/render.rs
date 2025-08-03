@@ -14,9 +14,8 @@ use crate::Software3D;
 
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
-const LIGHT_SCALE: f32 = 8.0;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
-const LIGHT_MOD: f32 = LIGHT_RANGE * LIGHT_SCALE * 15.8;
+const LIGHT_MOD: f32 = LIGHT_RANGE * 8.0 * 16.0;
 
 /// Represents a 2D polygon in screen space
 #[derive(Debug, Clone)]
@@ -385,24 +384,24 @@ impl Software3D {
                     #[cfg(feature = "hprof")]
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
-                    let depth = 1.0 - inv_z;
-                    let index = self.depth_buffer.test_depth_unchecked(x, y as usize, depth);
-                    if index != usize::MAX {
-                        let bright_scale = (inv_z - LIGHT_MIN_Z) * LIGHT_MOD;
-                        let colourmap = pic_data.base_colourmap(brightness, bright_scale);
+                    // TODO: this part of loop costs 100fps~~
+                    if self
+                        .depth_buffer
+                        .test_and_set_depth_unchecked(x, y as usize, inv_z)
+                    {
+                        // TODO: colourmap lookup is 20fps in X loop
+                        let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_MOD);
                         let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                        #[cfg(feature = "debug_draw")]
-                        let mut color = color;
-
                         // TODO: need a separate masked texture draw
                         // This conditional causes a 15fps loss
-                        if color[3] == 0 {
-                            interp_state.step_x();
-                            continue;
-                        }
+                        // if color[3] == 0 {
+                        //     interp_state.step_x();
+                        //     continue;
+                        // }
                         #[cfg(not(feature = "debug_draw"))]
                         rend.set_pixel(x, y as usize, &color);
-                        self.depth_buffer.set_depth_unchecked(depth, index);
+                        #[cfg(feature = "debug_draw")]
+                        let mut color = color;
                         #[cfg(feature = "debug_draw")]
                         if outline_color.is_some() {
                             if self.is_edge_pixel(x as f32, y_f, vertices) {

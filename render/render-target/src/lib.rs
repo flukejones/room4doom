@@ -146,7 +146,7 @@ impl DrawBuffer {
 
 impl DrawBuffer {
     /// Read the colour of a single pixel at X|Y
-    #[inline]
+    #[inline(always)]
     pub fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
         let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
@@ -228,26 +228,32 @@ impl FrameBuffer {
 
 impl render_trait::DrawBuffer for FrameBuffer {
     /// Really only used by seg drawing in plain renderer to draw chunks
+    #[inline]
     fn buf_mut(&mut self) -> &mut [u8] {
         &mut self.buffer2.buffer
     }
 
+    #[inline]
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
         self.buffer2.get_buf_index(x, y)
     }
 
+    #[inline]
     fn pitch(&self) -> usize {
         self.buffer2.pitch()
     }
 
+    #[inline]
     fn size(&self) -> &BufferSize {
         &self.buffer2.size
     }
 
+    #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; 4]) {
         self.buffer2.set_pixel(x, y, colour);
     }
 
+    #[inline]
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         self.buffer2.read_pixel(x, y)
     }
