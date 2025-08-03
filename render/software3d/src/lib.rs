@@ -171,6 +171,32 @@ impl Software3D {
         pic_data: &mut PicData,
         rend: &mut impl DrawBuffer,
     ) {
+        let vis = pvs.get_visible_subsectors(player_subsector_id);
+        if !vis.is_empty() {
+            for ss in vis {
+                let Some(leaf) = bsp3d.get_subsector_leaf(ss) else {
+                    continue;
+                };
+                for poly_surface in &leaf.polygons {
+                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                        if self.should_cull_polygon_bounds(&poly_surface, bsp3d) {
+                            continue;
+                        }
+                        self.render_surface_polygon(
+                            &poly_surface,
+                            bsp3d,
+                            sectors,
+                            pic_data,
+                            player_light,
+                            rend,
+                        );
+                    }
+                }
+            }
+            return;
+        }
+
+        // If there is no PVS then this bsp traversal is required
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a subsector
             let subsector_id = if node_id == u32::MAX {
