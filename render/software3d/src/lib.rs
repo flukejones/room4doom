@@ -534,12 +534,10 @@ impl Software3D {
                 (node_id & !IS_SSECTOR_MASK) as usize
             };
 
-            if let Some(aabb) = bsp3d.get_node_aabb(node_id) {
-                if self.is_bbox_outside_fov(aabb) {
+            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
+                if self.is_bbox_outside_fov(&leaf.aabb) {
                     return;
                 }
-            }
-            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
                 for poly_surface in &leaf.polygons {
                     if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
                         if self.cull_polygon_bounds(&poly_surface, bsp3d) {
@@ -561,7 +559,7 @@ impl Software3D {
         }
 
         // It's a node
-        let Some(node) = bsp3d.nodes().get(node_id as usize).cloned() else {
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
             return;
         };
         let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
@@ -447,8 +449,9 @@ impl Software3D {
                 }
                 interp_state.step_x();
             }
-            // buffer.debug_flip_and_present();
         }
+        // buffer.debug_flip_and_present();
+        // std::thread::sleep(Duration::from_millis(10));
 
         // Draw polygon normals after the main polygon rendering (if enabled)
         // #[cfg(feature = "debug_draw")]
