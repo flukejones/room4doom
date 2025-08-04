@@ -34,7 +34,6 @@ pub struct Software3D {
     view_matrix: Mat4,
     projection_matrix: Mat4,
     depth_buffer: DepthBuffer,
-    x_intersections: [f32; 64],
     near_z: f32,
     far_z: f32,
     // Static arrays to eliminate hot path allocations
@@ -63,7 +62,6 @@ impl Software3D {
             view_matrix: Mat4::IDENTITY,
             projection_matrix,
             depth_buffer: DepthBuffer::new(width as usize, height as usize),
-            x_intersections: [0.0f32; 64],
             near_z: near,
             far_z: far,
             screen_vertices_buffer: [Vec2::ZERO; 8],
@@ -171,32 +169,6 @@ impl Software3D {
         pic_data: &mut PicData,
         rend: &mut impl DrawBuffer,
     ) {
-        let vis = pvs.get_visible_subsectors(player_subsector_id);
-        if !vis.is_empty() {
-            for ss in vis {
-                let Some(leaf) = bsp3d.get_subsector_leaf(ss) else {
-                    continue;
-                };
-                for poly_surface in &leaf.polygons {
-                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
-                        if self.should_cull_polygon_bounds(&poly_surface, bsp3d) {
-                            continue;
-                        }
-                        self.render_surface_polygon(
-                            &poly_surface,
-                            bsp3d,
-                            sectors,
-                            pic_data,
-                            player_light,
-                            rend,
-                        );
-                    }
-                }
-            }
-            return;
-        }
-
-        // If there is no PVS then this bsp traversal is required
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a subsector
             let subsector_id = if node_id == u32::MAX {
@@ -669,19 +641,43 @@ impl Software3D {
         let player_sector = player.mobj().unwrap().subsector.clone();
         if let Some(player_subsector_id) = self.find_player_subsector_id(subsectors, &player_sector)
         {
-            // Render using BSP3D traversal for proper front-to-back ordering
-            let root_node = bsp_3d.root_node();
-            self.render_bsp3d_node(
-                root_node,
-                bsp_3d,
-                pvs,
-                sectors,
-                player_pos,
-                player_subsector_id,
-                player.extralight,
-                pic_data,
-                rend,
-            );
+            let vis = pvs.get_visible_subsectors(player_subsector_id);
+            if !vis.is_empty() {
+                for ss in vis {
+                    let Some(leaf) = bsp_3d.get_subsector_leaf(ss) else {
+                        continue;
+                    };
+                    for poly_surface in &leaf.polygons {
+                        if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
+                            if self.should_cull_polygon_bounds(&poly_surface, bsp_3d) {
+                                continue;
+                            }
+                            self.render_surface_polygon(
+                                &poly_surface,
+                                bsp_3d,
+                                sectors,
+                                pic_data,
+                                player.extralight,
+                                rend,
+                            );
+                        }
+                    }
+                }
+            } else {
+                // Render using BSP3D traversal for proper front-to-back ordering
+                let root_node = bsp_3d.root_node();
+                self.render_bsp3d_node(
+                    root_node,
+                    bsp_3d,
+                    pvs,
+                    sectors,
+                    player_pos,
+                    player_subsector_id,
+                    player.extralight,
+                    pic_data,
+                    rend,
+                );
+            }
         }
     }
 

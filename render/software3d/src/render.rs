@@ -15,7 +15,7 @@ use crate::Software3D;
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
-const LIGHT_MOD: f32 = LIGHT_RANGE * 8.0 * 16.0;
+const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
 
 /// Represents a 2D polygon in screen space
 #[derive(Debug, Clone)]
@@ -321,9 +321,6 @@ impl Software3D {
 
         let screen_poly = ScreenPoly(&self.screen_vertices_buffer[..self.screen_vertices_len]);
 
-        if screen_poly.0.len() < 3 || self.tex_coords_len < 3 || self.inv_w_len < 3 {
-            return;
-        }
         let bounds = match screen_poly.bounds() {
             Some(bounds) => bounds,
             None => return,
@@ -344,53 +341,89 @@ impl Software3D {
         let texture_sampler =
             TextureSampler::new(&polygon.surface_kind, pic_data, sky_pic, sky_num);
         let vertices = &screen_poly.0;
-        let vertex_count = vertices.len();
+        let vertex_count = screen_poly.0.len();
         let width_f32 = self.width as f32;
         let height_f32 = self.height as f32;
 
         // Pre-compute bounds
         let y_min = bounds.0.y.max(0.0);
         let y_max = bounds.1.y.min(height_f32 - 1.0);
-        let y_start = y_min as i32;
-        let y_end = y_max as i32;
+        let y_start = y_min as u32 as usize;
+        let y_end = y_max as u32 as usize;
 
         for y in y_start..=y_end {
             let y_f = y as f32;
-            let mut count = 0;
-            for i in 0..vertex_count {
-                let v1 = vertices[i];
-                let v2 = vertices[(i + 1) % vertex_count];
-                if (v1.y < y_f && v2.y >= y_f) || (v2.y < y_f && v1.y >= y_f) {
-                    let t = (y_f - v1.y) / (v2.y - v1.y);
-                    if t >= 0.0 && t <= 1.0 && count < 16 {
-                        self.x_intersections[count] = v1.x + (v2.x - v1.x) * t;
-                        count += 1;
+            let mut x0 = f32::INFINITY;
+            let mut x1 = f32::NEG_INFINITY;
+            let mut found = 0;
+            if vertex_count == 3 {
+                // Faster if vertices count == 3
+                let v0 = unsafe { *vertices.get_unchecked(0) };
+                let v1 = unsafe { *vertices.get_unchecked(1) };
+                let v2 = unsafe { *vertices.get_unchecked(2) };
+
+                let edges = [(v0, v1), (v1, v2), (v2, v0)];
+                for &(start, end) in &edges {
+                    if (start.y < y_f && end.y >= y_f) || (end.y < y_f && start.y >= y_f) {
+                        let t = (y_f - start.y) / (end.y - start.y);
+                        if t >= 0.0 && t <= 1.0 {
+                            let x = start.x + (end.x - start.x) * t;
+                            if found == 0 {
+                                x0 = x;
+                                found += 1;
+                            } else {
+                                x1 = x;
+                                found += 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                let v0 = unsafe { *vertices.get_unchecked(0) };
+                let v1 = unsafe { *vertices.get_unchecked(1) };
+                let v2 = unsafe { *vertices.get_unchecked(2) };
+                let v3 = unsafe { *vertices.get_unchecked(3) };
+
+                let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
+                for &(start, end) in &edges {
+                    if (start.y < y_f && end.y >= y_f) || (end.y < y_f && start.y >= y_f) {
+                        let t = (y_f - start.y) / (end.y - start.y);
+                        if t >= 0.0 && t <= 1.0 {
+                            let x = start.x + (end.x - start.x) * t;
+                            if found == 0 {
+                                x0 = x;
+                                found += 1;
+                            } else {
+                                x1 = x;
+                                found += 1;
+                                break;
+                            }
+                        }
                     }
                 }
             }
-            if count < 2 {
-                continue;
+
+            if x0 > x1 {
+                std::mem::swap(&mut x0, &mut x1);
             }
-            self.x_intersections[..count].sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
 
             let mut i = 0;
-            while i + 1 < count {
-                let x_f = self.x_intersections[i].max(0.1).ceil();
+            while i + 1 < found {
+                let x_f = x0.max(0.0).ceil();
+                let mut interp_state = interpolator.init_scanline(x_f, y_f);
+
                 let x_start = x_f as u32 as usize;
                 i += 1;
-                let x_end = self.x_intersections[i].min(width_f32 - 1.0).floor() as u32 as usize;
-                let mut interp_state = interpolator.init_scanline(x_f, y_f);
+                let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
                 for x in x_start..=x_end {
                     #[cfg(feature = "hprof")]
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
                     // TODO: this part of loop costs 100fps~~
-                    if self
-                        .depth_buffer
-                        .test_and_set_depth_unchecked(x, y as usize, inv_z)
-                    {
+                    if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
                         // TODO: colourmap lookup is 20fps in X loop
-                        let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_MOD);
+                        let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
                         let color = texture_sampler.sample(u, v, colourmap, pic_data);
                         // TODO: need a separate masked texture draw
                         // This conditional causes a 15fps loss
@@ -399,19 +432,15 @@ impl Software3D {
                         //     continue;
                         // }
                         #[cfg(not(feature = "debug_draw"))]
-                        rend.set_pixel(x, y as usize, &color);
+                        rend.set_pixel(x, y, &color);
                         #[cfg(feature = "debug_draw")]
                         let mut color = color;
                         #[cfg(feature = "debug_draw")]
                         if outline_color.is_some() {
                             if self.is_edge_pixel(x as f32, y_f, vertices) {
-                                rend.set_pixel(
-                                    x,
-                                    y as usize,
-                                    &outline_color.unwrap_or([0, 0, 0, 0]),
-                                );
+                                rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
                             } else {
-                                rend.set_pixel(x, y as usize, &color);
+                                rend.set_pixel(x, y, &color);
                             }
                         }
                     }
