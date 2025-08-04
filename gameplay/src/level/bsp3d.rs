@@ -223,6 +223,7 @@ pub struct SurfacePolygon {
     pub vertices: Vec<usize>,
     pub normal: Vec3,
     pub aabb: AABB,
+    pub moves: bool,
 }
 
 impl SurfacePolygon {
@@ -232,6 +233,7 @@ impl SurfacePolygon {
         vertices: Vec<usize>,
         normal: Vec3,
         vertex_positions: &[Vec3],
+        moves: bool,
     ) -> Self {
         let mut aabb = AABB::new();
         for &vertex_idx in &vertices {
@@ -244,14 +246,28 @@ impl SurfacePolygon {
             vertices,
             normal,
             aabb,
+            moves,
         }
     }
 
     pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
+        let computed_normal = if self.moves {
+            unsafe {
+                let p0 = vertex_positions.get_unchecked(self.vertices[0]);
+                let p1 = vertex_positions.get_unchecked(self.vertices[1]);
+                let p2 = vertex_positions.get_unchecked(self.vertices[2]);
+                let edge1 = p1 - p0;
+                let edge2 = p2 - p0;
+                edge1.cross(edge2).normalize()
+            }
+        } else {
+            self.normal
+        };
+
         let first_vertex_idx = unsafe { *self.vertices.get_unchecked(0) };
         let first_vertex = vertex_positions[first_vertex_idx];
         let view_vector = (point - first_vertex).normalize_or_zero();
-        let dot_product = self.normal.dot(view_vector);
+        let dot_product = computed_normal.dot(view_vector);
         dot_product.is_sign_positive() || dot_product.is_nan()
     }
 }
@@ -773,6 +789,10 @@ impl BSP3D {
                 .unwrap_or_default()
                 == MovementType::Floor;
         }
+        let moves = frontsector_is_ceil_mover
+            || frontsector_is_floor_mover
+            || backsector_is_ceil_mover
+            || backsector_is_floor_mover;
 
         let (bottom_start_pos, bottom_end_pos, top_start_pos, top_end_pos) = {
             // For zero-height walls, determine logical top/bottom based on wall type
@@ -911,6 +931,7 @@ impl BSP3D {
             vec![bottom_start, bottom_end, top_start],
             normal,
             &self.vertices,
+            moves,
         );
 
         let triangle2 = SurfacePolygon::new(
@@ -919,6 +940,7 @@ impl BSP3D {
             vec![top_start, bottom_end, top_end],
             normal,
             &self.vertices,
+            moves,
         );
 
         vec![triangle1, triangle2]
@@ -1012,6 +1034,7 @@ impl BSP3D {
                 floor_vertices,
                 Vec3::new(0.0, 0.0, 1.0),
                 &self.vertices,
+                movement_type == MovementType::Floor,
             );
 
             let floor_polygon_index = self.subsector_leaves[subsector_id].polygons.len();
@@ -1041,6 +1064,7 @@ impl BSP3D {
                 ceiling_vertices,
                 Vec3::new(0.0, 0.0, -1.0),
                 &self.vertices,
+                movement_type == MovementType::Ceiling,
             );
 
             let ceiling_polygon_index = self.subsector_leaves[subsector_id].polygons.len();
