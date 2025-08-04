@@ -37,7 +37,8 @@ fn get_movement_type(line_special: i16) -> Option<MovementType> {
         // Platforms (floor movement)
         10 | 22 | 53 | 87 | 88 | 95 | 120 | 121 => Some(MovementType::Floor),
         // Shootlines
-        24 | 46 | 47 => Some(MovementType::Floor),
+        24 | 47 => Some(MovementType::Floor),
+        46 => Some(MovementType::Ceiling),
         // Stairs (floor movement)
         8 | 100 => Some(MovementType::Floor),
         _ => None,

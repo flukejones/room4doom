@@ -351,6 +351,9 @@ impl Software3D {
         let y_start = y_min as u32 as usize;
         let y_end = y_max as u32 as usize;
 
+        // Instead of doing the scanline stuff here, could do it all in a fast loop for
+        // all polygons before calling draw_polygon(). Then just slam the scanlines
+        // out all in one go.
         for y in y_start..=y_end {
             let y_f = y as f32;
             let mut x0 = f32::INFINITY;
@@ -403,49 +406,46 @@ impl Software3D {
                     }
                 }
             }
-
+            if found < 2 {
+                continue;
+            }
             if x0 > x1 {
                 std::mem::swap(&mut x0, &mut x1);
             }
 
-            let mut i = 0;
-            while i + 1 < found {
-                let x_f = x0.max(0.0).ceil();
-                let mut interp_state = interpolator.init_scanline(x_f, y_f);
-
-                let x_start = x_f as u32 as usize;
-                i += 1;
-                let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
-                for x in x_start..=x_end {
-                    #[cfg(feature = "hprof")]
-                    profile!("draw_textured_polygon X loop");
-                    let (u, v, inv_z) = interp_state.get_current_uv();
-                    // TODO: this part of loop costs 100fps~~
-                    if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
-                        // TODO: colourmap lookup is 20fps in X loop
-                        let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
-                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                        // TODO: need a separate masked texture draw
-                        // This conditional causes a 15fps loss
-                        // if color[3] == 0 {
-                        //     interp_state.step_x();
-                        //     continue;
-                        // }
-                        #[cfg(not(feature = "debug_draw"))]
-                        rend.set_pixel(x, y, &color);
-                        #[cfg(feature = "debug_draw")]
-                        let mut color = color;
-                        #[cfg(feature = "debug_draw")]
-                        if outline_color.is_some() {
-                            if self.is_edge_pixel(x as f32, y_f, vertices) {
-                                rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
-                            } else {
-                                rend.set_pixel(x, y, &color);
-                            }
+            let x_f = x0.max(0.0).ceil();
+            let x_start = x_f as u32 as usize;
+            let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
+            let mut interp_state = interpolator.init_scanline(x_f, y_f);
+            for x in x_start..=x_end {
+                #[cfg(feature = "hprof")]
+                profile!("draw_textured_polygon X loop");
+                let (u, v, inv_z) = interp_state.get_current_uv();
+                // TODO: this part of loop costs 100fps~~
+                if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
+                    // TODO: colourmap lookup is 20fps in X loop
+                    let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
+                    let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                    // TODO: need a separate masked texture draw
+                    // This conditional causes a 15fps loss
+                    // if color[3] == 0 {
+                    //     interp_state.step_x();
+                    //     continue;
+                    // }
+                    #[cfg(not(feature = "debug_draw"))]
+                    rend.set_pixel(x, y, &color);
+                    #[cfg(feature = "debug_draw")]
+                    let mut color = color;
+                    #[cfg(feature = "debug_draw")]
+                    if outline_color.is_some() {
+                        if self.is_edge_pixel(x as f32, y_f, vertices) {
+                            rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
+                        } else {
+                            rend.set_pixel(x, y, &color);
                         }
                     }
-                    interp_state.step_x();
                 }
+                interp_state.step_x();
             }
         }
 
