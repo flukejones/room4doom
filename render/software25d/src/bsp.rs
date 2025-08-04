@@ -542,10 +542,6 @@ impl Software25D {
             };
 
             if subsector_id < map.subsectors().len() {
-                if !map.subsector_visible(player_subsector_id, subsector_id) {
-                    return; // Subsector not visible, skip rendering
-                }
-
                 if node_id == u32::MAX {
                     let subsect = &map.subsectors()[0];
                     // Check if it should be drawn, then draw

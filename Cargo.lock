@@ -71,15 +71,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 
 [[package]]
-name = "cmake"
-version = "0.1.54"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "coarse-prof"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,7 +504,6 @@ version = "0.37.0"
 source = "git+https://github.com/flukejones/rust-sdl2#1d7bc112709b4a41017a7eb0e92afafa3c14ba13"
 dependencies = [
  "cfg-if",
- "cmake",
  "libc",
  "version-compare",
 ]

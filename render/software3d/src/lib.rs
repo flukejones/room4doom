@@ -151,7 +151,7 @@ impl Software3D {
     }
 
     /// Traverse BSP3D tree and render visible segments in front-to-back order
-    fn render_bsp3d_node(
+    fn render_bsp(
         &mut self,
         node_id: u32,
         bsp3d: &BSP3D,
@@ -175,9 +175,6 @@ impl Software3D {
                 if self.is_bbox_outside_fov(aabb) {
                     return;
                 }
-            }
-            if !pvs.is_visible(player_subsector_id, subsector_id) {
-                return;
             }
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
                 for poly_surface in &leaf.polygons {
@@ -207,7 +204,7 @@ impl Software3D {
         let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
 
         // Render front side first (closer to player)
-        self.render_bsp3d_node(
+        self.render_bsp(
             node.children[side],
             bsp3d,
             pvs,
@@ -223,7 +220,7 @@ impl Software3D {
         let back_child_id = node.children[side ^ 1];
         if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
             if !self.is_bbox_outside_fov(back_aabb) {
-                self.render_bsp3d_node(
+                self.render_bsp(
                     back_child_id,
                     bsp3d,
                     pvs,
@@ -281,8 +278,11 @@ impl Software3D {
 
         // Test edges of polygon for intersection with frustum by bounding box overlap check in clip space
         for i in 0..CLIP_VERTICES_LEN {
-            let v0 = self.clip_vertices[i];
-            let v1 = self.clip_vertices[(i + 1) % CLIP_VERTICES_LEN];
+            let v0 = unsafe { self.clip_vertices.get_unchecked(i) };
+            let v1 = unsafe {
+                self.clip_vertices
+                    .get_unchecked((i + 1) % CLIP_VERTICES_LEN)
+            };
 
             let edge_min_x = v0.x.min(v1.x);
             let edge_max_x = v0.x.max(v1.x);
@@ -652,7 +652,7 @@ impl Software3D {
             } else {
                 // Render using BSP3D traversal for proper front-to-back ordering
                 let root_node = bsp_3d.root_node();
-                self.render_bsp3d_node(
+                self.render_bsp(
                     root_node,
                     bsp_3d,
                     pvs,

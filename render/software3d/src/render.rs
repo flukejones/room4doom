@@ -367,7 +367,7 @@ impl Software3D {
 
                 let edges = [(v0, v1), (v1, v2), (v2, v0)];
                 for &(start, end) in &edges {
-                    if (start.y < y_f && end.y >= y_f) || (end.y < y_f && start.y >= y_f) {
+                    if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
                         let t = (y_f - start.y) / (end.y - start.y);
                         if t >= 0.0 && t <= 1.0 {
                             let x = start.x + (end.x - start.x) * t;
@@ -390,7 +390,7 @@ impl Software3D {
 
                 let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
                 for &(start, end) in &edges {
-                    if (start.y < y_f && end.y >= y_f) || (end.y < y_f && start.y >= y_f) {
+                    if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
                         let t = (y_f - start.y) / (end.y - start.y);
                         if t >= 0.0 && t <= 1.0 {
                             let x = start.x + (end.x - start.x) * t;
@@ -423,7 +423,7 @@ impl Software3D {
                 let (u, v, inv_z) = interp_state.get_current_uv();
                 // TODO: this part of loop costs 100fps~~
                 if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
-                    // TODO: colourmap lookup is 20fps in X loop
+                    // TODO: colourmap lookup is 30fps in X loop
                     let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
                     // TODO: need a separate masked texture draw

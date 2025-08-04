@@ -27,7 +27,9 @@ use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use gameplay::{
-    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, spawn_specials, update_specials
+    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player,
+    PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, spawn_specials,
+    update_specials,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
@@ -330,7 +332,7 @@ impl Game {
 
         let lump = wad.get_lump("TITLEPIC").expect("TITLEPIC missing");
         let page_cache = WadPatch::from_lump(lump);
-        let pic_data = PicData::init(false, &wad);
+        let pic_data = PicData::init(&wad);
 
         Game {
             wad_data: wad,

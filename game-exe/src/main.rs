@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if !options.iwad.is_empty() {
             let wad_path: PathBuf = options.iwad.clone().into();
             let wad = WadData::new(&wad_path);
-            let pic_data = PicData::init(false, &wad);
+            let pic_data = PicData::init(&wad);
             preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
 
             if !options.pwad.is_empty() {

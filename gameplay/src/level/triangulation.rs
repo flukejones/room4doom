@@ -388,7 +388,7 @@ mod tests {
 
         let wad = WadData::new(&PathBuf::from("../doom1.wad"));
         let mut map = MapData::default();
-        map.load("E1M2", &PicData::init(false, &wad), &wad);
+        map.load("E1M2", &PicData::init(&wad), &wad);
 
         // Find subsector for Sector 109 (lift)
         let target_sector = 109;
@@ -548,7 +548,7 @@ mod tests {
 
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         let mut map = MapData::default();
-        map.load("E4M7", &PicData::init(false, &wad), &wad);
+        map.load("E4M7", &PicData::init(&wad), &wad);
 
         // Test carve_subsector_polygon directly on the first subsector
         if let Some(subsector) = map.subsectors().get(0) {

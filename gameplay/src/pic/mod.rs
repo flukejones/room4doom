@@ -82,6 +82,7 @@ pub struct PicData {
     colourmap: [Colourmap; COLOURMAP_LEN],
     // 16 groups of 48 sets of indexes to colourmap
     light_scale: [usize; LIGHTMAP_LEN],
+    lightscale_colourmap: [Colourmap; LIGHTMAP_LEN],
     // 16 groups of 128 sets of palette
     zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
@@ -102,7 +103,6 @@ pub struct PicData {
     /// `set_player_palette()`, typically done on frame start to set effects
     /// like take-damage.
     use_pallette: usize,
-    double_res: bool,
 }
 
 impl Default for PicData {
@@ -122,19 +122,25 @@ impl Default for PicData {
             sprite_patches: Default::default(),
             sprite_defs: Default::default(),
             use_pallette: Default::default(),
-            double_res: Default::default(),
+            lightscale_colourmap: [[0usize; 256]; LIGHTMAP_LEN],
         }
     }
 }
 
 impl PicData {
-    pub fn init(double_res: bool, wad: &WadData) -> Self {
+    pub fn init(wad: &WadData) -> Self {
         print!("Init image data  [");
 
         let colourmap = Self::init_colourmap(wad);
         let palettes = Self::init_palette(wad);
         let light_scale = Self::init_light_scales();
         let zlight_scale = Self::init_zlight_scales();
+
+        // Precompute lightscale_colourmap merging light_scale and colourmap entries by clone
+        let mut lightscale_colourmap = [[0usize; 256]; LIGHTMAP_LEN];
+        for (i, &light_scale_idx) in light_scale.iter().enumerate() {
+            lightscale_colourmap[i].clone_from_slice(&colourmap[light_scale_idx]);
+        }
 
         let (walls, sky_pic) = Self::init_wall_pics(wad);
         let wall_translation = (0..walls.len()).collect();
@@ -189,13 +195,13 @@ impl PicData {
             flat_translation,
             palettes,
             light_scale,
+            lightscale_colourmap,
             zlight_scale,
             colourmap,
             use_fixed_colourmap: 0,
             sprite_patches,
             sprite_defs,
             use_pallette: 0,
-            double_res,
         }
     }
 
@@ -658,9 +664,8 @@ impl PicData {
     pub fn base_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         let colourmap = (wall_scale as u32).min(47) as usize;
         unsafe {
-            // unchecked reduces instruction count from ~8 down to 1
-            let i = self.light_scale.get_unchecked(light_level * 48 + colourmap);
-            self.colourmap.get_unchecked(*i)
+            self.lightscale_colourmap
+                .get_unchecked(light_level * 48 + colourmap)
         }
     }
 

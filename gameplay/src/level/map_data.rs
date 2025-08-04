@@ -246,6 +246,8 @@ impl MapData {
             self.subsectors.len(),
         ) {
             self.pvs = cached_pvs;
+        } else {
+            warn!("No PVS found for map {map_name} or wad {}", wad.wad_name());
         }
     }
 

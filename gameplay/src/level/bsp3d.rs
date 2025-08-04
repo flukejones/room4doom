@@ -3,12 +3,11 @@ use coarse_prof::profile;
 
 use crate::level::map_defs::{LineDef, Node, Sector, SubSector};
 use crate::level::triangulation::carve_subsector_polygon;
-use crate::{DivLine, LineDefFlags, PVS, PicData, Segment};
+use crate::{DivLine, LineDefFlags, PicData, Segment};
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::io::Write;
-use wad::WadData;
 
 const IS_SUBSECTOR_MASK: u32 = 0x8000_0000;
 const QUANT_EPSILON: f32 = 0.1;
@@ -1177,7 +1176,7 @@ mod tests {
     fn test_zero_height_walls() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         let mut map = MapData::default();
-        map.load("E1M2", &PicData::init(false, &wad), &wad);
+        map.load("E1M2", &PicData::init(&wad), &wad);
 
         let bsp3d = &map.bsp_3d;
         let mut zero_height_walls = Vec::new();

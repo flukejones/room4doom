@@ -60,7 +60,7 @@ coarse-prof = "0.2"
 glam = "*"
 sdl2 = { git = "https://github.com/flukejones/rust-sdl2", features = [
     "unsafe_textures",
-    "mixer","bundled"
+    "mixer"
 ] }
 
 argh = "0.1.12"
