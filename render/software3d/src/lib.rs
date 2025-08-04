@@ -17,6 +17,7 @@ mod tests;
 use depth_buffer::DepthBuffer;
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
+const CLIP_VERTICES_LEN: usize = 3;
 
 /// A 3D software renderer for Doom levels.
 ///
@@ -43,6 +44,7 @@ pub struct Software3D {
     screen_vertices_len: usize,
     tex_coords_len: usize,
     inv_w_len: usize,
+    clip_vertices: [Vec4; CLIP_VERTICES_LEN],
 }
 
 impl Software3D {
@@ -70,6 +72,7 @@ impl Software3D {
             screen_vertices_len: 0,
             tex_coords_len: 0,
             inv_w_len: 0,
+            clip_vertices: [Vec4::ZERO; 3],
         }
     }
 
@@ -93,7 +96,6 @@ impl Software3D {
         let aspect = self.width as f32 / stretched_height;
         self.projection_matrix =
             Mat4::perspective_rh_gl(fov * 0.75, aspect, self.near_z, self.far_z);
-        dbg!(self.projection_matrix);
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -122,25 +124,17 @@ impl Software3D {
     /// Check if 3D bounding box is fully outside view frustum
     fn is_bbox_outside_fov(&self, bbox: &AABB) -> bool {
         // Generate all 8 corners of the 3D bbox
-        let corners = [
-            Vec3::new(bbox.min.x, bbox.min.y, bbox.min.z),
-            Vec3::new(bbox.max.x, bbox.min.y, bbox.min.z),
-            Vec3::new(bbox.max.x, bbox.max.y, bbox.min.z),
-            Vec3::new(bbox.min.x, bbox.max.y, bbox.min.z),
-            Vec3::new(bbox.min.x, bbox.min.y, bbox.max.z),
-            Vec3::new(bbox.max.x, bbox.min.y, bbox.max.z),
-            Vec3::new(bbox.max.x, bbox.max.y, bbox.max.z),
-            Vec3::new(bbox.min.x, bbox.max.y, bbox.max.z),
-        ];
-
-        // Transform corners to view space
         let view_projection = self.projection_matrix * self.view_matrix;
-        let mut clip_corners = Vec::with_capacity(8);
-
-        for corner in corners {
-            let clip_pos = view_projection * Vec4::new(corner.x, corner.y, corner.z, 1.0);
-            clip_corners.push(clip_pos);
-        }
+        let clip_corners = [
+            view_projection * Vec4::new(bbox.min.x, bbox.min.y, bbox.min.z, 1.0),
+            view_projection * Vec4::new(bbox.max.x, bbox.min.y, bbox.min.z, 1.0),
+            view_projection * Vec4::new(bbox.max.x, bbox.max.y, bbox.min.z, 1.0),
+            view_projection * Vec4::new(bbox.min.x, bbox.max.y, bbox.min.z, 1.0),
+            view_projection * Vec4::new(bbox.min.x, bbox.min.y, bbox.max.z, 1.0),
+            view_projection * Vec4::new(bbox.max.x, bbox.min.y, bbox.max.z, 1.0),
+            view_projection * Vec4::new(bbox.max.x, bbox.max.y, bbox.max.z, 1.0),
+            view_projection * Vec4::new(bbox.min.x, bbox.max.y, bbox.max.z, 1.0),
+        ];
 
         // If bounding box is fully outside any frustum plane, cull immediately
         if clip_corners.iter().all(|c| c.x < -c.w)
@@ -249,20 +243,19 @@ impl Software3D {
     }
 
     /// Early screen bounds check to reject polygons with all vertices outside frustum
-    fn should_cull_polygon_bounds(&self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
+    fn should_cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
         let mut all_vertices_outside_left = true;
         let mut all_vertices_outside_right = true;
         let mut all_vertices_outside_top = true;
         let mut all_vertices_outside_bottom = true;
 
-        let mut clip_vertices = Vec::with_capacity(polygon.vertices.len());
-
-        for &vertex_idx in &polygon.vertices {
-            let vertex = bsp3d.vertex_get(vertex_idx);
+        for i in 0..CLIP_VERTICES_LEN {
+            let vidx = unsafe { *polygon.vertices.get_unchecked(i) };
+            let vertex = bsp3d.vertex_get(vidx);
             let view_pos = self.view_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
 
             let clip_pos = self.projection_matrix * view_pos;
-            clip_vertices.push(clip_pos);
+            self.clip_vertices[i] = clip_pos;
 
             if clip_pos.x >= -clip_pos.w {
                 all_vertices_outside_left = false;
@@ -287,9 +280,9 @@ impl Software3D {
         }
 
         // Test edges of polygon for intersection with frustum by bounding box overlap check in clip space
-        for i in 0..clip_vertices.len() {
-            let v0 = clip_vertices[i];
-            let v1 = clip_vertices[(i + 1) % clip_vertices.len()];
+        for i in 0..CLIP_VERTICES_LEN {
+            let v0 = self.clip_vertices[i];
+            let v1 = self.clip_vertices[(i + 1) % CLIP_VERTICES_LEN];
 
             let edge_min_x = v0.x.min(v1.x);
             let edge_max_x = v0.x.max(v1.x);
@@ -363,16 +356,10 @@ impl Software3D {
         let view_projection = self.projection_matrix * self.view_matrix;
 
         let mut projected_vertices = [None; VERT_COUNT];
-        let polygon_vertices = bsp3d.get_polygon_vertices(polygon);
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let vertex = bsp3d.vertex_get(vertex_idx);
             let clip_pos = view_projection * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-            let (u, v) = self.calculate_tex_coords(
-                vertex,
-                &polygon.surface_kind,
-                &polygon_vertices,
-                pic_data,
-            );
+            let (u, v) = self.calculate_tex_coords(vertex, &polygon, bsp3d, pic_data);
 
             if clip_pos.w > 0.0 {
                 let ndc = clip_pos / clip_pos.w;
@@ -436,8 +423,8 @@ impl Software3D {
                             // Interpolate texture coordinates for clipped vertex
                             let (u_clip, v_clip) = self.calculate_tex_coords(
                                 clip_point_world,
-                                &polygon.surface_kind,
-                                &polygon_vertices,
+                                &polygon,
+                                bsp3d,
                                 pic_data,
                             );
                             self.tex_coords_buffer[self.tex_coords_len] =
@@ -466,8 +453,8 @@ impl Software3D {
                             // Interpolate texture coordinates for clipped vertex
                             let (u_clip, v_clip) = self.calculate_tex_coords(
                                 clip_point_world,
-                                &polygon.surface_kind,
-                                &polygon_vertices,
+                                &polygon,
+                                bsp3d,
                                 pic_data,
                             );
                             self.tex_coords_buffer[self.tex_coords_len] =
@@ -521,15 +508,15 @@ impl Software3D {
     fn calculate_tex_coords(
         &self,
         world_pos: Vec3,
-        surface_kind: &SurfaceKind,
-        original_vertices: &[Vec3],
+        surface: &SurfacePolygon,
+        bsp3d: &BSP3D,
         pic_data: &PicData,
     ) -> (f32, f32) {
-        if original_vertices.len() < 2 {
+        if surface.vertices.len() < 2 {
             return (0.0, 0.0);
         }
 
-        match surface_kind {
+        match &surface.surface_kind {
             SurfaceKind::Vertical {
                 texture: Some(tex_id),
                 tex_x_offset,
@@ -543,19 +530,18 @@ impl Software3D {
                 let tex_width = texture.width as f32;
                 let tex_height = texture.height as f32;
 
-                let v1 = original_vertices[0];
+                let v1 = bsp3d.vertex_get(surface.vertices[0]);
                 let pos_from_start = world_pos - v1;
                 let u =
                     pos_from_start.x * texture_direction.x + pos_from_start.y * texture_direction.y;
 
-                let wall_bottom_z = original_vertices
-                    .iter()
-                    .map(|v| v.z)
-                    .fold(f32::INFINITY, f32::min);
-                let wall_top_z = original_vertices
-                    .iter()
-                    .map(|v| v.z)
-                    .fold(f32::NEG_INFINITY, f32::max);
+                let (wall_bottom_z, wall_top_z) = surface.vertices.iter().fold(
+                    (f32::INFINITY, f32::NEG_INFINITY),
+                    |(min_z, max_z), v| {
+                        let z = bsp3d.vertex_get(*v).z;
+                        (min_z.min(z), max_z.max(z))
+                    },
+                );
 
                 let unpeg_condition = match wall_type {
                     WallType::Upper => {

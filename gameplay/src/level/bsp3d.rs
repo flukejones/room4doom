@@ -409,14 +409,6 @@ impl BSP3D {
         unsafe { *self.vertices.get_unchecked(idx) }
     }
 
-    pub fn get_polygon_vertices(&self, polygon: &SurfacePolygon) -> Vec<Vec3> {
-        polygon
-            .vertices
-            .iter()
-            .map(|&idx| self.vertices[idx])
-            .collect()
-    }
-
     pub fn move_vertices(
         &mut self,
         sector_id: usize,

@@ -87,7 +87,7 @@ codegen-units = 1
 
 [profile.dev]
 debug = true
-opt-level = 3
+opt-level = 0
 codegen-units = 1
 
 [profile.bench]
