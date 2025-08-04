@@ -747,18 +747,31 @@ impl BSP3D {
         let start_pos = *segment.v1;
         let end_pos = *segment.v2;
         let is_zero_height = (top_height - bottom_height).abs() <= HEIGHT_EPSILON;
-        let mut backsector_is_mover = false;
-        let frontsector_is_mover = sector_movement_map
+        let mut backsector_is_ceil_mover = false;
+        let mut backsector_is_floor_mover = false;
+        let frontsector_is_ceil_mover = sector_movement_map
             .get(&(segment.frontsector.num as usize))
             .copied()
             .unwrap_or_default()
-            != MovementType::None;
+            == MovementType::Ceiling;
         if let Some(back) = &segment.backsector {
-            backsector_is_mover = sector_movement_map
+            backsector_is_ceil_mover = sector_movement_map
                 .get(&(back.num as usize))
                 .copied()
                 .unwrap_or_default()
-                != MovementType::None;
+                == MovementType::Ceiling;
+        }
+        let frontsector_is_floor_mover = sector_movement_map
+            .get(&(segment.frontsector.num as usize))
+            .copied()
+            .unwrap_or_default()
+            == MovementType::Floor;
+        if let Some(back) = &segment.backsector {
+            backsector_is_floor_mover = sector_movement_map
+                .get(&(back.num as usize))
+                .copied()
+                .unwrap_or_default()
+                == MovementType::Floor;
         }
 
         let (bottom_start_pos, bottom_end_pos, top_start_pos, top_end_pos) = {
@@ -767,14 +780,16 @@ impl BSP3D {
             match wall_type {
                 WallType::Upper => {
                     // Handle self movers first
-                    if backsector_is_mover || (backsector_is_mover && frontsector_is_mover) {
+                    if backsector_is_ceil_mover
+                        || (backsector_is_ceil_mover && frontsector_is_ceil_mover)
+                    {
                         (
                             VertexMappedTo::UpperMoving,
                             VertexMappedTo::UpperMoving,
                             VertexMappedTo::Upper,
                             VertexMappedTo::Upper,
                         )
-                    } else if frontsector_is_mover {
+                    } else if backsector_is_ceil_mover {
                         (
                             VertexMappedTo::Upper,
                             VertexMappedTo::Upper,
@@ -791,7 +806,9 @@ impl BSP3D {
                     }
                 }
                 WallType::Lower => {
-                    if backsector_is_mover || (backsector_is_mover && frontsector_is_mover) {
+                    if backsector_is_floor_mover
+                        || (backsector_is_floor_mover && frontsector_is_floor_mover)
+                    {
                         (
                             VertexMappedTo::Lower,
                             VertexMappedTo::Lower,
@@ -799,7 +816,7 @@ impl BSP3D {
                             VertexMappedTo::LowerMoving,
                             // TODO: order needs to be flipped for one line kind
                         )
-                    } else if frontsector_is_mover {
+                    } else if frontsector_is_floor_mover {
                         (
                             VertexMappedTo::LowerMoving,
                             VertexMappedTo::LowerMoving,
@@ -816,12 +833,19 @@ impl BSP3D {
                     }
                 }
                 WallType::Middle => {
-                    if frontsector_is_mover || backsector_is_mover {
+                    if frontsector_is_floor_mover {
                         (
                             VertexMappedTo::LowerMoving,
                             VertexMappedTo::LowerMoving,
                             VertexMappedTo::Upper,
                             VertexMappedTo::Upper,
+                        )
+                    } else if frontsector_is_ceil_mover {
+                        (
+                            VertexMappedTo::Lower,
+                            VertexMappedTo::Lower,
+                            VertexMappedTo::UpperMoving,
+                            VertexMappedTo::UpperMoving,
                         )
                     } else {
                         (
