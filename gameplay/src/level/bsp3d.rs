@@ -38,8 +38,17 @@ fn get_movement_type(line_special: i16) -> Option<MovementType> {
         // Shootlines
         24 | 47 => Some(MovementType::Floor),
         46 => Some(MovementType::Ceiling),
+        // switches
+        14 | 15 | 20 | 21 | 62 | 66 | 67 | 68 | 122 | 123 => Some(MovementType::Floor),
+        18 | 23 | 71 | 55 | 101 | 102 | 131 | 140 | 45 | 60 | 64 | 65 | 69 | 70 | 132 => {
+            Some(MovementType::Floor)
+        }
+        29 | 50 | 103 | 111 | 112 | 113 | 42 | 61 | 63 | 114 | 115 | 116 => {
+            Some(MovementType::Ceiling)
+        }
+        41 | 49 | 43 => Some(MovementType::Ceiling),
         // Stairs (floor movement)
-        8 | 100 => Some(MovementType::Floor),
+        8 | 100 | 7 | 127 => Some(MovementType::Floor),
         _ => None,
     }
 }

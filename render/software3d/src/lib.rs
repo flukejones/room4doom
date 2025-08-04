@@ -150,97 +150,12 @@ impl Software3D {
         false
     }
 
-    /// Traverse BSP3D tree and render visible segments in front-to-back order
-    fn render_bsp(
-        &mut self,
-        node_id: u32,
-        bsp3d: &BSP3D,
-        pvs: &PVS,
-        sectors: &[Sector],
-        player_pos: Vec3,
-        player_subsector_id: usize,
-        player_light: usize,
-        pic_data: &mut PicData,
-        rend: &mut impl DrawBuffer,
-    ) {
-        if node_id & IS_SSECTOR_MASK != 0 {
-            // It's a subsector
-            let subsector_id = if node_id == u32::MAX {
-                0
-            } else {
-                (node_id & !IS_SSECTOR_MASK) as usize
-            };
-
-            if let Some(aabb) = bsp3d.get_node_aabb(node_id) {
-                if self.is_bbox_outside_fov(aabb) {
-                    return;
-                }
-            }
-            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
-                for poly_surface in &leaf.polygons {
-                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
-                        if self.should_cull_polygon_bounds(&poly_surface, bsp3d) {
-                            continue;
-                        }
-                        self.render_surface_polygon(
-                            &poly_surface,
-                            bsp3d,
-                            sectors,
-                            pic_data,
-                            player_light,
-                            rend,
-                        );
-                    }
-                }
-            }
-
-            return;
-        }
-
-        // It's a node
-        let Some(node) = bsp3d.nodes().get(node_id as usize).cloned() else {
-            return;
-        };
-        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
-
-        // Render front side first (closer to player)
-        self.render_bsp(
-            node.children[side],
-            bsp3d,
-            pvs,
-            sectors,
-            player_pos,
-            player_subsector_id,
-            player_light,
-            pic_data,
-            rend,
-        );
-
-        // Render back side with 3D frustum check using computed AABB
-        let back_child_id = node.children[side ^ 1];
-        if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
-            if !self.is_bbox_outside_fov(back_aabb) {
-                self.render_bsp(
-                    back_child_id,
-                    bsp3d,
-                    pvs,
-                    sectors,
-                    player_pos,
-                    player_subsector_id,
-                    player_light,
-                    pic_data,
-                    rend,
-                );
-            }
-        }
-    }
-
     fn overlap(min_v: f32, max_v: f32, w0: f32, w1: f32) -> bool {
         max_v >= -w0 && min_v <= w0 || max_v >= -w1 && min_v <= w1
     }
 
     /// Early screen bounds check to reject polygons with all vertices outside frustum
-    fn should_cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
+    fn cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
         let mut all_vertices_outside_left = true;
         let mut all_vertices_outside_right = true;
         let mut all_vertices_outside_top = true;
@@ -597,6 +512,92 @@ impl Software3D {
         }
     }
 
+    /// Traverse BSP3D tree and render visible segments in front-to-back order.
+    /// Used if there is no PVS available.
+    fn render_bsp(
+        &mut self,
+        node_id: u32,
+        bsp3d: &BSP3D,
+        pvs: &PVS,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_subsector_id: usize,
+        player_light: usize,
+        pic_data: &mut PicData,
+        rend: &mut impl DrawBuffer,
+    ) {
+        if node_id & IS_SSECTOR_MASK != 0 {
+            // It's a subsector
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                (node_id & !IS_SSECTOR_MASK) as usize
+            };
+
+            if let Some(aabb) = bsp3d.get_node_aabb(node_id) {
+                if self.is_bbox_outside_fov(aabb) {
+                    return;
+                }
+            }
+            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
+                for poly_surface in &leaf.polygons {
+                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                        if self.cull_polygon_bounds(&poly_surface, bsp3d) {
+                            continue;
+                        }
+                        self.render_surface_polygon(
+                            &poly_surface,
+                            bsp3d,
+                            sectors,
+                            pic_data,
+                            player_light,
+                            rend,
+                        );
+                    }
+                }
+            }
+
+            return;
+        }
+
+        // It's a node
+        let Some(node) = bsp3d.nodes().get(node_id as usize).cloned() else {
+            return;
+        };
+        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
+
+        // Render front side first (closer to player)
+        self.render_bsp(
+            node.children[side],
+            bsp3d,
+            pvs,
+            sectors,
+            player_pos,
+            player_subsector_id,
+            player_light,
+            pic_data,
+            rend,
+        );
+
+        // Render back side with 3D frustum check using computed AABB
+        let back_child_id = node.children[side ^ 1];
+        if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
+            if !self.is_bbox_outside_fov(back_aabb) {
+                self.render_bsp(
+                    back_child_id,
+                    bsp3d,
+                    pvs,
+                    sectors,
+                    player_pos,
+                    player_subsector_id,
+                    player_light,
+                    pic_data,
+                    rend,
+                );
+            }
+        }
+    }
+
     pub fn draw_view(
         &mut self,
         player: &Player,
@@ -635,7 +636,7 @@ impl Software3D {
                     };
                     for poly_surface in &leaf.polygons {
                         if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
-                            if self.should_cull_polygon_bounds(&poly_surface, bsp_3d) {
+                            if self.cull_polygon_bounds(&poly_surface, bsp_3d) {
                                 continue;
                             }
                             self.render_surface_polygon(
