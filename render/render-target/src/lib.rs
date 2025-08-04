@@ -257,4 +257,10 @@ impl render_trait::DrawBuffer for FrameBuffer {
     fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
         self.buffer2.read_pixel(x, y)
     }
+
+    fn debug_flip_and_present(&mut self) {
+        self.flip();
+        self.blit();
+        self.flip();
+    }
 }

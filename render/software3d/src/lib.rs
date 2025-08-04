@@ -5,7 +5,7 @@ use gameplay::{
     SurfacePolygon, WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use render_trait::DrawBuffer;
+use render_trait::{DrawBuffer, GameRenderer};
 
 use std::f32::consts::PI;
 
@@ -260,7 +260,7 @@ impl Software3D {
         sectors: &[Sector],
         pic_data: &mut PicData,
         player_light: usize,
-        rend: &mut impl DrawBuffer,
+        buffer: &mut impl DrawBuffer,
     ) {
         const VERT_COUNT: usize = 3;
         self.screen_vertices_len = 0;
@@ -403,7 +403,7 @@ impl Software3D {
                 polygon,
                 brightness,
                 pic_data,
-                rend,
+                buffer,
                 #[cfg(feature = "debug_draw")]
                 bsp3d,
                 #[cfg(feature = "debug_draw")]
@@ -524,7 +524,7 @@ impl Software3D {
         player_subsector_id: usize,
         player_light: usize,
         pic_data: &mut PicData,
-        rend: &mut impl DrawBuffer,
+        buffer: &mut impl DrawBuffer,
     ) {
         if node_id & IS_SSECTOR_MASK != 0 {
             // It's a subsector
@@ -551,7 +551,7 @@ impl Software3D {
                             sectors,
                             pic_data,
                             player_light,
-                            rend,
+                            buffer,
                         );
                     }
                 }
@@ -576,7 +576,7 @@ impl Software3D {
             player_subsector_id,
             player_light,
             pic_data,
-            rend,
+            buffer,
         );
 
         // Render back side with 3D frustum check using computed AABB
@@ -592,7 +592,7 @@ impl Software3D {
                     player_subsector_id,
                     player_light,
                     pic_data,
-                    rend,
+                    buffer,
                 );
             }
         }
@@ -603,7 +603,7 @@ impl Software3D {
         player: &Player,
         level: &Level,
         pic_data: &mut PicData,
-        rend: &mut impl DrawBuffer,
+        buffer: &mut impl DrawBuffer,
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_player_view");
@@ -630,8 +630,8 @@ impl Software3D {
         {
             let vis = pvs.get_visible_subsectors(player_subsector_id);
             if !vis.is_empty() {
-                for ss in vis {
-                    let Some(leaf) = bsp_3d.get_subsector_leaf(ss) else {
+                for ss in vis.iter().rev() {
+                    let Some(leaf) = bsp_3d.get_subsector_leaf(*ss) else {
                         continue;
                     };
                     for poly_surface in &leaf.polygons {
@@ -645,7 +645,7 @@ impl Software3D {
                                 sectors,
                                 pic_data,
                                 player.extralight,
-                                rend,
+                                buffer,
                             );
                         }
                     }
@@ -662,7 +662,7 @@ impl Software3D {
                     player_subsector_id,
                     player.extralight,
                     pic_data,
-                    rend,
+                    buffer,
                 );
             }
         }

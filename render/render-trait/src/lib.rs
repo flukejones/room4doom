@@ -39,6 +39,7 @@ pub trait DrawBuffer {
     fn get_buf_index(&self, x: usize, y: usize) -> usize;
     fn pitch(&self) -> usize;
     fn buf_mut(&mut self) -> &mut [u8]; // TODO: remove this
+    fn debug_flip_and_present(&mut self);
 }
 
 /// Exists mostly to hold a bunch of pre-computed values for a very fast 2.5D rendering

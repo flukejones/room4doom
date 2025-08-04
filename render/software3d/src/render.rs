@@ -8,7 +8,7 @@ use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
 use glam::Vec2;
 #[cfg(feature = "debug_draw")]
 use glam::{Vec2, Vec3, Vec4};
-use render_trait::DrawBuffer;
+use render_trait::{DrawBuffer, GameRenderer};
 
 use crate::Software3D;
 
@@ -312,7 +312,7 @@ impl Software3D {
         polygon: &SurfacePolygon,
         brightness: usize,
         pic_data: &mut PicData,
-        rend: &mut impl DrawBuffer,
+        buffer: &mut impl DrawBuffer,
         #[cfg(feature = "debug_draw")] bsp3d: &BSP3D,
         #[cfg(feature = "debug_draw")] outline_color: Option<[u8; 4]>,
     ) {
@@ -433,20 +433,21 @@ impl Software3D {
                     //     continue;
                     // }
                     #[cfg(not(feature = "debug_draw"))]
-                    rend.set_pixel(x, y, &color);
+                    buffer.set_pixel(x, y, &color);
                     #[cfg(feature = "debug_draw")]
                     let mut color = color;
                     #[cfg(feature = "debug_draw")]
                     if outline_color.is_some() {
                         if self.is_edge_pixel(x as f32, y_f, vertices) {
-                            rend.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
+                            buffer.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
                         } else {
-                            rend.set_pixel(x, y, &color);
+                            buffer.set_pixel(x, y, &color);
                         }
                     }
                 }
                 interp_state.step_x();
             }
+            // buffer.debug_flip_and_present();
         }
 
         // Draw polygon normals after the main polygon rendering (if enabled)
