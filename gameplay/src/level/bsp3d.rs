@@ -21,34 +21,50 @@ pub enum MovementType {
     None,
 }
 
-/// Check what type of movement a line special performs
 fn get_movement_type(line_special: i16) -> Option<MovementType> {
     match line_special {
-        // Doors (ceiling movement)
-        1 | 2 | 3 | 4 | 16 | 26 | 27 | 28 | 31..=34 | 75 | 76 | 86 | 90 | 105..=110 | 117 | 118 => {
-            Some(MovementType::Ceiling)
-        }
-        // Floors
-        5 | 19 | 30 | 36 | 37 | 38 | 56 | 59 | 82 | 83 | 84 | 91 | 92 | 93 | 94 | 96 | 98 | 119
-        | 128 | 129 | 130 => Some(MovementType::Floor),
-        // Ceilings
-        6 | 25 | 40 | 44 | 72 | 73 | 77 | 141 => Some(MovementType::Ceiling),
-        // Platforms (floor movement)
-        10 | 22 | 53 | 87 | 88 | 95 | 120 | 121 => Some(MovementType::Floor),
-        // Shootlines
-        24 | 47 => Some(MovementType::Floor),
-        46 => Some(MovementType::Ceiling),
-        // switches
-        14 | 15 | 20 | 21 | 62 | 66 | 67 | 68 | 122 | 123 => Some(MovementType::Floor),
-        18 | 23 | 71 | 55 | 101 | 102 | 131 | 140 | 45 | 60 | 64 | 65 | 69 | 70 | 132 => {
-            Some(MovementType::Floor)
-        }
-        29 | 50 | 103 | 111 | 112 | 113 | 42 | 61 | 63 | 114 | 115 | 116 => {
-            Some(MovementType::Ceiling)
-        }
-        41 | 49 | 43 => Some(MovementType::Ceiling),
-        // Stairs (floor movement)
-        8 | 100 | 7 | 127 => Some(MovementType::Floor),
+        1..=4
+        | 6
+        | 16
+        | 25
+        | 26..=29
+        | 31..=34
+        | 40..=44
+        | 46
+        | 49..=50
+        | 61
+        | 63
+        | 72..=73
+        | 75..=77
+        | 86
+        | 90
+        | 103
+        | 105..=116
+        | 117..=118
+        | 141 => Some(MovementType::Ceiling),
+        5
+        | 7..=8
+        | 10
+        | 14..=15
+        | 18..=23
+        | 30
+        | 36..=38
+        | 53
+        | 55..=56
+        | 59..=60
+        | 62
+        | 64..=71
+        | 82..=84
+        | 87..=88
+        | 91..=95
+        | 96
+        | 98
+        | 100..=102
+        | 119..=123
+        | 127
+        | 128..=132
+        | 140
+        | 45 => Some(MovementType::Floor),
         _ => None,
     }
 }
@@ -781,6 +797,7 @@ impl BSP3D {
                             VertexMappedTo::Lower,
                             VertexMappedTo::LowerMoving,
                             VertexMappedTo::LowerMoving,
+                            // TODO: order needs to be flipped for one line kind
                         )
                     } else if frontsector_is_mover {
                         (
@@ -799,12 +816,12 @@ impl BSP3D {
                     }
                 }
                 WallType::Middle => {
-                    if frontsector_is_mover {
+                    if frontsector_is_mover || backsector_is_mover {
                         (
                             VertexMappedTo::LowerMoving,
                             VertexMappedTo::LowerMoving,
-                            VertexMappedTo::UpperMoving,
-                            VertexMappedTo::UpperMoving,
+                            VertexMappedTo::Upper,
+                            VertexMappedTo::Upper,
                         )
                     } else {
                         (
