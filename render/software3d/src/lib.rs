@@ -626,32 +626,33 @@ impl Software3D {
         let player_sector = player.mobj().unwrap().subsector.clone();
         if let Some(player_subsector_id) = self.find_player_subsector_id(subsectors, &player_sector)
         {
+            // Two-pass rendering: collect all visible polygons, then sort and render
+            let mut visible_polygons = Vec::new();
+
             let vis = pvs.get_visible_subsectors(player_subsector_id);
             if !vis.is_empty() {
-                for ss in vis.iter().rev() {
+                // Use PVS-based collection
+                for ss in vis.iter() {
                     let Some(leaf) = bsp_3d.get_subsector_leaf(*ss) else {
                         continue;
                     };
+                    if self.is_bbox_outside_fov(&leaf.aabb) {
+                        continue;
+                    }
                     for poly_surface in &leaf.polygons {
                         if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
-                            if self.cull_polygon_bounds(&poly_surface, bsp_3d) {
-                                continue;
+                            if !self.cull_polygon_bounds(&poly_surface, bsp_3d) {
+                                let depth =
+                                    self.calculate_polygon_depth(poly_surface, bsp_3d, player_pos);
+                                visible_polygons.push((poly_surface, depth));
                             }
-                            self.render_surface_polygon(
-                                &poly_surface,
-                                bsp_3d,
-                                sectors,
-                                pic_data,
-                                player.extralight,
-                                buffer,
-                            );
                         }
                     }
                 }
             } else {
-                // Render using BSP3D traversal for proper front-to-back ordering
+                // Use BSP traversal for collection
                 let root_node = bsp_3d.root_node();
-                self.render_bsp(
+                self.collect_visible_polygons(
                     root_node,
                     bsp_3d,
                     pvs,
@@ -660,6 +661,22 @@ impl Software3D {
                     player_subsector_id,
                     player.extralight,
                     pic_data,
+                    &mut visible_polygons,
+                );
+            }
+
+            // Sort polygons front-to-back for optimal Z-rejection (negative z is closer)
+            visible_polygons
+                .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Render all polygons in optimal depth order
+            for (poly_surface, _) in visible_polygons {
+                self.render_surface_polygon(
+                    &poly_surface,
+                    bsp_3d,
+                    sectors,
+                    pic_data,
+                    player.extralight,
                     buffer,
                 );
             }
@@ -678,5 +695,105 @@ impl Software3D {
             }
         }
         None
+    }
+
+    /// Collect all visible polygons with their depths for global sorting
+    fn collect_visible_polygons<'a>(
+        &mut self,
+        node_id: u32,
+        bsp3d: &'a BSP3D,
+        pvs: &PVS,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_subsector_id: usize,
+        player_light: usize,
+        pic_data: &mut PicData,
+        polygons: &mut Vec<(&'a SurfacePolygon, f32)>,
+    ) {
+        if node_id & IS_SSECTOR_MASK != 0 {
+            // It's a subsector
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                (node_id & !IS_SSECTOR_MASK) as usize
+            };
+
+            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
+                if self.is_bbox_outside_fov(&leaf.aabb) {
+                    return;
+                }
+                for poly_surface in &leaf.polygons {
+                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                        if !self.cull_polygon_bounds(&poly_surface, bsp3d) {
+                            let depth =
+                                self.calculate_polygon_depth(poly_surface, bsp3d, player_pos);
+                            polygons.push((poly_surface, depth));
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        // It's a node
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
+            return;
+        };
+        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
+
+        // Collect from front side first (closer to player)
+        self.collect_visible_polygons(
+            node.children[side],
+            bsp3d,
+            pvs,
+            sectors,
+            player_pos,
+            player_subsector_id,
+            player_light,
+            pic_data,
+            polygons,
+        );
+
+        // Collect from back side with 3D frustum check using computed AABB
+        let back_child_id = node.children[side ^ 1];
+        if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
+            if !self.is_bbox_outside_fov(back_aabb) {
+                self.collect_visible_polygons(
+                    back_child_id,
+                    bsp3d,
+                    pvs,
+                    sectors,
+                    player_pos,
+                    player_subsector_id,
+                    player_light,
+                    pic_data,
+                    polygons,
+                );
+            }
+        }
+    }
+
+    /// Calculate average depth of polygon vertices from player position
+    fn calculate_polygon_depth(
+        &mut self,
+        polygon: &SurfacePolygon,
+        bsp3d: &BSP3D,
+        player_pos: Vec3,
+    ) -> f32 {
+        let mut total_depth = 0.0;
+        let mut vertex_count = 0;
+
+        for &vertex_idx in &polygon.vertices {
+            let vertex = bsp3d.vertex_get(vertex_idx);
+            let view_pos = self.view_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+            total_depth += view_pos.z;
+            vertex_count += 1;
+        }
+
+        if vertex_count > 0 {
+            total_depth / vertex_count as f32
+        } else {
+            f32::INFINITY
+        }
     }
 }

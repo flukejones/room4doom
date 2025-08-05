@@ -120,8 +120,9 @@ impl<'a> TextureSampler<'a> {
                     width_mask,
                     height_mask,
                 } => {
-                    let tex_x = (u.fract().abs() * width).min(*width_mask) as usize;
-                    let tex_y = (v.fract().abs() * height).min(*height_mask) as usize;
+                    let tex_x = (u.fract().abs() * width).min(*width_mask).floor() as u32 as usize;
+                    let tex_y =
+                        (v.fract().abs() * height).min(*height_mask).floor() as u32 as usize;
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == usize::MAX {
                         &[0, 0, 0, 0]
@@ -418,6 +419,7 @@ impl Software3D {
             let x_f = x0.max(0.0).ceil();
             let x_start = x_f as u32 as usize;
             let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
+
             let mut interp_state = interpolator.init_scanline(x_f, y_f);
             for x in x_start..=x_end {
                 #[cfg(feature = "hprof")]
@@ -449,8 +451,8 @@ impl Software3D {
                 }
                 interp_state.step_x();
             }
+            // buffer.debug_flip_and_present();
         }
-        // buffer.debug_flip_and_present();
         // std::thread::sleep(Duration::from_millis(10));
 
         // Draw polygon normals after the main polygon rendering (if enabled)
