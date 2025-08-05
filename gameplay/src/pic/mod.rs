@@ -82,7 +82,7 @@ pub struct PicData {
     colourmap: [Colourmap; COLOURMAP_LEN],
     // 16 groups of 48 sets of indexes to colourmap
     light_scale: [usize; LIGHTMAP_LEN],
-    lightscale_colourmap: [Colourmap; LIGHTMAP_LEN],
+    lightscale_colourmap: Vec<Colourmap>,
     // 16 groups of 128 sets of palette
     zlight_scale: [[usize; 128]; 16],
     use_fixed_colourmap: usize,
@@ -122,7 +122,7 @@ impl Default for PicData {
             sprite_patches: Default::default(),
             sprite_defs: Default::default(),
             use_pallette: Default::default(),
-            lightscale_colourmap: [[0usize; 256]; LIGHTMAP_LEN],
+            lightscale_colourmap: vec![[0usize; 256]; LIGHTMAP_LEN],
         }
     }
 }
@@ -137,7 +137,7 @@ impl PicData {
         let zlight_scale = Self::init_zlight_scales();
 
         // Precompute lightscale_colourmap merging light_scale and colourmap entries by clone
-        let mut lightscale_colourmap = [[0usize; 256]; LIGHTMAP_LEN];
+        let mut lightscale_colourmap = vec![[0usize; 256]; LIGHTMAP_LEN];
         for (i, &light_scale_idx) in light_scale.iter().enumerate() {
             lightscale_colourmap[i].clone_from_slice(&colourmap[light_scale_idx]);
         }
