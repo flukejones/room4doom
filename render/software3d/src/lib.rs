@@ -5,7 +5,7 @@ use gameplay::{
     SurfacePolygon, WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use render_trait::{DrawBuffer, GameRenderer};
+use render_trait::DrawBuffer;
 
 use std::f32::consts::PI;
 
@@ -512,90 +512,6 @@ impl Software3D {
         }
     }
 
-    /// Traverse BSP3D tree and render visible segments in front-to-back order.
-    /// Used if there is no PVS available.
-    fn render_bsp(
-        &mut self,
-        node_id: u32,
-        bsp3d: &BSP3D,
-        pvs: &PVS,
-        sectors: &[Sector],
-        player_pos: Vec3,
-        player_subsector_id: usize,
-        player_light: usize,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
-    ) {
-        if node_id & IS_SSECTOR_MASK != 0 {
-            // It's a subsector
-            let subsector_id = if node_id == u32::MAX {
-                0
-            } else {
-                (node_id & !IS_SSECTOR_MASK) as usize
-            };
-
-            if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
-                if self.is_bbox_outside_fov(&leaf.aabb) {
-                    return;
-                }
-                for poly_surface in &leaf.polygons {
-                    if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
-                        if self.cull_polygon_bounds(&poly_surface, bsp3d) {
-                            continue;
-                        }
-                        self.render_surface_polygon(
-                            &poly_surface,
-                            bsp3d,
-                            sectors,
-                            pic_data,
-                            player_light,
-                            buffer,
-                        );
-                    }
-                }
-            }
-
-            return;
-        }
-
-        // It's a node
-        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
-            return;
-        };
-        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
-
-        // Render front side first (closer to player)
-        self.render_bsp(
-            node.children[side],
-            bsp3d,
-            pvs,
-            sectors,
-            player_pos,
-            player_subsector_id,
-            player_light,
-            pic_data,
-            buffer,
-        );
-
-        // Render back side with 3D frustum check using computed AABB
-        let back_child_id = node.children[side ^ 1];
-        if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
-            if !self.is_bbox_outside_fov(back_aabb) {
-                self.render_bsp(
-                    back_child_id,
-                    bsp3d,
-                    pvs,
-                    sectors,
-                    player_pos,
-                    player_subsector_id,
-                    player_light,
-                    pic_data,
-                    buffer,
-                );
-            }
-        }
-    }
-
     pub fn draw_view(
         &mut self,
         player: &Player,
@@ -642,8 +558,7 @@ impl Software3D {
                     for poly_surface in &leaf.polygons {
                         if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
                             if !self.cull_polygon_bounds(&poly_surface, bsp_3d) {
-                                let depth =
-                                    self.calculate_polygon_depth(poly_surface, bsp_3d, player_pos);
+                                let depth = self.calculate_polygon_depth(poly_surface, bsp_3d);
                                 visible_polygons.push((poly_surface, depth));
                             }
                         }
@@ -725,8 +640,7 @@ impl Software3D {
                 for poly_surface in &leaf.polygons {
                     if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
                         if !self.cull_polygon_bounds(&poly_surface, bsp3d) {
-                            let depth =
-                                self.calculate_polygon_depth(poly_surface, bsp3d, player_pos);
+                            let depth = self.calculate_polygon_depth(poly_surface, bsp3d);
                             polygons.push((poly_surface, depth));
                         }
                     }
@@ -774,12 +688,7 @@ impl Software3D {
     }
 
     /// Calculate average depth of polygon vertices from player position
-    fn calculate_polygon_depth(
-        &mut self,
-        polygon: &SurfacePolygon,
-        bsp3d: &BSP3D,
-        player_pos: Vec3,
-    ) -> f32 {
+    fn calculate_polygon_depth(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> f32 {
         let mut total_depth = 0.0;
         let mut vertex_count = 0;
 
