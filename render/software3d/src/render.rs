@@ -357,17 +357,15 @@ impl Software3D {
         // Instead of doing the scanline stuff here, could do it all in a fast loop for
         // all polygons before calling draw_polygon(). Then just slam the scanlines
         // out all in one go.
+        let v0 = unsafe { *vertices.get_unchecked(0) };
+        let v1 = unsafe { *vertices.get_unchecked(1) };
+        let v2 = unsafe { *vertices.get_unchecked(2) };
         for y in y_start..=y_end {
             let y_f = y as f32;
             let mut x0 = f32::INFINITY;
             let mut x1 = f32::NEG_INFINITY;
             let mut found = 0;
             if vertex_count == 3 {
-                // Faster if vertices count == 3
-                let v0 = unsafe { *vertices.get_unchecked(0) };
-                let v1 = unsafe { *vertices.get_unchecked(1) };
-                let v2 = unsafe { *vertices.get_unchecked(2) };
-
                 let edges = [(v0, v1), (v1, v2), (v2, v0)];
                 for &(start, end) in &edges {
                     if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
@@ -386,9 +384,6 @@ impl Software3D {
                     }
                 }
             } else {
-                let v0 = unsafe { *vertices.get_unchecked(0) };
-                let v1 = unsafe { *vertices.get_unchecked(1) };
-                let v2 = unsafe { *vertices.get_unchecked(2) };
                 let v3 = unsafe { *vertices.get_unchecked(3) };
 
                 let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
