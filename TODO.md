@@ -2,6 +2,7 @@
 
 ## Software 3D rendering
 
+- [ ] Proper frustum clipping
 - [X] Masked textures with no upper
   - [ ] Do not repeat the textures up or down
   - [ ] Sunder map 20 does something weird.

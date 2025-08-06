@@ -49,7 +49,7 @@ pub struct Software3D {
 
 impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
-        let near = 0.01;
+        let near = 10.0;
         let far = 10000.0;
         let aspect = width as f32 / height as f32 * 1.33;
         let fov = fov * 0.66;
@@ -299,9 +299,14 @@ impl Software3D {
 
             match (projected_vertices[v1_idx], projected_vertices[v2_idx]) {
                 (Some((p1, tex1, w1)), Some(_)) => {
-                    if self.screen_vertices_len == 0
-                        || self.screen_vertices_buffer[self.screen_vertices_len - 1] != p1
-                    {
+                    let mut vertex_exists = false;
+                    for j in 0..self.screen_vertices_len {
+                        if self.screen_vertices_buffer[j] == p1 {
+                            vertex_exists = true;
+                            break;
+                        }
+                    }
+                    if !vertex_exists {
                         self.screen_vertices_buffer[self.screen_vertices_len] = p1;
                         self.screen_vertices_len += 1;
                         self.tex_coords_buffer[self.tex_coords_len] = tex1;
@@ -311,9 +316,14 @@ impl Software3D {
                     }
                 }
                 (Some((p1, tex1, w1)), None) => {
-                    if self.screen_vertices_len == 0
-                        || self.screen_vertices_buffer[self.screen_vertices_len - 1] != p1
-                    {
+                    let mut vertex_exists = false;
+                    for j in 0..self.screen_vertices_len {
+                        if self.screen_vertices_buffer[j] == p1 {
+                            vertex_exists = true;
+                            break;
+                        }
+                    }
+                    if !vertex_exists {
                         self.screen_vertices_buffer[self.screen_vertices_len] = p1;
                         self.screen_vertices_len += 1;
                         self.tex_coords_buffer[self.tex_coords_len] = tex1;

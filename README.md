@@ -1,5 +1,7 @@
 # ROOM - Rusty Doom
 
+**in progress**: Fully 3D software rendering. I am trying to get a correct 3D software renderer up and running, then optimise.
+
 ## CORE/FEATURE FUNCTIONALITY
 
 - [x] All gameplay features for Doom and Doom II
