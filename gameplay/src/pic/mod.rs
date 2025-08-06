@@ -660,6 +660,7 @@ impl PicData {
         colourmap.min(MAXLIGHTSCALE as u32 - 1) as usize
     }
 
+    /// Get the colourmap for a pixel distance
     #[inline(always)]
     pub fn base_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         let colourmap = (wall_scale as u32).min(47) as usize;

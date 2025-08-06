@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
@@ -10,7 +8,7 @@ use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
 use glam::Vec2;
 #[cfg(feature = "debug_draw")]
 use glam::{Vec2, Vec3, Vec4};
-use render_trait::{DrawBuffer, GameRenderer};
+use render_trait::DrawBuffer;
 
 use crate::Software3D;
 
@@ -53,8 +51,8 @@ enum TextureSampler<'a> {
         texture: &'a WallPic,
         width: f32,
         height: f32,
-        width_mask: f32,
-        height_mask: f32,
+        width_mask: usize,
+        height_mask: usize,
     },
     Horizontal {
         texture: &'a FlatPic,
@@ -88,8 +86,8 @@ impl<'a> TextureSampler<'a> {
                         texture,
                         width: width_f32,
                         height: height_f32,
-                        width_mask: width_f32 - 1.0,
-                        height_mask: height_f32 - 1.0,
+                        width_mask: texture.width,
+                        height_mask: texture.height,
                     }
                 }
             }
@@ -120,16 +118,19 @@ impl<'a> TextureSampler<'a> {
                     width_mask,
                     height_mask,
                 } => {
-                    let tex_x = (u.fract().abs() * width).min(*width_mask).floor() as u32 as usize;
-                    let tex_y =
-                        (v.fract().abs() * height).min(*height_mask).floor() as u32 as usize;
+                    let u_wrapped = u - u.floor();
+                    let v_wrapped = v - v.floor();
+                    let tex_x = (u_wrapped * width) as u32 as usize % (*width_mask);
+                    let tex_y = (v_wrapped * height) as u32 as usize % (*height_mask);
+                    // let tex_x = ((u.fract() * width) as u32 as usize).min(*width_mask);
+                    // let tex_y = ((v.fract() * height) as u32 as usize).min(*height_mask);
+
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == usize::MAX {
-                        &[0, 0, 0, 0]
-                    } else {
-                        let lit_color_index = *colourmap.get_unchecked(color_index);
-                        pic_data.palette().get_unchecked(lit_color_index)
+                        return &[0, 0, 0, 0];
                     }
+                    let lit_color_index = *colourmap.get_unchecked(color_index);
+                    pic_data.palette().get_unchecked(lit_color_index)
                 }
                 TextureSampler::Horizontal {
                     texture,
@@ -360,6 +361,7 @@ impl Software3D {
         let v0 = unsafe { *vertices.get_unchecked(0) };
         let v1 = unsafe { *vertices.get_unchecked(1) };
         let v2 = unsafe { *vertices.get_unchecked(2) };
+        // println!("v0: {v0}, v1: {v1}, v2: {v2}, ");
         for y in y_start..=y_end {
             let y_f = y as f32;
             let mut x0 = f32::INFINITY;
@@ -368,9 +370,13 @@ impl Software3D {
             if vertex_count == 3 {
                 let edges = [(v0, v1), (v1, v2), (v2, v0)];
                 for &(start, end) in &edges {
+                    let dy = end.y - start.y;
+                    if dy.abs() < f32::EPSILON {
+                        continue;
+                    }
                     if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
-                        let t = (y_f - start.y) / (end.y - start.y);
-                        if t >= 0.0 && t <= 1.0 {
+                        let t = (y_f - start.y) / dy;
+                        if t >= -f32::EPSILON && t <= (1.0 + f32::EPSILON) {
                             let x = start.x + (end.x - start.x) * t;
                             if found == 0 {
                                 x0 = x;
@@ -388,9 +394,13 @@ impl Software3D {
 
                 let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
                 for &(start, end) in &edges {
+                    let dy = end.y - start.y;
+                    if dy.abs() < f32::EPSILON {
+                        continue;
+                    }
                     if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
-                        let t = (y_f - start.y) / (end.y - start.y);
-                        if t >= 0.0 && t <= 1.0 {
+                        let t = (y_f - start.y) / dy;
+                        if t >= -f32::EPSILON && t <= (1.0 + f32::EPSILON) {
                             let x = start.x + (end.x - start.x) * t;
                             if found == 0 {
                                 x0 = x;
@@ -420,7 +430,7 @@ impl Software3D {
                 #[cfg(feature = "hprof")]
                 profile!("draw_textured_polygon X loop");
                 let (u, v, inv_z) = interp_state.get_current_uv();
-                // TODO: this part of loop costs 100fps~~
+                // TODO: depth check is 10fps ~~
                 if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
                     // TODO: colourmap lookup is 30fps in X loop
                     let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
