@@ -18,6 +18,7 @@ use depth_buffer::DepthBuffer;
 
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 const CLIP_VERTICES_LEN: usize = 3;
+const MAX_CLIPPED_VERTICES: usize = 16;
 
 /// A 3D software renderer for Doom levels.
 ///
@@ -38,13 +39,16 @@ pub struct Software3D {
     near_z: f32,
     far_z: f32,
     // Static arrays to eliminate hot path allocations
-    screen_vertices_buffer: [Vec2; 8],
-    tex_coords_buffer: [Vec2; 8],
-    inv_w_buffer: [f32; 8],
+    screen_vertices_buffer: [Vec2; MAX_CLIPPED_VERTICES],
+    tex_coords_buffer: [Vec2; MAX_CLIPPED_VERTICES],
+    inv_w_buffer: [f32; MAX_CLIPPED_VERTICES],
     screen_vertices_len: usize,
     tex_coords_len: usize,
     inv_w_len: usize,
     clip_vertices: [Vec4; CLIP_VERTICES_LEN],
+    clipped_vertices_buffer: [Vec4; MAX_CLIPPED_VERTICES],
+    clipped_tex_coords_buffer: [Vec3; MAX_CLIPPED_VERTICES],
+    clipped_vertices_len: usize,
 }
 
 impl Software3D {
@@ -66,13 +70,16 @@ impl Software3D {
             depth_buffer: DepthBuffer::new(width as usize, height as usize),
             near_z: near,
             far_z: far,
-            screen_vertices_buffer: [Vec2::ZERO; 8],
-            tex_coords_buffer: [Vec2::ZERO; 8],
-            inv_w_buffer: [0.0; 8],
+            screen_vertices_buffer: [Vec2::ZERO; MAX_CLIPPED_VERTICES],
+            tex_coords_buffer: [Vec2::ZERO; MAX_CLIPPED_VERTICES],
+            inv_w_buffer: [0.0; MAX_CLIPPED_VERTICES],
             screen_vertices_len: 0,
             tex_coords_len: 0,
             inv_w_len: 0,
             clip_vertices: [Vec4::ZERO; 3],
+            clipped_vertices_buffer: [Vec4::ZERO; MAX_CLIPPED_VERTICES],
+            clipped_tex_coords_buffer: [Vec3::ZERO; MAX_CLIPPED_VERTICES],
+            clipped_vertices_len: 0,
         }
     }
 
@@ -262,146 +269,52 @@ impl Software3D {
         player_light: usize,
         buffer: &mut impl DrawBuffer,
     ) {
-        const VERT_COUNT: usize = 3;
         self.screen_vertices_len = 0;
         self.tex_coords_len = 0;
         self.inv_w_len = 0;
+        self.clipped_vertices_len = 0;
 
-        // Calculate polygon depth bounds for hierarchical culling
-        let view_projection = self.projection_matrix * self.view_matrix;
+        // Transform vertices to clip space and setup for clipping
+        let mut input_vertices = [Vec4::ZERO; 3];
+        let mut input_tex_coords = [Vec3::ZERO; 3];
 
-        let mut projected_vertices = [None; VERT_COUNT];
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let vertex = bsp3d.vertex_get(vertex_idx);
-            let clip_pos = view_projection * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+            let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+            let clip_pos = self.projection_matrix * self.view_matrix * world_pos;
             let (u, v) = self.calculate_tex_coords(vertex, &polygon, bsp3d, pic_data);
 
-            if clip_pos.w > 0.0 {
-                let ndc = clip_pos / clip_pos.w;
-                let screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
-                let screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
-                projected_vertices[i] = Some((
-                    Vec2::new(screen_x, screen_y),
-                    Vec2::new(u / clip_pos.w, v / clip_pos.w),
-                    1.0 / clip_pos.w,
-                ));
-            }
+            input_vertices[i] = clip_pos;
+            input_tex_coords[i] = Vec3::new(u, v, clip_pos.w);
         }
 
-        for i in 0..VERT_COUNT {
-            let v1_idx = i;
-            let v2_idx = (i + 1) % VERT_COUNT;
-            let v1_world = bsp3d.vertex_get(polygon.vertices[v1_idx]);
-            let v2_world = bsp3d.vertex_get(polygon.vertices[v2_idx]);
+        // Apply Sutherland-Hodgman clipping against all six frustum planes
+        self.clip_polygon_frustum(&input_vertices, &input_tex_coords, 3);
 
-            let v1_view = self.view_matrix * Vec4::new(v1_world.x, v1_world.y, v1_world.z, 1.0);
-            let v2_view = self.view_matrix * Vec4::new(v2_world.x, v2_world.y, v2_world.z, 1.0);
+        // Project clipped vertices to screen space
+        for i in 0..self.clipped_vertices_len {
+            let clip_pos = self.clipped_vertices_buffer[i];
+            let tex_coord = self.clipped_tex_coords_buffer[i];
 
-            match (projected_vertices[v1_idx], projected_vertices[v2_idx]) {
-                (Some((p1, tex1, w1)), Some(_)) => {
-                    let mut vertex_exists = false;
-                    for j in 0..self.screen_vertices_len {
-                        if self.screen_vertices_buffer[j] == p1 {
-                            vertex_exists = true;
-                            break;
-                        }
-                    }
-                    if !vertex_exists {
-                        self.screen_vertices_buffer[self.screen_vertices_len] = p1;
-                        self.screen_vertices_len += 1;
-                        self.tex_coords_buffer[self.tex_coords_len] = tex1;
-                        self.tex_coords_len += 1;
-                        self.inv_w_buffer[self.inv_w_len] = w1;
-                        self.inv_w_len += 1;
-                    }
-                }
-                (Some((p1, tex1, w1)), None) => {
-                    let mut vertex_exists = false;
-                    for j in 0..self.screen_vertices_len {
-                        if self.screen_vertices_buffer[j] == p1 {
-                            vertex_exists = true;
-                            break;
-                        }
-                    }
-                    if !vertex_exists {
-                        self.screen_vertices_buffer[self.screen_vertices_len] = p1;
-                        self.screen_vertices_len += 1;
-                        self.tex_coords_buffer[self.tex_coords_len] = tex1;
-                        self.tex_coords_len += 1;
-                        self.inv_w_buffer[self.inv_w_len] = w1;
-                        self.inv_w_len += 1;
-                    }
-                    if v1_view.z < -self.near_z && v2_view.z > -self.near_z {
-                        let t = (-self.near_z - v1_view.z) / (v2_view.z - v1_view.z);
-                        let clip_point_view = v1_view + (v2_view - v1_view) * t;
-                        let clip_point_world = v1_world + (v2_world - v1_world) * t;
+            if clip_pos.w > 0.0 {
+                let inv_w = 1.0 / clip_pos.w;
+                let ndc = clip_pos * inv_w;
+                let screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
+                let screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
 
-                        let clip_pos = self.projection_matrix * clip_point_view;
-                        if clip_pos.w > 0.0 {
-                            let ndc = clip_pos / clip_pos.w;
-                            let screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
-                            let screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
-                            self.screen_vertices_buffer[self.screen_vertices_len] =
-                                Vec2::new(screen_x, screen_y);
-                            self.screen_vertices_len += 1;
+                self.screen_vertices_buffer[self.screen_vertices_len] =
+                    Vec2::new(screen_x, screen_y);
+                self.tex_coords_buffer[self.tex_coords_len] =
+                    Vec2::new(tex_coord.x * inv_w, tex_coord.y * inv_w);
+                self.inv_w_buffer[self.inv_w_len] = inv_w;
 
-                            // Interpolate texture coordinates for clipped vertex
-                            let (u_clip, v_clip) = self.calculate_tex_coords(
-                                clip_point_world,
-                                &polygon,
-                                bsp3d,
-                                pic_data,
-                            );
-                            self.tex_coords_buffer[self.tex_coords_len] =
-                                Vec2::new(u_clip / clip_pos.w, v_clip / clip_pos.w);
-                            self.tex_coords_len += 1;
-                            self.inv_w_buffer[self.inv_w_len] = 1.0 / clip_pos.w;
-                            self.inv_w_len += 1;
-                        }
-                    }
-                }
-                (None, Some((p2, tex2, w2))) => {
-                    if v1_view.z > -self.near_z && v2_view.z < -self.near_z {
-                        let t = (-self.near_z - v1_view.z) / (v2_view.z - v1_view.z);
-                        let clip_point_view = v1_view + (v2_view - v1_view) * t;
-
-                        let clip_pos = self.projection_matrix * clip_point_view;
-                        if clip_pos.w > 0.0 {
-                            let ndc = clip_pos / clip_pos.w;
-                            let screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
-                            let screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
-                            self.screen_vertices_buffer[self.screen_vertices_len] =
-                                Vec2::new(screen_x, screen_y);
-                            self.screen_vertices_len += 1;
-
-                            let clip_point_world = v1_world + (v2_world - v1_world) * t;
-                            // Interpolate texture coordinates for clipped vertex
-                            let (u_clip, v_clip) = self.calculate_tex_coords(
-                                clip_point_world,
-                                &polygon,
-                                bsp3d,
-                                pic_data,
-                            );
-                            self.tex_coords_buffer[self.tex_coords_len] =
-                                Vec2::new(u_clip / clip_pos.w, v_clip / clip_pos.w);
-                            self.tex_coords_len += 1;
-                            self.inv_w_buffer[self.inv_w_len] = 1.0 / clip_pos.w;
-                            self.inv_w_len += 1;
-                        }
-                    }
-                    self.screen_vertices_buffer[self.screen_vertices_len] = p2;
-                    self.screen_vertices_len += 1;
-                    self.tex_coords_buffer[self.tex_coords_len] = tex2;
-                    self.tex_coords_len += 1;
-                    self.inv_w_buffer[self.inv_w_len] = w2;
-                    self.inv_w_len += 1;
-                }
-                (None, None) => {}
+                self.screen_vertices_len += 1;
+                self.tex_coords_len += 1;
+                self.inv_w_len += 1;
             }
         }
 
         if self.screen_vertices_len >= 3 {
-            // Area-based culling: reject tiny polygons
             if self
                 .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
             {
@@ -409,25 +322,191 @@ impl Software3D {
             }
 
             let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
-            self.draw_polygon(
-                polygon,
-                brightness,
-                pic_data,
-                buffer,
-                #[cfg(feature = "debug_draw")]
-                bsp3d,
-                #[cfg(feature = "debug_draw")]
-                {
-                    let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-                    Some(
-                        self.generate_pseudo_random_colour(
+
+            // Triangulate polygon if it has more than 3 vertices
+            if self.screen_vertices_len == 3 {
+                // Simple triangle - render directly
+                self.draw_polygon(
+                    polygon,
+                    brightness,
+                    pic_data,
+                    buffer,
+                    #[cfg(feature = "debug_draw")]
+                    bsp3d,
+                    #[cfg(feature = "debug_draw")]
+                    {
+                        let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
+                        Some(self.generate_pseudo_random_colour(
                             ptr,
                             sectors[polygon.sector_id].lightlevel,
-                        ),
-                    )
-                },
-            );
+                        ))
+                    },
+                );
+            } else {
+                // Triangulate polygon using fan triangulation
+                for i in 1..(self.screen_vertices_len - 1) {
+                    // Create triangle from vertex 0, i, i+1
+                    let triangle_vertices = [
+                        self.screen_vertices_buffer[0],
+                        self.screen_vertices_buffer[i],
+                        self.screen_vertices_buffer[i + 1],
+                    ];
+                    let triangle_tex_coords = [
+                        self.tex_coords_buffer[0],
+                        self.tex_coords_buffer[i],
+                        self.tex_coords_buffer[i + 1],
+                    ];
+                    let triangle_inv_w = [
+                        self.inv_w_buffer[0],
+                        self.inv_w_buffer[i],
+                        self.inv_w_buffer[i + 1],
+                    ];
+
+                    // Temporarily store current buffers
+                    let orig_screen_len = self.screen_vertices_len;
+                    let orig_tex_len = self.tex_coords_len;
+                    let orig_inv_w_len = self.inv_w_len;
+
+                    // Set up triangle data
+                    self.screen_vertices_buffer[0] = triangle_vertices[0];
+                    self.screen_vertices_buffer[1] = triangle_vertices[1];
+                    self.screen_vertices_buffer[2] = triangle_vertices[2];
+                    self.tex_coords_buffer[0] = triangle_tex_coords[0];
+                    self.tex_coords_buffer[1] = triangle_tex_coords[1];
+                    self.tex_coords_buffer[2] = triangle_tex_coords[2];
+                    self.inv_w_buffer[0] = triangle_inv_w[0];
+                    self.inv_w_buffer[1] = triangle_inv_w[1];
+                    self.inv_w_buffer[2] = triangle_inv_w[2];
+                    self.screen_vertices_len = 3;
+                    self.tex_coords_len = 3;
+                    self.inv_w_len = 3;
+
+                    // Render triangle
+                    self.draw_polygon(
+                        polygon,
+                        brightness,
+                        pic_data,
+                        buffer,
+                        #[cfg(feature = "debug_draw")]
+                        bsp3d,
+                        #[cfg(feature = "debug_draw")]
+                        {
+                            let ptr =
+                                (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
+                            Some(self.generate_pseudo_random_colour(
+                                ptr,
+                                sectors[polygon.sector_id].lightlevel,
+                            ))
+                        },
+                    );
+
+                    // Restore original buffer lengths
+                    self.screen_vertices_len = orig_screen_len;
+                    self.tex_coords_len = orig_tex_len;
+                    self.inv_w_len = orig_inv_w_len;
+                }
+            }
         }
+    }
+
+    fn clip_polygon_frustum(
+        &mut self,
+        vertices: &[Vec4],
+        tex_coords: &[Vec3],
+        vertex_count: usize,
+    ) {
+        // Copy input to working buffer
+        for i in 0..vertex_count {
+            self.clipped_vertices_buffer[i] = vertices[i];
+            self.clipped_tex_coords_buffer[i] = tex_coords[i];
+        }
+        self.clipped_vertices_len = vertex_count;
+
+        // Clip against each frustum plane using Sutherland-Hodgman algorithm
+        let frustum_planes = [
+            // Left: x >= -w
+            (Vec4::new(1.0, 0.0, 0.0, 1.0)),
+            // Right: x <= w
+            (Vec4::new(-1.0, 0.0, 0.0, 1.0)),
+            // Bottom: y >= -w
+            (Vec4::new(0.0, 1.0, 0.0, 1.0)),
+            // Top: y <= w
+            (Vec4::new(0.0, -1.0, 0.0, 1.0)),
+            // Near: z >= -w
+            (Vec4::new(0.0, 0.0, 1.0, 1.0)),
+            // Far: z <= w
+            (Vec4::new(0.0, 0.0, -1.0, 1.0)),
+        ];
+
+        for plane in frustum_planes {
+            if self.clipped_vertices_len == 0 {
+                break;
+            }
+            self.clip_polygon_against_plane(plane);
+        }
+    }
+
+    fn clip_polygon_against_plane(&mut self, plane: Vec4) {
+        if self.clipped_vertices_len < 3 {
+            return;
+        }
+
+        let mut output_vertices = [Vec4::ZERO; MAX_CLIPPED_VERTICES];
+        let mut output_tex_coords = [Vec3::ZERO; MAX_CLIPPED_VERTICES];
+        let mut output_count = 0;
+
+        let mut prev_vertex = self.clipped_vertices_buffer[self.clipped_vertices_len - 1];
+        let mut prev_tex = self.clipped_tex_coords_buffer[self.clipped_vertices_len - 1];
+        let mut prev_inside = plane.dot(prev_vertex) >= 0.0;
+
+        for i in 0..self.clipped_vertices_len {
+            let current_vertex = self.clipped_vertices_buffer[i];
+            let current_tex = self.clipped_tex_coords_buffer[i];
+            let current_inside = plane.dot(current_vertex) >= 0.0;
+
+            if current_inside {
+                if !prev_inside {
+                    // Entering: add intersection point
+                    let prev_distance = plane.dot(prev_vertex);
+                    let current_distance = plane.dot(current_vertex);
+                    let t = prev_distance / (prev_distance - current_distance);
+                    if output_count < MAX_CLIPPED_VERTICES {
+                        output_vertices[output_count] =
+                            prev_vertex + (current_vertex - prev_vertex) * t;
+                        output_tex_coords[output_count] = prev_tex + (current_tex - prev_tex) * t;
+                        output_count += 1;
+                    }
+                }
+                // Add current vertex (it's inside)
+                if output_count < MAX_CLIPPED_VERTICES {
+                    output_vertices[output_count] = current_vertex;
+                    output_tex_coords[output_count] = current_tex;
+                    output_count += 1;
+                }
+            } else if prev_inside {
+                // Exiting: add intersection point
+                let prev_distance = plane.dot(prev_vertex);
+                let current_distance = plane.dot(current_vertex);
+                let t = prev_distance / (prev_distance - current_distance);
+                if output_count < MAX_CLIPPED_VERTICES {
+                    output_vertices[output_count] =
+                        prev_vertex + (current_vertex - prev_vertex) * t;
+                    output_tex_coords[output_count] = prev_tex + (current_tex - prev_tex) * t;
+                    output_count += 1;
+                }
+            }
+
+            prev_vertex = current_vertex;
+            prev_tex = current_tex;
+            prev_inside = current_inside;
+        }
+
+        // Copy results back to working buffer
+        for i in 0..output_count.min(MAX_CLIPPED_VERTICES) {
+            self.clipped_vertices_buffer[i] = output_vertices[i];
+            self.clipped_tex_coords_buffer[i] = output_tex_coords[i];
+        }
+        self.clipped_vertices_len = output_count.min(MAX_CLIPPED_VERTICES);
     }
 
     fn calculate_tex_coords(
@@ -590,7 +669,7 @@ impl Software3D {
                 );
             }
 
-            // Sort polygons front-to-back for optimal Z-rejection (negative z is closer)
+            // Sort polygons front-to-back for optimal Z-rejection (larger 1/w is closer)
             visible_polygons
                 .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -697,22 +776,26 @@ impl Software3D {
         }
     }
 
-    /// Calculate average depth of polygon vertices from player position
+    /// Calculate average depth of polygon vertices using 1/w convention
     fn calculate_polygon_depth(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> f32 {
         let mut total_depth = 0.0;
         let mut vertex_count = 0;
 
         for &vertex_idx in &polygon.vertices {
             let vertex = bsp3d.vertex_get(vertex_idx);
-            let view_pos = self.view_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-            total_depth += view_pos.z;
-            vertex_count += 1;
+            let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+            let clip_pos = self.projection_matrix * self.view_matrix * world_pos;
+
+            if clip_pos.w > 0.0 {
+                total_depth += 1.0 / clip_pos.w;
+                vertex_count += 1;
+            }
         }
 
         if vertex_count > 0 {
             total_depth / vertex_count as f32
         } else {
-            f32::INFINITY
+            0.0
         }
     }
 }

@@ -444,8 +444,6 @@ impl Software3D {
                     #[cfg(not(feature = "debug_draw"))]
                     buffer.set_pixel(x, y, &color);
                     #[cfg(feature = "debug_draw")]
-                    let mut color = color;
-                    #[cfg(feature = "debug_draw")]
                     if outline_color.is_some() {
                         if self.is_edge_pixel(x as f32, y_f, vertices) {
                             buffer.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
@@ -458,11 +456,10 @@ impl Software3D {
             }
             // buffer.debug_flip_and_present();
         }
-        // std::thread::sleep(Duration::from_millis(10));
 
         // Draw polygon normals after the main polygon rendering (if enabled)
-        // #[cfg(feature = "debug_draw")]
-        // self.draw_polygon_normals(polygon, bsp3d, screen_poly, inv_w, rend);
+        #[cfg(feature = "debug_draw")]
+        self.draw_polygon_normals(polygon, bsp3d, buffer);
     }
 
     #[cfg(feature = "debug_draw")]
@@ -506,11 +503,9 @@ impl Software3D {
         &mut self,
         polygon: &SurfacePolygon,
         bsp3d: &BSP3D,
-        screen_poly: &ScreenPoly,
-        inv_w: &[f32],
         rend: &mut impl DrawBuffer,
     ) {
-        if screen_poly.0.len() < 3 || inv_w.len() < 3 {
+        if self.screen_vertices_len < 3 || self.inv_w_len < 3 {
             return;
         }
 
@@ -547,8 +542,8 @@ impl Software3D {
                 (1.0 - normal_end_ndc.y) * 0.5 * self.height as f32,
             );
 
-            let center_depth = 1.0 - (1.0 / center_clip.w);
-            let normal_end_depth = 1.0 - (1.0 / normal_end_clip.w);
+            let center_depth = 1.0 / center_clip.w;
+            let normal_end_depth = 1.0 / normal_end_clip.w;
 
             // Draw line from center to normal endpoint
             self.draw_line(
