@@ -426,21 +426,37 @@ impl Software3D {
             let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
 
             let mut interp_state = interpolator.init_scanline(x_f, y_f);
-            for x in x_start..=x_end {
-                #[cfg(feature = "hprof")]
-                profile!("draw_textured_polygon X loop");
-                let (u, v, inv_z) = interp_state.get_current_uv();
-                // TODO: depth check is 10fps ~~
-                if self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
-                    // TODO: colourmap lookup is 30fps in X loop
+            let mut x = x_start;
+            while x <= x_end {
+                // Skip occluded pixels quickly using a read-only depth peek
+                while x <= x_end {
+                    let (_, _, inv_z) = interp_state.get_current_uv();
+                    let stored = self.depth_buffer.peek_depth_unchecked(x, y);
+                    if stored < inv_z {
+                        break;
+                    }
+                    interp_state.step_x();
+                    x += 1;
+                }
+                if x > x_end {
+                    break;
+                }
+
+                // Paint visible span starting at x
+                while x <= x_end {
+                    #[cfg(feature = "hprof")]
+                    profile!("draw_textured_polygon X loop");
+                    let (u, v, inv_z) = interp_state.get_current_uv();
+                    if !self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
+                        // current pixel is occluded; break to resume skipping phase
+                        interp_state.step_x();
+                        x += 1;
+                        break;
+                    }
+
                     let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                    // TODO: need a separate masked texture draw
-                    // This conditional causes a 15fps loss
-                    // if color[3] == 0 {
-                    //     interp_state.step_x();
-                    //     continue;
-                    // }
+
                     #[cfg(not(feature = "debug_draw"))]
                     buffer.set_pixel(x, y, &color);
                     #[cfg(feature = "debug_draw")]
@@ -451,10 +467,11 @@ impl Software3D {
                             buffer.set_pixel(x, y, &color);
                         }
                     }
+
+                    interp_state.step_x();
+                    x += 1;
                 }
-                interp_state.step_x();
             }
-            // buffer.debug_flip_and_present();
         }
 
         // Draw polygon normals after the main polygon rendering (if enabled)

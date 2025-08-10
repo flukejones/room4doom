@@ -65,6 +65,13 @@ impl DepthBuffer {
         self.view_bottom = bottom;
     }
 
+    /// Read depth at pixel coordinates (unchecked). Returns stored depth (larger = closer).
+    #[inline]
+    pub fn peek_depth_unchecked(&self, x: usize, y: usize) -> f32 {
+        let index = y * self.width + x;
+        unsafe { *self.depths.get_unchecked(index) }
+    }
+
     #[inline]
     pub fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) {
         #[cfg(feature = "hprof")]
