@@ -523,11 +523,12 @@ impl Software3D {
         let normal_end = center + polygon.normal * normal_length;
 
         // Project both center and normal endpoint to screen space
-        let view_projection = self.projection_matrix * self.view_matrix;
-
-        let center_clip = view_projection * Vec4::new(center.x, center.y, center.z, 1.0);
-        let normal_end_clip =
-            view_projection * Vec4::new(normal_end.x, normal_end.y, normal_end.z, 1.0);
+        let center_clip = self.projection_matrix
+            * self.view_matrix
+            * Vec4::new(center.x, center.y, center.z, 1.0);
+        let normal_end_clip = self.projection_matrix
+            * self.view_matrix
+            * Vec4::new(normal_end.x, normal_end.y, normal_end.z, 1.0);
 
         if center_clip.w > 0.0 && normal_end_clip.w > 0.0 {
             let center_ndc = center_clip / center_clip.w;

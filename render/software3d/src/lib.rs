@@ -16,6 +16,13 @@ mod tests;
 
 use depth_buffer::DepthBuffer;
 
+#[derive(Clone, Copy)]
+struct VertexCache {
+    view_pos: Vec4,
+    clip_pos: Vec4,
+    valid: bool,
+}
+
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 const CLIP_VERTICES_LEN: usize = 3;
 const MAX_CLIPPED_VERTICES: usize = 16;
@@ -49,11 +56,14 @@ pub struct Software3D {
     clipped_vertices_buffer: [Vec4; MAX_CLIPPED_VERTICES],
     clipped_tex_coords_buffer: [Vec3; MAX_CLIPPED_VERTICES],
     clipped_vertices_len: usize,
+    // Vertex transformation cache
+    vertex_cache: Vec<VertexCache>,
+    current_frame_id: u32,
 }
 
 impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
-        let near = 10.0;
+        let near = 4.0;
         let far = 10000.0;
         let aspect = width as f32 / height as f32 * 1.33;
         let fov = fov * 0.66;
@@ -80,6 +90,8 @@ impl Software3D {
             clipped_vertices_buffer: [Vec4::ZERO; MAX_CLIPPED_VERTICES],
             clipped_tex_coords_buffer: [Vec3::ZERO; MAX_CLIPPED_VERTICES],
             clipped_vertices_len: 0,
+            vertex_cache: Vec::new(),
+            current_frame_id: 0,
         }
     }
 
@@ -129,6 +141,43 @@ impl Software3D {
     // ==========================================
 
     /// Check if 3D bounding box is fully outside view frustum
+    fn prepare_vertex_cache(&mut self, bsp3d: &BSP3D) {
+        let vertex_count = bsp3d.vertices.len();
+        if self.vertex_cache.len() != vertex_count {
+            self.vertex_cache.resize(
+                vertex_count,
+                VertexCache {
+                    view_pos: Vec4::ZERO,
+                    clip_pos: Vec4::ZERO,
+                    valid: false,
+                },
+            );
+        } else {
+            for cache_entry in &mut self.vertex_cache {
+                cache_entry.valid = false;
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn get_transformed_vertex(&mut self, vertex_idx: usize, bsp3d: &BSP3D) -> (Vec4, Vec4) {
+        unsafe {
+            let cache_entry = self.vertex_cache.get_unchecked_mut(vertex_idx);
+            if !cache_entry.valid {
+                let vertex = bsp3d.vertex_get(vertex_idx);
+                let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+                let view_pos = self.view_matrix * world_pos;
+                let clip_pos = self.projection_matrix * view_pos;
+
+                cache_entry.view_pos = view_pos;
+                cache_entry.clip_pos = clip_pos;
+                cache_entry.valid = true;
+            }
+
+            (cache_entry.view_pos, cache_entry.clip_pos)
+        }
+    }
+
     fn is_bbox_outside_fov(&self, bbox: &AABB) -> bool {
         // Generate all 8 corners of the 3D bbox
         let view_projection = self.projection_matrix * self.view_matrix;
@@ -170,10 +219,7 @@ impl Software3D {
 
         for i in 0..CLIP_VERTICES_LEN {
             let vidx = unsafe { *polygon.vertices.get_unchecked(i) };
-            let vertex = bsp3d.vertex_get(vidx);
-            let view_pos = self.view_matrix * Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-
-            let clip_pos = self.projection_matrix * view_pos;
+            let (_, clip_pos) = self.get_transformed_vertex(vidx, bsp3d);
             self.clip_vertices[i] = clip_pos;
 
             if clip_pos.x >= -clip_pos.w {
@@ -279,9 +325,8 @@ impl Software3D {
         let mut input_tex_coords = [Vec3::ZERO; 3];
 
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
+            let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
             let vertex = bsp3d.vertex_get(vertex_idx);
-            let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-            let clip_pos = self.projection_matrix * self.view_matrix * world_pos;
             let (u, v) = self.calculate_tex_coords(vertex, &polygon, bsp3d, pic_data);
 
             input_vertices[i] = clip_pos;
@@ -608,6 +653,8 @@ impl Software3D {
         pic_data: &mut PicData,
         buffer: &mut impl DrawBuffer,
     ) {
+        self.prepare_vertex_cache(&level.map_data.bsp_3d);
+        self.current_frame_id = self.current_frame_id.wrapping_add(1);
         #[cfg(feature = "hprof")]
         profile!("render_player_view");
         let MapData {
@@ -782,9 +829,7 @@ impl Software3D {
         let mut vertex_count = 0;
 
         for &vertex_idx in &polygon.vertices {
-            let vertex = bsp3d.vertex_get(vertex_idx);
-            let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
-            let clip_pos = self.projection_matrix * self.view_matrix * world_pos;
+            let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
 
             if clip_pos.w > 0.0 {
                 total_depth += 1.0 / clip_pos.w;
