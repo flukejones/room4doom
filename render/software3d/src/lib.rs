@@ -405,7 +405,7 @@ impl Software3D {
                 1usize
             } else if bbox_area <= 512.0 {
                 2usize
-            } else if bbox_area <= 1024.0 {
+            } else if bbox_area <= 2048.0 {
                 4usize
             } else {
                 8usize
@@ -786,6 +786,10 @@ impl Software3D {
                     player.extralight,
                     buffer,
                 );
+
+                if self.depth_buffer.is_full() {
+                    break;
+                }
             }
         }
     }

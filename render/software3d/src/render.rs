@@ -431,8 +431,7 @@ impl Software3D {
                 // Skip occluded pixels quickly using a read-only depth peek
                 while x <= x_end {
                     let (_, _, inv_z) = interp_state.get_current_uv();
-                    let stored = self.depth_buffer.peek_depth_unchecked(x, y);
-                    if stored < inv_z {
+                    if inv_z > self.depth_buffer.peek_depth_unchecked(x, y) {
                         break;
                     }
                     interp_state.step_x();
@@ -453,6 +452,7 @@ impl Software3D {
                         x += 1;
                         break;
                     }
+                    // self.depth_buffer.set_depth_unchecked(x, y, inv_z);
 
                     let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);

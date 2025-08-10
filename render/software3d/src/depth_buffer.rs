@@ -17,6 +17,8 @@ pub struct DepthBuffer {
     view_right: f32,
     view_top: f32,
     view_bottom: f32,
+    /// Number of pixels that have been written to (depth > 0.0)
+    covered_pixels: usize,
 }
 
 impl DepthBuffer {
@@ -33,6 +35,7 @@ impl DepthBuffer {
             view_right: width as f32,
             view_top: 0.0,
             view_bottom: height as f32,
+            covered_pixels: 0,
         }
     }
 
@@ -43,6 +46,7 @@ impl DepthBuffer {
 
         // Reset all depths to 0.0 (farthest possible in 1/w convention)
         self.depths.fill(0.0);
+        self.covered_pixels = 0;
     }
 
     /// Resize the depth buffer - recreates the buffer
@@ -65,6 +69,12 @@ impl DepthBuffer {
         self.view_bottom = bottom;
     }
 
+    /// Return true if every pixel has been written at least once.
+    #[inline]
+    pub fn is_full(&self) -> bool {
+        self.covered_pixels >= self.width.saturating_mul(self.height)
+    }
+
     /// Read depth at pixel coordinates (unchecked). Returns stored depth (larger = closer).
     #[inline]
     pub fn peek_depth_unchecked(&self, x: usize, y: usize) -> f32 {
@@ -80,10 +90,12 @@ impl DepthBuffer {
         unsafe {
             let t = self.depths.get_unchecked_mut(index);
             *t = depth;
+            self.covered_pixels += 1;
         }
     }
 
     /// Test and set depth at pixel coordinates using 1/w convention (larger = closer)
+    /// Returns true if the depth buffer was updated (same as before).
     #[inline]
     pub fn test_and_set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         #[cfg(feature = "hprof")]
@@ -92,6 +104,9 @@ impl DepthBuffer {
         unsafe {
             let t = self.depths.get_unchecked_mut(index);
             if depth > *t {
+                // if previous was zero (unset background) and we are setting to >0.0,
+                // increment covered count
+                self.covered_pixels += 1;
                 *t = depth;
                 true
             } else {
