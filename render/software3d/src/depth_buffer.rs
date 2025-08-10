@@ -15,8 +15,10 @@ pub struct DepthBuffer {
     /// View frustum bounds for clipping
     view_left: f32,
     view_right: f32,
+    view_right_usize: usize,
     view_top: f32,
     view_bottom: f32,
+    view_bottom_usize: usize,
     /// Number of pixels that have been written to (depth > 0.0)
     covered_pixels: usize,
 }
@@ -25,7 +27,7 @@ impl DepthBuffer {
     /// Create a new depth buffer with given dimensions
     pub fn new(width: usize, height: usize) -> Self {
         let size = width * height;
-        let depths = vec![0.0; size].into_boxed_slice();
+        let depths = vec![-1.0; size].into_boxed_slice();
 
         Self {
             depths,
@@ -33,8 +35,10 @@ impl DepthBuffer {
             height,
             view_left: 0.0,
             view_right: width as f32,
+            view_right_usize: width,
             view_top: 0.0,
             view_bottom: height as f32,
+            view_bottom_usize: height,
             covered_pixels: 0,
         }
     }
@@ -45,7 +49,7 @@ impl DepthBuffer {
         profile!("depth_buffer_reset");
 
         // Reset all depths to 0.0 (farthest possible in 1/w convention)
-        self.depths.fill(0.0);
+        self.depths.fill(-1.0);
         self.covered_pixels = 0;
     }
 
@@ -72,7 +76,8 @@ impl DepthBuffer {
     /// Return true if every pixel has been written at least once.
     #[inline]
     pub fn is_full(&self) -> bool {
-        self.covered_pixels >= self.width.saturating_mul(self.height)
+        // TODO: figure out why the hell drawing isn't always to the edges.
+        self.covered_pixels >= self.width * self.height - 50
     }
 
     /// Read depth at pixel coordinates (unchecked). Returns stored depth (larger = closer).
@@ -106,7 +111,9 @@ impl DepthBuffer {
             if depth > *t {
                 // if previous was zero (unset background) and we are setting to >0.0,
                 // increment covered count
-                self.covered_pixels += 1;
+                if *t as i32 == -1 {
+                    self.covered_pixels += 1;
+                }
                 *t = depth;
                 true
             } else {
@@ -117,34 +124,21 @@ impl DepthBuffer {
 
     pub fn is_bbox_covered(
         &self,
-        x_min: f32,
-        x_max: f32,
-        y_min: f32,
-        y_max: f32,
+        x_min: usize,
+        x_max: usize,
+        y_min: usize,
+        y_max: usize,
         sample_step: usize,
         poly_depth: f32,
     ) -> bool {
         let step = sample_step.max(1);
+        let right = x_max.min(self.view_right_usize) ;
+        let y_max = y_max.min(self.view_bottom_usize);
 
-        let left = x_min.max(self.view_left).max(0.0).floor() as isize;
-        let right = x_max.min(self.view_right).max(0.0).ceil() as isize;
-        let top = y_min.max(self.view_top).max(0.0).floor() as isize;
-        let bottom = y_max.min(self.view_bottom).max(0.0).ceil() as isize;
-
-        if left > right || top > bottom {
-            return false;
-        }
-
-        let left = left as usize;
-        let right = right as usize;
-        let top = top as usize;
-        let bottom = bottom as usize;
-
-        for y in (top..=bottom).step_by(step) {
+        for y in (y_min..y_max).step_by(step) {
             let row_base = y * self.width;
-            for x in (left..=right).step_by(step) {
+            for x in (x_min..x_max).step_by(step) {
                 let idx = row_base + x;
-                // safe because bbox clamped to view bounds / width/height
                 let current = unsafe { *self.depths.get_unchecked(idx) };
                 if current < poly_depth {
                     return false;

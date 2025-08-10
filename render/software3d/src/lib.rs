@@ -387,7 +387,6 @@ impl Software3D {
                 }
             }
 
-            // polygon closest depth (1/w). Larger = closer.
             let mut poly_max_inv_w = f32::NEG_INFINITY;
             for i in 0..self.inv_w_len {
                 let d = self.inv_w_buffer[i];
@@ -398,25 +397,14 @@ impl Software3D {
 
             let bbox_w = (max_x - min_x).max(1.0);
             let bbox_h = (max_y - min_y).max(1.0);
-            let bbox_area = bbox_w * bbox_h;
-
-            // sample every N pixels (tune sample_step for perf/accuracy)
-            let sample_step = if bbox_area <= 64.0 {
-                1usize
-            } else if bbox_area <= 512.0 {
-                2usize
-            } else if bbox_area <= 2048.0 {
-                4usize
-            } else {
-                8usize
-            };
 
             if self.depth_buffer.is_bbox_covered(
-                min_x,
-                max_x,
-                min_y,
-                max_y,
-                sample_step,
+                min_x as u32 as usize,
+                max_x as u32 as usize,
+                min_y as u32 as usize,
+                max_y as u32 as usize,
+                // sample every N pixels (tune sample_step for perf/accuracy)
+                bbox_h.min(bbox_w) as usize / 24,
                 poly_max_inv_w,
             ) {
                 return;
@@ -883,24 +871,21 @@ impl Software3D {
         }
     }
 
-    /// Calculate average depth of polygon vertices using 1/w convention
+    /// Calculate closest depth of polygon vertices using 1/w convention
     fn calculate_polygon_depth(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> f32 {
-        let mut total_depth = 0.0;
-        let mut vertex_count = 0;
+        let mut max_inv_w = 0.0;
 
         for &vertex_idx in &polygon.vertices {
             let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
 
             if clip_pos.w > 0.0 {
-                total_depth += 1.0 / clip_pos.w;
-                vertex_count += 1;
+                let inv_w = 1.0 / clip_pos.w;
+                if inv_w > max_inv_w {
+                    max_inv_w = inv_w;
+                }
             }
         }
 
-        if vertex_count > 0 {
-            total_depth / vertex_count as f32
-        } else {
-            0.0
-        }
+        max_inv_w
     }
 }

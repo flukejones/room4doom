@@ -471,6 +471,7 @@ impl Software3D {
                     interp_state.step_x();
                     x += 1;
                 }
+                // buffer.debug_flip_and_present();
             }
         }
 
