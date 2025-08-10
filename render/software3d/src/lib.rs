@@ -366,6 +366,62 @@ impl Software3D {
                 return;
             }
 
+            // conservative occlusion test: compute screen bbox and polygon's closest 1/w
+            let mut min_x = f32::INFINITY;
+            let mut max_x = f32::NEG_INFINITY;
+            let mut min_y = f32::INFINITY;
+            let mut max_y = f32::NEG_INFINITY;
+            for i in 0..self.screen_vertices_len {
+                let v = self.screen_vertices_buffer[i];
+                if v.x < min_x {
+                    min_x = v.x
+                }
+                if v.x > max_x {
+                    max_x = v.x
+                }
+                if v.y < min_y {
+                    min_y = v.y
+                }
+                if v.y > max_y {
+                    max_y = v.y
+                }
+            }
+
+            // polygon closest depth (1/w). Larger = closer.
+            let mut poly_max_inv_w = f32::NEG_INFINITY;
+            for i in 0..self.inv_w_len {
+                let d = self.inv_w_buffer[i];
+                if d > poly_max_inv_w {
+                    poly_max_inv_w = d
+                }
+            }
+
+            let bbox_w = (max_x - min_x).max(1.0);
+            let bbox_h = (max_y - min_y).max(1.0);
+            let bbox_area = bbox_w * bbox_h;
+
+            // sample every N pixels (tune sample_step for perf/accuracy)
+            let sample_step = if bbox_area <= 64.0 {
+                1usize
+            } else if bbox_area <= 512.0 {
+                2usize
+            } else if bbox_area <= 1024.0 {
+                4usize
+            } else {
+                8usize
+            };
+
+            if self.depth_buffer.is_bbox_covered(
+                min_x,
+                max_x,
+                min_y,
+                max_y,
+                sample_step,
+                poly_max_inv_w,
+            ) {
+                return;
+            }
+
             let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
 
             // Triangulate polygon if it has more than 3 vertices

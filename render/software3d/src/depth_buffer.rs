@@ -65,6 +65,17 @@ impl DepthBuffer {
         self.view_bottom = bottom;
     }
 
+    #[inline]
+    pub fn set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) {
+        #[cfg(feature = "hprof")]
+        profile!("set_depth_unchecked");
+        let index = y * self.width + x;
+        unsafe {
+            let t = self.depths.get_unchecked_mut(index);
+            *t = depth;
+        }
+    }
+
     /// Test and set depth at pixel coordinates using 1/w convention (larger = closer)
     #[inline]
     pub fn test_and_set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
@@ -80,5 +91,44 @@ impl DepthBuffer {
                 false
             }
         }
+    }
+
+    pub fn is_bbox_covered(
+        &self,
+        x_min: f32,
+        x_max: f32,
+        y_min: f32,
+        y_max: f32,
+        sample_step: usize,
+        poly_depth: f32,
+    ) -> bool {
+        let step = sample_step.max(1);
+
+        let left = x_min.max(self.view_left).max(0.0).floor() as isize;
+        let right = x_max.min(self.view_right).max(0.0).ceil() as isize;
+        let top = y_min.max(self.view_top).max(0.0).floor() as isize;
+        let bottom = y_max.min(self.view_bottom).max(0.0).ceil() as isize;
+
+        if left > right || top > bottom {
+            return false;
+        }
+
+        let left = left as usize;
+        let right = right as usize;
+        let top = top as usize;
+        let bottom = bottom as usize;
+
+        for y in (top..=bottom).step_by(step) {
+            let row_base = y * self.width;
+            for x in (left..=right).step_by(step) {
+                let idx = row_base + x;
+                // safe because bbox clamped to view bounds / width/height
+                let current = unsafe { *self.depths.get_unchecked(idx) };
+                if current < poly_depth {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
