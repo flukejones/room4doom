@@ -327,7 +327,10 @@ impl Software3D {
 
         let bounds = match screen_poly.bounds() {
             Some(bounds) => bounds,
-            None => return,
+            None => {
+                self.polygons_early_culled_count += 1;
+                return;
+            }
         };
 
         let interpolator = match TriangleInterpolator::new(
@@ -336,7 +339,10 @@ impl Software3D {
             &self.inv_w_buffer[..self.inv_w_len],
         ) {
             Some(interpolator) => interpolator,
-            None => return,
+            None => {
+                self.polygons_early_culled_count += 1;
+                return;
+            }
         };
 
         // Cache frequently used values
@@ -361,7 +367,7 @@ impl Software3D {
         let v0 = unsafe { *vertices.get_unchecked(0) };
         let v1 = unsafe { *vertices.get_unchecked(1) };
         let v2 = unsafe { *vertices.get_unchecked(2) };
-        // println!("v0: {v0}, v1: {v1}, v2: {v2}, ");
+        let mut did_draw = false;
         for y in y_start..=y_end {
             let y_f = y as f32;
             let mut x0 = f32::INFINITY;
@@ -446,6 +452,9 @@ impl Software3D {
                     #[cfg(feature = "hprof")]
                     profile!("draw_textured_polygon X loop");
                     let (u, v, inv_z) = interp_state.get_current_uv();
+                    // The if clause can have a small impact on levels with Sigil poly counts
+                    // but is marginal or nonexistant on absurd levels like Sunder Map 20.
+                    // The same is true for the colourmap access
                     if !self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
                         // current pixel is occluded; break to resume skipping phase
                         interp_state.step_x();
@@ -459,6 +468,7 @@ impl Software3D {
 
                     #[cfg(not(feature = "debug_draw"))]
                     buffer.set_pixel(x, y, &color);
+                    did_draw = true;
                     #[cfg(feature = "debug_draw")]
                     if outline_color.is_some() {
                         if self.is_edge_pixel(x as f32, y_f, vertices) {
@@ -478,6 +488,12 @@ impl Software3D {
         // Draw polygon normals after the main polygon rendering (if enabled)
         #[cfg(feature = "debug_draw")]
         self.draw_polygon_normals(polygon, bsp3d, buffer);
+
+        if did_draw {
+            self.polygons_rendered_count += 1;
+        } else {
+            self.polygons_no_draw_count += 1;
+        }
     }
 
     #[cfg(feature = "debug_draw")]

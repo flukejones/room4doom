@@ -59,13 +59,16 @@ pub struct Software3D {
     // Vertex transformation cache
     vertex_cache: Vec<VertexCache>,
     current_frame_id: u32,
+    polygons_early_culled_count: u32,
+    polygons_rendered_count: u32,
+    polygons_no_draw_count: u32,
 }
 
 impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let near = 4.0;
         let far = 10000.0;
-        let aspect = width as f32 / height as f32 * 1.33;
+        let aspect = width / height * 1.33;
         let fov = fov * 0.66;
         let projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
 
@@ -92,6 +95,9 @@ impl Software3D {
             clipped_vertices_len: 0,
             vertex_cache: Vec::new(),
             current_frame_id: 0,
+            polygons_early_culled_count: 0,
+            polygons_rendered_count: 0,
+            polygons_no_draw_count: 0,
         }
     }
 
@@ -363,6 +369,7 @@ impl Software3D {
             if self
                 .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
             {
+                self.polygons_early_culled_count += 1;
                 return;
             }
 
@@ -407,6 +414,7 @@ impl Software3D {
                 bbox_h.min(bbox_w) as usize / 24,
                 poly_max_inv_w,
             ) {
+                self.polygons_early_culled_count += 1;
                 return;
             }
 
@@ -711,6 +719,9 @@ impl Software3D {
 
         self.update_view_matrix(player);
 
+        self.polygons_no_draw_count = 0;
+        self.polygons_early_culled_count = 0;
+        self.polygons_rendered_count = 0;
         self.depth_buffer.reset();
 
         let player_pos = if let Some(mobj) = player.mobj() {
@@ -764,6 +775,7 @@ impl Software3D {
             visible_polygons
                 .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
+            // let visible = visible_polygons.len();
             // Render all polygons in optimal depth order
             for (poly_surface, _) in visible_polygons {
                 self.render_surface_polygon(
@@ -779,6 +791,7 @@ impl Software3D {
                     break;
                 }
             }
+            // println!("Total polygons: visible: {visible}, culled: {}, rendered: {}, no_draw: {}", self.polygons_early_culled_count, self.polygons_rendered_count, self.polygons_no_draw_count);
         }
     }
 
