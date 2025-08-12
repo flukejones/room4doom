@@ -15,7 +15,26 @@
 		5E87D7942E4B3E07007759A3 /* ogg.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 5E87D78F2E4B3E07007759A3 /* ogg.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E87D7952E4B3E07007759A3 /* wavpack.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E87D7902E4B3E07007759A3 /* wavpack.framework */; };
 		5E87D7962E4B3E07007759A3 /* wavpack.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 5E87D7902E4B3E07007759A3 /* wavpack.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		5EF956712E4B4FB8001EFD5A /* multigen in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5EF956632E4B4C48001EFD5A /* multigen */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		5EF956722E4B4FE0001EFD5A /* room4doom in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5EF956662E4B4C48001EFD5A /* room4doom */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5EF956622E4B4C48001EFD5A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5E87D7702E4B38A8007759A3 /* multigen.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA00BD2EDF57C4BD8441C7F8;
+			remoteInfo = "multigen (standalone executable)";
+		};
+		5EF956652E4B4C48001EFD5A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5E87D7612E4B3874007759A3 /* room4doom.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA00A84BD2057F5B5F5AC289;
+			remoteInfo = "room4doom (standalone executable)";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		5E87D77F2E4B3A36007759A3 /* Embed Frameworks */ = {
@@ -30,6 +49,26 @@
 				5E87D7942E4B3E07007759A3 /* ogg.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5EF956602E4B4C48001EFD5A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				5EF956712E4B4FB8001EFD5A /* multigen in CopyFiles */,
+				5EF956722E4B4FE0001EFD5A /* room4doom in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5EF956682E4B4CD1001EFD5A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -89,6 +128,7 @@
 		5E87D7642E4B3874007759A3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				5EF956662E4B4C48001EFD5A /* room4doom */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -96,6 +136,7 @@
 		5E87D7762E4B38A8007759A3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				5EF956632E4B4C48001EFD5A /* multigen */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -118,10 +159,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5E87D74E2E4B37B2007759A3 /* Build configuration list for PBXNativeTarget "room4doom" */;
 			buildPhases = (
-				5E87D73F2E4B37B2007759A3 /* Sources */,
 				5E87D7402E4B37B2007759A3 /* Frameworks */,
 				5E87D7412E4B37B2007759A3 /* Resources */,
 				5E87D77F2E4B3A36007759A3 /* Embed Frameworks */,
+				5EF956602E4B4C48001EFD5A /* CopyFiles */,
+				5EF956682E4B4CD1001EFD5A /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -181,6 +223,23 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXReferenceProxy section */
+		5EF956632E4B4C48001EFD5A /* multigen */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = multigen;
+			remoteRef = 5EF956622E4B4C48001EFD5A /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		5EF956662E4B4C48001EFD5A /* room4doom */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = room4doom;
+			remoteRef = 5EF956652E4B4C48001EFD5A /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
 /* Begin PBXResourcesBuildPhase section */
 		5E87D7412E4B37B2007759A3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -190,16 +249,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXSourcesBuildPhase section */
-		5E87D73F2E4B37B2007759A3 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		5E87D74C2E4B37B2007759A3 /* Debug */ = {
@@ -326,10 +375,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PQT6XW4FFN;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -346,7 +394,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "\"$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
@@ -374,10 +422,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PQT6XW4FFN;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -394,7 +441,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "\"$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks\"";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
