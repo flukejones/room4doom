@@ -45,8 +45,24 @@ fn main() {
             }
         }
     }
-    #[cfg(target_os = "macos")]
-    println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
+    let target = std::env::var("TARGET").unwrap();
+
+    if target.contains("apple-darwin") {
+        // Runtime search paths so @rpath/SDL2.framework/... can be found:
+        println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
+        println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path/../Frameworks");
+        println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
+        println!("cargo:rustc-link-arg=-Wl,-rpath,/Library/Frameworks");
+        // Homebrew on Apple Silicon:
+        println!("cargo:rustc-link-arg=-Wl,-rpath,/opt/homebrew/Frameworks");
+        // (Optional) Homebrew on Intel:
+        println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/local/Frameworks");
+
+        // Link-time framework search paths (so -framework SDL2 resolves):
+        println!("cargo:rustc-link-search=framework=/Library/Frameworks");
+        println!("cargo:rustc-link-search=framework=/opt/homebrew/Frameworks");
+        println!("cargo:rustc-link-search=framework=/usr/local/Frameworks");
+    }
 
     #[cfg(target_os = "linux")]
     println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN");

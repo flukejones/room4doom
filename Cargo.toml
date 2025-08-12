@@ -59,6 +59,7 @@ software25d = { path = "./render/software25d" }
 coarse-prof = "0.2"
 glam = "*"
 sdl2 = { git = "https://github.com/flukejones/rust-sdl2", features = [
+    "use_mac_framework",
     "unsafe_textures",
     "mixer"
 ] }
