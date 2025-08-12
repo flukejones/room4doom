@@ -132,10 +132,10 @@ impl DepthBuffer {
         poly_depth: f32,
     ) -> bool {
         let step = sample_step.max(1);
-        let right = x_max.min(self.view_right_usize) ;
+        // let right = x_max.min(self.view_right_usize);
         let y_max = y_max.min(self.view_bottom_usize);
 
-        for y in (y_min..y_max).step_by(step) {
+        for y in (y_min..=y_max).step_by(step) {
             let row_base = y * self.width;
             for x in (x_min..x_max).step_by(step) {
                 let idx = row_base + x;

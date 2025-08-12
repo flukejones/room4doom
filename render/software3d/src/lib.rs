@@ -402,18 +402,21 @@ impl Software3D {
                 }
             }
 
-            let bbox_w = (max_x - min_x).max(1.0);
-            let bbox_h = (max_y - min_y).max(1.0);
+            let bbox_w = (max_x - min_x).max(0.0) as u32 as usize;
+            let bbox_h = (max_y - min_y).max(0.0) as u32 as usize;
 
-            if self.depth_buffer.is_bbox_covered(
-                min_x as u32 as usize,
-                max_x as u32 as usize,
-                min_y as u32 as usize,
-                max_y as u32 as usize,
-                // sample every N pixels (tune sample_step for perf/accuracy)
-                bbox_h.min(bbox_w) as usize / 24,
-                poly_max_inv_w,
-            ) {
+            if bbox_h > 2
+                && bbox_w > 2
+                && self.depth_buffer.is_bbox_covered(
+                    min_x as u32 as usize,
+                    max_x as u32 as usize,
+                    min_y as u32 as usize,
+                    max_y as u32 as usize,
+                    // sample every N pixels (tune sample_step for perf/accuracy)
+                    bbox_h.min(bbox_w) / 24,
+                    poly_max_inv_w,
+                )
+            {
                 self.polygons_early_culled_count += 1;
                 return;
             }
