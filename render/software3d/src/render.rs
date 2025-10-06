@@ -356,10 +356,8 @@ impl Software3D {
         let height_f32 = self.height as f32;
 
         // Pre-compute bounds
-        let y_min = bounds.0.y.max(0.0);
-        let y_max = bounds.1.y.min(height_f32 - 1.0);
-        let y_start = y_min as u32 as usize;
-        let y_end = y_max as u32 as usize;
+        let y_start = bounds.0.y.max(1.0).floor() as u32 as usize;
+        let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
 
         // Instead of doing the scanline stuff here, could do it all in a fast loop for
         // all polygons before calling draw_polygon(). Then just slam the scanlines
@@ -369,7 +367,7 @@ impl Software3D {
         let v2 = unsafe { *vertices.get_unchecked(2) };
         let mut did_draw = false;
         for y in y_start..=y_end {
-            let y_f = y as f32;
+            let y_f = y as f32; // really needs to be interpolated not truncated
             let mut x0 = f32::INFINITY;
             let mut x1 = f32::NEG_INFINITY;
             let mut found = 0;
@@ -377,12 +375,12 @@ impl Software3D {
                 let edges = [(v0, v1), (v1, v2), (v2, v0)];
                 for &(start, end) in &edges {
                     let dy = end.y - start.y;
-                    if dy.abs() < f32::EPSILON {
+                    if dy.abs() <= f32::EPSILON {
                         continue;
                     }
-                    if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
+                    if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
                         let t = (y_f - start.y) / dy;
-                        if t >= -f32::EPSILON && t <= (1.0 + f32::EPSILON) {
+                        if t > -f32::EPSILON && t < (1.0 + f32::EPSILON) {
                             let x = start.x + (end.x - start.x) * t;
                             if found == 0 {
                                 x0 = x;
@@ -401,12 +399,12 @@ impl Software3D {
                 let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
                 for &(start, end) in &edges {
                     let dy = end.y - start.y;
-                    if dy.abs() < f32::EPSILON {
+                    if dy.abs() <= f32::EPSILON {
                         continue;
                     }
-                    if (start.y <= y_f && end.y >= y_f) || (end.y <= y_f && start.y >= y_f) {
+                    if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
                         let t = (y_f - start.y) / dy;
-                        if t >= -f32::EPSILON && t <= (1.0 + f32::EPSILON) {
+                        if t > -f32::EPSILON && t < (1.0 + f32::EPSILON) {
                             let x = start.x + (end.x - start.x) * t;
                             if found == 0 {
                                 x0 = x;
@@ -427,7 +425,7 @@ impl Software3D {
                 std::mem::swap(&mut x0, &mut x1);
             }
 
-            let x_f = x0.max(0.0).ceil();
+            let x_f = x0.max(1.0).floor();
             let x_start = x_f as u32 as usize;
             let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
 

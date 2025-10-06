@@ -131,6 +131,8 @@ impl DepthBuffer {
         sample_step: usize,
         poly_depth: f32,
     ) -> bool {
+        // TODO: temporary early return while debugging a Y start glitch
+        return false;
         let step = sample_step.max(1);
         // let right = x_max.min(self.view_right_usize);
         let y_max = y_max.min(self.view_bottom_usize);
