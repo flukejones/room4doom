@@ -131,8 +131,38 @@ impl DepthBuffer {
         sample_step: usize,
         poly_depth: f32,
     ) -> bool {
-        // TODO: temporary early return while debugging a Y start glitch
-        return false;
+        #[cfg(feature = "hprof")]
+        profile!("is_bbox_covered");
+        let step = sample_step.max(1);
+        // let right = x_max.min(self.view_right_usize);
+        let y_max = y_max.min(self.view_bottom_usize);
+
+        for y in (y_min..=y_max).step_by(step) {
+            let row_base = y * self.width;
+            for x in (x_min..x_max).step_by(step) {
+                let idx = row_base + x;
+                let Some(current) = self.depths.get(idx) else {
+                    return false;
+                };
+                if *current < poly_depth {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    pub unsafe fn is_bbox_covered_unchecked(
+        &self,
+        x_min: usize,
+        x_max: usize,
+        y_min: usize,
+        y_max: usize,
+        sample_step: usize,
+        poly_depth: f32,
+    ) -> bool {
+        #[cfg(feature = "hprof")]
+        profile!("is_bbox_covered_unchecked");
         let step = sample_step.max(1);
         // let right = x_max.min(self.view_right_usize);
         let y_max = y_max.min(self.view_bottom_usize);

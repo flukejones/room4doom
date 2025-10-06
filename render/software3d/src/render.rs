@@ -356,8 +356,8 @@ impl Software3D {
         let height_f32 = self.height as f32;
 
         // Pre-compute bounds
-        let y_start = bounds.0.y.max(1.0).floor() as u32 as usize;
-        let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
+        let y_start = bounds.0.y.max(0.0) as u32 as usize;
+        let y_end = bounds.1.y.min(height_f32 - 1.0) as u32 as usize;
 
         // Instead of doing the scanline stuff here, could do it all in a fast loop for
         // all polygons before calling draw_polygon(). Then just slam the scanlines
@@ -375,7 +375,7 @@ impl Software3D {
                 let edges = [(v0, v1), (v1, v2), (v2, v0)];
                 for &(start, end) in &edges {
                     let dy = end.y - start.y;
-                    if dy.abs() <= f32::EPSILON {
+                    if dy.abs() < f32::EPSILON {
                         continue;
                     }
                     if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
@@ -399,7 +399,7 @@ impl Software3D {
                 let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
                 for &(start, end) in &edges {
                     let dy = end.y - start.y;
-                    if dy.abs() <= f32::EPSILON {
+                    if dy.abs() < f32::EPSILON {
                         continue;
                     }
                     if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
@@ -425,7 +425,7 @@ impl Software3D {
                 std::mem::swap(&mut x0, &mut x1);
             }
 
-            let x_f = x0.max(1.0).floor();
+            let x_f = x0.max(0.0).ceil();
             let x_start = x_f as u32 as usize;
             let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
 

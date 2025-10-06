@@ -350,8 +350,8 @@ impl Software3D {
             if clip_pos.w > 0.0 {
                 let inv_w = 1.0 / clip_pos.w;
                 let ndc = clip_pos * inv_w;
-                let screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
-                let screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
+                let screen_x = (ndc.x + 0.99) * 0.5 * self.width as f32;
+                let screen_y = (0.99 - ndc.y) * 0.5 * self.height as f32;
 
                 self.screen_vertices_buffer[self.screen_vertices_len] =
                     Vec2::new(screen_x, screen_y);
