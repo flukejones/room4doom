@@ -235,6 +235,13 @@ mod tests {
 
     use super::WadExtendedMap;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[ignore = "sunder.wad can't be included in git"]
     #[test]
     fn extended_nodes_sunder_m3_check_vertex() {
@@ -336,7 +343,7 @@ mod tests {
 
     #[test]
     fn extended_nodes_none() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         assert!(WadExtendedMap::parse(&wad, "E1M1").is_none());
     }
 

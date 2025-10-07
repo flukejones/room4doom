@@ -196,9 +196,16 @@ mod tests {
     use crate::{get_patch_for_char, load_char_patches};
     use wad::WadData;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn load_and_check_chars() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         load_char_patches(&wad);
 
         let l = get_patch_for_char('!').unwrap();

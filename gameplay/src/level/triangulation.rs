@@ -369,6 +369,13 @@ mod tests {
     use crate::level::triangulation::{carve_subsector_polygon, clip_polygon_with_divlines};
     use crate::{DivLine, Segment};
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     impl DivLine {
         /// Create a dividing line from a segment
         fn from_segment(seg: &Segment) -> Self {
@@ -386,7 +393,7 @@ mod tests {
         use crate::{MapData, PicData};
         use wad::WadData;
 
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
         map.load("E1M2", &PicData::init(&wad), &wad);
 

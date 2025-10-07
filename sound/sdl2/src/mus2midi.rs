@@ -1,5 +1,7 @@
 //! Convert Doom MUS format to MIDI format for use with e.g, SDL Music
 
+use log::warn;
+
 const MIDI_NOTEOFF: u8 = 0x80; // + note + velocity
 const MIDI_NOTEON: u8 = 0x90; // + note + velocity
 const MIDI_CTRLCHANGE: u8 = 0xB0; // + ctrlr + value
@@ -81,6 +83,7 @@ impl MusHeader {
         id.copy_from_slice(&buf[..4]);
 
         if id == MIDI_HEAD[..4] {
+            warn!("MIDI_HEAD no match");
             return None;
         }
 
@@ -351,7 +354,10 @@ fn read_track(buf: &[u8], header: &MusHeader) -> Vec<MusEvent> {
 
 /// Take an array of MUS data and convert directly to an array of MIDI data
 pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
-    let header = MusHeader::read(buf)?;
+    let Some(header) = MusHeader::read(buf) else {
+        warn!("Could not open requested music");
+        return None;
+    };
     let track = read_track(buf, &header);
 
     let mut out = Vec::with_capacity(MIDI_HEAD.len() + header.length as usize);
@@ -424,6 +430,15 @@ mod tests {
     use crate::mus2midi::{MusEvent, MusEventType, MusHeader, read_track};
 
     use super::read_mus_to_midi;
+
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
 
     #[test]
     fn spot_check() {
@@ -538,7 +553,7 @@ mod tests {
     #[test]
     #[ignore = "CI doesn't have a sound device"]
     fn play_midi_basic() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         let lump = wad.get_lump("D_E1M8").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();
@@ -577,7 +592,7 @@ mod tests {
             set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1");
             set_var("TIMIDITY_CFG", "/tmp/timidity.cfg");
         }
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         let lump = wad.get_lump("D_E1M1").unwrap();
         let res = read_mus_to_midi(&lump.data).unwrap();

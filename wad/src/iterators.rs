@@ -577,9 +577,16 @@ mod tests {
     use crate::types::*;
     use crate::wad::WadData;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn things_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut iter = wad.thing_iter("E1M1");
         // All verified with SLADE
 
@@ -602,7 +609,7 @@ mod tests {
 
     #[test]
     fn node_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut iter = wad.node_iter("E1M1");
         // All verified with SLADE
 
@@ -617,7 +624,7 @@ mod tests {
 
     #[test]
     fn palette_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let count = wad.playpal_iter().count();
         assert_eq!(count, 14);
 
@@ -642,7 +649,7 @@ mod tests {
 
     #[test]
     fn pnames_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut iter = wad.pnames_iter();
         // All verified with SLADE
 
@@ -660,7 +667,7 @@ mod tests {
 
     #[test]
     fn texture_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut iter = wad.texture_iter("TEXTURE1");
         // All verified with SLADE
 
@@ -684,7 +691,7 @@ mod tests {
 
     #[test]
     fn patches_doom1_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         assert_eq!(wad.patches_iter().count(), 165);
     }
 
@@ -736,7 +743,7 @@ mod tests {
 
     #[test]
     fn patches_doom1_tex19() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let iter: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         let patch = &iter[19];
 
@@ -754,7 +761,7 @@ mod tests {
 
     #[test]
     fn colormap_iter() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut iter = wad.colourmap_iter();
         // All verified with SLADE
 
@@ -791,7 +798,7 @@ mod tests {
 
     #[test]
     fn flats_doom1() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let lump = wad.find_lump_or_panic("NUKAGE3");
         assert_eq!(lump.name, "NUKAGE3");
         assert_eq!(wad.flats_iter().count(), 54);

@@ -698,9 +698,16 @@ mod tests {
 
     use crate::WadData;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn texture1_header_0() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let lump = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(lump.name, "TEXTURE1");
         assert_eq!(lump.data.len(), 9234);
@@ -768,7 +775,7 @@ mod tests {
 
     #[test]
     fn pnames_array() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let lump = wad.find_lump_or_panic("PNAMES");
         assert_eq!(lump.name, "PNAMES");
         assert_eq!(lump.data.len(), 2804);

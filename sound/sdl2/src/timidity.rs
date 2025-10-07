@@ -153,9 +153,18 @@ mod tests {
 
     use super::{GusMemSize, make_timidity_cfg};
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn read_gus_data() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let gus = wad.get_lump("DMXGUS").unwrap();
 
         // line endings are `\r\n`
@@ -173,7 +182,7 @@ mod tests {
 
     #[test]
     fn read_gus_1024k() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         let base = env!("CARGO_MANIFEST_DIR");
         let mut path = PathBuf::new();
@@ -188,7 +197,7 @@ mod tests {
 
     #[test]
     fn read_gus_perfect() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         let base = env!("CARGO_MANIFEST_DIR");
         let mut path = PathBuf::new();

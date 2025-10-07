@@ -189,7 +189,7 @@ impl WadData {
             file_path: file_path.into(),
         };
 
-        let mut file = File::open(&file_path)
+        let mut file = File::open(file_path)
             .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
 
         let file_len = file.metadata().unwrap().len();
@@ -411,15 +411,22 @@ mod tests {
         file_data
     }
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn load_wad() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         assert_eq!(wad.lumps.len(), 1243);
     }
 
     #[test]
     fn read_header() {
-        let wad = read_file("../doom1.wad".into());
+        let wad = read_file(doom1_wad_path());
         let header = WadData::read_header(&wad);
         assert_eq!(header.wad_type(), "IWAD");
     }
@@ -434,7 +441,7 @@ mod tests {
 
     #[test]
     fn read_single_dir() {
-        let wad = read_file("../doom1.wad".into());
+        let wad = read_file(doom1_wad_path());
         let header = WadData::read_header(&wad);
         let dir = WadData::read_dir_data((header.dir_offset) as usize, &wad);
         dbg!(&dir);
@@ -442,13 +449,13 @@ mod tests {
 
     #[test]
     fn read_all_dirs() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         for i in 0..18 {
             dbg!("{:?}", &wad.lumps[i]);
         }
 
-        let file = read_file("../doom1.wad".into());
+        let file = read_file(doom1_wad_path());
         let header = WadData::read_header(&file);
 
         assert_eq!(wad.lumps.len(), header.dir_count as usize);
@@ -456,21 +463,21 @@ mod tests {
 
     #[test]
     fn find_e1m1_things() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Things);
         assert_eq!(things_lump.name, "THINGS");
     }
 
     #[test]
     fn find_e1m2_vertexes() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let things_lump = wad.find_lump_for_map_or_panic("E1M2", MapLump::Vertexes);
         assert_eq!(things_lump.name, MapLump::Vertexes.to_string());
     }
 
     #[test]
     fn find_texture_lump() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let _tex = wad.find_lump_or_panic("TEXTURE1");
         assert_eq!(_tex.name, "TEXTURE1");
         assert_eq!(_tex.data.len(), 9234);
@@ -478,7 +485,7 @@ mod tests {
 
     #[test]
     fn find_playpal_lump() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let pal_lump = wad.find_lump_or_panic("PLAYPAL");
         assert_eq!(pal_lump.name, "PLAYPAL");
         assert_eq!(pal_lump.data.len(), 10752);
@@ -486,7 +493,7 @@ mod tests {
 
     #[test]
     fn check_image_patch() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let lump = wad.find_lump_or_panic("WALL01_7");
         assert_eq!(lump.name, "WALL01_7");
         assert_eq!(lump.data.len(), 1304);
@@ -573,7 +580,7 @@ mod tests {
 
     #[test]
     fn find_e1m1_blockmap() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let things_lump = wad.find_lump_for_map_or_panic("E1M1", MapLump::Blockmap);
         assert_eq!(things_lump.name, "BLOCKMAP");
 

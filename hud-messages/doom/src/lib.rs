@@ -142,9 +142,18 @@ mod tests {
     use crate::Messages;
     use wad::WadData;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[test]
     fn check_cycle_through_max() {
-        let wad = WadData::new(&PathBuf::from("../../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         let mut msgs = Messages::new(&wad);
 

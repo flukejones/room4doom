@@ -2,19 +2,18 @@
 mod pvs_tests {
     use crate::PicData;
     use crate::level::map_data::MapData;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
+
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
 
     #[test]
     fn test_e1m2_pvs_visibility_bug() {
-        let wad_path = match find_wad_file() {
-            Some(path) => path,
-            None => {
-                eprintln!("No WAD files found, skipping test");
-                return;
-            }
-        };
-
-        let wad = wad::WadData::new(&PathBuf::from(wad_path));
+        let wad = wad::WadData::new(&doom1_wad_path());
         let mut map_data = MapData::default();
         map_data.load("E1M2", &PicData::default(), &wad);
 
@@ -85,16 +84,6 @@ mod pvs_tests {
                 }
             );
         }
-    }
-
-    fn find_wad_file() -> Option<&'static str> {
-        let wad_paths = ["../doom1.wad"];
-        for path in &wad_paths {
-            if Path::new(path).exists() {
-                return Some(*path);
-            }
-        }
-        None
     }
 
     fn find_closest_subsector(map_data: &MapData, pos: (f32, f32)) -> usize {

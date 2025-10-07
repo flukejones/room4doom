@@ -131,6 +131,7 @@ impl DepthBuffer {
         sample_step: usize,
         poly_depth: f32,
     ) -> bool {
+        return false;
         #[cfg(feature = "hprof")]
         profile!("is_bbox_covered");
         let step = sample_step.max(1);

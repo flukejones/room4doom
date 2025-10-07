@@ -628,6 +628,13 @@ impl ThinkerData {
 mod tests {
     use wad::WadData;
 
+    fn doom1_wad_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     use crate::doom_def::GameMode;
     use crate::level::Level;
     use crate::level::map_data::MapData;
@@ -661,7 +668,7 @@ mod tests {
 
     #[test]
     fn bad_stuff_thinking() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
         map.load("E1M1", &PicData::default(), &wad);
         let (tx, _rx) = channel();

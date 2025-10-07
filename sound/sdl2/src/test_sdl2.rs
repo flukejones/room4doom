@@ -5,10 +5,19 @@ use wad::WadData;
 
 use crate::{MusicType, Snd};
 
+fn doom1_wad_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("doom1.wad")
+}
+
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_weapons_snd() {
-    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+    let wad = WadData::new(&doom1_wad_path());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::Timidity).unwrap();
@@ -61,7 +70,7 @@ fn play_weapons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_demons_snd() {
-    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+    let wad = WadData::new(&doom1_wad_path());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::Timidity).unwrap();
@@ -106,7 +115,7 @@ fn play_demons_snd() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_music() {
-    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+    let wad = WadData::new(&doom1_wad_path());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::OPL2).unwrap();
@@ -129,7 +138,7 @@ fn play_music() {
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]
 fn play_opl2_music() {
-    let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+    let wad = WadData::new(&doom1_wad_path());
     let sdl = sdl2::init().unwrap();
 
     let mut snd = Snd::new(sdl.audio().unwrap(), &wad, MusicType::OPL2).unwrap();
@@ -151,7 +160,7 @@ fn play_opl2_music() {
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
     // Test volume control
-    tx.send(SoundAction::MusicVolume(32)).unwrap();
+    tx.send(SoundAction::MusicVolume(64)).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
     // Test pause/resume

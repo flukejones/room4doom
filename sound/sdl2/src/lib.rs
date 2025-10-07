@@ -433,26 +433,24 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         if self.use_opl2 && self.opl_player.is_some() {
             unsafe {
                 let music_data = MUS_DATA[music].data();
-                if !music_data.is_empty() {
-                    // Convert MUS to MIDI first
-                    if let Some(midi_data) = mus2midi::read_mus_to_midi(music_data) {
-                        if let Some(ref mut opl) = self.opl_player {
-                            if let Err(e) = opl.load_music(midi_data) {
-                                log::error!("Failed to load OPL2 music: {}", e);
-                            } else if let Err(e) = opl.play(looping) {
-                                log::error!("Failed to play OPL2 music: {}", e);
-                            } else {
-                                opl.set_volume(self.mus_vol);
-                                debug!("Playing {} with OPL2", MUS_DATA[music].lump_name());
-                                return;
-                            }
+                // Convert MUS to MIDI first
+                if let Some(midi_data) = mus2midi::read_mus_to_midi(music_data) {
+                    if let Some(ref mut opl) = self.opl_player {
+                        if let Err(e) = opl.load_music(midi_data) {
+                            log::error!("Failed to load OPL2 music: {}", e);
+                        } else if let Err(e) = opl.play(looping) {
+                            log::error!("Failed to play OPL2 music: {}", e);
+                        } else {
+                            opl.set_volume(self.mus_vol);
+                            debug!("Playing {} with OPL2", MUS_DATA[music].lump_name());
+                            return;
                         }
-                    } else {
-                        log::error!(
-                            "Failed to convert MUS to MIDI for {}",
-                            MUS_DATA[music].lump_name()
-                        );
                     }
+                } else {
+                    log::error!(
+                        "Failed to convert MUS to MIDI for {}",
+                        MUS_DATA[music].lump_name()
+                    );
                 }
             }
         }
@@ -471,11 +469,11 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
     }
 
     fn pause_music(&mut self) {
-        if let Some(ref mut opl) = self.opl_player {
-            if opl.is_playing().unwrap_or(false) {
-                opl.pause();
-                return;
-            }
+        if let Some(ref mut opl) = self.opl_player
+            && opl.is_playing().unwrap_or(false)
+        {
+            opl.pause();
+            return;
         }
         Music::pause();
     }
@@ -543,10 +541,19 @@ mod tests {
     use std::time::Duration;
     use wad::WadData;
 
+    fn doom1_wad_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("doom1.wad")
+    }
+
     #[ignore = "CI doesn't have a sound device"]
     #[test]
     fn write_map_mus_data() {
-        let wad = WadData::new(&PathBuf::from("../doom1.wad"));
+        let wad = WadData::new(&doom1_wad_path());
 
         unsafe {
             #[allow(static_mut_refs)]
