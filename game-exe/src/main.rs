@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut options: CLIOptions = argh::from_env();
 
     TermLogger::init(
-        log::LevelFilter::Debug,
+        log::LevelFilter::Info,
         simplelog::ConfigBuilder::default()
             .set_time_level(log::LevelFilter::Trace)
             .build(),

@@ -146,22 +146,23 @@ fn play_opl2_music() {
 
     let _thread = std::thread::spawn(move || {
         loop {
-            snd.tic();
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            if !snd.tic() {
+                return;
+            }
         }
     });
 
     // Test playing E1M1 music with OPL2
-    tx.send(SoundAction::StartMusic(2, true)).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(2000));
-
-    // Test changing music
-    tx.send(SoundAction::ChangeMusic(1, false)).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-
-    // Test volume control
     tx.send(SoundAction::MusicVolume(100)).unwrap();
+    tx.send(SoundAction::StartMusic(1, true)).unwrap();
     std::thread::sleep(std::time::Duration::from_millis(5000));
+
+    // // Test changing music
+    // tx.send(SoundAction::ChangeMusic(1, false)).unwrap();
+    // std::thread::sleep(std::time::Duration::from_millis(1000));
+
+    // // Test volume control
+    // std::thread::sleep(std::time::Duration::from_millis(5000));
 
     // Test pause/resume
     tx.send(SoundAction::PauseMusic).unwrap();

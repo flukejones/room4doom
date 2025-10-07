@@ -157,7 +157,7 @@ fn lump_sfx_to_chunk(
 
     Chunk::from_raw_buffer(fixed.into_boxed_slice()).map(|mut c| {
         // Set base volume
-        c.set_volume(64);
+        c.set_volume(128);
         c
     })
 }
@@ -245,10 +245,12 @@ impl<'a> Snd<'a> {
         info!("Initialised {} midi songs", mus_count);
 
         // Initialize OPL2 player if requested
+        let mut use_opl2 = false;
         let opl_player = if matches!(music_type, MusicType::OPL2 | MusicType::OPL3) {
-            match OplPlayer::new(&audio, music_type == MusicType::OPL3) {
+            match OplPlayer::new(&audio, false, wad) {
                 Ok(player) => {
                     info!("{music_type:?} music player initialized");
+                    use_opl2 = true;
                     Some(player)
                 }
                 Err(e) => {
@@ -261,7 +263,6 @@ impl<'a> Snd<'a> {
         } else {
             None
         };
-        let use_opl2 = music_type == MusicType::OPL2 && opl_player.is_some();
 
         let (tx, rx) = channel();
         Ok(Self {
