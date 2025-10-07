@@ -433,24 +433,16 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         if self.use_opl2 && self.opl_player.is_some() {
             unsafe {
                 let music_data = MUS_DATA[music].data();
-                // Convert MUS to MIDI first
-                if let Some(midi_data) = mus2midi::read_mus_to_midi(music_data) {
-                    if let Some(ref mut opl) = self.opl_player {
-                        if let Err(e) = opl.load_music(midi_data) {
-                            log::error!("Failed to load OPL2 music: {}", e);
-                        } else if let Err(e) = opl.play(looping) {
-                            log::error!("Failed to play OPL2 music: {}", e);
-                        } else {
-                            opl.set_volume(self.mus_vol);
-                            debug!("Playing {} with OPL2", MUS_DATA[music].lump_name());
-                            return;
-                        }
+                if let Some(ref mut opl) = self.opl_player {
+                    if let Err(e) = opl.load_music(music_data.to_vec()) {
+                        log::error!("Failed to load OPL2 music: {}", e);
+                    } else if let Err(e) = opl.play(looping) {
+                        log::error!("Failed to play OPL2 music: {}", e);
+                    } else {
+                        opl.set_volume(self.mus_vol);
+                        debug!("Playing {} with OPL2", MUS_DATA[music].lump_name());
+                        return;
                     }
-                } else {
-                    log::error!(
-                        "Failed to convert MUS to MIDI for {}",
-                        MUS_DATA[music].lump_name()
-                    );
                 }
             }
         }
