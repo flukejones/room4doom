@@ -382,7 +382,11 @@ impl Software3D {
             TextureSampler::new(&polygon.surface_kind, pic_data, sky_pic, sky_num);
         let is_masked = matches!(
             &polygon.surface_kind,
-            SurfaceKind::Vertical { two_sided: true, wall_type: WallType::Middle, .. }
+            SurfaceKind::Vertical {
+                two_sided: true,
+                wall_type: WallType::Middle,
+                ..
+            }
         );
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
@@ -490,36 +494,7 @@ impl Software3D {
                         x += 1;
                         continue;
                     }
-                    // The if clause can have a small impact on levels with Sigil poly counts
-                    // but is marginal or nonexistant on absurd levels like Sunder Map 20.
-                    // The same is true for the colourmap access
-                    #[cfg(feature = "debug_draw")]
-                    {
-                        let prev = self.depth_buffer.peek_depth_unchecked(x, y);
-                        if (y == 0 || x == 0) && prev != -1.0 && edge_inv_w > prev {
-                            use std::sync::atomic::{AtomicU32, Ordering};
-                            static LOG_COUNT: AtomicU32 = AtomicU32::new(0);
-                            let n = LOG_COUNT.fetch_add(1, Ordering::Relaxed);
-                            if n < 50 {
-                                let poly_id = polygon as *const SurfacePolygon as usize;
-                                let kind = match &polygon.surface_kind {
-                                    SurfaceKind::Vertical { .. } => "WALL",
-                                    SurfaceKind::Horizontal { .. } => "FLAT",
-                                };
-                                eprintln!(
-                                    "EDGE-OVERDRAW x={} y={} prev={:.6} new={:.6} poly={:#x} sec={} {} verts={:?}",
-                                    x,
-                                    y,
-                                    prev,
-                                    edge_inv_w,
-                                    poly_id,
-                                    polygon.sector_id,
-                                    kind,
-                                    polygon.vertices,
-                                );
-                            }
-                        }
-                    }
+
                     if is_masked {
                         // Masked texture: sample first, skip transparent pixels
                         // without writing depth so geometry behind remains visible
@@ -546,8 +521,7 @@ impl Software3D {
                             x += 1;
                             continue;
                         }
-                        self.depth_buffer
-                            .set_depth_unchecked(x, y, edge_inv_w);
+                        self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
                         #[cfg(not(feature = "debug_draw"))]
                         buffer.set_pixel(x, y, &color);
                     } else {
@@ -600,6 +574,9 @@ impl Software3D {
                         if self.is_edge_pixel(x as f32, y_f, vertices) {
                             buffer.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
                         } else {
+                            let colourmap =
+                                pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
                             buffer.set_pixel(x, y, &color);
                         }
                     }
@@ -648,7 +625,11 @@ impl Software3D {
 
         let patch = pic_data.sprite_patch(quad.patch_index);
         let sprite_cols = patch.data.len();
-        let sprite_rows = if sprite_cols > 0 { patch.data[0].len() } else { return };
+        let sprite_rows = if sprite_cols > 0 {
+            patch.data[0].len()
+        } else {
+            return;
+        };
         let sprite_width_f = sprite_cols as f32;
         let sprite_height_f = sprite_rows as f32;
 
@@ -727,9 +708,7 @@ impl Software3D {
             let mut interp_state = interpolator.init_scanline(x_f, y_f);
 
             for x in x_start..=x_end {
-                if edge_inv_w <= 0.0
-                    || edge_inv_w <= self.depth_buffer.peek_depth_unchecked(x, y)
-                {
+                if edge_inv_w <= 0.0 || edge_inv_w <= self.depth_buffer.peek_depth_unchecked(x, y) {
                     interp_state.step_x();
                     edge_inv_w += edge_inv_w_dx;
                     continue;
@@ -765,7 +744,10 @@ impl Software3D {
                     pic_data.base_colourmap(quad.brightness, edge_inv_w * LIGHT_SCALE)
                 };
                 let lit_index = colourmap[color_index];
-                let color = pic_data.palette().get(lit_index).unwrap_or(&[255, 0, 255, 255]);
+                let color = pic_data
+                    .palette()
+                    .get(lit_index)
+                    .unwrap_or(&[255, 0, 255, 255]);
 
                 // Sprites don't write to depth buffer — they are drawn after
                 // geometry and use painter's algorithm for sprite-on-sprite overlap

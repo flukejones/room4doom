@@ -451,11 +451,12 @@ impl BSP3D {
         unsafe { *self.vertices.get_unchecked(idx) }
     }
 
-    pub fn move_vertices(
+    pub fn move_surface(
         &mut self,
         sector_id: usize,
         movement_type: MovementType,
         new_height: f32,
+        texture: usize,
     ) {
         let subsector_ids = self.sector_subsectors[sector_id].clone();
 
@@ -475,7 +476,40 @@ impl BSP3D {
             }
         }
 
+        for &subsector_id in &self.sector_subsectors[sector_id] {
+            let leaf = &mut self.subsector_leaves[subsector_id];
+            let indices = match movement_type {
+                MovementType::Floor => &leaf.floor_polygons,
+                MovementType::Ceiling => &leaf.ceiling_polygons,
+                MovementType::None => return,
+            };
+            for i in 0..indices.len() {
+                let polygon_idx = indices[i];
+                if let SurfaceKind::Horizontal {
+                    texture: ref mut tex,
+                    ..
+                } = leaf.polygons[polygon_idx].surface_kind
+                {
+                    *tex = texture;
+                }
+            }
+        }
+
         self.update_affected_aabbs(sector_id);
+    }
+
+    pub fn update_floor_texture(&mut self, sector_id: usize, new_texture: usize) {
+        for &subsector_id in &self.sector_subsectors[sector_id] {
+            let leaf = &mut self.subsector_leaves[subsector_id];
+            for i in 0..leaf.floor_polygons.len() {
+                let polygon_idx = leaf.floor_polygons[i];
+                if let SurfaceKind::Horizontal { texture, .. } =
+                    &mut leaf.polygons[polygon_idx].surface_kind
+                {
+                    *texture = new_texture;
+                }
+            }
+        }
     }
 
     fn initialize_nodes(&mut self, nodes: &[Node], sectors: &[Sector]) {

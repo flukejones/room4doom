@@ -180,7 +180,7 @@ mod tests {
         }
 
         println!("\n=== MOVING SECTOR 26 CEILING FROM 0 TO 68 ===");
-        bsp3d.move_vertices(26, MovementType::Ceiling, 68.0);
+        bsp3d.move_surface(26, MovementType::Ceiling, 68.0, 0);
 
         println!("\n=== COMPREHENSIVE MOVEMENT ANALYSIS ===");
 
