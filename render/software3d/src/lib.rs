@@ -11,6 +11,7 @@ use std::f32::consts::PI;
 mod depth_buffer;
 mod render;
 mod sprites;
+mod weapon;
 #[cfg(test)]
 mod tests;
 
@@ -749,6 +750,9 @@ impl Software3D {
                 pic_data,
                 buffer,
             );
+
+            // Draw player weapon overlay on top of everything
+            self.draw_player_weapons(player, pic_data, buffer);
         }
     }
 
