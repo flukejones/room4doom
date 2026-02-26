@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 
 mod depth_buffer;
 mod render;
+mod sprites;
 #[cfg(test)]
 mod tests;
 
@@ -668,6 +669,8 @@ impl Software3D {
         {
             // Two-pass rendering: collect all visible polygons, then sort and render
             let mut visible_polygons = Vec::new();
+            let mut visible_sectors: Vec<(usize, usize)> = Vec::new();
+            let mut seen_sectors = vec![false; sectors.len()];
 
             let vis = pvs.get_visible_subsectors(player_subsector_id);
             if !vis.is_empty() {
@@ -680,6 +683,12 @@ impl Software3D {
                         continue;
                     }
                     for poly_surface in &leaf.polygons {
+                        // Collect unique visible sectors for sprite rendering
+                        let sid = poly_surface.sector_id;
+                        if !seen_sectors[sid] {
+                            seen_sectors[sid] = true;
+                            visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
+                        }
                         if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
                             if !self.cull_polygon_bounds(&poly_surface, bsp_3d) {
                                 let depth = self.calculate_polygon_depth(poly_surface, bsp_3d);
@@ -702,13 +711,20 @@ impl Software3D {
                     pic_data,
                     &mut visible_polygons,
                 );
+                // Collect visible sectors from the polygons found
+                for (poly, _) in &visible_polygons {
+                    let sid = poly.sector_id;
+                    if !seen_sectors[sid] {
+                        seen_sectors[sid] = true;
+                        visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
+                    }
+                }
             }
 
             // Sort polygons front-to-back for optimal Z-rejection (larger 1/w is closer)
             visible_polygons
                 .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-            // let visible = visible_polygons.len();
             // Render all polygons in optimal depth order
             for (poly_surface, _) in visible_polygons {
                 self.render_surface_polygon(
@@ -724,9 +740,15 @@ impl Software3D {
                     break;
                 }
             }
-            // println!("Total polygons: visible: {visible}, culled: {},
-            // rendered: {}, no_draw: {}", self.polygons_early_culled_count,
-            // self.polygons_rendered_count, self.polygons_no_draw_count);
+
+            // Draw sprites after all geometry
+            self.draw_sprites(
+                &visible_sectors,
+                sectors,
+                player,
+                pic_data,
+                buffer,
+            );
         }
     }
 
