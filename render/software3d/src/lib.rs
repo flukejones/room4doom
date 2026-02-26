@@ -68,18 +68,15 @@ impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let near = 4.0;
         let far = 10000.0;
-        let aspect = width / height * 1.33;
-        let fov = fov * 0.66;
-        let projection_matrix = Mat4::perspective_rh_gl(fov, aspect, near, far);
 
-        Self {
+        let mut s = Self {
             width: width as u32,
             height: height as u32,
             width_minus_one: width - 1.0,
             height_minus_one: height - 1.0,
             fov,
             view_matrix: Mat4::IDENTITY,
-            projection_matrix,
+            projection_matrix: Mat4::IDENTITY,
             depth_buffer: DepthBuffer::new(width as usize, height as usize),
             near_z: near,
             far_z: far,
@@ -98,7 +95,9 @@ impl Software3D {
             polygons_early_culled_count: 0,
             polygons_rendered_count: 0,
             polygons_no_draw_count: 0,
-        }
+        };
+        s.set_fov(fov);
+        s
     }
 
     /// Resizes the renderer viewport and updates the projection matrix.
@@ -212,16 +211,15 @@ impl Software3D {
         false
     }
 
-    fn overlap(min_v: f32, max_v: f32, w0: f32, w1: f32) -> bool {
-        max_v >= -w0 && min_v <= w0 || max_v >= -w1 && min_v <= w1
-    }
-
-    /// Early screen bounds check to reject polygons with all vertices outside frustum
+    /// Early screen bounds check to reject polygons with all vertices outside frustum.
+    /// Uses separating-axis test against all 6 frustum planes in clip space.
     fn cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
-        let mut all_vertices_outside_left = true;
-        let mut all_vertices_outside_right = true;
-        let mut all_vertices_outside_top = true;
-        let mut all_vertices_outside_bottom = true;
+        let mut all_outside_left = true;
+        let mut all_outside_right = true;
+        let mut all_outside_bottom = true;
+        let mut all_outside_top = true;
+        let mut all_outside_near = true;
+        let mut all_outside_far = true;
 
         for i in 0..CLIP_VERTICES_LEN {
             let vidx = unsafe { *polygon.vertices.get_unchecked(i) };
@@ -229,63 +227,31 @@ impl Software3D {
             self.clip_vertices[i] = clip_pos;
 
             if clip_pos.x >= -clip_pos.w {
-                all_vertices_outside_left = false;
+                all_outside_left = false;
             }
             if clip_pos.x <= clip_pos.w {
-                all_vertices_outside_right = false;
+                all_outside_right = false;
             }
             if clip_pos.y >= -clip_pos.w {
-                all_vertices_outside_bottom = false;
+                all_outside_bottom = false;
             }
             if clip_pos.y <= clip_pos.w {
-                all_vertices_outside_top = false;
+                all_outside_top = false;
+            }
+            if clip_pos.z >= -clip_pos.w {
+                all_outside_near = false;
+            }
+            if clip_pos.z <= clip_pos.w {
+                all_outside_far = false;
             }
         }
 
-        if all_vertices_outside_left
-            || all_vertices_outside_right
-            || all_vertices_outside_top
-            || all_vertices_outside_bottom
-        {
-            return true;
-        }
-
-        // Test edges of polygon for intersection with frustum by bounding box overlap check in clip space
-        for i in 0..CLIP_VERTICES_LEN {
-            let v0 = unsafe { self.clip_vertices.get_unchecked(i) };
-            let v1 = unsafe {
-                self.clip_vertices
-                    .get_unchecked((i + 1) % CLIP_VERTICES_LEN)
-            };
-
-            let edge_min_x = v0.x.min(v1.x);
-            let edge_max_x = v0.x.max(v1.x);
-            let edge_min_y = v0.y.min(v1.y);
-            let edge_max_y = v0.y.max(v1.y);
-            let edge_min_z = v0.z.min(v1.z);
-            let edge_max_z = v0.z.max(v1.z);
-
-            let w0 = v0.w;
-            let w1 = v1.w;
-
-            let is_inside_frustum = |v: &Vec4| {
-                v.x >= -v.w && v.x <= v.w && v.y >= -v.w && v.y <= v.w && v.z >= -v.w && v.z <= v.w
-            };
-
-            if is_inside_frustum(&v0) || is_inside_frustum(&v1) {
-                return false;
-            }
-
-            let overlap_x = Self::overlap(edge_min_x, edge_max_x, w0, w1);
-            let overlap_y = Self::overlap(edge_min_y, edge_max_y, w0, w1);
-            let overlap_z = Self::overlap(edge_min_z, edge_max_z, w0, w1);
-
-            if overlap_x && overlap_y && overlap_z {
-                return false;
-            }
-        }
-
-        true
+        all_outside_left
+            || all_outside_right
+            || all_outside_bottom
+            || all_outside_top
+            || all_outside_near
+            || all_outside_far
     }
 
     /// Calculate screen area of projected polygon vertices
@@ -350,8 +316,28 @@ impl Software3D {
             if clip_pos.w > 0.0 {
                 let inv_w = 1.0 / clip_pos.w;
                 let ndc = clip_pos * inv_w;
-                let screen_x = (ndc.x + 0.9999) * 0.5 * self.width as f32;
-                let screen_y = (0.9999 - ndc.y) * 0.5 * self.height as f32;
+                let mut screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
+                let mut screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
+
+                // Snap screen coordinates that are very close to screen boundaries
+                // to exact boundary values. Frustum clipping guarantees vertices lie
+                // on boundary planes, but the division by w during projection can
+                // reintroduce tiny FP drift (e.g. 0.0001). Without snapping, the
+                // scanline rasteriser's fill rule and ceil() rounding skip the
+                // boundary row/column, producing a 1px gap at screen edges.
+                let w_f32 = self.width as f32;
+                let h_f32 = self.height as f32;
+                const SNAP: f32 = 0.01;
+                if screen_x.abs() < SNAP {
+                    screen_x = 0.0;
+                } else if (screen_x - w_f32).abs() < SNAP {
+                    screen_x = w_f32;
+                }
+                if screen_y.abs() < SNAP {
+                    screen_y = 0.0;
+                } else if (screen_y - h_f32).abs() < SNAP {
+                    screen_y = h_f32;
+                }
 
                 self.screen_vertices_buffer[self.screen_vertices_len] =
                     Vec2::new(screen_x, screen_y);
@@ -423,89 +409,24 @@ impl Software3D {
 
             let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
 
-            // Triangulate polygon if it has more than 3 vertices
-            if self.screen_vertices_len == 3 {
-                // Simple triangle - render directly
-                self.draw_polygon(
-                    polygon,
-                    brightness,
-                    pic_data,
-                    buffer,
-                    #[cfg(feature = "debug_draw")]
-                    bsp3d,
-                    #[cfg(feature = "debug_draw")]
-                    {
-                        let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-                        Some(self.generate_pseudo_random_colour(
-                            ptr,
-                            sectors[polygon.sector_id].lightlevel,
-                        ))
-                    },
-                );
-            } else {
-                // Triangulate polygon using fan triangulation
-                for i in 1..(self.screen_vertices_len - 1) {
-                    // Create triangle from vertex 0, i, i+1
-                    let triangle_vertices = [
-                        self.screen_vertices_buffer[0],
-                        self.screen_vertices_buffer[i],
-                        self.screen_vertices_buffer[i + 1],
-                    ];
-                    let triangle_tex_coords = [
-                        self.tex_coords_buffer[0],
-                        self.tex_coords_buffer[i],
-                        self.tex_coords_buffer[i + 1],
-                    ];
-                    let triangle_inv_w = [
-                        self.inv_w_buffer[0],
-                        self.inv_w_buffer[i],
-                        self.inv_w_buffer[i + 1],
-                    ];
-
-                    // Temporarily store current buffers
-                    let orig_screen_len = self.screen_vertices_len;
-                    let orig_tex_len = self.tex_coords_len;
-                    let orig_inv_w_len = self.inv_w_len;
-
-                    // Set up triangle data
-                    self.screen_vertices_buffer[0] = triangle_vertices[0];
-                    self.screen_vertices_buffer[1] = triangle_vertices[1];
-                    self.screen_vertices_buffer[2] = triangle_vertices[2];
-                    self.tex_coords_buffer[0] = triangle_tex_coords[0];
-                    self.tex_coords_buffer[1] = triangle_tex_coords[1];
-                    self.tex_coords_buffer[2] = triangle_tex_coords[2];
-                    self.inv_w_buffer[0] = triangle_inv_w[0];
-                    self.inv_w_buffer[1] = triangle_inv_w[1];
-                    self.inv_w_buffer[2] = triangle_inv_w[2];
-                    self.screen_vertices_len = 3;
-                    self.tex_coords_len = 3;
-                    self.inv_w_len = 3;
-
-                    // Render triangle
-                    self.draw_polygon(
-                        polygon,
-                        brightness,
-                        pic_data,
-                        buffer,
-                        #[cfg(feature = "debug_draw")]
-                        bsp3d,
-                        #[cfg(feature = "debug_draw")]
-                        {
-                            let ptr =
-                                (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-                            Some(self.generate_pseudo_random_colour(
-                                ptr,
-                                sectors[polygon.sector_id].lightlevel,
-                            ))
-                        },
-                    );
-
-                    // Restore original buffer lengths
-                    self.screen_vertices_len = orig_screen_len;
-                    self.tex_coords_len = orig_tex_len;
-                    self.inv_w_len = orig_inv_w_len;
-                }
-            }
+            // Render the polygon directly - draw_polygon handles any vertex count
+            // via generic edge walking and uses the best triangle for interpolation
+            self.draw_polygon(
+                polygon,
+                brightness,
+                pic_data,
+                buffer,
+                #[cfg(feature = "debug_draw")]
+                bsp3d,
+                #[cfg(feature = "debug_draw")]
+                {
+                    let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
+                    Some(self.generate_pseudo_random_colour(
+                        ptr,
+                        sectors[polygon.sector_id].lightlevel,
+                    ))
+                },
+            );
         }
     }
 
@@ -571,8 +492,8 @@ impl Software3D {
                     let current_distance = plane.dot(current_vertex);
                     let t = prev_distance / (prev_distance - current_distance);
                     if output_count < MAX_CLIPPED_VERTICES {
-                        output_vertices[output_count] =
-                            prev_vertex + (current_vertex - prev_vertex) * t;
+                        let v = prev_vertex + (current_vertex - prev_vertex) * t;
+                        output_vertices[output_count] = v;
                         output_tex_coords[output_count] = prev_tex + (current_tex - prev_tex) * t;
                         output_count += 1;
                     }
@@ -589,8 +510,8 @@ impl Software3D {
                 let current_distance = plane.dot(current_vertex);
                 let t = prev_distance / (prev_distance - current_distance);
                 if output_count < MAX_CLIPPED_VERTICES {
-                    output_vertices[output_count] =
-                        prev_vertex + (current_vertex - prev_vertex) * t;
+                    let v = prev_vertex + (current_vertex - prev_vertex) * t;
+                    output_vertices[output_count] = v;
                     output_tex_coords[output_count] = prev_tex + (current_tex - prev_tex) * t;
                     output_count += 1;
                 }

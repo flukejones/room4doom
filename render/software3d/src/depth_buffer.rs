@@ -48,7 +48,7 @@ impl DepthBuffer {
         #[cfg(feature = "hprof")]
         profile!("depth_buffer_reset");
 
-        // Reset all depths to 0.0 (farthest possible in 1/w convention)
+        // Reset all depths to -1.0 (unwritten sentinel, any valid 1/w depth will be > -1.0)
         self.depths.fill(-1.0);
         self.covered_pixels = 0;
     }
@@ -56,13 +56,16 @@ impl DepthBuffer {
     /// Resize the depth buffer - recreates the buffer
     pub fn resize(&mut self, width: usize, height: usize) {
         let size = width * height;
-        self.depths = vec![0.0; size].into_boxed_slice();
+        self.depths = vec![-1.0; size].into_boxed_slice();
         self.width = width;
         self.height = height;
         self.view_left = 0.0;
         self.view_right = width as f32;
+        self.view_right_usize = width;
         self.view_top = 0.0;
         self.view_bottom = height as f32;
+        self.view_bottom_usize = height;
+        self.covered_pixels = 0;
     }
 
     /// Set view frustum bounds for clipping
@@ -76,8 +79,7 @@ impl DepthBuffer {
     /// Return true if every pixel has been written at least once.
     #[inline]
     pub fn is_full(&self) -> bool {
-        // TODO: figure out why the hell drawing isn't always to the edges.
-        self.covered_pixels >= self.width * self.height - 50
+        self.covered_pixels >= self.width * self.height
     }
 
     /// Read depth at pixel coordinates (unchecked). Returns stored depth (larger = closer).
@@ -94,8 +96,10 @@ impl DepthBuffer {
         let index = y * self.width + x;
         unsafe {
             let t = self.depths.get_unchecked_mut(index);
+            if *t == -1.0 {
+                self.covered_pixels += 1;
+            }
             *t = depth;
-            self.covered_pixels += 1;
         }
     }
 
@@ -109,9 +113,8 @@ impl DepthBuffer {
         unsafe {
             let t = self.depths.get_unchecked_mut(index);
             if depth > *t {
-                // if previous was zero (unset background) and we are setting to >0.0,
-                // increment covered count
-                if *t as i32 == -1 {
+                // if previous was -1.0 (unwritten sentinel), increment covered count
+                if *t == -1.0 {
                     self.covered_pixels += 1;
                 }
                 *t = depth;

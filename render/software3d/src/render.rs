@@ -156,17 +156,22 @@ struct InterpolationState {
     current_inv_w: f32,
     tex_dx: Vec2,
     inv_w_dx: f32,
+    inv_w_min: f32,
+    inv_w_max: f32,
 }
 
 impl InterpolationState {
     #[inline(always)]
     fn get_current_uv(&self) -> (f32, f32, f32) {
-        if self.current_inv_w > 0.0 {
-            let w = 1.0 / self.current_inv_w;
+        // Clamp inv_w to the polygon's vertex range to prevent barycentric
+        // extrapolation from producing incorrect depth values at screen edges
+        let clamped_inv_w = self.current_inv_w.clamp(self.inv_w_min, self.inv_w_max);
+        if clamped_inv_w > 0.0 {
+            let w = 1.0 / clamped_inv_w;
             let corrected_tex = self.current_tex * w;
-            (corrected_tex.x, corrected_tex.y, self.current_inv_w)
+            (corrected_tex.x, corrected_tex.y, clamped_inv_w)
         } else {
-            (self.current_tex.x, self.current_tex.y, self.current_inv_w)
+            (self.current_tex.x, self.current_tex.y, clamped_inv_w)
         }
     }
 
@@ -193,11 +198,26 @@ struct TriangleInterpolator {
     denom: f32,
     da_dx: f32,
     db_dx: f32,
+    /// Min/max inv_w across all polygon vertices, used to clamp extrapolated depth
+    inv_w_min: f32,
+    inv_w_max: f32,
 }
 
 impl TriangleInterpolator {
     #[inline(always)]
     fn new(screen_verts: &[Vec2], tex_coords: &[Vec2], inv_w: &[f32]) -> Option<Self> {
+        // Compute min/max inv_w across all polygon vertices to clamp extrapolation
+        let mut inv_w_min = f32::INFINITY;
+        let mut inv_w_max = f32::NEG_INFINITY;
+        for &w in inv_w.iter() {
+            if w < inv_w_min {
+                inv_w_min = w;
+            }
+            if w > inv_w_max {
+                inv_w_max = w;
+            }
+        }
+
         // Fast path for triangles - no need to search for best triangle
         if screen_verts.len() == 3 {
             let v0 = screen_verts[0];
@@ -205,6 +225,9 @@ impl TriangleInterpolator {
             let v2 = screen_verts[2];
 
             let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+            if denom.abs() < 0.001 {
+                return None;
+            }
             let da_dx = (v1.y - v2.y) / denom;
             let db_dx = (v2.y - v0.y) / denom;
 
@@ -221,6 +244,8 @@ impl TriangleInterpolator {
                 denom,
                 da_dx,
                 db_dx,
+                inv_w_min,
+                inv_w_max,
             });
         }
 
@@ -271,6 +296,8 @@ impl TriangleInterpolator {
             denom,
             da_dx,
             db_dx,
+            inv_w_min,
+            inv_w_max,
         })
     }
 
@@ -305,6 +332,8 @@ impl TriangleInterpolator {
             current_inv_w: interp_inv_w,
             tex_dx,
             inv_w_dx,
+            inv_w_min: self.inv_w_min,
+            inv_w_max: self.inv_w_max,
         }
     }
 }
@@ -359,86 +388,86 @@ impl Software3D {
         let y_start = bounds.0.y.max(0.0) as u32 as usize;
         let y_end = bounds.1.y.min(height_f32 - 1.0) as u32 as usize;
 
-        // Instead of doing the scanline stuff here, could do it all in a fast loop for
-        // all polygons before calling draw_polygon(). Then just slam the scanlines
-        // out all in one go.
-        let v0 = unsafe { *vertices.get_unchecked(0) };
-        let v1 = unsafe { *vertices.get_unchecked(1) };
-        let v2 = unsafe { *vertices.get_unchecked(2) };
+        let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
         let mut did_draw = false;
         for y in y_start..=y_end {
-            let y_f = y as f32; // really needs to be interpolated not truncated
+            let y_f = y as f32;
             let mut x0 = f32::INFINITY;
             let mut x1 = f32::NEG_INFINITY;
+            let mut inv_w_at_x0 = 0.0f32;
+            let mut inv_w_at_x1 = 0.0f32;
             let mut found = 0;
-            if vertex_count == 3 {
-                let edges = [(v0, v1), (v1, v2), (v2, v0)];
-                for &(start, end) in &edges {
-                    let dy = end.y - start.y;
-                    if dy.abs() < f32::EPSILON {
-                        continue;
-                    }
-                    if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
-                        let t = (y_f - start.y) / dy;
-                        if t > -f32::EPSILON && t < (1.0 + f32::EPSILON) {
-                            let x = start.x + (end.x - start.x) * t;
-                            if found == 0 {
-                                x0 = x;
-                                found += 1;
-                            } else {
-                                x1 = x;
-                                found += 1;
-                                break;
-                            }
-                        }
-                    }
-                }
-            } else {
-                let v3 = unsafe { *vertices.get_unchecked(3) };
 
-                let edges = [(v0, v1), (v1, v2), (v2, v3), (v3, v0)];
-                for &(start, end) in &edges {
-                    let dy = end.y - start.y;
-                    if dy.abs() < f32::EPSILON {
-                        continue;
-                    }
-                    if (start.y < y_f && end.y > y_f) || (end.y < y_f && start.y > y_f) {
-                        let t = (y_f - start.y) / dy;
-                        if t > -f32::EPSILON && t < (1.0 + f32::EPSILON) {
-                            let x = start.x + (end.x - start.x) * t;
-                            if found == 0 {
-                                x0 = x;
-                                found += 1;
-                            } else {
-                                x1 = x;
-                                found += 1;
-                                break;
-                            }
-                        }
+            // Walk all edges of the polygon, interpolating both x and inv_w at each edge
+            for ei in 0..vertex_count {
+                let ni = (ei + 1) % vertex_count;
+                let start = unsafe { *vertices.get_unchecked(ei) };
+                let end = unsafe { *vertices.get_unchecked(ni) };
+                let dy = end.y - start.y;
+                if dy.abs() < f32::EPSILON {
+                    continue;
+                }
+                // Top-left fill rule: include top edge (min y), exclude bottom edge (max y)
+                let (min_y, max_y) = if start.y < end.y {
+                    (start.y, end.y)
+                } else {
+                    (end.y, start.y)
+                };
+                if y_f >= min_y && y_f < max_y {
+                    let t = (y_f - start.y) / dy;
+                    let x = start.x + (end.x - start.x) * t;
+                    let iw_start = unsafe { *inv_w_slice.get_unchecked(ei) };
+                    let iw_end = unsafe { *inv_w_slice.get_unchecked(ni) };
+                    let iw = iw_start + (iw_end - iw_start) * t;
+                    if found == 0 {
+                        x0 = x;
+                        inv_w_at_x0 = iw;
+                        found += 1;
+                    } else {
+                        x1 = x;
+                        inv_w_at_x1 = iw;
+                        found += 1;
+                        break;
                     }
                 }
             }
+
             if found < 2 {
                 continue;
             }
             if x0 > x1 {
                 std::mem::swap(&mut x0, &mut x1);
+                std::mem::swap(&mut inv_w_at_x0, &mut inv_w_at_x1);
             }
 
             let x_f = x0.max(0.0).ceil();
             let x_start = x_f as u32 as usize;
             let x_end = x1.min(width_f32 - 1.0).floor() as u32 as usize;
 
+            // Compute per-pixel depth from edge-interpolated inv_w (consistent across
+            // adjacent polygon triangles, unlike barycentric extrapolation)
+            let span_width = x1 - x0;
+            let (mut edge_inv_w, edge_inv_w_dx) = if span_width > f32::EPSILON {
+                let dx = 1.0 / span_width;
+                let inv_w_dx = (inv_w_at_x1 - inv_w_at_x0) * dx;
+                let start_inv_w = inv_w_at_x0 + (x_f - x0) * inv_w_dx;
+                (start_inv_w, inv_w_dx)
+            } else {
+                (inv_w_at_x0, 0.0)
+            };
+
             let mut interp_state = interpolator.init_scanline(x_f, y_f);
             let mut x = x_start;
             while x <= x_end {
                 // Skip occluded pixels quickly using a read-only depth peek
                 while x <= x_end {
-                    let (_, _, inv_z) = interp_state.get_current_uv();
-                    if inv_z > self.depth_buffer.peek_depth_unchecked(x, y) {
+                    if edge_inv_w > 0.0
+                        && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
+                    {
                         break;
                     }
                     interp_state.step_x();
+                    edge_inv_w += edge_inv_w_dx;
                     x += 1;
                 }
                 if x > x_end {
@@ -449,24 +478,73 @@ impl Software3D {
                 while x <= x_end {
                     #[cfg(feature = "hprof")]
                     profile!("draw_textured_polygon X loop");
-                    let (u, v, inv_z) = interp_state.get_current_uv();
+                    let (u, v, _) = interp_state.get_current_uv();
+                    // Skip pixels with invalid depth
+                    if edge_inv_w <= 0.0 {
+                        interp_state.step_x();
+                        edge_inv_w += edge_inv_w_dx;
+                        x += 1;
+                        continue;
+                    }
                     // The if clause can have a small impact on levels with Sigil poly counts
                     // but is marginal or nonexistant on absurd levels like Sunder Map 20.
                     // The same is true for the colourmap access
-                    if !self.depth_buffer.test_and_set_depth_unchecked(x, y, inv_z) {
+                    #[cfg(feature = "debug_draw")]
+                    {
+                        let prev = self.depth_buffer.peek_depth_unchecked(x, y);
+                        if (y == 0 || x == 0) && prev != -1.0 && edge_inv_w > prev {
+                            use std::sync::atomic::{AtomicU32, Ordering};
+                            static LOG_COUNT: AtomicU32 = AtomicU32::new(0);
+                            let n = LOG_COUNT.fetch_add(1, Ordering::Relaxed);
+                            if n < 50 {
+                                let poly_id = polygon as *const SurfacePolygon as usize;
+                                let kind = match &polygon.surface_kind {
+                                    SurfaceKind::Vertical { .. } => "WALL",
+                                    SurfaceKind::Horizontal { .. } => "FLAT",
+                                };
+                                eprintln!(
+                                    "EDGE-OVERDRAW x={} y={} prev={:.6} new={:.6} poly={:#x} sec={} {} verts={:?}",
+                                    x, y, prev, edge_inv_w, poly_id, polygon.sector_id, kind,
+                                    polygon.vertices,
+                                );
+                            }
+                        }
+                    }
+                    if !self.depth_buffer.test_and_set_depth_unchecked(x, y, edge_inv_w) {
                         // current pixel is occluded; break to resume skipping phase
                         interp_state.step_x();
+                        edge_inv_w += edge_inv_w_dx;
                         x += 1;
                         break;
                     }
-                    // self.depth_buffer.set_depth_unchecked(x, y, inv_z);
 
-                    let colourmap = pic_data.base_colourmap(brightness, inv_z * LIGHT_SCALE);
+                    let colourmap =
+                        pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
                     #[cfg(not(feature = "debug_draw"))]
                     buffer.set_pixel(x, y, &color);
                     did_draw = true;
+                    #[cfg(feature = "debug_draw")]
+                    {
+                        if (y == 0 || x == 0) {
+                            use std::sync::atomic::{AtomicU32, Ordering};
+                            static FIRST_WRITE_COUNT: AtomicU32 = AtomicU32::new(0);
+                            let n = FIRST_WRITE_COUNT.fetch_add(1, Ordering::Relaxed);
+                            if n < 50 {
+                                let poly_id = polygon as *const SurfacePolygon as usize;
+                                let kind = match &polygon.surface_kind {
+                                    SurfaceKind::Vertical { .. } => "WALL",
+                                    SurfaceKind::Horizontal { .. } => "FLAT",
+                                };
+                                eprintln!(
+                                    "EDGE-WRITE x={} y={} inv_z={:.6} poly={:#x} sec={} {} verts={:?}",
+                                    x, y, edge_inv_w, poly_id, polygon.sector_id, kind,
+                                    polygon.vertices,
+                                );
+                            }
+                        }
+                    }
                     #[cfg(feature = "debug_draw")]
                     if outline_color.is_some() {
                         if self.is_edge_pixel(x as f32, y_f, vertices) {
@@ -477,9 +555,9 @@ impl Software3D {
                     }
 
                     interp_state.step_x();
+                    edge_inv_w += edge_inv_w_dx;
                     x += 1;
                 }
-                // buffer.debug_flip_and_present();
             }
         }
 
