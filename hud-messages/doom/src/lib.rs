@@ -1,5 +1,5 @@
 use gamestate_traits::{DrawBuffer, GameTraits, Scancode, SubsystemTrait, TICRATE};
-use hud_util::{HUD_STRING, HUDString, load_char_patches};
+use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
 use wad::WadData;
 use wad::types::WadPalette;
 
@@ -63,11 +63,11 @@ impl Messages {
         }
     }
 
-    pub fn draw_wrapped(&self, machination: &impl SubsystemTrait, buffer: &mut impl DrawBuffer) {
-        let f = buffer.size().height() / 200;
+    pub fn draw_wrapped(&self, buffer: &mut impl DrawBuffer) {
+        let (_, sy) = hud_scale(buffer);
 
-        let x = 10;
-        let mut y = 2;
+        let x = 10.0;
+        let mut y = 2.0;
         let mut pos = self.start;
         loop {
             if pos >= self.lines.len() {
@@ -81,8 +81,8 @@ impl Messages {
                 continue;
             }
 
-            self.lines[pos].draw(x, y, machination, buffer);
-            y += self.lines[pos].line_height() * f + 1;
+            self.lines[pos].draw(x, y, &self.palette, buffer);
+            y += self.lines[pos].line_height() as f32 * sy + 1.0;
 
             if pos == self.current {
                 break;
@@ -131,7 +131,7 @@ impl SubsystemTrait for Messages {
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.screen_width = buffer.size().width();
         self.screen_height = buffer.size().height();
-        self.draw_wrapped(self, buffer);
+        self.draw_wrapped(buffer);
     }
 }
 

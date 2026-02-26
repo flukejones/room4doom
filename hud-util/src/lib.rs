@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use gamestate_traits::{DrawBuffer, SubsystemTrait};
 use log::warn;
 use wad::WadData;
-use wad::types::{WAD_PATCH, WadPatch};
+use wad::types::{WAD_PATCH, WadPalette, WadPatch};
 
 const FONT_START: u8 = b'!';
 const FONT_END: u8 = b'_';
@@ -44,6 +44,88 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
         #[allow(static_mut_refs)]
         CHARS.get((c as u8 - FONT_START) as usize)
     }
+}
+
+/// CRT stretch factor: 320x200 displayed as 320x240
+pub const CRT_STRETCH: f32 = 240.0 / 200.0;
+
+/// Returns (scale_x, scale_y) as floats.
+/// scale_x = screen_height / 200.0 (standard Doom pixel scaling)
+/// scale_y = scale_x * CRT_STRETCH (1.2x taller for CRT aspect)
+pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
+    let sx = pixels.size().height_f32() / 200.0;
+    let sy = sx * CRT_STRETCH;
+    (sx, sy)
+}
+
+/// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.
+/// `sx` controls column width, `sy` controls row height. Uses fractional
+/// accumulation so the stretch is correct even at low resolutions (e.g.
+/// sy=1.2 distributes the extra pixel rows evenly across the patch).
+pub fn draw_patch(
+    patch: &WadPatch,
+    x: f32,
+    y: f32,
+    sx: f32,
+    sy: f32,
+    palette: &WadPalette,
+    pixels: &mut impl DrawBuffer,
+) {
+    let sx_i = sx.round() as i32;
+    let mut xtmp = 0;
+
+    for column in patch.columns.iter() {
+        let col_y = y + column.y_offset as f32 * sy;
+        for n in 0..sx_i {
+            let px = (x as i32 + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize;
+            let mut y_accum = 0.0_f32;
+            for p in column.pixels.iter() {
+                let colour = palette.0[*p];
+                let row_start = (col_y + y_accum) as i32;
+                y_accum += sy;
+                let row_end = (col_y + y_accum) as i32;
+                for row in row_start..row_end {
+                    pixels.set_pixel(px, row as usize, &colour);
+                }
+            }
+            if column.y_offset == 255 {
+                xtmp += 1;
+            }
+        }
+    }
+}
+
+/// Draw a number right-aligned at (x, y) with separate X and Y scales.
+/// Returns the final x position (left edge of the drawn number).
+pub fn draw_num(
+    p: u32,
+    mut x: f32,
+    y: f32,
+    pad: usize,
+    nums: &[WadPatch],
+    sx: f32,
+    sy: f32,
+    palette: &WadPalette,
+    pixels: &mut impl DrawBuffer,
+) -> f32 {
+    let width = nums[0].width as f32 * sx;
+    let digits: Vec<u32> = p
+        .to_string()
+        .chars()
+        .map(|d| d.to_digit(10).unwrap())
+        .collect();
+
+    for n in digits.iter().rev() {
+        x -= width;
+        draw_patch(&nums[*n as usize], x, y, sx, sy, palette, pixels);
+    }
+    if digits.len() <= pad {
+        for _ in 0..=pad - digits.len() {
+            x -= width;
+            draw_patch(&nums[0], x, y, sx, sy, palette, pixels);
+        }
+    }
+    x
 }
 
 /// Specifically to help create static arrays of `WadPatch`
@@ -120,14 +202,14 @@ impl HUDString {
 
     pub fn draw_pixels(
         &self,
-        mut x: i32,
-        mut y: i32,
-        machination: &impl SubsystemTrait,
+        mut x: f32,
+        mut y: f32,
+        palette: &WadPalette,
         pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
-        let f = pixels.size().height() / 200;
-        let width = pixels.size().width();
-        let height = pixels.size().height();
+        let (sx, sy) = hud_scale(pixels);
+        let width = pixels.size().width_f32();
+        let height = pixels.size().height_f32();
         let start_x = x;
 
         for (i, ch) in self.data.chars().enumerate() {
@@ -137,54 +219,57 @@ impl HUDString {
 
             // Word len check
             if ch == ' ' {
-                let mut len = 0;
+                let mut len = 0.0;
                 for c in self.data[i + 1..].chars() {
-                    len += 1;
+                    len += 1.0;
                     if c == ' ' {
                         break;
                     }
                 }
 
-                if x + len * self.space_width + self.space_width >= width {
+                if x + len * self.space_width as f32 + self.space_width as f32 >= width {
                     x = start_x;
-                    y += self.line_height * f;
+                    y += self.line_height as f32 * sy;
                 } else {
-                    x += self.space_width;
+                    x += self.space_width as f32;
                 }
                 continue;
             }
 
             if ch == '\n' {
                 x = start_x;
-                y += self.line_height * f;
+                y += self.line_height as f32 * sy;
                 continue;
             }
 
             let patch = get_patch_for_char(ch).unwrap_or_else(|| panic!("Did not find {ch}"));
-            if y + self.line_height * f >= height {
+            if y + self.line_height as f32 * sy >= height {
                 warn!("HUD String to long for screen size");
                 return None;
             }
 
-            machination.draw_patch_pixels(
+            draw_patch(
                 patch,
                 x,
-                y + self.line_height * f - patch.height as i32 * f,
+                y + self.line_height as f32 * sy - patch.height as f32 * sy,
+                sx,
+                sy,
+                palette,
                 pixels,
             );
-            x += patch.width as i32 * f;
+            x += patch.width as f32 * sx;
         }
         Some(())
     }
 
     pub fn draw(
         &self,
-        x: i32,
-        y: i32,
-        machination: &impl SubsystemTrait,
+        x: f32,
+        y: f32,
+        palette: &WadPalette,
         pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
-        self.draw_pixels(x, y, machination, pixels);
+        self.draw_pixels(x, y, palette, pixels);
         Some(())
     }
 }
