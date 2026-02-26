@@ -55,7 +55,8 @@ impl Finale {
                 }
             }
         }
-        self.text.draw_pixels(6.0 * sx, 6.0 * sy, &self.palette, pixels);
+        self.text
+            .draw_pixels(6.0 * sx, 6.0 * sy, &self.palette, pixels);
     }
 }
 

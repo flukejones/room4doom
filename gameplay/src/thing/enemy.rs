@@ -333,8 +333,8 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
 
     let mut junk = LineDef {
         num: 0,
-        v1: Default::default(),
-        v2: Default::default(),
+        v1: unsafe { MapPtr::new_null() },
+        v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
         flags: 0,
         special: 0,
@@ -1012,8 +1012,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
 
     let mut junk = LineDef {
         num: 0,
-        v1: Default::default(),
-        v2: Default::default(),
+        v1: unsafe { MapPtr::new_null() },
+        v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
         flags: 0,
         special: 0,

@@ -31,13 +31,13 @@ use gamestate_traits::sdl2::keyboard::Scancode;
 use gamestate_traits::sdl2::video::Window;
 use gamestate_traits::{DrawBuffer, GameRenderer, GameState, SubsystemTrait, sdl2};
 use hud_doom::Messages;
+use hud_util::{draw_patch, fullscreen_scale};
 use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_target::RenderTarget;
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
-use hud_util::{draw_patch, fullscreen_scale};
 use wad::types::WadPatch;
 
 use crate::CLIOptions;

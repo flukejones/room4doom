@@ -11,9 +11,9 @@ use std::f32::consts::PI;
 mod depth_buffer;
 mod render;
 mod sprites;
-mod weapon;
 #[cfg(test)]
 mod tests;
+mod weapon;
 
 use depth_buffer::DepthBuffer;
 
@@ -745,13 +745,7 @@ impl Software3D {
             }
 
             // Draw sprites after all geometry
-            self.draw_sprites(
-                &visible_sectors,
-                sectors,
-                player,
-                pic_data,
-                buffer,
-            );
+            self.draw_sprites(&visible_sectors, sectors, player, pic_data, buffer);
 
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);

@@ -394,8 +394,7 @@ impl MenuDoom {
 
             if !is_fullscreen {
                 // SKULL
-                let y =
-                    active.y as f32 * sy - 5.0 + active.last_on as f32 * LINEHEIGHT as f32 * sy;
+                let y = active.y as f32 * sy - 5.0 + active.last_on as f32 * LINEHEIGHT as f32 * sy;
                 draw_patch(
                     self.get_patch(SKULLS[self.which_skull]),
                     x - 32.0 * sx,

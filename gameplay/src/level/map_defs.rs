@@ -284,8 +284,8 @@ pub struct LineDef {
     /// Index position of self. Used as ID for when checking through ref chain.
     pub num: usize,
     // Vertices, from v1 to v2.
-    pub v1: Vec2,
-    pub v2: Vec2,
+    pub v1: MapPtr<Vec2>,
+    pub v2: MapPtr<Vec2>,
     // Precalculated v2 - v1 for side checking.
     pub delta: Vec2,
     // Animation related.
@@ -357,13 +357,6 @@ impl LineDef {
     /// Determine which side of XY/XY a point is on. Ignores Z
     #[inline]
     pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
-        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
-        // if r.is_sign_positive() {
-        //     return 1; // Back side
-        // }
-        // 0 // Front side
-
         let dx = v.x - self.v1.x;
         let dy = v.y - self.v1.y;
 
@@ -420,13 +413,6 @@ impl Segment {
 
     #[inline]
     pub fn point_on_side(&self, v: Vec2) -> usize {
-        // let r = (self.v2.x - self.v1.x)*(v.y - self.v1.y) - (self.v2.y -
-        // self.v1.y)*(v.x - self.v1.x); // dbg!(r);
-        // if r.is_sign_positive() {
-        //     return 1; // Back side
-        // }
-        // 0 // Front side
-
         let dx = v.x - self.v1.x;
         let dy = v.y - self.v1.y;
         let this_delta = *self.v2 - *self.v1;
@@ -483,7 +469,6 @@ mod tests {
 
     fn point_on_side(v1: Vec2, v2: Vec2, v: Vec2) -> usize {
         let r = (v2.x - v1.x) * (v.y - v1.y) - (v2.y - v1.y) * (v.x - v1.x);
-        // dbg!(r);
         if r.is_sign_positive() {
             return 1; // Back side
         }

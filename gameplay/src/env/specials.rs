@@ -169,7 +169,7 @@ fn change_sector(mut sector: MapPtr<Sector>, crunch: bool) -> bool {
             }
             next.run_mut_func_on_thinglist(|thing| {
                 let mut hit = false;
-                if circle_line_collide(thing.xy, thing.radius, line.v1, line.v2) {
+                if circle_line_collide(thing.xy, thing.radius, *line.v1, *line.v2) {
                     trace!(
                         "Thing type {:?} is in affected neightbouring sector",
                         thing.kind
@@ -224,7 +224,12 @@ pub fn move_plane(
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Floor,
+                                last_pos,
+                                sector.floorpic,
+                            );
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
@@ -232,13 +237,23 @@ pub fn move_plane(
                         // COULD GET CRUSHED
                         let last_pos = sector.floorheight;
                         sector.floorheight -= speed;
-                        bsp3d.move_surface(sector_num, MovementType::Floor, sector.floorheight, sector.floorpic);
+                        bsp3d.move_surface(
+                            sector_num,
+                            MovementType::Floor,
+                            sector.floorheight,
+                            sector.floorpic,
+                        );
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Floor,
+                                last_pos,
+                                sector.floorpic,
+                            );
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -257,20 +272,35 @@ pub fn move_plane(
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Floor,
+                                last_pos,
+                                sector.floorpic,
+                            );
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         let last_pos = sector.floorheight;
                         sector.floorheight += speed;
-                        bsp3d.move_surface(sector_num, MovementType::Floor, sector.floorheight, sector.floorpic);
+                        bsp3d.move_surface(
+                            sector_num,
+                            MovementType::Floor,
+                            sector.floorheight,
+                            sector.floorpic,
+                        );
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Floor,
+                                last_pos,
+                                sector.floorpic,
+                            );
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -291,11 +321,21 @@ pub fn move_plane(
                     if sector.ceilingheight - speed < dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest, sector.ceilingpic);
+                        bsp3d.move_surface(
+                            sector_num,
+                            MovementType::Ceiling,
+                            dest,
+                            sector.ceilingpic,
+                        );
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Ceiling,
+                                last_pos,
+                                sector.ceilingpic,
+                            );
                             change_sector(sector.clone(), crush);
                         }
                         return PlaneResult::PastDest;
@@ -315,7 +355,12 @@ pub fn move_plane(
                                 return PlaneResult::Crushed;
                             }
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Ceiling,
+                                last_pos,
+                                sector.ceilingpic,
+                            );
                             change_sector(sector.clone(), crush);
                             return PlaneResult::Crushed;
                         }
@@ -330,11 +375,21 @@ pub fn move_plane(
                     if sector.ceilingheight + speed >= dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest, sector.ceilingpic);
+                        bsp3d.move_surface(
+                            sector_num,
+                            MovementType::Ceiling,
+                            dest,
+                            sector.ceilingpic,
+                        );
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
+                            bsp3d.move_surface(
+                                sector_num,
+                                MovementType::Ceiling,
+                                last_pos,
+                                sector.ceilingpic,
+                            );
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;

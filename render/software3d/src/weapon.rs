@@ -19,14 +19,15 @@ const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
 /// making each pixel 1.2x taller than wide.
 const CRT_STRETCH: f32 = 240.0 / 200.0;
 
-/// Convert a distance/offset from Doom's 320-wide coordinate space to screen pixels.
+/// Convert a distance/offset from Doom's 320-wide coordinate space to screen
+/// pixels.
 #[inline(always)]
 fn scale_x(original: f32, screen_width: f32) -> f32 {
     original * (screen_width / ORIGINAL_WIDTH)
 }
 
-/// Convert a distance/offset from Doom's 200-tall coordinate space to screen pixels,
-/// including the 1.2x CRT vertical stretch.
+/// Convert a distance/offset from Doom's 200-tall coordinate space to screen
+/// pixels, including the 1.2x CRT vertical stretch.
 #[inline(always)]
 fn scale_y(original: f32, screen_height: f32) -> f32 {
     original * (screen_height / ORIGINAL_HEIGHT) * CRT_STRETCH
@@ -34,7 +35,8 @@ fn scale_y(original: f32, screen_height: f32) -> f32 {
 
 impl Software3D {
     /// Draw all active player weapon sprites (weapon + muzzle flash layers).
-    /// Called after world sprite rendering so weapons draw on top of everything.
+    /// Called after world sprite rendering so weapons draw on top of
+    /// everything.
     pub(super) fn draw_player_weapons(
         &mut self,
         player: &Player,
@@ -107,9 +109,10 @@ impl Software3D {
         let x2 = x1 + scale_x(sprite_cols as f32, screen_w);
 
         // texture_mid positions the sprite vertically in 200px space.
-        // 100 = vertical center of 200px; top_offset anchors the sprite within the patch.
-        // Position uses base scaling (no CRT stretch) so the anchor stays at the
-        // correct screen location; only the sprite height is CRT-stretched.
+        // 100 = vertical center of 200px; top_offset anchors the sprite within the
+        // patch. Position uses base scaling (no CRT stretch) so the anchor
+        // stays at the correct screen location; only the sprite height is
+        // CRT-stretched.
         let texture_mid = ORIGINAL_HALF_HEIGHT - (psp.sy - patch.top_offset as f32);
         let base_scale = screen_h / ORIGINAL_HEIGHT;
         let y1 = screen_h * 0.5 - texture_mid * base_scale;

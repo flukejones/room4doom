@@ -167,7 +167,74 @@ pub fn carve_subsector_polygon(
     ];
 
     // 4. Clip polygon against all divlines (BSP + subsector boundaries)
-    let clipped_points = clip_polygon_with_divlines(edge_points, &clippers);
+    let mut clipped_points = clip_polygon_with_divlines(edge_points, &clippers);
+
+    // 4b. Fix clipped vertices to authoritative segment positions.
+    // Sutherland-Hodgman clipping can drift vertices up to ~2 units from
+    // where they should be. For each polygon edge, check if it lies along
+    // a local segment by verifying: (a) the edge direction is parallel to
+    // the segment, (b) one vertex is near-exact to a segment endpoint, and
+    // (c) the other vertex is within tolerance of the other endpoint. If
+    // all three hold, replace both polygon vertices with exact segment
+    // endpoints.
+    const NEAR_EXACT_SQ: f32 = 0.2 * 0.2;
+    const DRIFT_TOLERANCE_SQ: f32 = 2.0 * 2.0;
+    const PARALLEL_EPSILON: f32 = 0.02;
+
+    let n = clipped_points.len();
+    if n >= 3 {
+        for i in 0..n {
+            let j = (i + 1) % n;
+            let pi = clipped_points[i];
+            let pj = clipped_points[j];
+            let edge = pj - pi;
+            let edge_len_sq = edge.length_squared();
+            if edge_len_sq < 1e-6 {
+                continue;
+            }
+
+            for segment in segments.iter() {
+                let sv1 = *segment.v1;
+                let sv2 = *segment.v2;
+                let seg_dir = sv2 - sv1;
+                let seg_len_sq = seg_dir.length_squared();
+                if seg_len_sq < 1e-6 {
+                    continue;
+                }
+
+                // Check parallelism via normalised cross product
+                let cross = edge.x * seg_dir.y - edge.y * seg_dir.x;
+                let cross_normalised = cross / (edge_len_sq.sqrt() * seg_len_sq.sqrt());
+                if cross_normalised.abs() > PARALLEL_EPSILON {
+                    continue;
+                }
+
+                // Check both orientations: edge may be same or opposite
+                // direction as segment.
+                // Try: pi ↔ sv1, pj ↔ sv2
+                let d_i_v1 = (pi - sv1).length_squared();
+                let d_j_v2 = (pj - sv2).length_squared();
+                if (d_i_v1 < NEAR_EXACT_SQ && d_j_v2 < DRIFT_TOLERANCE_SQ)
+                    || (d_j_v2 < NEAR_EXACT_SQ && d_i_v1 < DRIFT_TOLERANCE_SQ)
+                {
+                    clipped_points[i] = sv1;
+                    clipped_points[j] = sv2;
+                    break;
+                }
+
+                // Try: pi ↔ sv2, pj ↔ sv1
+                let d_i_v2 = (pi - sv2).length_squared();
+                let d_j_v1 = (pj - sv1).length_squared();
+                if (d_i_v2 < NEAR_EXACT_SQ && d_j_v1 < DRIFT_TOLERANCE_SQ)
+                    || (d_j_v1 < NEAR_EXACT_SQ && d_i_v2 < DRIFT_TOLERANCE_SQ)
+                {
+                    clipped_points[i] = sv2;
+                    clipped_points[j] = sv1;
+                    break;
+                }
+            }
+        }
+    }
 
     // 5. Add missing segment vertices that lie on clipped polygon edges
     let final_polygon = add_missing_edge_vertices(

@@ -122,8 +122,7 @@ impl Software3D {
         let (patch_index, flip) = if sprite_frame.rotate == 1 {
             let player_mobj = unsafe { &*player_mobj_ptr };
             let angle = point_to_angle_2(player_mobj.xy, thing.xy);
-            let rot =
-                ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
+            let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
             let rot = rot as u32 as usize % 8;
             (
                 sprite_frame.lump[rot] as u32 as usize,
@@ -152,8 +151,8 @@ impl Software3D {
         let left_offset = patch.left_offset as f32;
         let top_offset = patch.top_offset as f32;
 
-        // Horizontal span: from (center - left_offset) to (center - left_offset + width)
-        // in world units along the camera-right direction
+        // Horizontal span: from (center - left_offset) to (center - left_offset +
+        // width) in world units along the camera-right direction
         let base_x = thing.xy.x;
         let base_y = thing.xy.y;
         let base_z = thing.z;
@@ -233,7 +232,8 @@ impl Software3D {
         })
     }
 
-    /// Render a sprite quad through the clipping/projection/rasterization pipeline
+    /// Render a sprite quad through the clipping/projection/rasterization
+    /// pipeline
     fn render_sprite_quad(
         &mut self,
         quad: &SpriteQuad,
