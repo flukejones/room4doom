@@ -69,6 +69,51 @@ fn get_movement_type(line_special: i16) -> Option<MovementType> {
     }
 }
 
+fn is_stair_special(special: i16) -> bool {
+    matches!(special, 7 | 8 | 100 | 127)
+}
+
+/// Walk adjacent sectors that form a stair chain, same algorithm as
+/// `ev_build_stairs` in floor.rs. Adds all discovered sectors to the mapping.
+fn discover_stair_chain(
+    start_sector_num: i32,
+    sectors: &[Sector],
+    linedefs: &[LineDef],
+    mapping: &mut HashMap<usize, MovementType>,
+) {
+    let texture = sectors[start_sector_num as usize].floorpic;
+    let mut current_num = start_sector_num;
+
+    loop {
+        let mut found = false;
+
+        for line in linedefs
+            .iter()
+            .filter(|l| l.flags & LineDefFlags::TwoSided as u32 != 0)
+        {
+            if line.frontsector.num != current_num {
+                continue;
+            }
+            if let Some(back) = &line.backsector {
+                if back.floorpic != texture {
+                    continue;
+                }
+                let num = back.num as usize;
+                if !mapping.contains_key(&num) {
+                    mapping.insert(num, MovementType::Floor);
+                }
+                current_num = back.num;
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            break;
+        }
+    }
+}
+
 /// Create mapping of sector tags to movement types from linedefs so we don't
 /// need to iter over all lines every time we check a subsector
 fn create_sector_tag_movement_mapping(
@@ -86,7 +131,15 @@ fn create_sector_tag_movement_mapping(
                         let num = sector.num as usize;
                         if movement_type != MovementType::None && !mapping.contains_key(&num) {
                             mapping.insert(num, movement_type);
-                            // break;
+
+                            if is_stair_special(linedef.special) {
+                                discover_stair_chain(
+                                    sector.num,
+                                    sectors,
+                                    linedefs,
+                                    &mut mapping,
+                                );
+                            }
                         }
                     }
                 }
@@ -368,6 +421,7 @@ pub struct BSP3D {
     root_node: u32,
     pub vertices: Vec<Vec3>,
     pub(crate) sector_subsectors: Vec<Vec<usize>>,
+    pub(crate) sector_movement_map: HashMap<usize, MovementType>,
 }
 
 impl BSP3D {
@@ -389,6 +443,7 @@ impl BSP3D {
             root_node,
             vertices: Vec::new(),
             sector_subsectors: vec![Vec::new(); sectors.len()],
+            sector_movement_map: HashMap::new(),
         };
 
         // Create sector tag to movement type mapping
@@ -415,6 +470,7 @@ impl BSP3D {
         );
 
         bsp3d.update_all_aabbs();
+        bsp3d.sector_movement_map = sector_movement_map;
 
         bsp3d
     }
@@ -1272,6 +1328,7 @@ impl Default for BSP3D {
             root_node: 0,
             vertices: Vec::new(),
             sector_subsectors: Vec::new(),
+            sector_movement_map: HashMap::new(),
         }
     }
 }
