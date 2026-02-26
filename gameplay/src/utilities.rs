@@ -234,15 +234,15 @@ pub fn add_line_intercepts(
     intercepts: &mut Vec<Intercept>,
     earlyout: bool,
 ) -> bool {
-    let s1 = point_on_side(trace, line.v1);
-    let s2 = point_on_side(trace, line.v2);
+    let s1 = point_on_side(trace, *line.v1);
+    let s2 = point_on_side(trace, *line.v2);
 
     if s1 == s2 {
         // line isn't crossed
         return true;
     }
 
-    let dl = Trace::new(line.v1, line.v2 - line.v1);
+    let dl = Trace::new(*line.v1, *line.v2 - *line.v1);
     let frac = intercept_vector(trace, dl);
     // Skip if the trace doesn't intersect this line
     if frac.is_sign_negative() {

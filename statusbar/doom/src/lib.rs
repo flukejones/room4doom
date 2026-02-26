@@ -6,8 +6,7 @@
 use faces::DoomguyFace;
 use gamestate_traits::util::{get_num_sprites, get_st_key_sprites};
 use gamestate_traits::{
-    AmmoType, DrawBuffer, GameMode, GameTraits, PlayerStatus, Scancode, SubsystemTrait,
-    WEAPON_INFO, WeaponType,
+    AmmoType, DrawBuffer, GameMode, GameTraits, PlayerStatus, Scancode, SubsystemTrait, WEAPON_INFO, WeaponType
 };
 use hud_util::{draw_num, draw_patch, hud_scale};
 use std::collections::HashMap;

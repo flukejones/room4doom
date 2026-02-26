@@ -1,12 +1,11 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations,
+    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations
 };
 use gameplay::{TICRATE, m_random};
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, WorldEndPlayerInfo,
-    WorldInfo,
+    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, WorldEndPlayerInfo, WorldInfo
 };
 use hud_util::{draw_patch, fullscreen_scale};
 use log::warn;
@@ -151,7 +150,8 @@ impl Intermission {
         }
     }
 
-    /// Draw the fullscreen background patch, clearing the buffer first and centering.
+    /// Draw the fullscreen background patch, clearing the buffer first and
+    /// centering.
     pub(crate) fn draw_bg(&self, x_offset: f32, sx: f32, sy: f32, buffer: &mut impl DrawBuffer) {
         buffer.buf_mut().fill(0);
         draw_patch(self.get_bg(), x_offset, 0.0, sx, sy, &self.palette, buffer);

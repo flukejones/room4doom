@@ -61,7 +61,8 @@ pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
 /// Returns (scale_x, scale_y) for full-screen 320x200 patches.
 /// These must fit the buffer height while showing correct CRT aspect.
 /// Y fills the buffer: scale_y = screen_height / 200.0
-/// X is narrower to simulate CRT non-square pixels: scale_x = scale_y / CRT_STRETCH
+/// X is narrower to simulate CRT non-square pixels: scale_x = scale_y /
+/// CRT_STRETCH
 pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
     let sy = pixels.size().height_f32() / 200.0;
     let sx = sy / CRT_STRETCH;

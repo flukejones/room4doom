@@ -85,8 +85,8 @@ impl MapData {
         };
 
         for line in &self.linedefs {
-            check(line.v1);
-            check(line.v2);
+            check(*line.v1);
+            check(*line.v2);
         }
         self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
         self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
@@ -211,6 +211,24 @@ impl MapData {
             &self.linedefs,
             extended.as_ref(),
         );
+        // Recompute linedef derived values from corrected vertices
+        for linedef in &mut self.linedefs {
+            let v1 = *linedef.v1;
+            let v2 = *linedef.v2;
+            let dx = v2.x - v1.x;
+            let dy = v2.y - v1.y;
+            linedef.delta = Vec2::new(dx, dy);
+            linedef.bbox = BBox::new(v1, v2);
+            linedef.slopetype = if dx == 0.0 {
+                SlopeType::Vertical
+            } else if dy == 0.0 {
+                SlopeType::Horizontal
+            } else if dy / dx > 0.0 {
+                SlopeType::Positive
+            } else {
+                SlopeType::Negative
+            };
+        }
         self.load_blockmap(map_name, wad);
         self.load_devils_rejects(map_name, wad);
         // TODO: iterate sector lines to find max bounding box for sector
@@ -349,8 +367,8 @@ impl MapData {
             .linedef_iter(map_name)
             .enumerate()
             .map(|(num, l)| {
-                let v1 = self.vertexes[l.start_vertex as usize];
-                let v2 = self.vertexes[l.end_vertex as usize];
+                let v1 = MapPtr::new(&mut self.vertexes[l.start_vertex as usize]);
+                let v2 = MapPtr::new(&mut self.vertexes[l.end_vertex as usize]);
 
                 let front = MapPtr::new(&mut self.sidedefs[l.front_sidedef as usize]);
                 let back_side = {
@@ -386,15 +404,15 @@ impl MapData {
 
                 LineDef {
                     num,
-                    v1,
-                    v2,
+                    v1: v1.clone(),
+                    v2: v2.clone(),
                     delta: Vec2::new(dx, dy),
                     flags: l.flags as u32,
                     special: l.special,
                     tag: l.sector_tag,
                     default_special: l.special,
                     default_tag: l.sector_tag,
-                    bbox: BBox::new(v1, v2),
+                    bbox: BBox::new(*v1, *v2),
                     slopetype: slope,
                     front_sidedef: front.clone(),
                     back_sidedef: back_side,
@@ -444,7 +462,11 @@ impl MapData {
             };
 
             let offset = if ms.offset == i16::MIN {
-                let v2 = if ms.side == 1 { linedef.v2 } else { linedef.v1 };
+                let v2 = if ms.side == 1 {
+                    linedef.v2.clone()
+                } else {
+                    linedef.v1.clone()
+                };
                 Segment::recalc_offset(&v1, &v2)
             } else {
                 ms.offset as f32
@@ -511,20 +533,6 @@ impl MapData {
         } else {
             self.subsectors = wad.subsector_iter(map_name).map(parse_subs).collect();
         }
-        // iter through subsectors and check the lines have front/back sectors matching?
-        // for ss in self.subsectors.iter() {
-        //     for i in ss.start_seg..ss.start_seg + ss.seg_count {
-        //         let seg = &mut self.segments[i as usize];
-        //         if seg.frontsector.num != ss.sector.num {
-        //             // sub.frontsector = ss.sector.clone();
-        //             if let Some(back) = seg.backsector.take() {
-        //                 let tmp = seg.frontsector.clone();
-        //                 seg.frontsector = back;
-        //                 seg.backsector = Some(tmp);
-        //             }
-        //         }
-        //     }
-        // }
         info!("{}: Loaded {} subsectors", map_name, self.subsectors.len());
     }
 
@@ -731,7 +739,7 @@ impl MapData {
                     if !hit[v_idx] {
                         hit[v_idx] = true;
 
-                        if vertex_val != linedef.v1 && vertex_val != linedef.v2 {
+                        if vertex_val != *linedef.v1 && vertex_val != *linedef.v2 {
                             let dx2 = linedef.delta.x * linedef.delta.x;
                             let dy2 = linedef.delta.y * linedef.delta.y;
                             let dxy = linedef.delta.x * linedef.delta.y;
@@ -744,13 +752,8 @@ impl MapData {
                             let px = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
                             let py = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
 
-                            // const FRACUNIT: f32 = 65536.0;
-                            // if (px - x0).abs() <= 8.0 * FRACUNIT
-                            //     && (py - y0).abs() <= 8.0 * FRACUNIT
-                            // {
                             vertexes[v_idx].x = px;
                             vertexes[v_idx].y = py;
-                            // }
                         }
                     }
                 }
@@ -789,8 +792,8 @@ pub fn set_sector_sound_origin(sector: &mut Sector) {
     };
 
     for line in sector.lines.iter() {
-        check(line.v1);
-        check(line.v2);
+        check(*line.v1);
+        check(*line.v2);
     }
     sector.sound_origin = Vec2::new(minx + ((maxx - minx) / 2.0), miny + ((maxy - miny) / 2.0));
 }

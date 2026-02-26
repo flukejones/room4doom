@@ -60,24 +60,8 @@ impl Intermission {
         );
     }
 
-    fn draw_percent(
-        &self,
-        p: u32,
-        x: f32,
-        y: f32,
-        sx: f32,
-        sy: f32,
-        pixels: &mut impl DrawBuffer,
-    ) {
-        draw_patch(
-            &self.patches.percent,
-            x,
-            y,
-            sx,
-            sy,
-            &self.palette,
-            pixels,
-        );
+    fn draw_percent(&self, p: u32, x: f32, y: f32, sx: f32, sy: f32, pixels: &mut impl DrawBuffer) {
+        draw_patch(&self.patches.percent, x, y, sx, sy, &self.palette, pixels);
         draw_num(
             p,
             x,

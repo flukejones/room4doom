@@ -119,8 +119,8 @@ mod map_data_tests {
         let mut map = MapData::default();
         map.load("E1M1", &pic_data, &wad);
         // line 1590
-        assert_eq!(map.linedefs[1590].v1, Vec2::new(-560.0, -3952.0));
-        assert_eq!(map.linedefs[1590].v2, Vec2::new(-560.0, -3920.0));
+        assert_eq!(*map.linedefs[1590].v1, Vec2::new(-560.0, -3952.0));
+        assert_eq!(*map.linedefs[1590].v2, Vec2::new(-560.0, -3920.0));
         assert_eq!(map.linedefs[1590].front_sidedef.midtexture, Some(1657));
         assert_eq!(
             map.linedefs[1590].back_sidedef.as_ref().unwrap().midtexture,

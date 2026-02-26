@@ -600,7 +600,8 @@ impl Software3D {
     }
 
     /// Draw a sprite polygon (billboard quad triangle).
-    /// Uses masked rendering: peeks depth, skips transparent pixels, doesn't write depth.
+    /// Uses masked rendering: peeks depth, skips transparent pixels, doesn't
+    /// write depth.
     pub(super) fn draw_sprite_polygon(
         &mut self,
         quad: &super::sprites::SpriteQuad,
