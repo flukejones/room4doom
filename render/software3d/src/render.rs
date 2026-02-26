@@ -3,7 +3,7 @@ use coarse_prof::profile;
 
 #[cfg(feature = "debug_draw")]
 use gameplay::BSP3D;
-use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic};
+use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic, WallType};
 #[cfg(not(feature = "debug_draw"))]
 use glam::Vec2;
 #[cfg(feature = "debug_draw")]
@@ -380,6 +380,10 @@ impl Software3D {
         let sky_num = pic_data.sky_num();
         let texture_sampler =
             TextureSampler::new(&polygon.surface_kind, pic_data, sky_pic, sky_num);
+        let is_masked = matches!(
+            &polygon.surface_kind,
+            SurfaceKind::Vertical { two_sided: true, wall_type: WallType::Middle, .. }
+        );
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
         let width_f32 = self.width as f32;
@@ -516,22 +520,55 @@ impl Software3D {
                             }
                         }
                     }
-                    if !self
-                        .depth_buffer
-                        .test_and_set_depth_unchecked(x, y, edge_inv_w)
-                    {
-                        // current pixel is occluded; break to resume skipping phase
-                        interp_state.step_x();
-                        edge_inv_w += edge_inv_w_dx;
-                        x += 1;
-                        break;
+                    if is_masked {
+                        // Masked texture: sample first, skip transparent pixels
+                        // without writing depth so geometry behind remains visible
+                        if edge_inv_w <= self.depth_buffer.peek_depth_unchecked(x, y) {
+                            interp_state.step_x();
+                            edge_inv_w += edge_inv_w_dx;
+                            x += 1;
+                            break;
+                        }
+                        // Outside texture vertical bounds — no tiling for middle walls
+                        if v < 0.0 || v >= 1.0 {
+                            interp_state.step_x();
+                            edge_inv_w += edge_inv_w_dx;
+                            x += 1;
+                            continue;
+                        }
+                        let colourmap =
+                            pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                        if color[3] == 0 {
+                            // Transparent pixel — don't write depth or color
+                            interp_state.step_x();
+                            edge_inv_w += edge_inv_w_dx;
+                            x += 1;
+                            continue;
+                        }
+                        self.depth_buffer
+                            .set_depth_unchecked(x, y, edge_inv_w);
+                        #[cfg(not(feature = "debug_draw"))]
+                        buffer.set_pixel(x, y, &color);
+                    } else {
+                        if !self
+                            .depth_buffer
+                            .test_and_set_depth_unchecked(x, y, edge_inv_w)
+                        {
+                            // current pixel is occluded; break to resume skipping phase
+                            interp_state.step_x();
+                            edge_inv_w += edge_inv_w_dx;
+                            x += 1;
+                            break;
+                        }
+
+                        let colourmap =
+                            pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
+
+                        #[cfg(not(feature = "debug_draw"))]
+                        buffer.set_pixel(x, y, &color);
                     }
-
-                    let colourmap = pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                    let color = texture_sampler.sample(u, v, colourmap, pic_data);
-
-                    #[cfg(not(feature = "debug_draw"))]
-                    buffer.set_pixel(x, y, &color);
                     did_draw = true;
                     #[cfg(feature = "debug_draw")]
                     {

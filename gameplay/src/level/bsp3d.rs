@@ -208,6 +208,7 @@ pub enum SurfaceKind {
         wall_tex_pin: WallTexPin,
         /// For texture alignment
         front_ceiling_z: f32,
+        two_sided: bool,
     },
     Horizontal {
         texture: usize,
@@ -664,6 +665,7 @@ impl BSP3D {
                 WallType::Upper,
                 texture,
                 front_subsector_id,
+                true,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -690,6 +692,7 @@ impl BSP3D {
                 WallType::Lower,
                 texture,
                 front_sector.num as usize,
+                true,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -713,6 +716,7 @@ impl BSP3D {
                 WallType::Middle,
                 texture,
                 front_sector.num as usize,
+                true,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -741,6 +745,7 @@ impl BSP3D {
                 WallType::Middle,
                 texture,
                 front_sector.num as usize,
+                false,
                 vertex_tracking,
                 sector_movement_map,
             );
@@ -760,6 +765,7 @@ impl BSP3D {
         wall_type: WallType,
         texture: usize,
         sector_id: usize,
+        two_sided: bool,
         vertex_tracking: &mut VertexTracking,
         sector_movement_map: &HashMap<usize, MovementType>,
     ) -> Vec<SurfacePolygon> {
@@ -926,6 +932,7 @@ impl BSP3D {
             wall_type,
             wall_tex_pin: WallTexPin::from(segment.linedef.flags),
             front_ceiling_z: segment.frontsector.ceilingheight,
+            two_sided,
         };
 
         let triangle1 = SurfacePolygon::new(

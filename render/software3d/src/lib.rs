@@ -552,6 +552,7 @@ impl Software3D {
                 wall_tex_pin,
                 wall_type,
                 front_ceiling_z,
+                ..
             } => {
                 let texture = pic_data.get_texture(*tex_id);
                 let tex_width = texture.width as f32;
@@ -585,11 +586,17 @@ impl Software3D {
                 };
 
                 let anchor_z = if unpeg_condition {
-                    *front_ceiling_z
+                    match wall_type {
+                        // Middle walls anchor at the polygon's actual top, which
+                        // for two-sided walls is min(front_ceil, back_ceil), not
+                        // always front_ceiling_z.
+                        WallType::Middle => wall_top_z,
+                        _ => *front_ceiling_z,
+                    }
                 } else {
                     match wall_type {
                         WallType::Upper | WallType::Middle => wall_bottom_z + tex_height,
-                        WallType::Lower => wall_top_z + tex_height,
+                        WallType::Lower => wall_top_z,
                     }
                 };
 
