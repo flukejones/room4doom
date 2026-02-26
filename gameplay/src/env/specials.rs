@@ -9,8 +9,7 @@ use crate::env::ceiling::{CeilKind, ev_do_ceiling};
 use crate::env::doors::{DoorKind, ev_do_door};
 use crate::env::floor::{FloorKind, StairKind, ev_build_stairs, ev_do_floor};
 use crate::env::lights::{
-    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing,
-    ev_turn_light_on, ev_turn_tag_lights_off,
+    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off
 };
 use crate::env::platforms::{PlatKind, ev_do_platform, ev_stop_platform};
 use crate::env::switch::{change_switch_texture, start_sector_sound};

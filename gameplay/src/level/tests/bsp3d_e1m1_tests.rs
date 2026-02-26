@@ -108,7 +108,8 @@ mod tests {
             }
         }
 
-        // Record wall positions from linedefs 148 (should shrink), 150, 151 (should be stationary) and 152, 153 (should move with ceiling)
+        // Record wall positions from linedefs 148 (should shrink), 150, 151 (should be
+        // stationary) and 152, 153 (should move with ceiling)
         let mut wall_polygon_vertices = HashMap::new();
         for (&linedef_id, segments) in &tracked_linedefs {
             if [148, 150, 151, 152, 153].contains(&linedef_id) {
@@ -169,7 +170,8 @@ mod tests {
             //     );
             // }
             println!("Subsector {} marked ceiling vertices:", subsector_id);
-            // for (key, vertex_idx) in &bsp3d.marked_ceiling_vertices[subsector_id] {
+            // for (key, vertex_idx) in
+            // &bsp3d.marked_ceiling_vertices[subsector_id] {
             //     println!(
             //         "  Key {:?} -> Vertex {}: {:?}",
             //         key, vertex_idx, bsp3d.vertices[*vertex_idx]
@@ -207,7 +209,7 @@ mod tests {
                     if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
                         let mut has_moved_vertex = false;
                         for &vertex_idx in &polygon.vertices {
-                            if moved_vertices.iter().any(|(idx, _, _)| *idx == vertex_idx) {
+                            if moved_vertices.iter().any(|(idx, ..)| *idx == vertex_idx) {
                                 has_moved_vertex = true;
                                 break;
                             }
@@ -219,7 +221,7 @@ mod tests {
                             );
                             for &vertex_idx in &polygon.vertices {
                                 if let Some((_, orig, curr)) =
-                                    moved_vertices.iter().find(|(idx, _, _)| *idx == vertex_idx)
+                                    moved_vertices.iter().find(|(idx, ..)| *idx == vertex_idx)
                                 {
                                     println!("    Vertex {}: {:?} -> {:?}", vertex_idx, orig, curr);
                                 }
@@ -237,7 +239,7 @@ mod tests {
                     if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
                         let mut has_moved_vertex = false;
                         for &vertex_idx in &polygon.vertices {
-                            if moved_vertices.iter().any(|(idx, _, _)| *idx == vertex_idx) {
+                            if moved_vertices.iter().any(|(idx, ..)| *idx == vertex_idx) {
                                 has_moved_vertex = true;
                                 break;
                             }
@@ -249,7 +251,7 @@ mod tests {
                             );
                             for &vertex_idx in &polygon.vertices {
                                 if let Some((_, orig, curr)) =
-                                    moved_vertices.iter().find(|(idx, _, _)| *idx == vertex_idx)
+                                    moved_vertices.iter().find(|(idx, ..)| *idx == vertex_idx)
                                 {
                                     println!("    Vertex {}: {:?} -> {:?}", vertex_idx, orig, curr);
                                 }
@@ -289,7 +291,8 @@ mod tests {
             }
         }
 
-        // Check wall movement: 148 should shrink, 150,151 should stay, 152,153 should move
+        // Check wall movement: 148 should shrink, 150,151 should stay, 152,153 should
+        // move
         println!(
             "\nChecking wall movement (148 should shrink, 150,151 should stay, 152,153 should move):"
         );

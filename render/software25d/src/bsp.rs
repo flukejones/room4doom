@@ -3,13 +3,13 @@ use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
 use crate::utilities::{
-    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale,
+    angle_to_screen, corrected_fov_for_height, projection, vertex_angle_to_object, y_scale
 };
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector,
+    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector
 };
 use glam::Vec2;
 use render_trait::DrawBuffer;

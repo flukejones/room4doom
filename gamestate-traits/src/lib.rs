@@ -6,8 +6,7 @@ pub mod util;
 
 use gameplay::MAXPLAYERS;
 pub use gameplay::{
-    AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO,
-    WeaponType, WorldEndPlayerInfo, m_random,
+    AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO, WeaponType, WorldEndPlayerInfo, m_random
 };
 pub use render_trait::{DrawBuffer, GameRenderer, PlayRender};
 pub use sdl2::keyboard::Scancode;

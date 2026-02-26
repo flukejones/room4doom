@@ -32,8 +32,7 @@ pub mod tic_cmd;
 pub(crate) mod utilities;
 
 pub use doom_def::{
-    AmmoType, Card, DOOM_VERSION, GameAction, GameMission, GameMode, MAXPLAYERS, PowerType,
-    TICRATE, WEAPON_INFO, WeaponType,
+    AmmoType, Card, DOOM_VERSION, GameAction, GameMission, GameMode, MAXPLAYERS, PowerType, TICRATE, WEAPON_INFO, WeaponType
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;
@@ -41,7 +40,7 @@ pub use info::{MapObjKind, STATES, StateNum};
 pub use lang::english;
 pub use level::Level;
 pub use level::bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, SurfaceKind, SurfacePolygon, WallTexPin, WallType,
+    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, SurfaceKind, SurfacePolygon, WallTexPin, WallType
 };
 pub use level::flags::LineDefFlags;
 pub use level::map_data::MapData;

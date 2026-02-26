@@ -42,7 +42,8 @@ pub trait DrawBuffer {
     fn debug_flip_and_present(&mut self);
 }
 
-/// Exists mostly to hold a bunch of pre-computed values for a very fast 2.5D rendering
+/// Exists mostly to hold a bunch of pre-computed values for a very fast 2.5D
+/// rendering
 #[derive(Clone, Copy)]
 pub struct BufferSize {
     hi_res: bool,

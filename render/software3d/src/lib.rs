@@ -1,8 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
-    SurfacePolygon, WallTexPin, WallType,
+    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -211,8 +210,9 @@ impl Software3D {
         false
     }
 
-    /// Early screen bounds check to reject polygons with all vertices outside frustum.
-    /// Uses separating-axis test against all 6 frustum planes in clip space.
+    /// Early screen bounds check to reject polygons with all vertices outside
+    /// frustum. Uses separating-axis test against all 6 frustum planes in
+    /// clip space.
     fn cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
         let mut all_outside_left = true;
         let mut all_outside_right = true;
@@ -421,10 +421,12 @@ impl Software3D {
                 #[cfg(feature = "debug_draw")]
                 {
                     let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-                    Some(self.generate_pseudo_random_colour(
-                        ptr,
-                        sectors[polygon.sector_id].lightlevel,
-                    ))
+                    Some(
+                        self.generate_pseudo_random_colour(
+                            ptr,
+                            sectors[polygon.sector_id].lightlevel,
+                        ),
+                    )
                 },
             );
         }
@@ -715,7 +717,9 @@ impl Software3D {
                     break;
                 }
             }
-            // println!("Total polygons: visible: {visible}, culled: {}, rendered: {}, no_draw: {}", self.polygons_early_culled_count, self.polygons_rendered_count, self.polygons_no_draw_count);
+            // println!("Total polygons: visible: {visible}, culled: {},
+            // rendered: {}, no_draw: {}", self.polygons_early_culled_count,
+            // self.polygons_rendered_count, self.polygons_no_draw_count);
         }
     }
 

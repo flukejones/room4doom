@@ -69,8 +69,8 @@ fn get_movement_type(line_special: i16) -> Option<MovementType> {
     }
 }
 
-/// Create mapping of sector tags to movement types from linedefs so we don't need to iter
-/// over all lines every time we check a subsector
+/// Create mapping of sector tags to movement types from linedefs so we don't
+/// need to iter over all lines every time we check a subsector
 fn create_sector_tag_movement_mapping(
     linedefs: &[LineDef],
     sectors: &[Sector],
@@ -291,8 +291,8 @@ impl QuantizedVec3 {
 
 /// Which wall type is the vertex for. When adding walls we have to check
 /// if the vertex is allowed to be used for the required position if
-/// the wall height ix zero. This is because it's impossible to know which vertex
-/// in the same position is for what.
+/// the wall height ix zero. This is because it's impossible to know which
+/// vertex in the same position is for what.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum VertexMappedTo {
     /// Middle wall bottom, all lower wall parts, floor
@@ -317,9 +317,10 @@ enum VertexMappedTo {
 
 /// Track what vertexes are for, and where to find them
 struct VertexTracking {
-    /// Track what the vertex was used for, this determines what other walls are allowed to use
-    /// which matters if there are more than one in a 3D position such as for zero-height walls.
-    /// The index used to address this array is the same as that in global vertex array, which
+    /// Track what the vertex was used for, this determines what other walls are
+    /// allowed to use which matters if there are more than one in a 3D
+    /// position such as for zero-height walls. The index used to address
+    /// this array is the same as that in global vertex array, which
     /// means both insert operations must be synced
     vertex_type: Vec<VertexMappedTo>,
     /// Tracking to enable faster vertex lookups instead of always iterating.
@@ -336,8 +337,8 @@ impl VertexTracking {
         }
     }
 
-    /// Get the index number in global array of the vertex the mapping is allowed to use.
-    /// Returns None if no vertex exists.
+    /// Get the index number in global array of the vertex the mapping is
+    /// allowed to use. Returns None if no vertex exists.
     /// Function can be used to check if contains vertex.
     fn get_vertex_index(&mut self, vertex: Vec3, mapping: VertexMappedTo) -> Option<usize> {
         let quantized = QuantizedVec3::from_vec3(vertex, self.precision);
@@ -647,7 +648,8 @@ impl BSP3D {
         vertex_tracking: &mut VertexTracking,
         sector_movement_map: &HashMap<usize, MovementType>,
     ) {
-        // Upper wall: Create if toptexture exists and back ceiling is at or below front ceiling
+        // Upper wall: Create if toptexture exists and back ceiling is at or below front
+        // ceiling
         if segment.sidedef.toptexture.is_some()
             && back_sector.ceilingheight <= front_sector.ceilingheight
         {
@@ -672,7 +674,8 @@ impl BSP3D {
             }
         }
 
-        // Lower wall: Create if bottomtexture exists and back floor is at or above front floor
+        // Lower wall: Create if bottomtexture exists and back floor is at or above
+        // front floor
         if segment.sidedef.bottomtexture.is_some()
             && back_sector.floorheight >= front_sector.floorheight
         {
@@ -1242,8 +1245,8 @@ impl Default for BSPLeaf3D {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{MapData, PicData};
-    use crate::{SurfaceKind, level::bsp3d::HEIGHT_EPSILON};
+    use crate::level::bsp3d::HEIGHT_EPSILON;
+    use crate::{MapData, PicData, SurfaceKind};
     use wad::WadData;
 
     #[test]

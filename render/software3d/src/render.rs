@@ -198,7 +198,8 @@ struct TriangleInterpolator {
     denom: f32,
     da_dx: f32,
     db_dx: f32,
-    /// Min/max inv_w across all polygon vertices, used to clamp extrapolated depth
+    /// Min/max inv_w across all polygon vertices, used to clamp extrapolated
+    /// depth
     inv_w_min: f32,
     inv_w_max: f32,
 }
@@ -461,8 +462,7 @@ impl Software3D {
             while x <= x_end {
                 // Skip occluded pixels quickly using a read-only depth peek
                 while x <= x_end {
-                    if edge_inv_w > 0.0
-                        && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
+                    if edge_inv_w > 0.0 && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
                     {
                         break;
                     }
@@ -504,13 +504,22 @@ impl Software3D {
                                 };
                                 eprintln!(
                                     "EDGE-OVERDRAW x={} y={} prev={:.6} new={:.6} poly={:#x} sec={} {} verts={:?}",
-                                    x, y, prev, edge_inv_w, poly_id, polygon.sector_id, kind,
+                                    x,
+                                    y,
+                                    prev,
+                                    edge_inv_w,
+                                    poly_id,
+                                    polygon.sector_id,
+                                    kind,
                                     polygon.vertices,
                                 );
                             }
                         }
                     }
-                    if !self.depth_buffer.test_and_set_depth_unchecked(x, y, edge_inv_w) {
+                    if !self
+                        .depth_buffer
+                        .test_and_set_depth_unchecked(x, y, edge_inv_w)
+                    {
                         // current pixel is occluded; break to resume skipping phase
                         interp_state.step_x();
                         edge_inv_w += edge_inv_w_dx;
@@ -518,8 +527,7 @@ impl Software3D {
                         break;
                     }
 
-                    let colourmap =
-                        pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                    let colourmap = pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
                     #[cfg(not(feature = "debug_draw"))]
@@ -539,7 +547,12 @@ impl Software3D {
                                 };
                                 eprintln!(
                                     "EDGE-WRITE x={} y={} inv_z={:.6} poly={:#x} sec={} {} verts={:?}",
-                                    x, y, edge_inv_w, poly_id, polygon.sector_id, kind,
+                                    x,
+                                    y,
+                                    edge_inv_w,
+                                    poly_id,
+                                    polygon.sector_id,
+                                    kind,
                                     polygon.vertices,
                                 );
                             }

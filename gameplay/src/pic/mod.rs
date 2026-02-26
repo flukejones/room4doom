@@ -136,7 +136,8 @@ impl PicData {
         let light_scale = Self::init_light_scales();
         let zlight_scale = Self::init_zlight_scales();
 
-        // Precompute lightscale_colourmap merging light_scale and colourmap entries by clone
+        // Precompute lightscale_colourmap merging light_scale and colourmap entries by
+        // clone
         let mut lightscale_colourmap = vec![[0usize; 256]; LIGHTMAP_LEN];
         for (i, &light_scale_idx) in light_scale.iter().enumerate() {
             lightscale_colourmap[i].clone_from_slice(&colourmap[light_scale_idx]);

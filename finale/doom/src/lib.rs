@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, TICRATE,
+    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, TICRATE
 };
 use hud_util::{HUD_STRING, HUDString, load_char_patches};
 use wad::WadData;

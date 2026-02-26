@@ -48,7 +48,8 @@ impl DepthBuffer {
         #[cfg(feature = "hprof")]
         profile!("depth_buffer_reset");
 
-        // Reset all depths to -1.0 (unwritten sentinel, any valid 1/w depth will be > -1.0)
+        // Reset all depths to -1.0 (unwritten sentinel, any valid 1/w depth will be >
+        // -1.0)
         self.depths.fill(-1.0);
         self.covered_pixels = 0;
     }
@@ -82,7 +83,8 @@ impl DepthBuffer {
         self.covered_pixels >= self.width * self.height
     }
 
-    /// Read depth at pixel coordinates (unchecked). Returns stored depth (larger = closer).
+    /// Read depth at pixel coordinates (unchecked). Returns stored depth
+    /// (larger = closer).
     #[inline]
     pub fn peek_depth_unchecked(&self, x: usize, y: usize) -> f32 {
         let index = y * self.width + x;
@@ -103,8 +105,9 @@ impl DepthBuffer {
         }
     }
 
-    /// Test and set depth at pixel coordinates using 1/w convention (larger = closer)
-    /// Returns true if the depth buffer was updated (same as before).
+    /// Test and set depth at pixel coordinates using 1/w convention (larger =
+    /// closer) Returns true if the depth buffer was updated (same as
+    /// before).
     #[inline]
     pub fn test_and_set_depth_unchecked(&mut self, x: usize, y: usize, depth: f32) -> bool {
         #[cfg(feature = "hprof")]
