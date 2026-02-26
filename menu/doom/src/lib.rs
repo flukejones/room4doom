@@ -5,6 +5,7 @@
 //! a different menu.
 
 use gamestate_traits::{DrawBuffer, GameMode, GameTraits, Scancode, Skill, SubsystemTrait};
+use hud_util::{draw_patch, hud_scale};
 use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
@@ -344,30 +345,61 @@ impl MenuDoom {
     }
 
     fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
-        let f = pixels.size().height() / 200;
+        let (sx, sy) = hud_scale(pixels);
 
         if self.active || self.in_help {
             let active = &self.menus[self.current_menu as usize];
+            // Full-screen readthis/help pages: scale uniformly to fit buffer
+            let is_fullscreen = active.titles.is_empty() && active.y == 0;
+            let draw_sy = if is_fullscreen { sx } else { sy };
+
             // Titles
             for item in active.titles.iter() {
-                self.draw_patch_pixels(self.get_patch(&item.patch), item.x * f, item.y * f, pixels);
+                draw_patch(
+                    self.get_patch(&item.patch),
+                    item.x as f32 * sx,
+                    item.y as f32 * draw_sy,
+                    sx,
+                    draw_sy,
+                    &self.palette,
+                    pixels,
+                );
             }
             // sub-items
-            let x = active.x * f;
-            let mut y = active.y * f;
+            let x = if is_fullscreen {
+                // Fullscreen patches (320x200) — center in buffer
+                (pixels.size().width_f32() - 320.0 * sx) / 2.0
+            } else {
+                active.x as f32 * sx
+            };
+            let mut y = active.y as f32 * draw_sy;
             for item in active.items.iter() {
-                self.draw_patch_pixels(self.get_patch(&item.patch), x, y, pixels);
-                y += LINEHEIGHT * f;
+                draw_patch(
+                    self.get_patch(&item.patch),
+                    x,
+                    y,
+                    sx,
+                    draw_sy,
+                    &self.palette,
+                    pixels,
+                );
+                y += LINEHEIGHT as f32 * draw_sy;
             }
 
-            // SKULL
-            let y = active.y * f - 5 + active.last_on as i32 * LINEHEIGHT * f;
-            self.draw_patch_pixels(
-                self.get_patch(SKULLS[self.which_skull]),
-                x + -(32 * f),
-                y,
-                pixels,
-            );
+            if !is_fullscreen {
+                // SKULL
+                let y =
+                    active.y as f32 * sy - 5.0 + active.last_on as f32 * LINEHEIGHT as f32 * sy;
+                draw_patch(
+                    self.get_patch(SKULLS[self.which_skull]),
+                    x - 32.0 * sx,
+                    y,
+                    sx,
+                    sy,
+                    &self.palette,
+                    pixels,
+                );
+            }
         }
     }
 }

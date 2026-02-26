@@ -4,7 +4,7 @@ use crate::text::*;
 use gamestate_traits::{
     DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, TICRATE
 };
-use hud_util::{HUD_STRING, HUDString, load_char_patches};
+use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
 use wad::WadData;
 use wad::types::{WadFlat, WadPalette};
 
@@ -40,22 +40,22 @@ impl Finale {
     }
 
     fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
-        let f = pixels.size().height() / 200;
+        let (sx, sy) = hud_scale(pixels);
         self.screen_width = pixels.size().width();
         self.screen_height = pixels.size().height();
 
         let pal = &self.palette;
-        for sx in (0..self.screen_width).step_by(64) {
-            for sy in (0..self.screen_height).step_by(64) {
+        for tile_x in (0..self.screen_width).step_by(64) {
+            for tile_y in (0..self.screen_height).step_by(64) {
                 for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
                     for (x, c) in col.iter().enumerate() {
                         let c = &pal.0[*c as usize];
-                        pixels.set_pixel(sx as usize + x, sy as usize + y, &c);
+                        pixels.set_pixel(tile_x as usize + x, tile_y as usize + y, &c);
                     }
                 }
             }
         }
-        self.text.draw_pixels(6 * f, 6 * f, self, pixels);
+        self.text.draw_pixels(6.0 * sx, 6.0 * sy, &self.palette, pixels);
     }
 }
 

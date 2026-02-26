@@ -322,6 +322,7 @@ name = "menu-doom"
 version = "0.16.1"
 dependencies = [
  "gamestate-traits",
+ "hud-util",
  "sound-traits",
  "wad",
 ]
@@ -600,6 +601,7 @@ name = "statusbar-doom"
 version = "0.16.1"
 dependencies = [
  "gamestate-traits",
+ "hud-util",
  "wad",
 ]
 
