@@ -11,6 +11,18 @@ mod pvs_tests {
             .join("doom1.wad")
     }
 
+    fn find_wad_file() -> Option<String> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("doom1.wad");
+        if path.exists() {
+            Some(path.to_string_lossy().into_owned())
+        } else {
+            None
+        }
+    }
+
     #[test]
     fn test_e1m2_pvs_visibility_bug() {
         let wad = wad::WadData::new(&doom1_wad_path());
