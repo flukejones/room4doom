@@ -257,9 +257,14 @@ impl SurfacePolygon {
                 let p0 = vertex_positions.get_unchecked(self.vertices[0]);
                 let p1 = vertex_positions.get_unchecked(self.vertices[1]);
                 let p2 = vertex_positions.get_unchecked(self.vertices[2]);
-                let edge1 = p1 - p0;
-                let edge2 = p2 - p0;
-                edge1.cross(edge2).normalize()
+                let edge1 = *p1 - *p0;
+                let edge2 = *p2 - *p0;
+                let cross = edge1.cross(edge2);
+                if cross.length_squared() > f32::EPSILON {
+                    cross.normalize()
+                } else {
+                    self.normal
+                }
             }
         } else {
             self.normal
