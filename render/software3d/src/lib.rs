@@ -411,7 +411,7 @@ impl Software3D {
                 return;
             }
 
-            let brightness = (sectors[polygon.sector_id].lightlevel >> 4) + player_light;
+            let brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
 
             // Render the polygon directly - draw_polygon handles any vertex count
             // via generic edge walking and uses the best triangle for interpolation
