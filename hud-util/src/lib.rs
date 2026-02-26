@@ -58,10 +58,20 @@ pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
     (sx, sy)
 }
 
+/// Returns (scale_x, scale_y) for full-screen 320x200 patches.
+/// These must fit the buffer height while showing correct CRT aspect.
+/// Y fills the buffer: scale_y = screen_height / 200.0
+/// X is narrower to simulate CRT non-square pixels: scale_x = scale_y / CRT_STRETCH
+pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
+    let sy = pixels.size().height_f32() / 200.0;
+    let sx = sy / CRT_STRETCH;
+    (sx, sy)
+}
+
 /// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.
 /// `sx` controls column width, `sy` controls row height. Uses fractional
-/// accumulation so the stretch is correct even at low resolutions (e.g.
-/// sy=1.2 distributes the extra pixel rows evenly across the patch).
+/// accumulation for both axes so the scaling is correct even at non-integer
+/// scales (e.g. sx=0.833 for CRT-correct fullscreen patches).
 pub fn draw_patch(
     patch: &WadPatch,
     x: f32,
@@ -71,26 +81,35 @@ pub fn draw_patch(
     palette: &WadPalette,
     pixels: &mut impl DrawBuffer,
 ) {
-    let sx_i = sx.round() as i32;
-    let mut xtmp = 0;
+    let buf_w = pixels.size().width() as i32;
+    let buf_h = pixels.size().height() as i32;
+    let x_base = x - patch.left_offset as f32 * sx;
+    let mut src_col: u32 = 0;
 
     for column in patch.columns.iter() {
+        let col_x_start = (x_base + src_col as f32 * sx).floor() as i32;
+        let col_x_end = (x_base + (src_col + 1) as f32 * sx).floor() as i32;
         let col_y = y + column.y_offset as f32 * sy;
-        for n in 0..sx_i {
-            let px = (x as i32 + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize;
-            let mut y_accum = 0.0_f32;
-            for p in column.pixels.iter() {
-                let colour = palette.0[*p];
-                let row_start = (col_y + y_accum) as i32;
-                y_accum += sy;
-                let row_end = (col_y + y_accum) as i32;
-                for row in row_start..row_end {
-                    pixels.set_pixel(px, row as usize, &colour);
+
+        for (src_row, p) in column.pixels.iter().enumerate() {
+            let colour = palette.0[*p];
+            let row_start = (col_y + src_row as f32 * sy).ceil() as i32;
+            let row_end = (col_y + (src_row + 1) as f32 * sy).ceil() as i32;
+            for row in row_start..row_end {
+                if row < 0 || row >= buf_h {
+                    continue;
+                }
+                for col in col_x_start..col_x_end {
+                    if col < 0 || col >= buf_w {
+                        continue;
+                    }
+                    pixels.set_pixel(col as usize, row as usize, &colour);
                 }
             }
-            if column.y_offset == 255 {
-                xtmp += 1;
-            }
+        }
+
+        if column.y_offset == 255 {
+            src_col += 1;
         }
     }
 }

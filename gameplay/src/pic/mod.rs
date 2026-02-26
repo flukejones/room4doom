@@ -566,6 +566,11 @@ impl PicData {
     }
 
     #[inline(always)]
+    pub const fn wad_palette(&self) -> &WadPalette {
+        &self.palettes[self.use_pallette]
+    }
+
+    #[inline(always)]
     pub fn set_palette(&mut self, num: usize) {
         self.use_pallette = num.min(self.palettes.len() - 1);
     }

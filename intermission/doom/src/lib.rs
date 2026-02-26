@@ -1,12 +1,14 @@
 //! Display the end-of-level statistics for the player and the next level's name
 
 use crate::defs::{
-    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations
+    AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State, animations,
 };
 use gameplay::{TICRATE, m_random};
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, WorldEndPlayerInfo, WorldInfo
+    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, WorldEndPlayerInfo,
+    WorldInfo,
 };
+use hud_util::{draw_patch, fullscreen_scale};
 use log::warn;
 use wad::WadData;
 use wad::types::{WadPalette, WadPatch};
@@ -18,7 +20,7 @@ mod stat_state;
 
 const EP4_BG: &str = "INTERPIC";
 const COMMERCIAL_BG: &str = "INTERPIC";
-const TITLE_Y: i32 = 2;
+const TITLE_Y: f32 = 2.0;
 
 pub struct Intermission {
     palette: WadPalette,
@@ -149,6 +151,12 @@ impl Intermission {
         }
     }
 
+    /// Draw the fullscreen background patch, clearing the buffer first and centering.
+    pub(crate) fn draw_bg(&self, x_offset: f32, sx: f32, sy: f32, buffer: &mut impl DrawBuffer) {
+        buffer.buf_mut().fill(0);
+        draw_patch(self.get_bg(), x_offset, 0.0, sx, sy, &self.palette, buffer);
+    }
+
     pub(crate) fn get_bg(&self) -> &WadPatch {
         self.bg_patches
             .get(self.current_bg)
@@ -238,17 +246,26 @@ impl Intermission {
         }
     }
 
-    fn draw_animated_bg_pixels(&self, scale: i32, pixels: &mut impl DrawBuffer) {
+    fn draw_animated_bg_pixels(
+        &self,
+        x_offset: f32,
+        sx: f32,
+        sy: f32,
+        pixels: &mut impl DrawBuffer,
+    ) {
         if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
 
         for anim in self.animations[self.level_info.episode].iter() {
             if anim.counter >= 0 {
-                self.draw_patch_pixels(
+                draw_patch(
                     &anim.patches[anim.counter as usize],
-                    anim.location.0 * scale,
-                    anim.location.1 * scale,
+                    x_offset + anim.location.0 as f32 * sx,
+                    anim.location.1 as f32 * sy,
+                    sx,
+                    sy,
+                    &self.palette,
                     pixels,
                 );
             }
@@ -346,18 +363,18 @@ impl SubsystemTrait for Intermission {
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        let scale = buffer.size().height() / 200;
+        let (sx, sy) = fullscreen_scale(buffer);
+        let x_ofs = ((buffer.size().width_f32() - 320.0 * sx) / 2.0).floor();
 
-        // TODO: stats and next are two different screens.
         match self.state {
             State::StatCount => {
-                self.draw_stats_pixels(scale, buffer);
+                self.draw_stats_pixels(x_ofs, sx, sy, buffer);
             }
             State::NextLoc => {
-                self.draw_next_loc_pixels(scale, buffer);
+                self.draw_next_loc_pixels(x_ofs, sx, sy, buffer);
             }
             State::None => {
-                self.draw_no_state(scale, buffer);
+                self.draw_no_state(x_ofs, sx, sy, buffer);
             }
         }
     }

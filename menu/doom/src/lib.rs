@@ -5,7 +5,7 @@
 //! a different menu.
 
 use gamestate_traits::{DrawBuffer, GameMode, GameTraits, Scancode, Skill, SubsystemTrait};
-use hud_util::{draw_patch, hud_scale};
+use hud_util::{draw_patch, fullscreen_scale, hud_scale};
 use sound_traits::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
@@ -349,17 +349,23 @@ impl MenuDoom {
 
         if self.active || self.in_help {
             let active = &self.menus[self.current_menu as usize];
-            // Full-screen readthis/help pages: scale uniformly to fit buffer
             let is_fullscreen = active.titles.is_empty() && active.y == 0;
-            let draw_sy = if is_fullscreen { sx } else { sy };
+
+            // Full-screen readthis/help pages: use CRT-correct aspect
+            let (draw_sx, draw_sy) = if is_fullscreen {
+                pixels.buf_mut().fill(0);
+                fullscreen_scale(pixels)
+            } else {
+                (sx, sy)
+            };
 
             // Titles
             for item in active.titles.iter() {
                 draw_patch(
                     self.get_patch(&item.patch),
-                    item.x as f32 * sx,
+                    item.x as f32 * draw_sx,
                     item.y as f32 * draw_sy,
-                    sx,
+                    draw_sx,
                     draw_sy,
                     &self.palette,
                     pixels,
@@ -368,9 +374,9 @@ impl MenuDoom {
             // sub-items
             let x = if is_fullscreen {
                 // Fullscreen patches (320x200) — center in buffer
-                (pixels.size().width_f32() - 320.0 * sx) / 2.0
+                (pixels.size().width_f32() - 320.0 * draw_sx) / 2.0
             } else {
-                active.x as f32 * sx
+                active.x as f32 * draw_sx
             };
             let mut y = active.y as f32 * draw_sy;
             for item in active.items.iter() {
@@ -378,7 +384,7 @@ impl MenuDoom {
                     self.get_patch(&item.patch),
                     x,
                     y,
-                    sx,
+                    draw_sx,
                     draw_sy,
                     &self.palette,
                     pixels,

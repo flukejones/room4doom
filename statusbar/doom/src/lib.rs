@@ -16,6 +16,10 @@ use wad::types::{WadPalette, WadPatch};
 
 mod faces;
 
+const FACE_X_OFFSET: f32 = -4.0;
+const FACE_Y_OFFSET: f32 = 2.0;
+const FACE_UPPER_Y: f32 = 1.0;
+
 pub struct Statusbar {
     screen_width: f32,
     screen_height: f32,
@@ -266,18 +270,17 @@ impl Statusbar {
 
         let patch = self.faces.get_face();
 
-        let offset_x = patch.width as f32 * sx / 2.0;
-        let offset_y = patch.height as f32 * sy;
         if upper || big {
             x = self.screen_width / 2.0 - patch.width as f32 * sx / 2.0;
             y = if upper {
-                1.0
+                FACE_UPPER_Y * sy
             } else {
                 self.screen_height - patch.height as f32 * sy
             };
         } else {
-            x = offset_x;
-            y = self.screen_height - offset_y;
+            // Position in Doom's 320x200 space, scaled to screen
+            x = (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
+            y = self.screen_height - (patch.height as f32 + FACE_Y_OFFSET) * sy;
         };
         draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
     }
