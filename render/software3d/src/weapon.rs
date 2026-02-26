@@ -15,6 +15,9 @@ const ORIGINAL_WIDTH: f32 = 320.0;
 const ORIGINAL_HEIGHT: f32 = 200.0;
 const ORIGINAL_HALF_WIDTH: f32 = ORIGINAL_WIDTH / 2.0; // 160.0
 const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
+/// Doom rendered 320x200 but displayed on 4:3 CRT as 320x240,
+/// making each pixel 1.2x taller than wide.
+const CRT_STRETCH: f32 = 240.0 / 200.0;
 
 /// Convert a distance/offset from Doom's 320-wide coordinate space to screen pixels.
 #[inline(always)]
@@ -22,10 +25,11 @@ fn scale_x(original: f32, screen_width: f32) -> f32 {
     original * (screen_width / ORIGINAL_WIDTH)
 }
 
-/// Convert a distance/offset from Doom's 200-tall coordinate space to screen pixels.
+/// Convert a distance/offset from Doom's 200-tall coordinate space to screen pixels,
+/// including the 1.2x CRT vertical stretch.
 #[inline(always)]
 fn scale_y(original: f32, screen_height: f32) -> f32 {
-    original * (screen_height / ORIGINAL_HEIGHT)
+    original * (screen_height / ORIGINAL_HEIGHT) * CRT_STRETCH
 }
 
 impl Software3D {
@@ -104,8 +108,11 @@ impl Software3D {
 
         // texture_mid positions the sprite vertically in 200px space.
         // 100 = vertical center of 200px; top_offset anchors the sprite within the patch.
+        // Position uses base scaling (no CRT stretch) so the anchor stays at the
+        // correct screen location; only the sprite height is CRT-stretched.
         let texture_mid = ORIGINAL_HALF_HEIGHT - (psp.sy - patch.top_offset as f32);
-        let y1 = screen_h * 0.5 - scale_y(texture_mid, screen_h);
+        let base_scale = screen_h / ORIGINAL_HEIGHT;
+        let y1 = screen_h * 0.5 - texture_mid * base_scale;
         let y2 = y1 + scale_y(sprite_rows as f32, screen_h);
 
         // Early reject if entirely off-screen

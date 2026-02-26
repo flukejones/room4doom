@@ -116,11 +116,13 @@ impl Software3D {
     /// Sets the field of view and updates the projection matrix.
     pub fn set_fov(&mut self, fov: f32) {
         self.fov = fov;
-        // let aspect = self.width as f32 / self.height as f32;
-        let stretched_height = self.height as f32 * (240.0 / 200.0); // 1.2x vertical
-        let aspect = self.width as f32 / stretched_height;
+        let aspect = self.width as f32 / self.height as f32;
         self.projection_matrix =
             Mat4::perspective_rh_gl(fov * 0.75, aspect, self.near_z, self.far_z);
+        // CRT stretch: Doom rendered 320x200 but displayed on 4:3 CRT as 320x240,
+        // making each pixel 1.2x taller than wide. Scale the projection's Y axis
+        // to replicate this.
+        self.projection_matrix.y_axis.y *= 240.0 / 200.0;
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
