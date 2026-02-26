@@ -250,6 +250,10 @@ impl Think for FloorMove {
             {
                 floor.sector.special = floor.newspecial;
                 floor.sector.floorpic = floor.texture;
+                level
+                    .map_data
+                    .bsp_3d
+                    .update_floor_texture(floor.sector.num as usize, floor.texture);
             }
 
             floor.sector.specialdata = None;

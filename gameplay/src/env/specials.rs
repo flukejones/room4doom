@@ -220,11 +220,11 @@ pub fn move_plane(
                     if sector.floorheight - speed < dest {
                         let last_pos = sector.floorheight;
                         sector.floorheight = dest;
-                        bsp3d.move_vertices(sector_num, MovementType::Floor, dest);
+                        bsp3d.move_surface(sector_num, MovementType::Floor, dest, sector.floorpic);
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Floor, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
@@ -232,13 +232,13 @@ pub fn move_plane(
                         // COULD GET CRUSHED
                         let last_pos = sector.floorheight;
                         sector.floorheight -= speed;
-                        bsp3d.move_vertices(sector_num, MovementType::Floor, sector.floorheight);
+                        bsp3d.move_surface(sector_num, MovementType::Floor, sector.floorheight, sector.floorpic);
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Floor, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -253,24 +253,24 @@ pub fn move_plane(
                     if sector.floorheight + speed > dest {
                         let last_pos = sector.floorheight;
                         sector.floorheight = dest;
-                        bsp3d.move_vertices(sector_num, MovementType::Floor, dest);
+                        bsp3d.move_surface(sector_num, MovementType::Floor, dest, sector.floorpic);
 
                         if change_sector(sector.clone(), crush) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Floor, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         let last_pos = sector.floorheight;
                         sector.floorheight += speed;
-                        bsp3d.move_vertices(sector_num, MovementType::Floor, sector.floorheight);
+                        bsp3d.move_surface(sector_num, MovementType::Floor, sector.floorheight, sector.floorpic);
                         if change_sector(sector.clone(), crush) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Floor, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos, sector.floorpic);
                             change_sector(sector, crush);
                             return PlaneResult::Crushed;
                         }
@@ -291,11 +291,11 @@ pub fn move_plane(
                     if sector.ceilingheight - speed < dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_vertices(sector_num, MovementType::Ceiling, dest);
+                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest, sector.ceilingpic);
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Ceiling, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
                             change_sector(sector.clone(), crush);
                         }
                         return PlaneResult::PastDest;
@@ -303,10 +303,11 @@ pub fn move_plane(
                         // COULD GET CRUSHED
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight -= speed;
-                        bsp3d.move_vertices(
+                        bsp3d.move_surface(
                             sector_num,
                             MovementType::Ceiling,
                             sector.ceilingheight,
+                            sector.ceilingpic,
                         );
 
                         if change_sector(sector.clone(), crush) {
@@ -314,7 +315,7 @@ pub fn move_plane(
                                 return PlaneResult::Crushed;
                             }
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Ceiling, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
                             change_sector(sector.clone(), crush);
                             return PlaneResult::Crushed;
                         }
@@ -329,21 +330,22 @@ pub fn move_plane(
                     if sector.ceilingheight + speed >= dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_vertices(sector_num, MovementType::Ceiling, dest);
+                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest, sector.ceilingpic);
 
                         if change_sector(sector.clone(), crush) {
                             sector.ceilingheight = last_pos;
-                            bsp3d.move_vertices(sector_num, MovementType::Ceiling, last_pos);
+                            bsp3d.move_surface(sector_num, MovementType::Ceiling, last_pos, sector.ceilingpic);
                             change_sector(sector, crush);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         //let last_pos = sector.ceilingheight;
                         sector.ceilingheight += speed;
-                        bsp3d.move_vertices(
+                        bsp3d.move_surface(
                             sector_num,
                             MovementType::Ceiling,
                             sector.ceilingheight,
+                            sector.ceilingpic,
                         );
                         change_sector(sector, crush);
                     }
