@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5E0DC4962E944E72009CF9E5 /* room4doom in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E0DC4952E944E5E009CF9E5 /* room4doom */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		5E0DC4972E944E72009CF9E5 /* multigen in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E0DC4922E944E5E009CF9E5 /* multigen */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		5E0DC4962E944E72009CF9E5 /* room4doom in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E0DC4952E944E5E009CF9E5 /* room4doom */; };
+		5E0DC4972E944E72009CF9E5 /* multigen in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E0DC4922E944E5E009CF9E5 /* multigen */; };
 		5E0DC4992E944EA1009CF9E5 /* doom1.wad in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E0DC4982E944EA1009CF9E5 /* doom1.wad */; };
 		5E87D77D2E4B3A36007759A3 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E87D77C2E4B3A36007759A3 /* SDL2.framework */; };
 		5E87D77E2E4B3A36007759A3 /* SDL2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 5E87D77C2E4B3A36007759A3 /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -58,32 +58,32 @@
 			dstPath = "";
 			dstSubfolderSpec = 6;
 			files = (
-				5E0DC4992E944EA1009CF9E5 /* doom1.wad in CopyFiles */,
 				5E0DC4962E944E72009CF9E5 /* room4doom in CopyFiles */,
 				5E0DC4972E944E72009CF9E5 /* multigen in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		5EF956682E4B4CD1001EFD5A /* CopyFiles */ = {
+		5EF956682E4B4CD1001EFD5A /* Copy Resources */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolderSpec = 7;
 			files = (
+				5E0DC4992E944EA1009CF9E5 /* doom1.wad in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		5E0DC4772E944D74009CF9E5 /* room4doom.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = room4doom.xcodeproj; path = "game-exe/room4doom.xcodeproj"; sourceTree = "<group>"; };
-		5E0DC47D2E944D87009CF9E5 /* multigen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = multigen.xcodeproj; path = multigen/multigen.xcodeproj; sourceTree = "<group>"; };
-		5E0DC4982E944EA1009CF9E5 /* doom1.wad */ = {isa = PBXFileReference; lastKnownFileType = file; path = doom1.wad; sourceTree = "<group>"; };
+		5E0DC4772E944D74009CF9E5 /* room4doom.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = room4doom.xcodeproj; path = "../../game-exe/room4doom.xcodeproj"; sourceTree = "<group>"; };
+		5E0DC47D2E944D87009CF9E5 /* multigen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = multigen.xcodeproj; path = ../../multigen/multigen.xcodeproj; sourceTree = "<group>"; };
+		5E0DC4982E944EA1009CF9E5 /* doom1.wad */ = {isa = PBXFileReference; lastKnownFileType = file; name = doom1.wad; path = ../../doom1.wad; sourceTree = "<group>"; };
 		5E87D7432E4B37B2007759A3 /* room4doom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = room4doom.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		5E87D77C2E4B3A36007759A3 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
-		5E87D7882E4B3E07007759A3 /* SDL2_mixer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2_mixer.framework; path = ../../../../../Library/Frameworks/SDL2_mixer.framework; sourceTree = "<group>"; };
-		5E87D78F2E4B3E07007759A3 /* ogg.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ogg.framework; path = ../../../../../Library/Frameworks/ogg.framework; sourceTree = "<group>"; };
-		5E87D7902E4B3E07007759A3 /* wavpack.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = wavpack.framework; path = ../../../../../Library/Frameworks/wavpack.framework; sourceTree = "<group>"; };
+		5E87D77C2E4B3A36007759A3 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
+		5E87D7882E4B3E07007759A3 /* SDL2_mixer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2_mixer.framework; path = ../../../../../../../Library/Frameworks/SDL2_mixer.framework; sourceTree = "<group>"; };
+		5E87D78F2E4B3E07007759A3 /* ogg.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ogg.framework; path = ../../../../../../../Library/Frameworks/ogg.framework; sourceTree = "<group>"; };
+		5E87D7902E4B3E07007759A3 /* wavpack.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = wavpack.framework; path = ../../../../../../../Library/Frameworks/wavpack.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -380,7 +380,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PQT6XW4FFN;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -427,7 +427,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PQT6XW4FFN;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
