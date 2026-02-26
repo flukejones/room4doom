@@ -31,6 +31,7 @@ intermission-doom.workspace = true
 hud-doom.workspace = true
 finale-doom.workspace = true
 statusbar-doom.workspace = true
+hud-util.workspace = true
 
 sound-traits.workspace = true
 sound-sdl2.workspace = true

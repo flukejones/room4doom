@@ -262,6 +262,7 @@ version = "0.16.1"
 dependencies = [
  "gameplay",
  "gamestate-traits",
+ "hud-util",
  "log",
  "wad",
 ]
@@ -469,6 +470,7 @@ dependencies = [
  "gamestate",
  "gamestate-traits",
  "hud-doom",
+ "hud-util",
  "input",
  "intermission-doom",
  "menu-doom",

@@ -1,13 +1,11 @@
 use crate::{Intermission, SHOW_NEXT_LOC_DELAY, State, TICRATE, TITLE_Y};
-use gamestate_traits::util::draw_num_pixels;
-use gamestate_traits::{DrawBuffer, GameMode, SubsystemTrait};
+use gamestate_traits::{DrawBuffer, GameMode};
+use hud_util::{draw_num, draw_patch};
 
-const SCREEN_HEIGHT: i32 = 200;
-
-const SP_STATSX: i32 = 50;
-const SP_STATSY: i32 = 50;
-const SP_TIMEX: i32 = 16;
-const SP_TIMEY: i32 = SCREEN_HEIGHT - 32;
+const SP_STATSX: f32 = 50.0;
+const SP_STATSY: f32 = 50.0;
+const SP_TIMEX: f32 = 16.0;
+const SP_TIMEY: f32 = 200.0 - 32.0;
 
 impl Intermission {
     pub(super) fn init_stats(&mut self) {
@@ -31,36 +29,96 @@ impl Intermission {
         }
     }
 
-    pub(super) fn draw_level_finish_pixels(&self, scale: i32, pixels: &mut impl DrawBuffer) {
-        let half = pixels.size().width() / 2;
-        let mut y = TITLE_Y * scale;
-        self.draw_patch_pixels(
+    pub(super) fn draw_level_finish_pixels(
+        &self,
+        x_offset: f32,
+        sx: f32,
+        sy: f32,
+        pixels: &mut impl DrawBuffer,
+    ) {
+        let half = x_offset + 160.0 * sx;
+        let mut y = TITLE_Y * sy;
+        draw_patch(
             &self.patches.finish,
-            half - self.patches.enter.width as i32 * scale / 2,
+            half - self.patches.finish.width as f32 * sx / 2.0,
             y,
+            sx,
+            sy,
+            &self.palette,
             pixels,
         );
-        y += (5 * self.patches.finish.height as i32) / 4 * scale;
+        y += (5.0 * self.patches.finish.height as f32 * sy) / 4.0;
         let patch = self.get_this_level_name();
-        self.draw_patch_pixels(patch, half - patch.width as i32 * scale / 2, y, pixels);
+        draw_patch(
+            patch,
+            half - patch.width as f32 * sx / 2.0,
+            y,
+            sx,
+            sy,
+            &self.palette,
+            pixels,
+        );
     }
 
-    fn draw_percent(&self, p: u32, x: i32, y: i32, pixels: &mut impl DrawBuffer) {
-        self.draw_patch_pixels(&self.patches.percent, x, y, pixels);
-        draw_num_pixels(p, x, y, 0, &self.patches.nums, self, pixels);
+    fn draw_percent(
+        &self,
+        p: u32,
+        x: f32,
+        y: f32,
+        sx: f32,
+        sy: f32,
+        pixels: &mut impl DrawBuffer,
+    ) {
+        draw_patch(
+            &self.patches.percent,
+            x,
+            y,
+            sx,
+            sy,
+            &self.palette,
+            pixels,
+        );
+        draw_num(
+            p,
+            x,
+            y,
+            0,
+            &self.patches.nums,
+            sx,
+            sy,
+            &self.palette,
+            pixels,
+        );
     }
 
-    fn draw_time(&self, t: u32, mut x: i32, y: i32, scale: i32, buffer: &mut impl DrawBuffer) {
+    fn draw_time(
+        &self,
+        t: u32,
+        mut x: f32,
+        y: f32,
+        sx: f32,
+        sy: f32,
+        buffer: &mut impl DrawBuffer,
+    ) {
         let mut div = 1;
         if t <= 61 * 59 {
             loop {
                 let n = (t / div) % 60;
-                x = draw_num_pixels(n, x, y, 1, &self.patches.nums, self, buffer)
-                    - self.patches.colon.width as i32 * scale;
+                x = draw_num(
+                    n,
+                    x,
+                    y,
+                    1,
+                    &self.patches.nums,
+                    sx,
+                    sy,
+                    &self.palette,
+                    buffer,
+                ) - self.patches.colon.width as f32 * sx;
                 div *= 60;
 
                 if div == 60 || t / div != 0 {
-                    self.draw_patch_pixels(&self.patches.colon, x, y, buffer);
+                    draw_patch(&self.patches.colon, x, y, sx, sy, &self.palette, buffer);
                 }
 
                 if t / div == 0 {
@@ -70,61 +128,115 @@ impl Intermission {
         }
     }
 
-    pub(super) fn draw_stats_pixels(&mut self, scale: i32, buffer: &mut impl DrawBuffer) {
-        let width = buffer.size().width();
-        let stats_x = SP_STATSX * scale;
-        let stats_y = SP_STATSY * scale;
-        let time_x = SP_TIMEX * scale;
-        let time_y = SP_TIMEY * scale;
+    pub(super) fn draw_stats_pixels(
+        &mut self,
+        x_ofs: f32,
+        sx: f32,
+        sy: f32,
+        buffer: &mut impl DrawBuffer,
+    ) {
+        let bg_width = 320.0 * sx;
+        let stats_x = SP_STATSX * sx;
+        let stats_y = SP_STATSY * sy;
+        let time_x = SP_TIMEX * sx;
+        let time_y = SP_TIMEY * sy;
 
-        // Background
-        self.draw_patch_pixels(self.get_bg(), 0, 0, buffer);
-        self.draw_animated_bg_pixels(scale, buffer);
-        self.draw_level_finish_pixels(scale, buffer);
+        // Background (fullscreen scale, centered)
+        self.draw_bg(x_ofs, sx, sy, buffer);
+        self.draw_animated_bg_pixels(x_ofs, sx, sy, buffer);
+        self.draw_level_finish_pixels(x_ofs, sx, sy, buffer);
 
-        let mut lh = (3 * self.patches.nums[0].height / 2) as i32;
-        self.draw_patch_pixels(&self.patches.kills, stats_x, stats_y, buffer);
+        let mut lh = (3.0 * self.patches.nums[0].height as f32 / 2.0) * sy;
+        draw_patch(
+            &self.patches.kills,
+            x_ofs + stats_x,
+            stats_y,
+            sx,
+            sy,
+            &self.palette,
+            buffer,
+        );
         self.draw_percent(
             self.player_info.total_kills as u32,
-            width - stats_x,
+            x_ofs + bg_width - stats_x,
             stats_y,
+            sx,
+            sy,
             buffer,
         );
 
         lh += lh;
-        self.draw_patch_pixels(&self.patches.items, stats_x, stats_y + lh, buffer);
+        draw_patch(
+            &self.patches.items,
+            x_ofs + stats_x,
+            stats_y + lh,
+            sx,
+            sy,
+            &self.palette,
+            buffer,
+        );
         self.draw_percent(
             self.player_info.items_collected as u32,
-            width - stats_x,
+            x_ofs + bg_width - stats_x,
             stats_y + lh,
+            sx,
+            sy,
             buffer,
         );
 
         lh += lh;
-        self.draw_patch_pixels(&self.patches.sp_secret, stats_x, stats_y + lh, buffer);
+        draw_patch(
+            &self.patches.sp_secret,
+            x_ofs + stats_x,
+            stats_y + lh,
+            sx,
+            sy,
+            &self.palette,
+            buffer,
+        );
         self.draw_percent(
             self.player_info.secrets_found as u32,
-            width - stats_x,
+            x_ofs + bg_width - stats_x,
             stats_y + lh,
+            sx,
+            sy,
             buffer,
         );
 
-        self.draw_patch_pixels(&self.patches.time, time_x, time_y, buffer);
+        draw_patch(
+            &self.patches.time,
+            x_ofs + time_x,
+            time_y,
+            sx,
+            sy,
+            &self.palette,
+            buffer,
+        );
         self.draw_time(
             self.player_info.level_time / TICRATE as u32,
-            width / 2 - time_x,
+            x_ofs + bg_width / 2.0 - time_x,
             time_y,
-            scale,
+            sx,
+            sy,
             buffer,
         );
 
         if self.level_info.episode < 3 {
-            self.draw_patch_pixels(&self.patches.par, width / 2 + time_x, time_y, buffer);
+            draw_patch(
+                &self.patches.par,
+                x_ofs + bg_width / 2.0 + time_x,
+                time_y,
+                sx,
+                sy,
+                &self.palette,
+                buffer,
+            );
             self.draw_time(
                 self.level_info.partime as u32,
-                width - time_x,
+                x_ofs + bg_width - time_x,
                 time_y,
-                scale,
+                sx,
+                sy,
                 buffer,
             );
         }

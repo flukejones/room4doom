@@ -9,4 +9,5 @@ license.workspace = true
 wad.workspace = true
 gamestate-traits.workspace = true
 gameplay.workspace = true
+hud-util.workspace = true
 log.workspace = true

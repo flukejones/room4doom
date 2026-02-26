@@ -37,6 +37,7 @@ use menu_doom::MenuDoom;
 use render_target::RenderTarget;
 use sound_traits::SoundAction;
 use statusbar_doom::Statusbar;
+use hud_util::{draw_patch, fullscreen_scale};
 use wad::types::WadPatch;
 
 use crate::CLIOptions;
@@ -183,35 +184,11 @@ pub fn d_doom_loop(
 }
 
 fn page_drawer(game: &mut Game, draw_buf: &mut impl DrawBuffer) {
-    let f = draw_buf.size().height() / 200;
-    let start = 0; //draw_buf.size().width() / 2 - 160;
-    let mut ytmp = 0;
-    let mut xtmp = (start - 1).max(0);
-    for column in game.page.cache.columns.iter() {
-        for n in 0..f {
-            for p in column.pixels.iter() {
-                let colour = game.pic_data.palette()[*p];
-                for _ in 0..f {
-                    let x = (xtmp - n) as usize;
-                    if x >= draw_buf.size().width_usize() {
-                        continue;
-                    }
-                    let y = (ytmp + column.y_offset * f) as usize;
-                    draw_buf.set_pixel(
-                        x, // - (image.left_offset as i32),
-                        y, /* - image.top_offset as i32 - 30, */
-                        &colour,
-                    );
-                    ytmp += 1;
-                }
-            }
-            ytmp = 0;
-
-            if column.y_offset == 255 {
-                xtmp += 1;
-            }
-        }
-    }
+    draw_buf.buf_mut().fill(0);
+    let (sx, sy) = fullscreen_scale(draw_buf);
+    let x = (draw_buf.size().width_f32() - 320.0 * sx) / 2.0;
+    let palette = game.pic_data.wad_palette();
+    draw_patch(&game.page.cache, x, 0.0, sx, sy, palette, draw_buf);
 }
 
 /// Does a bunch of stuff in Doom...
