@@ -1,13 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
-#[cfg(feature = "debug_draw")]
-use gameplay::BSP3D;
 use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic, WallType};
-#[cfg(not(feature = "debug_draw"))]
 use glam::Vec2;
-#[cfg(feature = "debug_draw")]
-use glam::{Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
 
 use crate::Software3D;
@@ -347,8 +342,6 @@ impl Software3D {
         brightness: usize,
         pic_data: &mut PicData,
         buffer: &mut impl DrawBuffer,
-        #[cfg(feature = "debug_draw")] bsp3d: &BSP3D,
-        #[cfg(feature = "debug_draw")] outline_color: Option<[u8; 4]>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_polygon");
@@ -522,7 +515,6 @@ impl Software3D {
                             continue;
                         }
                         self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
-                        #[cfg(not(feature = "debug_draw"))]
                         buffer.set_pixel(x, y, &color);
                     } else {
                         if !self
@@ -540,46 +532,9 @@ impl Software3D {
                             pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                         let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
-                        #[cfg(not(feature = "debug_draw"))]
                         buffer.set_pixel(x, y, &color);
                     }
                     did_draw = true;
-                    #[cfg(feature = "debug_draw")]
-                    {
-                        if (y == 0 || x == 0) {
-                            use std::sync::atomic::{AtomicU32, Ordering};
-                            static FIRST_WRITE_COUNT: AtomicU32 = AtomicU32::new(0);
-                            let n = FIRST_WRITE_COUNT.fetch_add(1, Ordering::Relaxed);
-                            if n < 50 {
-                                let poly_id = polygon as *const SurfacePolygon as usize;
-                                let kind = match &polygon.surface_kind {
-                                    SurfaceKind::Vertical { .. } => "WALL",
-                                    SurfaceKind::Horizontal { .. } => "FLAT",
-                                };
-                                eprintln!(
-                                    "EDGE-WRITE x={} y={} inv_z={:.6} poly={:#x} sec={} {} verts={:?}",
-                                    x,
-                                    y,
-                                    edge_inv_w,
-                                    poly_id,
-                                    polygon.sector_id,
-                                    kind,
-                                    polygon.vertices,
-                                );
-                            }
-                        }
-                    }
-                    #[cfg(feature = "debug_draw")]
-                    if outline_color.is_some() {
-                        if self.is_edge_pixel(x as f32, y_f, vertices) {
-                            buffer.set_pixel(x, y, &outline_color.unwrap_or([0, 0, 0, 0]));
-                        } else {
-                            let colourmap =
-                                pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                            buffer.set_pixel(x, y, &color);
-                        }
-                    }
 
                     interp_state.step_x();
                     edge_inv_w += edge_inv_w_dx;
@@ -587,10 +542,6 @@ impl Software3D {
                 }
             }
         }
-
-        // Draw polygon normals after the main polygon rendering (if enabled)
-        #[cfg(feature = "debug_draw")]
-        self.draw_polygon_normals(polygon, bsp3d, buffer);
 
         if did_draw {
             self.polygons_rendered_count += 1;
@@ -760,7 +711,6 @@ impl Software3D {
         }
     }
 
-    #[cfg(feature = "debug_draw")]
     pub(super) fn generate_pseudo_random_colour(&self, id: u32, brightness: usize) -> [u8; 4] {
         // Hash mix
         let mut hash = id.wrapping_mul(0x9E3779B9);
@@ -794,71 +744,8 @@ impl Software3D {
         [r, g, b, 255]
     }
 
-    /// Draw polygon normals as short lines perpendicular to the polygon face
-    #[inline(always)]
-    #[cfg(feature = "debug_draw")]
-    pub(super) fn draw_polygon_normals(
-        &mut self,
-        polygon: &SurfacePolygon,
-        bsp3d: &BSP3D,
-        rend: &mut impl DrawBuffer,
-    ) {
-        if self.screen_vertices_len < 3 || self.inv_w_len < 3 {
-            return;
-        }
-
-        // Calculate the center of the polygon in world space
-        let center = polygon
-            .vertices
-            .iter()
-            .fold(Vec3::ZERO, |acc, &vertex_idx| {
-                acc + bsp3d.vertex_get(vertex_idx)
-            })
-            / polygon.vertices.len() as f32;
-
-        // Calculate normal endpoint (short line outward from face)
-        let normal_length = 8.0; // Length of normal line in world units - adjust for visibility
-        let normal_end = center + polygon.normal * normal_length;
-
-        // Project both center and normal endpoint to screen space
-        let center_clip = self.projection_matrix
-            * self.view_matrix
-            * Vec4::new(center.x, center.y, center.z, 1.0);
-        let normal_end_clip = self.projection_matrix
-            * self.view_matrix
-            * Vec4::new(normal_end.x, normal_end.y, normal_end.z, 1.0);
-
-        if center_clip.w > 0.0 && normal_end_clip.w > 0.0 {
-            let center_ndc = center_clip / center_clip.w;
-            let normal_end_ndc = normal_end_clip / normal_end_clip.w;
-
-            let center_screen = Vec2::new(
-                (center_ndc.x + 1.0) * 0.5 * self.width as f32,
-                (1.0 - center_ndc.y) * 0.5 * self.height as f32,
-            );
-            let normal_end_screen = Vec2::new(
-                (normal_end_ndc.x + 1.0) * 0.5 * self.width as f32,
-                (1.0 - normal_end_ndc.y) * 0.5 * self.height as f32,
-            );
-
-            let center_depth = 1.0 / center_clip.w;
-            let normal_end_depth = 1.0 / normal_end_clip.w;
-
-            // Draw line from center to normal endpoint
-            self.draw_line(
-                center_screen,
-                normal_end_screen,
-                center_depth,
-                normal_end_depth,
-                &[255, 0, 255, 255], // Magenta color for high visibility against textures
-                rend,
-            );
-        }
-    }
-
     /// Draw a line between two screen points with depth testing
     #[inline(always)]
-    #[cfg(feature = "debug_draw")]
     fn draw_line(
         &mut self,
         start: Vec2,
@@ -881,63 +768,36 @@ impl Software3D {
         let y_step = dy / steps as f32;
         let depth_step = (end_depth - start_depth) / steps as f32;
 
+        let w = self.width as usize;
+        let h = self.height as usize;
         for i in 0..=steps {
-            let x = (start.x + x_step * i as f32) as u32 as usize;
-            let y = (start.y + y_step * i as f32) as u32 as usize;
+            let cx = (start.x + x_step * i as f32) as u32 as usize;
+            let cy = (start.y + y_step * i as f32) as u32 as usize;
             let depth = start_depth + depth_step * i as f32;
 
-            if x < self.width as u32 as usize && y < self.height as u32 as usize {
-                if self.depth_buffer.test_and_set_depth_unchecked(x, y, depth) {
-                    rend.set_pixel(x, y, color);
+            // Draw a 2px thick line by writing the pixel and its neighbour below
+            for y in cy..=(cy + 1).min(h - 1) {
+                if cx < w && y < h {
+                    if self.depth_buffer.test_and_set_depth_unchecked(cx, y, depth) {
+                        rend.set_pixel(cx, y, color);
+                    }
                 }
             }
         }
     }
 
-    #[inline(always)]
-    #[cfg(feature = "debug_draw")]
-    fn is_edge_pixel(&self, x: f32, y: f32, screen_poly: &[Vec2]) -> bool {
-        let threshold = 1.0;
-
-        for i in 0..screen_poly.len() {
-            let v1 = screen_poly[i];
-            let v2 = screen_poly[(i + 1) % screen_poly.len()];
-
-            let dist = self.point_to_line_distance(x, y, v1.x, v1.y, v2.x, v2.y);
-            if dist <= threshold {
-                return true;
+    /// Draw all collected polygon outlines as a post-render overlay.
+    /// Called once per frame after all geometry, sprites, and weapons are drawn.
+    pub(super) fn draw_debug_polygon_outlines(&mut self, buffer: &mut impl DrawBuffer) {
+        let outlines = std::mem::take(&mut self.debug_polygon_outlines);
+        for (verts, depths, color) in &outlines {
+            if verts.len() < 3 {
+                continue;
+            }
+            for j in 0..verts.len() {
+                let k = (j + 1) % verts.len();
+                self.draw_line(verts[j], verts[k], depths[j], depths[k], color, buffer);
             }
         }
-        false
-    }
-
-    #[inline(always)]
-    #[cfg(feature = "debug_draw")]
-    fn point_to_line_distance(&self, px: f32, py: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-        let a = px - x1;
-        let b = py - y1;
-        let c = x2 - x1;
-        let d = y2 - y1;
-
-        let dot = a * c + b * d;
-        let len_sq = c * c + d * d;
-
-        if len_sq == 0.0 {
-            return (a * a + b * b).sqrt();
-        }
-
-        let param = dot / len_sq;
-
-        let (xx, yy) = if param < 0.0 {
-            (x1, y1)
-        } else if param > 1.0 {
-            (x2, y2)
-        } else {
-            (x1 + param * c, y1 + param * d)
-        };
-
-        let dx = px - xx;
-        let dy = py - yy;
-        (dx * dx + dy * dy).sqrt()
     }
 }

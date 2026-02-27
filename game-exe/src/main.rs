@@ -56,19 +56,43 @@ fn main() -> Result<(), Box<dyn Error>> {
             let wad_path: PathBuf = options.iwad.clone().into();
             let wad = WadData::new(&wad_path);
             let pic_data = PicData::init(&wad);
-            preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
 
-            if !options.pwad.is_empty() {
+            if let Some(map_num) = options.map {
+                // Single map mode: build PVS for this map, then continue to game
+                // Merge PWADs so BSP hash matches what gameplay will compute
+                let mut wad = wad;
                 for pwad in &options.pwad {
-                    let wad_path: PathBuf = pwad.into();
-                    let wad = WadData::new(&wad_path);
-                    preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
+                    wad.add_file(pwad.into());
                 }
+                let is_commercial = wad.lump_exists("MAP01");
+                let map_name = if is_commercial {
+                    format!("MAP{:02}", map_num)
+                } else {
+                    let episode = options.episode.unwrap_or(1);
+                    format!("E{}M{}", episode, map_num)
+                };
+                info!("Processing PVS for single map: {}", map_name);
+                match process_map_pvs(&wad, &map_name, &pic_data) {
+                    Ok(_) => info!("Successfully processed PVS for {}", map_name),
+                    Err(e) => log::error!("Failed to process PVS for {}: {}", map_name, e),
+                }
+                // Fall through to normal game startup
+            } else {
+                // All maps mode: process everything and exit
+                preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
+
+                if !options.pwad.is_empty() {
+                    for pwad in &options.pwad {
+                        let wad_path: PathBuf = pwad.into();
+                        let wad = WadData::new(&wad_path);
+                        preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
+                    }
+                }
+
+                info!("PVS preprocessing completed. Exiting.");
+                return Ok(());
             }
         }
-
-        info!("PVS preprocessing completed. Exiting.");
-        return Ok(());
     }
 
     let mut user_config = UserConfig::load();
