@@ -1,6 +1,6 @@
 use gameplay::{MapObjFlag, MapObject, PicData, Sector};
 use glam::{Vec2, Vec3, Vec4};
-use math::{Angle, point_to_angle_2};
+use math::point_to_angle_2;
 use render_trait::DrawBuffer;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
@@ -23,10 +23,6 @@ pub(crate) struct SpriteQuad {
     pub(crate) brightness: usize,
     /// Whether this is a shadow/fuzz thing
     pub(crate) is_shadow: bool,
-    /// Flat 1/w depth for the sprite center, used for depth testing.
-    /// A single value for all pixels (like original Doom) prevents the
-    /// billboard from beating the floor depth at its lower screen rows.
-    pub(crate) inv_w: f32,
     /// Distance squared for back-to-front sorting
     depth: f32,
 }
@@ -149,7 +145,6 @@ impl Software3D {
         // Build billboard quad in world space
         // The quad faces the camera (billboarded around Z axis)
         let left_offset = patch.left_offset as f32;
-        let top_offset = patch.top_offset as f32;
 
         // Horizontal span: from (center - left_offset) to (center - left_offset +
         // width) in world units along the camera-right direction
@@ -208,13 +203,11 @@ impl Software3D {
             (light_level + player_extralight).min(15)
         };
 
-        // Project the thing's center to get a flat depth value for the
-        // entire sprite. Using a single inv_w (like original Doom)
+        // Project the thing's center to check if it's in front of the camera
         let clip = *view_proj * Vec4::new(thing.xy.x, thing.xy.y, thing.z, 1.0);
         if clip.w <= 0.0 {
             return None;
         }
-        let inv_w = 1.0 / clip.w;
 
         // Distance squared for sorting (farther = larger = drawn first)
         let dx = thing.xy.x - player_pos.x;
@@ -227,7 +220,6 @@ impl Software3D {
             uvs,
             brightness,
             is_shadow: thing.flags & MapObjFlag::Shadow as u32 != 0,
-            inv_w,
             depth,
         })
     }

@@ -9,7 +9,7 @@ build = "../../build.rs"
 [features]
 default = []
 hprof = []
-debug_draw = []
+render_stats = []
 
 [dependencies]
 glam.workspace = true

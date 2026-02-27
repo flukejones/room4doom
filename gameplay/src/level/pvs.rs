@@ -92,6 +92,32 @@ pub struct PVS {
     blocking_segments: Vec<usize>,
 }
 
+fn format_number(n: usize) -> String {
+    let s = n.to_string();
+    let mut result = String::with_capacity(s.len() + s.len() / 3);
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+    result
+}
+
+fn format_duration(secs: f32) -> String {
+    if secs < 180.0 {
+        format!("{:.1}s", secs)
+    } else if secs < 3600.0 {
+        let mins = (secs / 60.0) as u32;
+        let s = (secs % 60.0) as u32;
+        format!("{}m {:02}s", mins, s)
+    } else {
+        let hours = (secs / 3600.0) as u32;
+        let mins = ((secs % 3600.0) / 60.0) as u32;
+        format!("{}h {:02}m", hours, mins)
+    }
+}
+
 impl PVS {
     // ============================================================================
     // PUBLIC API FUNCTIONS
@@ -298,18 +324,18 @@ impl PVS {
             0.0
         };
 
+        let elapsed_str = format_duration(elapsed);
+        let eta_str = format_duration(remaining_time);
+        let los_pct = if los_total > 0 {
+            (los_passed as f32 / los_total as f32) * 100.0
+        } else {
+            0.0
+        };
+
         print!(
-            "\rPVS Build: {:.1}% | Time: {:.1}s | ETA: {:.1}s | LoS: {}/{} ({:.1}%)",
-            progress,
-            elapsed,
-            remaining_time,
-            los_passed,
-            los_total,
-            if los_total > 0 {
-                (los_passed as f32 / los_total as f32) * 100.0
-            } else {
-                0.0
-            },
+            "\rPVS Build: {:.1}% | Time: {} | ETA: {} | LoS: {}/{} ({:.1}%)",
+            progress, elapsed_str, eta_str,
+            format_number(los_passed), format_number(los_total), los_pct,
         );
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }

@@ -12,13 +12,6 @@ pub struct DepthBuffer {
     /// Screen dimensions
     width: usize,
     height: usize,
-    /// View frustum bounds for clipping
-    view_left: f32,
-    view_right: f32,
-    view_right_usize: usize,
-    view_top: f32,
-    view_bottom: f32,
-    view_bottom_usize: usize,
     /// Number of pixels that have been written to (depth > 0.0)
     covered_pixels: usize,
 }
@@ -33,12 +26,6 @@ impl DepthBuffer {
             depths,
             width,
             height,
-            view_left: 0.0,
-            view_right: width as f32,
-            view_right_usize: width,
-            view_top: 0.0,
-            view_bottom: height as f32,
-            view_bottom_usize: height,
             covered_pixels: 0,
         }
     }
@@ -60,21 +47,7 @@ impl DepthBuffer {
         self.depths = vec![-1.0; size].into_boxed_slice();
         self.width = width;
         self.height = height;
-        self.view_left = 0.0;
-        self.view_right = width as f32;
-        self.view_right_usize = width;
-        self.view_top = 0.0;
-        self.view_bottom = height as f32;
-        self.view_bottom_usize = height;
         self.covered_pixels = 0;
-    }
-
-    /// Set view frustum bounds for clipping
-    pub fn set_view_bounds(&mut self, left: f32, right: f32, top: f32, bottom: f32) {
-        self.view_left = left;
-        self.view_right = right;
-        self.view_top = top;
-        self.view_bottom = bottom;
     }
 
     /// Return true if every pixel has been written at least once.
@@ -126,64 +99,5 @@ impl DepthBuffer {
                 false
             }
         }
-    }
-
-    pub fn is_bbox_covered(
-        &self,
-        x_min: usize,
-        x_max: usize,
-        y_min: usize,
-        y_max: usize,
-        sample_step: usize,
-        poly_depth: f32,
-    ) -> bool {
-        return false;
-        #[cfg(feature = "hprof")]
-        profile!("is_bbox_covered");
-        let step = sample_step.max(1);
-        // let right = x_max.min(self.view_right_usize);
-        let y_max = y_max.min(self.view_bottom_usize);
-
-        for y in (y_min..=y_max).step_by(step) {
-            let row_base = y * self.width;
-            for x in (x_min..x_max).step_by(step) {
-                let idx = row_base + x;
-                let Some(current) = self.depths.get(idx) else {
-                    return false;
-                };
-                if *current < poly_depth {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
-    pub unsafe fn is_bbox_covered_unchecked(
-        &self,
-        x_min: usize,
-        x_max: usize,
-        y_min: usize,
-        y_max: usize,
-        sample_step: usize,
-        poly_depth: f32,
-    ) -> bool {
-        #[cfg(feature = "hprof")]
-        profile!("is_bbox_covered_unchecked");
-        let step = sample_step.max(1);
-        // let right = x_max.min(self.view_right_usize);
-        let y_max = y_max.min(self.view_bottom_usize);
-
-        for y in (y_min..=y_max).step_by(step) {
-            let row_base = y * self.width;
-            for x in (x_min..x_max).step_by(step) {
-                let idx = row_base + x;
-                let current = unsafe { *self.depths.get_unchecked(idx) };
-                if current < poly_depth {
-                    return false;
-                }
-            }
-        }
-        true
     }
 }

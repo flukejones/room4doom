@@ -1,7 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType
+    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
+    SurfacePolygon, WallTexPin, WallType,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -60,9 +61,16 @@ pub struct Software3D {
     // Vertex transformation cache
     vertex_cache: Vec<VertexCache>,
     current_frame_id: u32,
+    polygons_submitted_count: u32,
+    polygons_frustum_clipped_count: u32,
     polygons_early_culled_count: u32,
     polygons_rendered_count: u32,
     polygons_no_draw_count: u32,
+    #[cfg(feature = "render_stats")]
+    render_stats_last_print: std::time::Instant,
+    // Debug overlay: collected screen-space polygon outlines for post-render drawing
+    pub debug_draw_polygon_outlines: bool,
+    debug_polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
 }
 
 impl Software3D {
@@ -93,9 +101,15 @@ impl Software3D {
             clipped_vertices_len: 0,
             vertex_cache: Vec::new(),
             current_frame_id: 0,
+            polygons_submitted_count: 0,
+            polygons_frustum_clipped_count: 0,
             polygons_early_culled_count: 0,
             polygons_rendered_count: 0,
             polygons_no_draw_count: 0,
+            #[cfg(feature = "render_stats")]
+            render_stats_last_print: std::time::Instant::now(),
+            debug_draw_polygon_outlines: false,
+            debug_polygon_outlines: Vec::new(),
         };
         s.set_fov(fov);
         s
@@ -110,7 +124,6 @@ impl Software3D {
 
         self.set_fov(self.fov);
         self.depth_buffer.resize(width as usize, height as usize);
-        self.depth_buffer.set_view_bounds(0.0, width, 0.0, height);
     }
 
     /// Sets the field of view and updates the projection matrix.
@@ -355,84 +368,31 @@ impl Software3D {
             }
         }
 
-        if self.screen_vertices_len >= 3 {
-            if self
-                .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
-            {
-                self.polygons_early_culled_count += 1;
-                return;
-            }
+        if self.screen_vertices_len < 3 {
+            self.polygons_frustum_clipped_count += 1;
+            return;
+        }
 
-            // conservative occlusion test: compute screen bbox and polygon's closest 1/w
-            let mut min_x = f32::INFINITY;
-            let mut max_x = f32::NEG_INFINITY;
-            let mut min_y = f32::INFINITY;
-            let mut max_y = f32::NEG_INFINITY;
-            for i in 0..self.screen_vertices_len {
-                let v = self.screen_vertices_buffer[i];
-                if v.x < min_x {
-                    min_x = v.x
-                }
-                if v.x > max_x {
-                    max_x = v.x
-                }
-                if v.y < min_y {
-                    min_y = v.y
-                }
-                if v.y > max_y {
-                    max_y = v.y
-                }
-            }
+        if self
+            .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
+        {
+            self.polygons_early_culled_count += 1;
+            return;
+        }
 
-            let mut poly_max_inv_w = f32::NEG_INFINITY;
-            for i in 0..self.inv_w_len {
-                let d = self.inv_w_buffer[i];
-                if d > poly_max_inv_w {
-                    poly_max_inv_w = d
-                }
-            }
+        let brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
 
-            let bbox_w = (max_x - min_x).max(0.0) as u32 as usize;
-            let bbox_h = (max_y - min_y).max(0.0) as u32 as usize;
+        // Render the polygon directly - draw_polygon handles any vertex count
+        // via generic edge walking and uses the best triangle for interpolation
+        self.draw_polygon(polygon, brightness, pic_data, buffer);
 
-            if bbox_h > 2
-                && bbox_w > 2
-                && self.depth_buffer.is_bbox_covered(
-                    min_x as u32 as usize,
-                    max_x as u32 as usize,
-                    min_y as u32 as usize,
-                    max_y as u32 as usize,
-                    // sample every N pixels (tune sample_step for perf/accuracy)
-                    bbox_h.min(bbox_w) / 24,
-                    poly_max_inv_w,
-                )
-            {
-                self.polygons_early_culled_count += 1;
-                return;
-            }
-
-            let brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
-
-            // Render the polygon directly - draw_polygon handles any vertex count
-            // via generic edge walking and uses the best triangle for interpolation
-            self.draw_polygon(
-                polygon,
-                brightness,
-                pic_data,
-                buffer,
-                #[cfg(feature = "debug_draw")]
-                bsp3d,
-                #[cfg(feature = "debug_draw")]
-                {
-                    let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-                    Some(
-                        self.generate_pseudo_random_colour(
-                            ptr,
-                            sectors[polygon.sector_id].lightlevel,
-                        ),
-                    )
-                },
-            );
+        if self.debug_draw_polygon_outlines {
+            let verts = self.screen_vertices_buffer[..self.screen_vertices_len].to_vec();
+            let depths = self.inv_w_buffer[..self.inv_w_len].to_vec();
+            let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
+            let color =
+                self.generate_pseudo_random_colour(ptr, sectors[polygon.sector_id].lightlevel);
+            self.debug_polygon_outlines.push((verts, depths, color));
         }
     }
 
@@ -656,10 +616,13 @@ impl Software3D {
 
         self.update_view_matrix(player);
 
+        self.polygons_submitted_count = 0;
+        self.polygons_frustum_clipped_count = 0;
         self.polygons_no_draw_count = 0;
         self.polygons_early_culled_count = 0;
         self.polygons_rendered_count = 0;
         self.depth_buffer.reset();
+        self.debug_polygon_outlines.clear();
 
         let player_pos = if let Some(mobj) = player.mobj() {
             Vec3::new(mobj.xy.x, mobj.xy.y, mobj.z + player.viewheight)
@@ -729,6 +692,7 @@ impl Software3D {
                 .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
             // Render all polygons in optimal depth order
+            self.polygons_submitted_count = visible_polygons.len() as u32;
             for (poly_surface, _) in visible_polygons {
                 self.render_surface_polygon(
                     &poly_surface,
@@ -749,6 +713,24 @@ impl Software3D {
 
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);
+
+            // Debug: draw polygon outlines as post-render overlay
+            if self.debug_draw_polygon_outlines {
+                self.draw_debug_polygon_outlines(buffer);
+            }
+
+            #[cfg(feature = "render_stats")]
+            if self.render_stats_last_print.elapsed().as_secs_f32() >= 1.0 {
+                println!(
+                    "polys: {} submitted, {} frustum-clipped, {} culled, {} depth-rejected, {} rendered",
+                    self.polygons_submitted_count,
+                    self.polygons_frustum_clipped_count,
+                    self.polygons_early_culled_count,
+                    self.polygons_no_draw_count,
+                    self.polygons_rendered_count,
+                );
+                self.render_stats_last_print = std::time::Instant::now();
+            }
         }
     }
 
