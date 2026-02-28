@@ -1,21 +1,22 @@
 use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
-use crate::level::map_defs::{BBox, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
+use crate::map_defs::{
+    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector
+};
 
-use crate::level::bsp3d::BSP3D;
-use crate::log::info;
-use crate::{LineDefFlags, MapPtr, PVS, PicData};
+use crate::MapPtr;
+use crate::bsp3d::BSP3D;
+use crate::flags::LineDefFlags;
+use crate::pvs::PVS;
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use math::{Angle, bam_to_radian, circle_line_collide, fixed_to_float};
 use wad::WadData;
 use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
-
-use super::map_defs::Blockmap;
 
 const IS_OLD_SSECTOR_MASK: u32 = 0x8000;
 pub const IS_SSECTOR_MASK: u32 = 0x80000000;
@@ -180,7 +181,12 @@ impl MapData {
     // None of this is efficient as it iterates over wad data many multiples of
     // times
     /// The level struct *must not move after this*
-    pub fn load(&mut self, map_name: &str, pic_data: &PicData, wad: &WadData) {
+    pub fn load(
+        &mut self,
+        map_name: &str,
+        flat_num_for_name: impl Fn(&str) -> Option<usize>,
+        wad: &WadData,
+    ) {
         let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         if wad.lump_exists("TEXTURE2") {
             let mut pnames2: Vec<WadTexture> = wad.texture_iter("TEXTURE2").collect();
@@ -201,7 +207,7 @@ impl MapData {
         // A lot of what happens here is using the wad data to fill in
         // structures, and then creating (unsafe) internal pointers to everything
         self.vertexes = self.load_vertexes(map_name, wad, extended.as_ref());
-        self.load_sectors(map_name, wad, pic_data);
+        self.load_sectors(map_name, wad, &flat_num_for_name);
         self.load_sidedefs(map_name, wad, &tex_order);
         self.load_linedefs(map_name, wad);
         Self::prepass_fix_vertices(
@@ -255,7 +261,6 @@ impl MapData {
             &self.segments,
             &self.sectors,
             &self.linedefs,
-            pic_data,
         );
 
         if let Some(cached_pvs) = PVS::load_from_cache(
@@ -300,7 +305,12 @@ impl MapData {
         vertexes
     }
 
-    fn load_sectors(&mut self, map_name: &str, wad: &WadData, pic_data: &PicData) {
+    fn load_sectors(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        flat_num_for_name: &impl Fn(&str) -> Option<usize>,
+    ) {
         self.sectors = wad
             .sector_iter(map_name)
             .enumerate()
@@ -309,14 +319,12 @@ impl MapData {
                     i as u32,
                     s.floor_height as f32,
                     s.ceil_height as f32,
-                    pic_data.flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
+                    flat_num_for_name(&s.floor_tex).unwrap_or_else(|| {
                         debug!("Sectors: Did not find flat for {}", s.floor_tex);
-                        // usize::MAX
                         1
                     }),
-                    pic_data.flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
+                    flat_num_for_name(&s.ceil_tex).unwrap_or_else(|| {
                         debug!("Sectors: Did not find flat for {}", s.ceil_tex);
-                        // usize::MAX
                         1
                     }),
                     s.light_level as usize,
@@ -878,7 +886,7 @@ impl BSPTrace {
     /// the side closest to `origin` resulting in an ordered node list where
     /// the first node is the subsector the origin is in.
     #[inline]
-    pub(super) fn find_line_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
+    pub fn find_line_inner(&mut self, node_id: u32, map: &MapData, count: &mut u32) {
         *count += 1;
         if node_id & IS_SSECTOR_MASK != 0 {
             let node = node_id & !IS_SSECTOR_MASK;

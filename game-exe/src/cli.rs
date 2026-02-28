@@ -1,7 +1,38 @@
 use argh::FromArgs;
 use gameplay::{GameOptions, Skill, log};
+use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};
 
 use crate::config::{self, MusicType};
+
+fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
+    let mut opts = DebugDrawOptions::default();
+    for token in input.split(',') {
+        let token = token.trim();
+        if token == "outline" {
+            opts.outline = true;
+        } else if token == "normals" {
+            opts.normals = true;
+        } else if token == "no_depth" {
+            opts.no_depth = true;
+        } else if let Some(hex) = token.strip_prefix("clear_") {
+            opts.clear_colour = parse_hex_colour(hex);
+        } else if let Some(val) = token.strip_prefix("alpha_") {
+            opts.alpha = val.parse().ok();
+        }
+    }
+    opts
+}
+
+fn parse_hex_colour(hex: &str) -> Option<[u8; 4]> {
+    let s = hex.strip_prefix('#').unwrap_or(hex);
+    if s.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+    Some([r, g, b, 255])
+}
 
 /// CLI options for the game-exe
 #[derive(Debug, Clone, FromArgs)]
@@ -66,6 +97,38 @@ pub struct CLIOptions {
     /// preprocess PVS data for loaded WADs and exit
     #[argh(switch)]
     pub preprocess_pvs: bool,
+    /// debug overlay mode (mutually exclusive): sector_id, depth, overdraw,
+    /// wireframe
+    #[argh(option)]
+    pub dbg_draw_overlay: Option<DebugOverlay>,
+    /// debug draw modifiers (comma-separated): outline, normals, clear_<hex>,
+    /// alpha_<0-255>, no_depth
+    #[argh(option)]
+    pub dbg_draw_mod: Option<String>,
+}
+
+impl CLIOptions {
+    pub fn debug_draw(&self) -> DebugDrawOptions {
+        let mut opts = self
+            .dbg_draw_mod
+            .as_deref()
+            .map(parse_debug_draw_mod)
+            .unwrap_or_default();
+
+        match self
+            .dbg_draw_overlay
+            .as_ref()
+            .unwrap_or(&DebugOverlay::None)
+        {
+            DebugOverlay::None => {}
+            DebugOverlay::SectorId => opts.colour_mode = DebugColourMode::SectorId,
+            DebugOverlay::Depth => opts.colour_mode = DebugColourMode::Depth,
+            DebugOverlay::Overdraw => opts.colour_mode = DebugColourMode::Overdraw,
+            DebugOverlay::Wireframe => opts.wireframe = true,
+        }
+
+        opts
+    }
 }
 
 impl From<CLIOptions> for GameOptions {

@@ -12,8 +12,9 @@ mod tests {
     #[test]
     fn test_e1m2_sector129_door_ceiling_moves() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M2", &&PicData::init(&wad), &wad);
+        map.load("E1M2", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &mut map.bsp_3d;
         let initial_positions: Vec<_> = bsp3d.vertices.iter().copied().collect();

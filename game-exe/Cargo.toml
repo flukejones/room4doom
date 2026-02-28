@@ -36,6 +36,7 @@ hud-util.workspace = true
 sound-traits.workspace = true
 sound-sdl2.workspace = true
 render-target.workspace = true
+software3d.workspace = true
 wad.workspace = true
 
 # utility deps

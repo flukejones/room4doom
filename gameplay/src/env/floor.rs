@@ -5,12 +5,13 @@ use std::ptr::{self, null_mut};
 
 use sound_traits::SfxName;
 
-use crate::MapPtr;
+use crate::SectorExt;
 use crate::level::Level;
-use crate::level::flags::LineDefFlags;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
+use map_data::MapPtr;
+use map_data::flags::LineDefFlags;
+use map_data::map_defs::{LineDef, Sector};
 
 use crate::env::specials::{
     PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
@@ -213,7 +214,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
     }
 
@@ -334,7 +335,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
 
         let texture = sec.floorpic;
@@ -384,7 +385,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
 
                 if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                     ptr.set_obj_thinker_ptr();
-                    sec.specialdata = Some(ptr);
+                    sec.set_sector_mover(ptr);
                 }
 
                 ok = true;
@@ -443,7 +444,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();
-                        s2.specialdata = Some(ptr);
+                        s2.set_sector_mover(ptr);
                     }
 
                     // spwan donut hole lowering
@@ -464,7 +465,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();
-                        s2.specialdata = Some(ptr);
+                        s2.set_sector_mover(ptr);
                     }
                     break;
                 }

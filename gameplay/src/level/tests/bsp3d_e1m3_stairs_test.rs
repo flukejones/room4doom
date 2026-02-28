@@ -9,8 +9,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_sectors_have_moving_floors() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -37,8 +38,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_sectors_have_lower_walls_between_steps() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -67,8 +69,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_wall_vertex_sharing() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 

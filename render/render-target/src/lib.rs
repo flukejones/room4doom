@@ -9,7 +9,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
-use software3d::Software3D;
+use software3d::{DebugDrawOptions, Software3D};
 use software25d::Software25D;
 use wipe::Wipe;
 
@@ -44,6 +44,7 @@ impl RenderTarget {
     pub fn new(
         double: bool,
         debug: bool,
+        debug_draw: &DebugDrawOptions,
         canvas: Canvas<Window>,
         render_type: RenderType,
     ) -> RenderTarget {
@@ -84,15 +85,22 @@ impl RenderTarget {
                         buf_width as f32,
                         buf_height as f32,
                         90.0_f32.to_radians(), // TODO: get from config
+                        debug_draw.clone(),
                     ))
                 }
             },
         }
     }
 
-    pub fn resize(self, double: bool, debug: bool, render_type: RenderType) -> Self {
+    pub fn resize(
+        self,
+        double: bool,
+        debug: bool,
+        debug_draw: &DebugDrawOptions,
+        render_type: RenderType,
+    ) -> Self {
         let canvas = self.framebuffer.canvas;
-        Self::new(double, debug, canvas, render_type)
+        Self::new(double, debug, debug_draw, canvas, render_type)
     }
 }
 

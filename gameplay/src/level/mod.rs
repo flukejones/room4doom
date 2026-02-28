@@ -3,21 +3,13 @@
 //!
 //! Some of the state is mirrored from the overall game-exe state, or ref by
 //! pointer.
-pub mod bsp3d;
-pub mod flags;
-pub mod map_data;
-pub mod map_defs;
-pub mod node;
-// Unused for now. Experiment that didn't pan out
-// pub mod portals;
-pub mod pvs;
 pub mod tests;
-pub mod triangulation;
 
 use std::collections::VecDeque;
 use std::ptr;
 
-use pvs::PVS;
+use map_data::pvs::PVS;
+use map_data::{LineDef, MapData, MapPtr};
 use sound_sdl2::SndServerTx;
 use sound_traits::{SfxName, SoundAction};
 use wad::WadData;
@@ -25,12 +17,9 @@ use wad::types::WadThing;
 
 use crate::doom_def::{GameAction, GameMode, MAX_DEATHMATCH_STARTS, MAX_RESPAWNS, MAXPLAYERS};
 use crate::env::platforms::{PlatStatus, Platform};
-use crate::level::map_data::MapData;
 use crate::pic::Button;
 use crate::thinker::ThinkerAlloc;
-use crate::{GameOptions, MapPtr, PicAnimation, PicData, Player, Switches};
-
-use self::map_defs::LineDef;
+use crate::{GameOptions, PicAnimation, PicData, Player, Switches};
 
 /// The level is considered a `World` or sorts. One that exists only
 /// while the player is in it. Another benefit of this structure is
@@ -123,9 +112,6 @@ impl Level {
         players: &mut [Player; MAXPLAYERS],
     ) -> Self {
         let map_data = MapData::default();
-
-        // G_DoReborn
-        // G_CheckSpot
 
         Level {
             map_name: String::new(),
@@ -223,7 +209,8 @@ impl Level {
         pic_data.set_sky_pic(game_mode, self.options.episode, self.options.map);
         self.sky_num = pic_data.sky_num();
 
-        self.map_data.load(map_name, pic_data, wad_data);
+        self.map_data
+            .load(map_name, |name| pic_data.flat_num_for_name(name), wad_data);
         self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;

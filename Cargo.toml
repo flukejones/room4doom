@@ -18,6 +18,8 @@ members = [
     "sound/sdl2",
     "sound/nosnd",
     "sound/opl2_emulator",
+    "map-data",
+    "pvs-tool",
     "multigen",
     "hud-util",
     "hud-messages/doom",
@@ -55,6 +57,7 @@ render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }
 software3d = { path = "./render/software3d" }
 software25d = { path = "./render/software25d" }
+map-data = { path = "./map-data" }
 
 coarse-prof = "0.2"
 glam = "*"
@@ -65,6 +68,10 @@ sdl2 = { git = "https://github.com/flukejones/rust-sdl2", features = [
 ] }
 
 argh = "0.1.12"
+eframe = "0.31"
+egui = "0.31"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 log = { version = "*" }
 simplelog = { version = "*" }
@@ -88,7 +95,7 @@ codegen-units = 1
 
 [profile.dev]
 debug = true
-opt-level = 0
+opt-level = 2
 codegen-units = 1
 
 [profile.bench]

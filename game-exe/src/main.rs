@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut options: CLIOptions = argh::from_env();
 
     TermLogger::init(
-        log::LevelFilter::Info,
+        options.verbose.unwrap_or(log::LevelFilter::Info),
         simplelog::ConfigBuilder::default()
             .set_time_level(log::LevelFilter::Trace)
             .build(),
@@ -205,19 +205,31 @@ fn process_map_pvs(
 
     if !cache_path.exists() {
         let mut map_data = gameplay::MapData::default();
-        map_data.load(map_name, &pic_data, wad);
+        map_data.load(map_name, |name| pic_data.flat_num_for_name(name), wad);
 
         let MapData {
             subsectors,
             segments,
             bsp_3d,
             pvs,
+            sectors,
+            linedefs,
+            nodes,
+            start_node,
             ..
         } = &mut map_data;
 
         // Ensure length is correct
         *pvs = PVS::new(subsectors.len());
-        pvs.build(subsectors, segments, bsp_3d);
+        pvs.build(
+            subsectors,
+            segments,
+            bsp_3d,
+            sectors,
+            linedefs,
+            nodes,
+            *start_node,
+        );
         info!("Saving PVS data to {cache_path:?}");
         map_data.pvs().save_to_file(&cache_path)?;
     } else {

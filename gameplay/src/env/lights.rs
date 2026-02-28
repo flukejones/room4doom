@@ -2,11 +2,11 @@
 
 use std::ptr::null_mut;
 
-use crate::MapPtr;
 use crate::level::Level;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, Sector};
 
 use crate::env::specials::{
     find_max_light_surrounding, find_min_light_surrounding, get_next_sector

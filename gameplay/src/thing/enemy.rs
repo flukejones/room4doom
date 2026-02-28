@@ -17,13 +17,14 @@ use crate::doom_def::{MISSILERANGE, SKULLSPEED};
 use crate::env::doors::{DoorKind, ev_do_door};
 use crate::env::floor::{FloorKind, ev_do_floor};
 use crate::info::{MOBJINFO, StateNum};
-use crate::level::map_defs::{LineDef, SlopeType};
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::PortalZ;
 use crate::{
-    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, MapPtr, Sector, Skill, teleport_move
+    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, Sector, SectorExt, Skill, teleport_move
 };
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, SlopeType};
 use math::{p_random, point_to_angle_2};
 
 use super::movement::SubSectorMinMax;
@@ -52,7 +53,7 @@ fn sound_flood(
 
     sector.validcount = valid_count;
     sector.soundtraversed = sound_blocks + 1;
-    sector.set_sound_target(target.thinker);
+    sector.set_sound_target_thinker(target.thinker);
 
     for line in sector.lines.iter() {
         if line.flags & LineDefFlags::TwoSided as u32 == 0 {

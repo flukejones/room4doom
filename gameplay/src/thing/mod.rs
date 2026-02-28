@@ -19,16 +19,17 @@ use self::movement::SubSectorMinMax;
 use crate::doom_def::{MELEERANGE, MISSILERANGE, MTF_SINGLE_PLAYER};
 use crate::level::Level;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::{MapPtr, Skill};
+use crate::{SectorExt, Skill};
 use glam::Vec2;
 use log::{debug, error, trace, warn};
+use map_data::MapPtr;
 use wad::types::WadThing;
 
 use crate::doom_def::{ActFn, MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};
 use crate::info::{MOBJINFO, MapObjInfo, MapObjKind, STATES, SpriteNum, State, StateNum};
-use crate::level::map_defs::SubSector;
 use crate::player::{Player, PlayerState};
 use crate::utilities::BestSlide;
+use map_data::map_defs::SubSector;
 use math::{Angle, p_random, p_subrandom, point_to_angle_2};
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;

@@ -11,8 +11,9 @@ mod tests {
         use wad::WadData;
 
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M1", &&PicData::init(&wad), &wad);
+        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &mut map.bsp_3d;
 
@@ -396,8 +397,9 @@ mod tests {
         use wad::WadData;
 
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M1", &&PicData::init(&wad), &wad);
+        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         // Find linedef 484
         let _linedef_484 = &map.linedefs[484];

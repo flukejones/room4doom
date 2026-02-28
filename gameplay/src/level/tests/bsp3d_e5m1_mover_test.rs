@@ -9,8 +9,9 @@ mod tests {
     fn test_e5m1_sector24_has_lower_walls() {
         let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E5M1", &&PicData::init(&wad), &wad);
+        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 
@@ -61,8 +62,9 @@ mod tests {
     fn test_e5m1_sector24_wall_properties() {
         let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E5M1", &&PicData::init(&wad), &wad);
+        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 

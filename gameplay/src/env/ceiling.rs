@@ -5,11 +5,12 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxName;
 
-use crate::MapPtr;
+use crate::SectorExt;
 use crate::level::Level;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, Sector};
 
 use crate::env::specials::{PlaneResult, find_highest_ceiling_surrounding, move_plane};
 use crate::env::switch::start_sector_sound;
@@ -120,7 +121,7 @@ pub fn ev_do_ceiling(line: MapPtr<LineDef>, kind: CeilKind, level: &mut Level) -
 
         if let Some(ptr) = level.thinkers.push::<CeilingMove>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
     }
 

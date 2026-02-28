@@ -3,9 +3,10 @@ use std::ptr;
 use glam::Vec2;
 
 use crate::info::MapObjKind;
-use crate::level::map_defs::LineDef;
 use crate::thinker::ThinkerData;
-use crate::{Level, MapObject, MapPtr, Sector};
+use crate::{Level, MapObject, Sector, SectorExt};
+use map_data::MapPtr;
+use map_data::map_defs::LineDef;
 
 use crate::thing::MapObjFlag;
 

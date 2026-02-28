@@ -637,9 +637,9 @@ mod tests {
 
     use crate::doom_def::GameMode;
     use crate::level::Level;
-    use crate::level::map_data::MapData;
     use crate::thinker::{Think, Thinker};
-    use crate::{MAXPLAYERS, PicData, Player};
+    use crate::{MAXPLAYERS, Player};
+    use map_data::MapData;
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
     use std::path::PathBuf;
@@ -670,7 +670,7 @@ mod tests {
     fn bad_stuff_thinking() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
         let (tx, _rx) = channel();
 
         let mut l = unsafe {

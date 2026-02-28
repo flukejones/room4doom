@@ -94,9 +94,11 @@ pub fn d_doom_loop(
 
     // BEGIN SETUP
     set_lookdirs(&options);
+    let debug_draw = options.debug_draw();
     let mut render_target = RenderTarget::new(
         options.hi_res,
         options.dev_parm,
+        &debug_draw,
         canvas,
         options.rendering.unwrap_or_default().into(),
     );
@@ -137,6 +139,7 @@ pub fn d_doom_loop(
                         render_target = render_target.resize(
                             options.hi_res,
                             options.dev_parm,
+                            &debug_draw,
                             options.rendering.unwrap_or_default().into(),
                         );
                         menu = MenuDoom::new(

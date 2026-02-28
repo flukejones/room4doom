@@ -9,10 +9,11 @@ use std::f32::consts::FRAC_PI_2;
 use crate::doom_def::{MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
-use crate::level::map_data::BSPTrace;
-use crate::level::map_defs::LineDef;
 use crate::utilities::{Intercept, PortalZ, path_traverse};
-use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
+use crate::{Angle, LineDefFlags, MapObjKind, MapObject, SectorExt};
+use map_data::MapPtr;
+use map_data::map_data::BSPTrace;
+use map_data::map_defs::LineDef;
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 

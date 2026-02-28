@@ -1,8 +1,5 @@
 use crate::MapPtr;
-use crate::thing::MapObject;
-use crate::thinker::{Thinker, ThinkerData};
 use glam::Vec2;
-use log::error;
 use math::Angle;
 
 /// The graph slope kind when looking at the map from top down.
@@ -43,15 +40,16 @@ pub struct Sector {
     // if == validcount, already checked
     pub validcount: usize,
 
-    // list of mobjs in sector
-    thinglist: Option<*mut Thinker>,
+    /// list of mobjs in sector (opaque pointer to Thinker in gameplay)
+    pub thinglist: Option<*mut ()>,
 
-    // thinker_t for reversable actions
-    pub specialdata: Option<*mut Thinker>,
+    /// thinker_t for reversable actions (opaque pointer to Thinker in gameplay)
+    pub specialdata: Option<*mut ()>,
     pub lines: Vec<MapPtr<LineDef>>,
 
-    // thing that made a sound (or null)
-    sound_target: Option<*mut Thinker>,
+    /// thing that made a sound (or null) (opaque pointer to Thinker in
+    /// gameplay)
+    pub sound_target: Option<*mut ()>,
 }
 
 impl std::fmt::Debug for Sector {
@@ -93,140 +91,7 @@ impl Sector {
         }
     }
 
-    /// Returns false if `func` returns false
-    pub fn run_mut_func_on_thinglist(
-        &mut self,
-        mut func: impl FnMut(&mut MapObject) -> bool,
-    ) -> bool {
-        if let Some(thing) = self.thinglist {
-            #[cfg(feature = "null_check")]
-            if thing.is_null() {
-                std::panic!("thinglist is null when it shouldn't be");
-            }
-            unsafe {
-                if (*thing).should_remove() {
-                    return true;
-                }
-                let mut thing = (*thing).mobj_mut();
-
-                loop {
-                    // Thing might remove itself so grab a copy of s_next here
-                    let next = thing.s_next;
-                    if !func(thing) {
-                        return false;
-                    }
-
-                    if let Some(next) = next {
-                        #[cfg(feature = "null_check")]
-                        if next.is_null() {
-                            std::panic!("thinglist thing.s_next is null when it shouldn't be");
-                        }
-                        // Skip items that may have been marked for removal
-                        if (*next).should_remove() {
-                            continue;
-                        }
-                        thing = (*next).mobj_mut()
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        true
-    }
-
-    pub fn run_func_on_thinglist(&self, mut func: impl FnMut(&MapObject) -> bool) -> bool {
-        if let Some(thing) = self.thinglist {
-            #[cfg(feature = "null_check")]
-            if thing.is_null() {
-                std::panic!("thinglist is null when it shouldn't be");
-            }
-            unsafe {
-                if (*thing).should_remove() {
-                    return true;
-                }
-                let mut thing = (*thing).mobj();
-
-                loop {
-                    // Thing might remove itself so grab a copy of s_next here
-                    let next = thing.s_next;
-                    if !func(thing) {
-                        return false;
-                    }
-
-                    if let Some(next) = next {
-                        #[cfg(feature = "null_check")]
-                        if next.is_null() {
-                            std::panic!("thinglist thing.s_next is null when it shouldn't be");
-                        }
-                        // Skip items that may have been marked for removal
-                        if (*next).should_remove() {
-                            continue;
-                        }
-                        thing = (*next).mobj()
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        true
-    }
-
-    /// Add this thing to the sectors thing list
-    ///
-    /// # Safety
-    /// The `Thinker` pointer *must* be valid, and the `Thinker` must not be
-    /// `Free` or `Remove`
-    pub unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
-        if matches!(
-            (unsafe { &*thing }).data(),
-            ThinkerData::Free | ThinkerData::Remove
-        ) {
-            error!("add_to_thinglist() tried to add a Thinker that was Free or Remove");
-            return;
-        }
-        unsafe { &mut *thing }.mobj_mut().s_prev = None;
-        unsafe { &mut *thing }.mobj_mut().s_next = self.thinglist; // could be null
-
-        if let Some(other) = self.thinglist {
-            unsafe { &mut *other }.mobj_mut().s_prev = Some(thing);
-        }
-
-        self.thinglist = Some(thing);
-    }
-
-    /// Add this thing to this sectors thinglist
-    ///
-    /// # Safety
-    /// Must be called if a thing is ever removed
-    pub unsafe fn remove_from_thinglist(&mut self, thing: &mut Thinker) {
-        if thing.mobj().s_next.is_none() && thing.mobj().s_prev.is_none() {
-            self.thinglist = None;
-        }
-
-        if let Some(next) = thing.mobj().s_next {
-            unsafe { &mut *next }.mobj_mut().s_prev = (*thing).mobj_mut().s_prev;
-            // could also be null
-        }
-
-        if let Some(prev) = thing.mobj().s_prev {
-            unsafe { &mut *prev }.mobj_mut().s_next = thing.mobj_mut().s_next;
-        } else {
-            let mut ss = thing.mobj().subsector.clone();
-            ss.sector.thinglist = thing.mobj().s_next;
-        }
-    }
-
-    pub fn sound_target(&self) -> Option<&mut MapObject> {
-        self.sound_target.map(|m| unsafe { (*m).mobj_mut() })
-    }
-
-    pub fn sound_target_raw(&mut self) -> Option<*mut Thinker> {
-        self.sound_target
-    }
-
-    pub fn set_sound_target(&mut self, target: *mut Thinker) {
+    pub fn set_sound_target(&mut self, target: *mut ()) {
         self.sound_target = Some(target);
     }
 }
@@ -321,8 +186,6 @@ pub struct LineDef {
 
     // if == validcount, already checked
     pub valid_count: usize,
-    // thinker_t for reversable actions
-    // TODO: void*	specialdata: Option<MapPtr<Thinker>>,
 }
 
 impl std::fmt::Debug for LineDef {
@@ -336,7 +199,6 @@ impl std::fmt::Debug for LineDef {
             .field("slopetype", &self.slopetype)
             .field("front_sidedef", &self.front_sidedef)
             .field("back_sidedef", &self.back_sidedef)
-            // .field("valid_count", &self.valid_count)
             .finish_non_exhaustive()
     }
 }
@@ -477,8 +339,6 @@ mod tests {
 
     #[test]
     fn line_side_problem() {
-        // seg.v2.x == 968.0 && seg.v2.y == -2880.0 && seg.v1.x == 832.0 && seg.v1.y ==
-        // -2944.0
         let v1 = Vec2::new(832.0, -2944.0);
         let v2 = Vec2::new(968.0, -2880.0);
 

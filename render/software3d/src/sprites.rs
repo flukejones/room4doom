@@ -1,4 +1,4 @@
-use gameplay::{MapObjFlag, MapObject, PicData, Sector};
+use gameplay::{MapObjFlag, MapObject, PicData, Sector, SectorExt};
 use glam::{Vec2, Vec3, Vec4};
 use math::point_to_angle_2;
 use render_trait::DrawBuffer;

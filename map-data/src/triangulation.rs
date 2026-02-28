@@ -1,4 +1,4 @@
-use crate::{Node, Segment, SubSector};
+use crate::map_defs::{Node, Segment, SubSector};
 use glam::Vec2;
 
 /// Maximum number of vertices allowed in polygon clipping
@@ -110,18 +110,73 @@ fn clip_polygon_with_divlines(mut vertices: Vec<Vec2>, clippers: &[DivLine]) -> 
         }
     }
 
-    // Remove consecutive identical points
+    cleanup_polygon(&mut vertices);
+    vertices
+}
+
+/// Remove near-duplicate vertices, collinear vertices, and discard degenerate
+/// polygons (area < 0.5 map units²). Applied after Sutherland-Hodgman clipping.
+fn cleanup_polygon(vertices: &mut Vec<Vec2>) {
+    const DIST_SQ: f32 = 0.01 * 0.01;
+    const COLLINEAR: f32 = 0.1;
+    const MIN_AREA: f32 = 0.5;
+
+    if vertices.len() < 3 {
+        vertices.clear();
+        return;
+    }
+
+    // 1. Remove near-duplicate consecutive vertices
     let mut i = 0;
-    while i < vertices.len() {
-        let prev_idx = if i == 0 { vertices.len() - 1 } else { i - 1 };
-        if (vertices[i] - vertices[prev_idx]).length_squared() < 1e-6 {
+    while i < vertices.len() && vertices.len() >= 3 {
+        let prev = if i == 0 { vertices.len() - 1 } else { i - 1 };
+        if (vertices[i] - vertices[prev]).length_squared() < DIST_SQ {
             vertices.remove(i);
         } else {
             i += 1;
         }
     }
 
-    vertices
+    if vertices.len() < 3 {
+        vertices.clear();
+        return;
+    }
+
+    // 2. Remove collinear vertices (cross product of adjacent edges ≈ 0)
+    let mut i = 0;
+    while i < vertices.len() && vertices.len() >= 3 {
+        let n = vertices.len();
+        let prev = if i == 0 { n - 1 } else { i - 1 };
+        let next = (i + 1) % n;
+        let a = vertices[prev];
+        let b = vertices[i];
+        let c = vertices[next];
+        let cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+        if cross.abs() < COLLINEAR {
+            vertices.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+
+    if vertices.len() < 3 {
+        vertices.clear();
+        return;
+    }
+
+    // 3. Discard degenerate slivers by area
+    if vertices.len() >= 3 {
+        let n = vertices.len();
+        let mut area = 0.0_f32;
+        for i in 0..n {
+            let j = (i + 1) % n;
+            area += vertices[i].x * vertices[j].y;
+            area -= vertices[j].x * vertices[i].y;
+        }
+        if area.abs() * 0.5 < MIN_AREA {
+            vertices.clear();
+        }
+    }
 }
 
 /// Generate a convex polygon for a subsector by clipping against BSP divlines
@@ -183,6 +238,7 @@ pub fn carve_subsector_polygon(
 
     let n = clipped_points.len();
     if n >= 3 {
+        let mut snapped = vec![false; n];
         for i in 0..n {
             let j = (i + 1) % n;
             let pi = clipped_points[i];
@@ -217,8 +273,14 @@ pub fn carve_subsector_polygon(
                 if (d_i_v1 < NEAR_EXACT_SQ && d_j_v2 < DRIFT_TOLERANCE_SQ)
                     || (d_j_v2 < NEAR_EXACT_SQ && d_i_v1 < DRIFT_TOLERANCE_SQ)
                 {
-                    clipped_points[i] = sv1;
-                    clipped_points[j] = sv2;
+                    if !snapped[i] && !breaks_convexity(&clipped_points, i, sv1) {
+                        clipped_points[i] = sv1;
+                        snapped[i] = true;
+                    }
+                    if !snapped[j] && !breaks_convexity(&clipped_points, j, sv2) {
+                        clipped_points[j] = sv2;
+                        snapped[j] = true;
+                    }
                     break;
                 }
 
@@ -228,22 +290,62 @@ pub fn carve_subsector_polygon(
                 if (d_i_v2 < NEAR_EXACT_SQ && d_j_v1 < DRIFT_TOLERANCE_SQ)
                     || (d_j_v1 < NEAR_EXACT_SQ && d_i_v2 < DRIFT_TOLERANCE_SQ)
                 {
-                    clipped_points[i] = sv2;
-                    clipped_points[j] = sv1;
+                    if !snapped[i] && !breaks_convexity(&clipped_points, i, sv2) {
+                        clipped_points[i] = sv2;
+                        snapped[i] = true;
+                    }
+                    if !snapped[j] && !breaks_convexity(&clipped_points, j, sv1) {
+                        clipped_points[j] = sv1;
+                        snapped[j] = true;
+                    }
                     break;
                 }
             }
         }
+
+        // Remove vertices that were snapped to the same position as a neighbor
+        let mut deduped = Vec::with_capacity(clipped_points.len());
+        for i in 0..clipped_points.len() {
+            let prev = if i == 0 {
+                clipped_points.len() - 1
+            } else {
+                i - 1
+            };
+            if (clipped_points[i] - clipped_points[prev]).length_squared() >= NEAR_EXACT_SQ {
+                deduped.push(clipped_points[i]);
+            }
+        }
+        clipped_points = deduped;
+
+        // Discard polygon if snapping made it degenerate
+        if clipped_points.len() < 3 {
+            return Vec::new();
+        }
+        let mut area = 0.0_f32;
+        for i in 0..clipped_points.len() {
+            let j = (i + 1) % clipped_points.len();
+            area += clipped_points[i].x * clipped_points[j].y;
+            area -= clipped_points[j].x * clipped_points[i].y;
+        }
+        if area.abs() * 0.5 < 0.5 {
+            return Vec::new();
+        }
     }
 
     // 5. Add missing segment vertices that lie on clipped polygon edges
-    let final_polygon = add_missing_edge_vertices(
+    let mut final_polygon = add_missing_edge_vertices(
         &clipped_points,
         segments,
         sector_subsectors,
         all_segments,
         all_subsectors,
     );
+
+    // 6. Remove collinear vertices introduced by drift correction (4b) and
+    // edge insertion (5). Drift snaps to integer segment positions while
+    // the polygon was carved in float space, so cross products of
+    // near-collinear vertices can be non-zero due to precision.
+    cleanup_polygon(&mut final_polygon);
 
     final_polygon
 }
@@ -300,7 +402,7 @@ fn add_missing_edge_vertices(
     segments: &[Segment],
     sector_subsectors: &[Vec<usize>],
     all_segments: &[Segment],
-    all_subsectors: &[crate::level::map_defs::SubSector],
+    all_subsectors: &[SubSector],
 ) -> Vec<Vec2> {
     if polygon.len() < 3 {
         return polygon.to_vec();
@@ -308,6 +410,9 @@ fn add_missing_edge_vertices(
 
     let mut result = polygon.to_vec();
     const EPSILON: f32 = 0.001;
+    // Wider epsilon for duplicate detection — drift correction can snap
+    // vertices to positions that differ by more than EPSILON
+    const DEDUP_EPSILON: f32 = 0.1;
 
     // For each polygon edge, check if any segment vertices lie on it
     for i in 0..polygon.len() {
@@ -327,15 +432,16 @@ fn add_missing_edge_vertices(
         for (segment_idx, segment) in segments.iter().enumerate() {
             checked_segments.insert(segment_idx);
             for seg_vertex in [*segment.v1, *segment.v2] {
-                if check_vertex_on_edge(
+                if let Some(projected) = check_and_project_vertex_on_edge(
                     seg_vertex,
                     edge_start,
                     edge_vector,
                     edge_length_sq,
                     &result,
                     EPSILON,
+                    DEDUP_EPSILON,
                 ) {
-                    edge_vertices.push(seg_vertex);
+                    edge_vertices.push(projected);
                 }
             }
         }
@@ -356,15 +462,16 @@ fn add_missing_edge_vertices(
                         let global_segment = &all_segments[global_idx];
                         checked_segments.insert(global_idx);
                         for seg_vertex in [*global_segment.v1, *global_segment.v2] {
-                            if check_vertex_on_edge(
+                            if let Some(projected) = check_and_project_vertex_on_edge(
                                 seg_vertex,
                                 edge_start,
                                 edge_vector,
                                 edge_length_sq,
                                 &result,
                                 EPSILON,
+                                DEDUP_EPSILON,
                             ) {
-                                edge_vertices.push(seg_vertex);
+                                edge_vertices.push(projected);
                             }
                         }
                     }
@@ -381,10 +488,17 @@ fn add_missing_edge_vertices(
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        // Deduplicate sorted edge vertices (drift correction can create
+        // near-duplicates)
+        edge_vertices.dedup_by(|a, b| (*a - *b).length() < DEDUP_EPSILON);
+
         // Add the sorted edge vertices (excluding the start vertex which is already in
         // result)
         for &vertex in &edge_vertices[1..] {
-            if !result.iter().any(|&v| (v - vertex).length() < EPSILON) {
+            if !result
+                .iter()
+                .any(|&v| (v - vertex).length() < DEDUP_EPSILON)
+            {
                 // Find the correct insertion point in the result polygon
                 let insert_pos = result
                     .iter()
@@ -398,17 +512,23 @@ fn add_missing_edge_vertices(
     result
 }
 
-fn check_vertex_on_edge(
+/// Check if a segment vertex lies on a polygon edge. If so, return the vertex
+/// projected exactly onto the edge line to guarantee collinearity.
+fn check_and_project_vertex_on_edge(
     seg_vertex: Vec2,
     edge_start: Vec2,
     edge_vector: Vec2,
     edge_length_sq: f32,
     result: &[Vec2],
     epsilon: f32,
-) -> bool {
-    // Skip if vertex is already in the result polygon
-    if result.iter().any(|&v| (v - seg_vertex).length() < epsilon) {
-        return false;
+    dedup_epsilon: f32,
+) -> Option<Vec2> {
+    // Skip if vertex is already in the result polygon (wider tolerance for drift)
+    if result
+        .iter()
+        .any(|&v| (v - seg_vertex).length() < dedup_epsilon)
+    {
+        return None;
     }
 
     // Check if segment vertex lies on the edge
@@ -417,164 +537,76 @@ fn check_vertex_on_edge(
 
     // Check if the projection is within the edge bounds
     if projection >= -epsilon && projection <= 1.0 + epsilon {
-        // Check if the vertex is actually on the line (not just on the extended line)
         let projected_point = edge_start + edge_vector * projection;
         let distance_to_line = (seg_vertex - projected_point).length();
 
-        distance_to_line < epsilon
+        if distance_to_line < epsilon {
+            // Return the projected point — exactly on the edge line
+            Some(projected_point)
+        } else {
+            None
+        }
     } else {
-        false
+        None
     }
+}
+
+/// Check if moving `polygon[idx]` to `new_pos` would flip the winding at
+/// that vertex or its neighbors. The polygon from S-H is convex (CW in
+/// Doom's coordinate system, negative cross products). A snap that produces
+/// a positive cross product breaks convexity.
+fn breaks_convexity(polygon: &[Vec2], idx: usize, new_pos: Vec2) -> bool {
+    let n = polygon.len();
+    if n < 3 {
+        return false;
+    }
+    // Check the three triplets that include the moved vertex:
+    // (prev, idx, next), (prev2, prev, idx), (idx, next, next2)
+    let prev = if idx == 0 { n - 1 } else { idx - 1 };
+    let next = (idx + 1) % n;
+    let prev2 = if prev == 0 { n - 1 } else { prev - 1 };
+    let next2 = (next + 1) % n;
+
+    // Determine original winding from first non-degenerate triplet
+    let mut winding_sign = 0.0_f32;
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        let c = polygon[(i + 2) % n];
+        let cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+        if cross.abs() > 1e-4 {
+            winding_sign = cross.signum();
+            break;
+        }
+    }
+    if winding_sign == 0.0 {
+        return false;
+    }
+
+    let triplets = [
+        (polygon[prev2], polygon[prev], new_pos),
+        (polygon[prev], new_pos, polygon[next]),
+        (new_pos, polygon[next], polygon[next2]),
+    ];
+    for (a, b, c) in triplets {
+        let cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+        // If the cross product flips sign (beyond noise), convexity is broken
+        if cross * winding_sign < -1e-4 {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use glam::Vec2;
 
-    use crate::level::triangulation::{carve_subsector_polygon, clip_polygon_with_divlines};
-    use crate::{DivLine, Segment};
+    use super::{DivLine, clip_polygon_with_divlines};
 
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
-
-    impl DivLine {
-        /// Create a dividing line from a segment
-        fn from_segment(seg: &Segment) -> Self {
-            Self {
-                x: seg.v1.x,
-                y: seg.v1.y,
-                dx: seg.linedef.delta.x,
-                dy: seg.linedef.delta.y,
-            }
-        }
-    }
-
-    #[test]
-    fn test_e1m2_polygon_generation() {
-        use crate::{MapData, PicData};
-        use wad::WadData;
-
-        let wad = WadData::new(&doom1_wad_path());
-        let mut map = MapData::default();
-        map.load("E1M2", &PicData::init(&wad), &wad);
-
-        // Find subsector for Sector 109 (lift)
-        let target_sector = 109;
-        let mut found_subsector = None;
-
-        for (subsector_id, subsector) in map.subsectors().iter().enumerate() {
-            if subsector.sector.num == target_sector {
-                found_subsector = Some((subsector_id, subsector));
-                break;
-            }
-        }
-
-        if let Some((subsector_id, subsector)) = found_subsector {
-            let start_seg = subsector.start_seg as usize;
-            let end_seg = start_seg + subsector.seg_count as usize;
-
-            println!(
-                "Found sector {} in subsector {}",
-                target_sector, subsector_id
-            );
-            println!("Segment range: {} to {}", start_seg, end_seg);
-
-            if let Some(segments) = map.segments().get(start_seg..end_seg) {
-                println!(
-                    "Processing {} segments for sector {}:",
-                    segments.len(),
-                    target_sector
-                );
-                for (i, segment) in segments.iter().enumerate() {
-                    println!(
-                        "  Segment {}: ({:.3}, {:.3}) -> ({:.3}, {:.3})",
-                        i, segment.v1.x, segment.v1.y, segment.v2.x, segment.v2.y
-                    );
-                }
-
-                let polygon = carve_subsector_polygon(segments, &[], &[], &[], &[]);
-
-                println!(
-                    "Sector {} subsector {} polygon vertices: {}",
-                    target_sector,
-                    subsector_id,
-                    polygon.len()
-                );
-                for (i, vertex) in polygon.iter().enumerate() {
-                    println!("  Vertex {}: ({:.3}, {:.3})", i, vertex.x, vertex.y);
-                }
-
-                println!("Expected vertices for sector {}:", target_sector);
-                println!("  Right side: (-128, 448), (-128, 424), (-128, 384)");
-                println!("  Left side: (-256, 448), (-256, 424), (-256, 384)");
-
-                // Should generate a polygon with vertices from the segments
-                assert!(
-                    polygon.len() >= 3,
-                    "Should have at least 3 vertices for triangulation"
-                );
-            }
-        } else {
-            panic!("Could not find subsector for sector {}", target_sector);
-        }
-
-        // Also test sector 24 linedef 421 to debug missing triangles - find ALL
-        // subsectors
-        let target_sector_24 = 24;
-        let mut found_subsectors_24 = Vec::new();
-
-        for (subsector_id, subsector) in map.subsectors().iter().enumerate() {
-            if subsector.sector.num == target_sector_24 {
-                found_subsectors_24.push((subsector_id, subsector));
-            }
-        }
-
-        if !found_subsectors_24.is_empty() {
-            println!("\n=== DEBUG SECTOR 24 - ALL SUBSECTORS ===");
-            println!(
-                "Found {} subsectors for sector {}",
-                found_subsectors_24.len(),
-                target_sector_24
-            );
-
-            let mut total_segments = 0;
-            for (subsector_id, subsector) in &found_subsectors_24 {
-                let start_seg = subsector.start_seg as usize;
-                let end_seg = start_seg + subsector.seg_count as usize;
-                total_segments += subsector.seg_count as usize;
-
-                println!(
-                    "  Subsector {}: segments {} to {} ({} segments)",
-                    subsector_id, start_seg, end_seg, subsector.seg_count
-                );
-
-                if let Some(segments) = map.segments().get(start_seg..end_seg) {
-                    for (i, segment) in segments.iter().enumerate() {
-                        println!(
-                            "    Segment {}: ({:.3}, {:.3}) -> ({:.3}, {:.3})",
-                            i, segment.v1.x, segment.v1.y, segment.v2.x, segment.v2.y
-                        );
-                    }
-                }
-            }
-
-            println!(
-                "Total segments across all subsectors for sector {}: {}",
-                target_sector_24, total_segments
-            );
-        } else {
-            println!(
-                "Could not find any subsectors for sector {}",
-                target_sector_24
-            );
-        }
-    }
+    // NOTE: WAD-loading tests (test_e1m2_polygon_generation,
+    // test_polygon_generation_e4m7) remain in gameplay crate as integration
+    // tests since they need PicData.
 
     #[test]
     fn test_polygon_clipping() {
@@ -611,58 +643,6 @@ mod tests {
                 i,
                 vertex.x
             );
-        }
-    }
-
-    #[ignore = "Requires registered DOOM"]
-    #[test]
-    fn test_polygon_generation_e4m7() {
-        use crate::{MapData, PicData};
-        use wad::WadData;
-
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let mut map = MapData::default();
-        map.load("E4M7", &PicData::init(&wad), &wad);
-
-        // Test carve_subsector_polygon directly on the first subsector
-        if let Some(subsector) = map.subsectors().get(0) {
-            let start_seg = subsector.start_seg as usize;
-            let end_seg = start_seg + subsector.seg_count as usize;
-
-            if let Some(segments) = map.segments().get(start_seg..end_seg) {
-                // Test basic polygon generation
-                let polygon_no_divlines = carve_subsector_polygon(segments, &[], &[], &[], &[]);
-                assert!(
-                    !polygon_no_divlines.is_empty(),
-                    "Polygon should not be empty"
-                );
-
-                // Test with one simple divline
-                let simple_divline = DivLine {
-                    x: 0.0,
-                    y: 0.0,
-                    dx: 1.0,
-                    dy: 0.0,
-                };
-                let polygon_one_divline =
-                    carve_subsector_polygon(segments, &[simple_divline], &[], &[], &[]);
-                assert!(
-                    !polygon_one_divline.is_empty(),
-                    "Polygon should not be empty with one divline"
-                );
-
-                // Test with the actual segments as divlines
-                let mut segment_divlines = Vec::new();
-                for segment in segments {
-                    segment_divlines.push(DivLine::from_segment(segment));
-                }
-                let polygon_with_segments =
-                    carve_subsector_polygon(segments, &segment_divlines, &[], &[], &[]);
-                assert!(
-                    !polygon_with_segments.is_empty(),
-                    "Polygon should not be empty with segment divlines"
-                );
-            }
         }
     }
 }

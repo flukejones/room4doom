@@ -1,8 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
-    SurfacePolygon, WallTexPin, WallType,
+    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -28,6 +27,70 @@ struct VertexCache {
 const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 const CLIP_VERTICES_LEN: usize = 3;
 const MAX_CLIPPED_VERTICES: usize = 16;
+
+/// Debug colouring mode for polygons.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DebugColourMode {
+    #[default]
+    None,
+    /// Flat colour per sector (hashed from sector_id)
+    SectorId,
+    /// Depth buffer visualisation (near=white, far=black)
+    Depth,
+    /// Overdraw heatmap (brighter = more polygons drawn to that pixel)
+    Overdraw,
+}
+
+/// Mutually-exclusive debug overlay mode (colour visualisation or wireframe).
+/// Used as an argh enum option via `FromStr`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DebugOverlay {
+    #[default]
+    None,
+    SectorId,
+    Depth,
+    Overdraw,
+    Wireframe,
+}
+
+impl std::str::FromStr for DebugOverlay {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sector_id" => Ok(Self::SectorId),
+            "depth" => Ok(Self::Depth),
+            "overdraw" => Ok(Self::Overdraw),
+            "wireframe" => Ok(Self::Wireframe),
+            other => Err(format!(
+                "unknown overlay '{}'. Expected: sector_id, depth, overdraw, wireframe",
+                other
+            )),
+        }
+    }
+}
+
+/// Debug rendering options for the 3D software renderer.
+#[derive(Debug, Clone, Default)]
+pub struct DebugDrawOptions {
+    pub outline: bool,
+    pub normals: bool,
+    pub clear_colour: Option<[u8; 4]>,
+    pub alpha: Option<u8>,
+    pub no_depth: bool,
+    pub colour_mode: DebugColourMode,
+    pub wireframe: bool,
+}
+
+impl DebugDrawOptions {
+    /// Returns true if any debug option is active that affects the rasteriser
+    /// hot loop (alpha blend, depth disable, colour mode, wireframe).
+    pub fn is_active(&self) -> bool {
+        self.alpha.is_some()
+            || self.no_depth
+            || self.colour_mode != DebugColourMode::None
+            || self.wireframe
+    }
+}
 
 /// A 3D software renderer for Doom levels.
 ///
@@ -66,15 +129,18 @@ pub struct Software3D {
     polygons_early_culled_count: u32,
     polygons_rendered_count: u32,
     polygons_no_draw_count: u32,
+    polygons_depth_rejected_count: u32,
     #[cfg(feature = "render_stats")]
     render_stats_last_print: std::time::Instant,
-    // Debug overlay: collected screen-space polygon outlines for post-render drawing
-    pub debug_draw_polygon_outlines: bool,
+    debug_draw: DebugDrawOptions,
+    has_debug_draw: bool,
     debug_polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
+    /// (screen_center, screen_tip, depth) for normal direction lines
+    debug_normal_lines: Vec<(Vec2, Vec2, f32)>,
 }
 
 impl Software3D {
-    pub fn new(width: f32, height: f32, fov: f32) -> Self {
+    pub fn new(width: f32, height: f32, fov: f32, debug_draw: DebugDrawOptions) -> Self {
         let near = 4.0;
         let far = 10000.0;
 
@@ -106,10 +172,13 @@ impl Software3D {
             polygons_early_culled_count: 0,
             polygons_rendered_count: 0,
             polygons_no_draw_count: 0,
+            polygons_depth_rejected_count: 0,
             #[cfg(feature = "render_stats")]
             render_stats_last_print: std::time::Instant::now(),
-            debug_draw_polygon_outlines: false,
+            has_debug_draw: debug_draw.is_active(),
+            debug_draw,
             debug_polygon_outlines: Vec::new(),
+            debug_normal_lines: Vec::new(),
         };
         s.set_fov(fov);
         s
@@ -263,12 +332,40 @@ impl Software3D {
             }
         }
 
-        all_outside_left
+        if all_outside_left
             || all_outside_right
             || all_outside_bottom
             || all_outside_top
             || all_outside_near
             || all_outside_far
+        {
+            return true;
+        }
+
+        // Early sub-pixel rejection: if all vertices are in front of the camera,
+        // estimate projected screen area. Reject if < 1 pixel.
+        // This is conservative — polygons clipped by the near plane may be larger
+        // than estimated, so we only apply this when all w > 0.
+        let c0 = self.clip_vertices[0];
+        let c1 = self.clip_vertices[1];
+        let c2 = self.clip_vertices[2];
+        if c0.w > 0.0 && c1.w > 0.0 && c2.w > 0.0 {
+            let hw = self.width as f32 * 0.5;
+            let hh = self.height as f32 * 0.5;
+            let sx0 = (c0.x / c0.w) * hw;
+            let sy0 = (c0.y / c0.w) * hh;
+            let sx1 = (c1.x / c1.w) * hw;
+            let sy1 = (c1.y / c1.w) * hh;
+            let sx2 = (c2.x / c2.w) * hw;
+            let sy2 = (c2.y / c2.w) * hh;
+            // 2x triangle area via cross product
+            let area = ((sx1 - sx0) * (sy2 - sy0) - (sx2 - sx0) * (sy1 - sy0)).abs();
+            if area < 2.0 {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Calculate screen area of projected polygon vertices
@@ -292,6 +389,50 @@ impl Software3D {
     fn should_cull_polygon_area(&self, screen_vertices: &[Vec2]) -> bool {
         let area = self.calculate_screen_area(screen_vertices);
         area < 1.0 // Cull polygons smaller than 1 pixel
+    }
+
+    /// Hi-Z depth rejection: check if the polygon is entirely behind
+    /// already-drawn geometry using the tiled depth buffer. Conservative —
+    /// only rejects when ALL overlapping tiles are fully covered and the
+    /// polygon's closest depth is behind the farthest first-write in every
+    /// tile. Never produces false rejections.
+    fn is_polygon_depth_occluded(&self) -> bool {
+        let verts = &self.screen_vertices_buffer[..self.screen_vertices_len];
+        let depths = &self.inv_w_buffer[..self.inv_w_len];
+
+        // Find the polygon's closest depth (max 1/w)
+        let mut poly_max_depth: f32 = 0.0;
+        for &d in depths {
+            if d > poly_max_depth {
+                poly_max_depth = d;
+            }
+        }
+        if poly_max_depth <= 0.0 {
+            return false;
+        }
+
+        // Find screen-space bounding box
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+        for v in verts {
+            min_x = min_x.min(v.x);
+            max_x = max_x.max(v.x);
+            min_y = min_y.min(v.y);
+            max_y = max_y.max(v.y);
+        }
+
+        // Clamp to screen bounds
+        let w = self.width as f32;
+        let h = self.height as f32;
+        let x0 = min_x.max(0.0).min(w - 1.0) as usize;
+        let x1 = max_x.max(0.0).min(w - 1.0) as usize;
+        let y0 = min_y.max(0.0).min(h - 1.0) as usize;
+        let y1 = max_y.max(0.0).min(h - 1.0) as usize;
+
+        self.depth_buffer
+            .is_occluded_hiz(x0, y0, x1, y1, poly_max_depth)
     }
 
     /// Render a surface polygon
@@ -373,26 +514,70 @@ impl Software3D {
             return;
         }
 
-        if self
-            .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
-        {
+        if self.should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len]) {
             self.polygons_early_culled_count += 1;
+            return;
+        }
+
+        // Hi-Z depth rejection: skip polygons entirely behind fully-covered tiles
+        if self.is_polygon_depth_occluded() {
+            self.polygons_depth_rejected_count += 1;
             return;
         }
 
         let brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
 
-        // Render the polygon directly - draw_polygon handles any vertex count
-        // via generic edge walking and uses the best triangle for interpolation
-        self.draw_polygon(polygon, brightness, pic_data, buffer);
+        // Render the polygon: dispatch to debug path only when debug options
+        // are active. The fast path has zero debug branches in the inner loop.
+        // Wireframe mode skips fill entirely — outlines are drawn as a post-pass.
+        if self.debug_draw.wireframe {
+            // no fill — outline only
+        } else if self.has_debug_draw {
+            self.draw_polygon_debug(polygon, brightness, pic_data, buffer);
+        } else {
+            self.draw_polygon(polygon, brightness, pic_data, buffer);
+        }
 
-        if self.debug_draw_polygon_outlines {
+        if self.debug_draw.outline || self.debug_draw.wireframe {
             let verts = self.screen_vertices_buffer[..self.screen_vertices_len].to_vec();
             let depths = self.inv_w_buffer[..self.inv_w_len].to_vec();
-            let ptr = (&sectors[polygon.sector_id] as *const Sector as usize) as u32;
-            let color =
-                self.generate_pseudo_random_colour(ptr, sectors[polygon.sector_id].lightlevel);
+            let color = Self::generate_pseudo_random_colour(
+                polygon.sector_id as u32,
+                sectors[polygon.sector_id].lightlevel,
+            );
             self.debug_polygon_outlines.push((verts, depths, color));
+        }
+
+        if self.debug_draw.normals {
+            // Compute world-space polygon center
+            let mut center = Vec3::ZERO;
+            for &vi in &polygon.vertices {
+                center += bsp3d.vertex_get(vi);
+            }
+            center /= polygon.vertices.len() as f32;
+
+            let normal_len = 12.0;
+            let tip = center + polygon.normal * normal_len;
+
+            // Project both points to screen
+            let vp = self.projection_matrix * self.view_matrix;
+            let c_clip = vp * Vec4::new(center.x, center.y, center.z, 1.0);
+            let t_clip = vp * Vec4::new(tip.x, tip.y, tip.z, 1.0);
+
+            if c_clip.w > 0.0 && t_clip.w > 0.0 {
+                let w = self.width as f32;
+                let h = self.height as f32;
+                let c_screen = Vec2::new(
+                    (c_clip.x / c_clip.w + 1.0) * 0.5 * w,
+                    (1.0 - c_clip.y / c_clip.w) * 0.5 * h,
+                );
+                let t_screen = Vec2::new(
+                    (t_clip.x / t_clip.w + 1.0) * 0.5 * w,
+                    (1.0 - t_clip.y / t_clip.w) * 0.5 * h,
+                );
+                let depth = 1.0 / c_clip.w;
+                self.debug_normal_lines.push((c_screen, t_screen, depth));
+            }
         }
     }
 
@@ -616,13 +801,27 @@ impl Software3D {
 
         self.update_view_matrix(player);
 
+        let clear = if self.debug_draw.wireframe && self.debug_draw.clear_colour.is_none() {
+            Some([30, 30, 30, 255])
+        } else {
+            self.debug_draw.clear_colour
+        };
+        if let Some(colour) = clear {
+            let buf = buffer.buf_mut();
+            for pixel in buf.chunks_exact_mut(4) {
+                pixel.copy_from_slice(&colour);
+            }
+        }
+
         self.polygons_submitted_count = 0;
         self.polygons_frustum_clipped_count = 0;
         self.polygons_no_draw_count = 0;
         self.polygons_early_culled_count = 0;
         self.polygons_rendered_count = 0;
+        self.polygons_depth_rejected_count = 0;
         self.depth_buffer.reset();
         self.debug_polygon_outlines.clear();
+        self.debug_normal_lines.clear();
 
         let player_pos = if let Some(mobj) = player.mobj() {
             Vec3::new(mobj.xy.x, mobj.xy.y, mobj.z + player.viewheight)
@@ -638,31 +837,19 @@ impl Software3D {
             let mut visible_sectors: Vec<(usize, usize)> = Vec::new();
             let mut seen_sectors = vec![false; sectors.len()];
 
-            let vis = pvs.get_visible_subsectors(player_subsector_id);
-            if !vis.is_empty() {
-                // Use PVS-based collection
-                for ss in vis.iter() {
-                    let Some(leaf) = bsp_3d.get_subsector_leaf(*ss) else {
-                        continue;
-                    };
-                    if self.is_bbox_outside_fov(&leaf.aabb) {
-                        continue;
-                    }
-                    for poly_surface in &leaf.polygons {
-                        // Collect unique visible sectors for sprite rendering
-                        let sid = poly_surface.sector_id;
-                        if !seen_sectors[sid] {
-                            seen_sectors[sid] = true;
-                            visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
-                        }
-                        if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
-                            if !self.cull_polygon_bounds(&poly_surface, bsp_3d) {
-                                let depth = self.calculate_polygon_depth(poly_surface, bsp_3d);
-                                visible_polygons.push((poly_surface, depth));
-                            }
-                        }
-                    }
-                }
+            if pvs.is_visible(player_subsector_id, player_subsector_id) {
+                // Use PVS + hierarchical BSP traversal
+                self.collect_pvs_visible_polygons(
+                    bsp_3d.root_node(),
+                    bsp_3d,
+                    pvs,
+                    sectors,
+                    player_pos,
+                    player_subsector_id,
+                    &mut visible_polygons,
+                    &mut visible_sectors,
+                    &mut seen_sectors,
+                );
             } else {
                 // Use BSP traversal for collection
                 let root_node = bsp_3d.root_node();
@@ -714,18 +901,24 @@ impl Software3D {
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);
 
-            // Debug: draw polygon outlines as post-render overlay
-            if self.debug_draw_polygon_outlines {
+            // Debug: draw polygon outlines / wireframe as post-render overlay
+            if self.debug_draw.outline || self.debug_draw.wireframe {
                 self.draw_debug_polygon_outlines(buffer);
+            }
+
+            // Debug: draw normal direction lines
+            if self.debug_draw.normals {
+                self.draw_debug_normal_lines(buffer);
             }
 
             #[cfg(feature = "render_stats")]
             if self.render_stats_last_print.elapsed().as_secs_f32() >= 1.0 {
                 println!(
-                    "polys: {} submitted, {} frustum-clipped, {} culled, {} depth-rejected, {} rendered",
+                    "polys: {} submitted, {} frustum-clipped, {} culled, {} early-depth, {} no-draw, {} rendered",
                     self.polygons_submitted_count,
                     self.polygons_frustum_clipped_count,
                     self.polygons_early_culled_count,
+                    self.polygons_depth_rejected_count,
                     self.polygons_no_draw_count,
                     self.polygons_rendered_count,
                 );
@@ -839,5 +1032,93 @@ impl Software3D {
         }
 
         max_inv_w
+    }
+
+    /// Collect visible polygons using PVS + hierarchical BSP node AABB culling.
+    /// Walks the BSP tree, skipping subtrees whose AABB is outside the camera
+    /// frustum. At leaf nodes, checks PVS visibility before processing
+    /// polygons.
+    fn collect_pvs_visible_polygons<'a>(
+        &mut self,
+        node_id: u32,
+        bsp3d: &'a BSP3D,
+        pvs: &PVS,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_subsector_id: usize,
+        polygons: &mut Vec<(&'a SurfacePolygon, f32)>,
+        visible_sectors: &mut Vec<(usize, usize)>,
+        seen_sectors: &mut Vec<bool>,
+    ) {
+        if node_id & IS_SSECTOR_MASK != 0 {
+            // Leaf: subsector
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                (node_id & !IS_SSECTOR_MASK) as usize
+            };
+
+            // PVS check
+            if !pvs.is_visible(player_subsector_id, subsector_id) {
+                return;
+            }
+
+            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+                return;
+            };
+            if self.is_bbox_outside_fov(&leaf.aabb) {
+                return;
+            }
+
+            for poly_surface in &leaf.polygons {
+                let sid = poly_surface.sector_id;
+                if !seen_sectors[sid] {
+                    seen_sectors[sid] = true;
+                    visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
+                }
+                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                    if !self.cull_polygon_bounds(&poly_surface, bsp3d) {
+                        let depth = self.calculate_polygon_depth(poly_surface, bsp3d);
+                        polygons.push((poly_surface, depth));
+                    }
+                }
+            }
+            return;
+        }
+
+        // Internal node: check AABB then recurse both children
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
+            return;
+        };
+
+        // Check node AABB against camera frustum
+        if self.is_bbox_outside_fov(&node.aabb) {
+            return;
+        }
+
+        // Visit front side first (closer to player)
+        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
+        self.collect_pvs_visible_polygons(
+            node.children[side],
+            bsp3d,
+            pvs,
+            sectors,
+            player_pos,
+            player_subsector_id,
+            polygons,
+            visible_sectors,
+            seen_sectors,
+        );
+        self.collect_pvs_visible_polygons(
+            node.children[side ^ 1],
+            bsp3d,
+            pvs,
+            sectors,
+            player_pos,
+            player_subsector_id,
+            polygons,
+            visible_sectors,
+            seen_sectors,
+        );
     }
 }
