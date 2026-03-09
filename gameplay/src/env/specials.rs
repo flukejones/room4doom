@@ -18,7 +18,7 @@ use crate::info::{MOBJINFO, MapObjKind};
 use crate::level::Level;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
-use crate::{Angle, BSP3D, MapObjFlag, MovementType, PicData, SectorExt, TICRATE};
+use crate::{Angle, BSP3D, MapObjFlag, MovementType, PicData, SectorExt, TICRATE, WallType};
 use glam::Vec2;
 use log::{debug, error, trace};
 use map_data::MapPtr;
@@ -836,6 +836,7 @@ pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
                 &level.switch_list,
                 &mut level.button_list,
                 &level.snd_command,
+                &mut level.map_data.bsp_3d,
             );
         }
         46 => {
@@ -847,6 +848,7 @@ pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
                 &level.switch_list,
                 &mut level.button_list,
                 &level.snd_command,
+                &mut level.map_data.bsp_3d,
             );
         }
         47 => {
@@ -861,6 +863,7 @@ pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
                 &level.switch_list,
                 &mut level.button_list,
                 &level.snd_command,
+                &mut level.map_data.bsp_3d,
             );
         }
         _ => {}
@@ -965,16 +968,31 @@ pub fn update_specials(level: &mut Level, pic_data: &mut PicData) {
                         if let Some(t) = b.line.front_sidedef.toptexture.as_mut() {
                             *t = b.texture;
                         }
+                        level.map_data.bsp_3d.update_wall_texture(
+                            b.line.num,
+                            WallType::Upper,
+                            b.texture,
+                        );
                     }
                     ButtonWhere::Middle => {
                         if let Some(t) = b.line.front_sidedef.midtexture.as_mut() {
                             *t = b.texture;
                         }
+                        level.map_data.bsp_3d.update_wall_texture(
+                            b.line.num,
+                            WallType::Middle,
+                            b.texture,
+                        );
                     }
                     ButtonWhere::Bottom => {
                         if let Some(t) = b.line.front_sidedef.bottomtexture.as_mut() {
                             *t = b.texture;
                         }
+                        level.map_data.bsp_3d.update_wall_texture(
+                            b.line.num,
+                            WallType::Lower,
+                            b.texture,
+                        );
                     }
                 }
                 start_sector_sound(&b.line, SfxName::Swtchn, &level.snd_command);
