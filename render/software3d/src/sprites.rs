@@ -50,7 +50,7 @@ impl Software3D {
         let cam_right = Vec2::new(player_angle.sin(), -player_angle.cos());
         let view_proj = self.projection_matrix * self.view_matrix;
 
-        let mut quads: Vec<SpriteQuad> = Vec::new();
+        self.sprite_quads.clear();
 
         for &(sector_id, light_level) in &self.visible_sectors {
             let sector = &sectors[sector_id];
@@ -70,23 +70,26 @@ impl Software3D {
                     player.extralight,
                     pic_data,
                 ) {
-                    quads.push(quad);
+                    self.sprite_quads.push(quad);
                 }
                 true
             });
         }
 
         // Sort back-to-front (farthest first) for painter's algorithm
-        quads.sort_by(|a, b| {
+        self.sprite_quads.sort_by(|a, b| {
             b.depth
                 .partial_cmp(&a.depth)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Render each sprite quad through the polygon pipeline
+        // Take ownership to avoid borrow conflict with &mut self in render_sprite_quad
+        let quads = std::mem::take(&mut self.sprite_quads);
         for quad in &quads {
             self.render_sprite_quad(quad, pic_data, buffer);
         }
+        self.sprite_quads = quads;
     }
 
     /// Build a billboard quad in world space for a sprite

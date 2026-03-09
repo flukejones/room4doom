@@ -20,6 +20,7 @@ mod weapon;
 
 use depth_buffer::DepthBuffer;
 use seg_occluder::SegOccluder;
+use sprites::SpriteQuad;
 
 #[derive(Clone, Copy)]
 struct VertexCache {
@@ -290,6 +291,7 @@ pub struct Software3D {
     seen_sectors: Vec<bool>,
     visible_sectors: Vec<(usize, usize)>,
     visible_polygons: Vec<(*const SurfacePolygon, f32)>,
+    sprite_quads: Vec<SpriteQuad>,
     // Sub-structs
     stats: RenderStats,
     sky: SkyRend,
@@ -329,6 +331,7 @@ impl Software3D {
             seen_sectors: Vec::new(),
             visible_sectors: Vec::new(),
             visible_polygons: Vec::new(),
+            sprite_quads: Vec::with_capacity(64),
             stats: RenderStats::new(),
             sky: SkyRend::new(),
             debug: DebugDraw::new(debug_draw),
