@@ -1033,7 +1033,10 @@ pub fn respawn_specials(level: &mut Level) {
 
         let kind = MapObjKind::from(i);
 
-        let z = if MOBJINFO[i as usize].flags & MapObjFlag::Spawnceiling as u32 != 0 {
+        let z = if MOBJINFO[i as usize]
+            .flags
+            .contains(MapObjFlag::Spawnceiling)
+        {
             ONCEILINGZ
         } else {
             ONFLOORZ

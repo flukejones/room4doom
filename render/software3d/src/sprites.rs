@@ -219,7 +219,7 @@ impl Software3D {
             patch_index,
             uvs,
             brightness,
-            is_shadow: thing.flags & MapObjFlag::Shadow as u32 != 0,
+            is_shadow: thing.flags.contains(MapObjFlag::Shadow),
             depth,
         })
     }

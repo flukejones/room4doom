@@ -45,7 +45,7 @@ impl MapObject {
         source_is_inflictor: bool,
         mut damage: i32,
     ) {
-        if self.flags & MapObjFlag::Shootable as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Shootable) {
             return;
         }
 
@@ -53,11 +53,11 @@ impl MapObject {
             return;
         }
 
-        if self.flags & MapObjFlag::Skullfly as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Skullfly) {
             self.momxy = Vec2::default();
             self.momz = 0.0;
             // extra flag setting here because sometimes float errors stuff it up
-            self.flags &= !(MapObjFlag::Skullfly as u32);
+            self.flags.remove(MapObjFlag::Skullfly);
             self.set_state(self.info.spawnstate);
         }
 
@@ -88,7 +88,7 @@ impl MapObject {
                 source.as_mut().unwrap()
             };
 
-            if self.flags & MapObjFlag::Noclip as u32 == 0 && do_push {
+            if !self.flags.contains(MapObjFlag::Noclip) && do_push {
                 let angle = point_to_angle_2(self.xy, inflict.xy);
                 let mut thrust = damage as f32 * 16.66 / self.info.mass as f32;
                 // make fall forwards sometimes
@@ -115,7 +115,7 @@ impl MapObject {
             }
             // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
             if damage < 1000
-                && (player.status.cheats & PlayerCheat::Godmode as u32 != 0
+                && (player.status.cheats.contains(PlayerCheat::Godmode)
                     || player.status.powers[PowerType::Invulnerability as usize] != 0)
             {
                 return;
@@ -164,8 +164,8 @@ impl MapObject {
             return;
         }
 
-        if p_random() < self.info.painchance && self.flags & MapObjFlag::Skullfly as u32 == 0 {
-            self.flags |= MapObjFlag::Justhit as u32; // FIGHT!!!
+        if p_random() < self.info.painchance && !self.flags.contains(MapObjFlag::Skullfly) {
+            self.flags.insert(MapObjFlag::Justhit); // FIGHT!!!
             self.set_state(self.info.painstate);
         }
 
@@ -191,20 +191,19 @@ impl MapObject {
 
     /// Doom function name `P_KillMobj`
     fn kill(&mut self, mut source: Option<&mut MapObject>) {
-        self.flags &= !(MapObjFlag::Shootable as u32
-            | MapObjFlag::Float as u32
-            | MapObjFlag::Skullfly as u32);
+        self.flags
+            .remove(MapObjFlag::Shootable | MapObjFlag::Float | MapObjFlag::Skullfly);
 
         if self.kind != MapObjKind::MT_SKULL {
-            self.flags &= !(MapObjFlag::Nogravity as u32);
+            self.flags.remove(MapObjFlag::Nogravity);
         }
 
-        self.flags |= MapObjFlag::Corpse as u32 | MapObjFlag::Dropoff as u32;
+        self.flags.insert(MapObjFlag::Corpse | MapObjFlag::Dropoff);
         self.height /= 4.0;
 
         if let Some(source) = source.as_mut() {
             if let Some(player) = source.player_mut() {
-                if self.flags & MapObjFlag::Countkill as u32 != 0 {
+                if self.flags.contains(MapObjFlag::Countkill) {
                     player.total_kills += 1;
                 }
 
@@ -235,7 +234,7 @@ impl MapObject {
         }
 
         if self.player().is_some() {
-            self.flags &= !(MapObjFlag::Solid as u32);
+            self.flags.remove(MapObjFlag::Solid);
         }
 
         if self.health < -self.info.spawnhealth && self.info.xdeathstate != StateNum::None {
@@ -264,7 +263,7 @@ impl MapObject {
                 item,
                 &mut *self.level,
             );
-            (*mobj).flags |= MapObjFlag::Dropped as u32;
+            (*mobj).flags.insert(MapObjFlag::Dropped);
         }
     }
 
@@ -418,7 +417,7 @@ impl MapObject {
                     if !player.give_power(PowerType::Invisibility) {
                         return;
                     }
-                    self.flags |= MapObjFlag::Shadow as u32;
+                    self.flags.insert(MapObjFlag::Shadow);
                     player.message = Some(GOTINVIS);
                     sound = SfxName::Getpow;
                 }
@@ -446,7 +445,7 @@ impl MapObject {
 
                 // Ammo
                 SpriteNum::CLIP => {
-                    if (special.flags & MapObjFlag::Dropped as u32 != 0
+                    if (special.flags.contains(MapObjFlag::Dropped)
                         && !player.give_ammo(AmmoType::Clip, 0, skill))
                         || !player.give_ammo(AmmoType::Clip, 1, skill)
                     {
@@ -520,7 +519,7 @@ impl MapObject {
                 SpriteNum::MGUN => {
                     if !player.give_weapon(
                         WeaponType::Chaingun,
-                        special.flags & MapObjFlag::Dropped as u32 != 0,
+                        special.flags.contains(MapObjFlag::Dropped),
                         skill,
                     ) {
                         return;
@@ -552,7 +551,7 @@ impl MapObject {
                 SpriteNum::SHOT => {
                     if !player.give_weapon(
                         WeaponType::Shotgun,
-                        special.flags & MapObjFlag::Dropped as u32 != 0,
+                        special.flags.contains(MapObjFlag::Dropped),
                         skill,
                     ) {
                         return;
@@ -563,7 +562,7 @@ impl MapObject {
                 SpriteNum::SGN2 => {
                     if !player.give_weapon(
                         WeaponType::SuperShotgun,
-                        special.flags & MapObjFlag::Dropped as u32 != 0,
+                        special.flags.contains(MapObjFlag::Dropped),
                         skill,
                     ) {
                         return;
@@ -578,7 +577,7 @@ impl MapObject {
             // Ensure thing health is synced
             self.health = player.status.health;
 
-            if special.flags & MapObjFlag::Countitem as u32 != 0 {
+            if special.flags.contains(MapObjFlag::Countitem) {
                 player.items_collected += 1;
             }
             special.remove();

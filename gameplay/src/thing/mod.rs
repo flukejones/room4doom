@@ -11,6 +11,7 @@ use sound_traits::SfxName;
 pub(crate) mod enemy;
 mod shooting;
 
+use bitflags::bitflags;
 use std::fmt::Debug;
 use std::ptr::null_mut;
 
@@ -33,77 +34,68 @@ use map_data::map_defs::SubSector;
 use math::{Angle, p_random, p_subrandom, point_to_angle_2};
 
 //static MOBJ_CYCLE_LIMIT: u32 = 1000000;
-#[derive(Debug, PartialEq)]
-pub enum MapObjFlag {
-    /// Call P_SpecialThing when touched.
-    Special = 1,
-    /// Blocks.
-    Solid = 2,
-    /// Can be hit.
-    Shootable = 4,
-    /// Don't use the sector links (invisible but touchable).
-    Nosector = 8,
-    /// Don't use the block links (inert but displayable)
-    Noblockmap = 16,
-    /// Not to be activated by sound, deaf monster.
-    Ambush = 32,
-    /// Will try to attack right back.
-    Justhit = 64,
-    /// Will take at least one step before attacking.
-    Justattacked = 128,
-    /// On level spawning (initial position), hang from ceiling instead of stand
-    /// on floor.
-    Spawnceiling = 256,
-    /// Don't apply gravity (every tic), that is, object will float, keeping
-    /// current height  or changing it actively.
-    Nogravity = 512,
-    /// This allows jumps from high places.
-    Dropoff = 0x400,
-    /// For players, will pick up items.
-    Pickup = 0x800,
-    /// Player cheat. ???
-    Noclip = 0x1000,
-    /// Player: keep info about sliding along walls.
-    Slide = 0x2000,
-    /// Allow moves to any height, no gravity. For active floaters, e.g.
-    /// cacodemons, pain elementals.
-    Float = 0x4000,
-    /// Don't cross lines ??? or look at heights on teleport.
-    Teleport = 0x8000,
-    /// Don't hit same species, explode on block. Player missiles as well as
-    /// fireballs of various kinds.
-    Missile = 0x10000,
-    /// Dropped by a demon, not level spawned. E.g. ammo clips dropped by dying
-    /// former humans.
-    Dropped = 0x20000,
-    /// Use fuzzy draw (shadow demons or spectres),  temporary player
-    /// invisibility powerup.
-    Shadow = 0x40000,
-    /// Flag: don't bleed when shot (use puff),  barrels and shootable furniture
-    /// shall not bleed.
-    Noblood = 0x80000,
-    /// Don't stop moving halfway off a step, that is, have dead bodies slide
-    /// down all the way.
-    Corpse = 0x100000,
-    /// Floating to a height for a move, ??? don't auto float to target's
-    /// height.
-    Infloat = 0x200000,
-    /// On kill, count this enemy object towards intermission kill total. Happy
-    /// gathering.
-    Countkill = 0x400000,
-    /// On picking up, count this item object towards intermission item total.
-    Countitem = 0x800000,
-    /// Special handling: skull in flight. Neither a cacodemon nor a missile.
-    Skullfly = 0x1000000,
-    /// Don't spawn this object in death match mode (e.g. key cards).
-    Notdmatch = 0x2000000,
-    /// Player sprites in multiplayer modes are modified using an internal color
-    /// lookup table for re-indexing. If 0x4 0x8 or 0xc, use a translation
-    /// table for player colormaps
-    Translation = 0xC000000,
-    /// Hmm ???.
-    Transshift = 26,
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct MapObjFlag: u32 {
+        /// Call P_SpecialThing when touched.
+        const Special = 1;
+        /// Blocks.
+        const Solid = 2;
+        /// Can be hit.
+        const Shootable = 4;
+        /// Don't use the sector links (invisible but touchable).
+        const Nosector = 8;
+        /// Don't use the block links (inert but displayable)
+        const Noblockmap = 16;
+        /// Not to be activated by sound, deaf monster.
+        const Ambush = 32;
+        /// Will try to attack right back.
+        const Justhit = 64;
+        /// Will take at least one step before attacking.
+        const Justattacked = 128;
+        /// On level spawning (initial position), hang from ceiling instead of stand on floor.
+        const Spawnceiling = 256;
+        /// Don't apply gravity (every tic), that is, object will float, keeping current height.
+        const Nogravity = 512;
+        /// This allows jumps from high places.
+        const Dropoff = 0x400;
+        /// For players, will pick up items.
+        const Pickup = 0x800;
+        /// Player cheat. ???
+        const Noclip = 0x1000;
+        /// Player: keep info about sliding along walls.
+        const Slide = 0x2000;
+        /// Allow moves to any height, no gravity. For active floaters, e.g. cacodemons.
+        const Float = 0x4000;
+        /// Don't cross lines ??? or look at heights on teleport.
+        const Teleport = 0x8000;
+        /// Don't hit same species, explode on block.
+        const Missile = 0x10000;
+        /// Dropped by a demon, not level spawned.
+        const Dropped = 0x20000;
+        /// Use fuzzy draw (shadow demons or spectres), temporary player invisibility powerup.
+        const Shadow = 0x40000;
+        /// Don't bleed when shot (use puff).
+        const Noblood = 0x80000;
+        /// Don't stop moving halfway off a step, have dead bodies slide down all the way.
+        const Corpse = 0x100000;
+        /// Floating to a height for a move, don't auto float to target's height.
+        const Infloat = 0x200000;
+        /// On kill, count this enemy towards intermission kill total.
+        const Countkill = 0x400000;
+        /// On picking up, count this item towards intermission item total.
+        const Countitem = 0x800000;
+        /// Special handling: skull in flight.
+        const Skullfly = 0x1000000;
+        /// Don't spawn this object in death match mode.
+        const Notdmatch = 0x2000000;
+        /// Player color translation table bits (bits 26-27).
+        const Translation = 0xC000000;
+    }
 }
+
+/// Bit shift for the Translation color field within MapObjFlag.
+pub const TRANSSHIFT: u32 = 26;
 
 pub struct MapObject {
     /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
@@ -159,7 +151,7 @@ pub struct MapObject {
     // TODO: probably only needs to be an index to the array
     //  using the enum as the indexer
     pub state: &'static State,
-    pub flags: u32,
+    pub flags: MapObjFlag,
     pub health: i32,
     /// Movement direction, movement generation (zig-zagging).
     /// 0-7
@@ -372,7 +364,8 @@ impl MapObject {
 
         let mobj_ptr_mut = unsafe { &mut *mobj };
         if mthing.kind > 1 {
-            mobj_ptr_mut.flags |= (mthing.kind as u32 - 1) << MapObjFlag::Transshift as u8;
+            mobj_ptr_mut.flags |=
+                MapObjFlag::from_bits_truncate((mthing.kind as u32 - 1) << TRANSSHIFT);
         }
 
         // TODO: check this angle stuff
@@ -469,7 +462,7 @@ impl MapObject {
 
         // don't spawn keycards and players in deathmatch
         if level.options.deathmatch != 0
-            && MOBJINFO[i as usize].flags & MapObjFlag::Notdmatch as u32 != 0
+            && MOBJINFO[i as usize].flags.contains(MapObjFlag::Notdmatch)
         {
             return;
         }
@@ -478,14 +471,17 @@ impl MapObject {
         let kind = MapObjKind::from(i);
         if no_monsters
             && (kind == MapObjKind::MT_SKULL
-                || MOBJINFO[i as usize].flags & MapObjFlag::Countkill as u32 != 0)
+                || MOBJINFO[i as usize].flags.contains(MapObjFlag::Countkill))
         {
             return;
         }
 
         let x = mthing.x as f32;
         let y = mthing.y as f32;
-        let z = if MOBJINFO[i as usize].flags & MapObjFlag::Spawnceiling as u32 != 0 {
+        let z = if MOBJINFO[i as usize]
+            .flags
+            .contains(MapObjFlag::Spawnceiling)
+        {
             ONCEILINGZ
         } else {
             ONFLOORZ
@@ -496,17 +492,17 @@ impl MapObject {
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
         }
-        if mobj.flags & MapObjFlag::Countkill as u32 != 0 {
+        if mobj.flags.contains(MapObjFlag::Countkill) {
             level.total_level_kills += 1;
         }
-        if mobj.flags & MapObjFlag::Countitem as u32 != 0 {
+        if mobj.flags.contains(MapObjFlag::Countitem) {
             level.total_level_items += 1;
         }
 
         // TODO: check the angle is correct
         mobj.angle = Angle::new((mthing.angle as f32).to_radians());
         if mthing.flags & MTF_AMBUSH != 0 {
-            mobj.flags |= MapObjFlag::Ambush as u32;
+            mobj.flags.insert(MapObjFlag::Ambush);
         }
 
         mobj.spawnpoint = mthing;
@@ -611,7 +607,7 @@ impl MapObject {
 
         mobj.angle = point_to_angle_2(target.xy, source.xy);
         // fuzzy player
-        if target.flags & MapObjFlag::Shadow as u32 != 0 {
+        if target.flags.contains(MapObjFlag::Shadow) {
             mobj.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
 
@@ -748,7 +744,10 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn unset_thing_position(&mut self) {
-        if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
+        if !MOBJINFO[self.kind as usize]
+            .flags
+            .contains(MapObjFlag::Nosector)
+        {
             let mut ss = self.subsector.clone();
             unsafe {
                 ss.sector.remove_from_thinglist(self.thinker_mut());
@@ -763,7 +762,10 @@ impl MapObject {
     pub(crate) unsafe fn set_thing_position(&mut self) {
         let level = unsafe { &mut *self.level };
         let mut subsector = level.map_data.point_in_subsector_raw(self.xy);
-        if MOBJINFO[self.kind as usize].flags & MapObjFlag::Nosector as u32 == 0 {
+        if !MOBJINFO[self.kind as usize]
+            .flags
+            .contains(MapObjFlag::Nosector)
+        {
             unsafe { subsector.sector.add_to_thinglist(self.thinker) }
         }
         self.subsector = subsector;
@@ -772,8 +774,7 @@ impl MapObject {
     /// P_RemoveMobj
     pub(crate) fn remove(&mut self) {
         // Respawn specials for nightmare/deathmatch
-        if (self.flags & MapObjFlag::Special as u32 != 0
-            && self.flags & MapObjFlag::Dropped as u32 == 0)
+        if (self.flags.contains(MapObjFlag::Special) && !self.flags.contains(MapObjFlag::Dropped))
             && (self.kind != MapObjKind::MT_INV && self.kind != MapObjKind::MT_INS)
             && (self.level().options.respawn_monsters || self.level().options.deathmatch != 0)
         {
@@ -831,12 +832,12 @@ impl MapObject {
         }
 
         // crunch dropped items
-        if self.flags & MapObjFlag::Dropped as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Dropped) {
             self.remove();
             return true;
         }
 
-        if self.flags & MapObjFlag::Shootable as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Shootable) {
             // assume it is bloody gibs or something
             return true;
         }
@@ -898,7 +899,7 @@ impl MapObject {
 
         let mthing = self.spawnpoint;
 
-        let z = if self.info.flags & MapObjFlag::Spawnceiling as u32 != 0 {
+        let z = if self.info.flags.contains(MapObjFlag::Spawnceiling) {
             ONCEILINGZ
         } else {
             ONFLOORZ
@@ -911,7 +912,7 @@ impl MapObject {
         thing.spawnpoint = mthing;
         thing.reactiontime = 18;
         if mthing.flags & MTF_AMBUSH != 0 {
-            self.flags |= MapObjFlag::Ambush as u32;
+            self.flags.insert(MapObjFlag::Ambush);
         }
 
         self.remove();
@@ -927,7 +928,7 @@ impl Think for MapObject {
             std::panic!("MapObject thinker was null");
         }
 
-        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || MapObjFlag::Skullfly as u32 != 0 {
+        if this.momxy.x != 0.0 || this.momxy.y != 0.0 || this.flags.contains(MapObjFlag::Skullfly) {
             this.p_xy_movement();
 
             if this.thinker_mut().should_remove() {
@@ -952,7 +953,7 @@ impl Think for MapObject {
             // The corpse is still hanging around like a bad smell since it
             // is a thinker. So...
             // check for nightmare respawn, which will remove *this* if good
-            if this.flags & MapObjFlag::Countkill as u32 == 0 {
+            if !this.flags.contains(MapObjFlag::Countkill) {
                 return false;
             }
             if !level.options.respawn_monsters {

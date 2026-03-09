@@ -101,14 +101,14 @@ impl MapObject {
         if !self.p_try_move(try_move, &mut specs) {
             // open any specials
             // TODO: if (actor->flags & MF_FLOAT && floatok)
-            if self.flags & MapObjFlag::Float as u32 != 0 && specs.floatok {
+            if self.flags.contains(MapObjFlag::Float) && specs.floatok {
                 // must adjust height
                 if self.xyz.z < specs.min_floor_z {
                     self.xyz.z += FLOATSPEED;
                 } else {
                     self.xyz.z -= FLOATSPEED;
                 }
-                self.flags |= MapObjFlag::Infloat as u32;
+                self.flags.insert(MapObjFlag::Infloat);
                 return true;
             }
 
@@ -125,10 +125,10 @@ impl MapObject {
             }
             return good;
         } else {
-            self.flags &= !(MapObjFlag::Infloat as u32);
+            self.flags.remove(MapObjFlag::Infloat);
         }
 
-        if self.flags & MapObjFlag::Float as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Float) {
             self.xyz.z = self.floorz;
         }
 

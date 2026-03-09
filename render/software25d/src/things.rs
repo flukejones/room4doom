@@ -200,7 +200,7 @@ impl Software25D {
 
         let y_scale = self.y_scale;
         let vis = self.new_vissprite();
-        vis.mobj_flags = thing.flags;
+        vis.mobj_flags = thing.flags.bits();
         vis.scale = x_scale * y_scale; // Note: increase Y
         vis.gx = thing.xy.x;
         vis.gy = thing.xy.y;
@@ -254,7 +254,7 @@ impl Software25D {
         let dc_iscale = vis.x_iscale.abs();
         let dc_texmid = vis.texture_mid;
         let mut frac = vis.start_frac;
-        let colourmap = if vis.mobj_flags & MapObjFlag::Shadow as u32 != 0 {
+        let colourmap = if vis.mobj_flags & MapObjFlag::Shadow.bits() != 0 {
             pic_data.colourmap(33)
         } else {
             pic_data.vert_light_colourmap(vis.light_level, vis.scale)
@@ -283,7 +283,7 @@ impl Software25D {
                 draw_masked_column(
                     texture_column,
                     colourmap,
-                    vis.mobj_flags & MapObjFlag::Shadow as u32 != 0,
+                    vis.mobj_flags & MapObjFlag::Shadow.bits() != 0,
                     dc_iscale,
                     self.seg_renderer.centery,
                     x,
@@ -393,7 +393,7 @@ impl Software25D {
 
             for sprite in player.psprites.iter() {
                 if sprite.state.is_some() {
-                    self.draw_player_sprite(sprite, light, mobj.flags, pic_data, rend);
+                    self.draw_player_sprite(sprite, light, mobj.flags.bits(), pic_data, rend);
                 }
             }
         }

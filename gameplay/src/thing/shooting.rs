@@ -33,7 +33,7 @@ impl MapObject {
             self.tics = 1;
         }
 
-        self.flags &= !(MapObjFlag::Missile as u32);
+        self.flags.remove(MapObjFlag::Missile);
 
         if self.info.deathsound != SfxName::None {
             self.start_sound(self.info.deathsound);
@@ -153,7 +153,7 @@ impl MapObject {
         }
         other.valid_count = valid;
 
-        if other.flags & MapObjFlag::Shootable as u32 == 0 {
+        if !other.flags.contains(MapObjFlag::Shootable) {
             return true;
         }
 
@@ -410,8 +410,8 @@ impl MapObject {
             }
 
             // Was just attacked, fight back!
-            if self.flags & MapObjFlag::Justhit as u32 != 0 {
-                self.flags &= !(MapObjFlag::Justhit as u32);
+            if self.flags.contains(MapObjFlag::Justhit) {
+                self.flags.remove(MapObjFlag::Justhit);
                 return true;
             }
 
@@ -557,7 +557,7 @@ impl SubSectTraverse {
                 return true;
             }
             // Corpse?
-            if thing.flags & MapObjFlag::Shootable as u32 == 0 {
+            if !thing.flags.contains(MapObjFlag::Shootable) {
                 return true;
             }
 
@@ -686,7 +686,7 @@ impl ShootTraverse {
                 return true;
             }
             // Corpse?
-            if thing.flags & MapObjFlag::Shootable as u32 == 0 {
+            if !thing.flags.contains(MapObjFlag::Shootable) {
                 return true;
             }
 
@@ -706,7 +706,7 @@ impl ShootTraverse {
             let y = self.trace_xy.y + self.trace_dxy.y * frac;
             let z = self.shootz + self.aim_slope * frac * self.attack_range;
 
-            if thing.flags & MapObjFlag::Noblood as u32 != 0 {
+            if thing.flags.contains(MapObjFlag::Noblood) {
                 MapObject::spawn_puff(x, y, z as i32, self.attack_range, unsafe {
                     &mut *thing.level
                 })

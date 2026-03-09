@@ -18,7 +18,7 @@ pub fn teleport(
     level: &mut Level,
 ) -> bool {
     // Don't teleport missiles... this could be interesting to muck with.
-    if thing.flags & MapObjFlag::Missile as u32 != 0 {
+    if thing.flags.contains(MapObjFlag::Missile) {
         return false;
     }
 
@@ -120,7 +120,7 @@ fn telefrag(
     game_map: usize,
 ) -> bool {
     sector.run_mut_func_on_thinglist(move |thing| {
-        if thing.flags & MapObjFlag::Shootable as u32 == 0 {
+        if !thing.flags.contains(MapObjFlag::Shootable) {
             return true;
         }
 
@@ -138,7 +138,7 @@ fn telefrag(
             return false;
         }
 
-        if thing.flags & MapObjFlag::Shootable as u32 != 0 {
+        if thing.flags.contains(MapObjFlag::Shootable) {
             thing.p_take_damage(Some(this_thing), None, false, 10000);
         }
         true

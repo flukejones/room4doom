@@ -70,9 +70,9 @@ impl Cheats {
         if !game.is_netgame() && !(game.game_skill() == Skill::Nightmare) {
             if self.god.check(key) {
                 let player = &mut game.players[game.consoleplayer];
-                player.status.cheats ^= PlayerCheat::Godmode as u32;
+                player.status.cheats.toggle(PlayerCheat::Godmode);
 
-                if player.status.cheats & PlayerCheat::Godmode as u32 != 0 {
+                if player.status.cheats.contains(PlayerCheat::Godmode) {
                     if let Some(mobj) = player.mobj_mut() {
                         mobj.health = 100;
                     }
@@ -148,7 +148,7 @@ impl Cheats {
                 let player = &mut game.players[game.consoleplayer];
                 player.status.weaponowned[WeaponType::Chainsaw as usize] = true;
                 player.pendingweapon = WeaponType::Chainsaw;
-                player.status.cheats &= PlayerCheat::Godmode as u32;
+                player.status.cheats &= PlayerCheat::Godmode;
                 if let Some(mobj) = player.mobj_mut() {
                     mobj.health = 100;
                 }
@@ -158,8 +158,8 @@ impl Cheats {
                 || (game.game_mission() != GameMission::Doom && self.commercial_noclip.check(key))
             {
                 let player = &mut game.players[game.consoleplayer];
-                player.status.cheats ^= PlayerCheat::Noclip as u32;
-                if player.status.cheats & PlayerCheat::Noclip as u32 != 0 {
+                player.status.cheats.toggle(PlayerCheat::Noclip);
+                if player.status.cheats.contains(PlayerCheat::Noclip) {
                     player.message = Some(english::STSTR_NCON);
                 } else {
                     player.message = Some(english::STSTR_NCOFF);

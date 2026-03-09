@@ -82,13 +82,13 @@ fn sound_flood(
 
 /// A_FaceTarget
 pub(crate) fn a_facetarget(actor: &mut MapObject) {
-    actor.flags &= !(MapObjFlag::Ambush as u32);
+    actor.flags.remove(MapObjFlag::Ambush);
 
     let xy = actor.xy;
     let mut angle = actor.angle;
     if let Some(target) = actor.target_mut() {
         angle = point_to_angle_2(target.xy, xy);
-        if target.flags & MapObjFlag::Shadow as u32 == MapObjFlag::Shadow as u32 {
+        if target.flags.contains(MapObjFlag::Shadow) {
             // TODO: see how different this might be
             actor.angle += (((p_random() - p_random()) >> 4) as f32).to_radians();
         }
@@ -136,7 +136,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         let target = unsafe { (*target).mobj() };
         // Inanimate object, try to find new target
-        if target.flags & MapObjFlag::Shootable as u32 == 0 {
+        if !target.flags.contains(MapObjFlag::Shootable) {
             if actor.look_for_players(true) {
                 return; // Found a new target
             }
@@ -151,8 +151,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
         return;
     }
 
-    if actor.flags & MapObjFlag::Justattacked as u32 != 0 {
-        actor.flags &= !(MapObjFlag::Justattacked as u32);
+    if actor.flags.contains(MapObjFlag::Justattacked) {
+        actor.flags.remove(MapObjFlag::Justattacked);
         // TODO: if (gameskill != sk_nightmare && !fastparm)
         let skill = unsafe { (*actor.level).options.skill };
         if skill != Skill::Nightmare {
@@ -177,7 +177,7 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
             // goto nomissile;
             // }
             if actor.check_missile_range() {
-                actor.flags |= MapObjFlag::Justattacked as u32;
+                actor.flags.insert(MapObjFlag::Justattacked);
                 actor.set_state(actor.info.missilestate);
                 return;
             }
@@ -220,10 +220,10 @@ pub(crate) fn a_look(actor: &mut MapObject) {
 
     let ss = actor.subsector.clone();
     if let Some(target) = ss.sector.sound_target() {
-        if target.flags & MapObjFlag::Shootable as u32 != 0 {
+        if target.flags.contains(MapObjFlag::Shootable) {
             actor.target = actor.subsector.sector.sound_target_raw();
 
-            if actor.flags & MapObjFlag::Ambush as u32 != 0 && !actor.check_sight_target(target) {
+            if actor.flags.contains(MapObjFlag::Ambush) && !actor.check_sight_target(target) {
                 return;
             }
         } else if !actor.look_for_players(false) {
@@ -299,7 +299,7 @@ pub(crate) fn a_scream(actor: &mut MapObject) {
 
 pub(crate) fn a_fall(actor: &mut MapObject) {
     // actor is on ground, it can be walked over
-    actor.flags &= !(MapObjFlag::Solid as u32);
+    actor.flags.remove(MapObjFlag::Solid);
     // So change this if corpse objects are meant to be obstacles.
 }
 
@@ -521,7 +521,7 @@ pub(crate) fn a_vilestart(actor: &mut MapObject) {
 }
 
 fn vile_raise_check(actor: &mut MapObject, obj: &mut MapObject) -> bool {
-    if obj.flags & MapObjFlag::Corpse as u32 != MapObjFlag::Corpse as u32 {
+    if !obj.flags.contains(MapObjFlag::Corpse) {
         return true; // not a monster
     }
 
@@ -706,7 +706,7 @@ pub(crate) fn a_skullattack(actor: &mut MapObject) {
         let target = unsafe { (*target).mobj() };
 
         a_facetarget(actor);
-        actor.flags |= MapObjFlag::Skullfly as u32;
+        actor.flags.insert(MapObjFlag::Skullfly);
         actor.start_sound(actor.info.attacksound);
 
         actor.angle = point_to_angle_2(target.xy, actor.xy);

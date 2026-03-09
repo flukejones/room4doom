@@ -60,13 +60,13 @@ impl MapObject {
         // adjust height
         self.z += self.momz;
 
-        if self.flags & MapObjFlag::Float as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Float) {
             if let Some(target) = self.target {
                 let target = unsafe { (*target).mobj() };
 
                 // float down towards target if too close
-                if self.flags & MapObjFlag::Skullfly as u32 == 0
-                    && self.flags & MapObjFlag::Infloat as u32 == 0
+                if !self.flags.contains(MapObjFlag::Skullfly)
+                    && !self.flags.contains(MapObjFlag::Infloat)
                 {
                     let dist = self.xy.distance(target.xy);
                     let delta = target.z + self.height / 2.0 - self.z;
@@ -85,7 +85,7 @@ impl MapObject {
         if self.z <= self.floorz {
             // hit the floor
             // TODO: The lost soul correction for old demos
-            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
+            if self.flags.contains(MapObjFlag::Skullfly) {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
@@ -106,13 +106,12 @@ impl MapObject {
 
             self.z = self.floorz;
 
-            if self.flags & MapObjFlag::Missile as u32 != 0
-                && self.flags & MapObjFlag::Noclip as u32 == 0
+            if self.flags.contains(MapObjFlag::Missile) && !self.flags.contains(MapObjFlag::Noclip)
             {
                 self.p_explode_missile();
                 return;
             }
-        } else if self.flags & MapObjFlag::Nogravity as u32 == 0 {
+        } else if !self.flags.contains(MapObjFlag::Nogravity) {
             if self.momz == 0.0 {
                 self.momz = -GRAVITY * 2.0;
             } else {
@@ -127,13 +126,12 @@ impl MapObject {
                 self.z = self.ceilingz - self.height;
             }
 
-            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
+            if self.flags.contains(MapObjFlag::Skullfly) {
                 // the skull slammed into something
                 self.momz = -self.momz;
             }
 
-            if self.flags & MapObjFlag::Missile as u32 != 0
-                && self.flags & MapObjFlag::Noclip as u32 == 0
+            if self.flags.contains(MapObjFlag::Missile) && !self.flags.contains(MapObjFlag::Noclip)
             {
                 self.p_explode_missile();
             }
@@ -143,8 +141,8 @@ impl MapObject {
     /// Doom function name `P_XYMovement`
     pub(crate) fn p_xy_movement(&mut self) {
         if self.momxy.x == 0.0 && self.momxy.y == 0.0 {
-            if self.flags & MapObjFlag::Skullfly as u32 != 0 {
-                self.flags &= !(MapObjFlag::Skullfly as u32);
+            if self.flags.contains(MapObjFlag::Skullfly) {
+                self.flags.remove(MapObjFlag::Skullfly);
                 self.momz = 0.0;
                 self.set_state(self.info.spawnstate);
             }
@@ -189,7 +187,7 @@ impl MapObject {
             if !self.p_try_move(ptryx, ptryy, &mut ctrl) {
                 if self.player.is_some() {
                     self.p_slide_move();
-                } else if self.flags & MapObjFlag::Missile as u32 != 0 {
+                } else if self.flags.contains(MapObjFlag::Missile) {
                     if let Some(line) = ctrl.sky_line {
                         if line.frontsector.ceilingpic == self.level().sky_num {
                             self.remove();
@@ -210,7 +208,10 @@ impl MapObject {
         }
 
         // slow down
-        if self.flags & (MapObjFlag::Missile as u32 | MapObjFlag::Skullfly as u32) != 0 {
+        if self
+            .flags
+            .intersects(MapObjFlag::Missile | MapObjFlag::Skullfly)
+        {
             return; // no friction for missiles ever
         }
 
@@ -220,7 +221,7 @@ impl MapObject {
 
         let floorheight = self.subsector.sector.floorheight;
 
-        if self.flags & MapObjFlag::Corpse as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Corpse) {
             // do not stop sliding
             //  if halfway off a step with some momentum
             if (self.momxy.x > FRACUNIT_DIV4
@@ -276,23 +277,24 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjFlag::Noclip as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Noclip) {
             if ctrl.max_ceil_z - ctrl.min_floor_z < self.height {
                 return false; // doesn't fit
             }
             ctrl.floatok = true;
 
-            if self.flags & MapObjFlag::Teleport as u32 == 0
-                && ctrl.max_ceil_z - self.z < self.height
+            if !self.flags.contains(MapObjFlag::Teleport) && ctrl.max_ceil_z - self.z < self.height
             {
                 return false; // thing must lower itself to fit
             }
 
-            if self.flags & MapObjFlag::Teleport as u32 == 0 && ctrl.min_floor_z - self.z > 24.0 {
+            if !self.flags.contains(MapObjFlag::Teleport) && ctrl.min_floor_z - self.z > 24.0 {
                 return false; // too big a step up
             }
 
-            if self.flags & (MapObjFlag::Dropoff as u32 | MapObjFlag::Float as u32) == 0
+            if !self
+                .flags
+                .intersects(MapObjFlag::Dropoff | MapObjFlag::Float)
                 && ctrl.min_floor_z - ctrl.max_dropoff > 24.0
             {
                 return false; // too big a step up
@@ -315,7 +317,10 @@ impl MapObject {
             self.set_thing_position();
         }
 
-        if self.flags & (MapObjFlag::Teleport as u32 | MapObjFlag::Noclip as u32) == 0 {
+        if !self
+            .flags
+            .intersects(MapObjFlag::Teleport | MapObjFlag::Noclip)
+        {
             for ld in &ctrl.spec_hits {
                 // see if the line was crossed
                 let side = ld.point_on_side(self.xy);
@@ -352,7 +357,7 @@ impl MapObject {
         ctrl.max_dropoff = newsubsec.sector.floorheight;
         ctrl.max_ceil_z = newsubsec.sector.ceilingheight;
 
-        if self.flags & MapObjFlag::Noclip as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Noclip) {
             return true;
         }
 
@@ -409,9 +414,9 @@ impl MapObject {
         endpoint: Vec2,
         ctrl: &mut SubSectorMinMax,
     ) -> bool {
-        if thing.flags
-            & (MapObjFlag::Solid as u32 | MapObjFlag::Special as u32 | MapObjFlag::Shootable as u32)
-            == 0
+        if !thing
+            .flags
+            .intersects(MapObjFlag::Solid | MapObjFlag::Special | MapObjFlag::Shootable)
         {
             return true;
         }
@@ -427,20 +432,20 @@ impl MapObject {
             return true;
         }
 
-        if self.flags & MapObjFlag::Skullfly as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Skullfly) {
             let damage = ((p_random() % 8) + 1) * self.info.damage;
             thing.p_take_damage(Some(self), None, true, damage);
 
             self.momxy = Vec2::default();
             self.momz = 0.0;
 
-            self.flags &= !(MapObjFlag::Skullfly as u32);
+            self.flags.remove(MapObjFlag::Skullfly);
             self.set_state(self.info.spawnstate);
             return false;
         }
 
         // Special mssile handling
-        if self.flags & MapObjFlag::Missile as u32 != 0 {
+        if self.flags.contains(MapObjFlag::Missile) {
             if self.z > thing.z + thing.height {
                 return true; // over
             }
@@ -468,8 +473,8 @@ impl MapObject {
                     }
                 }
 
-                if thing.flags & MapObjFlag::Shootable as u32 == 0 {
-                    return thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32;
+                if !thing.flags.contains(MapObjFlag::Shootable) {
+                    return !thing.flags.contains(MapObjFlag::Solid);
                 }
 
                 let damage = ((p_random() % 8) + 1) * self.info.damage;
@@ -479,22 +484,21 @@ impl MapObject {
         }
 
         // Check special items
-        if thing.flags & MapObjFlag::Special as u32 != 0 {
-            let solid = thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32;
-            if self.flags & MapObjFlag::Pickup as u32 != 0 {
+        if thing.flags.contains(MapObjFlag::Special) {
+            let solid = !thing.flags.contains(MapObjFlag::Solid);
+            if self.flags.contains(MapObjFlag::Pickup) {
                 // TODO: Fix getting skill level
                 self.touch_special(thing);
             }
             return solid;
         }
 
-        if (thing.flags & MapObjFlag::Shootable as u32 != 0
-            || thing.flags & MapObjFlag::Solid as u32 != 0)
+        if (thing.flags.contains(MapObjFlag::Shootable) || thing.flags.contains(MapObjFlag::Solid))
             && self.player().is_some()
         {
             // Already over it?
             let thing_top_z = thing.z + thing.height;
-            let self_top_z = self.z + self.height;
+            // let self_top_z = self.z + self.height;
             if self.z >= thing_top_z {
                 // Walk over the top
                 if thing_top_z > self.floorz {
@@ -514,7 +518,7 @@ impl MapObject {
             return false;
         }
         // final failsafe
-        thing.flags & MapObjFlag::Solid as u32 != MapObjFlag::Solid as u32
+        !thing.flags.contains(MapObjFlag::Solid)
     }
 
     /// PIT_CheckLine
@@ -553,7 +557,7 @@ impl MapObject {
             return false;
         }
 
-        if self.flags & MapObjFlag::Missile as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Missile) {
             if ld.flags.contains(LineDefFlags::Blocking) {
                 return false; // explicitly blocking everything
             }
@@ -985,14 +989,14 @@ impl MapObject {
         if !self.p_try_move(tryx, tryy, &mut specs) {
             // open any specials
             // TODO: if (actor->flags & MF_FLOAT && floatok)
-            if self.flags & MapObjFlag::Float as u32 != 0 && specs.floatok {
+            if self.flags.contains(MapObjFlag::Float) && specs.floatok {
                 // must adjust height
                 if self.z < specs.min_floor_z {
                     self.z += FLOATSPEED;
                 } else {
                     self.z -= FLOATSPEED;
                 }
-                self.flags |= MapObjFlag::Infloat as u32;
+                self.flags.insert(MapObjFlag::Infloat);
                 return true;
             }
 
@@ -1009,10 +1013,10 @@ impl MapObject {
             }
             return good;
         } else {
-            self.flags &= !(MapObjFlag::Infloat as u32);
+            self.flags.remove(MapObjFlag::Infloat);
         }
 
-        if self.flags & MapObjFlag::Float as u32 == 0 {
+        if !self.flags.contains(MapObjFlag::Float) {
             self.z = self.floorz;
         }
 

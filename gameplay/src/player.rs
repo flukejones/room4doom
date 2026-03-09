@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
@@ -43,15 +44,17 @@ pub enum PlayerState {
     Reborn,
 }
 
-/// Player internal flags, for cheats and debug.
-#[derive(Debug)]
-pub enum PlayerCheat {
-    /// No clipping, walk through barriers.
-    Noclip = 1,
-    /// No damage, no health loss.
-    Godmode = 2,
-    /// Not really a cheat, just a debug aid.
-    NoMomentum = 4,
+bitflags! {
+    /// Player internal flags, for cheats and debug.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct PlayerCheat: u32 {
+        /// No clipping, walk through barriers.
+        const Noclip = 1;
+        /// No damage, no health loss.
+        const Godmode = 2;
+        /// Not really a cheat, just a debug aid.
+        const NoMomentum = 4;
+    }
 }
 
 /// INTERMISSION
@@ -105,7 +108,7 @@ pub struct PlayerStatus {
     pub attacked_angle_count: u32,
     /// Bit flags, for cheats and debug.
     /// See cheat_t, above.
-    pub cheats: u32,
+    pub cheats: PlayerCheat,
 }
 
 impl Default for PlayerStatus {
@@ -128,7 +131,7 @@ impl Default for PlayerStatus {
             attacked_from: Default::default(),
             own_angle: Default::default(),
             attacked_angle_count: 0,
-            cheats: 0,
+            cheats: PlayerCheat::empty(),
         };
         tmp.ammo[AmmoType::Clip as usize] = 50;
         tmp.maxammo.copy_from_slice(&MAX_AMMO);
@@ -317,7 +320,7 @@ impl Player {
         self.status.damagecount = 0;
         self.status.bonuscount = 0;
         if let Some(mobj) = self.mobj_mut() {
-            mobj.flags &= !(MapObjFlag::Shadow as u32);
+            mobj.flags.remove(MapObjFlag::Shadow);
         }
 
         info!("Reset level items and powers for player");
@@ -562,7 +565,7 @@ impl Player {
                 }
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
                 11 => {
-                    self.status.cheats &= !(PlayerCheat::Godmode as u32);
+                    self.status.cheats.remove(PlayerCheat::Godmode);
                     if level.level_time & 0x1F == 0 {
                         debug!("End of episode damage!");
                         mobj.p_take_damage(None, None, false, 20);
@@ -860,18 +863,18 @@ impl Player {
     pub fn think(&mut self, level: &mut Level) -> bool {
         if let Some(mobj) = self.mobj {
             let mobj = unsafe { &mut *mobj };
-            if self.status.cheats & PlayerCheat::Noclip as u32 != 0 {
-                mobj.flags |= MapObjFlag::Noclip as u32;
+            if self.status.cheats.contains(PlayerCheat::Noclip) {
+                mobj.flags.insert(MapObjFlag::Noclip);
             } else {
-                mobj.flags &= !(MapObjFlag::Noclip as u32);
+                mobj.flags.remove(MapObjFlag::Noclip);
             }
 
             let cmd = &mut self.cmd;
-            if mobj.flags & MapObjFlag::Justattacked as u32 != 0 {
+            if mobj.flags.contains(MapObjFlag::Justattacked) {
                 cmd.angleturn = 0;
                 cmd.forwardmove = (0xC800 / 512) as i8;
                 cmd.sidemove = 0;
-                mobj.flags &= !(MapObjFlag::Justattacked as u32);
+                mobj.flags.remove(MapObjFlag::Justattacked);
             }
         }
 
@@ -961,7 +964,7 @@ impl Player {
             self.status.powers[PowerType::Invisibility as usize] -= 1;
             if self.status.powers[PowerType::Invisibility as usize] == 0 {
                 if let Some(mobj) = self.mobj_mut() {
-                    mobj.flags &= !(MapObjFlag::Shadow as u32);
+                    mobj.flags.remove(MapObjFlag::Shadow);
                 }
             }
         }

@@ -221,7 +221,7 @@ impl DoomguyFace {
         }
 
         if self.priority < 5
-            && (status.cheats & PlayerCheat::Godmode as u32 != 0
+            && (status.cheats.contains(PlayerCheat::Godmode)
                 || status.powers[PowerType::Invulnerability as usize] != 0)
         {
             self.priority = 4;

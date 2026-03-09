@@ -1,8 +1,6 @@
-//! @generated
 //! THIS FILE IS GENERATED WITH MULTIGEN
-//!
-//! Contains all Map Object info, States and State numbers, and Sprite
-//! names/indexing.
+//! @generated
+//! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
 #![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
 
 const NUM_SPRNAMES: usize = SpriteNum::Count as usize;
@@ -11026,7 +11024,7 @@ pub struct MapObjInfo {
     pub mass: i32,
     pub damage: i32,
     pub activesound: SfxName,
-    pub flags: u32,
+    pub flags: MapObjFlag,
     pub raisestate: StateNum,
 }
 
@@ -11055,11 +11053,13 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Pickup as u32
-            | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Pickup.bits()
+                | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_POSSESSED
@@ -11085,9 +11085,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::Posact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::POSS_RAISE1,
     },
     // MT_SHOTGUY
@@ -11113,9 +11113,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::Posact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::SPOS_RAISE1,
     },
     // MT_VILE
@@ -11141,9 +11141,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 500,
         damage: 0,
         activesound: SfxName::Vilact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_FIRE
@@ -11169,7 +11169,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_UNDEAD
@@ -11195,9 +11197,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 500,
         damage: 0,
         activesound: SfxName::Skeact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::SKEL_RAISE1,
     },
     // MT_TRACER
@@ -11223,10 +11225,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 10,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_SMOKE
@@ -11252,7 +11256,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_FATSO
@@ -11278,9 +11284,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 1000,
         damage: 0,
         activesound: SfxName::Posact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::FATT_RAISE1,
     },
     // MT_FATSHOT
@@ -11306,10 +11312,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 8,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_CHAINGUY
@@ -11335,9 +11343,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::Posact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::CPOS_RAISE1,
     },
     // MT_TROOP
@@ -11363,9 +11371,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::Bgact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::TROO_RAISE1,
     },
     // MT_SERGEANT
@@ -11391,9 +11399,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 400,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::SARG_RAISE1,
     },
     // MT_SHADOWS
@@ -11419,10 +11427,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 400,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Shadow as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Shadow.bits()
+                | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::SARG_RAISE1,
     },
     // MT_HEAD
@@ -11448,11 +11458,13 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 400,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Float as u32
-            | MapObjFlag::Nogravity as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Float.bits()
+                | MapObjFlag::Nogravity.bits()
+                | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::HEAD_RAISE1,
     },
     // MT_BRUISER
@@ -11478,9 +11490,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 1000,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::BOSS_RAISE1,
     },
     // MT_BRUISERSHOT
@@ -11506,10 +11518,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 8,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_KNIGHT
@@ -11535,9 +11549,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 1000,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::BOS2_RAISE1,
     },
     // MT_SKULL
@@ -11563,10 +11577,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 50,
         damage: 3,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Float as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Float.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_SPIDER
@@ -11592,9 +11608,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 1000,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BABY
@@ -11620,9 +11636,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 600,
         damage: 0,
         activesound: SfxName::Bspact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::BSPI_RAISE1,
     },
     // MT_CYBORG
@@ -11648,9 +11664,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 1000,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_PAIN
@@ -11676,11 +11692,13 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 400,
         damage: 0,
         activesound: SfxName::Dmact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Float as u32
-            | MapObjFlag::Nogravity as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Float.bits()
+                | MapObjFlag::Nogravity.bits()
+                | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::PAIN_RAISE1,
     },
     // MT_WOLFSS
@@ -11706,9 +11724,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::Posact,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::SSWV_RAISE1,
     },
     // MT_KEEN
@@ -11734,11 +11752,13 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 10000000,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32
-            | MapObjFlag::Shootable as u32
-            | MapObjFlag::Countkill as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits()
+                | MapObjFlag::Shootable.bits()
+                | MapObjFlag::Countkill.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BOSSBRAIN
@@ -11764,7 +11784,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 10000000,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32 | MapObjFlag::Shootable as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BOSSSPIT
@@ -11790,7 +11812,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nosector as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nosector.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BOSSTARGET
@@ -11816,7 +11840,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nosector as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nosector.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_SPAWNSHOT
@@ -11842,11 +11868,13 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 3,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32
-            | MapObjFlag::Noclip as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits()
+                | MapObjFlag::Noclip.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_SPAWNFIRE
@@ -11872,7 +11900,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BARREL
@@ -11898,7 +11928,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32 | MapObjFlag::Shootable as u32 | MapObjFlag::Noblood as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits() | MapObjFlag::Shootable.bits() | MapObjFlag::Noblood.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_TROOPSHOT
@@ -11924,10 +11956,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 3,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_HEADSHOT
@@ -11953,10 +11987,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 5,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_ROCKET
@@ -11982,10 +12018,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 20,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_PLASMA
@@ -12011,10 +12049,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 5,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BFG
@@ -12040,10 +12080,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 100,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_ARACHPLAZ
@@ -12069,10 +12111,12 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 5,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32
-            | MapObjFlag::Missile as u32
-            | MapObjFlag::Dropoff as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits()
+                | MapObjFlag::Missile.bits()
+                | MapObjFlag::Dropoff.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_PUFF
@@ -12098,7 +12142,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_BLOOD
@@ -12124,7 +12170,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Noblockmap.bits()),
         raisestate: StateNum::None,
     },
     // MT_TFOG
@@ -12150,7 +12196,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_IFOG
@@ -12176,7 +12224,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_TELEPORTMAN
@@ -12202,7 +12252,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nosector as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nosector.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_EXTRABFG
@@ -12228,7 +12280,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Noblockmap.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC0
@@ -12254,7 +12308,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC1
@@ -12280,7 +12334,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC2
@@ -12306,7 +12360,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC3
@@ -12332,7 +12388,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC4
@@ -12358,7 +12416,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC5
@@ -12384,7 +12444,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC6
@@ -12410,7 +12472,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC7
@@ -12436,7 +12500,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC8
@@ -12462,7 +12528,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC9
@@ -12488,7 +12556,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Notdmatch as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Notdmatch.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC10
@@ -12514,7 +12584,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC11
@@ -12540,7 +12610,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC12
@@ -12566,7 +12636,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_INV
@@ -12592,7 +12664,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC13
@@ -12618,7 +12692,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_INS
@@ -12644,7 +12720,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC14
@@ -12670,7 +12748,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC15
@@ -12696,7 +12774,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC16
@@ -12722,7 +12802,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MEGA
@@ -12748,7 +12830,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32 | MapObjFlag::Countitem as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Special.bits() | MapObjFlag::Countitem.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_CLIP
@@ -12774,7 +12858,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC17
@@ -12800,7 +12884,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC18
@@ -12826,7 +12910,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC19
@@ -12852,7 +12936,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC20
@@ -12878,7 +12962,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC21
@@ -12904,7 +12988,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC22
@@ -12930,7 +13014,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC23
@@ -12956,7 +13040,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC24
@@ -12982,7 +13066,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC25
@@ -13008,7 +13092,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_CHAINGUN
@@ -13034,7 +13118,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC26
@@ -13060,7 +13144,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC27
@@ -13086,7 +13170,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC28
@@ -13112,7 +13196,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_SHOTGUN
@@ -13138,7 +13222,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_SUPERSHOTGUN
@@ -13164,7 +13248,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Special as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Special.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC29
@@ -13190,7 +13274,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC30
@@ -13216,7 +13300,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC31
@@ -13242,7 +13326,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC32
@@ -13268,7 +13352,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC33
@@ -13294,7 +13378,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC34
@@ -13320,7 +13404,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC35
@@ -13346,7 +13430,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC36
@@ -13372,7 +13456,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC37
@@ -13398,7 +13482,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC38
@@ -13424,7 +13508,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC39
@@ -13450,7 +13534,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC40
@@ -13476,7 +13560,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC41
@@ -13502,7 +13586,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC42
@@ -13528,7 +13612,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC43
@@ -13554,7 +13638,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC44
@@ -13580,7 +13664,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC45
@@ -13606,7 +13690,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC46
@@ -13632,7 +13716,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC47
@@ -13658,7 +13742,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC48
@@ -13684,7 +13768,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC49
@@ -13710,7 +13794,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC50
@@ -13736,7 +13820,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC51
@@ -13762,9 +13846,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC52
@@ -13790,9 +13876,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC53
@@ -13818,9 +13906,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC54
@@ -13846,9 +13936,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC55
@@ -13874,9 +13966,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC56
@@ -13902,7 +13996,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Spawnceiling as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Spawnceiling.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC57
@@ -13928,7 +14024,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Spawnceiling as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Spawnceiling.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC58
@@ -13954,7 +14052,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Spawnceiling as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Spawnceiling.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC59
@@ -13980,7 +14080,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Spawnceiling as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Spawnceiling.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC60
@@ -14006,7 +14108,9 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Spawnceiling as u32 | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Spawnceiling.bits() | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC61
@@ -14032,7 +14136,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC62
@@ -14058,7 +14162,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC63
@@ -14084,7 +14188,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC64
@@ -14110,7 +14214,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC65
@@ -14136,7 +14240,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC66
@@ -14162,7 +14266,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC67
@@ -14188,7 +14292,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC68
@@ -14214,7 +14318,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC69
@@ -14240,7 +14344,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC70
@@ -14266,7 +14370,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC71
@@ -14292,7 +14396,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: 0,
+        flags: MapObjFlag::empty(),
         raisestate: StateNum::None,
     },
     // MT_MISC72
@@ -14318,7 +14422,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC73
@@ -14344,7 +14448,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC74
@@ -14370,7 +14474,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC75
@@ -14396,7 +14500,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC76
@@ -14422,7 +14526,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC77
@@ -14448,7 +14552,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Solid.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC78
@@ -14474,9 +14578,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC79
@@ -14502,9 +14608,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC80
@@ -14530,9 +14638,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC81
@@ -14558,9 +14668,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC82
@@ -14586,9 +14698,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC83
@@ -14614,9 +14728,11 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Solid as u32
-            | MapObjFlag::Spawnceiling as u32
-            | MapObjFlag::Nogravity as u32,
+        flags: MapObjFlag::from_bits_truncate(
+            MapObjFlag::Solid.bits()
+                | MapObjFlag::Spawnceiling.bits()
+                | MapObjFlag::Nogravity.bits(),
+        ),
         raisestate: StateNum::None,
     },
     // MT_MISC84
@@ -14642,7 +14758,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Noblockmap.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC85
@@ -14668,7 +14784,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Noblockmap.bits()),
         raisestate: StateNum::None,
     },
     // MT_MISC86
@@ -14694,7 +14810,7 @@ pub const MOBJINFO: [MapObjInfo; NUM_CATEGORIES] = [
         mass: 100,
         damage: 0,
         activesound: SfxName::None,
-        flags: MapObjFlag::Noblockmap as u32,
+        flags: MapObjFlag::from_bits_truncate(MapObjFlag::Noblockmap.bits()),
         raisestate: StateNum::None,
     },
 ];

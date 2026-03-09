@@ -64,7 +64,7 @@ impl Software3D {
         &mut self,
         psp: &PspDef,
         base_brightness: usize,
-        flags: u32,
+        flags: MapObjFlag,
         pic_data: &mut PicData,
         buffer: &mut impl DrawBuffer,
     ) {
@@ -129,7 +129,7 @@ impl Software3D {
             base_brightness
         };
 
-        let is_shadow = flags & MapObjFlag::Shadow as u32 != 0;
+        let is_shadow = flags.contains(MapObjFlag::Shadow);
         // Scale weapon light with sector brightness, then add a couple of
         // steps so it's always slightly brighter than the proportional value.
         // brightness 0..15, colourmap index 0..47.
