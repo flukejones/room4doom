@@ -22,7 +22,7 @@ use d_main::d_doom_loop;
 use gamestate::Game;
 
 use crate::config::UserConfig;
-use gameplay::{MapData, PVS, PicData, log};
+use gameplay::{MapData, PVS2D, PicData, PvsCluster, PvsFile, RenderPvs, log};
 use input::Input;
 use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
 
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut options: CLIOptions = argh::from_env();
 
     TermLogger::init(
-        log::LevelFilter::Info,
+        options.verbose.unwrap_or(log::LevelFilter::Info),
         simplelog::ConfigBuilder::default()
             .set_time_level(log::LevelFilter::Trace)
             .build(),
@@ -72,20 +72,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     format!("E{}M{}", episode, map_num)
                 };
                 info!("Processing PVS for single map: {}", map_name);
-                match process_map_pvs(&wad, &map_name, &pic_data) {
+                match process_map_pvs(&wad, &map_name, &pic_data, options.pvs_cluster) {
                     Ok(_) => info!("Successfully processed PVS for {}", map_name),
                     Err(e) => log::error!("Failed to process PVS for {}: {}", map_name, e),
                 }
                 // Fall through to normal game startup
             } else {
                 // All maps mode: process everything and exit
-                preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
+                preprocess_pvs_for_wad(&wad_path, &wad, &pic_data, options.pvs_cluster)?;
 
                 if !options.pwad.is_empty() {
                     for pwad in &options.pwad {
                         let wad_path: PathBuf = pwad.into();
                         let wad = WadData::new(&wad_path);
-                        preprocess_pvs_for_wad(&wad_path, &wad, &pic_data)?;
+                        preprocess_pvs_for_wad(&wad_path, &wad, &pic_data, options.pvs_cluster)?;
                     }
                 }
 
@@ -155,6 +155,7 @@ fn preprocess_pvs_for_wad(
     wad_path: &Path,
     wad: &WadData,
     pic_data: &PicData,
+    use_cluster: bool,
 ) -> Result<(), Box<dyn Error>> {
     let wad_name = wad_path.file_stem().unwrap().to_str().unwrap();
     info!("Processing PVS for WAD: {}", wad_name);
@@ -162,7 +163,7 @@ fn preprocess_pvs_for_wad(
     info!("Found {} maps to process", maps.len());
     for map_name in maps {
         info!("Processing PVS for map: {}", map_name);
-        match process_map_pvs(&wad, &map_name, &pic_data) {
+        match process_map_pvs(&wad, &map_name, &pic_data, use_cluster) {
             Ok(_) => info!("Successfully processed PVS for {}", map_name),
             Err(e) => log::error!("Failed to process PVS for {}: {}", map_name, e),
         }
@@ -199,27 +200,50 @@ fn process_map_pvs(
     wad: &WadData,
     map_name: &str,
     pic_data: &PicData,
+    use_cluster: bool,
 ) -> Result<(), Box<dyn Error>> {
     let hash = wad.map_bsp_hash(map_name).unwrap_or_default();
-    let cache_path = gameplay::PVS::get_pvs_cache_path(map_name, hash)?;
+    let cache_path = RenderPvs::cache_path(map_name, hash)?;
 
-    if !cache_path.exists() {
+    if use_cluster || !cache_path.exists() {
         let mut map_data = gameplay::MapData::default();
-        map_data.load(map_name, &pic_data, wad);
+        map_data.load(map_name, |name| pic_data.flat_num_for_name(name), wad);
 
         let MapData {
             subsectors,
             segments,
             bsp_3d,
-            pvs,
+            sectors,
+            linedefs,
+            nodes,
+            start_node,
             ..
         } = &mut map_data;
 
-        // Ensure length is correct
-        *pvs = PVS::new(subsectors.len());
-        pvs.build(subsectors, segments, bsp_3d);
         info!("Saving PVS data to {cache_path:?}");
-        map_data.pvs().save_to_file(&cache_path)?;
+        if use_cluster {
+            let cluster = PvsCluster::build(
+                subsectors,
+                segments,
+                bsp_3d,
+                sectors,
+                linedefs,
+                nodes,
+                *start_node,
+            );
+            cluster.save_to_cache(map_name, hash)?;
+        } else {
+            let pvs2d = PVS2D::build(
+                subsectors,
+                segments,
+                bsp_3d,
+                sectors,
+                linedefs,
+                nodes,
+                *start_node,
+            );
+            pvs2d.save_to_cache(map_name, hash)?;
+        }
     } else {
         warn!("{cache_path:?} exists, skipping");
     }

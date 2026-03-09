@@ -10,10 +10,11 @@ use std::ptr::null_mut;
 use crate::doom_def::{Card, TICRATE};
 use crate::lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK};
 use crate::level::Level;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use crate::{LineDefFlags, MapPtr};
+use crate::{LineDefFlags, SectorExt};
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, Sector};
 
 use crate::env::specials::{PlaneResult, find_lowest_ceiling_surrounding, move_plane};
 use crate::env::switch::start_sector_sound;
@@ -280,7 +281,7 @@ pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut Level) -> b
 
         if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
     }
 
@@ -323,7 +324,7 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
         }
     }
 
-    if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+    if !line.flags.contains(LineDefFlags::TwoSided) {
         error!("ev_vertical_door: tried to operate on a line that is not two-sided");
         return;
     }
@@ -335,7 +336,7 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         // TODO:
-        let door = unsafe { (*data).vdoor_mut() };
+        let door = unsafe { &mut *(data as *mut Thinker) }.vdoor_mut();
         match line.special {
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -407,6 +408,6 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
 
     if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
         ptr.set_obj_thinker_ptr();
-        sec.specialdata = Some(ptr);
+        sec.set_sector_mover(ptr);
     }
 }

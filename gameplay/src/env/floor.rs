@@ -5,12 +5,13 @@ use std::ptr::{self, null_mut};
 
 use sound_traits::SfxName;
 
-use crate::MapPtr;
+use crate::SectorExt;
 use crate::level::Level;
-use crate::level::flags::LineDefFlags;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
+use map_data::MapPtr;
+use map_data::flags::LineDefFlags;
+use map_data::map_defs::{LineDef, Sector};
 
 use crate::env::specials::{
     PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
@@ -139,7 +140,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
                 let mut min = sec.floorheight;
                 floor.direction = 1;
                 for line in sec.lines.iter() {
-                    if line.flags & LineDefFlags::TwoSided as u32 != 0 {
+                    if line.flags.contains(LineDefFlags::TwoSided) {
                         if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
                             let tmp = level.animations[bottomtexture].num_pics() as f32;
                             if tmp < min {
@@ -165,7 +166,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
                 floor.texture = sector.floorpic;
 
                 for line in sector.lines.iter() {
-                    if line.flags & LineDefFlags::TwoSided as u32 != 0 {
+                    if line.flags.contains(LineDefFlags::TwoSided) {
                         if line.front_sidedef.sector == sec {
                             sec = line.back_sidedef.as_ref().unwrap().sector.clone();
                             if sec.floorheight == floor.destheight {
@@ -213,7 +214,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut Level) ->
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
     }
 
@@ -334,7 +335,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
 
         if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
         }
 
         let texture = sec.floorpic;
@@ -346,7 +347,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
                 .map_data
                 .linedefs
                 .iter()
-                .filter(|s| s.flags & LineDefFlags::TwoSided as u32 != 0)
+                .filter(|s| s.flags.contains(LineDefFlags::TwoSided))
             {
                 // Lines need to be in the same sector, can check this with the pointer
                 let mut tsec = line.frontsector.clone();
@@ -384,7 +385,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
 
                 if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                     ptr.set_obj_thinker_ptr();
-                    sec.specialdata = Some(ptr);
+                    sec.set_sector_mover(ptr);
                 }
 
                 ok = true;
@@ -416,7 +417,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
 
         if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), MapPtr::new(sector)) {
             for line in s2.lines.iter_mut() {
-                if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                if !line.flags.contains(LineDefFlags::TwoSided) {
                     continue;
                 }
                 if let Some(s3) = line.backsector.clone() {
@@ -443,7 +444,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();
-                        s2.specialdata = Some(ptr);
+                        s2.set_sector_mover(ptr);
                     }
 
                     // spwan donut hole lowering
@@ -464,7 +465,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut Level) -> bool {
 
                     if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
                         ptr.set_obj_thinker_ptr();
-                        s2.specialdata = Some(ptr);
+                        s2.set_sector_mover(ptr);
                     }
                     break;
                 }

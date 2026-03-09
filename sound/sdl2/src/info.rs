@@ -6,7 +6,10 @@ pub(crate) struct SfxInfoBase {
 
 impl SfxInfoBase {
     pub(crate) const fn new(name: &'static str, priority: i32) -> Self {
-        Self { name, priority }
+        Self {
+            name,
+            priority,
+        }
     }
 }
 

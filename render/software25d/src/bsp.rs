@@ -9,7 +9,7 @@ use crate::utilities::{
 use coarse_prof::profile;
 use gameplay::log::trace;
 use gameplay::{
-    Angle, Level, MapData, MapObject, Node, PicData, Player, Sector, Segment, SubSector
+    Angle, Level, MapData, MapObject, PicData, Player, Sector, Segment, SubSector, is_subsector, subsector_index
 };
 use glam::Vec2;
 use render_trait::DrawBuffer;
@@ -19,7 +19,6 @@ use std::mem;
 const MAX_SEGS: usize = 128;
 const MAX_SECTS: usize = 4096;
 const MAX_VIS_SPRITES: usize = 1024;
-const IS_SSECTOR_MASK: u32 = 0x80000000;
 
 // Need to sort out what is shared and what is not so that a data struct
 // can be organised along with method/ownsership
@@ -534,11 +533,11 @@ impl Software25D {
         *count += 1;
         let mobj = unsafe { player.mobj_unchecked() };
 
-        if node_id & IS_SSECTOR_MASK != 0 {
+        if is_subsector(node_id) {
             let subsector_id = if node_id == u32::MAX {
                 0
             } else {
-                (node_id & !IS_SSECTOR_MASK) as usize
+                subsector_index(node_id)
             };
 
             if subsector_id < map.subsectors().len() {
@@ -548,7 +547,7 @@ impl Software25D {
                     self.draw_subsector(map, player, subsect, pic_data, rend);
                 } else {
                     // It's a leaf node and is the index to a subsector
-                    let subsect = &map.subsectors()[(node_id & !IS_SSECTOR_MASK) as usize];
+                    let subsect = &map.subsectors()[subsector_index(node_id)];
                     // Check if it should be drawn, then draw
                     self.draw_subsector(map, player, subsect, pic_data, rend);
                 }
@@ -560,11 +559,12 @@ impl Software25D {
         let node = &map.get_nodes()[node_id as usize];
         // find which side the point is on
         let side = node.point_on_side(&mobj.xy);
+        let (front, back) = node.front_back_children(&mobj.xy);
         // Recursively divide front space.
         self.render_bsp_node(
             map,
             player,
-            node.children[side],
+            front,
             pic_data,
             rend,
             player_subsector_id,
@@ -572,19 +572,17 @@ impl Software25D {
         );
 
         // Possibly divide back space.
-        // check if each corner of the BB is in the FOV
-        //if node.point_in_bounds(&v, side ^ 1) {
+        let back_side = side ^ 1;
         if self.bb_extents_in_fov(
-            node,
+            &node.bboxes[back_side],
             mobj,
-            side ^ 1,
             rend.size().half_width_f32(),
             rend.size().width_f32(),
         ) {
             self.render_bsp_node(
                 map,
                 player,
-                node.children[side ^ 1],
+                back,
                 pic_data,
                 rend,
                 player_subsector_id,
@@ -596,9 +594,8 @@ impl Software25D {
     /// R_CheckBBox - r_bsp
     fn bb_extents_in_fov(
         &self,
-        node: &Node,
+        bbox: &[Vec2; 2],
         mobj: &MapObject,
-        side: usize,
         half_screen_width: f32,
         screen_width: f32,
     ) -> bool {
@@ -609,8 +606,8 @@ impl Software25D {
         // BOXBOT = 1
         // BOXLEFT = 2
         // BOXRIGHT = 3
-        let lt = node.bboxes[side][0];
-        let rb = node.bboxes[side][1];
+        let lt = bbox[0];
+        let rb = bbox[1];
 
         // if node.point_in_bounds(mobj.xyz, side) {
         //     return true;

@@ -1,8 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
-    SurfacePolygon, WallTexPin, WallType,
+    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -25,9 +24,31 @@ struct VertexCache {
     valid: bool,
 }
 
-const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 const CLIP_VERTICES_LEN: usize = 3;
 const MAX_CLIPPED_VERTICES: usize = 16;
+
+/// Per-frame render counters and stats print rate-limiter.
+struct RenderStats {
+    /// Polygons in the visible list submitted for rasterisation.
+    polygons_submitted: u32,
+    #[cfg(feature = "render_stats")]
+    last_print: std::time::Instant,
+}
+
+impl RenderStats {
+    fn new() -> Self {
+        Self {
+            polygons_submitted: 0,
+            #[cfg(feature = "render_stats")]
+            last_print: std::time::Instant::now(),
+        }
+    }
+
+    /// Reset all per-frame counters.
+    fn reset(&mut self) {
+        self.polygons_submitted = 0;
+    }
+}
 
 /// A 3D software renderer for Doom levels.
 ///
@@ -68,6 +89,11 @@ pub struct Software3D {
     polygons_no_draw_count: u32,
     #[cfg(feature = "render_stats")]
     render_stats_last_print: std::time::Instant,
+    // Per-frame traversal state
+    seen_sectors: Vec<bool>,
+    visible_sectors: Vec<(usize, usize)>,
+    visible_polygons: Vec<(*const SurfacePolygon, f32)>,
+    stats: RenderStats,
     // Debug overlay: collected screen-space polygon outlines for post-render drawing
     pub debug_draw_polygon_outlines: bool,
     debug_polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
@@ -108,6 +134,10 @@ impl Software3D {
             polygons_no_draw_count: 0,
             #[cfg(feature = "render_stats")]
             render_stats_last_print: std::time::Instant::now(),
+            seen_sectors: Vec::new(),
+            visible_sectors: Vec::new(),
+            visible_polygons: Vec::new(),
+            stats: RenderStats::new(),
             debug_draw_polygon_outlines: false,
             debug_polygon_outlines: Vec::new(),
         };
@@ -229,7 +259,7 @@ impl Software3D {
 
     /// Early screen bounds check to reject polygons with all vertices outside
     /// frustum. Uses separating-axis test against all 6 frustum planes in
-    /// clip space.
+    /// clip space. Returns `true` if the polygon should be culled.
     fn cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> bool {
         let mut all_outside_left = true;
         let mut all_outside_right = true;
@@ -373,9 +403,7 @@ impl Software3D {
             return;
         }
 
-        if self
-            .should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len])
-        {
+        if self.should_cull_polygon_area(&self.screen_vertices_buffer[..self.screen_vertices_len]) {
             self.polygons_early_culled_count += 1;
             return;
         }
@@ -591,7 +619,10 @@ impl Software3D {
                 (final_u / tex_width, final_v / tex_height)
             }
 
-            SurfaceKind::Vertical { texture: None, .. } => (0.0, 0.0),
+            SurfaceKind::Vertical {
+                texture: None,
+                ..
+            } => (0.0, 0.0),
         }
     }
 
@@ -621,6 +652,7 @@ impl Software3D {
         self.polygons_no_draw_count = 0;
         self.polygons_early_culled_count = 0;
         self.polygons_rendered_count = 0;
+        self.stats.reset();
         self.depth_buffer.reset();
         self.debug_polygon_outlines.clear();
 
@@ -633,83 +665,60 @@ impl Software3D {
         let player_sector = player.mobj().unwrap().subsector.clone();
         if let Some(player_subsector_id) = self.find_player_subsector_id(subsectors, &player_sector)
         {
-            // Two-pass rendering: collect all visible polygons, then sort and render
-            let mut visible_polygons = Vec::new();
-            let mut visible_sectors: Vec<(usize, usize)> = Vec::new();
-            let mut seen_sectors = vec![false; sectors.len()];
+            let sector_count = sectors.len();
+            self.seen_sectors.resize(sector_count, false);
+            self.seen_sectors.fill(false);
+            self.visible_sectors.clear();
+            self.visible_polygons.clear();
 
-            let vis = pvs.get_visible_subsectors(player_subsector_id);
-            if !vis.is_empty() {
-                // Use PVS-based collection
-                for ss in vis.iter() {
-                    let Some(leaf) = bsp_3d.get_subsector_leaf(*ss) else {
-                        continue;
-                    };
-                    if self.is_bbox_outside_fov(&leaf.aabb) {
-                        continue;
-                    }
-                    for poly_surface in &leaf.polygons {
-                        // Collect unique visible sectors for sprite rendering
-                        let sid = poly_surface.sector_id;
-                        if !seen_sectors[sid] {
-                            seen_sectors[sid] = true;
-                            visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
-                        }
-                        if poly_surface.is_facing_point(player_pos, &bsp_3d.vertices) {
-                            if !self.cull_polygon_bounds(&poly_surface, bsp_3d) {
-                                let depth = self.calculate_polygon_depth(poly_surface, bsp_3d);
-                                visible_polygons.push((poly_surface, depth));
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Use BSP traversal for collection
-                let root_node = bsp_3d.root_node();
-                self.collect_visible_polygons(
-                    root_node,
+            if pvs.is_visible(player_subsector_id, player_subsector_id) {
+                self.collect_pvs_visible_polygons(
+                    bsp_3d.root_node(),
                     bsp_3d,
                     pvs,
                     sectors,
                     player_pos,
                     player_subsector_id,
+                );
+            } else {
+                self.render_visible_polygons(
+                    bsp_3d.root_node(),
+                    bsp_3d,
+                    sectors,
+                    player_pos,
                     player.extralight,
                     pic_data,
-                    &mut visible_polygons,
+                    buffer,
                 );
-                // Collect visible sectors from the polygons found
-                for (poly, _) in &visible_polygons {
-                    let sid = poly.sector_id;
-                    if !seen_sectors[sid] {
-                        seen_sectors[sid] = true;
-                        visible_sectors.push((sid, sectors[sid].lightlevel >> 4));
+            }
+
+            if !self.visible_polygons.is_empty() {
+                // Sort polygons front-to-back for optimal Z-rejection (larger 1/w is closer)
+                self.visible_polygons
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                // Render all polygons in optimal depth order
+                self.polygons_submitted_count = self.visible_polygons.len() as u32;
+                for i in 0..self.visible_polygons.len() {
+                    let poly_surface = unsafe { &*self.visible_polygons[i].0 };
+                    self.render_surface_polygon(
+                        poly_surface,
+                        bsp_3d,
+                        sectors,
+                        pic_data,
+                        player.extralight,
+                        buffer,
+                    );
+
+                    if self.depth_buffer.is_full() {
+                        break;
                     }
                 }
             }
 
-            // Sort polygons front-to-back for optimal Z-rejection (larger 1/w is closer)
-            visible_polygons
-                .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-            // Render all polygons in optimal depth order
-            self.polygons_submitted_count = visible_polygons.len() as u32;
-            for (poly_surface, _) in visible_polygons {
-                self.render_surface_polygon(
-                    &poly_surface,
-                    bsp_3d,
-                    sectors,
-                    pic_data,
-                    player.extralight,
-                    buffer,
-                );
-
-                if self.depth_buffer.is_full() {
-                    break;
-                }
-            }
-
             // Draw sprites after all geometry
-            self.draw_sprites(&visible_sectors, sectors, player, pic_data, buffer);
+            let visible_sectors_snapshot = self.visible_sectors.clone();
+            self.draw_sprites(&visible_sectors_snapshot, sectors, player, pic_data, buffer);
 
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);
@@ -722,11 +731,10 @@ impl Software3D {
             #[cfg(feature = "render_stats")]
             if self.render_stats_last_print.elapsed().as_secs_f32() >= 1.0 {
                 println!(
-                    "polys: {} submitted, {} frustum-clipped, {} culled, {} depth-rejected, {} rendered",
+                    "polys: {} submitted, {} frustum-clipped, {} culled, {} rendered",
                     self.polygons_submitted_count,
                     self.polygons_frustum_clipped_count,
                     self.polygons_early_culled_count,
-                    self.polygons_no_draw_count,
                     self.polygons_rendered_count,
                 );
                 self.render_stats_last_print = std::time::Instant::now();
@@ -748,25 +756,23 @@ impl Software3D {
         None
     }
 
-    /// Collect all visible polygons with their depths for global sorting
-    fn collect_visible_polygons<'a>(
+    /// Single-pass BSP traversal: render polygons immediately front-to-back.
+    /// Used as fallback when PVS is not available for the player's subsector.
+    fn render_visible_polygons(
         &mut self,
         node_id: u32,
-        bsp3d: &'a BSP3D,
-        pvs: &PVS,
+        bsp3d: &BSP3D,
         sectors: &[Sector],
         player_pos: Vec3,
-        player_subsector_id: usize,
         player_light: usize,
         pic_data: &mut PicData,
-        polygons: &mut Vec<(&'a SurfacePolygon, f32)>,
+        buffer: &mut impl DrawBuffer,
     ) {
-        if node_id & IS_SSECTOR_MASK != 0 {
-            // It's a subsector
+        if is_subsector(node_id) {
             let subsector_id = if node_id == u32::MAX {
                 0
             } else {
-                (node_id & !IS_SSECTOR_MASK) as usize
+                subsector_index(node_id)
             };
 
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
@@ -776,8 +782,20 @@ impl Software3D {
                 for poly_surface in &leaf.polygons {
                     if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
                         if !self.cull_polygon_bounds(&poly_surface, bsp3d) {
-                            let depth = self.calculate_polygon_depth(poly_surface, bsp3d);
-                            polygons.push((poly_surface, depth));
+                            self.render_surface_polygon(
+                                poly_surface,
+                                bsp3d,
+                                sectors,
+                                pic_data,
+                                player_light,
+                                buffer,
+                            );
+                            let sid = poly_surface.sector_id;
+                            if !self.seen_sectors[sid] {
+                                self.seen_sectors[sid] = true;
+                                self.visible_sectors
+                                    .push((sid, sectors[sid].lightlevel >> 4));
+                            }
                         }
                     }
                 }
@@ -792,32 +810,107 @@ impl Software3D {
         let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
 
         // Collect from front side first (closer to player)
-        self.collect_visible_polygons(
+        self.render_visible_polygons(
             node.children[side],
             bsp3d,
-            pvs,
             sectors,
             player_pos,
-            player_subsector_id,
             player_light,
             pic_data,
-            polygons,
+            buffer,
         );
 
         // Collect from back side with 3D frustum check using computed AABB
         let back_child_id = node.children[side ^ 1];
         if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
             if !self.is_bbox_outside_fov(back_aabb) {
-                self.collect_visible_polygons(
+                self.render_visible_polygons(
+                    back_child_id,
+                    bsp3d,
+                    sectors,
+                    player_pos,
+                    player_light,
+                    pic_data,
+                    buffer,
+                );
+            }
+        }
+    }
+
+    /// Collect visible polygons using PVS + hierarchical BSP node AABB culling.
+    /// Walks the BSP tree, skipping subtrees whose AABB is outside the camera
+    /// frustum. At leaf nodes, checks PVS visibility before processing
+    /// polygons.
+    fn collect_pvs_visible_polygons(
+        &mut self,
+        node_id: u32,
+        bsp3d: &BSP3D,
+        pvs: &impl PvsData,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_subsector_id: usize,
+    ) {
+        if is_subsector(node_id) {
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                subsector_index(node_id)
+            };
+
+            if !pvs.is_visible(player_subsector_id, subsector_id) {
+                return;
+            }
+
+            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+                return;
+            };
+            if self.is_bbox_outside_fov(&leaf.aabb) {
+                return;
+            }
+
+            for poly_surface in &leaf.polygons {
+                let sid = poly_surface.sector_id;
+                if !self.seen_sectors[sid] {
+                    self.seen_sectors[sid] = true;
+                    self.visible_sectors
+                        .push((sid, sectors[sid].lightlevel >> 4));
+                }
+                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                    if !self.cull_polygon_bounds(poly_surface, bsp3d) {
+                        let depth = self.calculate_polygon_depth(poly_surface, bsp3d);
+                        self.visible_polygons
+                            .push((poly_surface as *const _, depth));
+                    }
+                }
+            }
+            return;
+        }
+
+        // It's a node
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
+            return;
+        };
+        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
+
+        self.collect_pvs_visible_polygons(
+            node.children[side],
+            bsp3d,
+            pvs,
+            sectors,
+            player_pos,
+            player_subsector_id,
+        );
+
+        let back_child_id = node.children[side ^ 1];
+        if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
+            if !self.is_bbox_outside_fov(back_aabb) {
+                self.collect_pvs_visible_polygons(
                     back_child_id,
                     bsp3d,
                     pvs,
                     sectors,
                     player_pos,
                     player_subsector_id,
-                    player_light,
-                    pic_data,
-                    polygons,
                 );
             }
         }

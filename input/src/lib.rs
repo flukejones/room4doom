@@ -256,7 +256,8 @@ impl Input {
         while let Some(event) = self.pump.poll_event() {
             match event {
                 Event::KeyDown {
-                    scancode: Some(sc), ..
+                    scancode: Some(sc),
+                    ..
                 } => {
                     if input_callback(sc) {
                         self.events.unset_kb(sc);
@@ -265,14 +266,21 @@ impl Input {
                     }
                 }
                 Event::KeyUp {
-                    scancode: Some(sc), ..
+                    scancode: Some(sc),
+                    ..
                 } => {
                     self.events.unset_kb(sc);
                 }
-                Event::MouseButtonDown { mouse_btn, .. } => {
+                Event::MouseButtonDown {
+                    mouse_btn,
+                    ..
+                } => {
                     self.events.set_mb(mouse_btn);
                 }
-                Event::MouseButtonUp { mouse_btn, .. } => {
+                Event::MouseButtonUp {
+                    mouse_btn,
+                    ..
+                } => {
                     self.events.unset_mb(mouse_btn);
                 }
 
@@ -288,7 +296,9 @@ impl Input {
                     self.events.apply_mouse_sensitivity((xrel, yrel));
                 }
 
-                Event::Quit { .. } => self.quit = true, // Early out if Quit
+                Event::Quit {
+                    ..
+                } => self.quit = true, // Early out if Quit
                 _ => events_callback(event),
             }
         }

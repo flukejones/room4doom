@@ -1,8 +1,9 @@
 use log::info;
 
+use crate::PicData;
 use crate::doom_def::GameMode;
-use crate::level::map_defs::LineDef;
-use crate::{MapPtr, PicData};
+use map_data::MapPtr;
+use map_data::map_defs::LineDef;
 
 #[derive(Debug)]
 pub enum ButtonWhere {

@@ -11,7 +11,10 @@ pub struct Trace {
 impl Trace {
     #[inline]
     pub const fn new(xyz: Vec2, dxyz: Vec2) -> Self {
-        Self { xy: xyz, dxy: dxyz }
+        Self {
+            xy: xyz,
+            dxy: dxyz,
+        }
     }
 }
 

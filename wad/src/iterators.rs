@@ -166,7 +166,10 @@ impl WadData {
                 let name = lump.name.clone();
                 let mut data = vec![0; lump.data.len()];
                 data.copy_from_slice(&lump.data);
-                WadFlat { name, data }
+                WadFlat {
+                    name,
+                    data,
+                }
             },
         }
     }

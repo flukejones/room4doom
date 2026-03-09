@@ -3,7 +3,7 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use gameplay::log::{error, warn};
 use gameplay::{
-    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, p_random, point_to_angle_2
+    LineDefFlags, MapObjFlag, MapObject, PicData, Player, PspDef, Sector, SectorExt, p_random, point_to_angle_2
 };
 use glam::Vec2;
 use render_trait::DrawBuffer;
@@ -527,7 +527,7 @@ impl Software25D {
             let mut spryscale = ds.scale1 + (x1 - ds.x1) * rw_scalestep;
 
             let mut dc_texturemid;
-            if seg.linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
+            if seg.linedef.flags.contains(LineDefFlags::UnpegBottom) {
                 dc_texturemid = if frontsector.floorheight > backsector.floorheight {
                     frontsector.floorheight
                 } else {

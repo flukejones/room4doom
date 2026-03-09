@@ -9,8 +9,9 @@ mod tests {
     fn test_e5m1_sector24_has_lower_walls() {
         let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E5M1", &&PicData::init(&wad), &wad);
+        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 
@@ -18,7 +19,11 @@ mod tests {
         for &ssid in &bsp3d.sector_subsectors[24] {
             let leaf = &bsp3d.subsector_leaves[ssid];
             for poly in &leaf.polygons {
-                if let SurfaceKind::Vertical { wall_type, .. } = &poly.surface_kind {
+                if let SurfaceKind::Vertical {
+                    wall_type,
+                    ..
+                } = &poly.surface_kind
+                {
                     if matches!(wall_type, WallType::Lower) {
                         lower_wall_count += 1;
                     }
@@ -39,7 +44,11 @@ mod tests {
             for &ssid in &bsp3d.sector_subsectors[front_sector_num] {
                 let leaf = &bsp3d.subsector_leaves[ssid];
                 for poly in &leaf.polygons {
-                    if let SurfaceKind::Vertical { wall_type, .. } = &poly.surface_kind {
+                    if let SurfaceKind::Vertical {
+                        wall_type,
+                        ..
+                    } = &poly.surface_kind
+                    {
                         if matches!(wall_type, WallType::Lower) {
                             lower_wall_count += 1;
                         }
@@ -61,8 +70,9 @@ mod tests {
     fn test_e5m1_sector24_wall_properties() {
         let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
         wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E5M1", &&PicData::init(&wad), &wad);
+        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 
@@ -70,7 +80,11 @@ mod tests {
         for &ssid in &bsp3d.sector_subsectors[24] {
             let leaf = &bsp3d.subsector_leaves[ssid];
             for poly in &leaf.polygons {
-                if let SurfaceKind::Vertical { wall_type, .. } = &poly.surface_kind {
+                if let SurfaceKind::Vertical {
+                    wall_type,
+                    ..
+                } = &poly.surface_kind
+                {
                     if matches!(wall_type, WallType::Lower) {
                         total_lower_walls += 1;
                     }

@@ -20,7 +20,10 @@ unsafe impl Send for Snd {}
 impl Snd {
     pub fn new(_: &WadData) -> Result<Self, Box<dyn Error>> {
         let (tx, rx) = channel();
-        Ok(Self { rx, tx })
+        Ok(Self {
+            rx,
+            tx,
+        })
     }
 }
 

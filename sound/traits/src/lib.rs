@@ -119,11 +119,21 @@ where
     fn tic(&mut self) -> bool {
         if let Ok(sound) = self.get_rx().recv_timeout(Duration::from_micros(500)) {
             match sound {
-                SoundAction::StartSfx { uid, sfx, x, y } => self.start_sound(uid, sfx, x, y),
-                SoundAction::UpdateListener { uid, x, y, angle } => {
-                    self.update_listener(uid, x, y, angle)
-                }
-                SoundAction::StopSfx { uid } => self.stop_sound(uid),
+                SoundAction::StartSfx {
+                    uid,
+                    sfx,
+                    x,
+                    y,
+                } => self.start_sound(uid, sfx, x, y),
+                SoundAction::UpdateListener {
+                    uid,
+                    x,
+                    y,
+                    angle,
+                } => self.update_listener(uid, x, y, angle),
+                SoundAction::StopSfx {
+                    uid,
+                } => self.stop_sound(uid),
                 SoundAction::StopSfxAll => self.stop_sound_all(),
                 SoundAction::StartMusic(music, looping) => self.start_music(music, looping),
                 SoundAction::PauseMusic => self.pause_music(),
@@ -178,7 +188,10 @@ mod tests {
     impl Snd {
         fn new() -> Self {
             let (tx, rx) = channel();
-            Self { rx, tx }
+            Self {
+                rx,
+                tx,
+            }
         }
     }
 
@@ -257,7 +270,10 @@ mod tests {
             angle: FRAC_PI_2,
         })
         .unwrap();
-        tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();
+        tx.send(SoundAction::StopSfx {
+            uid: 123,
+        })
+        .unwrap();
         assert_eq!(snd.rx.try_iter().count(), 3);
 
         tx.send(SoundAction::StartSfx {
@@ -274,7 +290,10 @@ mod tests {
             angle: FRAC_PI_2,
         })
         .unwrap();
-        tx.send(SoundAction::StopSfx { uid: 123 }).unwrap();
+        tx.send(SoundAction::StopSfx {
+            uid: 123,
+        })
+        .unwrap();
         for _ in 0..3 {
             snd.tic();
         }

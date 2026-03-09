@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod map_data_tests {
-    use crate::level::map_data::{BSPTrace, IS_SSECTOR_MASK, MapData};
-    use crate::{Node, PicData};
+    use crate::Node;
     use glam::Vec2;
+    use map_data::LineDefFlags;
+    use map_data::map_data::{BSPTrace, IS_SSECTOR_MASK, MapData};
     use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
     use std::path::PathBuf;
@@ -28,9 +29,8 @@ mod map_data_tests {
         assert_eq!(ext.segments.len(), 14582);
         assert_eq!(ext.nodes.len(), 4337);
 
-        let pic_data = PicData::default();
         let mut map = MapData::default();
-        map.load("MAP03", &pic_data, &wad);
+        map.load("MAP03", |_| None, &wad);
 
         // 666: no->x: 12.000000, no->y: -342.000000, no->dx: 0.000000, no->dy:
         // -20.000000 666: child[0]: 665, child[1]: -2147482974
@@ -115,9 +115,8 @@ mod map_data_tests {
         assert_eq!(sides[2925].middle_tex, "MAKWOD12");
         assert_eq!(sides[2925].upper_tex, "");
 
-        let pic_data = PicData::default();
         let mut map = MapData::default();
-        map.load("E1M1", &pic_data, &wad);
+        map.load("E1M1", |_| None, &wad);
         // line 1590
         assert_eq!(*map.linedefs[1590].v1, Vec2::new(-560.0, -3952.0));
         assert_eq!(*map.linedefs[1590].v2, Vec2::new(-560.0, -3920.0));
@@ -144,7 +143,7 @@ mod map_data_tests {
     fn test_tracing_bsp() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
         let origin = Vec2::new(710.0, -3400.0); // left corner from start
         let endpoint = Vec2::new(710.0, -3000.0); // 3 sectors up
 
@@ -221,7 +220,7 @@ mod map_data_tests {
     fn check_e1m1_things() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let things = &map.things();
         assert_eq!(things[0].x as i32, 1056);
@@ -248,7 +247,7 @@ mod map_data_tests {
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let linedefs = map.linedefs();
 
@@ -284,7 +283,7 @@ mod map_data_tests {
     fn check_e1m1_linedefs() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let linedefs = map.linedefs();
         assert_eq!(linedefs[0].v1.x as i32, 1088);
@@ -295,12 +294,18 @@ mod map_data_tests {
         assert_eq!(linedefs[474].v1.x as i32, 3536);
         assert_eq!(linedefs[474].v2.x as i32, 3520);
         assert!(linedefs[2].back_sidedef.is_none());
-        assert_eq!(linedefs[474].flags, 1);
+        assert_eq!(linedefs[474].flags, LineDefFlags::Blocking);
         assert!(linedefs[474].back_sidedef.is_none());
         assert!(linedefs[466].back_sidedef.is_some());
 
         // Flag check
-        assert_eq!(linedefs[26].flags, 29);
+        assert_eq!(
+            linedefs[26].flags,
+            LineDefFlags::Blocking
+                | LineDefFlags::TwoSided
+                | LineDefFlags::UnpegTop
+                | LineDefFlags::UnpegBottom
+        );
     }
 
     #[test]
@@ -308,7 +313,7 @@ mod map_data_tests {
     fn check_e1m1_sectors() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let sectors = map.sectors();
         assert_eq!(sectors[0].floorheight, 0.0);
@@ -327,7 +332,7 @@ mod map_data_tests {
     fn check_e1m1_sidedefs() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let sidedefs = map.sidedefs();
         assert_eq!(sidedefs[0].rowoffset, 0.0);
@@ -343,7 +348,7 @@ mod map_data_tests {
     fn check_e1m1_segments() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let segments = map.segments();
         assert_eq!(segments[0].v1.x as i32, 1552);
@@ -367,7 +372,7 @@ mod map_data_tests {
     fn find_vertex_using_bsptree() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         // The actual location of THING0
         let player = Vec2::new(1056.0, -3616.0);
@@ -381,7 +386,7 @@ mod map_data_tests {
     fn check_nodes_of_e1m1() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", &PicData::default(), &wad);
+        map.load("E1M1", |_| None, &wad);
 
         let nodes = map.get_nodes();
         assert_eq!(nodes[0].xy.x as i32, 1552);

@@ -2,7 +2,7 @@
 use coarse_prof::profile;
 use gameplay::{
     AABB, BSP3D, Level, MapData, PVS, PicData, Player, Sector, SubSector, SurfaceKind,
-    SurfacePolygon, WallTexPin, WallType,
+    SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -16,7 +16,6 @@ mod tests;
 
 use depth_buffer::DepthBuffer;
 
-const IS_SSECTOR_MASK: u32 = 0x8000_0000;
 const CLIP_VERTICES_LEN: usize = 3;
 
 /// A 3D software renderer for Doom levels.
@@ -589,12 +588,12 @@ impl Software3D {
         pic_data: &mut PicData,
         polygons: &mut Vec<(&'a SurfacePolygon, f32)>,
     ) {
-        if node_id & IS_SSECTOR_MASK != 0 {
+        if is_subsector(node_id) {
             // It's a subsector
             let subsector_id = if node_id == u32::MAX {
                 0
             } else {
-                (node_id & !IS_SSECTOR_MASK) as usize
+                subsector_index(node_id)
             };
 
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
@@ -617,11 +616,11 @@ impl Software3D {
         let Some(node) = bsp3d.nodes().get(node_id as usize) else {
             return;
         };
-        let side = node.point_on_side(Vec2::new(player_pos.x, player_pos.y));
+        let (front, back) = node.front_back_children(Vec2::new(player_pos.x, player_pos.y));
 
         // Collect from front side first (closer to player)
         self.collect_visible_polygons(
-            node.children[side],
+            front,
             bsp3d,
             pvs,
             sectors,
@@ -633,7 +632,7 @@ impl Software3D {
         );
 
         // Collect from back side with 3D frustum check using computed AABB
-        let back_child_id = node.children[side ^ 1];
+        let back_child_id = back;
         if let Some(back_aabb) = bsp3d.get_node_aabb(back_child_id) {
             if !self.is_bbox_outside_fov(back_aabb) {
                 self.collect_visible_polygons(

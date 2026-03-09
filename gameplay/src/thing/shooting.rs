@@ -9,10 +9,11 @@ use std::f32::consts::FRAC_PI_2;
 use crate::doom_def::{MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
-use crate::level::map_data::BSPTrace;
-use crate::level::map_defs::LineDef;
 use crate::utilities::{Intercept, PortalZ, path_traverse};
-use crate::{Angle, LineDefFlags, MapObjKind, MapObject, MapPtr};
+use crate::{Angle, LineDefFlags, MapObjKind, MapObject, SectorExt};
+use map_data::MapPtr;
+use map_data::map_data::BSPTrace;
+use map_data::map_defs::LineDef;
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
 
@@ -507,7 +508,7 @@ impl SubSectTraverse {
     fn check_traverse(&mut self, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // Check if solid line and stop
-            if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+            if !line.flags.contains(LineDefFlags::TwoSided) {
                 return false;
             }
 
@@ -533,7 +534,7 @@ impl SubSectTraverse {
     fn check_aim(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             // Check if solid line and stop
-            if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+            if !line.flags.contains(LineDefFlags::TwoSided) {
                 return false;
             }
 
@@ -652,7 +653,7 @@ impl ShootTraverse {
             }
 
             // Check if solid line and stop
-            if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+            if !line.flags.contains(LineDefFlags::TwoSided) {
                 self.hit_line(shooter, intercept.frac, line);
                 return false;
             }

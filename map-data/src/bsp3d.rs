@@ -1,9 +1,9 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
-use crate::level::map_defs::{LineDef, Node, Sector, SubSector};
-use crate::level::triangulation::carve_subsector_polygon;
-use crate::{DivLine, LineDefFlags, PicData, Segment};
+use crate::flags::LineDefFlags;
+use crate::map_defs::{LineDef, Node, Sector, Segment, SubSector};
+use crate::triangulation::{DivLine, carve_subsector_polygon};
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
 
@@ -105,7 +105,7 @@ fn build_zero_height_wall_map(segments: &[Segment]) -> HashMap<usize, ZeroHeight
 ///   special
 /// - It is the backsector of a linedef that has a non-zero special (e.g. manual
 ///   doors)
-fn is_sector_mover(sector: &Sector, linedefs: &[LineDef]) -> bool {
+pub fn is_sector_mover(sector: &Sector, linedefs: &[LineDef]) -> bool {
     if sector.tag != 0 {
         for ld in linedefs {
             if ld.tag == sector.tag && ld.special != 0 {
@@ -141,15 +141,13 @@ pub enum WallTexPin {
     None = 0b1000,
 }
 
-impl From<u32> for WallTexPin {
-    fn from(flags: u32) -> Self {
-        if flags & LineDefFlags::UnpegBottom as u32 != 0
-            && flags & LineDefFlags::UnpegTop as u32 != 0
-        {
+impl From<LineDefFlags> for WallTexPin {
+    fn from(flags: LineDefFlags) -> Self {
+        if flags.contains(LineDefFlags::UnpegBottom) && flags.contains(LineDefFlags::UnpegTop) {
             WallTexPin::UnpegBoth
-        } else if flags & LineDefFlags::UnpegBottom as u32 != 0 {
+        } else if flags.contains(LineDefFlags::UnpegBottom) {
             WallTexPin::UnpegBottom
-        } else if flags & LineDefFlags::UnpegTop as u32 != 0 {
+        } else if flags.contains(LineDefFlags::UnpegTop) {
             WallTexPin::UnpegTop
         } else {
             WallTexPin::None
@@ -170,11 +168,18 @@ impl Node3D {
     pub const fn point_on_side(&self, point: Vec2) -> usize {
         let dx = point.x - self.xy.x;
         let dy = point.y - self.xy.y;
-        if (dx * self.delta.y - dy * self.delta.x) <= 0.0 {
+        if (self.delta.y * dx) > (dy * self.delta.x) {
             0
         } else {
             1
         }
+    }
+
+    /// Returns (front_child_id, back_child_id) for the given point.
+    /// Front is the child on the same side as the point (closer).
+    pub fn front_back_children(&self, point: Vec2) -> (u32, u32) {
+        let side = self.point_on_side(point);
+        (self.children[side], self.children[side ^ 1])
     }
 }
 
@@ -212,12 +217,30 @@ impl From<&[Vec3; 2]> for AABB {
     }
 }
 
+/// Original 2D segment data retained for screen-space occlusion testing.
+/// Stores sector IDs rather than baked heights so that live sector heights
+/// (doors/lifts) are used at render time.
 #[derive(Debug, Clone)]
+pub struct OcclusionSeg {
+    pub v1: Vec2,
+    pub v2: Vec2,
+    pub front_sector_id: usize,
+    /// None = one-sided (fully solid). Some = two-sided portal whose
+    /// opening is between max(front_floor, back_floor) and
+    /// min(front_ceil, back_ceil).
+    pub back_sector_id: Option<usize>,
+    /// Precomputed atan2(v2.y - v1.y, v2.x - v1.x) — seg direction angle.
+    pub seg_angle_rad: f32,
+}
+
+#[derive(Clone)]
 pub struct BSPLeaf3D {
     pub polygons: Vec<SurfacePolygon>,
     pub aabb: AABB,
     pub floor_polygons: Vec<usize>,
     pub ceiling_polygons: Vec<usize>,
+    pub sector_id: usize,
+    pub occlusion_segs: Vec<OcclusionSeg>,
 }
 
 #[derive(Debug, Clone)]
@@ -232,6 +255,9 @@ pub enum SurfaceKind {
         /// For texture alignment
         front_ceiling_z: f32,
         two_sided: bool,
+        /// Index of the linedef this wall was created from; used to update the
+        /// texture when a switch fires.
+        linedef_id: usize,
     },
     Horizontal {
         texture: usize,
@@ -387,7 +413,13 @@ pub struct BSP3D {
     pub subsector_leaves: Vec<BSPLeaf3D>,
     root_node: u32,
     pub vertices: Vec<Vec3>,
-    pub(crate) sector_subsectors: Vec<Vec<usize>>,
+    pub sector_subsectors: Vec<Vec<usize>>,
+    /// Carved 2D convex polygon for each subsector, indexed by subsector ID.
+    /// Empty vec for degenerate subsectors that produce no valid polygon.
+    pub carved_polygons: Vec<Vec<Vec2>>,
+    /// Maps linedef_id → [(subsector_id, polygon_idx)] for wall texture
+    /// updates.
+    linedef_wall_polygons: HashMap<usize, Vec<(usize, usize)>>,
 }
 
 impl BSP3D {
@@ -398,7 +430,6 @@ impl BSP3D {
         segments: &[Segment],
         sectors: &[Sector],
         linedefs: &[LineDef],
-        pic_data: &PicData,
     ) -> Self {
         #[cfg(feature = "hprof")]
         profile!("BSP3D::new");
@@ -409,6 +440,8 @@ impl BSP3D {
             root_node,
             vertices: Vec::new(),
             sector_subsectors: vec![Vec::new(); sectors.len()],
+            carved_polygons: vec![Vec::new(); subsectors.len()],
+            linedef_wall_polygons: HashMap::new(),
         };
 
         let zero_height_wall_map = build_zero_height_wall_map(segments);
@@ -428,13 +461,13 @@ impl BSP3D {
             linedefs,
             bsp3d.root_node,
             Vec::new(),
-            pic_data,
             &zero_height_wall_map,
             &mut vertex_tracking,
         );
 
         bsp3d.update_all_aabbs();
         bsp3d.expand_node_aabbs_for_movers(sectors, linedefs);
+        bsp3d.build_linedef_wall_map();
 
         bsp3d
     }
@@ -528,10 +561,57 @@ impl BSP3D {
             let leaf = &mut self.subsector_leaves[subsector_id];
             for i in 0..leaf.floor_polygons.len() {
                 let polygon_idx = leaf.floor_polygons[i];
-                if let SurfaceKind::Horizontal { texture, .. } =
-                    &mut leaf.polygons[polygon_idx].surface_kind
+                if let SurfaceKind::Horizontal {
+                    texture,
+                    ..
+                } = &mut leaf.polygons[polygon_idx].surface_kind
                 {
                     *texture = new_texture;
+                }
+            }
+        }
+    }
+
+    fn build_linedef_wall_map(&mut self) {
+        for (subsector_id, leaf) in self.subsector_leaves.iter().enumerate() {
+            for (poly_idx, polygon) in leaf.polygons.iter().enumerate() {
+                if let SurfaceKind::Vertical {
+                    linedef_id,
+                    ..
+                } = polygon.surface_kind
+                {
+                    self.linedef_wall_polygons
+                        .entry(linedef_id)
+                        .or_default()
+                        .push((subsector_id, poly_idx));
+                }
+            }
+        }
+    }
+
+    /// Update the texture of all wall polygons belonging to `linedef_id` that
+    /// match `wall_type`.  Called by the switch system after a sidedef texture
+    /// change so the 3D scene stays in sync.
+    pub fn update_wall_texture(
+        &mut self,
+        linedef_id: usize,
+        wall_type: WallType,
+        new_texture: usize,
+    ) {
+        let Some(entries) = self.linedef_wall_polygons.get(&linedef_id) else {
+            return;
+        };
+        let entries = entries.clone();
+        for (subsector_id, poly_idx) in entries {
+            let polygon = &mut self.subsector_leaves[subsector_id].polygons[poly_idx];
+            if let SurfaceKind::Vertical {
+                texture,
+                wall_type: wt,
+                ..
+            } = &mut polygon.surface_kind
+            {
+                if *wt == wall_type {
+                    *texture = Some(new_texture);
                 }
             }
         }
@@ -598,7 +678,6 @@ impl BSP3D {
         linedefs: &[LineDef],
         node_id: u32,
         divlines: Vec<DivLine>,
-        pic_data: &PicData,
         zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
         vertex_tracking: &mut VertexTracking,
     ) {
@@ -622,7 +701,6 @@ impl BSP3D {
                 linedefs,
                 node_id,
                 divlines,
-                pic_data,
                 zh_wall_map,
                 vertex_tracking,
             );
@@ -649,6 +727,9 @@ impl BSP3D {
             let start_seg = subsector.start_seg as usize;
             let end_seg = start_seg + subsector.seg_count as usize;
 
+            // Store sector ID on the leaf
+            self.subsector_leaves[subsector_id].sector_id = subsector.sector.num as usize;
+
             if let Some(subsector_segments) = segments.get(start_seg..end_seg) {
                 // Process segments for walls
                 for segment_idx in start_seg..end_seg {
@@ -656,6 +737,18 @@ impl BSP3D {
                     {
                         let this = &mut *self;
                         let front_sector = &segment.frontsector;
+
+                        let sv1 = *segment.v1;
+                        let sv2 = *segment.v2;
+                        this.subsector_leaves[subsector_id]
+                            .occlusion_segs
+                            .push(OcclusionSeg {
+                                v1: sv1,
+                                v2: sv2,
+                                front_sector_id: front_sector.num as usize,
+                                back_sector_id: segment.backsector.as_ref().map(|s| s.num as usize),
+                                seg_angle_rad: (sv2.y - sv1.y).atan2(sv2.x - sv1.x),
+                            });
 
                         // Check for back sector
                         if let Some(back_sector) = &segment.backsector {
@@ -687,6 +780,7 @@ impl BSP3D {
                     segments,
                     subsectors,
                 );
+                self.carved_polygons[subsector_id] = polygon.clone();
                 self.create_floor_ceiling_polygons(
                     subsector_id,
                     subsector,
@@ -947,6 +1041,7 @@ impl BSP3D {
             wall_tex_pin: WallTexPin::from(segment.linedef.flags),
             front_ceiling_z: segment.frontsector.ceilingheight,
             two_sided,
+            linedef_id: segment.linedef.num,
         };
 
         let triangle1 = SurfacePolygon::new(
@@ -1008,7 +1103,6 @@ impl BSP3D {
         linedefs: &[LineDef],
         node_id: u32,
         divlines: Vec<DivLine>,
-        pic_data: &PicData,
         zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
         vertex_tracking: &mut VertexTracking,
     ) {
@@ -1025,7 +1119,6 @@ impl BSP3D {
                 linedefs,
                 node.children[0],
                 right_divlines,
-                pic_data,
                 zh_wall_map,
                 vertex_tracking,
             );
@@ -1043,7 +1136,6 @@ impl BSP3D {
                 linedefs,
                 node.children[1],
                 left_divlines,
-                pic_data,
                 zh_wall_map,
                 vertex_tracking,
             );
@@ -1271,14 +1363,16 @@ impl BSP3D {
         }
     }
 
-    /// Pre-expand node AABBs so they cover the full movement range of mover
-    /// sectors. Leaf AABBs are temporarily expanded, node AABBs are propagated,
-    /// then leaf AABBs are restored to their original tight values.
+    /// Expand leaf and node AABBs for mover sectors and zero-height sectors
+    /// (doors) to cover the full movement range. The expanded AABBs are kept
+    /// permanently on leaves for PVS use.
     fn expand_node_aabbs_for_movers(&mut self, sectors: &[Sector], linedefs: &[LineDef]) {
-        let saved_aabbs: Vec<AABB> = self.subsector_leaves.iter().map(|leaf| leaf.aabb).collect();
-
         for (sector_id, sector) in sectors.iter().enumerate() {
-            if !is_sector_mover(sector, linedefs) {
+            let is_mover = is_sector_mover(sector, linedefs);
+            let is_zero_height =
+                (sector.ceilingheight - sector.floorheight).abs() <= HEIGHT_EPSILON;
+
+            if !is_mover && !is_zero_height {
                 continue;
             }
 
@@ -1286,7 +1380,7 @@ impl BSP3D {
             let mut max_ceil = sector.ceilingheight;
 
             for line in &sector.lines {
-                if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+                if !line.flags.contains(LineDefFlags::TwoSided) {
                     continue;
                 }
                 let neighbor = if line.frontsector.num == sector.num as i32 {
@@ -1316,10 +1410,6 @@ impl BSP3D {
         }
 
         self.update_node_aabbs_recursive(self.root_node);
-
-        for (i, saved) in saved_aabbs.into_iter().enumerate() {
-            self.subsector_leaves[i].aabb = saved;
-        }
     }
 
     pub fn get_node_aabb(&self, node_id: u32) -> Option<&AABB> {
@@ -1342,6 +1432,8 @@ impl Default for BSP3D {
             root_node: 0,
             vertices: Vec::new(),
             sector_subsectors: Vec::new(),
+            carved_polygons: Vec::new(),
+            linedef_wall_polygons: HashMap::new(),
         }
     }
 }
@@ -1353,58 +1445,11 @@ impl Default for BSPLeaf3D {
             aabb: AABB::new(),
             floor_polygons: Vec::new(),
             ceiling_polygons: Vec::new(),
+            sector_id: 0,
+            occlusion_segs: Vec::new(),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use crate::level::bsp3d::HEIGHT_EPSILON;
-    use crate::{MapData, PicData, SurfaceKind};
-    use wad::WadData;
-
-    #[test]
-    fn test_zero_height_walls() {
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let mut map = MapData::default();
-        map.load("E1M2", &PicData::init(&wad), &wad);
-
-        let bsp3d = &map.bsp_3d;
-        let mut zero_height_walls = Vec::new();
-
-        for (subsector_id, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-            for polygon in &leaf.polygons {
-                if let SurfaceKind::Vertical { wall_type, .. } = &polygon.surface_kind {
-                    // Check if this wall has zero height by examining vertices
-                    if polygon.vertices.len() >= 3 {
-                        // Check if all vertices are at the same Z coordinate
-                        let first_z = bsp3d.vertices[polygon.vertices[0]].z;
-                        let is_zero_height = polygon
-                            .vertices
-                            .iter()
-                            .all(|&idx| (bsp3d.vertices[idx].z - first_z).abs() < HEIGHT_EPSILON);
-
-                        if is_zero_height {
-                            zero_height_walls.push((
-                                subsector_id,
-                                polygon.sector_id,
-                                wall_type.clone(),
-                                polygon.vertices.len(),
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-
-        println!("Zero-height walls found in E1M2:");
-        for (subsector_id, sector_id, wall_type, vertex_count) in zero_height_walls {
-            println!(
-                "  Subsector: {}, Sector: {}, Wall Type: {:?}, Vertices: {}",
-                subsector_id, sector_id, wall_type, vertex_count
-            );
-        }
-    }
-}
+// NOTE: WAD-loading tests (test_zero_height_walls) remain in gameplay crate
+// as integration tests since they need PicData.

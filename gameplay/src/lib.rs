@@ -10,12 +10,6 @@
 #![allow(clippy::new_without_default)]
 
 use std::f32::consts::TAU;
-use std::fmt::{self, Debug};
-use std::ops::{Deref, DerefMut};
-
-#[cfg(feature = "null_check")]
-use std::panic;
-use std::ptr::null_mut;
 
 mod doom_def;
 pub(crate) mod env;
@@ -26,6 +20,7 @@ mod level;
 mod pic;
 mod player;
 mod player_sprite;
+pub(crate) mod sector_ext;
 mod thing;
 mod thinker;
 pub mod tic_cmd;
@@ -39,24 +34,22 @@ pub use env::teleport::teleport_move;
 pub use info::{MapObjKind, STATES, StateNum};
 pub use lang::english;
 pub use level::Level;
-pub use level::bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, SurfaceKind, SurfacePolygon, WallTexPin, WallType
+// Re-export from map-data crate
+pub use map_data::{
+    AABB, BBox, BSP3D, BSPLeaf3D, DivLine, IS_SSECTOR_MASK, LineDefFlags, MapData, MapPtr, MightSee, Mightsee, MovementType, Node, Node3D, OcclusionSeg, PVS2D, Portal, Portals, PvsCluster, PvsData, PvsFile, PvsFileError, PvsView2D, RenderPvs, Sector, Segment, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, mark_subsector, pvs_load_from_cache, subsector_index
 };
-pub use level::flags::LineDefFlags;
-pub use level::map_data::MapData;
-pub use level::map_defs::{Node, Sector, Segment, SubSector};
-// pub use level::portals::{Portal, Portal3D, PortalType};
-pub use level::pvs::PVS;
-pub use level::triangulation::DivLine;
 pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2};
 pub use pic::{FlatPic, MipLevel, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
+pub use sector_ext::SectorExt;
 use std::error::Error;
+use std::fmt::{self, Debug};
 use std::str::FromStr;
 pub use thing::{MapObjFlag, MapObject};
 // re-export
-pub use {glam, log};
+pub use glam;
+pub use log;
 
 #[derive(Debug)]
 pub enum DoomArgError {
@@ -169,124 +162,6 @@ impl FromStr for Skill {
             "5" => Ok(Skill::Nightmare),
             _ => Err(DoomArgError::InvalidSkill("Invalid arg".to_owned())),
         }
-    }
-}
-
-/// This exists to allow breaking the rules of borrows and in some cases
-/// lifetimes.
-///
-/// Where you will see it used most is in references to the map
-/// structure - things like linkng segs with lines, subsectors etc, the maps in
-/// Doom are very self-referential with a need to be able to follow any
-/// subsector to any other, from any line or seg.
-///
-/// It is also for allowing thinkers (e.g, Doors, Lights) to keep a mutable
-/// reference to Sectors or lines they need to control (without having to jump
-/// through flaming hoops).
-pub struct MapPtr<T: Debug> {
-    inner: *mut T,
-}
-
-impl<T: Debug> MapPtr<T> {
-    fn new(t: &mut T) -> MapPtr<T> {
-        MapPtr { inner: t as *mut _ }
-    }
-
-    /// This should only ever be used in cases where the `MapPtr` itself will be
-    /// replaced.
-    ///
-    /// # Safety
-    ///
-    /// Either replace the `MapPtr` with a valid type before use, or check null
-    /// status with `is_null()` (it will always be null as there is no way to
-    /// set the internal pointer).
-    ///
-    /// Test builds should be run with `null_check` feature occasionally.
-    unsafe fn new_null() -> MapPtr<T> {
-        MapPtr { inner: null_mut() }
-    }
-
-    fn is_null(&self) -> bool {
-        self.inner.is_null()
-    }
-}
-
-impl<T: Debug> PartialEq for MapPtr<T> {
-    fn eq(&self, other: &Self) -> bool {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        self.inner == other.inner
-    }
-}
-
-impl<T: Debug> Clone for MapPtr<T> {
-    fn clone(&self) -> MapPtr<T> {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        MapPtr { inner: self.inner }
-    }
-}
-
-impl<T: Debug> Deref for MapPtr<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        unsafe { &*self.inner }
-    }
-}
-
-impl<T: Debug> DerefMut for MapPtr<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        unsafe { &mut *self.inner }
-    }
-}
-
-impl<T: Debug> AsRef<T> for MapPtr<T> {
-    fn as_ref(&self) -> &T {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        unsafe { &*self.inner }
-    }
-}
-
-impl<T: Debug> AsMut<T> for MapPtr<T> {
-    fn as_mut(&mut self) -> &mut T {
-        #[cfg(feature = "null_check")]
-        if self.inner.is_null() {
-            panic!("NULL");
-        }
-        unsafe { &mut *self.inner }
-    }
-}
-
-#[cfg(feature = "null_check")]
-impl<T: Debug> Drop for MapPtr<T> {
-    fn drop(&mut self) {
-        if self.inner.is_null() {
-            panic!("Can not drop DPtr with an inner null");
-        }
-    }
-}
-
-impl<T: Debug> Debug for MapPtr<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ptr->{:?}->{:#?}", self.inner, unsafe {
-            self.inner.as_ref()
-        })
     }
 }
 

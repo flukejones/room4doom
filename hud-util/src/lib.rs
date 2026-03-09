@@ -148,6 +148,42 @@ pub fn draw_num(
     x
 }
 
+/// Draw `text` left-to-right from `(x, y)` using the HUD font.
+///
+/// Returns the x position after the last character. Spaces are rendered as a
+/// fixed gap (`4 * sx`). Characters outside the font range are skipped.
+pub fn draw_text_line(
+    text: &str,
+    x: f32,
+    y: f32,
+    sx: f32,
+    sy: f32,
+    palette: &WadPalette,
+    pixels: &mut impl DrawBuffer,
+) -> f32 {
+    let mut cx = x;
+    for c in text.chars() {
+        match get_patch_for_char(c) {
+            Some(patch) => {
+                draw_patch(patch, cx, y, sx, sy, palette, pixels);
+                cx += patch.width as f32 * sx + sx;
+            }
+            None => cx += 4.0 * sx, // space or unknown
+        }
+    }
+    cx
+}
+
+/// Pixel width of `text` at horizontal scale `sx`, without drawing.
+pub fn measure_text_line(text: &str, sx: f32) -> f32 {
+    text.chars()
+        .map(|c| match get_patch_for_char(c) {
+            Some(p) => p.width as f32 * sx + sx,
+            None => 4.0 * sx,
+        })
+        .sum()
+}
+
 /// Specifically to help create static arrays of `WadPatch`
 pub const HUD_STRING: HUDString = HUDString::default();
 

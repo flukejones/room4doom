@@ -2,7 +2,7 @@
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{MapData, MovementType, PicData};
+    use crate::{MapData, MovementType, PicData, SurfaceKind, WallType};
     use wad::WadData;
 
     /// Verify that all sector 129 (door) ceiling vertices move when the
@@ -12,8 +12,9 @@ mod tests {
     #[test]
     fn test_e1m2_sector129_door_ceiling_moves() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M2", &&PicData::init(&wad), &wad);
+        map.load("E1M2", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &mut map.bsp_3d;
         let initial_positions: Vec<_> = bsp3d.vertices.iter().copied().collect();
@@ -41,6 +42,75 @@ mod tests {
         assert_eq!(
             stuck_count, 0,
             "All sector 129 ceiling vertices should move"
+        );
+    }
+
+    /// Verify that ALL upper-wall bottom vertices along the sector 129 (door)
+    /// boundary share indices with sector 129's ceiling polygons — static check
+    /// that the triangulation tagged them correctly before any movement occurs.
+    #[test]
+    fn test_e1m2_all_mover_vertex_sharing() {
+        use std::collections::HashSet;
+
+        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
+        let mut map = MapData::default();
+        map.load("E1M2", |name| pic_data.flat_num_for_name(name), &wad);
+
+        let bsp3d = &map.bsp_3d;
+        let verts = &bsp3d.vertices;
+
+        // Sector 129: ceiling mover (door).
+        let ceil_verts: HashSet<usize> = bsp3d.sector_subsectors[129]
+            .iter()
+            .flat_map(|&ssid| {
+                let leaf = &bsp3d.subsector_leaves[ssid];
+                leaf.ceiling_polygons
+                    .iter()
+                    .flat_map(|&cpi| leaf.polygons[cpi].vertices.iter().copied())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
+        let ssid = bsp3d.sector_subsectors[129][0];
+        let leaf = &bsp3d.subsector_leaves[ssid];
+        let ceil_h = verts[leaf.polygons[leaf.ceiling_polygons[0]].vertices[0]].z;
+
+        let border_lds: HashSet<usize> = map
+            .segments
+            .iter()
+            .filter(|s| {
+                s.frontsector.num == 129 || s.backsector.as_ref().map_or(false, |b| b.num == 129)
+            })
+            .map(|s| s.linedef.num as usize)
+            .collect();
+
+        // Upper-wall bottom vertices at ceil_h must share indices with sector
+        // 129's ceiling polygons so move_surface propagates to those walls.
+        let mut unshared = Vec::new();
+        for leaf in &bsp3d.subsector_leaves {
+            for poly in &leaf.polygons {
+                if let SurfaceKind::Vertical {
+                    wall_type,
+                    linedef_id,
+                    ..
+                } = &poly.surface_kind
+                {
+                    if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Upper) {
+                        for &vi in &poly.vertices {
+                            if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
+                                unshared.push(vi);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            unshared.is_empty(),
+            "Sector 129 ceiling mover: upper wall bottom vertex indices {:?} not shared with ceiling polygons",
+            unshared
         );
     }
 }

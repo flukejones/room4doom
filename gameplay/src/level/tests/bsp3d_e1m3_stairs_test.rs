@@ -9,8 +9,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_sectors_have_moving_floors() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -37,8 +38,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_sectors_have_lower_walls_between_steps() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -49,7 +51,11 @@ mod tests {
             for &ssid in subsector_ids {
                 let leaf = &bsp3d.subsector_leaves[ssid];
                 for poly in &leaf.polygons {
-                    if let SurfaceKind::Vertical { wall_type, .. } = &poly.surface_kind {
+                    if let SurfaceKind::Vertical {
+                        wall_type,
+                        ..
+                    } = &poly.surface_kind
+                    {
                         if matches!(wall_type, WallType::Lower) {
                             lower_wall_count += 1;
                         }
@@ -67,8 +73,9 @@ mod tests {
     #[test]
     fn test_e1m3_stair_wall_vertex_sharing() {
         let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
+        let pic_data = PicData::init(&wad);
         let mut map = MapData::default();
-        map.load("E1M3", &&PicData::init(&wad), &wad);
+        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
 
         let bsp3d = &map.bsp_3d;
 
@@ -107,7 +114,11 @@ mod tests {
         for &ssid in &bsp3d.sector_subsectors[16] {
             let leaf = &bsp3d.subsector_leaves[ssid];
             for poly in &leaf.polygons {
-                if let SurfaceKind::Vertical { wall_type, .. } = &poly.surface_kind {
+                if let SurfaceKind::Vertical {
+                    wall_type,
+                    ..
+                } = &poly.surface_kind
+                {
                     if !matches!(wall_type, WallType::Lower) {
                         continue;
                     }

@@ -312,19 +312,16 @@ pub fn validate_field(input: &str) -> String {
         tmp.push_str(capitalize(input.trim_start_matches("sfx_")).as_str());
         tmp
     } else if input.starts_with("MF_") {
-        // Flag
-        let mut tmp = String::new();
-        if input.split('|').count() == 0 {
-            let append = input.trim_start_matches("MF_").to_ascii_lowercase();
-            tmp.push_str(format!("MapObjFlag::{} as u32", capitalize(&append)).as_str());
-        } else {
-            for mf in input.split('|') {
+        // Flag — use from_bits_truncate(A.bits() | B.bits()) so it's valid in const
+        // contexts
+        let parts: Vec<String> = input
+            .split('|')
+            .map(|mf| {
                 let append = mf.trim_start_matches("MF_").to_ascii_lowercase();
-                tmp.push_str(format!("MapObjFlag::{} as u32 |", capitalize(&append)).as_str());
-            }
-            tmp = tmp.trim_end_matches('|').to_string();
-        }
-        tmp
+                format!("MapObjFlag::{}.bits()", capitalize(&append))
+            })
+            .collect();
+        format!("MapObjFlag::from_bits_truncate({})", parts.join(" | "))
     } else if input.starts_with("A_") {
         // Action function
         let lower = input.to_lowercase();

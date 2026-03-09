@@ -7,16 +7,17 @@ use std::ptr::null_mut;
 
 use sound_traits::SfxName;
 
-use crate::MapPtr;
+use crate::SectorExt;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
     PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::Level;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, Sector};
 use math::p_random;
 
 const PLATSPEED: f32 = 1.0;
@@ -175,7 +176,7 @@ pub fn ev_do_platform(
 
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             ptr.set_obj_thinker_ptr();
-            sec.specialdata = Some(ptr);
+            sec.set_sector_mover(ptr);
             plats.push(ptr.platform_mut() as *mut Platform);
         }
     }

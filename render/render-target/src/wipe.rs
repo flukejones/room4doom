@@ -26,7 +26,11 @@ impl Wipe {
             }
         }
 
-        Self { y, height, width }
+        Self {
+            y,
+            height,
+            width,
+        }
     }
 
     pub(crate) fn reset(&mut self) {

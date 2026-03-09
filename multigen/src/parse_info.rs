@@ -119,7 +119,9 @@ pub fn info_to_string(name: &str, info: &InfoType) -> String {
             .get("activesound")
             .map(|n| if n == "0" { "SfxName::None" } else { n })
             .unwrap_or("SfxName::None"),
-        flags = info.get("flags").unwrap_or(&"0".to_string()),
+        flags = info
+            .get("flags")
+            .unwrap_or(&"MapObjFlag::empty()".to_string()),
         raisestate = info
             .get("raisestate")
             .map(|n| if n == "0" { "StateNum::None" } else { n })

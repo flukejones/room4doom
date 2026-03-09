@@ -10,6 +10,7 @@ build = "../../build.rs"
 default = []
 hprof = []
 render_stats = []
+bench = []
 
 [dependencies]
 glam.workspace = true
@@ -17,6 +18,13 @@ math.workspace = true
 gameplay.workspace = true
 render-trait.workspace = true
 coarse-prof.workspace = true
+hud-util.workspace = true
 
 [dev-dependencies]
 wad.workspace = true
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "render_bench"
+harness = false
+required-features = ["bench"]

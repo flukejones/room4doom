@@ -3,11 +3,12 @@
 
 use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
-use crate::MapPtr;
+use crate::SectorExt;
 use crate::level::Level;
-use crate::level::map_data::BSPTrace;
-use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use glam::Vec2;
+use map_data::MapPtr;
+use map_data::map_data::BSPTrace;
+use map_data::map_defs::{BBox, LineDef, SlopeType};
 use math::{Trace, circle_seg_collide, intercept_vector, point_on_side};
 
 /// Returns -1 if the line runs through the box at all

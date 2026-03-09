@@ -219,7 +219,7 @@ impl SegRender {
         let mut linedef = seg.linedef.clone();
 
         // mark the segment as visible for automap
-        linedef.flags |= LineDefFlags::Mapped as u32;
+        linedef.flags.insert(LineDefFlags::Mapped);
         // TODO: return if in automap
 
         self.rw_normalangle = seg.angle + FRAC_PI_2; // widescreen: Leave as is
@@ -278,7 +278,7 @@ impl SegRender {
             self.markfloor = true;
             self.markceiling = true;
             self.midtexture = sidedef.midtexture.is_some();
-            if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
+            if linedef.flags.contains(LineDefFlags::UnpegBottom) {
                 if let Some(mid_tex) = sidedef.midtexture {
                     let texture_column = pic_data.wall_pic_column(mid_tex, 0);
                     let vtop = frontsector.floorheight + texture_column.len() as f32;
@@ -374,7 +374,7 @@ impl SegRender {
 
             if self.worldhigh < self.worldtop {
                 self.toptexture = sidedef.toptexture.is_some();
-                if linedef.flags & LineDefFlags::UnpegTop as u32 != 0 {
+                if linedef.flags.contains(LineDefFlags::UnpegTop) {
                     // texture top
                     self.rw_toptexturemid = self.worldtop;
                 } else if let Some(top_tex) = sidedef.toptexture {
@@ -387,7 +387,7 @@ impl SegRender {
 
             if self.worldlow > self.worldbottom {
                 self.bottomtexture = sidedef.bottomtexture.is_some();
-                if linedef.flags & LineDefFlags::UnpegBottom as u32 != 0 {
+                if linedef.flags.contains(LineDefFlags::UnpegBottom) {
                     self.rw_bottomtexturemid = self.worldtop;
                 } else {
                     self.rw_bottomtexturemid = self.worldlow;

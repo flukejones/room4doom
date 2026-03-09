@@ -86,7 +86,10 @@ impl<'a> TextureSampler<'a> {
                     }
                 }
             }
-            SurfaceKind::Horizontal { texture, .. } => {
+            SurfaceKind::Horizontal {
+                texture,
+                ..
+            } => {
                 if *texture == sky_num {
                     TextureSampler::Sky
                 } else {
@@ -98,7 +101,10 @@ impl<'a> TextureSampler<'a> {
                     }
                 }
             }
-            SurfaceKind::Vertical { texture: None, .. } => TextureSampler::Untextured,
+            SurfaceKind::Vertical {
+                texture: None,
+                ..
+            } => TextureSampler::Untextured,
         }
     }
 
@@ -787,7 +793,8 @@ impl Software3D {
     }
 
     /// Draw all collected polygon outlines as a post-render overlay.
-    /// Called once per frame after all geometry, sprites, and weapons are drawn.
+    /// Called once per frame after all geometry, sprites, and weapons are
+    /// drawn.
     pub(super) fn draw_debug_polygon_outlines(&mut self, buffer: &mut impl DrawBuffer) {
         let outlines = std::mem::take(&mut self.debug_polygon_outlines);
         for (verts, depths, color) in &outlines {

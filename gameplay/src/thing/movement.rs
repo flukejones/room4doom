@@ -12,11 +12,12 @@ use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
 use crate::env::specials::cross_special_line;
 use crate::env::switch::p_use_special_line;
 use crate::info::StateNum;
-use crate::level::flags::LineDefFlags;
-use crate::level::map_data::BSPTrace;
-use crate::level::map_defs::{BBox, LineDef, SlopeType};
 use crate::utilities::{BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse};
-use crate::{MapObjKind, MapObject, MapPtr};
+use crate::{MapObjKind, MapObject, SectorExt};
+use map_data::MapPtr;
+use map_data::flags::LineDefFlags;
+use map_data::map_data::BSPTrace;
+use map_data::map_defs::{BBox, LineDef, SlopeType};
 use math::{Angle, FRACUNIT_DIV4, circle_circle_intersect, fixed_to_float, p_random};
 
 use super::MapObjFlag;
@@ -553,11 +554,11 @@ impl MapObject {
         }
 
         if self.flags & MapObjFlag::Missile as u32 == 0 {
-            if ld.flags & LineDefFlags::Blocking as u32 != 0 {
+            if ld.flags.contains(LineDefFlags::Blocking) {
                 return false; // explicitly blocking everything
             }
 
-            if self.player.is_none() && ld.flags & LineDefFlags::BlockMonsters as u32 != 0 {
+            if self.player.is_none() && ld.flags.contains(LineDefFlags::BlockMonsters) {
                 return false; // block monsters only
             }
         }
@@ -580,7 +581,7 @@ impl MapObject {
         if ld.special != 0 {
             for l in ctrl.spec_hits.iter() {
                 let ptr = MapPtr::new(ld);
-                if l.inner as usize != ptr.inner as usize {
+                if l.as_ptr() as usize != ptr.as_ptr() as usize {
                     ctrl.spec_hits.push(ptr);
                     break;
                 }
@@ -719,7 +720,7 @@ impl MapObject {
 
     fn slide_traverse(&mut self, intercept: &Intercept) -> bool {
         if let Some(line) = &intercept.line {
-            if (line.flags as usize) & LineDefFlags::TwoSided as usize == 0 {
+            if !line.flags.contains(LineDefFlags::TwoSided) {
                 if line.point_on_side(self.xy) != 0 {
                     return true; // Don't hit backside
                 }

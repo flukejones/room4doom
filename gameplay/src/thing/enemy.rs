@@ -17,13 +17,14 @@ use crate::doom_def::{MISSILERANGE, SKULLSPEED};
 use crate::env::doors::{DoorKind, ev_do_door};
 use crate::env::floor::{FloorKind, ev_do_floor};
 use crate::info::{MOBJINFO, StateNum};
-use crate::level::map_defs::{LineDef, SlopeType};
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Thinker, ThinkerData};
 use crate::utilities::PortalZ;
 use crate::{
-    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, MapPtr, Sector, Skill, teleport_move
+    Angle, GameMode, LineDefFlags, MAXPLAYERS, MapObjKind, Sector, SectorExt, Skill, teleport_move
 };
+use map_data::MapPtr;
+use map_data::map_defs::{LineDef, SlopeType};
 use math::{p_random, point_to_angle_2};
 
 use super::movement::SubSectorMinMax;
@@ -52,10 +53,10 @@ fn sound_flood(
 
     sector.validcount = valid_count;
     sector.soundtraversed = sound_blocks + 1;
-    sector.set_sound_target(target.thinker);
+    sector.set_sound_target_thinker(target.thinker);
 
     for line in sector.lines.iter() {
-        if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+        if !line.flags.contains(LineDefFlags::TwoSided) {
             continue;
         }
 
@@ -69,7 +70,7 @@ fn sound_flood(
             line.front_sidedef.sector.clone()
         };
 
-        if line.flags & LineDefFlags::BlockSound as u32 != 0 {
+        if line.flags.contains(LineDefFlags::BlockSound) {
             if sound_blocks == 0 {
                 sound_flood(sector, valid_count, 1, target);
             }
@@ -336,7 +337,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
         v1: unsafe { MapPtr::new_null() },
         v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
-        flags: 0,
+        flags: LineDefFlags::empty(),
         special: 0,
         tag: 666,
         bbox: Default::default(),
@@ -1015,7 +1016,7 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
         v1: unsafe { MapPtr::new_null() },
         v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
-        flags: 0,
+        flags: LineDefFlags::empty(),
         special: 0,
         tag: 666,
         bbox: Default::default(),

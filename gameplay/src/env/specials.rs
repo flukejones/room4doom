@@ -16,19 +16,20 @@ use crate::env::switch::{change_switch_texture, start_sector_sound};
 use crate::env::teleport::teleport;
 use crate::info::{MOBJINFO, MapObjKind};
 use crate::level::Level;
-use crate::level::flags::LineDefFlags;
-use crate::level::map_defs::{LineDef, Sector};
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
-use crate::{Angle, BSP3D, MapObjFlag, MapPtr, MovementType, PicData, TICRATE};
+use crate::{Angle, BSP3D, MapObjFlag, MovementType, PicData, SectorExt, TICRATE};
 use glam::Vec2;
 use log::{debug, error, trace};
+use map_data::MapPtr;
+use map_data::flags::LineDefFlags;
+use map_data::map_defs::{LineDef, Sector};
 use math::circle_line_collide;
 use sound_traits::SfxName;
 use std::ptr;
 
 pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<MapPtr<Sector>> {
-    if line.flags & LineDefFlags::TwoSided as u32 == 0 {
+    if !line.flags.contains(LineDefFlags::TwoSided) {
         return None;
     }
 

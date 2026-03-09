@@ -66,6 +66,9 @@ pub struct CLIOptions {
     /// preprocess PVS data for loaded WADs and exit
     #[argh(switch)]
     pub preprocess_pvs: bool,
+    /// use cluster-based PVS instead of loading from cache
+    #[argh(switch)]
+    pub pvs_cluster: bool,
 }
 
 impl From<CLIOptions> for GameOptions {

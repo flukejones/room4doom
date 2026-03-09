@@ -1,6 +1,7 @@
 pub const FILE_HEADER_STR: &str = r#"//! THIS FILE IS GENERATED WITH MULTIGEN
 //! @generated
 //! Contains all Map Object info, States and State numbers, and Sprite names/indexing.
+#![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
 "#;
 
 pub const MOBJ_INFO_HEADER_STR: &str = r#"
@@ -8,9 +9,7 @@ use crate::thing::MapObjFlag;
 use sound_traits::SfxName;
 "#;
 
-pub const CLIPPY_ALLOW: &str = r#"
-#![allow(clippy::upper_case_acronyms, clippy::derivable_impls)]
-"#;
+pub const CLIPPY_ALLOW: &str = "";
 
 pub const MOBJ_INFO_TYPE_STR: &str = r#"
 #[derive(Debug, Copy, Clone)]
@@ -36,7 +35,7 @@ pub struct MapObjInfo {
     pub mass: i32,
     pub damage: i32,
     pub activesound: SfxName,
-    pub flags: u32,
+    pub flags: MapObjFlag,
     pub raisestate: StateNum,
 }
 "#;

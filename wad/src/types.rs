@@ -228,7 +228,10 @@ pub struct WadVertex {
 
 impl WadVertex {
     pub fn new(x: f32, y: f32) -> WadVertex {
-        WadVertex { x, y }
+        WadVertex {
+            x,
+            y,
+        }
     }
 }
 

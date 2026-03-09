@@ -1,6 +1,4 @@
-use crate::level::map_defs::Node;
-
-// use crate::play::utilities::ray_to_line_intersect;
+use crate::map_defs::Node;
 use glam::Vec2;
 
 impl Node {
@@ -17,6 +15,13 @@ impl Node {
             return 0;
         }
         1
+    }
+
+    /// Returns (front_child_id, back_child_id) for the given point.
+    /// Front is the child on the same side as the point (closer).
+    pub fn front_back_children(&self, point: &Vec2) -> (u32, u32) {
+        let side = self.point_on_side(point);
+        (self.children[side], self.children[side ^ 1])
     }
 
     #[inline]
