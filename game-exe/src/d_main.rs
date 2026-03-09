@@ -84,7 +84,17 @@ pub fn d_doom_loop(
         .build()?;
     info!("Built display window");
     canvas.window_mut().show();
-    info!("Setup window canvas");
+    let window = canvas.window();
+    let (win_w, win_h) = window.size();
+    let (draw_w, draw_h) = window.drawable_size();
+    info!(
+        "Window: {}x{}, drawable: {}x{}, fullscreen: {:?}",
+        win_w,
+        win_h,
+        draw_w,
+        draw_h,
+        window.fullscreen_state()
+    );
 
     // Start demo playback and titlescreens +
     if options.episode.is_none() && options.map.is_none() {
@@ -94,9 +104,11 @@ pub fn d_doom_loop(
 
     // BEGIN SETUP
     set_lookdirs(&options);
+    let debug_draw = options.debug_draw();
     let mut render_target = RenderTarget::new(
         options.hi_res,
         options.dev_parm,
+        &debug_draw,
         canvas,
         options.rendering.unwrap_or_default().into(),
     );
@@ -137,6 +149,7 @@ pub fn d_doom_loop(
                         render_target = render_target.resize(
                             options.hi_res,
                             options.dev_parm,
+                            &debug_draw,
                             options.rendering.unwrap_or_default().into(),
                         );
                         menu = MenuDoom::new(
@@ -173,7 +186,7 @@ pub fn d_doom_loop(
 
         // FPS rate updates every second
         if let Some(fps) = timestep.frame_rate() {
-            info!("{:?}", fps);
+            render_target.set_debug_line(format!("FPS {}", fps.frames));
             coarse_prof::write(&mut std::io::stdout()).unwrap();
         }
     }

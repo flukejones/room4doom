@@ -4,6 +4,7 @@ use gameplay::{
     AABB, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
+use hud_util::{draw_text_line, hud_scale, measure_text_line};
 use render_trait::DrawBuffer;
 
 use std::f32::consts::PI;
@@ -27,6 +28,73 @@ struct VertexCache {
 
 const CLIP_VERTICES_LEN: usize = 3;
 const MAX_CLIPPED_VERTICES: usize = 16;
+
+/// Debug colouring mode for polygons.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DebugColourMode {
+    #[default]
+    None,
+    /// Flat colour per sector (hashed from sector_id)
+    SectorId,
+    /// Depth buffer visualisation (near=white, far=black)
+    Depth,
+    /// Overdraw heatmap (brighter = more polygons drawn to that pixel)
+    Overdraw,
+}
+
+/// Mutually-exclusive debug overlay mode (colour visualisation or wireframe).
+/// Used as an argh enum option via `FromStr`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DebugOverlay {
+    #[default]
+    None,
+    SectorId,
+    Depth,
+    Overdraw,
+    Wireframe,
+}
+
+impl std::str::FromStr for DebugOverlay {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sector_id" => Ok(Self::SectorId),
+            "depth" => Ok(Self::Depth),
+            "overdraw" => Ok(Self::Overdraw),
+            "wireframe" => Ok(Self::Wireframe),
+            other => Err(format!(
+                "unknown overlay '{}'. Expected: sector_id, depth, overdraw, wireframe",
+                other
+            )),
+        }
+    }
+}
+
+/// Debug rendering options for the 3D software renderer.
+#[derive(Debug, Clone, Default)]
+pub struct DebugDrawOptions {
+    pub outline: bool,
+    pub normals: bool,
+    pub clear_colour: Option<[u8; 4]>,
+    pub alpha: Option<u8>,
+    pub no_depth: bool,
+    pub colour_mode: DebugColourMode,
+    pub wireframe: bool,
+}
+
+impl DebugDrawOptions {
+    /// Returns true if any debug option is active that affects the rasteriser
+    /// hot loop (alpha blend, depth disable, colour mode, wireframe).
+    pub fn is_active(&self) -> bool {
+        self.alpha.is_some()
+            || self.no_depth
+            || self.colour_mode != DebugColourMode::None
+            || self.wireframe
+    }
+}
+
+/// Seconds before an unrefreshed debug overlay line is auto-cleared.
+const DEBUG_LINE_TIMEOUT_SECS: f32 = 5.0;
 
 // ============================================================================
 // SUB-STRUCTS
@@ -129,6 +197,55 @@ impl SkyRend {
     }
 }
 
+/// Debug draw options and per-frame scratch buffers for debug overlays.
+struct DebugDraw {
+    /// Active debug rendering options (outline, normals, colour mode, etc.).
+    options: DebugDrawOptions,
+    /// Cache of whether any option is active (avoids repeated `is_active()`
+    /// calls).
+    has_active: bool,
+    /// Per-frame polygon outline scratch (vertices, depths, colour).
+    polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
+    /// Per-frame normal line scratch (screen_center, screen_tip, depth).
+    normal_lines: Vec<(Vec2, Vec2, f32)>,
+    /// Upper-right overlay text. Empty = hidden.
+    line: String,
+    /// `Instant` of the last `set_line` call; for `DEBUG_LINE_TIMEOUT_SECS`
+    /// auto-clear.
+    line_set_at: std::time::Instant,
+}
+
+impl DebugDraw {
+    fn new(options: DebugDrawOptions) -> Self {
+        let has_active = options.is_active();
+        Self {
+            options,
+            has_active,
+            polygon_outlines: Vec::new(),
+            normal_lines: Vec::new(),
+            line: String::new(),
+            line_set_at: std::time::Instant::now(),
+        }
+    }
+
+    /// Replace the debug overlay text and reset the auto-clear timer.
+    fn set_line(&mut self, s: String) {
+        self.line = s;
+        self.line_set_at = std::time::Instant::now();
+    }
+
+    /// Return the current line text if within `DEBUG_LINE_TIMEOUT_SECS`;
+    /// clears and returns `""` after timeout.
+    fn current_line(&mut self) -> &str {
+        if !self.line.is_empty()
+            && self.line_set_at.elapsed().as_secs_f32() >= DEBUG_LINE_TIMEOUT_SECS
+        {
+            self.line.clear();
+        }
+        &self.line
+    }
+}
+
 // ============================================================================
 // MAIN RENDERER
 // ============================================================================
@@ -172,13 +289,11 @@ pub struct Software3D {
     // Sub-structs
     stats: RenderStats,
     sky: SkyRend,
-    // Debug outline overlay
-    pub debug_draw_polygon_outlines: bool,
-    debug_polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
+    debug: DebugDraw,
 }
 
 impl Software3D {
-    pub fn new(width: f32, height: f32, fov: f32) -> Self {
+    pub fn new(width: f32, height: f32, fov: f32, debug_draw: DebugDrawOptions) -> Self {
         let near = 4.0;
         let far = 10000.0;
 
@@ -210,8 +325,7 @@ impl Software3D {
             visible_polygons: Vec::new(),
             stats: RenderStats::new(),
             sky: SkyRend::new(),
-            debug_draw_polygon_outlines: false,
-            debug_polygon_outlines: Vec::new(),
+            debug: DebugDraw::new(debug_draw),
         };
         s.set_fov(fov);
         s
@@ -634,16 +748,57 @@ impl Software3D {
             Vec2::new(scr_max_x, scr_max_y),
         );
 
-        self.draw_polygon(polygon, brightness, bounds, pic_data, buffer);
+        // Render the polygon: dispatch to debug path only when debug options
+        // are active. The fast path has zero debug branches in the inner loop.
+        // Wireframe mode skips fill entirely — outlines are drawn as a post-pass.
+        if self.debug.options.wireframe {
+            // no fill — outline only
+        } else if self.debug.has_active {
+            self.draw_polygon_debug(polygon, brightness, bounds, pic_data, buffer);
+        } else {
+            self.draw_polygon(polygon, brightness, bounds, pic_data, buffer);
+        }
 
-        if self.debug_draw_polygon_outlines {
+        if self.debug.options.outline || self.debug.options.wireframe {
             let verts = self.screen_vertices_buffer[..self.screen_vertices_len].to_vec();
             let depths = self.inv_w_buffer[..self.inv_w_len].to_vec();
             let color = Self::generate_pseudo_random_colour(
                 polygon.sector_id as u32,
                 sectors[polygon.sector_id].lightlevel,
             );
-            self.debug_polygon_outlines.push((verts, depths, color));
+            self.debug.polygon_outlines.push((verts, depths, color));
+        }
+
+        if self.debug.options.normals {
+            // Compute world-space polygon center
+            let mut center = Vec3::ZERO;
+            for &vi in &polygon.vertices {
+                center += bsp3d.vertex_get(vi);
+            }
+            center /= polygon.vertices.len() as f32;
+
+            let normal_len = 12.0;
+            let tip = center + polygon.normal * normal_len;
+
+            // Project both points to screen
+            let vp = self.projection_matrix * self.view_matrix;
+            let c_clip = vp * Vec4::new(center.x, center.y, center.z, 1.0);
+            let t_clip = vp * Vec4::new(tip.x, tip.y, tip.z, 1.0);
+
+            if c_clip.w > 0.0 && t_clip.w > 0.0 {
+                let w = self.width as f32;
+                let h = self.height as f32;
+                let c_screen = Vec2::new(
+                    (c_clip.x / c_clip.w + 1.0) * 0.5 * w,
+                    (1.0 - c_clip.y / c_clip.w) * 0.5 * h,
+                );
+                let t_screen = Vec2::new(
+                    (t_clip.x / t_clip.w + 1.0) * 0.5 * w,
+                    (1.0 - t_clip.y / t_clip.w) * 0.5 * h,
+                );
+                let depth = 1.0 / c_clip.w;
+                self.debug.normal_lines.push((c_screen, t_screen, depth));
+            }
         }
     }
 
@@ -865,9 +1020,22 @@ impl Software3D {
 
         self.update_view_matrix(player);
 
+        let clear = if self.debug.options.wireframe && self.debug.options.clear_colour.is_none() {
+            Some([30, 30, 30, 255])
+        } else {
+            self.debug.options.clear_colour
+        };
+        if let Some(colour) = clear {
+            let buf = buffer.buf_mut();
+            for pixel in buf.chunks_exact_mut(4) {
+                pixel.copy_from_slice(&colour);
+            }
+        }
+
         self.stats.reset();
         self.depth_buffer.reset();
-        self.debug_polygon_outlines.clear();
+        self.debug.polygon_outlines.clear();
+        self.debug.normal_lines.clear();
 
         let player_pos = if let Some(mobj) = player.mobj() {
             Vec3::new(mobj.xy.x, mobj.xy.y, mobj.z + player.viewheight)
@@ -944,10 +1112,17 @@ impl Software3D {
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);
 
-            // Debug: draw polygon outlines as post-render overlay
-            if self.debug_draw_polygon_outlines {
+            // Debug: draw polygon outlines / wireframe as post-render overlay
+            if self.debug.options.outline || self.debug.options.wireframe {
                 self.draw_debug_polygon_outlines(buffer);
             }
+
+            // Debug: draw normal direction lines
+            if self.debug.options.normals {
+                self.draw_debug_normal_lines(buffer);
+            }
+
+            self.draw_debug_line(pic_data, buffer);
 
             #[cfg(feature = "render_stats")]
             if self.stats.last_print.elapsed().as_secs_f32() >= 1.0 {
@@ -966,6 +1141,25 @@ impl Software3D {
                 self.stats.last_print = std::time::Instant::now();
             }
         }
+    }
+
+    /// Draw the debug overlay text line in the upper-right corner, if set.
+    fn draw_debug_line(&mut self, pic_data: &PicData, pixels: &mut impl DrawBuffer) {
+        let text = self.debug.current_line().to_ascii_uppercase();
+        if text.is_empty() {
+            return;
+        }
+        let (sx, sy) = hud_scale(pixels);
+        let palette = pic_data.wad_palette();
+        let width = measure_text_line(&text, sx);
+        let x = pixels.size().width_f32() - width - 4.0 * sx;
+        draw_text_line(&text, x, 2.0, sx, sy, palette, pixels);
+    }
+
+    /// Set the upper-right debug text overlay line, resetting the 5-second
+    /// auto-clear timer.
+    pub fn set_debug_line(&mut self, s: String) {
+        self.debug.set_line(s);
     }
 
     /// Headless render entry point for benchmarks. Bypasses Player/Level in
@@ -1009,7 +1203,6 @@ impl Software3D {
         self.visible_polygons.clear();
 
         self.update_sky_params(angle_rad, pitch_rad, pic_data);
-
         if pvs.is_visible(subsector_id, subsector_id) {
             self.collect_pvs_visible_polygons(
                 bsp_3d.root_node(),
