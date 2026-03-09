@@ -760,20 +760,24 @@ impl MapData {
                         hit[v_idx] = true;
 
                         if vertex_val != *linedef.v1 && vertex_val != *linedef.v2 {
-                            let dx2 = linedef.delta.x * linedef.delta.x;
-                            let dy2 = linedef.delta.y * linedef.delta.y;
-                            let dxy = linedef.delta.x * linedef.delta.y;
+                            // f64 intermediates avoid precision loss when
+                            // accumulating products of large Doom coordinates.
+                            let dx = linedef.delta.x as f64;
+                            let dy = linedef.delta.y as f64;
+                            let dx2 = dx * dx;
+                            let dy2 = dy * dy;
+                            let dxy = dx * dy;
                             let s = dx2 + dy2;
-                            let x0 = vertex_val.x;
-                            let y0 = vertex_val.y;
-                            let x1 = linedef.v1.x;
-                            let y1 = linedef.v1.y;
+                            let x0 = vertex_val.x as f64;
+                            let y0 = vertex_val.y as f64;
+                            let x1 = linedef.v1.x as f64;
+                            let y1 = linedef.v1.y as f64;
 
                             let px = (dx2 * x0 + dy2 * x1 + dxy * (y0 - y1)) / s;
                             let py = (dy2 * y0 + dx2 * y1 + dxy * (x0 - x1)) / s;
 
-                            vertexes[v_idx].x = px;
-                            vertexes[v_idx].y = py;
+                            vertexes[v_idx].x = px as f32;
+                            vertexes[v_idx].y = py as f32;
                         }
                     }
                 }
