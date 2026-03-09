@@ -5,7 +5,45 @@ use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic, WallType}
 use glam::Vec2;
 use render_trait::DrawBuffer;
 
-use crate::Software3D;
+use crate::{Software3D, sky};
+
+/// Sample a single sky pixel from the combined RGBA buffer, returning the
+/// colour or `None` for transparent (alpha = 0).
+///
+/// Buffer layout (column-major):
+///   `0..sky_tex_height`                                — original texture
+///   `sky_tex_height..+sky_extended_rows`               — upward extension
+///   `sky_tex_height+sky_extended_rows..+sky_down_rows` — downward extension
+///
+/// `sky_r` mapping:
+///   `0 < sky_r < sky_tex_height`  → original row `sky_r`
+///   `sky_r <= 0`                  → upward extension row `(-sky_r)`
+///   `sky_r >= sky_tex_height`     → downward extension row `(sky_r -
+/// sky_tex_height)`
+#[inline]
+fn sample_sky_pixel(
+    sky_col: usize,
+    sky_r: i32,
+    sky_tex_height: usize,
+    sky_combined: &[[u8; 4]],
+) -> Option<[u8; 4]> {
+    const UP: usize = sky::SKY_EXTEND_ROWS;
+    const DN: usize = sky::SKY_DOWN_ROWS;
+    let total = sky_tex_height + UP + DN;
+    let row = if sky_r > 0 && (sky_r as usize) < sky_tex_height {
+        sky_r as usize
+    } else if sky_r <= 0 {
+        sky_tex_height + ((-sky_r) as usize).min(UP - 1)
+    } else if sky_r >= sky_tex_height as i32 {
+        sky_tex_height + UP + (sky_r as usize - sky_tex_height).min(DN - 1)
+    } else if sky_tex_height > 0 {
+        sky_tex_height - 1
+    } else {
+        return None;
+    };
+    let c = sky_combined[sky_col * total + row];
+    if c[3] == 0 { None } else { Some(c) }
+}
 
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
@@ -54,7 +92,9 @@ enum TextureSampler<'a> {
         width: f32,
         height: f32,
     },
-    Sky,
+    Sky {
+        texture: &'a WallPic,
+    },
     Untextured,
 }
 
@@ -72,7 +112,9 @@ impl<'a> TextureSampler<'a> {
                 ..
             } => {
                 if *tex_id == sky_pic {
-                    TextureSampler::Sky
+                    TextureSampler::Sky {
+                        texture: pic_data.wall_pic(sky_pic),
+                    }
                 } else {
                     let texture = pic_data.wall_pic(*tex_id);
                     let width_f32 = texture.width as f32;
@@ -91,7 +133,9 @@ impl<'a> TextureSampler<'a> {
                 ..
             } => {
                 if *texture == sky_num {
-                    TextureSampler::Sky
+                    TextureSampler::Sky {
+                        texture: pic_data.wall_pic(sky_pic),
+                    }
                 } else {
                     let texture = pic_data.get_flat(*texture);
                     TextureSampler::Horizontal {
@@ -123,8 +167,6 @@ impl<'a> TextureSampler<'a> {
                     let v_wrapped = v - v.floor();
                     let tex_x = (u_wrapped * width) as u32 as usize % (*width_mask);
                     let tex_y = (v_wrapped * height) as u32 as usize % (*height_mask);
-                    // let tex_x = ((u.fract() * width) as u32 as usize).min(*width_mask);
-                    // let tex_y = ((v.fract() * height) as u32 as usize).min(*height_mask);
 
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == usize::MAX {
@@ -144,7 +186,9 @@ impl<'a> TextureSampler<'a> {
                     let lit_color_index = *colourmap.get_unchecked(color_index);
                     pic_data.palette().get_unchecked(lit_color_index)
                 }
-                TextureSampler::Sky => &[32, 32, 32, 255],
+                TextureSampler::Sky {
+                    ..
+                } => &[32, 32, 32, 255],
                 TextureSampler::Untextured => &[32, 32, 32, 255],
             }
         }
@@ -163,16 +207,16 @@ struct InterpolationState {
 
 impl InterpolationState {
     #[inline(always)]
-    fn get_current_uv(&self) -> (f32, f32, f32) {
+    fn get_current_uv(&self) -> (f32, f32) {
         // Clamp inv_w to the polygon's vertex range to prevent barycentric
         // extrapolation from producing incorrect depth values at screen edges
         let clamped_inv_w = self.current_inv_w.clamp(self.inv_w_min, self.inv_w_max);
         if clamped_inv_w > 0.0 {
             let w = 1.0 / clamped_inv_w;
             let corrected_tex = self.current_tex * w;
-            (corrected_tex.x, corrected_tex.y, clamped_inv_w)
+            (corrected_tex.x, corrected_tex.y)
         } else {
-            (self.current_tex.x, self.current_tex.y, clamped_inv_w)
+            (self.current_tex.x, self.current_tex.y)
         }
     }
 
@@ -340,12 +384,40 @@ impl TriangleInterpolator {
     }
 }
 
+/// Write a pixel, alpha-blending against the existing buffer if alpha is set.
+#[inline(always)]
+fn write_pixel(
+    buffer: &mut impl DrawBuffer,
+    x: usize,
+    y: usize,
+    color: &[u8; 4],
+    alpha: Option<u8>,
+) {
+    if let Some(a) = alpha {
+        let dst = buffer.read_pixel(x, y);
+        let a = a as u16;
+        let inv_a = 255 - a;
+        let blended = [
+            ((color[0] as u16 * a + dst[0] as u16 * inv_a) >> 8) as u8,
+            ((color[1] as u16 * a + dst[1] as u16 * inv_a) >> 8) as u8,
+            ((color[2] as u16 * a + dst[2] as u16 * inv_a) >> 8) as u8,
+            255,
+        ];
+        buffer.set_pixel(x, y, &blended);
+    } else {
+        buffer.set_pixel(x, y, color);
+    }
+}
+
 impl Software3D {
+    /// Fast-path rasteriser: zero debug branches in the inner loop.
+    /// Used when no debug draw options are active.
     #[inline(always)]
     pub(super) fn draw_polygon(
         &mut self,
         polygon: &SurfacePolygon,
         brightness: usize,
+        bounds: (Vec2, Vec2),
         pic_data: &mut PicData,
         buffer: &mut impl DrawBuffer,
     ) {
@@ -354,14 +426,6 @@ impl Software3D {
 
         let screen_poly = ScreenPoly(&self.screen_vertices_buffer[..self.screen_vertices_len]);
 
-        let bounds = match screen_poly.bounds() {
-            Some(bounds) => bounds,
-            None => {
-                self.polygons_early_culled_count += 1;
-                return;
-            }
-        };
-
         let interpolator = match TriangleInterpolator::new(
             &screen_poly.0,
             &self.tex_coords_buffer[..self.tex_coords_len],
@@ -369,7 +433,7 @@ impl Software3D {
         ) {
             Some(interpolator) => interpolator,
             None => {
-                self.polygons_early_culled_count += 1;
+                self.stats.polygons_early_culled += 1;
                 return;
             }
         };
@@ -387,6 +451,14 @@ impl Software3D {
                 ..
             }
         );
+        let sky_texture = if let TextureSampler::Sky {
+            texture,
+        } = texture_sampler
+        {
+            Some(texture)
+        } else {
+            None
+        };
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
         let width_f32 = self.width as f32;
@@ -464,95 +536,119 @@ impl Software3D {
                 (inv_w_at_x0, 0.0)
             };
 
-            let mut interp_state = interpolator.init_scanline(x_f, y_f);
-            let mut x = x_start;
-            while x <= x_end {
-                // Skip occluded pixels quickly using a read-only depth peek
+            if let Some(sky_tex) = sky_texture {
+                // Sky: screen-space UV — no perspective interpolation, unlit.
+                // Sky only checks the depth buffer, never writes to it, so that
+                // geometry drawn later (sprites, translucent walls) can still
+                // depth-test against the surfaces behind the sky.
+                let sky_w = sky_tex.width;
+                let sky_r = (y as f32 * self.sky.v_scale + self.sky.pitch_offset) as i32;
+                let sky_combined: &[[u8; 4]] = &self.sky.extended;
+                let sky_tex_height = self.sky.tex_height;
+                let mut x = x_start;
                 while x <= x_end {
-                    if edge_inv_w > 0.0 && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
-                    {
-                        break;
+                    // Draw sky only where no solid geometry has been written.
+                    // -1.0 is the depth sentinel for empty pixels. Sky never
+                    // writes to depth and never occludes anything.
+                    if self.depth_buffer.peek_depth_unchecked(x, y) < 0.0 {
+                        let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
+                            .rem_euclid(sky_w as f32)
+                            as usize;
+                        if let Some(color) =
+                            sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
+                        {
+                            buffer.set_pixel(x, y, &color);
+                        }
+                        did_draw = true;
                     }
-                    interp_state.step_x();
-                    edge_inv_w += edge_inv_w_dx;
                     x += 1;
                 }
-                if x > x_end {
-                    break;
-                }
-
-                // Paint visible span starting at x
+            } else {
+                let mut interp_state = interpolator.init_scanline(x_f, y_f);
+                let mut x = x_start;
                 while x <= x_end {
-                    #[cfg(feature = "hprof")]
-                    profile!("draw_textured_polygon X loop");
-                    let (u, v, _) = interp_state.get_current_uv();
-                    // Skip pixels with invalid depth
-                    if edge_inv_w <= 0.0 {
+                    // Skip occluded pixels quickly using a read-only depth peek
+                    while x <= x_end {
+                        if edge_inv_w > 0.0
+                            && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
+                        {
+                            break;
+                        }
                         interp_state.step_x();
                         edge_inv_w += edge_inv_w_dx;
                         x += 1;
-                        continue;
+                    }
+                    if x > x_end {
+                        break;
                     }
 
-                    if is_masked {
-                        // Masked texture: sample first, skip transparent pixels
-                        // without writing depth so geometry behind remains visible
-                        if edge_inv_w <= self.depth_buffer.peek_depth_unchecked(x, y) {
-                            interp_state.step_x();
-                            edge_inv_w += edge_inv_w_dx;
-                            x += 1;
-                            break;
-                        }
-                        // Outside texture vertical bounds — no tiling for middle walls
-                        if v < 0.0 || v >= 1.0 {
-                            interp_state.step_x();
-                            edge_inv_w += edge_inv_w_dx;
-                            x += 1;
-                            continue;
-                        }
-                        let colourmap =
-                            pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                        if color[3] == 0 {
-                            // Transparent pixel — don't write depth or color
-                            interp_state.step_x();
-                            edge_inv_w += edge_inv_w_dx;
-                            x += 1;
-                            continue;
-                        }
-                        self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
-                        buffer.set_pixel(x, y, &color);
-                    } else {
-                        if !self
-                            .depth_buffer
-                            .test_and_set_depth_unchecked(x, y, edge_inv_w)
-                        {
-                            // current pixel is occluded; break to resume skipping phase
-                            interp_state.step_x();
-                            edge_inv_w += edge_inv_w_dx;
-                            x += 1;
-                            break;
-                        }
+                    // Paint visible span starting at x
+                    while x <= x_end {
+                        #[cfg(feature = "hprof")]
+                        profile!("draw_textured_polygon X loop");
 
-                        let colourmap =
-                            pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                        let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                        if is_masked {
+                            // Depth test before UV — avoids the perspective divide on misses
+                            if edge_inv_w <= self.depth_buffer.peek_depth_unchecked(x, y) {
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                break;
+                            }
+                            let (u, v) = interp_state.get_current_uv();
+                            // Outside texture vertical bounds — no tiling for middle walls
+                            if v < 0.0 || v >= 1.0 {
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                continue;
+                            }
+                            let colourmap =
+                                pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                            if color[3] == 0 {
+                                // Transparent pixel — don't write depth or color
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                continue;
+                            }
+                            self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
+                            buffer.set_pixel(x, y, color);
+                        } else {
+                            // Depth test before UV — avoids the perspective divide on misses
+                            if !self
+                                .depth_buffer
+                                .test_and_set_depth_unchecked(x, y, edge_inv_w)
+                            {
+                                // current pixel is occluded; break to resume skipping phase
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                break;
+                            }
 
-                        buffer.set_pixel(x, y, &color);
+                            let (u, v) = interp_state.get_current_uv();
+                            let colourmap =
+                                pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
+
+                            buffer.set_pixel(x, y, color);
+                        }
+                        did_draw = true;
+
+                        interp_state.step_x();
+                        edge_inv_w += edge_inv_w_dx;
+                        x += 1;
                     }
-                    did_draw = true;
-
-                    interp_state.step_x();
-                    edge_inv_w += edge_inv_w_dx;
-                    x += 1;
                 }
             }
         }
 
         if did_draw {
-            self.polygons_rendered_count += 1;
+            self.stats.polygons_rendered += 1;
         } else {
-            self.polygons_no_draw_count += 1;
+            self.stats.polygons_no_draw += 1;
         }
     }
 
@@ -672,7 +768,7 @@ impl Software3D {
                     continue;
                 }
 
-                let (u, v, _) = interp_state.get_current_uv();
+                let (u, v) = interp_state.get_current_uv();
 
                 // Map UV [0,1] to sprite texture coordinates
                 let tex_col = (u * sprite_width_f) as i32;
@@ -717,20 +813,17 @@ impl Software3D {
         }
     }
 
-    pub(super) fn generate_pseudo_random_colour(&self, id: u32, brightness: usize) -> [u8; 4] {
-        // Hash mix
+    pub(super) fn generate_pseudo_random_colour(id: u32, brightness: usize) -> [u8; 4] {
         let mut hash = id.wrapping_mul(0x9E3779B9);
         hash ^= hash >> 15;
         hash = hash.wrapping_mul(0x85EBCA6B);
         hash ^= hash >> 13;
 
-        // Generate pseudo-random hue in range [0, 360)
         let hue = (hash % 360) as f32;
-        let sat = 1.0; // Full saturation
-        let val = brightness as f32 / 255.0; // Brightness scale
+        let val = brightness as f32 / 255.0;
 
-        // HSV to RGB
-        let c = val * sat;
+        // HSV to RGB (saturation = 1.0)
+        let c = val;
         let x = c * (1.0 - ((hue / 60.0) % 2.0 - 1.0).abs());
         let m = val - c;
 

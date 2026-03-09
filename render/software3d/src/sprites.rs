@@ -32,7 +32,6 @@ impl Software3D {
     /// Creates billboard quads and renders them through the polygon pipeline.
     pub(super) fn draw_sprites(
         &mut self,
-        visible_sectors: &[(usize, usize)], // (sector_id, light_level)
         sectors: &[Sector],
         player: &gameplay::Player,
         pic_data: &mut PicData,
@@ -53,7 +52,7 @@ impl Software3D {
 
         let mut quads: Vec<SpriteQuad> = Vec::new();
 
-        for &(sector_id, light_level) in visible_sectors {
+        for &(sector_id, light_level) in &self.visible_sectors {
             let sector = &sectors[sector_id];
             sector.run_func_on_thinglist(|thing| {
                 // Skip the player's own mobj
