@@ -5,7 +5,7 @@ use crate::flags::LineDefFlags;
 use crate::map_defs::{LineDef, Node, Sector, Segment, SubSector};
 use crate::triangulation::{DivLine, carve_subsector_polygon};
 use glam::{Vec2, Vec3};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const IS_SUBSECTOR_MASK: u32 = 0x8000_0000;
 /// Quantization grid for position-only vertex dedup.
@@ -13,6 +13,14 @@ const QUANT_PRECISION: f32 = 2.0;
 const HEIGHT_EPSILON: f32 = 0.1;
 /// Minimum cross-product magnitude for a non-degenerate triangle.
 const MIN_TRI_CROSS: f32 = 1e-4;
+/// Maximum perpendicular distance (map units) for T-junction detection.
+const TJUNC_DIST: f32 = 0.666;
+/// Spatial grid cell size for the T-junction edge lookup.
+const TJUNC_CELL: f32 = 4.0;
+/// Point-on-edge parameter epsilon.
+const EDGE_EPSILON: f32 = 0.001;
+/// Deduplication tolerance for vertex proximity checks.
+const DEDUP_EPSILON: f32 = 0.1;
 
 /// Construction-only record tracking zero-height wall vertex roles.
 /// Needed because zh walls have bottom and top at the same (x,y,z) — with
@@ -292,6 +300,22 @@ impl QuantizedVec3 {
     }
 }
 
+/// 2D position key for per-sector vertex separation at zh boundaries.
+#[derive(Hash, PartialEq, Eq, Clone, Copy)]
+struct QuantizedVec2 {
+    x: i32,
+    y: i32,
+}
+
+impl QuantizedVec2 {
+    fn from_vec2(v: Vec2, precision: f32) -> Self {
+        Self {
+            x: (v.x / precision).round() as i32,
+            y: (v.y / precision).round() as i32,
+        }
+    }
+}
+
 pub struct BSP3D {
     nodes: Vec<Node3D>,
     pub subsector_leaves: Vec<BSPLeaf3D>,
@@ -349,6 +373,14 @@ impl BSP3D {
             Vec::new(),
             &mut vertex_map,
         );
+
+        // Phase 1b: Fix T-junctions between adjacent subsector polygons.
+        bsp3d.tjunction_fix_pass(subsectors);
+
+        // Phase 2: Post-creation pass — split triangles at boundary endpoints,
+        // separate mover vertices at zero-height boundaries, set moves flags.
+        bsp3d.mover_vertex_pass(sectors, segments, subsectors, linedefs);
+        bsp3d.zh_wall_records = Vec::new();
 
         bsp3d.update_all_aabbs();
         bsp3d.expand_node_aabbs_for_movers(sectors, linedefs);
@@ -970,6 +1002,1246 @@ impl BSP3D {
             .cross(vertices[c] - vertices[a])
             .length()
             < MIN_TRI_CROSS
+    }
+
+    /// Fix T-junctions between adjacent subsector polygons.
+    ///
+    /// After Sutherland-Hodgman carving, a vertex from one subsector can land
+    /// near an edge of a neighbouring subsector without a corresponding vertex
+    /// on that edge. This creates a hairline gap. The fix: for each such
+    /// vertex, split the neighbour's edge (and its floor/ceiling triangles)
+    /// so both polygons share the exact same vertex.
+    fn tjunction_fix_pass(&mut self, subsectors: &[SubSector]) {
+        // 1. Build spatial grid of all carved polygon edges.
+        let mut grid: HashMap<(i32, i32), Vec<(usize, usize, Vec2, Vec2)>> = HashMap::new();
+        let inv_cell = 1.0 / TJUNC_CELL;
+
+        for (ss_id, poly) in self.carved_polygons.iter().enumerate() {
+            let n = poly.len();
+            if n < 3 {
+                continue;
+            }
+            for ei in 0..n {
+                let a = poly[ei];
+                let b = poly[(ei + 1) % n];
+                let min_x = a.x.min(b.x) - TJUNC_DIST;
+                let max_x = a.x.max(b.x) + TJUNC_DIST;
+                let min_y = a.y.min(b.y) - TJUNC_DIST;
+                let max_y = a.y.max(b.y) + TJUNC_DIST;
+                let cx0 = (min_x * inv_cell).floor() as i32;
+                let cx1 = (max_x * inv_cell).floor() as i32;
+                let cy0 = (min_y * inv_cell).floor() as i32;
+                let cy1 = (max_y * inv_cell).floor() as i32;
+                for cx in cx0..=cx1 {
+                    for cy in cy0..=cy1 {
+                        grid.entry((cx, cy)).or_default().push((ss_id, ei, a, b));
+                    }
+                }
+            }
+        }
+
+        // 2. Scan all vertices for T-junctions against edges from other subsectors. The mover pass handles vertex separation at sector boundaries.
+        struct TJunc {
+            pt: Vec2,
+            target_ss: usize,
+        }
+
+        let mut fixes: Vec<TJunc> = Vec::new();
+
+        for (src_ss, poly) in self.carved_polygons.iter().enumerate() {
+            for &v in poly {
+                let cx = (v.x * inv_cell).floor() as i32;
+                let cy = (v.y * inv_cell).floor() as i32;
+                if let Some(edges) = grid.get(&(cx, cy)) {
+                    for &(tgt_ss, _ei, ea, eb) in edges {
+                        if tgt_ss == src_ss {
+                            continue;
+                        }
+                        if (v - ea).length() < TJUNC_DIST || (v - eb).length() < TJUNC_DIST {
+                            continue;
+                        }
+                        let edge_vec = eb - ea;
+                        let edge_len_sq = edge_vec.length_squared();
+                        if edge_len_sq < 1e-6 {
+                            continue;
+                        }
+                        let t = (v - ea).dot(edge_vec) / edge_len_sq;
+                        if t <= EDGE_EPSILON || t >= 1.0 - EDGE_EPSILON {
+                            continue;
+                        }
+                        let proj = ea + edge_vec * t;
+                        let perp_dist = (v - proj).length();
+                        if perp_dist < TJUNC_DIST {
+                            let dup = fixes.iter().any(|f| {
+                                f.target_ss == tgt_ss && (f.pt - v).length() < DEDUP_EPSILON
+                            });
+                            if !dup {
+                                fixes.push(TJunc {
+                                    pt: v,
+                                    target_ss: tgt_ss,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Apply fixes: insert vertex into carved polygon + split triangles.
+        for fix in &fixes {
+            let poly = &self.carved_polygons[fix.target_ss];
+            let n = poly.len();
+            let mut insert_pos = None;
+            for i in 0..n {
+                let ea = poly[i];
+                let eb = poly[(i + 1) % n];
+                let edge_vec = eb - ea;
+                let edge_len_sq = edge_vec.length_squared();
+                if edge_len_sq < 1e-6 {
+                    continue;
+                }
+                let t = (fix.pt - ea).dot(edge_vec) / edge_len_sq;
+                if t <= EDGE_EPSILON || t >= 1.0 - EDGE_EPSILON {
+                    continue;
+                }
+                let proj = ea + edge_vec * t;
+                if (fix.pt - proj).length() < TJUNC_DIST {
+                    insert_pos = Some(i + 1);
+                    break;
+                }
+            }
+
+            if let Some(pos) = insert_pos {
+                self.carved_polygons[fix.target_ss].insert(pos, fix.pt);
+            }
+
+            let ss = &subsectors[fix.target_ss];
+            let floor_h = ss.sector.floorheight;
+            let ceil_h = ss.sector.ceilingheight;
+
+            self.split_triangle_at_tjunc(fix.target_ss, true, floor_h, fix.pt);
+            self.split_triangle_at_tjunc(fix.target_ss, false, ceil_h, fix.pt);
+        }
+    }
+
+    /// Split a single floor or ceiling triangle at a T-junction point.
+    /// Finds the triangle whose edge contains `pt` and splits it into two.
+    fn split_triangle_at_tjunc(
+        &mut self,
+        subsector_id: usize,
+        is_floor: bool,
+        height: f32,
+        pt: Vec2,
+    ) {
+        let current_indices = if is_floor {
+            self.subsector_leaves[subsector_id].floor_polygons.clone()
+        } else {
+            self.subsector_leaves[subsector_id].ceiling_polygons.clone()
+        };
+
+        for &pi in &current_indices {
+            let verts = self.subsector_leaves[subsector_id].polygons[pi]
+                .vertices
+                .clone();
+            if verts.len() != 3 {
+                continue;
+            }
+
+            let already_present = verts.iter().any(|&vi| {
+                let v = self.vertices[vi];
+                (v.x - pt.x).abs() < DEDUP_EPSILON && (v.y - pt.y).abs() < DEDUP_EPSILON
+            });
+            if already_present {
+                continue;
+            }
+
+            let mut split_edge = None;
+            for e in 0..3 {
+                let ei0 = verts[e];
+                let ei1 = verts[(e + 1) % 3];
+                let e0 = Vec2::new(self.vertices[ei0].x, self.vertices[ei0].y);
+                let e1 = Vec2::new(self.vertices[ei1].x, self.vertices[ei1].y);
+                let edge_vec = e1 - e0;
+                let edge_len_sq = edge_vec.length_squared();
+                if edge_len_sq < EDGE_EPSILON * EDGE_EPSILON {
+                    continue;
+                }
+                let to_v = pt - e0;
+                let proj = to_v.dot(edge_vec) / edge_len_sq;
+                if proj > EDGE_EPSILON && proj < 1.0 - EDGE_EPSILON {
+                    let projected = e0 + edge_vec * proj;
+                    if (pt - projected).length() < TJUNC_DIST {
+                        split_edge = Some(e);
+                        break;
+                    }
+                }
+            }
+
+            if let Some(e) = split_edge {
+                let target = Vec3::new(pt.x, pt.y, height);
+                let new_vi = self.vertices.len();
+                self.vertices.push(target);
+
+                let a = verts[e];
+                let b = verts[(e + 1) % 3];
+                let c = verts[(e + 2) % 3];
+
+                // Stricter threshold (10x) to catch near-degenerate slivers.
+                let tri1 = [a, new_vi, c];
+                let tri2 = [new_vi, b, c];
+                let tjunc_degen = |tri: &[usize; 3]| -> bool {
+                    if tri[0] == tri[1] || tri[1] == tri[2] || tri[0] == tri[2] {
+                        return true;
+                    }
+                    (self.vertices[tri[1]] - self.vertices[tri[0]])
+                        .cross(self.vertices[tri[2]] - self.vertices[tri[0]])
+                        .length()
+                        < MIN_TRI_CROSS * 10.0
+                };
+                if tjunc_degen(&tri1) || tjunc_degen(&tri2) {
+                    break;
+                }
+
+                // Replace original triangle: (a, new, c)
+                let poly = &mut self.subsector_leaves[subsector_id].polygons[pi];
+                poly.vertices = vec![a, new_vi, c];
+                let mut aabb = AABB::new();
+                for &vi in &poly.vertices {
+                    aabb.expand_to_include_point(self.vertices[vi]);
+                }
+                poly.aabb = aabb;
+
+                // Add new triangle: (new, b, c)
+                let sector_id = self.subsector_leaves[subsector_id].polygons[pi].sector_id;
+                let surface_kind = self.subsector_leaves[subsector_id].polygons[pi]
+                    .surface_kind
+                    .clone();
+                let normal = self.subsector_leaves[subsector_id].polygons[pi].normal;
+                let moves = self.subsector_leaves[subsector_id].polygons[pi].moves;
+
+                let new_poly = SurfacePolygon::new(
+                    sector_id,
+                    surface_kind,
+                    vec![new_vi, b, c],
+                    normal,
+                    &self.vertices,
+                    moves,
+                );
+                let new_pi = self.subsector_leaves[subsector_id].polygons.len();
+                self.subsector_leaves[subsector_id].polygons.push(new_poly);
+                if is_floor {
+                    self.subsector_leaves[subsector_id]
+                        .floor_polygons
+                        .push(new_pi);
+                } else {
+                    self.subsector_leaves[subsector_id]
+                        .ceiling_polygons
+                        .push(new_pi);
+                }
+
+                break;
+            }
+        }
+    }
+
+    /// Post-creation pass that handles mover vertex concerns:
+    /// 1) Identify mover sectors (is_sector_mover + texture-based zh scan)
+    /// 2) Split floor/ceiling triangles at boundary segment endpoints
+    /// 3) Internal zh sector separation (floor vs ceiling at same z)
+    /// 4) Cross-sector boundary separation (shared vertices at zh boundaries)
+    /// 5) Zh wall vertex connection via ZhWallRecords
+    /// 6) Non-zh wall vertex connection via linedef lookup
+    /// 7) Set `moves` flag on affected polygons
+    fn mover_vertex_pass(
+        &mut self,
+        sectors: &[Sector],
+        segments: &[Segment],
+        subsectors: &[SubSector],
+        linedefs: &[LineDef],
+    ) {
+        // Step 1: Identify all mover sectors and zh boundaries.
+        let mut mover_sectors: HashSet<usize> = HashSet::new();
+        let mut zh_sectors: HashSet<usize> = HashSet::new();
+        let mut zh_lower_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
+        let mut zh_upper_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
+        let mut zh_lower_sectors: HashSet<usize> = HashSet::new();
+        let mut zh_upper_sectors: HashSet<usize> = HashSet::new();
+
+        for (i, sector) in sectors.iter().enumerate() {
+            if is_sector_mover(sector, linedefs) {
+                mover_sectors.insert(i);
+            }
+            if (sector.ceilingheight - sector.floorheight).abs() <= HEIGHT_EPSILON {
+                zh_sectors.insert(i);
+            }
+        }
+
+        for seg in segments {
+            let back = match &seg.backsector {
+                Some(b) => b,
+                None => continue,
+            };
+            let front_id = seg.frontsector.num as usize;
+            let back_id = back.num as usize;
+
+            if seg.sidedef.bottomtexture.is_some()
+                && (seg.frontsector.floorheight - back.floorheight).abs() <= HEIGHT_EPSILON
+            {
+                zh_lower_sectors.insert(front_id);
+                zh_lower_sectors.insert(back_id);
+                mover_sectors.insert(front_id);
+                mover_sectors.insert(back_id);
+                for sv in [*seg.v1, *seg.v2] {
+                    if !zh_lower_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == front_id && *b == back_id
+                    }) {
+                        zh_lower_bounds.push((sv, front_id, back_id));
+                    }
+                }
+            }
+
+            if seg.sidedef.toptexture.is_some()
+                && (seg.frontsector.ceilingheight - back.ceilingheight).abs() <= HEIGHT_EPSILON
+            {
+                zh_upper_sectors.insert(front_id);
+                zh_upper_sectors.insert(back_id);
+                mover_sectors.insert(front_id);
+                mover_sectors.insert(back_id);
+                for sv in [*seg.v1, *seg.v2] {
+                    if !zh_upper_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == front_id && *b == back_id
+                    }) {
+                        zh_upper_bounds.push((sv, front_id, back_id));
+                    }
+                }
+            }
+        }
+
+        // Mover-based boundary detection: catch same-height boundaries
+        // without texture markers.
+        for seg in segments {
+            let back = match &seg.backsector {
+                Some(b) => b,
+                None => continue,
+            };
+            let front_id = seg.frontsector.num as usize;
+            let back_id = back.num as usize;
+            let either_mover =
+                mover_sectors.contains(&front_id) || mover_sectors.contains(&back_id);
+            if !either_mover {
+                continue;
+            }
+
+            if (seg.frontsector.floorheight - back.floorheight).abs() <= HEIGHT_EPSILON {
+                for sv in [*seg.v1, *seg.v2] {
+                    if !zh_lower_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == front_id && *b == back_id
+                    }) {
+                        zh_lower_bounds.push((sv, front_id, back_id));
+                    }
+                }
+            }
+
+            if (seg.frontsector.ceilingheight - back.ceilingheight).abs() <= HEIGHT_EPSILON {
+                for sv in [*seg.v1, *seg.v2] {
+                    if !zh_upper_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == front_id && *b == back_id
+                    }) {
+                        zh_upper_bounds.push((sv, front_id, back_id));
+                    }
+                }
+            }
+        }
+
+        // Detect floor/ceiling crossings: mover floor at adjacent ceiling
+        // height (or vice versa).
+        let mut floor_ceil_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
+        let mut floor_ceil_sectors: HashSet<usize> = HashSet::new();
+        for seg in segments {
+            let back = match &seg.backsector {
+                Some(b) => b,
+                None => continue,
+            };
+            let front_id = seg.frontsector.num as usize;
+            let back_id = back.num as usize;
+            let either_mover =
+                mover_sectors.contains(&front_id) || mover_sectors.contains(&back_id);
+            if !either_mover {
+                continue;
+            }
+            if (seg.frontsector.floorheight - back.ceilingheight).abs() <= HEIGHT_EPSILON {
+                floor_ceil_sectors.insert(front_id);
+                floor_ceil_sectors.insert(back_id);
+                for sv in [*seg.v1, *seg.v2] {
+                    if !floor_ceil_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == front_id && *b == back_id
+                    }) {
+                        floor_ceil_bounds.push((sv, front_id, back_id));
+                    }
+                }
+            }
+            if (back.floorheight - seg.frontsector.ceilingheight).abs() <= HEIGHT_EPSILON {
+                floor_ceil_sectors.insert(front_id);
+                floor_ceil_sectors.insert(back_id);
+                for sv in [*seg.v1, *seg.v2] {
+                    if !floor_ceil_bounds.iter().any(|(p, a, b)| {
+                        (*p - sv).length() < DEDUP_EPSILON && *a == back_id && *b == front_id
+                    }) {
+                        floor_ceil_bounds.push((sv, back_id, front_id));
+                    }
+                }
+            }
+        }
+
+        if mover_sectors.is_empty() && zh_sectors.is_empty() && floor_ceil_bounds.is_empty() {
+            return;
+        }
+
+        // Build set of zh wall fresh vertex indices.
+        let zh_fresh: HashSet<usize> = self
+            .zh_wall_records
+            .iter()
+            .flat_map(|r| r.bottom.iter().chain(r.top.iter()).copied())
+            .collect();
+
+        // Step 2: Split floor/ceiling triangles at boundary segment endpoints.
+        let all_relevant: HashSet<usize> = zh_lower_sectors
+            .union(&zh_upper_sectors)
+            .copied()
+            .chain(zh_sectors.iter().copied())
+            .chain(mover_sectors.iter().copied())
+            .chain(floor_ceil_sectors.iter().copied())
+            .collect();
+
+        for &sector_id in &all_relevant {
+            let mut boundary_pts: Vec<Vec2> = Vec::new();
+            for seg in segments {
+                let front_id = seg.frontsector.num as usize;
+                let back_id = seg.backsector.as_ref().map(|b| b.num as usize);
+                if front_id == sector_id || back_id == Some(sector_id) {
+                    for sv in [*seg.v1, *seg.v2] {
+                        if !boundary_pts
+                            .iter()
+                            .any(|p| (*p - sv).length() < DEDUP_EPSILON)
+                        {
+                            boundary_pts.push(sv);
+                        }
+                    }
+                }
+                if front_id == sector_id {
+                    if let Some(back) = &seg.backsector {
+                        let back_num = back.num as usize;
+                        for &ss_id in &self.sector_subsectors[back_num] {
+                            let ss = &subsectors[ss_id];
+                            let start = ss.start_seg as usize;
+                            let end = start + ss.seg_count as usize;
+                            for gi in start..end {
+                                if let Some(gs) = segments.get(gi) {
+                                    for sv in [*gs.v1, *gs.v2] {
+                                        if !boundary_pts
+                                            .iter()
+                                            .any(|p| (*p - sv).length() < DEDUP_EPSILON)
+                                        {
+                                            boundary_pts.push(sv);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if zh_lower_sectors.contains(&sector_id)
+                || zh_sectors.contains(&sector_id)
+                || mover_sectors.contains(&sector_id)
+            {
+                let floor_h = sectors[sector_id].floorheight;
+                for &ss_id in &self.sector_subsectors[sector_id].clone() {
+                    self.split_triangles_at_points(ss_id, true, floor_h, &boundary_pts, &zh_fresh);
+                }
+            }
+            if zh_upper_sectors.contains(&sector_id)
+                || zh_sectors.contains(&sector_id)
+                || mover_sectors.contains(&sector_id)
+            {
+                let ceil_h = sectors[sector_id].ceilingheight;
+                for &ss_id in &self.sector_subsectors[sector_id].clone() {
+                    self.split_triangles_at_points(ss_id, false, ceil_h, &boundary_pts, &zh_fresh);
+                }
+            }
+        }
+
+        // Step 3: Internal zh sector separation.
+        for &sector_id in &zh_sectors {
+            let floor_vis: HashSet<usize> = self.sector_subsectors[sector_id]
+                .iter()
+                .flat_map(|&ss_id| {
+                    let leaf = &self.subsector_leaves[ss_id];
+                    leaf.floor_polygons
+                        .iter()
+                        .flat_map(|&pi| leaf.polygons[pi].vertices.iter().copied())
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+
+            let mut replaced: HashMap<usize, usize> = HashMap::new();
+            for &ss_id in &self.sector_subsectors[sector_id].clone() {
+                let ceil_indices = self.subsector_leaves[ss_id].ceiling_polygons.clone();
+                for pi in ceil_indices {
+                    for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
+                        if floor_vis.contains(vi) {
+                            let new_vi = *replaced.entry(*vi).or_insert_with(|| {
+                                let idx = self.vertices.len();
+                                self.vertices.push(self.vertices[*vi]);
+                                idx
+                            });
+                            *vi = new_vi;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 4: Cross-sector boundary separation.
+        let mut lower_vertex_map: HashMap<QuantizedVec2, HashMap<usize, usize>> = HashMap::new();
+        let mut upper_vertex_map: HashMap<QuantizedVec2, HashMap<usize, usize>> = HashMap::new();
+
+        for &(pos, sector_a, sector_b) in &zh_lower_bounds {
+            let height = sectors[sector_a].floorheight;
+            let qp = QuantizedVec2::from_vec2(pos, QUANT_PRECISION);
+
+            let shared_vi = self.find_floor_ceil_vertex_for_sector(sector_a, pos, height, true);
+            let Some(shared_vi) = shared_vi else {
+                continue;
+            };
+
+            lower_vertex_map
+                .entry(qp)
+                .or_default()
+                .entry(sector_a)
+                .or_insert(shared_vi);
+
+            let sector_b_uses = self.sector_uses_vertex(sector_b, shared_vi, true);
+            if sector_b_uses {
+                let (keeper, mover_out) = if mover_sectors.contains(&sector_a) {
+                    (sector_a, sector_b)
+                } else {
+                    (sector_b, sector_a)
+                };
+                let new_vi = self.vertices.len();
+                self.vertices.push(self.vertices[shared_vi]);
+                lower_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .insert(mover_out, new_vi);
+                lower_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(keeper)
+                    .or_insert(shared_vi);
+
+                self.replace_vertex_in_sector_polys(mover_out, shared_vi, new_vi, pos, true);
+            } else if let Some(vi) =
+                self.find_floor_ceil_vertex_for_sector(sector_b, pos, height, true)
+            {
+                lower_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(sector_b)
+                    .or_insert(vi);
+            }
+        }
+
+        for &(pos, sector_a, sector_b) in &zh_upper_bounds {
+            let height = sectors[sector_a].ceilingheight;
+            let qp = QuantizedVec2::from_vec2(pos, QUANT_PRECISION);
+
+            let shared_vi = self.find_floor_ceil_vertex_for_sector(sector_a, pos, height, false);
+            let Some(shared_vi) = shared_vi else {
+                continue;
+            };
+
+            upper_vertex_map
+                .entry(qp)
+                .or_default()
+                .entry(sector_a)
+                .or_insert(shared_vi);
+
+            let sector_b_uses = self.sector_uses_vertex(sector_b, shared_vi, false);
+            if sector_b_uses {
+                let (keeper, mover_out) = if mover_sectors.contains(&sector_a) {
+                    (sector_a, sector_b)
+                } else {
+                    (sector_b, sector_a)
+                };
+                let new_vi = self.vertices.len();
+                self.vertices.push(self.vertices[shared_vi]);
+                upper_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .insert(mover_out, new_vi);
+                upper_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(keeper)
+                    .or_insert(shared_vi);
+
+                self.replace_vertex_in_sector_polys(mover_out, shared_vi, new_vi, pos, false);
+            } else if let Some(vi) =
+                self.find_floor_ceil_vertex_for_sector(sector_b, pos, height, false)
+            {
+                upper_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(sector_b)
+                    .or_insert(vi);
+            }
+        }
+
+        // For zh sectors: populate vertex maps with separated floor/ceiling
+        // vertex indices for zh wall connection (Step 5).
+        for &sector_id in &zh_sectors {
+            let height = sectors[sector_id].floorheight;
+            for &ss_id in &self.sector_subsectors[sector_id] {
+                let leaf = &self.subsector_leaves[ss_id];
+                for &pi in &leaf.floor_polygons {
+                    for &vi in &leaf.polygons[pi].vertices {
+                        let v = self.vertices[vi];
+                        if (v.z - height).abs() < HEIGHT_EPSILON {
+                            let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
+                            lower_vertex_map
+                                .entry(qp)
+                                .or_default()
+                                .entry(sector_id)
+                                .or_insert(vi);
+                        }
+                    }
+                }
+                for &pi in &leaf.ceiling_polygons {
+                    for &vi in &leaf.polygons[pi].vertices {
+                        let v = self.vertices[vi];
+                        if (v.z - height).abs() < HEIGHT_EPSILON {
+                            let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
+                            upper_vertex_map
+                                .entry(qp)
+                                .or_default()
+                                .entry(sector_id)
+                                .or_insert(vi);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 4b: Cross-height separation (floor at ceiling height).
+        for &(pos, floor_sector, ceil_sector) in &floor_ceil_bounds {
+            let height = sectors[floor_sector].floorheight;
+            let qp = QuantizedVec2::from_vec2(pos, QUANT_PRECISION);
+
+            let floor_vi = self.find_floor_ceil_vertex_for_sector(floor_sector, pos, height, true);
+            let Some(floor_vi) = floor_vi else {
+                continue;
+            };
+
+            let ceil_uses = self.sector_uses_vertex(ceil_sector, floor_vi, false);
+            if ceil_uses {
+                let new_vi = self.vertices.len();
+                self.vertices.push(self.vertices[floor_vi]);
+
+                self.replace_vertex_in_sector_polys(ceil_sector, floor_vi, new_vi, pos, false);
+
+                lower_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(floor_sector)
+                    .or_insert(floor_vi);
+                upper_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .insert(ceil_sector, new_vi);
+            } else {
+                lower_vertex_map
+                    .entry(qp)
+                    .or_default()
+                    .entry(floor_sector)
+                    .or_insert(floor_vi);
+                if let Some(vi) =
+                    self.find_floor_ceil_vertex_for_sector(ceil_sector, pos, height, false)
+                {
+                    upper_vertex_map
+                        .entry(qp)
+                        .or_default()
+                        .entry(ceil_sector)
+                        .or_insert(vi);
+                }
+            }
+        }
+
+        // Step 4c: Residual mover vertex separation.
+        {
+            let mut upper_pairs: HashSet<(usize, usize)> = HashSet::new();
+            for &(_, a, b) in &zh_upper_bounds {
+                if a != b {
+                    upper_pairs.insert(if a < b { (a, b) } else { (b, a) });
+                }
+            }
+            for (sector_a, sector_b) in &upper_pairs {
+                let ceil_vis_a: HashSet<usize> = self.sector_subsectors[*sector_a]
+                    .iter()
+                    .flat_map(|&ssid| {
+                        let leaf = &self.subsector_leaves[ssid];
+                        leaf.ceiling_polygons
+                            .iter()
+                            .flat_map(|&cpi| leaf.polygons[cpi].vertices.iter().copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                let shared: Vec<usize> = self.sector_subsectors[*sector_b]
+                    .clone()
+                    .iter()
+                    .flat_map(|&ssid| {
+                        let leaf = &self.subsector_leaves[ssid];
+                        leaf.ceiling_polygons
+                            .iter()
+                            .flat_map(|&cpi| leaf.polygons[cpi].vertices.iter().copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|vi| ceil_vis_a.contains(vi))
+                    .collect();
+                for vi in shared {
+                    let (keeper, other) = if mover_sectors.contains(sector_a) {
+                        (*sector_a, *sector_b)
+                    } else {
+                        (*sector_b, *sector_a)
+                    };
+                    let pos = self.vertices[vi];
+                    let pos2 = Vec2::new(pos.x, pos.y);
+                    let new_vi = self.vertices.len();
+                    self.vertices.push(pos);
+                    self.replace_vertex_in_sector_polys(other, vi, new_vi, pos2, false);
+                    let qp = QuantizedVec2::from_vec2(pos2, QUANT_PRECISION);
+                    upper_vertex_map
+                        .entry(qp)
+                        .or_default()
+                        .insert(other, new_vi);
+                    upper_vertex_map
+                        .entry(qp)
+                        .or_default()
+                        .entry(keeper)
+                        .or_insert(vi);
+                }
+            }
+
+            let mut lower_pairs: HashSet<(usize, usize)> = HashSet::new();
+            for &(_, a, b) in &zh_lower_bounds {
+                if a != b {
+                    lower_pairs.insert(if a < b { (a, b) } else { (b, a) });
+                }
+            }
+            for (sector_a, sector_b) in &lower_pairs {
+                let floor_vis_a: HashSet<usize> = self.sector_subsectors[*sector_a]
+                    .iter()
+                    .flat_map(|&ssid| {
+                        let leaf = &self.subsector_leaves[ssid];
+                        leaf.floor_polygons
+                            .iter()
+                            .flat_map(|&fpi| leaf.polygons[fpi].vertices.iter().copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                let shared: Vec<usize> = self.sector_subsectors[*sector_b]
+                    .clone()
+                    .iter()
+                    .flat_map(|&ssid| {
+                        let leaf = &self.subsector_leaves[ssid];
+                        leaf.floor_polygons
+                            .iter()
+                            .flat_map(|&fpi| leaf.polygons[fpi].vertices.iter().copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|vi| floor_vis_a.contains(vi))
+                    .collect();
+                for vi in shared {
+                    let (keeper, other) = if mover_sectors.contains(sector_a) {
+                        (*sector_a, *sector_b)
+                    } else {
+                        (*sector_b, *sector_a)
+                    };
+                    let pos = self.vertices[vi];
+                    let pos2 = Vec2::new(pos.x, pos.y);
+                    let new_vi = self.vertices.len();
+                    self.vertices.push(pos);
+                    self.replace_vertex_in_sector_polys(other, vi, new_vi, pos2, true);
+                    let qp = QuantizedVec2::from_vec2(pos2, QUANT_PRECISION);
+                    lower_vertex_map
+                        .entry(qp)
+                        .or_default()
+                        .insert(other, new_vi);
+                    lower_vertex_map
+                        .entry(qp)
+                        .or_default()
+                        .entry(keeper)
+                        .or_insert(vi);
+                }
+            }
+        }
+
+        // Step 5: Zh wall vertex connection via ZhWallRecords.
+        for rec in &self.zh_wall_records.clone() {
+            let leaf = &mut self.subsector_leaves[rec.subsector_id];
+
+            match rec.wall_type {
+                WallType::Lower => {
+                    for (wall_vi, sector_id, vertex_map) in [
+                        (rec.bottom[0], rec.front_sector, &lower_vertex_map),
+                        (rec.bottom[1], rec.front_sector, &lower_vertex_map),
+                        (rec.top[0], rec.back_sector, &lower_vertex_map),
+                        (rec.top[1], rec.back_sector, &lower_vertex_map),
+                    ] {
+                        let pos = self.vertices[wall_vi];
+                        let qp = QuantizedVec2::from_vec2(Vec2::new(pos.x, pos.y), QUANT_PRECISION);
+                        if let Some(sector_map) = vertex_map.get(&qp) {
+                            if let Some(&target_vi) = sector_map.get(&sector_id) {
+                                for &pi in &rec.poly_indices {
+                                    for vi in &mut leaf.polygons[pi].vertices {
+                                        if *vi == wall_vi {
+                                            *vi = target_vi;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                WallType::Upper => {
+                    for (wall_vi, sector_id, vertex_map) in [
+                        (rec.bottom[0], rec.back_sector, &upper_vertex_map),
+                        (rec.bottom[1], rec.back_sector, &upper_vertex_map),
+                        (rec.top[0], rec.front_sector, &upper_vertex_map),
+                        (rec.top[1], rec.front_sector, &upper_vertex_map),
+                    ] {
+                        let pos = self.vertices[wall_vi];
+                        let qp = QuantizedVec2::from_vec2(Vec2::new(pos.x, pos.y), QUANT_PRECISION);
+                        if let Some(sector_map) = vertex_map.get(&qp) {
+                            if let Some(&target_vi) = sector_map.get(&sector_id) {
+                                for &pi in &rec.poly_indices {
+                                    for vi in &mut leaf.polygons[pi].vertices {
+                                        if *vi == wall_vi {
+                                            *vi = target_vi;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                WallType::Middle => {
+                    if rec.front_sector == rec.back_sector {
+                        for (wall_vi, vertex_map) in [
+                            (rec.bottom[0], &lower_vertex_map),
+                            (rec.bottom[1], &lower_vertex_map),
+                            (rec.top[0], &upper_vertex_map),
+                            (rec.top[1], &upper_vertex_map),
+                        ] {
+                            let pos = self.vertices[wall_vi];
+                            let qp =
+                                QuantizedVec2::from_vec2(Vec2::new(pos.x, pos.y), QUANT_PRECISION);
+                            if let Some(sector_map) = vertex_map.get(&qp) {
+                                if let Some(&target_vi) = sector_map.get(&rec.front_sector) {
+                                    for &pi in &rec.poly_indices {
+                                        for vi in &mut leaf.polygons[pi].vertices {
+                                            if *vi == wall_vi {
+                                                *vi = target_vi;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 6: Non-zh wall vertex connection.
+        for ss_id in 0..self.subsector_leaves.len() {
+            let polys_len = self.subsector_leaves[ss_id].polygons.len();
+            for pi in 0..polys_len {
+                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+                let (wall_type, linedef_id) = match &poly.surface_kind {
+                    SurfaceKind::Vertical {
+                        wall_type,
+                        linedef_id,
+                        ..
+                    } => (*wall_type, *linedef_id),
+                    _ => continue,
+                };
+                let verts = poly.vertices.clone();
+                let all_same_z = verts.iter().all(|&vi| {
+                    (self.vertices[vi].z - self.vertices[verts[0]].z).abs() <= HEIGHT_EPSILON
+                });
+                if all_same_z && matches!(wall_type, WallType::Lower | WallType::Upper) {
+                    continue;
+                }
+
+                let ld = &linedefs[linedef_id];
+                let ld_front = ld.frontsector.num as usize;
+                let ld_back = match &ld.backsector {
+                    Some(b) => b.num as usize,
+                    None => continue,
+                };
+                let wall_front = poly.sector_id;
+                let wall_back = if wall_front == ld_front {
+                    ld_back
+                } else {
+                    ld_front
+                };
+
+                for vi_idx in 0..verts.len() {
+                    let vi = verts[vi_idx];
+                    let v = self.vertices[vi];
+                    let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
+
+                    match wall_type {
+                        WallType::Lower => {
+                            if let Some(sector_map) = lower_vertex_map.get(&qp) {
+                                if (v.z - sectors[wall_front].floorheight).abs() < HEIGHT_EPSILON {
+                                    if let Some(&target_vi) = sector_map.get(&wall_front) {
+                                        if vi != target_vi {
+                                            self.subsector_leaves[ss_id].polygons[pi].vertices
+                                                [vi_idx] = target_vi;
+                                        }
+                                    }
+                                }
+                                if (v.z - sectors[wall_back].floorheight).abs() < HEIGHT_EPSILON {
+                                    if let Some(&target_vi) = sector_map.get(&wall_back) {
+                                        if vi != target_vi {
+                                            self.subsector_leaves[ss_id].polygons[pi].vertices
+                                                [vi_idx] = target_vi;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        WallType::Upper => {
+                            if let Some(sector_map) = upper_vertex_map.get(&qp) {
+                                if (v.z - sectors[wall_front].ceilingheight).abs() < HEIGHT_EPSILON
+                                {
+                                    if let Some(&target_vi) = sector_map.get(&wall_front) {
+                                        if vi != target_vi {
+                                            self.subsector_leaves[ss_id].polygons[pi].vertices
+                                                [vi_idx] = target_vi;
+                                        }
+                                    }
+                                }
+                                if (v.z - sectors[wall_back].ceilingheight).abs() < HEIGHT_EPSILON {
+                                    if let Some(&target_vi) = sector_map.get(&wall_back) {
+                                        if vi != target_vi {
+                                            self.subsector_leaves[ss_id].polygons[pi].vertices
+                                                [vi_idx] = target_vi;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Step 7: Set `moves` flag.
+        let floor_movers: HashSet<usize> = mover_sectors
+            .union(&zh_lower_sectors)
+            .copied()
+            .chain(zh_sectors.iter().copied())
+            .collect();
+        let ceil_movers: HashSet<usize> = mover_sectors
+            .union(&zh_upper_sectors)
+            .copied()
+            .chain(zh_sectors.iter().copied())
+            .collect();
+
+        for &sector_id in &floor_movers {
+            for &ss_id in &self.sector_subsectors[sector_id].clone() {
+                let leaf = &mut self.subsector_leaves[ss_id];
+                for &fi in &leaf.floor_polygons.clone() {
+                    leaf.polygons[fi].moves = true;
+                }
+            }
+        }
+        for &sector_id in &ceil_movers {
+            for &ss_id in &self.sector_subsectors[sector_id].clone() {
+                let leaf = &mut self.subsector_leaves[ss_id];
+                for &ci in &leaf.ceiling_polygons.clone() {
+                    leaf.polygons[ci].moves = true;
+                }
+            }
+        }
+        // Zh wall polygons.
+        for rec in &self.zh_wall_records.clone() {
+            let leaf = &mut self.subsector_leaves[rec.subsector_id];
+            for &pi in &rec.poly_indices {
+                leaf.polygons[pi].moves = true;
+            }
+        }
+        // Non-zh wall polygons at mover boundaries.
+        for ss_id in 0..self.subsector_leaves.len() {
+            let polys_len = self.subsector_leaves[ss_id].polygons.len();
+            for pi in 0..polys_len {
+                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+                let linedef_id = match &poly.surface_kind {
+                    SurfaceKind::Vertical {
+                        linedef_id,
+                        wall_type,
+                        ..
+                    } if matches!(wall_type, WallType::Lower | WallType::Upper) => *linedef_id,
+                    _ => continue,
+                };
+                if poly.moves {
+                    continue;
+                }
+                let ld = &linedefs[linedef_id];
+                let ld_front = ld.frontsector.num as usize;
+                let ld_back = match &ld.backsector {
+                    Some(b) => b.num as usize,
+                    None => continue,
+                };
+                if mover_sectors.contains(&ld_front) || mover_sectors.contains(&ld_back) {
+                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
+                }
+            }
+        }
+    }
+
+    /// Find the vertex index used by a sector's floor or ceiling polygons at
+    /// a given 2D position and height.
+    fn find_floor_ceil_vertex_for_sector(
+        &self,
+        sector_id: usize,
+        pos: Vec2,
+        height: f32,
+        is_floor: bool,
+    ) -> Option<usize> {
+        for &ss_id in &self.sector_subsectors[sector_id] {
+            let leaf = &self.subsector_leaves[ss_id];
+            let indices = if is_floor {
+                &leaf.floor_polygons
+            } else {
+                &leaf.ceiling_polygons
+            };
+            for &pi in indices {
+                for &vi in &leaf.polygons[pi].vertices {
+                    let v = self.vertices[vi];
+                    if (v.x - pos.x).abs() < DEDUP_EPSILON
+                        && (v.y - pos.y).abs() < DEDUP_EPSILON
+                        && (v.z - height).abs() < HEIGHT_EPSILON
+                    {
+                        return Some(vi);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Check if a sector's floor or ceiling polygons use a specific vertex
+    /// index.
+    fn sector_uses_vertex(&self, sector_id: usize, vi: usize, is_floor: bool) -> bool {
+        for &ss_id in &self.sector_subsectors[sector_id] {
+            let leaf = &self.subsector_leaves[ss_id];
+            let indices = if is_floor {
+                &leaf.floor_polygons
+            } else {
+                &leaf.ceiling_polygons
+            };
+            for &pi in indices {
+                if leaf.polygons[pi].vertices.contains(&vi) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Find an existing vertex at the target position, excluding zh wall
+    /// fresh vertices.
+    fn find_vertex_at_position(&self, target: Vec3, zh_fresh: &HashSet<usize>) -> Option<usize> {
+        for (i, v) in self.vertices.iter().enumerate() {
+            if zh_fresh.contains(&i) {
+                continue;
+            }
+            if (v.x - target.x).abs() < DEDUP_EPSILON
+                && (v.y - target.y).abs() < DEDUP_EPSILON
+                && (v.z - target.z).abs() < HEIGHT_EPSILON
+            {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// Replace a vertex index in a sector's floor/ceiling polygons and
+    /// wall polygons at a specific 2D position.
+    fn replace_vertex_in_sector_polys(
+        &mut self,
+        sector_id: usize,
+        old_vi: usize,
+        new_vi: usize,
+        pos: Vec2,
+        is_floor: bool,
+    ) {
+        let height = self.vertices[old_vi].z;
+        for &ss_id in &self.sector_subsectors[sector_id].clone() {
+            let leaf = &mut self.subsector_leaves[ss_id];
+            let fc_indices = if is_floor {
+                leaf.floor_polygons.clone()
+            } else {
+                leaf.ceiling_polygons.clone()
+            };
+            for pi in fc_indices {
+                for vi in &mut leaf.polygons[pi].vertices {
+                    if *vi == old_vi {
+                        let v = self.vertices[*vi];
+                        if (v.x - pos.x).abs() < DEDUP_EPSILON
+                            && (v.y - pos.y).abs() < DEDUP_EPSILON
+                        {
+                            *vi = new_vi;
+                        }
+                    }
+                }
+            }
+            let poly_count = leaf.polygons.len();
+            for pi in 0..poly_count {
+                if !matches!(leaf.polygons[pi].surface_kind, SurfaceKind::Vertical { .. }) {
+                    continue;
+                }
+                if leaf.polygons[pi].sector_id != sector_id {
+                    continue;
+                }
+                for vi in &mut leaf.polygons[pi].vertices {
+                    if *vi == old_vi {
+                        let v = self.vertices[*vi];
+                        if (v.x - pos.x).abs() < DEDUP_EPSILON
+                            && (v.y - pos.y).abs() < DEDUP_EPSILON
+                            && (v.z - height).abs() < HEIGHT_EPSILON
+                        {
+                            *vi = new_vi;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Split floor or ceiling triangles of a subsector at boundary points.
+    fn split_triangles_at_points(
+        &mut self,
+        subsector_id: usize,
+        is_floor: bool,
+        height: f32,
+        boundary_pts: &[Vec2],
+        zh_fresh: &HashSet<usize>,
+    ) {
+        for pt in boundary_pts {
+            let current_indices = if is_floor {
+                self.subsector_leaves[subsector_id].floor_polygons.clone()
+            } else {
+                self.subsector_leaves[subsector_id].ceiling_polygons.clone()
+            };
+
+            for &pi in &current_indices {
+                let verts = self.subsector_leaves[subsector_id].polygons[pi]
+                    .vertices
+                    .clone();
+                if verts.len() != 3 {
+                    continue;
+                }
+
+                let already_present = verts.iter().any(|&vi| {
+                    let v = self.vertices[vi];
+                    (v.x - pt.x).abs() < DEDUP_EPSILON && (v.y - pt.y).abs() < DEDUP_EPSILON
+                });
+                if already_present {
+                    continue;
+                }
+
+                let mut split_edge = None;
+                for e in 0..3 {
+                    let ei0 = verts[e];
+                    let ei1 = verts[(e + 1) % 3];
+                    let e0 = Vec2::new(self.vertices[ei0].x, self.vertices[ei0].y);
+                    let e1 = Vec2::new(self.vertices[ei1].x, self.vertices[ei1].y);
+                    let edge_vec = e1 - e0;
+                    let edge_len_sq = edge_vec.length_squared();
+                    if edge_len_sq < EDGE_EPSILON * EDGE_EPSILON {
+                        continue;
+                    }
+                    let to_v = *pt - e0;
+                    let proj = to_v.dot(edge_vec) / edge_len_sq;
+                    if proj > EDGE_EPSILON && proj < 1.0 - EDGE_EPSILON {
+                        let projected = e0 + edge_vec * proj;
+                        if (*pt - projected).length() < EDGE_EPSILON {
+                            split_edge = Some(e);
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(e) = split_edge {
+                    let target = Vec3::new(pt.x, pt.y, height);
+                    let new_vi = self
+                        .find_vertex_at_position(target, zh_fresh)
+                        .unwrap_or_else(|| {
+                            let idx = self.vertices.len();
+                            self.vertices.push(target);
+                            idx
+                        });
+
+                    let a = verts[e];
+                    let b = verts[(e + 1) % 3];
+                    let c = verts[(e + 2) % 3];
+
+                    let poly = &mut self.subsector_leaves[subsector_id].polygons[pi];
+                    poly.vertices = vec![a, new_vi, c];
+                    let mut aabb = AABB::new();
+                    for &vi in &poly.vertices {
+                        aabb.expand_to_include_point(self.vertices[vi]);
+                    }
+                    poly.aabb = aabb;
+
+                    let sector_id = self.subsector_leaves[subsector_id].polygons[pi].sector_id;
+                    let surface_kind = self.subsector_leaves[subsector_id].polygons[pi]
+                        .surface_kind
+                        .clone();
+                    let normal = self.subsector_leaves[subsector_id].polygons[pi].normal;
+                    let moves = self.subsector_leaves[subsector_id].polygons[pi].moves;
+
+                    let new_poly = SurfacePolygon::new(
+                        sector_id,
+                        surface_kind,
+                        vec![new_vi, b, c],
+                        normal,
+                        &self.vertices,
+                        moves,
+                    );
+                    let new_pi = self.subsector_leaves[subsector_id].polygons.len();
+                    self.subsector_leaves[subsector_id].polygons.push(new_poly);
+                    if is_floor {
+                        self.subsector_leaves[subsector_id]
+                            .floor_polygons
+                            .push(new_pi);
+                    } else {
+                        self.subsector_leaves[subsector_id]
+                            .ceiling_polygons
+                            .push(new_pi);
+                    }
+
+                    break;
+                }
+            }
+        }
     }
 
     fn update_affected_aabbs(&mut self, sector_id: usize) {
