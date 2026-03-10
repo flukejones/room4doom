@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
@@ -655,7 +656,114 @@ impl MapData {
             info!("{}: Fixed bsp node children", map_name);
         }
 
+        Self::correct_node_divlines(&mut self.nodes, wad, map_name, &self.linedefs, extended);
+
         self.start_node = (self.nodes.len() - 1) as u32;
+    }
+
+    /// Correct BSP node divlines by backtracking to source linedefs via seg
+    /// vertex lookup. BSP nodes store `(x, y, dx, dy)` as i16-derived f32,
+    /// which may differ from the original linedef endpoints. This corrects
+    /// each node's origin and direction to use the linedef's exact geometry.
+    fn correct_node_divlines(
+        nodes: &mut [Node],
+        wad: &WadData,
+        map_name: &str,
+        linedefs: &[LineDef],
+        extended: Option<&WadExtendedMap>,
+    ) {
+        let start = Instant::now();
+
+        // Load raw (pre-slimetrail-fix) vertices as integer coords.
+        let mut raw_verts: Vec<(i32, i32)> = wad
+            .vertex_iter(map_name)
+            .map(|v| (v.x as i32, v.y as i32))
+            .collect();
+        if let Some(ext) = extended {
+            for v in &ext.vertexes {
+                raw_verts.push((v.x as i32, v.y as i32));
+            }
+        }
+
+        // Map (x, y) integer coords → vertex indices for O(1) lookup.
+        let mut coord_to_indices: HashMap<(i32, i32), Vec<usize>> =
+            HashMap::with_capacity(raw_verts.len());
+        for (idx, &coord) in raw_verts.iter().enumerate() {
+            coord_to_indices.entry(coord).or_default().push(idx);
+        }
+
+        // Build seg lookup: (start_vertex, end_vertex) → linedef index.
+        let mut seg_to_linedef: HashMap<(u32, u32), u16> = HashMap::new();
+        if let Some(ext) = extended {
+            for seg in &ext.segments {
+                seg_to_linedef
+                    .entry((seg.start_vertex, seg.end_vertex))
+                    .or_insert(seg.linedef);
+            }
+        } else {
+            for seg in wad.segment_iter(map_name) {
+                seg_to_linedef
+                    .entry((seg.start_vertex, seg.end_vertex))
+                    .or_insert(seg.linedef);
+            }
+        }
+
+        let mut corrected = 0u32;
+        for node in nodes.iter_mut() {
+            let nx = node.xy.x as i32;
+            let ny = node.xy.y as i32;
+            let ex = nx + node.delta.x as i32;
+            let ey = ny + node.delta.y as i32;
+
+            // Find vertex indices matching node start and end coords.
+            let v1_indices = coord_to_indices.get(&(nx, ny));
+            let v2_indices = coord_to_indices.get(&(ex, ey));
+
+            let (v1_indices, v2_indices) = match (v1_indices, v2_indices) {
+                (Some(a), Some(b)) => (a, b),
+                _ => continue,
+            };
+
+            // Try all (v1, v2) and (v2, v1) pairs to find a seg → linedef.
+            let mut found = false;
+            for &v1i in v1_indices {
+                for &v2i in v2_indices {
+                    let ld_idx = seg_to_linedef
+                        .get(&(v1i as u32, v2i as u32))
+                        .or_else(|| seg_to_linedef.get(&(v2i as u32, v1i as u32)));
+
+                    if let Some(&ld_idx) = ld_idx {
+                        if let Some(ld) = linedefs.get(ld_idx as usize) {
+                            if apply_linedef_correction(node, ld) {
+                                corrected += 1;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if found {
+                    break;
+                }
+            }
+
+            // Fallback: collinearity search against all linedefs.
+            if !found {
+                if let Some(ld) = find_collinear_linedef(node, linedefs) {
+                    if apply_linedef_correction(node, ld) {
+                        corrected += 1;
+                    }
+                }
+            }
+        }
+
+        info!(
+            "{}: Corrected {}/{} node divlines via seg backtracking ({:#?})",
+            map_name,
+            corrected,
+            nodes.len(),
+            start.elapsed()
+        );
     }
 
     /// Get a raw pointer to the subsector a point is in. This is mostly used to
@@ -793,6 +901,77 @@ impl MapData {
         let end = Instant::now();
         info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
     }
+}
+
+/// Squared sine threshold for collinearity in divline-to-linedef matching.
+/// sin²(θ) < threshold means directions are near-parallel. 1e-4 ≈ 0.57°.
+const COLLINEAR_SIN2_THRESHOLD: f64 = 1e-4;
+
+/// Maximum perpendicular distance (map units) from node origin to linedef
+/// line for a valid divline-to-linedef match.
+const COLLINEAR_PERP_DIST: f64 = 1.0;
+
+/// Project the node origin onto the linedef line and adopt the linedef's
+/// exact direction. Returns true if the correction was applied.
+fn apply_linedef_correction(node: &mut Node, ld: &LineDef) -> bool {
+    let ldx = ld.v2.x as f64 - ld.v1.x as f64;
+    let ldy = ld.v2.y as f64 - ld.v1.y as f64;
+    let ld_len_sq = ldx * ldx + ldy * ldy;
+    if ld_len_sq < 1e-20 {
+        return false;
+    }
+
+    let ndx = node.delta.x as f64;
+    let ndy = node.delta.y as f64;
+    let dot = ndx * ldx + ndy * ldy;
+    let (dx, dy) = if dot >= 0.0 { (ldx, ldy) } else { (-ldx, -ldy) };
+
+    let v1x = ld.v1.x as f64;
+    let v1y = ld.v1.y as f64;
+    let ox = node.xy.x as f64 - v1x;
+    let oy = node.xy.y as f64 - v1y;
+    let t = (ox * ldx + oy * ldy) / ld_len_sq;
+    let px = v1x + t * ldx;
+    let py = v1y + t * ldy;
+
+    node.xy = Vec2::new(px as f32, py as f32);
+    node.delta = Vec2::new(dx as f32, dy as f32);
+    true
+}
+
+/// Fallback collinearity search: find the linedef whose line is nearest and
+/// parallel to the node's divline.
+fn find_collinear_linedef<'a>(node: &Node, linedefs: &'a [LineDef]) -> Option<&'a LineDef> {
+    let ndx = node.delta.x as f64;
+    let ndy = node.delta.y as f64;
+    let nd_len_sq = ndx * ndx + ndy * ndy;
+    if nd_len_sq < 1e-20 {
+        return None;
+    }
+
+    for ld in linedefs {
+        let ldx = ld.v2.x as f64 - ld.v1.x as f64;
+        let ldy = ld.v2.y as f64 - ld.v1.y as f64;
+        let ld_len_sq = ldx * ldx + ldy * ldy;
+        if ld_len_sq < 1e-20 {
+            continue;
+        }
+
+        let cross = ndx * ldy - ndy * ldx;
+        if cross * cross >= COLLINEAR_SIN2_THRESHOLD * nd_len_sq * ld_len_sq {
+            continue;
+        }
+
+        let v1x = ld.v1.x as f64;
+        let v1y = ld.v1.y as f64;
+        let ox = node.xy.x as f64 - v1x;
+        let oy = node.xy.y as f64 - v1y;
+        let perp = (ox * ldy - oy * ldx).abs() / ld_len_sq.sqrt();
+        if perp < COLLINEAR_PERP_DIST {
+            return Some(ld);
+        }
+    }
+    None
 }
 
 pub fn set_sector_sound_origin(sector: &mut Sector) {
