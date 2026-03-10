@@ -8,8 +8,34 @@ use glam::{Vec2, Vec3};
 use std::collections::HashMap;
 
 const IS_SUBSECTOR_MASK: u32 = 0x8000_0000;
-const QUANT_EPSILON: f32 = 0.1;
+/// Quantization grid for position-only vertex dedup.
+const QUANT_PRECISION: f32 = 2.0;
 const HEIGHT_EPSILON: f32 = 0.1;
+/// Minimum cross-product magnitude for a non-degenerate triangle.
+const MIN_TRI_CROSS: f32 = 1e-4;
+
+/// Construction-only record tracking zero-height wall vertex roles.
+/// Needed because zh walls have bottom and top at the same (x,y,z) — with
+/// position-only dedup they'd share one index, producing degenerate triangles.
+/// Fresh vertices are created instead, and this record tells the post-pass
+/// which vertices are bottom (front sector) vs top (back sector).
+#[derive(Clone)]
+struct ZhWallRecord {
+    /// Subsector leaf containing the wall polygons.
+    subsector_id: usize,
+    /// Polygon indices within the subsector leaf (two triangles).
+    poly_indices: [usize; 2],
+    /// Vertex indices for the bottom edge [start, end].
+    bottom: [usize; 2],
+    /// Vertex indices for the top edge [start, end].
+    top: [usize; 2],
+    /// Wall type (Upper/Lower/Middle).
+    wall_type: WallType,
+    /// Front sector of the segment.
+    front_sector: usize,
+    /// Back sector of the segment.
+    back_sector: usize,
+}
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum MovementType {
@@ -17,86 +43,6 @@ pub enum MovementType {
     Ceiling,
     #[default]
     None,
-}
-
-/// Per-sector sets of 2D positions that need separated vertex mappings.
-/// Only vertices on zero-height wall boundaries where the sector is the
-/// backsector need LowerSeparated/UpperSeparated. All other vertices use
-/// Lower/Upper as normal.
-#[derive(Debug, Clone, Default)]
-struct ZeroHeightSectorVerts {
-    lower: Vec<QuantizedVec2>,
-    upper: Vec<QuantizedVec2>,
-}
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-struct QuantizedVec2 {
-    x: i32,
-    y: i32,
-}
-
-impl QuantizedVec2 {
-    fn from_vec2(v: Vec2, precision: f32) -> Self {
-        Self {
-            x: (v.x / precision).round() as i32,
-            y: (v.y / precision).round() as i32,
-        }
-    }
-}
-
-/// Pre-pass over segments to find the specific vertex positions where each
-/// sector participates in a zero-height wall. Both frontsector and backsector
-/// are recorded, since both sides need LowerSeparated(sector_id) /
-/// UpperSeparated(sector_id) to get unique vertex indices.
-fn build_zero_height_wall_map(segments: &[Segment]) -> HashMap<usize, ZeroHeightSectorVerts> {
-    let mut map: HashMap<usize, ZeroHeightSectorVerts> = HashMap::new();
-
-    for seg in segments {
-        let back = match &seg.backsector {
-            Some(b) => b,
-            None => continue,
-        };
-
-        let front_num = seg.frontsector.num as usize;
-        let back_num = back.num as usize;
-        let v1 = QuantizedVec2::from_vec2(*seg.v1, QUANT_EPSILON);
-        let v2 = QuantizedVec2::from_vec2(*seg.v2, QUANT_EPSILON);
-
-        // Lower wall: both sectors' floor vertices at segment endpoints
-        // need LowerSeparated(sector_id) to share with their respective
-        // wall verts (bottom for front, top for back).
-        if seg.sidedef.bottomtexture.is_some()
-            && (seg.frontsector.floorheight - back.floorheight).abs() <= HEIGHT_EPSILON
-        {
-            for &sector_num in &[front_num, back_num] {
-                let entry = map.entry(sector_num).or_default();
-                if !entry.lower.contains(&v1) {
-                    entry.lower.push(v1);
-                }
-                if !entry.lower.contains(&v2) {
-                    entry.lower.push(v2);
-                }
-            }
-        }
-
-        // Upper wall: both sectors' ceiling vertices at segment endpoints
-        // need UpperSeparated(sector_id).
-        if seg.sidedef.toptexture.is_some()
-            && (seg.frontsector.ceilingheight - back.ceilingheight).abs() <= HEIGHT_EPSILON
-        {
-            for &sector_num in &[front_num, back_num] {
-                let entry = map.entry(sector_num).or_default();
-                if !entry.upper.contains(&v1) {
-                    entry.upper.push(v1);
-                }
-                if !entry.upper.contains(&v2) {
-                    entry.upper.push(v2);
-                }
-            }
-        }
-    }
-
-    map
 }
 
 /// Check if a sector will have floor/ceiling movement at runtime.
@@ -252,7 +198,7 @@ pub enum SurfaceKind {
         texture_direction: Vec3,
         wall_type: WallType,
         wall_tex_pin: WallTexPin,
-        /// For texture alignment
+        /// For texture alignment.
         front_ceiling_z: f32,
         two_sided: bool,
         /// Index of the linedef this wall was created from; used to update the
@@ -328,7 +274,7 @@ impl SurfacePolygon {
 }
 
 /// Bit-exact Vec3 key for vertex deduplication. Two vertices share an index
-/// only if their float coordinates are identical, avoiding false merges.
+/// only if their quantized coordinates match.
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 struct QuantizedVec3 {
     x: i32,
@@ -339,72 +285,10 @@ struct QuantizedVec3 {
 impl QuantizedVec3 {
     fn from_vec3(v: Vec3, precision: f32) -> Self {
         Self {
+            x: (v.x / precision).round() as i32,
             y: (v.y / precision).round() as i32,
             z: (v.z / precision).round() as i32,
-            x: (v.x / precision).round() as i32,
         }
-    }
-}
-
-/// Which wall type is the vertex for. When adding walls we have to check
-/// if the vertex is allowed to be used for the required position if
-/// the wall height is zero. This is because it's impossible to know which
-/// vertex in the same position is for what.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum VertexMappedTo {
-    /// Floor polygons (default), lower wall bottom verts, mid wall bottom verts
-    Lower,
-    /// Ceiling polygons (default), upper wall top verts, mid wall top verts
-    Upper,
-    /// Floor vertex at a zero-height lower wall boundary, tagged by sector ID.
-    /// Multiple sectors meeting at the same (x, y, z) each get a unique vertex
-    /// index because the sector ID differentiates them in the hash key.
-    LowerSeparated(usize),
-    /// Ceiling vertex at a zero-height upper wall boundary, tagged by sector
-    /// ID.
-    UpperSeparated(usize),
-    /// The vertex hasn't been assigned to anything
-    Unused,
-}
-
-/// Track what vertexes are for, and where to find them
-struct VertexTracking {
-    /// Track what the vertex was used for, this determines what other walls are
-    /// allowed to use which matters if there are more than one in a 3D
-    /// position such as for zero-height walls. The index used to address
-    /// this array is the same as that in global vertex array, which
-    /// means both insert operations must be synced
-    vertex_type: Vec<VertexMappedTo>,
-    /// Tracking to enable faster vertex lookups instead of always iterating.
-    vertex_map: HashMap<(QuantizedVec3, VertexMappedTo), usize>,
-    precision: f32,
-}
-
-impl VertexTracking {
-    fn new(segment_count: usize) -> Self {
-        Self {
-            vertex_type: Vec::with_capacity(segment_count * 2),
-            vertex_map: HashMap::with_capacity(segment_count * 2),
-            precision: 2.0,
-        }
-    }
-
-    /// Get the index number in global array of the vertex the mapping is
-    /// allowed to use. Returns None if no vertex exists.
-    /// Function can be used to check if contains vertex.
-    fn get_vertex_index(&mut self, vertex: Vec3, mapping: VertexMappedTo) -> Option<usize> {
-        let quantized = QuantizedVec3::from_vec3(vertex, self.precision);
-        self.vertex_map.get(&(quantized, mapping)).copied()
-    }
-
-    /// Insert the vertex mapping. Creates a quick lookup.
-    fn insert_vertex(&mut self, vertex: Vec3, mapping: VertexMappedTo, index: usize) {
-        let quantized = QuantizedVec3::from_vec3(vertex, self.precision);
-        self.vertex_map.insert((quantized, mapping), index);
-        if index >= self.vertex_type.len() {
-            self.vertex_type.resize(index + 1, VertexMappedTo::Unused);
-        }
-        self.vertex_type[index] = mapping;
     }
 }
 
@@ -420,6 +304,8 @@ pub struct BSP3D {
     /// Maps linedef_id → [(subsector_id, polygon_idx)] for wall texture
     /// updates.
     linedef_wall_polygons: HashMap<usize, Vec<(usize, usize)>>,
+    /// Temporary: zh wall records used during construction only.
+    zh_wall_records: Vec<ZhWallRecord>,
 }
 
 impl BSP3D {
@@ -442,18 +328,18 @@ impl BSP3D {
             sector_subsectors: vec![Vec::new(); sectors.len()],
             carved_polygons: vec![Vec::new(); subsectors.len()],
             linedef_wall_polygons: HashMap::new(),
+            zh_wall_records: Vec::new(),
         };
 
-        let zero_height_wall_map = build_zero_height_wall_map(segments);
-        let mut vertex_tracking = VertexTracking::new(segments.len());
+        let mut vertex_map: HashMap<QuantizedVec3, usize> =
+            HashMap::with_capacity(segments.len() * 2);
 
         bsp3d.initialize_nodes(nodes, sectors);
         bsp3d.initialize_subsectors(subsectors);
         bsp3d.build_sector_subsector_mapping(subsectors, segments, sectors);
-        // Initialize subsector leaves for wall and floor/ceiling storage
         bsp3d.subsector_leaves = vec![BSPLeaf3D::default(); subsectors.len()];
 
-        // Use BSP traversal to generate walls, floors, and ceiling polygons.
+        // Phase 1: Create all geometry with position-only vertex dedup.
         bsp3d.carve_polygons_recursive(
             nodes,
             subsectors,
@@ -461,8 +347,7 @@ impl BSP3D {
             linedefs,
             bsp3d.root_node,
             Vec::new(),
-            &zero_height_wall_map,
-            &mut vertex_tracking,
+            &mut vertex_map,
         );
 
         bsp3d.update_all_aabbs();
@@ -488,18 +373,19 @@ impl BSP3D {
         self.root_node
     }
 
+    /// Add or reuse a vertex by position. Simple position-only dedup.
     fn vertex_add(
         &mut self,
         vertex: Vec3,
-        mapping: VertexMappedTo,
-        vertex_tracking: &mut VertexTracking,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) -> usize {
-        if let Some(existing_idx) = vertex_tracking.get_vertex_index(vertex, mapping) {
-            existing_idx
+        let key = QuantizedVec3::from_vec3(vertex, QUANT_PRECISION);
+        if let Some(&idx) = vertex_map.get(&key) {
+            idx
         } else {
             let idx = self.vertices.len();
             self.vertices.push(vertex);
-            vertex_tracking.insert_vertex(vertex, mapping, idx);
+            vertex_map.insert(key, idx);
             idx
         }
     }
@@ -669,7 +555,7 @@ impl BSP3D {
         }
     }
 
-    /// BSP traversal to collect dividing lines and generate polygons
+    /// BSP traversal to collect dividing lines and generate polygons.
     fn carve_polygons_recursive(
         &mut self,
         nodes: &[Node],
@@ -678,31 +564,16 @@ impl BSP3D {
         linedefs: &[LineDef],
         node_id: u32,
         divlines: Vec<DivLine>,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        vertex_tracking: &mut VertexTracking,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("carve_polygons_recursive");
 
         if node_id & IS_SUBSECTOR_MASK != 0 {
-            self.process_subsector_node(
-                subsectors,
-                segments,
-                node_id,
-                &divlines,
-                vertex_tracking,
-                zh_wall_map,
-            );
+            self.process_subsector_node(subsectors, segments, node_id, &divlines, vertex_map);
         } else {
             self.process_internal_node(
-                nodes,
-                subsectors,
-                segments,
-                linedefs,
-                node_id,
-                divlines,
-                zh_wall_map,
-                vertex_tracking,
+                nodes, subsectors, segments, linedefs, node_id, divlines, vertex_map,
             );
         }
     }
@@ -713,8 +584,7 @@ impl BSP3D {
         segments: &[Segment],
         node_id: u32,
         divlines: &[DivLine],
-        vertex_tracking: &mut VertexTracking,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         let subsector_id = if node_id == u32::MAX {
             return;
@@ -727,67 +597,46 @@ impl BSP3D {
             let start_seg = subsector.start_seg as usize;
             let end_seg = start_seg + subsector.seg_count as usize;
 
-            // Store sector ID on the leaf
             self.subsector_leaves[subsector_id].sector_id = subsector.sector.num as usize;
 
             if let Some(subsector_segments) = segments.get(start_seg..end_seg) {
-                // Process segments for walls
+                // Create walls
                 for segment_idx in start_seg..end_seg {
                     let segment = &segments[segment_idx];
-                    {
-                        let this = &mut *self;
-                        let front_sector = &segment.frontsector;
+                    let front_sector = &segment.frontsector;
+                    let sv1 = *segment.v1;
+                    let sv2 = *segment.v2;
+                    self.subsector_leaves[subsector_id]
+                        .occlusion_segs
+                        .push(OcclusionSeg {
+                            v1: sv1,
+                            v2: sv2,
+                            front_sector_id: front_sector.num as usize,
+                            back_sector_id: segment.backsector.as_ref().map(|s| s.num as usize),
+                            seg_angle_rad: (sv2.y - sv1.y).atan2(sv2.x - sv1.x),
+                        });
 
-                        let sv1 = *segment.v1;
-                        let sv2 = *segment.v2;
-                        this.subsector_leaves[subsector_id]
-                            .occlusion_segs
-                            .push(OcclusionSeg {
-                                v1: sv1,
-                                v2: sv2,
-                                front_sector_id: front_sector.num as usize,
-                                back_sector_id: segment.backsector.as_ref().map(|s| s.num as usize),
-                                seg_angle_rad: (sv2.y - sv1.y).atan2(sv2.x - sv1.x),
-                            });
-
-                        // Check for back sector
-                        if let Some(back_sector) = &segment.backsector {
-                            this.create_two_sided_walls(
-                                segment,
-                                front_sector,
-                                back_sector,
-                                subsector_id,
-                                zh_wall_map,
-                                vertex_tracking,
-                            );
-                        } else {
-                            this.create_one_sided_wall(
-                                segment,
-                                front_sector,
-                                subsector_id,
-                                zh_wall_map,
-                                vertex_tracking,
-                            );
-                        }
-                    };
+                    if let Some(back_sector) = &segment.backsector {
+                        self.create_two_sided_walls(
+                            segment,
+                            front_sector,
+                            back_sector,
+                            subsector_id,
+                            vertex_map,
+                        );
+                    } else {
+                        self.create_one_sided_wall(segment, front_sector, subsector_id, vertex_map);
+                    }
                 }
 
-                // Process floors and ceilings
-                let polygon = carve_subsector_polygon(
-                    subsector_segments,
-                    divlines,
-                    &self.sector_subsectors,
-                    segments,
-                    subsectors,
-                );
+                // Create floor/ceiling polygons from f64 carving result.
+                let polygon_f64 = carve_subsector_polygon(subsector_segments, divlines);
+                let polygon: Vec<Vec2> = polygon_f64
+                    .iter()
+                    .map(|&(x, y)| Vec2::new(x as f32, y as f32))
+                    .collect();
                 self.carved_polygons[subsector_id] = polygon.clone();
-                self.create_floor_ceiling_polygons(
-                    subsector_id,
-                    subsector,
-                    &polygon,
-                    vertex_tracking,
-                    zh_wall_map,
-                );
+                self.create_floor_ceiling_polygons(subsector_id, subsector, &polygon, vertex_map);
             }
         }
     }
@@ -798,91 +647,65 @@ impl BSP3D {
         front_sector: &Sector,
         back_sector: &Sector,
         front_subsector_id: usize,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        vertex_tracking: &mut VertexTracking,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         let front_id = front_sector.num as usize;
         let back_id = back_sector.num as usize;
 
         // Upper wall: create if toptexture exists and back ceiling is at or
-        // below front ceiling (includes zero-height). Skip when back ceiling
-        // is above front — that's the back side segment and the front side
-        // segment creates the wall.
+        // below front ceiling (includes zero-height).
         if let Some(texture) = segment.sidedef.toptexture {
             if back_sector.ceilingheight <= front_sector.ceilingheight {
-                let bottom_height = back_sector.ceilingheight;
-                let top_height = front_sector.ceilingheight;
-
-                let wall_polygons = self.create_wall_quad_from_segment(
+                self.add_wall_quad(
                     segment,
-                    bottom_height,
-                    top_height,
+                    back_sector.ceilingheight,
+                    front_sector.ceilingheight,
                     WallType::Upper,
                     texture,
                     front_id,
-                    Some(back_id),
                     true,
-                    zh_wall_map,
-                    vertex_tracking,
+                    front_subsector_id,
+                    Some(back_id),
+                    vertex_map,
                 );
-                for wall_polygon in wall_polygons {
-                    self.subsector_leaves[front_subsector_id]
-                        .polygons
-                        .push(wall_polygon);
-                }
             }
         }
 
         // Lower wall: create if bottomtexture exists and back floor is at or
-        // above front floor (includes zero-height). Skip when back floor is
-        // below front — that's the back side segment.
+        // above front floor (includes zero-height).
         if let Some(texture) = segment.sidedef.bottomtexture {
             if back_sector.floorheight >= front_sector.floorheight {
-                let bottom_height = front_sector.floorheight;
-                let top_height = back_sector.floorheight;
-
-                let wall_polygons = self.create_wall_quad_from_segment(
+                self.add_wall_quad(
                     segment,
-                    bottom_height,
-                    top_height,
+                    front_sector.floorheight,
+                    back_sector.floorheight,
                     WallType::Lower,
                     texture,
                     front_id,
-                    Some(back_id),
                     true,
-                    zh_wall_map,
-                    vertex_tracking,
+                    front_subsector_id,
+                    Some(back_id),
+                    vertex_map,
                 );
-                for wall_polygon in wall_polygons {
-                    self.subsector_leaves[front_subsector_id]
-                        .polygons
-                        .push(wall_polygon);
-                }
             }
         }
 
-        // Middle wall: create if midtexture exists
+        // Middle wall: create if midtexture exists.
         if let Some(texture) = segment.sidedef.midtexture {
             let bottom = front_sector.floorheight.max(back_sector.floorheight);
             let top = front_sector.ceilingheight.min(back_sector.ceilingheight);
-
-            let wall_polygons = self.create_wall_quad_from_segment(
+            self.add_wall_quad(
                 segment,
                 bottom,
                 top,
                 WallType::Middle,
                 texture,
                 front_id,
-                Some(back_id),
                 true,
-                zh_wall_map,
-                vertex_tracking,
+                front_subsector_id,
+                Some(back_id),
+                vertex_map,
             );
-            for wall_polygon in wall_polygons {
-                self.subsector_leaves[front_subsector_id]
-                    .polygons
-                    .push(wall_polygon);
-            }
         }
     }
 
@@ -891,31 +714,36 @@ impl BSP3D {
         segment: &Segment,
         front_sector: &Sector,
         front_subsector_id: usize,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        vertex_tracking: &mut VertexTracking,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         if let Some(texture) = segment.sidedef.midtexture {
-            let wall_polygons = self.create_wall_quad_from_segment(
+            let front_id = front_sector.num as usize;
+            let is_zh =
+                (front_sector.ceilingheight - front_sector.floorheight).abs() <= HEIGHT_EPSILON;
+            // For zh sectors (doors): pass self as back_sector so add_wall_quad
+            // creates fresh vertices and a ZhWallRecord. The mover pass
+            // connects bottom → floor vertex, top → ceiling vertex.
+            let back_sector_id = if is_zh { Some(front_id) } else { None };
+            self.add_wall_quad(
                 segment,
                 front_sector.floorheight,
                 front_sector.ceilingheight,
                 WallType::Middle,
                 texture,
-                front_sector.num as usize,
-                None,
+                front_id,
                 false,
-                zh_wall_map,
-                vertex_tracking,
+                front_subsector_id,
+                back_sector_id,
+                vertex_map,
             );
-            for wall_polygon in wall_polygons {
-                self.subsector_leaves[front_subsector_id]
-                    .polygons
-                    .push(wall_polygon);
-            }
         }
     }
 
-    fn create_wall_quad_from_segment(
+    /// Create wall quad triangles from a segment and push them to the
+    /// subsector leaf. For zero-height walls with a back sector, creates
+    /// fresh (non-dedup'd) vertices so bottom and top have distinct indices,
+    /// and records a `ZhWallRecord` for the post-pass.
+    fn add_wall_quad(
         &mut self,
         segment: &Segment,
         bottom_height: f32,
@@ -923,99 +751,43 @@ impl BSP3D {
         wall_type: WallType,
         texture: usize,
         sector_id: usize,
-        back_sector_id: Option<usize>,
         two_sided: bool,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        vertex_tracking: &mut VertexTracking,
-    ) -> Vec<SurfacePolygon> {
+        subsector_id: usize,
+        back_sector_id: Option<usize>,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
+    ) {
         let start_pos = *segment.v1;
         let end_pos = *segment.v2;
         let is_zero_height = (top_height - bottom_height).abs() <= HEIGHT_EPSILON;
-        let q_start = QuantizedVec2::from_vec2(start_pos, QUANT_EPSILON);
-        let q_end = QuantizedVec2::from_vec2(end_pos, QUANT_EPSILON);
 
-        // Determine per-vertex mappings. For zero-height walls, use
-        // LowerSeparated(sector_id) / UpperSeparated(sector_id) directly.
-        // For non-zero-height walls, check zh_wall_map per endpoint so that
-        // wall vertices match the floor/ceiling mapping at zh boundaries.
-        let (bottom_start_map, bottom_end_map, top_start_map, top_end_map, moves) = match wall_type
+        let (bottom_start, bottom_end, top_start, top_end) = if is_zero_height
+            && back_sector_id.is_some()
         {
-            WallType::Lower => {
-                if is_zero_height {
-                    let back_id = back_sector_id.unwrap_or(sector_id);
-                    (
-                        VertexMappedTo::LowerSeparated(sector_id),
-                        VertexMappedTo::LowerSeparated(sector_id),
-                        VertexMappedTo::LowerSeparated(back_id),
-                        VertexMappedTo::LowerSeparated(back_id),
-                        true,
-                    )
-                } else {
-                    // Bottom = frontsector floor, top = backsector floor
-                    let back_id = back_sector_id.unwrap_or(sector_id);
-                    (
-                        Self::zh_lower_mapping(zh_wall_map, sector_id, q_start),
-                        Self::zh_lower_mapping(zh_wall_map, sector_id, q_end),
-                        Self::zh_lower_mapping(zh_wall_map, back_id, q_start),
-                        Self::zh_lower_mapping(zh_wall_map, back_id, q_end),
-                        false,
-                    )
-                }
-            }
-            WallType::Upper => {
-                if is_zero_height {
-                    let back_id = back_sector_id.unwrap_or(sector_id);
-                    (
-                        VertexMappedTo::UpperSeparated(back_id),
-                        VertexMappedTo::UpperSeparated(back_id),
-                        VertexMappedTo::UpperSeparated(sector_id),
-                        VertexMappedTo::UpperSeparated(sector_id),
-                        true,
-                    )
-                } else {
-                    // Bottom = backsector ceiling, top = frontsector ceiling
-                    let back_id = back_sector_id.unwrap_or(sector_id);
-                    (
-                        Self::zh_upper_mapping(zh_wall_map, back_id, q_start),
-                        Self::zh_upper_mapping(zh_wall_map, back_id, q_end),
-                        Self::zh_upper_mapping(zh_wall_map, sector_id, q_start),
-                        Self::zh_upper_mapping(zh_wall_map, sector_id, q_end),
-                        false,
-                    )
-                }
-            }
-            WallType::Middle => {
-                // Bottom sits on floor, top sits on ceiling
-                (
-                    Self::zh_lower_mapping(zh_wall_map, sector_id, q_start),
-                    Self::zh_lower_mapping(zh_wall_map, sector_id, q_end),
-                    Self::zh_upper_mapping(zh_wall_map, sector_id, q_start),
-                    Self::zh_upper_mapping(zh_wall_map, sector_id, q_end),
-                    false,
-                )
-            }
+            // Fresh vertices for zh walls — bypass dedup so bottom and top
+            // get distinct indices even though they're at the same position.
+            let bs = self.vertices.len();
+            self.vertices
+                .push(Vec3::new(start_pos.x, start_pos.y, bottom_height));
+            let be = self.vertices.len();
+            self.vertices
+                .push(Vec3::new(end_pos.x, end_pos.y, bottom_height));
+            let ts = self.vertices.len();
+            self.vertices
+                .push(Vec3::new(start_pos.x, start_pos.y, top_height));
+            let te = self.vertices.len();
+            self.vertices
+                .push(Vec3::new(end_pos.x, end_pos.y, top_height));
+            (bs, be, ts, te)
+        } else {
+            let bs = self.vertex_add(
+                Vec3::new(start_pos.x, start_pos.y, bottom_height),
+                vertex_map,
+            );
+            let be = self.vertex_add(Vec3::new(end_pos.x, end_pos.y, bottom_height), vertex_map);
+            let ts = self.vertex_add(Vec3::new(start_pos.x, start_pos.y, top_height), vertex_map);
+            let te = self.vertex_add(Vec3::new(end_pos.x, end_pos.y, top_height), vertex_map);
+            (bs, be, ts, te)
         };
-
-        let bottom_start = self.vertex_add(
-            Vec3::new(start_pos.x, start_pos.y, bottom_height),
-            bottom_start_map,
-            vertex_tracking,
-        );
-        let bottom_end = self.vertex_add(
-            Vec3::new(end_pos.x, end_pos.y, bottom_height),
-            bottom_end_map,
-            vertex_tracking,
-        );
-        let top_start = self.vertex_add(
-            Vec3::new(start_pos.x, start_pos.y, top_height),
-            top_start_map,
-            vertex_tracking,
-        );
-        let top_end = self.vertex_add(
-            Vec3::new(end_pos.x, end_pos.y, top_height),
-            top_end_map,
-            vertex_tracking,
-        );
 
         let wall_direction = (end_pos - start_pos).normalize();
         let normal = if is_zero_height {
@@ -1024,13 +796,11 @@ impl BSP3D {
             let v0 = self.vertices[bottom_start];
             let v1 = self.vertices[bottom_end];
             let v2 = self.vertices[top_start];
-            let edge1 = v1 - v0;
-            let edge2 = v2 - v0;
-            edge1.cross(edge2).normalize()
+            (v1 - v0).cross(v2 - v0).normalize()
         };
 
-        let texture_direction = wall_direction.y.atan2(wall_direction.x);
-        let texture_direction = Vec3::new(texture_direction.cos(), texture_direction.sin(), 0.0);
+        let angle = wall_direction.y.atan2(wall_direction.x);
+        let texture_direction = Vec3::new(angle.cos(), angle.sin(), 0.0);
 
         let surface_kind = SurfaceKind::Vertical {
             texture: Some(texture),
@@ -1044,55 +814,41 @@ impl BSP3D {
             linedef_id: segment.linedef.num,
         };
 
-        let triangle1 = SurfacePolygon::new(
+        let tri1 = SurfacePolygon::new(
             sector_id,
             surface_kind.clone(),
             vec![bottom_start, bottom_end, top_start],
             normal,
             &self.vertices,
-            moves,
+            false,
         );
+        let pi0 = self.subsector_leaves[subsector_id].polygons.len();
+        self.subsector_leaves[subsector_id].polygons.push(tri1);
 
-        let triangle2 = SurfacePolygon::new(
+        let tri2 = SurfacePolygon::new(
             sector_id,
             surface_kind,
             vec![top_start, bottom_end, top_end],
             normal,
             &self.vertices,
-            moves,
+            false,
         );
+        let pi1 = self.subsector_leaves[subsector_id].polygons.len();
+        self.subsector_leaves[subsector_id].polygons.push(tri2);
 
-        vec![triangle1, triangle2]
-    }
-
-    /// Check if a vertex position is on a zh lower wall boundary for a sector.
-    /// Returns `LowerSeparated(sector_id)` if yes, `Lower` otherwise.
-    fn zh_lower_mapping(
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        sector_id: usize,
-        pos: QuantizedVec2,
-    ) -> VertexMappedTo {
-        if let Some(verts) = zh_wall_map.get(&sector_id) {
-            if verts.lower.contains(&pos) {
-                return VertexMappedTo::LowerSeparated(sector_id);
+        if is_zero_height {
+            if let Some(back_id) = back_sector_id {
+                self.zh_wall_records.push(ZhWallRecord {
+                    subsector_id,
+                    poly_indices: [pi0, pi1],
+                    bottom: [bottom_start, bottom_end],
+                    top: [top_start, top_end],
+                    wall_type,
+                    front_sector: sector_id,
+                    back_sector: back_id,
+                });
             }
         }
-        VertexMappedTo::Lower
-    }
-
-    /// Check if a vertex position is on a zh upper wall boundary for a sector.
-    /// Returns `UpperSeparated(sector_id)` if yes, `Upper` otherwise.
-    fn zh_upper_mapping(
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        sector_id: usize,
-        pos: QuantizedVec2,
-    ) -> VertexMappedTo {
-        if let Some(verts) = zh_wall_map.get(&sector_id) {
-            if verts.upper.contains(&pos) {
-                return VertexMappedTo::UpperSeparated(sector_id);
-            }
-        }
-        VertexMappedTo::Upper
     }
 
     fn process_internal_node(
@@ -1103,13 +859,11 @@ impl BSP3D {
         linedefs: &[LineDef],
         node_id: u32,
         divlines: Vec<DivLine>,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
-        vertex_tracking: &mut VertexTracking,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         if let Some(node) = nodes.get(node_id as usize) {
             let node_divline = DivLine::from_node(node);
 
-            // Process right child with original divline
             let mut right_divlines = divlines.clone();
             right_divlines.push(node_divline);
             self.carve_polygons_recursive(
@@ -1119,16 +873,14 @@ impl BSP3D {
                 linedefs,
                 node.children[0],
                 right_divlines,
-                zh_wall_map,
-                vertex_tracking,
+                vertex_map,
             );
 
-            // Process left child with reversed divline
             let mut left_divlines = divlines;
-            let mut reversed_divline = node_divline;
-            reversed_divline.dx = -reversed_divline.dx;
-            reversed_divline.dy = -reversed_divline.dy;
-            left_divlines.push(reversed_divline);
+            let mut reversed = node_divline;
+            reversed.dx = -reversed.dx;
+            reversed.dy = -reversed.dy;
+            left_divlines.push(reversed);
             self.carve_polygons_recursive(
                 nodes,
                 subsectors,
@@ -1136,126 +888,88 @@ impl BSP3D {
                 linedefs,
                 node.children[1],
                 left_divlines,
-                zh_wall_map,
-                vertex_tracking,
+                vertex_map,
             );
         }
     }
 
+    /// Create floor and ceiling triangles via fan triangulation. No mover
+    /// awareness — all vertices use simple position dedup. The post-pass
+    /// handles triangle splitting and vertex separation.
     fn create_floor_ceiling_polygons(
         &mut self,
         subsector_id: usize,
         subsector: &SubSector,
         polygon: &[Vec2],
-        vertex_tracking: &mut VertexTracking,
-        zh_wall_map: &HashMap<usize, ZeroHeightSectorVerts>,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         if polygon.len() < 3 {
             return;
         }
 
         let sector_num = subsector.sector.num as usize;
-        let zh_verts = zh_wall_map.get(&sector_num);
-        let has_any_zh_lower = zh_verts.map_or(false, |v| !v.lower.is_empty());
-        let has_any_zh_upper = zh_verts.map_or(false, |v| !v.upper.is_empty());
+        let floor_h = subsector.sector.floorheight;
+        let ceil_h = subsector.sector.ceilingheight;
 
-        // Generate floor and ceiling polygons using triangulation
         for i in 1..polygon.len() - 1 {
-            // Floor polygon: per-vertex mapping. Vertices on a zero-height
-            // lower wall boundary use LowerSeparated(sector_num); others use Lower.
-            let floor_vertices_2d = [polygon[0], polygon[i + 1], polygon[i]];
-            let floor_vertices = self.get_polygon_vertices_index_per_vertex(
-                &floor_vertices_2d,
-                subsector.sector.floorheight,
-                VertexMappedTo::Lower,
-                VertexMappedTo::LowerSeparated(sector_num),
-                zh_verts.map(|v| &v.lower),
-                vertex_tracking,
-            );
+            // Floor: winding order [0, i+1, i] for upward normal.
+            let fv: Vec<usize> = [polygon[0], polygon[i + 1], polygon[i]]
+                .iter()
+                .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
+                .collect();
 
-            let floor_polygon = SurfacePolygon::new(
-                sector_num,
-                self.create_horizontal_surface_kind(subsector.sector.floorpic),
-                floor_vertices,
-                Vec3::new(0.0, 0.0, 1.0),
-                &self.vertices,
-                has_any_zh_lower,
-            );
+            if !Self::is_degenerate_triangle(&fv, &self.vertices) {
+                let fp = SurfacePolygon::new(
+                    sector_num,
+                    self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                    fv,
+                    Vec3::new(0.0, 0.0, 1.0),
+                    &self.vertices,
+                    false,
+                );
+                let fi = self.subsector_leaves[subsector_id].polygons.len();
+                self.subsector_leaves[subsector_id].polygons.push(fp);
+                self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+            }
 
-            let floor_polygon_index = self.subsector_leaves[subsector_id].polygons.len();
-            self.subsector_leaves[subsector_id]
-                .polygons
-                .push(floor_polygon);
-            self.subsector_leaves[subsector_id]
-                .floor_polygons
-                .push(floor_polygon_index);
+            // Ceiling: winding order [i, i+1, 0] for downward normal.
+            let cv: Vec<usize> = [polygon[i], polygon[i + 1], polygon[0]]
+                .iter()
+                .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
+                .collect();
 
-            // Ceiling polygon: per-vertex mapping. Vertices on a zero-height
-            // upper wall boundary use UpperSeparated(sector_num); others use Upper.
-            let ceiling_vertices_2d = [polygon[i], polygon[i + 1], polygon[0]];
-            let ceiling_vertices = self.get_polygon_vertices_index_per_vertex(
-                &ceiling_vertices_2d,
-                subsector.sector.ceilingheight,
-                VertexMappedTo::Upper,
-                VertexMappedTo::UpperSeparated(sector_num),
-                zh_verts.map(|v| &v.upper),
-                vertex_tracking,
-            );
-
-            let ceiling_polygon = SurfacePolygon::new(
-                sector_num,
-                self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
-                ceiling_vertices,
-                Vec3::new(0.0, 0.0, -1.0),
-                &self.vertices,
-                has_any_zh_upper,
-            );
-
-            let ceiling_polygon_index = self.subsector_leaves[subsector_id].polygons.len();
-            self.subsector_leaves[subsector_id]
-                .polygons
-                .push(ceiling_polygon);
-            self.subsector_leaves[subsector_id]
-                .ceiling_polygons
-                .push(ceiling_polygon_index);
+            if !Self::is_degenerate_triangle(&cv, &self.vertices) {
+                let cp = SurfacePolygon::new(
+                    sector_num,
+                    self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                    cv,
+                    Vec3::new(0.0, 0.0, -1.0),
+                    &self.vertices,
+                    false,
+                );
+                let ci = self.subsector_leaves[subsector_id].polygons.len();
+                self.subsector_leaves[subsector_id].polygons.push(cp);
+                self.subsector_leaves[subsector_id]
+                    .ceiling_polygons
+                    .push(ci);
+            }
         }
     }
 
-    /// Add floor/ceiling polygon vertices with per-vertex mapping.
-    /// Vertices whose 2D position matches a zero-height wall endpoint use
-    /// `separated_mapping`; all others use `default_mapping`.
-    fn get_polygon_vertices_index_per_vertex(
-        &mut self,
-        vertices_2d: &[Vec2],
-        height: f32,
-        default_mapping: VertexMappedTo,
-        separated_mapping: VertexMappedTo,
-        separated_positions: Option<&Vec<QuantizedVec2>>,
-        vertex_tracking: &mut VertexTracking,
-    ) -> Vec<usize> {
-        let mut vertex_indices = Vec::new();
-
-        for &vertex_2d in vertices_2d {
-            let mapping = if let Some(positions) = separated_positions {
-                let q = QuantizedVec2::from_vec2(vertex_2d, QUANT_EPSILON);
-                if positions.contains(&q) {
-                    separated_mapping
-                } else {
-                    default_mapping
-                }
-            } else {
-                default_mapping
-            };
-
-            let vertex_idx = self.vertex_add(
-                Vec3::new(vertex_2d.x, vertex_2d.y, height),
-                mapping,
-                vertex_tracking,
-            );
-            vertex_indices.push(vertex_idx);
+    /// Returns true if the triangle has duplicate vertex indices or near-zero
+    /// area (collinear vertices from quantization merging).
+    fn is_degenerate_triangle(indices: &[usize], vertices: &[Vec3]) -> bool {
+        if indices.len() < 3 {
+            return true;
         }
-
-        vertex_indices
+        let (a, b, c) = (indices[0], indices[1], indices[2]);
+        if a == b || b == c || a == c {
+            return true;
+        }
+        (vertices[b] - vertices[a])
+            .cross(vertices[c] - vertices[a])
+            .length()
+            < MIN_TRI_CROSS
     }
 
     fn update_affected_aabbs(&mut self, sector_id: usize) {
@@ -1357,15 +1071,13 @@ impl BSP3D {
                 }
             }
         }
-        //Use direct addressing on arrays, not `.get()`
         if has_valid_aabb {
             self.nodes[node_idx].aabb = combined_aabb;
         }
     }
 
     /// Expand leaf and node AABBs for mover sectors and zero-height sectors
-    /// (doors) to cover the full movement range. The expanded AABBs are kept
-    /// permanently on leaves for PVS use.
+    /// (doors) to cover the full movement range.
     fn expand_node_aabbs_for_movers(&mut self, sectors: &[Sector], linedefs: &[LineDef]) {
         for (sector_id, sector) in sectors.iter().enumerate() {
             let is_mover = is_sector_mover(sector, linedefs);
@@ -1434,6 +1146,7 @@ impl Default for BSP3D {
             sector_subsectors: Vec::new(),
             carved_polygons: Vec::new(),
             linedef_wall_polygons: HashMap::new(),
+            zh_wall_records: Vec::new(),
         }
     }
 }
