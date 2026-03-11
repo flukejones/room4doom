@@ -1,7 +1,7 @@
 //! Game cheats. These are what players type in, e.g, `iddqd`
 
 use gameplay::log::debug;
-use gameplay::{GameMission, PlayerCheat, PowerType, Skill, WeaponType, english};
+use gameplay::{GameMission, GameMode, PlayerCheat, PowerType, Skill, WeaponType, english};
 use gamestate::Game;
 use gamestate_traits::GameTraits;
 use gamestate_traits::sdl2::keyboard::{Keycode, Scancode};
@@ -31,7 +31,7 @@ pub struct Cheats {
     /// `idchoppers`: Chainsaw and invulnerability
     pub choppers: Cheat,
     /// `idclev##`: Change level, ## is E#M# or MAP## (01-32)
-    pub _clev: Cheat,
+    pub clev: Cheat,
     /// `idmypos`: Coords and compass direction
     pub mypos: Cheat,
 }
@@ -54,7 +54,7 @@ impl Cheats {
                 Cheat::new("idbeholdl", 0),
             ],
             choppers: Cheat::new("idchoppers", 0),
-            _clev: Cheat::new("idclev", 2),
+            clev: Cheat::new("idclev", 2),
             mypos: Cheat::new("idmypos", 0),
         }
     }
@@ -182,6 +182,23 @@ impl Cheats {
                 let player = &mut game.players[game.consoleplayer];
                 if let Some(mobj) = player.mobj() {
                     println!("MYPOS: X:{} Y:{}", mobj.xy.x as i32, mobj.xy.y as i32);
+                }
+            } else if self.clev.check(key) {
+                let d0 = self.clev.parameter_buf[0] as u8;
+                let d1 = self.clev.parameter_buf[1] as u8;
+                if d0 >= b'0' && d0 <= b'9' && d1 >= b'0' && d1 <= b'9' {
+                    let d0 = (d0 - b'0') as usize;
+                    let d1 = (d1 - b'0') as usize;
+                    let (episode, map, map_name) = if game.game_type.mode == GameMode::Commercial {
+                        let map = d0 * 10 + d1;
+                        (1, map, format!("MAP{:02}", map))
+                    } else {
+                        (d0, d1, format!("E{}M{}", d0, d1))
+                    };
+                    if game.wad_data.lump_exists(&map_name) {
+                        game.defered_init_new(game.game_skill(), episode, map);
+                        game.players[game.consoleplayer].message = Some(english::STSTR_CLEV);
+                    }
                 }
             }
         }
