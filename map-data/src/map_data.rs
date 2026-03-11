@@ -10,6 +10,7 @@ use crate::MapPtr;
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::pvs::{PvsData, RenderPvs, pvs_load_from_cache};
+use crate::triangulation::{DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
@@ -80,6 +81,10 @@ pub struct MapData {
     extents: MapExtents,
     pub nodes: Vec<Node>,
     pub start_node: u32,
+    /// f64-precision corrected BSP node divlines, indexed by node ID.
+    pub corrected_divlines: Vec<DivLine>,
+    /// Canonical divline intersection points for vertex snapping.
+    pub intersection_cache: IntersectionCache,
     /// Precomputed visibility between subsectors
     pub bsp_3d: BSP3D,
     pub pvs: RenderPvs,
@@ -236,24 +241,7 @@ impl MapData {
             &self.linedefs,
             extended.as_ref(),
         );
-        // Recompute linedef derived values from corrected vertices
-        for linedef in &mut self.linedefs {
-            let v1 = *linedef.v1;
-            let v2 = *linedef.v2;
-            let dx = v2.x - v1.x;
-            let dy = v2.y - v1.y;
-            linedef.delta = Vec2::new(dx, dy);
-            linedef.bbox = BBox::new(v1, v2);
-            linedef.slopetype = if dx == 0.0 {
-                SlopeType::Vertical
-            } else if dy == 0.0 {
-                SlopeType::Horizontal
-            } else if dy / dx > 0.0 {
-                SlopeType::Positive
-            } else {
-                SlopeType::Negative
-            };
-        }
+        Self::recompute_linedef_derived(&mut self.linedefs);
         self.load_blockmap(map_name, wad);
         self.load_devils_rejects(map_name, wad);
         // TODO: iterate sector lines to find max bounding box for sector
@@ -264,6 +252,24 @@ impl MapData {
         // Should always be last to ensure we can access subsectors and sectors during
         // it
         self.load_nodes(map_name, wad, node_type, extended.as_ref());
+
+        // Build canonical intersection cache and snap segment vertices
+        self.intersection_cache = build_intersection_cache(
+            self.start_node,
+            &self.nodes,
+            &self.corrected_divlines,
+            &self.subsectors,
+            &self.segments,
+        );
+        snap_vertices_to_canonical(
+            &mut self.vertexes,
+            &self.linedefs,
+            &self.intersection_cache,
+            wad,
+            map_name,
+            extended.as_ref(),
+        );
+        Self::recompute_linedef_derived(&mut self.linedefs);
 
         for sector in &mut self.sectors {
             set_sector_sound_origin(sector);
@@ -280,6 +286,7 @@ impl MapData {
             &self.segments,
             &self.sectors,
             &self.linedefs,
+            &self.corrected_divlines,
         );
 
         if let Some(cached_pvs) = pvs_load_from_cache(
@@ -656,7 +663,8 @@ impl MapData {
             info!("{}: Fixed bsp node children", map_name);
         }
 
-        Self::correct_node_divlines(&mut self.nodes, wad, map_name, &self.linedefs, extended);
+        self.corrected_divlines =
+            Self::correct_node_divlines(&mut self.nodes, wad, map_name, &self.linedefs, extended);
 
         self.start_node = (self.nodes.len() - 1) as u32;
     }
@@ -671,7 +679,7 @@ impl MapData {
         map_name: &str,
         linedefs: &[LineDef],
         extended: Option<&WadExtendedMap>,
-    ) {
+    ) -> Vec<DivLine> {
         let start = Instant::now();
 
         // Load raw (pre-slimetrail-fix) vertices as integer coords.
@@ -709,6 +717,8 @@ impl MapData {
         }
 
         let mut corrected = 0u32;
+        let mut f64_divlines: Vec<DivLine> = Vec::with_capacity(nodes.len());
+
         for node in nodes.iter_mut() {
             let nx = node.xy.x as i32;
             let ny = node.xy.y as i32;
@@ -719,42 +729,41 @@ impl MapData {
             let v1_indices = coord_to_indices.get(&(nx, ny));
             let v2_indices = coord_to_indices.get(&(ex, ey));
 
-            let (v1_indices, v2_indices) = match (v1_indices, v2_indices) {
-                (Some(a), Some(b)) => (a, b),
-                _ => continue,
-            };
+            let mut result: Option<DivLine> = None;
 
-            // Try all (v1, v2) and (v2, v1) pairs to find a seg → linedef.
-            let mut found = false;
-            for &v1i in v1_indices {
-                for &v2i in v2_indices {
-                    let ld_idx = seg_to_linedef
-                        .get(&(v1i as u32, v2i as u32))
-                        .or_else(|| seg_to_linedef.get(&(v2i as u32, v1i as u32)));
+            if let (Some(v1s), Some(v2s)) = (v1_indices, v2_indices) {
+                // Try all (v1, v2) and (v2, v1) pairs to find a seg → linedef.
+                'outer: for &v1i in v1s {
+                    for &v2i in v2s {
+                        let ld_idx = seg_to_linedef
+                            .get(&(v1i as u32, v2i as u32))
+                            .or_else(|| seg_to_linedef.get(&(v2i as u32, v1i as u32)));
 
-                    if let Some(&ld_idx) = ld_idx {
-                        if let Some(ld) = linedefs.get(ld_idx as usize) {
-                            if apply_linedef_correction(node, ld) {
-                                corrected += 1;
-                                found = true;
-                                break;
+                        if let Some(&ld_idx) = ld_idx {
+                            if let Some(ld) = linedefs.get(ld_idx as usize) {
+                                if let Some(dl) = apply_linedef_correction(node, ld) {
+                                    result = Some(dl);
+                                    corrected += 1;
+                                    break 'outer;
+                                }
                             }
                         }
                     }
                 }
-                if found {
-                    break;
-                }
             }
 
             // Fallback: collinearity search against all linedefs.
-            if !found {
+            if result.is_none() {
                 if let Some(ld) = find_collinear_linedef(node, linedefs) {
-                    if apply_linedef_correction(node, ld) {
+                    if let Some(dl) = apply_linedef_correction(node, ld) {
+                        result = Some(dl);
                         corrected += 1;
                     }
                 }
             }
+
+            // If no correction found, use raw f32→f64 promotion as fallback.
+            f64_divlines.push(result.unwrap_or_else(|| DivLine::from_node(node)));
         }
 
         info!(
@@ -764,6 +773,8 @@ impl MapData {
             nodes.len(),
             start.elapsed()
         );
+
+        f64_divlines
     }
 
     /// Get a raw pointer to the subsector a point is in. This is mostly used to
@@ -901,6 +912,26 @@ impl MapData {
         let end = Instant::now();
         info!("Fixed map vertices, took: {:#?}", end.duration_since(start));
     }
+
+    fn recompute_linedef_derived(linedefs: &mut [LineDef]) {
+        for linedef in linedefs {
+            let v1 = *linedef.v1;
+            let v2 = *linedef.v2;
+            let dx = v2.x - v1.x;
+            let dy = v2.y - v1.y;
+            linedef.delta = Vec2::new(dx, dy);
+            linedef.bbox = BBox::new(v1, v2);
+            linedef.slopetype = if dx == 0.0 {
+                SlopeType::Vertical
+            } else if dy == 0.0 {
+                SlopeType::Horizontal
+            } else if dy / dx > 0.0 {
+                SlopeType::Positive
+            } else {
+                SlopeType::Negative
+            };
+        }
+    }
 }
 
 /// Squared sine threshold for collinearity in divline-to-linedef matching.
@@ -913,12 +944,15 @@ const COLLINEAR_PERP_DIST: f64 = 1.0;
 
 /// Project the node origin onto the linedef line and adopt the linedef's
 /// exact direction. Returns true if the correction was applied.
-fn apply_linedef_correction(node: &mut Node, ld: &LineDef) -> bool {
+/// Apply linedef correction to a node. Returns the f64-precision DivLine if
+/// successful, and also writes the f32-truncated values back to the node for
+/// legacy consumers (PVS, portal, collision).
+fn apply_linedef_correction(node: &mut Node, ld: &LineDef) -> Option<DivLine> {
     let ldx = ld.v2.x as f64 - ld.v1.x as f64;
     let ldy = ld.v2.y as f64 - ld.v1.y as f64;
     let ld_len_sq = ldx * ldx + ldy * ldy;
     if ld_len_sq < 1e-20 {
-        return false;
+        return None;
     }
 
     let ndx = node.delta.x as f64;
@@ -936,7 +970,12 @@ fn apply_linedef_correction(node: &mut Node, ld: &LineDef) -> bool {
 
     node.xy = Vec2::new(px as f32, py as f32);
     node.delta = Vec2::new(dx as f32, dy as f32);
-    true
+    Some(DivLine {
+        x: px,
+        y: py,
+        dx,
+        dy,
+    })
 }
 
 /// Fallback collinearity search: find the linedef whose line is nearest and
