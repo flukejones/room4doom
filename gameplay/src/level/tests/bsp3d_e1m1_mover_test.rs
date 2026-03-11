@@ -199,7 +199,9 @@ mod tests {
                 .map(|s| s.linedef.num as usize)
                 .collect();
 
-            // Lower-wall top vertices at floor_h must be in floor_verts.
+            // Non-zh lower wall vertices at floor_h must be in floor_verts.
+            // Zh lower walls (all verts at same z) are excluded — their top
+            // vertices correctly connect to the adjacent non-mover sector.
             let mut unshared = Vec::new();
             for leaf in &bsp3d.subsector_leaves {
                 for poly in &leaf.polygons {
@@ -210,6 +212,13 @@ mod tests {
                     } = &poly.surface_kind
                     {
                         if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Lower) {
+                            let all_same_z = poly
+                                .vertices
+                                .iter()
+                                .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
+                            if all_same_z {
+                                continue;
+                            }
                             for &vi in &poly.vertices {
                                 if (verts[vi].z - floor_h).abs() < 1.0 && !floor_verts.contains(&vi)
                                 {
@@ -254,7 +263,9 @@ mod tests {
                 .map(|s| s.linedef.num as usize)
                 .collect();
 
-            // Upper-wall bottom vertices at ceil_h must be in ceil_verts.
+            // Non-zh upper wall vertices at ceil_h must be in ceil_verts.
+            // Zh upper walls (all verts at same z) are excluded — their bottom
+            // vertices correctly connect to the adjacent non-mover sector.
             let mut unshared = Vec::new();
             for leaf in &bsp3d.subsector_leaves {
                 for poly in &leaf.polygons {
@@ -265,6 +276,13 @@ mod tests {
                     } = &poly.surface_kind
                     {
                         if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Upper) {
+                            let all_same_z = poly
+                                .vertices
+                                .iter()
+                                .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
+                            if all_same_z {
+                                continue;
+                            }
                             for &vi in &poly.vertices {
                                 if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
                                     unshared.push(vi);
