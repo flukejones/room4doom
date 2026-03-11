@@ -31,7 +31,6 @@ use wad::WadData;
 
 const SOUND_DIR: &str = "room4doom/sound/";
 const TIMIDITY_CFG: &str = "timidity.cfg";
-const BASE_DIR: &str = "room4doom/";
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

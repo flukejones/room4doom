@@ -484,10 +484,14 @@ impl SubsystemTrait for MenuDoom {
                     // LOAD
                 }
                 Scancode::F6 => {
-                    // QUICKSAVE
+                    game.save_game("quick".to_string(), 0);
+                    game.start_sound(SfxName::Swtchn);
+                    return true;
                 }
                 Scancode::F9 => {
-                    // QUICKLOAD
+                    game.load_game("quick".to_string());
+                    game.start_sound(SfxName::Swtchn);
+                    return true;
                 }
                 Scancode::Pause => {
                     game.toggle_pause_game();

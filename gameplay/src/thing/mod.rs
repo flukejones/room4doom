@@ -101,15 +101,15 @@ pub struct MapObject {
     /// `MapObject` is owned by the `Thinker`. If the `MapObject` is ever moved
     /// out of the `Thinker` then you must update sector thing lists and self
     /// linked list. This is a pointer to the `Thinker` storage.
-    pub(super) thinker: *mut Thinker,
+    pub(crate) thinker: *mut Thinker,
     /// Specific to Doom II. These are pointers to targets that the
     /// final boss shoots demon spawn cubes towards. It is expected that
     /// because these are level items they will never shift their memory
     /// location. The raw pointers here are to map entities that never
     /// move/delete themselves.
-    pub(super) boss_targets: Vec<*mut Thinker>,
+    pub(crate) boss_targets: Vec<*mut Thinker>,
     /// Specific to Doom II. The current target (spawn point for demons)
-    pub(super) boss_target_on: usize,
+    pub(crate) boss_target_on: usize,
     /// Info for drawing: position.
     pub xy: Vec2,
     pub z: f32,
@@ -124,9 +124,9 @@ pub struct MapObject {
     /// separate Linked List to the `Thinker` linked list used in storage. I
     /// does mean that you will need to unlink an object both here, and in the
     /// Thinker storage if removing one.
-    pub(super) s_next: Option<*mut Thinker>,
+    pub(crate) s_next: Option<*mut Thinker>,
     /// Link to the previous `Thinker` in this sector
-    pub(super) s_prev: Option<*mut Thinker>,
+    pub(crate) s_prev: Option<*mut Thinker>,
     /// The subsector this object is currently in. When a map object is spawned
     /// `set_thing_position()` is called which then sets this to a valid
     /// subsector, making this safe in 99% of cases.
@@ -173,9 +173,9 @@ pub struct MapObject {
     /// Additional info record for player avatars only. Only valid if type ==
     /// MT_PLAYER. RUST: If this is not `None` then the pointer is
     /// guaranteed to point to a player
-    player: Option<*mut Player>,
+    pub(crate) player: Option<*mut Player>,
     /// Player number last looked for, 1-4 (does not start at 0)
-    lastlook: usize,
+    pub(crate) lastlook: usize,
     /// For nightmare respawn.
     pub(crate) spawnpoint: WadThing,
     // Thing being chased/attacked for tracers.
@@ -183,6 +183,76 @@ pub struct MapObject {
     /// Every map object needs a link to the level structure to read various
     /// level elements and possibly change some (sector links for example).
     pub(crate) level: *mut Level,
+}
+
+impl MapObject {
+    /// Construct a `MapObject` from save data. Cross-references (target,
+    /// tracer, player) are left as `None`/null; the caller patches them.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn from_save_data(
+        xy: Vec2,
+        z: f32,
+        angle: Angle,
+        sprite: SpriteNum,
+        frame: u32,
+        floorz: f32,
+        ceilingz: f32,
+        radius: f32,
+        height: f32,
+        momxy: Vec2,
+        momz: f32,
+        kind: MapObjKind,
+        info: MapObjInfo,
+        tics: i32,
+        state: &'static crate::info::State,
+        flags: MapObjFlag,
+        health: i32,
+        movedir: MoveDir,
+        movecount: i32,
+        reactiontime: i32,
+        threshold: i32,
+        lastlook: usize,
+        spawnpoint: WadThing,
+        level: *mut Level,
+    ) -> Self {
+        Self {
+            thinker: null_mut(),
+            boss_targets: Vec::new(),
+            boss_target_on: 0,
+            xy,
+            z,
+            angle,
+            sprite,
+            frame,
+            s_next: None,
+            s_prev: None,
+            subsector: unsafe { MapPtr::new_null() },
+            floorz,
+            ceilingz,
+            radius,
+            height,
+            momxy,
+            momz,
+            valid_count: 0,
+            kind,
+            info,
+            tics,
+            state,
+            flags,
+            health,
+            movedir,
+            movecount,
+            best_slide: BestSlide::default(),
+            reactiontime,
+            threshold,
+            target: None,
+            tracer: None,
+            player: None,
+            lastlook,
+            spawnpoint,
+            level,
+        }
+    }
 }
 
 impl Debug for MapObject {

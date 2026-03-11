@@ -1,7 +1,7 @@
 //! User configuration options.
 
-use crate::{BASE_DIR, CLIOptions};
-use dirs::config_dir;
+use crate::CLIOptions;
+use gameplay::dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
 use nanoserde::{DeRon, SerRon};
@@ -14,15 +14,12 @@ use std::str::FromStr;
 const LOG_TAG: &str = "UserConfig";
 
 fn get_cfg_file() -> PathBuf {
-    let mut dir =
-        config_dir().unwrap_or_else(|| panic!("{}: Couldn't open user config dir", LOG_TAG));
-    dir.push(BASE_DIR);
+    let dir = config_dir();
     if !dir.exists() {
         create_dir(&dir)
             .unwrap_or_else(|e| panic!("{}: Couldn't create {:?}: {}", LOG_TAG, dir, e));
     }
-    dir.push("user.toml");
-    dir
+    dir.join("user.toml")
 }
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]

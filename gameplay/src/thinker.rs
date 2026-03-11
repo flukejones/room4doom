@@ -295,6 +295,103 @@ impl ThinkerAlloc {
         }
     }
 
+    /// Walk the live thinker list, calling `f` on each non-Free/non-Remove
+    /// thinker.
+    pub fn for_each<F: FnMut(&Thinker)>(&self, mut f: F) {
+        if self.head.is_null() {
+            return;
+        }
+        unsafe {
+            let mut current = &*self.head;
+            loop {
+                if !matches!(current.data, ThinkerData::Free | ThinkerData::Remove) {
+                    f(current);
+                }
+                current = &*current.next;
+                if ptr::eq(current, self.head) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Mutable variant of `for_each`.
+    pub fn for_each_mut<F: FnMut(&mut Thinker)>(&mut self, mut f: F) {
+        if self.head.is_null() {
+            return;
+        }
+        unsafe {
+            let mut current = self.head;
+            loop {
+                let next = (*current).next;
+                if !matches!((*current).data, ThinkerData::Free | ThinkerData::Remove) {
+                    f(&mut *current);
+                }
+                current = next;
+                if ptr::eq(current, self.head) {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Reset the allocator to empty state. All thinker slots become `Free`,
+    /// the linked list is cleared, and the free pointer is reset.
+    pub fn clear(&mut self) {
+        unsafe {
+            for idx in 0..self.capacity {
+                let ptr = self.ptr_for_idx(idx);
+                ptr::write(
+                    ptr,
+                    Thinker {
+                        prev: null_mut(),
+                        next: null_mut(),
+                        data: ThinkerData::Free,
+                        func: Thinker::placeholder,
+                    },
+                );
+            }
+        }
+        self.head = null_mut();
+        self.len = 0;
+        self.next_free = self.buf_ptr;
+    }
+
+    /// Push a pre-built `Thinker` directly. Unlike `push::<T>`, this does not
+    /// require a type param — used by the save/load system.
+    pub fn push_raw(&mut self, thinker: Thinker) -> Option<&mut Thinker> {
+        if self.len == self.capacity {
+            return None;
+        }
+        if matches!(thinker.data, ThinkerData::Free) {
+            panic!("Can't push a thinker with `Thinker::Free`");
+        }
+
+        let root_ptr = self.find_first_free(false)?;
+        unsafe { ptr::write(root_ptr, thinker) };
+        let current = unsafe { &mut *root_ptr };
+
+        if self.head.is_null() {
+            self.head = root_ptr;
+            let head = unsafe { &mut *self.head };
+            head.prev = head;
+            head.next = head;
+        } else {
+            let head = unsafe { &mut *self.head };
+            unsafe {
+                (*head.prev).next = current;
+            }
+            current.next = head;
+            current.prev = head.prev;
+            head.prev = current;
+        }
+
+        current.set_obj_thinker_ptr();
+        self.len += 1;
+        self.next_free = unsafe { self.next_free.add(1) };
+        unsafe { Some(&mut *root_ptr) }
+    }
+
     /// Removes the entry at index. Sets both func + object to None values to
     /// indicate the slot is "empty".
     pub(crate) fn remove(&mut self, thinker: &mut Thinker) {

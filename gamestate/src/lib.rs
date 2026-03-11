@@ -27,7 +27,7 @@ use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use gameplay::{
-    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, spawn_specials, update_specials
+    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, save, spawn_specials, update_specials
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
@@ -174,6 +174,8 @@ pub struct Game {
     usergame: bool,
     game_skill: Skill,
     pub paused: bool,
+    /// Pending save/load filename (without extension)
+    save_name: Option<String>,
 
     /// The options the game-exe exe was started with
     pub options: GameOptions,
@@ -382,6 +384,7 @@ impl Game {
             usergame: false,
             game_skill: Skill::default(),
             paused: false,
+            save_name: None,
             options,
             sound_cmd: snd_tx,
             snd_thread: Some(snd_thread),
@@ -613,14 +616,136 @@ impl Game {
         // TODO: deathmatch spawns
     }
 
+    /// Directory for save files.
+    fn save_dir() -> std::path::PathBuf {
+        gameplay::dirs::save_dir()
+    }
+
     /// G_DoLoadGame
     fn do_load_game(&mut self) {
-        todo!("do_load_game");
+        let name = match self.save_name.take() {
+            Some(n) => n,
+            None => {
+                warn!("do_load_game: no save name set");
+                self.pending_action = GameAction::None;
+                return;
+            }
+        };
+
+        let path = Self::save_dir().join(format!("{name}.sav"));
+        let data = match std::fs::read(&path) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("Load failed: {e}");
+                self.players[self.consoleplayer].message = Some("Load Failed.");
+                self.pending_action = GameAction::None;
+                return;
+            }
+        };
+
+        // Parse header to know which level to load
+        let header = match save::parse_save_header(&data) {
+            Ok(h) => h,
+            Err(e) => {
+                warn!("Load failed (bad header): {e}");
+                self.players[self.consoleplayer].message = Some("Load Failed.");
+                self.pending_action = GameAction::None;
+                return;
+            }
+        };
+
+        info!(
+            "Loading save: map={}, skill={:?}, ep={}, map={}",
+            header.map_name, header.skill, header.episode, header.map
+        );
+
+        // Set up the level from scratch
+        self.options.skill = header.skill;
+        self.options.episode = header.episode;
+        self.options.map = header.map;
+        self.game_skill = header.skill;
+
+        // Load the level geometry (this spawns default things/specials)
+        self.do_load_level();
+
+        // Now apply saved state on top
+        if let Some(ref mut level) = self.level {
+            // Clear all thinkers spawned by do_load_level
+            level.thinkers.clear();
+            // Clear sector thinglists and specialdata
+            for sector in level.map_data.sectors_mut() {
+                sector.thinglist = None;
+                sector.specialdata = None;
+                sector.sound_target = None;
+            }
+            // Clear active platforms
+            level.clear_active_platforms();
+
+            // Apply saved state
+            match save::load_game_from_bytes(
+                &data,
+                level,
+                &mut self.players,
+                &mut self.players_in_game,
+            ) {
+                Ok(h) => {
+                    self.game_tic = h.game_tic;
+                    self.players[self.consoleplayer].message = Some("Game Loaded.");
+                    info!("Game loaded successfully");
+                }
+                Err(e) => {
+                    error!("Load failed (deserialization): {e}");
+                    self.players[self.consoleplayer].message = Some("Load Failed.");
+                }
+            }
+        }
+
+        self.pending_action = GameAction::None;
     }
 
     /// G_DoSaveGame
     fn do_save_game(&mut self) {
-        todo!("do_save_game");
+        let name = match self.save_name.take() {
+            Some(n) => n,
+            None => {
+                warn!("do_save_game: no save name set");
+                self.pending_action = GameAction::None;
+                return;
+            }
+        };
+
+        if let Some(ref level) = self.level {
+            let data = save::save_game_to_bytes(
+                level,
+                &self.players,
+                &self.players_in_game,
+                self.game_tic,
+            );
+
+            let dir = Self::save_dir();
+            if let Err(e) = std::fs::create_dir_all(&dir) {
+                error!("Failed to create save dir: {e}");
+                self.players[self.consoleplayer].message = Some("Save Failed.");
+                self.pending_action = GameAction::None;
+                return;
+            }
+
+            let path = dir.join(format!("{name}.sav"));
+            match std::fs::write(&path, &data) {
+                Ok(()) => {
+                    info!("Game saved to {:?} ({} bytes)", path, data.len());
+                    self.players[self.consoleplayer].message = Some("Game Saved.");
+                }
+                Err(e) => {
+                    error!("Save failed: {e}");
+                    self.players[self.consoleplayer].message = Some("Save Failed.");
+                }
+            }
+        } else {
+            warn!("do_save_game: no level loaded");
+        }
+
+        self.pending_action = GameAction::None;
     }
 
     pub fn start_title(&mut self) {

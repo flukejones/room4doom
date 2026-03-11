@@ -73,6 +73,30 @@ pub const fn m_clear_random() {
     }
 }
 
+/// Get the current player RNG index.
+#[inline]
+pub fn get_prndindex() -> usize {
+    unsafe { PRNDINDEX }
+}
+
+/// Set the player RNG index.
+#[inline]
+pub fn set_prndindex(i: usize) {
+    unsafe { PRNDINDEX = i & 0xFF }
+}
+
+/// Get the current misc RNG index.
+#[inline]
+pub fn get_rndindex() -> usize {
+    unsafe { RNDINDEX }
+}
+
+/// Set the misc RNG index.
+#[inline]
+pub fn set_rndindex(i: usize) {
+    unsafe { RNDINDEX = i & 0xFF }
+}
+
 #[inline]
 pub const fn p_subrandom() -> i32 {
     let r = p_random();

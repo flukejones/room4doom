@@ -160,6 +160,14 @@ impl MapData {
         &self.sidedefs
     }
 
+    pub fn sidedefs_mut(&mut self) -> &mut [SideDef] {
+        &mut self.sidedefs
+    }
+
+    pub fn linedefs_mut(&mut self) -> &mut [LineDef] {
+        &mut self.linedefs
+    }
+
     pub fn subsectors(&self) -> &[SubSector] {
         &self.subsectors
     }
