@@ -386,7 +386,7 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
         if delay == 0 {
             out.push(0);
         } else {
-            let tmp_delay = delay * 4;
+            let tmp_delay = delay * 8;
             if tmp_delay >= 0x20_0000 {
                 out.push(((tmp_delay & 0xFE0_0000) >> 21) as u8 | 0x80);
             }
