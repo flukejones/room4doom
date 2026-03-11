@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::map_data::{is_subsector, subsector_index};
 use crate::map_defs::{LineDef, Node, Segment, SubSector};
 use glam::Vec2;
-use log::info;
+use log::{debug, info, warn};
 use wad::WadData;
 use wad::extended::WadExtendedMap;
 use wad::types::WadSegment;
@@ -41,6 +41,9 @@ const CANONICAL_CELL: f64 = 4.0;
 
 /// Minimum cross-product magnitude for non-parallel divline intersection.
 const PARALLEL_EPSILON: f64 = 1e-10;
+
+/// Tolerance for point-on-edge distance check (map units).
+const POINT_ON_EDGE_EPSILON: f64 = 0.5;
 
 /// Vertex classification relative to a half-space.
 #[derive(Clone, Copy, PartialEq)]
@@ -482,39 +485,13 @@ fn collect_divline_intersections(
     divline_stack.pop();
 }
 
-/// Maximum distance (map units) for snapping a clipped polygon vertex to a
-/// nearby segment endpoint.
-const SNAP_DIST: f64 = 2.0;
-
-/// Snap polygon vertices to nearby segment endpoints. Segment endpoints are
-/// already at canonical positions from the snap_vertices_to_canonical pass.
-fn snap_to_segment_endpoints(polygon: &mut [(f64, f64)], segments: &[Segment]) {
-    for vertex in polygon.iter_mut() {
-        let mut best_dist_sq = SNAP_DIST * SNAP_DIST;
-        let mut best_pos = None;
-        for segment in segments {
-            for &seg_v in &[*segment.v1, *segment.v2] {
-                let dx = vertex.0 - seg_v.x as f64;
-                let dy = vertex.1 - seg_v.y as f64;
-                let d_sq = dx * dx + dy * dy;
-                if d_sq > 0.001 * 0.001 && d_sq < best_dist_sq {
-                    best_dist_sq = d_sq;
-                    best_pos = Some((seg_v.x as f64, seg_v.y as f64));
-                }
-            }
-        }
-        if let Some(pos) = best_pos {
-            *vertex = pos;
-        }
-    }
-}
-
 /// Snap segment vertices to canonical divline intersection points in-place.
 /// Since segments store `MapPtr<Vec2>` into `vertexes`, modifying `vertexes[i]`
 /// is immediately visible through all segment and linedef references.
 ///
 /// **Case A** — linedef endpoint: snap to nearest canonical intersection point.
-/// **Case B** — BSP-split vertex: project onto parent linedef's v1→v2 line in f64.
+/// **Case B** — BSP-split vertex: project onto parent linedef's v1→v2 line in
+/// f64.
 pub fn snap_vertices_to_canonical(
     vertexes: &mut [Vec2],
     linedefs: &[LineDef],
@@ -587,11 +564,141 @@ pub fn snap_vertices_to_canonical(
     );
 }
 
+/// Test if a point lies inside or on the boundary of a convex polygon.
+///
+/// Uses signed-area (cross-product) winding. A point on an edge (within
+/// [`POINT_ON_EDGE_EPSILON`]) counts as inside.
+fn point_in_or_on_polygon(p: (f64, f64), poly: &[(f64, f64)]) -> bool {
+    let n = poly.len();
+    if n < 3 {
+        return false;
+    }
+    // Check if point is within POINT_ON_EDGE_EPSILON of any edge first.
+    for i in 0..n {
+        let a = poly[i];
+        let b = poly[(i + 1) % n];
+        let ex = b.0 - a.0;
+        let ey = b.1 - a.1;
+        let len_sq = ex * ex + ey * ey;
+        if len_sq < 1e-12 {
+            continue;
+        }
+        // Project p onto edge a→b.
+        let t = ((p.0 - a.0) * ex + (p.1 - a.1) * ey) / len_sq;
+        let t_clamped = t.clamp(0.0, 1.0);
+        let cx = a.0 + t_clamped * ex;
+        let cy = a.1 + t_clamped * ey;
+        let dist_sq = (p.0 - cx) * (p.0 - cx) + (p.1 - cy) * (p.1 - cy);
+        if dist_sq <= POINT_ON_EDGE_EPSILON * POINT_ON_EDGE_EPSILON {
+            return true;
+        }
+    }
+    // Winding number test — consistent sign of cross products.
+    let mut positive = false;
+    let mut negative = false;
+    for i in 0..n {
+        let a = poly[i];
+        let b = poly[(i + 1) % n];
+        let cross = (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
+        if cross > 0.0 {
+            positive = true;
+        } else if cross < 0.0 {
+            negative = true;
+        }
+        if positive && negative {
+            return false;
+        }
+    }
+    true
+}
+
+/// Maximum distance (map units) a segment endpoint can be from the polygon
+/// boundary and still be inserted. Prevents runaway expansion from bad data.
+const MAX_EXPAND_DIST: f64 = 4.0;
+
+/// Expand a carved polygon to include any segment endpoints that lie outside
+/// it.
+///
+/// For each missing endpoint, finds the nearest polygon edge and inserts the
+/// point between that edge's vertices. This corrects cases where divline-only
+/// SH clipping produces a polygon that doesn't cover the full subsector.
+fn expand_polygon_to_segment_endpoints(
+    poly: &mut Vec<(f64, f64)>,
+    segments: &[Segment],
+    subsector_id: usize,
+) {
+    for segment in segments {
+        for &p in &[
+            (segment.v1.x as f64, segment.v1.y as f64),
+            (segment.v2.x as f64, segment.v2.y as f64),
+        ] {
+            if point_in_or_on_polygon(p, poly) {
+                continue;
+            }
+
+            // Find nearest polygon edge to insert at.
+            let n = poly.len();
+            let mut best_edge = 0;
+            let mut best_dist_sq = f64::MAX;
+            for i in 0..n {
+                let a = poly[i];
+                let b = poly[(i + 1) % n];
+                let dist_sq = point_to_segment_dist_sq(p, a, b);
+                if dist_sq < best_dist_sq {
+                    best_dist_sq = dist_sq;
+                    best_edge = i;
+                }
+            }
+
+            let dist = best_dist_sq.sqrt();
+            if dist > MAX_EXPAND_DIST {
+                warn!(
+                    "SS{} carve gap: ({:.2}, {:.2}) too far ({:.2} units), skipped",
+                    subsector_id, p.0, p.1, dist
+                );
+                continue;
+            }
+
+            // Insert after the first vertex of the nearest edge. Fan
+            // triangulation will produce a small triangle between the
+            // inserted point and the old divline intersection — this fills
+            // the gap. Minor overlap with neighbouring subsectors is
+            // acceptable as rendering handles coplanar same-height geometry.
+            poly.insert(best_edge + 1, p);
+            debug!(
+                "SS{} carve fix: inserted ({:.2}, {:.2}) at edge {} ({:.2} units)",
+                subsector_id, p.0, p.1, best_edge, dist
+            );
+        }
+    }
+}
+
+/// Squared distance from point `p` to the finite line segment `a`→`b`.
+fn point_to_segment_dist_sq(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let ex = b.0 - a.0;
+    let ey = b.1 - a.1;
+    let len_sq = ex * ex + ey * ey;
+    if len_sq < 1e-12 {
+        let dx = p.0 - a.0;
+        let dy = p.1 - a.1;
+        return dx * dx + dy * dy;
+    }
+    let t = ((p.0 - a.0) * ex + (p.1 - a.1) * ey) / len_sq;
+    let t = t.clamp(0.0, 1.0);
+    let cx = a.0 + t * ex;
+    let cy = a.1 + t * ey;
+    (p.0 - cx) * (p.0 - cx) + (p.1 - cy) * (p.1 - cy)
+}
+
 /// Generate a convex polygon for a subsector by clipping against BSP divlines
 /// and subsector segment boundaries.
 ///
 /// Returns f64 polygon vertices. Caller converts to f32 at vertex storage.
-pub fn carve_subsector_polygon(segments: &[Segment], divlines: &[DivLine]) -> Vec<(f64, f64)> {
+pub fn carve_subsector_polygon(
+    segments: &[Segment],
+    divlines: &[DivLine],
+    subsector_id: usize,
+) -> Vec<(f64, f64)> {
     if divlines.is_empty() {
         return extract_sector_boundary_from_segments(segments);
     }
@@ -632,6 +739,12 @@ pub fn carve_subsector_polygon(segments: &[Segment], divlines: &[DivLine]) -> Ve
     // endpoint even with f64 arithmetic. Segment endpoints are already
     // at canonical positions from the snap_vertices_to_canonical pass.
     // snap_to_segment_endpoints(&mut clipped, segments);
+
+    // Expand polygon to include segment endpoints that fell outside due to
+    // divline clipping not matching the actual subsector boundary.
+    if clipped.len() >= 3 {
+        expand_polygon_to_segment_endpoints(&mut clipped, segments, subsector_id);
+    }
 
     clipped
 }
@@ -725,7 +838,8 @@ fn carve_2d_recursive(
             let start = ss.start_seg as usize;
             let end = start + ss.seg_count as usize;
             if let Some(ss_segments) = segments.get(start..end) {
-                result[subsector_id] = carve_subsector_polygon(ss_segments, &divlines);
+                result[subsector_id] =
+                    carve_subsector_polygon(ss_segments, &divlines, subsector_id);
             }
         }
     } else if let Some(node) = nodes.get(node_id as usize) {

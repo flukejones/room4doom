@@ -608,9 +608,7 @@ impl BSP3D {
         profile!("carve_polygons_recursive");
 
         if node_id & IS_SUBSECTOR_MASK != 0 {
-            self.process_subsector_node(
-                subsectors, segments, node_id, &divlines, vertex_map,
-            );
+            self.process_subsector_node(subsectors, segments, node_id, &divlines, vertex_map);
         } else {
             self.process_internal_node(
                 nodes,
@@ -677,7 +675,8 @@ impl BSP3D {
                 }
 
                 // Create floor/ceiling polygons from f64 carving result.
-                let polygon_f64 = carve_subsector_polygon(subsector_segments, divlines);
+                let polygon_f64 =
+                    carve_subsector_polygon(subsector_segments, divlines, subsector_id);
                 let polygon: Vec<Vec2> = polygon_f64
                     .iter()
                     .map(|&(x, y)| Vec2::new(x as f32, y as f32))
@@ -966,47 +965,109 @@ impl BSP3D {
         let floor_h = subsector.sector.floorheight;
         let ceil_h = subsector.sector.ceilingheight;
 
-        for i in 1..polygon.len() - 1 {
-            // Floor: winding order [0, i+1, i] for upward normal.
-            let fv: Vec<usize> = [polygon[0], polygon[i + 1], polygon[i]]
-                .iter()
-                .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
-                .collect();
+        // For polygons with > 4 vertices (typically from expand_polygon
+        // inserting segment endpoints), use centroid fan to avoid long sliver
+        // triangles that a corner fan would produce.
+        let centroid_fan = polygon.len() > 4;
+        let center = if centroid_fan {
+            let inv = 1.0 / polygon.len() as f32;
+            let cx = polygon.iter().map(|v| v.x).sum::<f32>() * inv;
+            let cy = polygon.iter().map(|v| v.y).sum::<f32>() * inv;
+            Some(Vec2::new(cx, cy))
+        } else {
+            None
+        };
 
-            if !Self::is_degenerate_triangle(&fv, &self.vertices) {
-                let fp = SurfacePolygon::new(
-                    sector_num,
-                    self.create_horizontal_surface_kind(subsector.sector.floorpic),
-                    fv,
-                    Vec3::new(0.0, 0.0, 1.0),
-                    &self.vertices,
-                    false,
-                );
-                let fi = self.subsector_leaves[subsector_id].polygons.len();
-                self.subsector_leaves[subsector_id].polygons.push(fp);
-                self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+        if let Some(c) = center {
+            // Centroid fan: one triangle per edge.
+            for i in 0..polygon.len() {
+                let next = (i + 1) % polygon.len();
+                // Floor: winding order [center, next, i] for upward normal.
+                let fv: Vec<usize> = [c, polygon[next], polygon[i]]
+                    .iter()
+                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
+                    .collect();
+
+                if !Self::is_degenerate_triangle(&fv, &self.vertices) {
+                    let fp = SurfacePolygon::new(
+                        sector_num,
+                        self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                        fv,
+                        Vec3::new(0.0, 0.0, 1.0),
+                        &self.vertices,
+                        false,
+                    );
+                    let fi = self.subsector_leaves[subsector_id].polygons.len();
+                    self.subsector_leaves[subsector_id].polygons.push(fp);
+                    self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                }
+
+                // Ceiling: winding order [i, next, center] for downward normal.
+                let cv: Vec<usize> = [polygon[i], polygon[next], c]
+                    .iter()
+                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
+                    .collect();
+
+                if !Self::is_degenerate_triangle(&cv, &self.vertices) {
+                    let cp = SurfacePolygon::new(
+                        sector_num,
+                        self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                        cv,
+                        Vec3::new(0.0, 0.0, -1.0),
+                        &self.vertices,
+                        false,
+                    );
+                    let ci = self.subsector_leaves[subsector_id].polygons.len();
+                    self.subsector_leaves[subsector_id].polygons.push(cp);
+                    self.subsector_leaves[subsector_id]
+                        .ceiling_polygons
+                        .push(ci);
+                }
             }
+        } else {
+            // Standard corner fan from polygon[0].
+            for i in 1..polygon.len() - 1 {
+                // Floor: winding order [0, i+1, i] for upward normal.
+                let fv: Vec<usize> = [polygon[0], polygon[i + 1], polygon[i]]
+                    .iter()
+                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
+                    .collect();
 
-            // Ceiling: winding order [i, i+1, 0] for downward normal.
-            let cv: Vec<usize> = [polygon[i], polygon[i + 1], polygon[0]]
-                .iter()
-                .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
-                .collect();
+                if !Self::is_degenerate_triangle(&fv, &self.vertices) {
+                    let fp = SurfacePolygon::new(
+                        sector_num,
+                        self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                        fv,
+                        Vec3::new(0.0, 0.0, 1.0),
+                        &self.vertices,
+                        false,
+                    );
+                    let fi = self.subsector_leaves[subsector_id].polygons.len();
+                    self.subsector_leaves[subsector_id].polygons.push(fp);
+                    self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                }
 
-            if !Self::is_degenerate_triangle(&cv, &self.vertices) {
-                let cp = SurfacePolygon::new(
-                    sector_num,
-                    self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
-                    cv,
-                    Vec3::new(0.0, 0.0, -1.0),
-                    &self.vertices,
-                    false,
-                );
-                let ci = self.subsector_leaves[subsector_id].polygons.len();
-                self.subsector_leaves[subsector_id].polygons.push(cp);
-                self.subsector_leaves[subsector_id]
-                    .ceiling_polygons
-                    .push(ci);
+                // Ceiling: winding order [i, i+1, 0] for downward normal.
+                let cv: Vec<usize> = [polygon[i], polygon[i + 1], polygon[0]]
+                    .iter()
+                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
+                    .collect();
+
+                if !Self::is_degenerate_triangle(&cv, &self.vertices) {
+                    let cp = SurfacePolygon::new(
+                        sector_num,
+                        self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                        cv,
+                        Vec3::new(0.0, 0.0, -1.0),
+                        &self.vertices,
+                        false,
+                    );
+                    let ci = self.subsector_leaves[subsector_id].polygons.len();
+                    self.subsector_leaves[subsector_id].polygons.push(cp);
+                    self.subsector_leaves[subsector_id]
+                        .ceiling_polygons
+                        .push(ci);
+                }
             }
         }
     }

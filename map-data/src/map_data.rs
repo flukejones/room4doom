@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
 use crate::map_defs::{
-    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
+    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector
 };
 
 use crate::MapPtr;
@@ -11,7 +11,7 @@ use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::pvs::{PvsData, RenderPvs, pvs_load_from_cache};
 use crate::triangulation::{
-    DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical,
+    DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical
 };
 use glam::Vec2;
 #[cfg(Debug)]

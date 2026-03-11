@@ -144,9 +144,14 @@ pub fn extract_viewer_data(
 
     // Build vertex list with linedef associations (by position key).
     let pos_key = |v: Vec2| -> (u32, u32) { (v.x.to_bits(), v.y.to_bits()) };
-    let pos_to_vidx: std::collections::HashMap<(u32, u32), usize> =
-        map_data.vertexes.iter().enumerate().map(|(i, &v)| (pos_key(v), i)).collect();
-    // Some linedefs may reference vertices not in vertexes (BSP-split verts) — ignore those.
+    let pos_to_vidx: std::collections::HashMap<(u32, u32), usize> = map_data
+        .vertexes
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| (pos_key(v), i))
+        .collect();
+    // Some linedefs may reference vertices not in vertexes (BSP-split verts) —
+    // ignore those.
     let mut vert_ld_ids: Vec<Vec<usize>> = vec![Vec::new(); map_data.vertexes.len()];
     for ld in &linedefs {
         if let Some(&vi) = pos_to_vidx.get(&pos_key(ld.v1)) {
@@ -161,7 +166,11 @@ pub fn extract_viewer_data(
         .vertexes
         .iter()
         .enumerate()
-        .map(|(i, &v)| ViewVertex { index: i, pos: v, linedef_ids: std::mem::take(&mut vert_ld_ids[i]) })
+        .map(|(i, &v)| ViewVertex {
+            index: i,
+            pos: v,
+            linedef_ids: std::mem::take(&mut vert_ld_ids[i]),
+        })
         .collect();
 
     let carved = &map_data.bsp_3d.carved_polygons;
@@ -1356,7 +1365,14 @@ impl MapViewerApp {
                     (lbl, " pos:".into()),
                     (val, format!("({:.1},{:.1})", vx.pos.x, vx.pos.y)),
                     (lbl, "  ld:".into()),
-                    (val, if ld_list.is_empty() { "none".into() } else { ld_list }),
+                    (
+                        val,
+                        if ld_list.is_empty() {
+                            "none".into()
+                        } else {
+                            ld_list
+                        },
+                    ),
                 ];
                 lines.push(spans);
             }
