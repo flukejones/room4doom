@@ -129,10 +129,11 @@ impl EventByte {
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 struct MusEvent {
-    delay: u8,
+    /// MUS variable-length delay in ticks (can exceed 255).
+    delay: u32,
     kind: MusEventType,
     channel: u8,
-    /// not, pitch bend etc
+    /// Note, pitch bend, controller number, etc.
     data1: u8,
     data2: u8,
     volume: u8,
@@ -162,9 +163,7 @@ impl MusEvent {
 
         if data & 0x80 == 0x80 {
             *marker += 1;
-            // TODO: reverse the division once correct volume is found
-            // Set base volume
-            channels[byte.channel as usize] = (buf[*marker] & 0x7F) / 5;
+            channels[byte.channel as usize] = buf[*marker] & 0x7F;
         }
 
         let delay = read_delay(buf, marker, byte.last);
@@ -307,17 +306,21 @@ impl MusEvent {
     }
 }
 
-fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u8 {
+/// Read MUS variable-length delay. Matches Chocolate Doom's mus2mid.c
+/// decoding: accumulate 7-bit groups until continuation bit is clear.
+fn read_delay(buf: &[u8], marker: &mut usize, last: bool) -> u32 {
     if !last {
         return 0;
     }
 
-    let mut byte = 0x80;
-    let mut delay = 0;
-    while byte & 0x80 != 0 {
+    let mut delay: u32 = 0;
+    loop {
         *marker += 1;
-        byte = buf[*marker];
-        delay = (delay as u16 * 128 + (byte as u16 & 0x7F)) as u8;
+        let byte = buf[*marker];
+        delay = delay * 128 + (byte as u32 & 0x7F);
+        if byte & 0x80 == 0 {
+            break;
+        }
     }
     delay
 }
@@ -378,14 +381,12 @@ pub fn read_mus_to_midi(buf: &[u8]) -> Option<Vec<u8>> {
         out.push(i);
     }
 
-    let mut delay = 0;
+    let mut delay: u32 = 0;
     for event in track.iter() {
         if delay == 0 {
             out.push(0);
         } else {
-            // Original implementation of this used two loops, one to first build
-            // up a u32 "buffer", then a second loop to do a similar bitshift.
-            let tmp_delay = (delay as u32) * 4;
+            let tmp_delay = delay * 4;
             if tmp_delay >= 0x20_0000 {
                 out.push(((tmp_delay & 0xFE0_0000) >> 21) as u8 | 0x80);
             }
