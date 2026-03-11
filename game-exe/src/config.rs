@@ -62,8 +62,8 @@ impl Into<render_target::RenderType> for RenderType {
 #[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum MusicType {
     FluidSynth,
-    #[default]
     Timidity,
+    #[default]
     OPL2,
     OPL3,
 }
@@ -177,11 +177,12 @@ impl UserConfig {
             cli.height = self.height;
         }
 
-        let hi_res = cli.hi_res && !cli.lo_res;
-        if hi_res != self.hi_res {
-            self.hi_res = hi_res;
+        if let Some(h) = cli.hi_res {
+            if h != self.hi_res {
+                self.hi_res = h;
+            }
         } else {
-            cli.hi_res = self.hi_res;
+            cli.hi_res = Some(self.hi_res);
         }
 
         if let Some(renderer) = cli.rendering {

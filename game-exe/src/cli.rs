@@ -55,13 +55,9 @@ pub struct CLIOptions {
     /// fullscreen?
     #[argh(option, short = 'f')]
     pub fullscreen: Option<bool>,
-    /// set high-res is using software rendering
-    #[argh(switch, short = 'H')]
-    pub hi_res: bool,
-    /// set low-res is using software rendering, If used with hi-res switch then
-    /// lo-res takes precedence
-    #[argh(switch, short = 'L')]
-    pub lo_res: bool,
+    /// set hi-res mode for software rendering (true/false)
+    #[argh(option, short = 'H')]
+    pub hi_res: Option<bool>,
     /// disable monsters
     #[argh(switch, short = 'n')]
     pub no_monsters: bool,
@@ -88,7 +84,7 @@ pub struct CLIOptions {
     /// rendering type <software, software3d, softopengl>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
-    /// music type <fluidsynth, timidity(default), opl2>
+    /// music type <fluidsynth, timidity, opl2(default)>
     #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,
     /// enable demo playback (currently bad due to f32 used in movements)
@@ -145,7 +141,7 @@ impl From<CLIOptions> for GameOptions {
             episode: g.episode.unwrap_or_default(),
             map: g.map.unwrap_or_default(),
             warp: g.map.is_some() || g.episode.is_some(),
-            hi_res: g.hi_res && !g.lo_res,
+            hi_res: g.hi_res.unwrap_or(true),
             verbose: g.verbose.unwrap_or(log::LevelFilter::Warn),
             respawn_parm: false,
             respawn_monsters: false,
