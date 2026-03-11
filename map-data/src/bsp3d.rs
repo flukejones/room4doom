@@ -340,6 +340,7 @@ impl BSP3D {
         segments: &[Segment],
         sectors: &[Sector],
         linedefs: &[LineDef],
+        corrected_divlines: &[DivLine],
     ) -> Self {
         #[cfg(feature = "hprof")]
         profile!("BSP3D::new");
@@ -364,17 +365,21 @@ impl BSP3D {
         bsp3d.subsector_leaves = vec![BSPLeaf3D::default(); subsectors.len()];
 
         // Phase 1: Create all geometry with position-only vertex dedup.
+        // Segment vertices are already at canonical positions from the
+        // snap_vertices_to_canonical pass in map loading.
         bsp3d.carve_polygons_recursive(
             nodes,
             subsectors,
             segments,
             linedefs,
+            corrected_divlines,
             bsp3d.root_node,
             Vec::new(),
             &mut vertex_map,
         );
 
         // Phase 1b: Fix T-junctions between adjacent subsector polygons.
+        // Commented out to assess intersection cache impact in isolation.
         bsp3d.tjunction_fix_pass(subsectors);
 
         // Phase 2: Post-creation pass — split triangles at boundary endpoints,
@@ -594,6 +599,7 @@ impl BSP3D {
         subsectors: &[SubSector],
         segments: &[Segment],
         linedefs: &[LineDef],
+        corrected_divlines: &[DivLine],
         node_id: u32,
         divlines: Vec<DivLine>,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
@@ -602,10 +608,19 @@ impl BSP3D {
         profile!("carve_polygons_recursive");
 
         if node_id & IS_SUBSECTOR_MASK != 0 {
-            self.process_subsector_node(subsectors, segments, node_id, &divlines, vertex_map);
+            self.process_subsector_node(
+                subsectors, segments, node_id, &divlines, vertex_map,
+            );
         } else {
             self.process_internal_node(
-                nodes, subsectors, segments, linedefs, node_id, divlines, vertex_map,
+                nodes,
+                subsectors,
+                segments,
+                linedefs,
+                corrected_divlines,
+                node_id,
+                divlines,
+                vertex_map,
             );
         }
     }
@@ -889,12 +904,18 @@ impl BSP3D {
         subsectors: &[SubSector],
         segments: &[Segment],
         linedefs: &[LineDef],
+        corrected_divlines: &[DivLine],
         node_id: u32,
         divlines: Vec<DivLine>,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
         if let Some(node) = nodes.get(node_id as usize) {
-            let node_divline = DivLine::from_node(node);
+            let nid = node_id as usize;
+            let node_divline = if nid < corrected_divlines.len() {
+                corrected_divlines[nid]
+            } else {
+                DivLine::from_node(node)
+            };
 
             let mut right_divlines = divlines.clone();
             right_divlines.push(node_divline);
@@ -903,6 +924,7 @@ impl BSP3D {
                 subsectors,
                 segments,
                 linedefs,
+                corrected_divlines,
                 node.children[0],
                 right_divlines,
                 vertex_map,
@@ -918,6 +940,7 @@ impl BSP3D {
                 subsectors,
                 segments,
                 linedefs,
+                corrected_divlines,
                 node.children[1],
                 left_divlines,
                 vertex_map,
@@ -1040,7 +1063,8 @@ impl BSP3D {
             }
         }
 
-        // 2. Scan all vertices for T-junctions against edges from other subsectors. The mover pass handles vertex separation at sector boundaries.
+        // 2. Scan all vertices for T-junctions against edges from other subsectors. The
+        //    mover pass handles vertex separation at sector boundaries.
         struct TJunc {
             pt: Vec2,
             target_ss: usize,

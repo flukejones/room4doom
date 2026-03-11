@@ -1,5 +1,13 @@
+use std::collections::HashMap;
+use std::time::Instant;
+
 use crate::map_data::{is_subsector, subsector_index};
-use crate::map_defs::{Node, Segment, SubSector};
+use crate::map_defs::{LineDef, Node, Segment, SubSector};
+use glam::Vec2;
+use log::info;
+use wad::WadData;
+use wad::extended::WadExtendedMap;
+use wad::types::WadSegment;
 
 /// Maximum number of vertices allowed in polygon clipping.
 const MAX_CLIP_VERTICES: usize = 128;
@@ -13,11 +21,6 @@ const ON_EPSILON: f64 = 0.01;
 /// degenerate.
 const MIN_AREA: f64 = 0.5;
 
-/// Maximum distance (map units) for snapping a clipped polygon vertex to a
-/// nearby segment endpoint. Even with f64 and corrected divlines, acute
-/// divline angles can produce vertices ~1–2 units from the true endpoint.
-const SNAP_DIST: f64 = 2.0;
-
 /// World-bounds half-extent for the initial clipping polygon (map units).
 const WORLD_SIZE: f64 = 32768.0;
 
@@ -26,6 +29,18 @@ const DEDUP_DIST_SQ: f64 = 0.01 * 0.01;
 
 /// Collinear cross-product threshold for cleanup.
 const COLLINEAR_THRESHOLD: f64 = 0.1;
+
+/// Maximum snap distance to a canonical intersection point (map units).
+const CANONICAL_SNAP_DIST: f64 = 1.0;
+
+/// Deduplication distance for canonical intersection points (map units).
+const CANONICAL_DEDUP_DIST: f64 = 0.5;
+
+/// Spatial grid cell size for canonical intersection point lookup.
+const CANONICAL_CELL: f64 = 4.0;
+
+/// Minimum cross-product magnitude for non-parallel divline intersection.
+const PARALLEL_EPSILON: f64 = 1e-10;
 
 /// Vertex classification relative to a half-space.
 #[derive(Clone, Copy, PartialEq)]
@@ -90,6 +105,19 @@ impl DivLine {
         } else {
             Side::On
         }
+    }
+
+    /// Compute the intersection of two infinite lines. Returns `None` if
+    /// the lines are parallel (cross-product magnitude below threshold).
+    pub fn intersect_line(&self, other: &DivLine) -> Option<(f64, f64)> {
+        let cross = self.dx * other.dy - self.dy * other.dx;
+        if cross.abs() < PARALLEL_EPSILON {
+            return None;
+        }
+        let ox = other.x - self.x;
+        let oy = other.y - self.y;
+        let t = (ox * other.dy - oy * other.dx) / cross;
+        Some((self.x + t * self.dx, self.y + t * self.dy))
     }
 
     /// Compute the intersection point of this line with edge `a→b`.
@@ -209,20 +237,268 @@ fn cleanup_polygon(vertices: &mut Vec<(f64, f64)>) {
     }
 }
 
-/// Snap polygon vertices to nearby segment endpoints. BSP half-space
-/// intersections can produce vertices slightly offset from the true segment
-/// endpoint; this corrects the drift.
+/// Precomputed canonical intersection points from all BSP divline pairs and
+/// segment endpoints. Used to snap SH-clipped polygon vertices to ensure
+/// adjacent subsectors sharing a geometric point get identical coordinates.
+pub struct IntersectionCache {
+    /// All canonical points.
+    points: Vec<(f64, f64)>,
+    /// Spatial grid mapping cell coords to indices in `points`.
+    grid: HashMap<(i32, i32), Vec<usize>>,
+}
+
+impl Default for IntersectionCache {
+    fn default() -> Self {
+        Self {
+            points: Vec::new(),
+            grid: HashMap::new(),
+        }
+    }
+}
+
+impl IntersectionCache {
+    /// Snap a vertex to the nearest canonical point within `max_dist`.
+    /// Returns the snapped position, or the original if no point is near.
+    pub fn snap_vertex(&self, x: f64, y: f64, max_dist: f64) -> (f64, f64) {
+        let max_dist_sq = max_dist * max_dist;
+        let cx = (x / CANONICAL_CELL).floor() as i32;
+        let cy = (y / CANONICAL_CELL).floor() as i32;
+
+        let mut best_dist_sq = max_dist_sq;
+        let mut best = None;
+
+        for gx in (cx - 1)..=(cx + 1) {
+            for gy in (cy - 1)..=(cy + 1) {
+                if let Some(indices) = self.grid.get(&(gx, gy)) {
+                    for &idx in indices {
+                        let (px, py) = self.points[idx];
+                        let dx = x - px;
+                        let dy = y - py;
+                        let d_sq = dx * dx + dy * dy;
+                        if d_sq < best_dist_sq {
+                            best_dist_sq = d_sq;
+                            best = Some((px, py));
+                        }
+                    }
+                }
+            }
+        }
+
+        best.unwrap_or((x, y))
+    }
+}
+
+/// Build the canonical intersection cache by traversing the BSP tree,
+/// computing all pairwise divline intersections per leaf, and collecting
+/// all segment endpoints.
+pub fn build_intersection_cache(
+    root_node: u32,
+    nodes: &[Node],
+    corrected_divlines: &[DivLine],
+    subsectors: &[SubSector],
+    segments: &[Segment],
+) -> IntersectionCache {
+    let start = Instant::now();
+
+    let mut raw_points: Vec<(f64, f64)> = Vec::new();
+
+    // Collect all segment endpoints as canonical points.
+    for seg in segments {
+        raw_points.push((seg.v1.x as f64, seg.v1.y as f64));
+        raw_points.push((seg.v2.x as f64, seg.v2.y as f64));
+    }
+
+    // Traverse BSP tree, collecting divline intersections at each leaf.
+    collect_divline_intersections(
+        root_node,
+        nodes,
+        corrected_divlines,
+        subsectors,
+        segments,
+        &mut Vec::new(),
+        &mut raw_points,
+    );
+
+    info!(
+        "Intersection cache: {} raw points from {} segments + BSP traversal ({:#?})",
+        raw_points.len(),
+        segments.len(),
+        start.elapsed()
+    );
+
+    // Deduplicate points within CANONICAL_DEDUP_DIST using spatial grid.
+    let dedup_sq = CANONICAL_DEDUP_DIST * CANONICAL_DEDUP_DIST;
+    let dedup_cell = CANONICAL_DEDUP_DIST * 2.0;
+    let mut dedup_grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    let mut points: Vec<(f64, f64)> = Vec::with_capacity(raw_points.len() / 2);
+
+    for &(x, y) in &raw_points {
+        let cx = (x / dedup_cell).floor() as i32;
+        let cy = (y / dedup_cell).floor() as i32;
+
+        let mut is_dup = false;
+        'search: for gx in (cx - 1)..=(cx + 1) {
+            for gy in (cy - 1)..=(cy + 1) {
+                if let Some(indices) = dedup_grid.get(&(gx, gy)) {
+                    for &idx in indices {
+                        let (px, py) = points[idx];
+                        let dx = x - px;
+                        let dy = y - py;
+                        if dx * dx + dy * dy < dedup_sq {
+                            is_dup = true;
+                            break 'search;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !is_dup {
+            let idx = points.len();
+            dedup_grid.entry((cx, cy)).or_default().push(idx);
+            points.push((x, y));
+        }
+    }
+
+    // Build spatial grid for snap lookups.
+    let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    for (idx, &(x, y)) in points.iter().enumerate() {
+        let cx = (x / CANONICAL_CELL).floor() as i32;
+        let cy = (y / CANONICAL_CELL).floor() as i32;
+        grid.entry((cx, cy)).or_default().push(idx);
+    }
+
+    info!(
+        "Intersection cache: {} canonical points, {} grid cells ({:#?})",
+        points.len(),
+        grid.len(),
+        start.elapsed()
+    );
+
+    IntersectionCache {
+        points,
+        grid,
+    }
+}
+
+/// Recursive BSP traversal collecting pairwise divline intersections at leaves.
+fn collect_divline_intersections(
+    node_id: u32,
+    nodes: &[Node],
+    corrected_divlines: &[DivLine],
+    subsectors: &[SubSector],
+    segments: &[Segment],
+    divline_stack: &mut Vec<DivLine>,
+    out: &mut Vec<(f64, f64)>,
+) {
+    if node_id & 0x8000_0000 != 0 {
+        if node_id == u32::MAX {
+            return;
+        }
+        let ss_id = (node_id & !0x8000_0000) as usize;
+        if ss_id >= subsectors.len() {
+            return;
+        }
+
+        // Add segment-as-divline × BSP-divline intersections.
+        let ss = &subsectors[ss_id];
+        let start = ss.start_seg as usize;
+        let end = start + ss.seg_count as usize;
+        let mut seg_divlines: Vec<DivLine> = Vec::new();
+        if let Some(ss_segs) = segments.get(start..end) {
+            for seg in ss_segs {
+                let dx = seg.v2.x as f64 - seg.v1.x as f64;
+                let dy = seg.v2.y as f64 - seg.v1.y as f64;
+                if dx.abs() + dy.abs() > 1e-6 {
+                    seg_divlines.push(DivLine {
+                        x: seg.v1.x as f64,
+                        y: seg.v1.y as f64,
+                        dx,
+                        dy,
+                    });
+                }
+            }
+        }
+
+        // Compute all pairwise intersections of BSP divlines in the stack.
+        // Filter to within world bounds — near-parallel intersections can
+        // produce extreme coordinates.
+        let n = divline_stack.len();
+        for i in 0..n {
+            for j in (i + 1)..n {
+                if let Some((px, py)) = divline_stack[i].intersect_line(&divline_stack[j]) {
+                    if px.abs() <= WORLD_SIZE && py.abs() <= WORLD_SIZE {
+                        out.push((px, py));
+                    }
+                }
+            }
+            for sdl in &seg_divlines {
+                if let Some((px, py)) = divline_stack[i].intersect_line(sdl) {
+                    if px.abs() <= WORLD_SIZE && py.abs() <= WORLD_SIZE {
+                        out.push((px, py));
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    let nid = node_id as usize;
+    if nid >= nodes.len() || nid >= corrected_divlines.len() {
+        return;
+    }
+
+    let node = &nodes[nid];
+    let dl = corrected_divlines[nid];
+
+    // Right child: forward divline.
+    divline_stack.push(dl);
+    collect_divline_intersections(
+        node.children[0],
+        nodes,
+        corrected_divlines,
+        subsectors,
+        segments,
+        divline_stack,
+        out,
+    );
+    divline_stack.pop();
+
+    // Left child: reversed divline.
+    divline_stack.push(DivLine {
+        dx: -dl.dx,
+        dy: -dl.dy,
+        ..dl
+    });
+    collect_divline_intersections(
+        node.children[1],
+        nodes,
+        corrected_divlines,
+        subsectors,
+        segments,
+        divline_stack,
+        out,
+    );
+    divline_stack.pop();
+}
+
+/// Maximum distance (map units) for snapping a clipped polygon vertex to a
+/// nearby segment endpoint.
+const SNAP_DIST: f64 = 2.0;
+
+/// Snap polygon vertices to nearby segment endpoints. Segment endpoints are
+/// already at canonical positions from the snap_vertices_to_canonical pass.
 fn snap_to_segment_endpoints(polygon: &mut [(f64, f64)], segments: &[Segment]) {
     for vertex in polygon.iter_mut() {
-        let mut best_dist = SNAP_DIST;
+        let mut best_dist_sq = SNAP_DIST * SNAP_DIST;
         let mut best_pos = None;
         for segment in segments {
             for &seg_v in &[*segment.v1, *segment.v2] {
                 let dx = vertex.0 - seg_v.x as f64;
                 let dy = vertex.1 - seg_v.y as f64;
-                let d = (dx * dx + dy * dy).sqrt();
-                if d > 0.001 && d < best_dist {
-                    best_dist = d;
+                let d_sq = dx * dx + dy * dy;
+                if d_sq > 0.001 * 0.001 && d_sq < best_dist_sq {
+                    best_dist_sq = d_sq;
                     best_pos = Some((seg_v.x as f64, seg_v.y as f64));
                 }
             }
@@ -231,6 +507,84 @@ fn snap_to_segment_endpoints(polygon: &mut [(f64, f64)], segments: &[Segment]) {
             *vertex = pos;
         }
     }
+}
+
+/// Snap segment vertices to canonical divline intersection points in-place.
+/// Since segments store `MapPtr<Vec2>` into `vertexes`, modifying `vertexes[i]`
+/// is immediately visible through all segment and linedef references.
+///
+/// **Case A** — linedef endpoint: snap to nearest canonical intersection point.
+/// **Case B** — BSP-split vertex: project onto parent linedef's v1→v2 line in f64.
+pub fn snap_vertices_to_canonical(
+    vertexes: &mut [Vec2],
+    linedefs: &[LineDef],
+    cache: &IntersectionCache,
+    wad: &WadData,
+    map_name: &str,
+    extended: Option<&WadExtendedMap>,
+) {
+    let start = Instant::now();
+    let mut hit = vec![false; vertexes.len()];
+    let mut snapped_endpoints = 0u32;
+    let mut projected_splits = 0u32;
+
+    let mut process_seg = |seg: WadSegment| {
+        let v_indices = [seg.start_vertex as usize, seg.end_vertex as usize];
+        let ld = &linedefs[seg.linedef as usize];
+        let ld_v1_idx = ld.v1.as_ptr() as usize;
+        let ld_v2_idx = ld.v2.as_ptr() as usize;
+        let base = vertexes.as_ptr() as usize;
+        let stride = std::mem::size_of::<Vec2>();
+        let ld_v1i = (ld_v1_idx - base) / stride;
+        let ld_v2i = (ld_v2_idx - base) / stride;
+
+        for &v_idx in &v_indices {
+            if v_idx >= vertexes.len() || hit[v_idx] {
+                continue;
+            }
+            hit[v_idx] = true;
+
+            if v_idx == ld_v1i || v_idx == ld_v2i {
+                // Case A: linedef endpoint — snap to canonical
+                let vx = vertexes[v_idx].x as f64;
+                let vy = vertexes[v_idx].y as f64;
+                let (sx, sy) = cache.snap_vertex(vx, vy, CANONICAL_SNAP_DIST);
+                if sx != vx || sy != vy {
+                    vertexes[v_idx].x = sx as f32;
+                    vertexes[v_idx].y = sy as f32;
+                    snapped_endpoints += 1;
+                }
+            } else {
+                // Case B: BSP-split vertex — project onto linedef line in f64
+                let ldx = *ld.v1;
+                let ldy = *ld.v2;
+                let ld_dx = (ldy.x - ldx.x) as f64;
+                let ld_dy = (ldy.y - ldx.y) as f64;
+                let len_sq = ld_dx * ld_dx + ld_dy * ld_dy;
+                if len_sq > 1e-20 {
+                    let vx = vertexes[v_idx].x as f64 - ldx.x as f64;
+                    let vy = vertexes[v_idx].y as f64 - ldx.y as f64;
+                    let t = (vx * ld_dx + vy * ld_dy) / len_sq;
+                    vertexes[v_idx].x = (ldx.x as f64 + t * ld_dx) as f32;
+                    vertexes[v_idx].y = (ldx.y as f64 + t * ld_dy) as f32;
+                    projected_splits += 1;
+                }
+            }
+        }
+    };
+
+    if let Some(ext) = extended {
+        ext.segments.iter().for_each(|s| process_seg(s.clone()));
+    } else {
+        wad.segment_iter(map_name).for_each(process_seg);
+    }
+
+    info!(
+        "snap_vertices_to_canonical: {} endpoints snapped, {} splits projected ({:#?})",
+        snapped_endpoints,
+        projected_splits,
+        start.elapsed()
+    );
 }
 
 /// Generate a convex polygon for a subsector by clipping against BSP divlines
@@ -253,8 +607,8 @@ pub fn carve_subsector_polygon(segments: &[Segment], divlines: &[DivLine]) -> Ve
     let mut clippers: Vec<DivLine> = divlines.iter().rev().copied().collect();
 
     // Subsector boundary segments tighten the polygon to actual wall edges.
-    // With f64 + epsilon classification, collinear opposite-direction segments
-    // are handled naturally (on-line vertices classify as On, not Back).
+    // Segment vertices are already at canonical positions after the
+    // snap_vertices_to_canonical pass.
     for segment in segments {
         let dx = segment.v2.x as f64 - segment.v1.x as f64;
         let dy = segment.v2.y as f64 - segment.v1.y as f64;
@@ -272,7 +626,12 @@ pub fn carve_subsector_polygon(segments: &[Segment], divlines: &[DivLine]) -> Ve
     let mut clipped = clip_polygon(&initial, &clippers);
 
     cleanup_polygon(&mut clipped);
-    snap_to_segment_endpoints(&mut clipped, segments);
+
+    // Snap clipped polygon vertices to nearby segment endpoints.
+    // SH clipping can produce vertices slightly offset from the true
+    // endpoint even with f64 arithmetic. Segment endpoints are already
+    // at canonical positions from the snap_vertices_to_canonical pass.
+    // snap_to_segment_endpoints(&mut clipped, segments);
 
     clipped
 }
@@ -329,6 +688,7 @@ fn extract_sector_boundary_from_segments(segments: &[Segment]) -> Vec<(f64, f64)
 pub fn carve_subsector_polygons_2d(
     root_node: u32,
     nodes: &[Node],
+    corrected_divlines: &[DivLine],
     subsectors: &[SubSector],
     segments: &[Segment],
 ) -> Vec<Vec<(f64, f64)>> {
@@ -336,6 +696,7 @@ pub fn carve_subsector_polygons_2d(
     carve_2d_recursive(
         root_node,
         nodes,
+        corrected_divlines,
         subsectors,
         segments,
         Vec::new(),
@@ -348,6 +709,7 @@ pub fn carve_subsector_polygons_2d(
 fn carve_2d_recursive(
     node_id: u32,
     nodes: &[Node],
+    corrected_divlines: &[DivLine],
     subsectors: &[SubSector],
     segments: &[Segment],
     divlines: Vec<DivLine>,
@@ -367,13 +729,19 @@ fn carve_2d_recursive(
             }
         }
     } else if let Some(node) = nodes.get(node_id as usize) {
-        let node_divline = DivLine::from_node(node);
+        let nid = node_id as usize;
+        let node_divline = if nid < corrected_divlines.len() {
+            corrected_divlines[nid]
+        } else {
+            DivLine::from_node(node)
+        };
 
         let mut right_divlines = divlines.clone();
         right_divlines.push(node_divline);
         carve_2d_recursive(
             node.children[0],
             nodes,
+            corrected_divlines,
             subsectors,
             segments,
             right_divlines,
@@ -389,6 +757,7 @@ fn carve_2d_recursive(
         carve_2d_recursive(
             node.children[1],
             nodes,
+            corrected_divlines,
             subsectors,
             segments,
             left_divlines,
