@@ -6,9 +6,6 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
-[features]
-wave_precision = []
-
 [dependencies]
 
 [dev-dependencies]

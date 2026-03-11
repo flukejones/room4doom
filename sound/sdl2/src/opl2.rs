@@ -1,3 +1,4 @@
+use log::warn;
 use opl2_emulator::{Chip, init_tables};
 use sdl2::AudioSubsystem;
 use sdl2::audio::{AudioCallback, AudioDevice, AudioSpecDesired};
@@ -11,6 +12,10 @@ const GENMIDI_FLAG_FIXED: u16 = 0x0001;
 const GENMIDI_FLAG_2VOICE: u16 = 0x0004;
 
 const OPL_CHANNELS: usize = 9;
+
+/// GZDoom normalizes OPL output by dividing by 10240.0 for float [-1,1].
+/// For i16 output: 32767.0 / 10240.0 ≈ 3.2.
+const OPL_OUTPUT_SCALE: f32 = 32767.0 / 10240.0;
 
 const VOLUME_MAPPING_TABLE: [u8; 128] = [
     0, 1, 3, 5, 6, 8, 10, 11, 13, 14, 16, 17, 19, 20, 22, 23, 25, 26, 27, 29, 30, 32, 33, 34, 36,
@@ -192,9 +197,15 @@ struct OplNote {
 
 #[derive(Debug, Clone, Copy)]
 struct ChannelData {
+    /// MIDI CC7 channel volume (0-127).
     volume: u8,
+    /// MIDI CC11 expression (0-127).
+    expression: u8,
+    /// Current program/instrument number.
     program: u8,
+    /// Whether sustain pedal is active.
     sustain: bool,
+    /// Pitch bend offset (-64..+63).
     bend: i32,
 }
 
@@ -202,6 +213,7 @@ impl Default for ChannelData {
     fn default() -> Self {
         Self {
             volume: 127,
+            expression: 127,
             program: 0,
             sustain: false,
             bend: 0,
@@ -245,15 +257,30 @@ struct OplPlayerState {
     main_instruments: Vec<GenmidiInstrument>,
     percussion_instruments: Vec<GenmidiInstrument>,
     channels: [ChannelData; 16],
-    music_volume: u8,
     volume: i32,
 }
 
 impl OplPlayerState {
     fn new(sample_rate: u32, use_opl3: bool, wad: &WadData) -> Self {
         init_tables();
-        let mut chip = Chip::new(use_opl3);
+        let mut chip = Chip::new();
         chip.setup(sample_rate);
+
+        // Initialize all registers like Chocolate Doom's OPL_InitRegisters
+        // Set all operator levels to max attenuation (silent)
+        for r in 0x40..=0x55 {
+            chip.write_reg(r, 0x3F);
+        }
+        // Clear attack/decay, sustain/release, and waveform registers
+        for r in 0x60..=0xF5 {
+            chip.write_reg(r, 0x00);
+        }
+        // Clear low registers (tremolo depth, vibrato depth, etc.)
+        for r in 1..0x40 {
+            chip.write_reg(r, 0x00);
+        }
+        // Enable waveform selection (reg 0x01 bit 5)
+        chip.write_reg(0x01, 0x20);
 
         let (main_instruments, percussion_instruments) = Self::load_genmidi(wad);
 
@@ -272,8 +299,7 @@ impl OplPlayerState {
             main_instruments,
             percussion_instruments,
             channels: [ChannelData::default(); 16],
-            music_volume: 100,
-            volume: 64,
+            volume: 128,
         }
     }
 
@@ -669,11 +695,15 @@ impl OplPlayerState {
             .write_reg(0xC0 + opl_channel as u32, voice.feedback | 0x30);
     }
 
+    /// Compute and write operator volume registers for a voice.
+    /// Matches GZDoom's WriteVolume: vol1*vol2*vol3/(127*127) through
+    /// volumetable, then scale by instrument carrier/modulator levels.
     fn set_voice_volume(
         &mut self,
         opl_channel: usize,
         note_volume: u8,
         channel_volume: u8,
+        expression: u8,
         instrument: &GenmidiInstrument,
         voice_num: usize,
     ) -> u8 {
@@ -688,25 +718,66 @@ impl OplPlayerState {
         };
         let op2_offset = op1_offset + 3;
 
-        let mapped_note_vol = VOLUME_MAPPING_TABLE[note_volume.min(127) as usize];
-        let mapped_chan_vol = VOLUME_MAPPING_TABLE[channel_volume.min(127) as usize];
-        let mapped_music_vol = VOLUME_MAPPING_TABLE[self.music_volume.min(127) as usize];
+        // GZDoom: vol1 * vol2 * vol3 / (127 * 127), clamped to 127, then
+        // through volume mapping table
+        let combined =
+            (channel_volume as u32 * expression as u32 * note_volume as u32) / (127 * 127);
+        let combined = combined.min(127) as usize;
+        let full_volume = VOLUME_MAPPING_TABLE[combined] as u32;
 
-        let full_volume =
-            (mapped_note_vol as u32 * mapped_chan_vol as u32 * mapped_music_vol as u32)
-                / (127 * 127);
-
-        let op_volume = 0x3F - (voice.carrier.level & 0x3F);
-        let reg_volume = ((op_volume as u32 * full_volume) / 128) as u8;
-        let final_volume = (0x3F - reg_volume) | (voice.carrier.scale & 0xC0);
+        // Carrier: scale by instrument's carrier level
+        // GZDoom: reg = 0x3F - ((0x3F - carrier.level) * full_volume / 128)
+        let car_level = (0x3F - (voice.carrier.level & 0x3F)) as u32;
+        let car_reg = 0x3F - (car_level * full_volume / 128) as u8;
+        let final_volume = car_reg | (voice.carrier.scale & 0xC0);
 
         self.chip.write_reg(0x40 + op2_offset as u32, final_volume);
 
+        // Additive (AM) mode: modulator also carries signal, scale it too
         if (voice.feedback & 0x01) != 0 {
-            self.chip.write_reg(0x40 + op1_offset as u32, final_volume);
+            let mod_level = (0x3F - (voice.modulator.level & 0x3F)) as u32;
+            let mod_reg = 0x3F - (mod_level * full_volume / 128) as u8;
+            let mod_final = mod_reg | (voice.modulator.scale & 0xC0);
+            self.chip.write_reg(0x40 + op1_offset as u32, mod_final);
         }
 
         final_volume
+    }
+
+    /// Refresh OPL volume registers for all voices on a MIDI channel.
+    fn refresh_channel_volumes(&mut self, midi_channel: u8) {
+        let chan = self.channels[midi_channel as usize];
+        let updates: Vec<_> = self
+            .playing_notes
+            .iter()
+            .filter(|n| n.midi_channel == midi_channel)
+            .map(|n| {
+                (
+                    n.opl_channel,
+                    n.note_volume,
+                    n.current_instrument,
+                    n.instrument_voice,
+                )
+            })
+            .collect();
+
+        for (opl_channel, note_volume, instrument, voice_num) in updates {
+            let reg_volume = self.set_voice_volume(
+                opl_channel,
+                note_volume,
+                chan.volume,
+                chan.expression,
+                &instrument,
+                voice_num,
+            );
+
+            for note in &mut self.playing_notes {
+                if note.opl_channel == opl_channel {
+                    note.reg_volume = reg_volume;
+                    break;
+                }
+            }
+        }
     }
 
     fn calculate_note_frequency(
@@ -721,14 +792,14 @@ impl OplPlayerState {
         let actual_note = if (instrument.flags & GENMIDI_FLAG_FIXED) != 0 {
             instrument.fixed_note
         } else {
-            let offset = voice.base_note_offset;
-            let note_with_offset = (note as i32 + offset as i32) as u8;
-
-            if note_with_offset > 0x7F {
-                note
-            } else {
-                note_with_offset
+            let mut n = note as i32 + voice.base_note_offset as i32;
+            while n < 0 {
+                n += 12;
             }
+            while n > 95 {
+                n -= 12;
+            }
+            n as u8
         };
 
         let mut freq_index = 64 + (32 * actual_note as i32) + self.channels[channel as usize].bend;
@@ -805,6 +876,7 @@ impl OplPlayerState {
                 opl_channel,
                 velocity,
                 channel_data.volume,
+                channel_data.expression,
                 instrument,
                 voice_num,
             );
@@ -952,41 +1024,14 @@ impl OplPlayerState {
                     let event_channel = event.channel;
                     match event.data1 {
                         7 => {
-                            // Channel volume
-                            let new_volume = event.data2;
-                            self.channels[event_channel as usize].volume = new_volume;
-
-                            // Update all active voices on this channel
-                            let updates: Vec<_> = self
-                                .playing_notes
-                                .iter()
-                                .filter(|n| n.midi_channel == event_channel)
-                                .map(|n| {
-                                    (
-                                        n.opl_channel,
-                                        n.note_volume,
-                                        n.current_instrument,
-                                        n.instrument_voice,
-                                    )
-                                })
-                                .collect();
-
-                            for (opl_channel, note_volume, instrument, voice_num) in updates {
-                                let reg_volume = self.set_voice_volume(
-                                    opl_channel,
-                                    note_volume,
-                                    new_volume,
-                                    &instrument,
-                                    voice_num,
-                                );
-
-                                for note in &mut self.playing_notes {
-                                    if note.opl_channel == opl_channel {
-                                        note.reg_volume = reg_volume;
-                                        break;
-                                    }
-                                }
-                            }
+                            // Channel volume (CC7)
+                            self.channels[event_channel as usize].volume = event.data2;
+                            self.refresh_channel_volumes(event_channel);
+                        }
+                        11 => {
+                            // Expression (CC11)
+                            self.channels[event_channel as usize].expression = event.data2;
+                            self.refresh_channel_volumes(event_channel);
                         }
                         64 => {
                             // Sustain pedal (CC64)
@@ -1084,6 +1129,7 @@ impl OplPlayerState {
                 }
 
                 self.midi_track.reset();
+                self.channels = [ChannelData::default(); 16];
             } else {
                 self.is_playing = false;
             }
@@ -1109,9 +1155,8 @@ impl OplPlayerState {
             let mut opl_sample = [0i32; 1];
             self.chip.generate_block_2(1, &mut opl_sample);
 
-            // Apply volume and clamp to i16 range
-            let scaled = (opl_sample[0] * self.volume) / 128;
-            *sample = scaled.clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+            let scaled = opl_sample[0] as f32 * OPL_OUTPUT_SCALE * (self.volume as f32 / 128.0);
+            *sample = scaled.clamp(i16::MIN as f32, i16::MAX as f32) as i16;
         }
     }
 }
@@ -1152,12 +1197,26 @@ impl OplPlayer {
 
         let state = Arc::new(Mutex::new(OplPlayerState::new(44100, use_opl3, wad)));
         let callback_state = Arc::clone(&state);
-        let volume = Arc::new(Mutex::new(64));
+        let volume = Arc::new(Mutex::new(128));
         let callback_volume = Arc::clone(&volume);
 
-        let device = audio.open_playback(None, &desired_spec, |_spec| OplAudioCallback {
-            state: callback_state,
-            volume: callback_volume,
+        let device = audio.open_playback(None, &desired_spec, |spec| {
+            // Reinitialize with actual obtained sample rate
+            if spec.freq != 44100 {
+                warn!(
+                    "[OPL] requested 44100 Hz, got {} Hz — reinitializing",
+                    spec.freq
+                );
+                if let Ok(mut s) = callback_state.lock() {
+                    s.chip.setup(spec.freq as u32);
+                    s.sample_rate = spec.freq as u32;
+                    s.calculate_timing();
+                }
+            }
+            OplAudioCallback {
+                state: Arc::clone(&callback_state),
+                volume: callback_volume,
+            }
         })?;
 
         Ok(Self {
@@ -1206,29 +1265,31 @@ impl OplPlayer {
         }
 
         if let Ok(mut state) = self.state.lock() {
-            let music_vol = ((volume * 127) / 128).clamp(0, 127) as u8;
-            state.music_volume = music_vol;
-
             // Update all active voices
             let updates: Vec<_> = state
                 .playing_notes
                 .iter()
                 .map(|n| {
+                    let ch = state.channels[n.midi_channel as usize];
                     (
                         n.opl_channel,
                         n.note_volume,
-                        state.channels[n.midi_channel as usize].volume,
+                        ch.volume,
+                        ch.expression,
                         n.current_instrument,
                         n.instrument_voice,
                     )
                 })
                 .collect();
 
-            for (opl_channel, note_volume, channel_volume, instrument, voice_num) in updates {
+            for (opl_channel, note_volume, channel_volume, expression, instrument, voice_num) in
+                updates
+            {
                 let reg_volume = state.set_voice_volume(
                     opl_channel,
                     note_volume,
                     channel_volume,
+                    expression,
                     &instrument,
                     voice_num,
                 );
