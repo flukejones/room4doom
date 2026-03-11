@@ -1257,7 +1257,10 @@ impl MapViewerApp {
         ui.checkbox(&mut self.state.show_divlines, "Divlines (selected)");
         ui.checkbox(&mut self.state.show_all_portals, "All portals");
         ui.checkbox(&mut self.state.show_pvs_portals, "PVS highlight portals");
-        ui.checkbox(&mut self.state.show_map_polygon_edges, "Map polygon edges (red)");
+        ui.checkbox(
+            &mut self.state.show_map_polygon_edges,
+            "Map polygon edges (red)",
+        );
         ui.checkbox(&mut self.state.show_vertices, "Vertices");
         ui.separator();
 
