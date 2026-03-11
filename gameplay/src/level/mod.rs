@@ -64,7 +64,7 @@ pub struct Level {
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
     /// List of used buttons. Typically these buttons or switches are timed.
-    pub(super) button_list: Vec<Button>,
+    pub(crate) button_list: Vec<Button>,
     /// Scrolling walls
     pub(super) line_special_list: Vec<MapPtr<LineDef>>,
 
@@ -84,7 +84,7 @@ pub struct Level {
     /// Provides ability for things to start a sound
     pub(super) snd_command: SndServerTx,
 
-    active_platforms: Vec<*mut Platform>,
+    pub(crate) active_platforms: Vec<*mut Platform>,
     pub(crate) sky_num: usize,
 }
 
@@ -159,8 +159,13 @@ impl Level {
         }
     }
 
-    pub(super) fn add_active_platform(&mut self, platform: *mut Platform) {
+    pub(crate) fn add_active_platform(&mut self, platform: *mut Platform) {
         self.active_platforms.push(platform);
+    }
+
+    /// Clear active platforms list. Used by save/load.
+    pub fn clear_active_platforms(&mut self) {
+        self.active_platforms.clear();
     }
 
     /// # Safety

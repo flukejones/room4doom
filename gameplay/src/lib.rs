@@ -11,6 +11,7 @@
 
 use std::f32::consts::TAU;
 
+pub mod dirs;
 mod doom_def;
 pub(crate) mod env;
 #[rustfmt::skip]
@@ -20,6 +21,7 @@ mod level;
 mod pic;
 mod player;
 mod player_sprite;
+pub mod save;
 pub(crate) mod sector_ext;
 mod thing;
 mod thinker;

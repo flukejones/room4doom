@@ -25,12 +25,14 @@ impl GameTraits for Game {
         self.game_type.mode
     }
 
-    fn load_game(&mut self, _name: String) {
-        todo!()
+    fn load_game(&mut self, name: String) {
+        self.save_name = Some(name);
+        self.pending_action = GameAction::LoadGame;
     }
 
-    fn save_game(&mut self, _name: String, _slot: usize) {
-        todo!()
+    fn save_game(&mut self, name: String, _slot: usize) {
+        self.save_name = Some(name);
+        self.pending_action = GameAction::SaveGame;
     }
 
     fn toggle_pause_game(&mut self) {
