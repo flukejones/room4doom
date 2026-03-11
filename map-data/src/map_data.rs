@@ -3,14 +3,16 @@ use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
 use crate::map_defs::{
-    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector
+    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector,
 };
 
 use crate::MapPtr;
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::pvs::{PvsData, RenderPvs, pvs_load_from_cache};
-use crate::triangulation::{DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical};
+use crate::triangulation::{
+    DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical,
+};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
@@ -962,11 +964,25 @@ fn apply_linedef_correction(node: &mut Node, ld: &LineDef) -> Option<DivLine> {
 
     let v1x = ld.v1.x as f64;
     let v1y = ld.v1.y as f64;
+    let v2x = ld.v2.x as f64;
+    let v2y = ld.v2.y as f64;
     let ox = node.xy.x as f64 - v1x;
     let oy = node.xy.y as f64 - v1y;
     let t = (ox * ldx + oy * ldy) / ld_len_sq;
-    let px = v1x + t * ldx;
-    let py = v1y + t * ldy;
+    let mut px = v1x + t * ldx;
+    let mut py = v1y + t * ldy;
+    // Snap origin to nearest linedef endpoint if within threshold.
+    // Moving the origin along the line preserves the half-space partition.
+    const ENDPOINT_SNAP_SQ: f64 = 2.0 * 2.0;
+    let d1_sq = (px - v1x) * (px - v1x) + (py - v1y) * (py - v1y);
+    let d2_sq = (px - v2x) * (px - v2x) + (py - v2y) * (py - v2y);
+    if d1_sq < d2_sq && d1_sq < ENDPOINT_SNAP_SQ {
+        px = v1x;
+        py = v1y;
+    } else if d2_sq < ENDPOINT_SNAP_SQ {
+        px = v2x;
+        py = v2y;
+    }
 
     node.xy = Vec2::new(px as f32, py as f32);
     node.delta = Vec2::new(dx as f32, dy as f32);
