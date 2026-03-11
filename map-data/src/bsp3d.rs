@@ -2244,11 +2244,22 @@ impl BSP3D {
                     continue;
                 }
 
-                let already_present = verts.iter().any(|&vi| {
+                let matching_idx = verts.iter().position(|&vi| {
                     let v = self.vertices[vi];
                     (v.x - pt.x).abs() < DEDUP_EPSILON && (v.y - pt.y).abs() < DEDUP_EPSILON
                 });
-                if already_present {
+                if let Some(idx) = matching_idx {
+                    // Position already present — ensure index is shared with
+                    // wall vertices (expand_polygon may have created a
+                    // duplicate index at the same position).
+                    let current_vi = verts[idx];
+                    let target = Vec3::new(pt.x, pt.y, height);
+                    if let Some(shared_vi) = self.find_vertex_at_position(target, zh_fresh) {
+                        if shared_vi != current_vi {
+                            self.subsector_leaves[subsector_id].polygons[pi].vertices[idx] =
+                                shared_vi;
+                        }
+                    }
                     continue;
                 }
 
