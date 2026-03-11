@@ -48,7 +48,7 @@ const fn set_lookdirs(options: &CLIOptions) {
     unsafe {
         LOOKDIRMIN = BASELOOKDIRMIN;
         LOOKDIRMAX = BASELOOKDIRMAX;
-        if options.hi_res {
+        if matches!(options.hi_res, Some(true) | None) {
             LOOKDIRMAX *= 2;
             LOOKDIRMIN *= 2;
         }
@@ -106,7 +106,7 @@ pub fn d_doom_loop(
     set_lookdirs(&options);
     let debug_draw = options.debug_draw();
     let mut render_target = RenderTarget::new(
-        options.hi_res,
+        options.hi_res.unwrap_or(true),
         options.dev_parm,
         &debug_draw,
         canvas,
@@ -147,7 +147,7 @@ pub fn d_doom_loop(
                         // BEGIN SETUP
                         set_lookdirs(&options);
                         render_target = render_target.resize(
-                            options.hi_res,
+                            options.hi_res.unwrap_or(true),
                             options.dev_parm,
                             &debug_draw,
                             options.rendering.unwrap_or_default().into(),
