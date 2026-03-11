@@ -50,6 +50,7 @@ pub struct ViewerData {
     /// `None` when loaded from cache (no mightsee data available).
     pvs_any: Option<Box<dyn Any + Send>>,
     divlines: Vec<ViewDivline>,
+    vertices: Vec<ViewVertex>,
     /// For each subsector, the indices into `divlines` on its root-to-leaf
     /// path.
     ss_divline_path: Vec<Vec<usize>>,
@@ -93,6 +94,12 @@ struct ViewDivline {
     dir: Vec2,
 }
 
+struct ViewVertex {
+    index: usize,
+    pos: Vec2,
+    linedef_ids: Vec<usize>,
+}
+
 // ── Data extraction ──
 
 pub fn extract_viewer_data(
@@ -133,6 +140,28 @@ pub fn extract_viewer_data(
             is_mover: map_data::bsp3d::is_sector_mover(s, &map_data.linedefs)
                 || (s.ceilingheight - s.floorheight).abs() < 0.5,
         })
+        .collect();
+
+    // Build vertex list with linedef associations (by position key).
+    let pos_key = |v: Vec2| -> (u32, u32) { (v.x.to_bits(), v.y.to_bits()) };
+    let pos_to_vidx: std::collections::HashMap<(u32, u32), usize> =
+        map_data.vertexes.iter().enumerate().map(|(i, &v)| (pos_key(v), i)).collect();
+    // Some linedefs may reference vertices not in vertexes (BSP-split verts) — ignore those.
+    let mut vert_ld_ids: Vec<Vec<usize>> = vec![Vec::new(); map_data.vertexes.len()];
+    for ld in &linedefs {
+        if let Some(&vi) = pos_to_vidx.get(&pos_key(ld.v1)) {
+            vert_ld_ids[vi].push(ld.index);
+        }
+        if let Some(&vi) = pos_to_vidx.get(&pos_key(ld.v2)) {
+            vert_ld_ids[vi].push(ld.index);
+        }
+    }
+    drop(pos_to_vidx);
+    let vertices: Vec<ViewVertex> = map_data
+        .vertexes
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| ViewVertex { index: i, pos: v, linedef_ids: std::mem::take(&mut vert_ld_ids[i]) })
         .collect();
 
     let carved = &map_data.bsp_3d.carved_polygons;
@@ -226,6 +255,7 @@ pub fn extract_viewer_data(
         linedefs,
         sectors,
         subsectors,
+        vertices,
         portals,
         pvs: pvs_data,
         pvs_any,
@@ -530,9 +560,12 @@ struct ViewState {
     show_divlines: bool,
     show_all_portals: bool,
     show_pvs_portals: bool,
+    show_map_polygon_edges: bool,
+    show_vertices: bool,
     selected_subsector: Option<usize>,
     hovered_linedef: Option<usize>,
     hovered_subsector: Option<usize>,
+    hovered_vertex: Option<usize>,
     /// When true, selection is pinned and does not follow the mouse.
     pinned: bool,
     is_dragging: bool,
@@ -554,9 +587,12 @@ impl Default for ViewState {
             show_divlines: true,
             show_all_portals: false,
             show_pvs_portals: false,
+            show_map_polygon_edges: false,
+            show_vertices: false,
             selected_subsector: None,
             hovered_linedef: None,
             hovered_subsector: None,
+            hovered_vertex: None,
             pinned: false,
             is_dragging: false,
             drag_tool: DragTool::None,
@@ -831,6 +867,7 @@ impl MapViewerApp {
     fn update_hover(&mut self, vc: Pos2, pointer_pos: Option<Pos2>) {
         self.state.hovered_linedef = None;
         self.state.hovered_subsector = None;
+        self.state.hovered_vertex = None;
 
         let Some(pointer) = pointer_pos else {
             return;
@@ -844,6 +881,18 @@ impl MapViewerApp {
             if dist < best_dist {
                 best_dist = dist;
                 self.state.hovered_linedef = Some(ld.index);
+            }
+        }
+
+        if self.state.show_vertices {
+            let vx_threshold = 6.0 / self.state.zoom;
+            let mut best_vx_dist = vx_threshold;
+            for vx in &self.data.vertices {
+                let dist = (mouse_map - vx.pos).length();
+                if dist < best_vx_dist {
+                    best_vx_dist = dist;
+                    self.state.hovered_vertex = Some(vx.index);
+                }
             }
         }
 
@@ -878,6 +927,18 @@ impl MapViewerApp {
 
         if self.state.show_subsectors {
             let stroke = Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 200, 0, 120));
+            for ss in &self.data.subsectors {
+                let n = ss.vertices.len();
+                for i in 0..n {
+                    let p1 = self.map_to_screen(ss.vertices[i], vc);
+                    let p2 = self.map_to_screen(ss.vertices[(i + 1) % n], vc);
+                    painter.line_segment([p1, p2], stroke);
+                }
+            }
+        }
+
+        if self.state.show_map_polygon_edges {
+            let stroke = Stroke::new(1.0, Color32::from_rgba_unmultiplied(220, 60, 60, 200));
             for ss in &self.data.subsectors {
                 let n = ss.vertices.len();
                 for i in 0..n {
@@ -948,6 +1009,26 @@ impl MapViewerApp {
                     (0.5, Color32::from_gray(120))
                 };
                 painter.line_segment([p1, p2], Stroke::new(width, color));
+            }
+        }
+
+        if self.state.show_vertices {
+            for vx in &self.data.vertices {
+                let sp = self.map_to_screen(vx.pos, vc);
+                let is_hovered = self.state.hovered_vertex == Some(vx.index);
+                let (radius, color) = if is_hovered {
+                    (5.0, Color32::from_rgb(255, 220, 50))
+                } else {
+                    (2.5, Color32::from_rgba_unmultiplied(180, 180, 255, 200))
+                };
+                painter.circle_filled(sp, radius, color);
+                if is_hovered {
+                    painter.circle_stroke(
+                        sp,
+                        radius + 2.0,
+                        Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 220, 50, 120)),
+                    );
+                }
             }
         }
 
@@ -1167,6 +1248,8 @@ impl MapViewerApp {
         ui.checkbox(&mut self.state.show_divlines, "Divlines (selected)");
         ui.checkbox(&mut self.state.show_all_portals, "All portals");
         ui.checkbox(&mut self.state.show_pvs_portals, "PVS highlight portals");
+        ui.checkbox(&mut self.state.show_map_polygon_edges, "Map polygon edges (red)");
+        ui.checkbox(&mut self.state.show_vertices, "Vertices");
         ui.separator();
 
         ui.heading("Debug Tools");
@@ -1253,6 +1336,27 @@ impl MapViewerApp {
                     (val, format!("{:<5}", ld.special)),
                     (lbl, " tag:".into()),
                     (val, format!("{:<5}", ld.tag)),
+                ];
+                lines.push(spans);
+            }
+        }
+
+        if let Some(vid) = self.state.hovered_vertex {
+            if let Some(vx) = self.data.vertices.get(vid) {
+                let lbl = Color32::from_rgb(180, 255, 180);
+                let ld_list: String = vx
+                    .linedef_ids
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let spans = vec![
+                    (lbl, "VX:".into()),
+                    (val, format!("{:<5}", vid)),
+                    (lbl, " pos:".into()),
+                    (val, format!("({:.1},{:.1})", vx.pos.x, vx.pos.y)),
+                    (lbl, "  ld:".into()),
+                    (val, if ld_list.is_empty() { "none".into() } else { ld_list }),
                 ];
                 lines.push(spans);
             }
