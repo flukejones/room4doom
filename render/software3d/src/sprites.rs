@@ -8,7 +8,9 @@ use crate::Software3D;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
-const FRAME_ROT_OFFSET: f32 = FRAC_PI_2 / 4.0;
+/// Rotation bin offset: 9 * (π/8) = 202.5° matches original Doom's
+/// `(ANG45/2) * 9` which centers each 45° bin via unsigned wrapping.
+const FRAME_ROT_OFFSET: f32 = 9.0 * FRAC_PI_2 / 4.0;
 const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 
 /// Info needed to build and render a sprite billboard quad
@@ -119,7 +121,7 @@ impl Software3D {
         // Get patch and flip based on rotation
         let (patch_index, flip) = if sprite_frame.rotate == 1 {
             let player_mobj = unsafe { &*player_mobj_ptr };
-            let angle = point_to_angle_2(player_mobj.xy, thing.xy);
+            let angle = point_to_angle_2(thing.xy, player_mobj.xy);
             let rot = ((angle - thing.angle + FRAME_ROT_OFFSET).rad()) * FRAME_ROT_SELECT;
             let rot = rot as u32 as usize % 8;
             (
