@@ -208,7 +208,11 @@ impl Software3D {
         };
 
         // Project the thing's center to check if it's in front of the camera
-        let clip = *view_proj * Vec4::new(thing.xy.x, thing.xy.y, thing.z, 1.0);
+        // (camera-relative to avoid catastrophic cancellation)
+        let rel_x = thing.xy.x - player_pos.x;
+        let rel_y = thing.xy.y - player_pos.y;
+        let rel_z = thing.z - player_pos.z;
+        let clip = *view_proj * Vec4::new(rel_x, rel_y, rel_z, 1.0);
         if clip.w <= 0.0 {
             return None;
         }
@@ -251,9 +255,11 @@ impl Software3D {
             let mut input_vertices = [Vec4::ZERO; 3];
             let mut input_tex_coords = [Vec3::ZERO; 3];
 
+            let cp = self.camera_pos;
             for (i, &vi) in tri.iter().enumerate() {
                 let world = quad.world_verts[vi];
-                let clip_pos = view_proj * Vec4::new(world.x, world.y, world.z, 1.0);
+                let rel = world - cp;
+                let clip_pos = view_proj * Vec4::new(rel.x, rel.y, rel.z, 1.0);
                 let uv = quad.uvs[vi];
                 input_vertices[i] = clip_pos;
                 input_tex_coords[i] = Vec3::new(uv.x, uv.y, clip_pos.w);
