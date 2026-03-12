@@ -678,7 +678,13 @@ impl BSP3D {
                             sky_num,
                         );
                     } else {
-                        self.create_one_sided_wall(segment, front_sector, subsector_id, vertex_map);
+                        self.create_one_sided_wall(
+                            segment,
+                            front_sector,
+                            subsector_id,
+                            vertex_map,
+                            sky_num,
+                        );
                     }
                 }
 
@@ -716,8 +722,9 @@ impl BSP3D {
         // Sky hack: suppress upper wall between two sky-ceiling sectors and
         // lower wall between two sky-floor sectors (matches original Doom
         // r_segs.c behaviour).
-        let both_sky_ceil = sky_num
-            .is_some_and(|sky| front_sector.ceilingpic == sky && back_sector.ceilingpic == sky);
+        let front_sky_ceil = sky_num.is_some_and(|sky| front_sector.ceilingpic == sky);
+        let both_sky_ceil =
+            sky_num.is_some_and(|sky| front_sky_ceil && back_sector.ceilingpic == sky);
         let both_sky_floor =
             sky_num.is_some_and(|sky| front_sector.floorpic == sky && back_sector.floorpic == sky);
 
@@ -741,6 +748,19 @@ impl BSP3D {
                     );
                 }
             }
+        } else if front_sky_ceil && back_sector.ceilingheight <= front_sector.ceilingheight {
+            self.add_wall_quad(
+                segment,
+                back_sector.ceilingheight,
+                front_sector.ceilingheight,
+                WallType::Upper,
+                sky_num.unwrap(),
+                front_id,
+                false,
+                front_subsector_id,
+                Some(back_id),
+                vertex_map,
+            );
         }
 
         // Lower wall: create if bottomtexture exists and back floor is at or
@@ -790,6 +810,7 @@ impl BSP3D {
         front_sector: &Sector,
         front_subsector_id: usize,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         if let Some(texture) = segment.sidedef.midtexture {
             let front_id = front_sector.num as usize;
@@ -1001,6 +1022,10 @@ impl BSP3D {
         // Sky flats are rendered as a full-screen backdrop pass, not as
         // per-subsector polygons. Skip creation so they don't consume depth
         // buffer or rendering time.
+        // NOTE: disabled while testing methods to improve this.
+        // really need to add sky polys but then merge them all in to one big poly
+        // where possible. Another issue is sprite poly are clipped against sky
+        // at the moment.
         let skip_floor = sky_num.is_some_and(|sky| subsector.sector.floorpic == sky);
         let skip_ceil = sky_num.is_some_and(|sky| subsector.sector.ceilingpic == sky);
 
