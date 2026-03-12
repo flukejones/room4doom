@@ -5,7 +5,7 @@ use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic, WallType}
 use glam::Vec2;
 use render_trait::DrawBuffer;
 
-use crate::{DebugColourMode, Software3D, sky};
+use crate::{DebugColourMode, Software3D, depth_buffer::SKY_DEPTH, sky};
 
 /// Sample a single sky pixel from the combined RGBA buffer, returning the
 /// colour or `None` for transparent (alpha = 0).
@@ -114,7 +114,7 @@ impl<'a> TextureSampler<'a> {
                 texture: Some(tex_id),
                 ..
             } => {
-                if *tex_id == sky_pic {
+                if *tex_id == sky_num || *tex_id == sky_pic {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.wall_pic(*tex_id);
@@ -133,7 +133,7 @@ impl<'a> TextureSampler<'a> {
                 texture,
                 ..
             } => {
-                if *texture == sky_num {
+                if *texture == sky_num || *texture == sky_pic {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.get_flat(*texture);
@@ -552,7 +552,8 @@ impl Software3D {
                         // Clamp per-pixel: edge interpolation can drift negative
                         // on thin scanlines with large inv_w_dx
                         let test_inv_w = edge_inv_w.max(MIN_GEOMETRY_DEPTH);
-                        if test_inv_w > self.depth_buffer.peek_depth_unchecked(x, y) {
+                        let peek = self.depth_buffer.peek_depth_unchecked(x, y);
+                        if test_inv_w > peek && peek != SKY_DEPTH {
                             break;
                         }
                         interp_state.step_x();
