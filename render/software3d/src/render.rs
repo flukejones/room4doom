@@ -45,6 +45,11 @@ pub(crate) fn sample_sky_pixel(
     if c[3] == 0 { None } else { Some(c) }
 }
 
+/// Minimum depth for real geometry. Must exceed `SKY_DEPTH` (f32::EPSILON)
+/// so that distant polygons clamped to this value still pass the depth test
+/// against sky pixels.
+const MIN_GEOMETRY_DEPTH: f32 = 1.0e-6;
+
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
@@ -263,7 +268,7 @@ impl TriangleInterpolator {
             let v2 = screen_verts[2];
 
             let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
-            if denom.abs() < 0.001 {
+            if denom.abs() < f32::EPSILON {
                 return None;
             }
             let da_dx = (v1.y - v2.y) / denom;
@@ -298,7 +303,7 @@ impl TriangleInterpolator {
             let v2 = screen_verts[i + 1];
 
             let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
-            if denom.abs() < 0.001 {
+            if denom.abs() < f32::EPSILON {
                 continue;
             }
 
@@ -450,8 +455,8 @@ impl Software3D {
         let height_f32 = self.height as f32;
 
         // Pre-compute bounds
-        let y_start = bounds.0.y.max(0.0) as u32 as usize;
-        let y_end = bounds.1.y.min(height_f32 - 1.0) as u32 as usize;
+        let y_start = bounds.0.y.max(0.0).ceil() as u32 as usize;
+        let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
 
         let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
         let mut did_draw = false;
@@ -521,6 +526,13 @@ impl Software3D {
                 (inv_w_at_x0, 0.0)
             };
 
+            // Clamp inv_w to a small positive floor — edge interpolation can
+            // drift slightly negative at polygon boundaries due to FP rounding,
+            // which would cause the skip loop to eat visible edge pixels.
+            if edge_inv_w < MIN_GEOMETRY_DEPTH {
+                edge_inv_w = MIN_GEOMETRY_DEPTH;
+            }
+
             if is_sky {
                 // Sky polygon: depth-only pass. Write SKY_DEPTH to mark pixels
                 // for the full-screen sky fill pass. No pixel drawing here —
@@ -537,9 +549,10 @@ impl Software3D {
                 while x <= x_end {
                     // Skip occluded pixels quickly using a read-only depth peek
                     while x <= x_end {
-                        if edge_inv_w > 0.0
-                            && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
-                        {
+                        // Clamp per-pixel: edge interpolation can drift negative
+                        // on thin scanlines with large inv_w_dx
+                        let test_inv_w = edge_inv_w.max(MIN_GEOMETRY_DEPTH);
+                        if test_inv_w > self.depth_buffer.peek_depth_unchecked(x, y) {
                             break;
                         }
                         interp_state.step_x();
@@ -663,8 +676,8 @@ impl Software3D {
         let width_f32 = self.width as f32;
         let height_f32 = self.height as f32;
 
-        let y_start = bounds.0.y.max(0.0) as u32 as usize;
-        let y_end = bounds.1.y.min(height_f32 - 1.0) as u32 as usize;
+        let y_start = bounds.0.y.max(0.0).ceil() as u32 as usize;
+        let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
 
         let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
         let alpha = self.debug.options.alpha;
@@ -743,6 +756,10 @@ impl Software3D {
                 (inv_w_at_x0, 0.0)
             };
 
+            if edge_inv_w < MIN_GEOMETRY_DEPTH {
+                edge_inv_w = MIN_GEOMETRY_DEPTH;
+            }
+
             if is_sky {
                 // Sky polygon: depth-only pass. Write SKY_DEPTH to mark pixels
                 // for the full-screen sky fill pass.
@@ -759,9 +776,8 @@ impl Software3D {
                     // Skip occluded pixels (unless depth is disabled)
                     if !no_depth {
                         while x <= x_end {
-                            if edge_inv_w > 0.0
-                                && edge_inv_w > self.depth_buffer.peek_depth_unchecked(x, y)
-                            {
+                            let test_inv_w = edge_inv_w.max(MIN_GEOMETRY_DEPTH);
+                            if test_inv_w > self.depth_buffer.peek_depth_unchecked(x, y) {
                                 break;
                             }
                             interp_state.step_x();
@@ -930,8 +946,8 @@ impl Software3D {
         let width_f32 = self.width as f32;
         let height_f32 = self.height as f32;
 
-        let y_start = bounds.0.y.max(0.0) as u32 as usize;
-        let y_end = bounds.1.y.min(height_f32 - 1.0) as u32 as usize;
+        let y_start = bounds.0.y.max(0.0).ceil() as u32 as usize;
+        let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
 
         let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
 

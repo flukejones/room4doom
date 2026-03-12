@@ -1,7 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
+    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind,
+    SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use hud_util::{draw_text_line, hud_scale, measure_text_line};
@@ -640,10 +641,10 @@ impl Software3D {
             let sx2 = (c2.x / c2.w) * hw;
             let sy2 = (c2.y / c2.w) * hh;
             // 2x triangle area via cross product
-            let area = ((sx1 - sx0) * (sy2 - sy0) - (sx2 - sx0) * (sy1 - sy0)).abs();
-            if area < 2.0 {
-                return None;
-            }
+            // let area = ((sx1 - sx0) * (sy2 - sy0) - (sx2 - sx0) * (sy1 - sy0)).abs();
+            // if area < 0.1 {
+            //     return None;
+            // }
 
             // Hi-Z pre-check: reject if entirely behind existing geometry.
             // Convert NDC-space coords to screen pixels (Y flipped), take vertex
@@ -735,9 +736,13 @@ impl Software3D {
                 if inv_w > max_inv_w {
                     max_inv_w = inv_w;
                 }
-                let ndc = clip_pos * inv_w;
-                let mut screen_x = (ndc.x + 1.0) * 0.5 * w_f32;
-                let mut screen_y = (1.0 - ndc.y) * 0.5 * h_f32;
+                // Compute screen coords directly from clip-space to avoid
+                // catastrophic cancellation in (1.0 - ndc.y) when ndc.y ≈ 1.0
+                // (distant horizontal polygons near the horizon).
+                let half_w = 0.5 * w_f32;
+                let half_h = 0.5 * h_f32;
+                let mut screen_x = (clip_pos.x + clip_pos.w) * half_w * inv_w;
+                let mut screen_y = (clip_pos.w - clip_pos.y) * half_h * inv_w;
 
                 // Snap screen coordinates that are very close to screen boundaries
                 // to exact boundary values. Frustum clipping guarantees vertices lie
@@ -787,10 +792,10 @@ impl Software3D {
             return;
         }
 
-        // Cull sub-pixel polygons using the pre-computed AABB — O(1) vs O(N) shoelace.
-        // AABB area overestimates thin slivers, but those would produce no drawn pixels
-        // and be caught by the no-draw counter anyway.
-        if (scr_max_x - scr_min_x) * (scr_max_y - scr_min_y) < 1.0 {
+        // Cull truly sub-pixel polygons: both axes must be < 1px. Wide but
+        // thin slivers (sub-pixel height) still need rasterisation to avoid
+        // single-scanline gaps on edge-on horizontal polygons.
+        if (scr_max_x - scr_min_x) < 1.0 && (scr_max_y - scr_min_y) < 1.0 {
             self.stats.polygons_early_culled += 1;
             return;
         }

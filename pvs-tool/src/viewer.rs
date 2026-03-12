@@ -1,8 +1,7 @@
 use egui::{Color32, Mesh, Pos2, Stroke, Vec2 as EVec2};
 use glam::Vec2;
 use map_data::{
-    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, is_subsector,
-    pvs_load_from_cache, subsector_index,
+    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, is_subsector, pvs_load_from_cache, subsector_index
 };
 use std::any::Any;
 
