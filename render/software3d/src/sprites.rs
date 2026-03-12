@@ -275,13 +275,12 @@ impl Software3D {
 
                 if clip_pos.w > 0.0 {
                     let inv_w = 1.0 / clip_pos.w;
-                    let ndc = clip_pos * inv_w;
-                    let mut screen_x = (ndc.x + 1.0) * 0.5 * self.width as f32;
-                    let mut screen_y = (1.0 - ndc.y) * 0.5 * self.height as f32;
-
-                    // Screen-edge snap (same as render_surface_polygon)
                     let w_f32 = self.width as f32;
                     let h_f32 = self.height as f32;
+                    let half_w = 0.5 * w_f32;
+                    let half_h = 0.5 * h_f32;
+                    let mut screen_x = (clip_pos.x + clip_pos.w) * half_w * inv_w;
+                    let mut screen_y = (clip_pos.w - clip_pos.y) * half_h * inv_w;
                     const SNAP: f32 = 0.01;
                     if screen_x.abs() < SNAP {
                         screen_x = 0.0;
