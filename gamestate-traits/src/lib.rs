@@ -64,11 +64,18 @@ pub trait GameTraits {
     /// screens that Doom II doesn't have (for example).
     fn get_mode(&self) -> GameMode;
 
+    /// Current game state (Level, Intermission, etc.)
+    fn game_state(&self) -> GameState;
+
+    /// Read save slot descriptions. Returns array of Option<String> for each
+    /// slot (None = empty/no file, Some = description from header).
+    fn read_save_descriptions(&self) -> Vec<Option<String>>;
+
     /// Ask the game to load this save
     fn load_game(&mut self, name: String);
 
-    /// Ask the game to save to this slot with this name
-    fn save_game(&mut self, name: String, slot: usize);
+    /// Ask the game to save to this slot with this description
+    fn save_game(&mut self, name: String, description: String);
 
     /// Pauses the game-loop (generally stops gameplay input and thinkers
     /// running)

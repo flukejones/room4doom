@@ -241,6 +241,10 @@ fn d_display<R>(
                     }
                     if game.players[0].mobj().is_none() {
                         error!("Active console player has no MapObject, can't render player view");
+                        dbg!(game.players[0].mobj());
+                        dbg!(game.players[1].mobj());
+                        dbg!(game.players[2].mobj());
+                        dbg!(game.players[3].mobj());
                     } else {
                         let player = &game.players[game.consoleplayer];
                         render_target.render_player_view(player, level, &mut game.pic_data);
