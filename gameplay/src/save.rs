@@ -33,6 +33,7 @@ use crate::thinker::{Think, Thinker, ThinkerData};
 const SAVE_MAGIC: &[u8; 4] = b"R4DS";
 const SAVE_VERSION: u32 = 1;
 const HEADER_SIZE: usize = 64;
+const SAVE_DESCRIPTION_SIZE: usize = 24;
 
 // Thinker tags
 const TAG_MOBJ: u8 = 1;
@@ -234,6 +235,8 @@ impl<'a> SaveReader<'a> {
 
 struct SaveHeader {
     map_name: [u8; 8],
+    /// User-editable slot description (24 bytes, zero-padded).
+    description: [u8; SAVE_DESCRIPTION_SIZE],
     skill: Skill,
     episode: usize,
     map: usize,
@@ -255,8 +258,9 @@ fn write_header(w: &mut SaveWriter, h: &SaveHeader) {
     w.write_u32(h.game_tic);
     w.write_u8(h.prndindex);
     w.write_u8(h.rndindex);
-    // reserved (34 bytes to fill to 64)
-    let used = 4 + 4 + 8 + 1 + 1 + 1 + 1 + 4 + 4 + 1 + 1; // = 30
+    w.write_bytes(&h.description);
+    // remaining reserved bytes
+    let used = 4 + 4 + 8 + 1 + 1 + 1 + 1 + 4 + 4 + 1 + 1 + SAVE_DESCRIPTION_SIZE; // = 54
     let pad = HEADER_SIZE - used;
     for _ in 0..pad {
         w.write_u8(0);
@@ -283,10 +287,14 @@ fn read_header(r: &mut SaveReader) -> Result<SaveHeader, SaveError> {
     let game_tic = r.read_u32()?;
     let prndindex = r.read_u8()?;
     let rndindex = r.read_u8()?;
-    let used = 4 + 4 + 8 + 1 + 1 + 1 + 1 + 4 + 4 + 1 + 1;
+    let desc_bytes = r.read_bytes(SAVE_DESCRIPTION_SIZE)?;
+    let mut description = [0u8; SAVE_DESCRIPTION_SIZE];
+    description.copy_from_slice(desc_bytes);
+    let used = 4 + 4 + 8 + 1 + 1 + 1 + 1 + 4 + 4 + 1 + 1 + SAVE_DESCRIPTION_SIZE;
     r.skip(HEADER_SIZE - used)?;
     Ok(SaveHeader {
         map_name,
+        description,
         skill,
         episode,
         map,
@@ -1086,12 +1094,22 @@ fn load_level_stats(r: &mut SaveReader, level: &mut Level) -> Result<(), SaveErr
 
 // ── Public API ─────────────────────────────────────────────────────────
 
+/// Build a zero-padded description byte array from a string.
+pub fn description_to_bytes(desc: &str) -> [u8; SAVE_DESCRIPTION_SIZE] {
+    let mut buf = [0u8; SAVE_DESCRIPTION_SIZE];
+    let bytes = desc.as_bytes();
+    let len = bytes.len().min(SAVE_DESCRIPTION_SIZE);
+    buf[..len].copy_from_slice(&bytes[..len]);
+    buf
+}
+
 /// Serialize the current game state to bytes.
 pub fn save_game_to_bytes(
     level: &Level,
     players: &[Player],
     players_in_game: &[bool; MAXPLAYERS],
     game_tic: u32,
+    description: &str,
 ) -> Vec<u8> {
     let mut w = SaveWriter::new();
 
@@ -1105,6 +1123,7 @@ pub fn save_game_to_bytes(
         &mut w,
         &SaveHeader {
             map_name,
+            description: description_to_bytes(description),
             skill: level.options.skill,
             episode: level.options.episode,
             map: level.options.map,
@@ -1239,6 +1258,8 @@ pub fn save_game_to_bytes(
 /// Parsed save header — returned to the caller for level init.
 pub struct SaveGameHeader {
     pub map_name: String,
+    /// User-editable slot description.
+    pub description: String,
     pub skill: Skill,
     pub episode: usize,
     pub map: usize,
@@ -1248,14 +1269,24 @@ pub struct SaveGameHeader {
     pub rndindex: u8,
 }
 
+/// Extract a zero-terminated string from a fixed-size byte buffer.
+fn bytes_to_string(buf: &[u8]) -> String {
+    let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    String::from_utf8_lossy(&buf[..end]).to_string()
+}
+
 /// Parse header only (used to determine which level to load).
 pub fn parse_save_header(data: &[u8]) -> Result<SaveGameHeader, SaveError> {
     let mut r = SaveReader::new(data);
     let h = read_header(&mut r)?;
-    let name_end = h.map_name.iter().position(|&b| b == 0).unwrap_or(8);
-    let map_name = String::from_utf8_lossy(&h.map_name[..name_end]).to_string();
-    Ok(SaveGameHeader {
-        map_name,
+    Ok(header_to_public(&h))
+}
+
+/// Convert internal header to public SaveGameHeader.
+fn header_to_public(h: &SaveHeader) -> SaveGameHeader {
+    SaveGameHeader {
+        map_name: bytes_to_string(&h.map_name),
+        description: bytes_to_string(&h.description),
         skill: h.skill,
         episode: h.episode,
         map: h.map,
@@ -1263,7 +1294,7 @@ pub fn parse_save_header(data: &[u8]) -> Result<SaveGameHeader, SaveError> {
         game_tic: h.game_tic,
         prndindex: h.prndindex,
         rndindex: h.rndindex,
-    })
+    }
 }
 
 /// Apply saved state to an already-loaded level. The level must have been
@@ -1276,9 +1307,6 @@ pub fn load_game_from_bytes(
 ) -> Result<SaveGameHeader, SaveError> {
     let mut r = SaveReader::new(data);
     let h = read_header(&mut r)?;
-
-    let name_end = h.map_name.iter().position(|&b| b == 0).unwrap_or(8);
-    let map_name = String::from_utf8_lossy(&h.map_name[..name_end]).to_string();
 
     // Restore world geometry state
     load_world(&mut r, &mut level.map_data)?;
@@ -1305,16 +1333,5 @@ pub fn load_game_from_bytes(
     set_prndindex(h.prndindex as usize);
     set_rndindex(h.rndindex as usize);
 
-    let header = SaveGameHeader {
-        map_name,
-        skill: h.skill,
-        episode: h.episode,
-        map: h.map,
-        level_time: h.level_time,
-        game_tic: h.game_tic,
-        prndindex: h.prndindex,
-        rndindex: h.rndindex,
-    };
-
-    Ok(header)
+    Ok(header_to_public(&h))
 }

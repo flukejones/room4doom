@@ -27,7 +27,9 @@ use crate::subsystems::GameSubsystem;
 use gameplay::log::{debug, error, info, trace, warn};
 use gameplay::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use gameplay::{
-    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, save, spawn_specials, update_specials
+    GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player,
+    PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, save, spawn_specials,
+    update_specials,
 };
 use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
@@ -176,6 +178,8 @@ pub struct Game {
     pub paused: bool,
     /// Pending save/load filename (without extension)
     save_name: Option<String>,
+    /// User-editable description for the save slot
+    save_description: String,
 
     /// The options the game-exe exe was started with
     pub options: GameOptions,
@@ -385,6 +389,7 @@ impl Game {
             game_skill: Skill::default(),
             paused: false,
             save_name: None,
+            save_description: String::new(),
             options,
             sound_cmd: snd_tx,
             snd_thread: Some(snd_thread),
@@ -665,6 +670,13 @@ impl Game {
         self.options.map = header.map;
         self.game_skill = header.skill;
 
+        // Exit demo mode and enter normal gameplay
+        self.usergame = true;
+        self.paused = false;
+        self.demo.playback = false;
+        self.players_in_game.fill(false);
+        self.players_in_game[self.consoleplayer] = true;
+
         // Load the level geometry (this spawns default things/specials)
         self.do_load_level();
 
@@ -700,6 +712,7 @@ impl Game {
             }
         }
 
+        self.displayplayer = self.consoleplayer; // view the guy you are playing
         self.pending_action = GameAction::None;
     }
 
@@ -720,6 +733,7 @@ impl Game {
                 &self.players,
                 &self.players_in_game,
                 self.game_tic,
+                &self.save_description,
             );
 
             let dir = Self::save_dir();

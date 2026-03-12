@@ -1,6 +1,6 @@
 use crate::Game;
-use gameplay::{GameAction, GameMode, Skill, WorldEndPlayerInfo};
-use gamestate_traits::{GameTraits, PlayerStatus, WorldInfo};
+use gameplay::{GameAction, GameMode, Skill, WorldEndPlayerInfo, save};
+use gamestate_traits::{GameState, GameTraits, PlayerStatus, WorldInfo};
 use sound_traits::{EPISODE4_MUS, MusTrack, SfxName, SoundAction};
 use wad::WadData;
 
@@ -25,12 +25,33 @@ impl GameTraits for Game {
         self.game_type.mode
     }
 
+    fn game_state(&self) -> GameState {
+        self.gamestate
+    }
+
+    fn read_save_descriptions(&self) -> Vec<Option<String>> {
+        let dir = Self::save_dir();
+        (0..6)
+            .map(|i| {
+                let path = dir.join(format!("slot{i}.sav"));
+                let data = std::fs::read(&path).ok()?;
+                let header = save::parse_save_header(&data).ok()?;
+                if header.description.is_empty() {
+                    Some(header.map_name)
+                } else {
+                    Some(header.description)
+                }
+            })
+            .collect()
+    }
+
     fn load_game(&mut self, name: String) {
         self.save_name = Some(name);
         self.pending_action = GameAction::LoadGame;
     }
 
-    fn save_game(&mut self, name: String, _slot: usize) {
+    fn save_game(&mut self, name: String, description: String) {
+        self.save_description = description;
         self.save_name = Some(name);
         self.pending_action = GameAction::SaveGame;
     }
