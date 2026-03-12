@@ -270,6 +270,7 @@ pub struct Software3D {
     height_minus_one: f32,
     fov: f32,
     view_matrix: Mat4,
+    camera_pos: Vec3,
     projection_matrix: Mat4,
     depth_buffer: DepthBuffer,
     near_z: f32,
@@ -313,6 +314,7 @@ impl Software3D {
             height_minus_one: height - 1.0,
             fov,
             view_matrix: Mat4::IDENTITY,
+            camera_pos: Vec3::ZERO,
             projection_matrix: Mat4::IDENTITY,
             depth_buffer: DepthBuffer::new(width as usize, height as usize),
             near_z: near,
@@ -475,7 +477,12 @@ impl Software3D {
             );
             let up = Vec3::Z;
 
-            self.view_matrix = Mat4::look_at_rh(pos, pos + forward, up);
+            // Build rotation-only view matrix (camera at origin). Translation
+            // is applied separately in get_transformed_vertex by subtracting
+            // camera_pos before rotation. This avoids catastrophic cancellation
+            // when large world coords are baked into the matrix.
+            self.camera_pos = pos;
+            self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, up);
         }
     }
 
@@ -508,7 +515,10 @@ impl Software3D {
             let cache_entry = self.vertex_cache.get_unchecked_mut(vertex_idx);
             if !cache_entry.valid {
                 let vertex = bsp3d.vertex_get(vertex_idx);
-                let world_pos = Vec4::new(vertex.x, vertex.y, vertex.z, 1.0);
+                // Subtract camera position first to keep values small,
+                // avoiding catastrophic cancellation in the matrix multiply
+                let rel = vertex - self.camera_pos;
+                let world_pos = Vec4::new(rel.x, rel.y, rel.z, 1.0);
                 let view_pos = self.view_matrix * world_pos;
                 let clip_pos = self.projection_matrix * view_pos;
 
@@ -522,17 +532,26 @@ impl Software3D {
     }
 
     fn is_bbox_outside_fov(&self, bbox: &AABB) -> bool {
-        // Generate all 8 corners of the 3D bbox
+        // Generate all 8 corners of the 3D bbox (camera-relative)
         let view_projection = self.projection_matrix * self.view_matrix;
+        let cp = self.camera_pos;
         let clip_corners = [
-            view_projection * Vec4::new(bbox.min.x, bbox.min.y, bbox.min.z, 1.0),
-            view_projection * Vec4::new(bbox.max.x, bbox.min.y, bbox.min.z, 1.0),
-            view_projection * Vec4::new(bbox.max.x, bbox.max.y, bbox.min.z, 1.0),
-            view_projection * Vec4::new(bbox.min.x, bbox.max.y, bbox.min.z, 1.0),
-            view_projection * Vec4::new(bbox.min.x, bbox.min.y, bbox.max.z, 1.0),
-            view_projection * Vec4::new(bbox.max.x, bbox.min.y, bbox.max.z, 1.0),
-            view_projection * Vec4::new(bbox.max.x, bbox.max.y, bbox.max.z, 1.0),
-            view_projection * Vec4::new(bbox.min.x, bbox.max.y, bbox.max.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.min.x - cp.x, bbox.min.y - cp.y, bbox.min.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.max.x - cp.x, bbox.min.y - cp.y, bbox.min.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.max.x - cp.x, bbox.max.y - cp.y, bbox.min.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.min.x - cp.x, bbox.max.y - cp.y, bbox.min.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.min.x - cp.x, bbox.min.y - cp.y, bbox.max.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.max.x - cp.x, bbox.min.y - cp.y, bbox.max.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.max.x - cp.x, bbox.max.y - cp.y, bbox.max.z - cp.z, 1.0),
+            view_projection
+                * Vec4::new(bbox.min.x - cp.x, bbox.max.y - cp.y, bbox.max.z - cp.z, 1.0),
         ];
 
         // If bounding box is fully outside any frustum plane, cull immediately
@@ -827,10 +846,13 @@ impl Software3D {
             let normal_len = 12.0;
             let tip = center + polygon.normal * normal_len;
 
-            // Project both points to screen
+            // Project both points to screen (camera-relative)
             let vp = self.projection_matrix * self.view_matrix;
-            let c_clip = vp * Vec4::new(center.x, center.y, center.z, 1.0);
-            let t_clip = vp * Vec4::new(tip.x, tip.y, tip.z, 1.0);
+            let cp = self.camera_pos;
+            let c_rel = center - cp;
+            let t_rel = tip - cp;
+            let c_clip = vp * Vec4::new(c_rel.x, c_rel.y, c_rel.z, 1.0);
+            let t_clip = vp * Vec4::new(t_rel.x, t_rel.y, t_rel.z, 1.0);
 
             if c_clip.w > 0.0 && t_clip.w > 0.0 {
                 let w = self.width as f32;
@@ -1254,7 +1276,8 @@ impl Software3D {
             angle_rad.sin() * pitch_rad.cos(),
             pitch_rad.sin(),
         );
-        self.view_matrix = Mat4::look_at_rh(pos, pos + forward, Vec3::Z);
+        self.camera_pos = pos;
+        self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
 
         self.stats.reset();
         self.depth_buffer.reset();
