@@ -341,6 +341,7 @@ impl BSP3D {
         sectors: &[Sector],
         linedefs: &[LineDef],
         corrected_divlines: &[DivLine],
+        sky_num: Option<usize>,
     ) -> Self {
         #[cfg(feature = "hprof")]
         profile!("BSP3D::new");
@@ -376,6 +377,7 @@ impl BSP3D {
             bsp3d.root_node,
             Vec::new(),
             &mut vertex_map,
+            sky_num,
         );
 
         // Phase 1b: Fix T-junctions between adjacent subsector polygons.
@@ -603,12 +605,15 @@ impl BSP3D {
         node_id: u32,
         divlines: Vec<DivLine>,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("carve_polygons_recursive");
 
         if node_id & IS_SUBSECTOR_MASK != 0 {
-            self.process_subsector_node(subsectors, segments, node_id, &divlines, vertex_map);
+            self.process_subsector_node(
+                subsectors, segments, node_id, &divlines, vertex_map, sky_num,
+            );
         } else {
             self.process_internal_node(
                 nodes,
@@ -619,6 +624,7 @@ impl BSP3D {
                 node_id,
                 divlines,
                 vertex_map,
+                sky_num,
             );
         }
     }
@@ -630,6 +636,7 @@ impl BSP3D {
         node_id: u32,
         divlines: &[DivLine],
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         let subsector_id = if node_id == u32::MAX {
             return;
@@ -668,6 +675,7 @@ impl BSP3D {
                             back_sector,
                             subsector_id,
                             vertex_map,
+                            sky_num,
                         );
                     } else {
                         self.create_one_sided_wall(segment, front_sector, subsector_id, vertex_map);
@@ -682,7 +690,13 @@ impl BSP3D {
                     .map(|&(x, y)| Vec2::new(x as f32, y as f32))
                     .collect();
                 self.carved_polygons[subsector_id] = polygon.clone();
-                self.create_floor_ceiling_polygons(subsector_id, subsector, &polygon, vertex_map);
+                self.create_floor_ceiling_polygons(
+                    subsector_id,
+                    subsector,
+                    &polygon,
+                    vertex_map,
+                    sky_num,
+                );
             }
         }
     }
@@ -694,45 +708,60 @@ impl BSP3D {
         back_sector: &Sector,
         front_subsector_id: usize,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         let front_id = front_sector.num as usize;
         let back_id = back_sector.num as usize;
 
+        // Sky hack: suppress upper wall between two sky-ceiling sectors and
+        // lower wall between two sky-floor sectors (matches original Doom
+        // r_segs.c behaviour).
+        let both_sky_ceil = sky_num
+            .is_some_and(|sky| front_sector.ceilingpic == sky && back_sector.ceilingpic == sky);
+        let both_sky_floor =
+            sky_num.is_some_and(|sky| front_sector.floorpic == sky && back_sector.floorpic == sky);
+
         // Upper wall: create if toptexture exists and back ceiling is at or
-        // below front ceiling (includes zero-height).
-        if let Some(texture) = segment.sidedef.toptexture {
-            if back_sector.ceilingheight <= front_sector.ceilingheight {
-                self.add_wall_quad(
-                    segment,
-                    back_sector.ceilingheight,
-                    front_sector.ceilingheight,
-                    WallType::Upper,
-                    texture,
-                    front_id,
-                    true,
-                    front_subsector_id,
-                    Some(back_id),
-                    vertex_map,
-                );
+        // below front ceiling (includes zero-height). Suppressed when both
+        // sectors have sky ceilings.
+        if !both_sky_ceil {
+            if let Some(texture) = segment.sidedef.toptexture {
+                if back_sector.ceilingheight <= front_sector.ceilingheight {
+                    self.add_wall_quad(
+                        segment,
+                        back_sector.ceilingheight,
+                        front_sector.ceilingheight,
+                        WallType::Upper,
+                        texture,
+                        front_id,
+                        true,
+                        front_subsector_id,
+                        Some(back_id),
+                        vertex_map,
+                    );
+                }
             }
         }
 
         // Lower wall: create if bottomtexture exists and back floor is at or
-        // above front floor (includes zero-height).
-        if let Some(texture) = segment.sidedef.bottomtexture {
-            if back_sector.floorheight >= front_sector.floorheight {
-                self.add_wall_quad(
-                    segment,
-                    front_sector.floorheight,
-                    back_sector.floorheight,
-                    WallType::Lower,
-                    texture,
-                    front_id,
-                    true,
-                    front_subsector_id,
-                    Some(back_id),
-                    vertex_map,
-                );
+        // above front floor (includes zero-height). Suppressed when both
+        // sectors have sky floors.
+        if !both_sky_floor {
+            if let Some(texture) = segment.sidedef.bottomtexture {
+                if back_sector.floorheight >= front_sector.floorheight {
+                    self.add_wall_quad(
+                        segment,
+                        front_sector.floorheight,
+                        back_sector.floorheight,
+                        WallType::Lower,
+                        texture,
+                        front_id,
+                        true,
+                        front_subsector_id,
+                        Some(back_id),
+                        vertex_map,
+                    );
+                }
             }
         }
 
@@ -907,6 +936,7 @@ impl BSP3D {
         node_id: u32,
         divlines: Vec<DivLine>,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         if let Some(node) = nodes.get(node_id as usize) {
             let nid = node_id as usize;
@@ -927,6 +957,7 @@ impl BSP3D {
                 node.children[0],
                 right_divlines,
                 vertex_map,
+                sky_num,
             );
 
             let mut left_divlines = divlines;
@@ -943,6 +974,7 @@ impl BSP3D {
                 node.children[1],
                 left_divlines,
                 vertex_map,
+                sky_num,
             );
         }
     }
@@ -956,6 +988,7 @@ impl BSP3D {
         subsector: &SubSector,
         polygon: &[Vec2],
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
+        sky_num: Option<usize>,
     ) {
         if polygon.len() < 3 {
             return;
@@ -964,6 +997,12 @@ impl BSP3D {
         let sector_num = subsector.sector.num as usize;
         let floor_h = subsector.sector.floorheight;
         let ceil_h = subsector.sector.ceilingheight;
+
+        // Sky flats are rendered as a full-screen backdrop pass, not as
+        // per-subsector polygons. Skip creation so they don't consume depth
+        // buffer or rendering time.
+        let skip_floor = sky_num.is_some_and(|sky| subsector.sector.floorpic == sky);
+        let skip_ceil = sky_num.is_some_and(|sky| subsector.sector.ceilingpic == sky);
 
         // For polygons with > 4 vertices (typically from expand_polygon
         // inserting segment endpoints), use centroid fan to avoid long sliver
@@ -982,91 +1021,100 @@ impl BSP3D {
             // Centroid fan: one triangle per edge.
             for i in 0..polygon.len() {
                 let next = (i + 1) % polygon.len();
-                // Floor: winding order [center, next, i] for upward normal.
-                let fv: Vec<usize> = [c, polygon[next], polygon[i]]
-                    .iter()
-                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
-                    .collect();
 
-                if !Self::is_degenerate_triangle(&fv, &self.vertices) {
-                    let fp = SurfacePolygon::new(
-                        sector_num,
-                        self.create_horizontal_surface_kind(subsector.sector.floorpic),
-                        fv,
-                        Vec3::new(0.0, 0.0, 1.0),
-                        &self.vertices,
-                        false,
-                    );
-                    let fi = self.subsector_leaves[subsector_id].polygons.len();
-                    self.subsector_leaves[subsector_id].polygons.push(fp);
-                    self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                if !skip_floor {
+                    // Floor: winding order [center, next, i] for upward normal.
+                    let fv: Vec<usize> = [c, polygon[next], polygon[i]]
+                        .iter()
+                        .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
+                        .collect();
+
+                    if !Self::is_degenerate_triangle(&fv, &self.vertices) {
+                        let fp = SurfacePolygon::new(
+                            sector_num,
+                            self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                            fv,
+                            Vec3::new(0.0, 0.0, 1.0),
+                            &self.vertices,
+                            false,
+                        );
+                        let fi = self.subsector_leaves[subsector_id].polygons.len();
+                        self.subsector_leaves[subsector_id].polygons.push(fp);
+                        self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                    }
                 }
 
-                // Ceiling: winding order [i, next, center] for downward normal.
-                let cv: Vec<usize> = [polygon[i], polygon[next], c]
-                    .iter()
-                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
-                    .collect();
+                if !skip_ceil {
+                    // Ceiling: winding order [i, next, center] for downward normal.
+                    let cv: Vec<usize> = [polygon[i], polygon[next], c]
+                        .iter()
+                        .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
+                        .collect();
 
-                if !Self::is_degenerate_triangle(&cv, &self.vertices) {
-                    let cp = SurfacePolygon::new(
-                        sector_num,
-                        self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
-                        cv,
-                        Vec3::new(0.0, 0.0, -1.0),
-                        &self.vertices,
-                        false,
-                    );
-                    let ci = self.subsector_leaves[subsector_id].polygons.len();
-                    self.subsector_leaves[subsector_id].polygons.push(cp);
-                    self.subsector_leaves[subsector_id]
-                        .ceiling_polygons
-                        .push(ci);
+                    if !Self::is_degenerate_triangle(&cv, &self.vertices) {
+                        let cp = SurfacePolygon::new(
+                            sector_num,
+                            self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                            cv,
+                            Vec3::new(0.0, 0.0, -1.0),
+                            &self.vertices,
+                            false,
+                        );
+                        let ci = self.subsector_leaves[subsector_id].polygons.len();
+                        self.subsector_leaves[subsector_id].polygons.push(cp);
+                        self.subsector_leaves[subsector_id]
+                            .ceiling_polygons
+                            .push(ci);
+                    }
                 }
             }
         } else {
             // Standard corner fan from polygon[0].
             for i in 1..polygon.len() - 1 {
-                // Floor: winding order [0, i+1, i] for upward normal.
-                let fv: Vec<usize> = [polygon[0], polygon[i + 1], polygon[i]]
-                    .iter()
-                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
-                    .collect();
+                if !skip_floor {
+                    // Floor: winding order [0, i+1, i] for upward normal.
+                    let fv: Vec<usize> = [polygon[0], polygon[i + 1], polygon[i]]
+                        .iter()
+                        .map(|v| self.vertex_add(Vec3::new(v.x, v.y, floor_h), vertex_map))
+                        .collect();
 
-                if !Self::is_degenerate_triangle(&fv, &self.vertices) {
-                    let fp = SurfacePolygon::new(
-                        sector_num,
-                        self.create_horizontal_surface_kind(subsector.sector.floorpic),
-                        fv,
-                        Vec3::new(0.0, 0.0, 1.0),
-                        &self.vertices,
-                        false,
-                    );
-                    let fi = self.subsector_leaves[subsector_id].polygons.len();
-                    self.subsector_leaves[subsector_id].polygons.push(fp);
-                    self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                    if !Self::is_degenerate_triangle(&fv, &self.vertices) {
+                        let fp = SurfacePolygon::new(
+                            sector_num,
+                            self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                            fv,
+                            Vec3::new(0.0, 0.0, 1.0),
+                            &self.vertices,
+                            false,
+                        );
+                        let fi = self.subsector_leaves[subsector_id].polygons.len();
+                        self.subsector_leaves[subsector_id].polygons.push(fp);
+                        self.subsector_leaves[subsector_id].floor_polygons.push(fi);
+                    }
                 }
 
-                // Ceiling: winding order [i, i+1, 0] for downward normal.
-                let cv: Vec<usize> = [polygon[i], polygon[i + 1], polygon[0]]
-                    .iter()
-                    .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
-                    .collect();
+                if !skip_ceil {
+                    // Ceiling: winding order [i, i+1, 0] for downward normal.
+                    let cv: Vec<usize> = [polygon[i], polygon[i + 1], polygon[0]]
+                        .iter()
+                        .map(|v| self.vertex_add(Vec3::new(v.x, v.y, ceil_h), vertex_map))
+                        .collect();
 
-                if !Self::is_degenerate_triangle(&cv, &self.vertices) {
-                    let cp = SurfacePolygon::new(
-                        sector_num,
-                        self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
-                        cv,
-                        Vec3::new(0.0, 0.0, -1.0),
-                        &self.vertices,
-                        false,
-                    );
-                    let ci = self.subsector_leaves[subsector_id].polygons.len();
-                    self.subsector_leaves[subsector_id].polygons.push(cp);
-                    self.subsector_leaves[subsector_id]
-                        .ceiling_polygons
-                        .push(ci);
+                    if !Self::is_degenerate_triangle(&cv, &self.vertices) {
+                        let cp = SurfacePolygon::new(
+                            sector_num,
+                            self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                            cv,
+                            Vec3::new(0.0, 0.0, -1.0),
+                            &self.vertices,
+                            false,
+                        );
+                        let ci = self.subsector_leaves[subsector_id].polygons.len();
+                        self.subsector_leaves[subsector_id].polygons.push(cp);
+                        self.subsector_leaves[subsector_id]
+                            .ceiling_polygons
+                            .push(ci);
+                    }
                 }
             }
         }

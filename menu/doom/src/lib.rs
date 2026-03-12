@@ -5,7 +5,7 @@
 //! a different menu.
 
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameState, GameTraits, Scancode, Skill, SubsystemTrait,
+    DrawBuffer, GameMode, GameState, GameTraits, Scancode, Skill, SubsystemTrait
 };
 use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use sound_traits::SfxName;

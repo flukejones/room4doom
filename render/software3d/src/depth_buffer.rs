@@ -4,6 +4,10 @@ use std::f32;
 use coarse_prof::profile;
 
 const TILE_SIZE: usize = 8;
+/// Depth value written for sky pixels. Positive but smaller than any real
+/// geometry 1/w, so solid surfaces always overwrite sky via the normal
+/// `depth > old` test. Sky pixels do not count toward occlusion coverage.
+pub const SKY_DEPTH: f32 = f32::EPSILON;
 
 /// Depth buffer with single-level Hi-Z tile rejection.
 ///
@@ -114,6 +118,17 @@ impl DepthBuffer {
             true
         } else {
             false
+        }
+    }
+
+    /// Write sky depth to a pixel. Only writes if the pixel is empty (-1.0).
+    /// Does not increment coverage or update Hi-Z tiles — sky is a backdrop,
+    /// not solid occlusion.
+    #[inline]
+    pub fn set_sky_depth_unchecked(&mut self, x: usize, y: usize) {
+        let index = y * self.width + x;
+        if self.depths[index] == -1.0 {
+            self.depths[index] = SKY_DEPTH;
         }
     }
 

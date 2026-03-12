@@ -181,6 +181,8 @@ pub(crate) struct SkyRend {
     pub(crate) extended_rows: usize,
     /// Generated rows below the original texture.
     pub(crate) down_rows: usize,
+    /// Width of the sky texture in columns.
+    pub(crate) tex_width: usize,
 }
 
 impl SkyRend {
@@ -196,6 +198,7 @@ impl SkyRend {
             tex_height: 0,
             extended_rows: 0,
             down_rows: 0,
+            tex_width: 0,
         }
     }
 }
@@ -391,6 +394,7 @@ impl Software3D {
             pic_data.palette(),
         );
         self.sky.tex_height = sky_h;
+        self.sky.tex_width = sky_w;
         self.sky.extended_rows = sky::SKY_EXTEND_ROWS;
         self.sky.down_rows = sky::SKY_DOWN_ROWS;
 
@@ -420,6 +424,40 @@ impl Software3D {
         let sky_center_base = sky_h * 0.5 - half_h * self.sky.v_scale;
         let proj_y = half_h * self.projection_matrix.y_axis.y;
         self.sky.pitch_offset = sky_center_base - pitch_rad * proj_y * self.sky.v_scale;
+    }
+
+    /// Fill all pixels that have no solid geometry with the sky texture.
+    /// Runs after all polygons and sprites are rendered. Pixels at depth
+    /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
+    /// sampled at screen coordinates.
+    fn draw_sky_fill(&self, _pic_data: &PicData, buffer: &mut impl DrawBuffer) {
+        use crate::depth_buffer::SKY_DEPTH;
+        use crate::render::sample_sky_pixel;
+
+        if self.sky.extended.is_empty() {
+            return;
+        }
+
+        let sky_w = self.sky.tex_width;
+        let sky_combined = &self.sky.extended;
+        let sky_tex_height = self.sky.tex_height;
+
+        let w = self.width as usize;
+        let h = self.height as usize;
+        for y in 0..h {
+            let sky_r = (y as f32 * self.sky.v_scale + self.sky.pitch_offset) as i32;
+            for x in 0..w {
+                if self.depth_buffer.peek_depth_unchecked(x, y) <= SKY_DEPTH {
+                    let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
+                        .rem_euclid(sky_w as f32) as usize;
+                    if let Some(color) =
+                        sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
+                    {
+                        buffer.set_pixel(x, y, &color);
+                    }
+                }
+            }
+        }
     }
 
     fn update_view_matrix(&mut self, player: &Player) {
@@ -1127,6 +1165,11 @@ impl Software3D {
 
             // Draw sprites after all geometry
             self.draw_sprites(sectors, player, pic_data, buffer);
+
+            // Fill remaining empty/sky pixels with the sky backdrop. Any pixel
+            // at depth <= SKY_DEPTH (written by sky-textured walls or left at
+            // -1.0) gets the sky texture sampled at screen coordinates.
+            self.draw_sky_fill(pic_data, buffer);
 
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(player, pic_data, buffer);
