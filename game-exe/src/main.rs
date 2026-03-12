@@ -206,7 +206,7 @@ fn process_map_pvs(
 
     if use_cluster || !cache_path.exists() {
         let mut map_data = gameplay::MapData::default();
-        map_data.load(map_name, |name| pic_data.flat_num_for_name(name), wad);
+        map_data.load(map_name, |name| pic_data.flat_num_for_name(name), wad, None);
 
         let MapData {
             subsectors,

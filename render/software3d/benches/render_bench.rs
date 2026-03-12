@@ -67,7 +67,7 @@ fn load_state() -> BenchState {
     let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
     let pic_data = PicData::init(&wad);
     let mut map_data = MapData::default();
-    map_data.load("E1M6", |name| pic_data.flat_num_for_name(name), &wad);
+    map_data.load("E1M6", |name| pic_data.flat_num_for_name(name), &wad, None);
 
     // Find the player 1 start thing (type 1) for a realistic camera position.
     let start = map_data

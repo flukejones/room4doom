@@ -47,7 +47,12 @@ mod pvs_tests {
         }
         let pic_data = PicData::init(&wad);
         let mut map_data = MapData::default();
-        map_data.load(map_name, |name| pic_data.flat_num_for_name(name), &wad);
+        map_data.load(
+            map_name,
+            |name| pic_data.flat_num_for_name(name),
+            &wad,
+            None,
+        );
         let pvs2d = PVS2D::build(
             &map_data.subsectors,
             &map_data.segments,

@@ -105,7 +105,7 @@ fn load_map(args: &Args) -> std::pin::Pin<Box<MapData>> {
     let mut map_data = Box::pin(MapData::default());
     // Safety: load() populates internal MapPtr raw pointers that reference
     // MapData's own vecs. Pin ensures the heap allocation won't move.
-    unsafe { map_data.as_mut().get_unchecked_mut() }.load(&args.map, |_| Some(0), &wad);
+    unsafe { map_data.as_mut().get_unchecked_mut() }.load(&args.map, |_| Some(0), &wad, None);
     map_data
 }
 
@@ -147,7 +147,7 @@ struct SectorOutput {
 fn cmd_stats(args: &Args) {
     let wad = load_wad(args);
     let mut map_data = MapData::default();
-    map_data.load(&args.map, |_| Some(0), &wad);
+    map_data.load(&args.map, |_| Some(0), &wad, None);
 
     let vertex_count = map_data.vertexes.len();
 
@@ -200,7 +200,7 @@ fn cmd_portals(args: &Args) {
 
     let wad = load_wad(args);
     let mut map_data = MapData::default();
-    map_data.load(&args.map, |_| Some(0), &wad);
+    map_data.load(&args.map, |_| Some(0), &wad, None);
 
     let MapData {
         subsectors,
@@ -276,7 +276,7 @@ fn cmd_build(args: &Args) {
     let hash = wad.map_bsp_hash(&args.map).unwrap_or_default();
 
     let mut map_data = MapData::default();
-    map_data.load(&args.map, |_| Some(0), &wad);
+    map_data.load(&args.map, |_| Some(0), &wad, None);
 
     let MapData {
         subsectors,

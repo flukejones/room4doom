@@ -210,8 +210,12 @@ impl Level {
         pic_data.set_sky_pic(game_mode, self.options.episode, self.options.map);
         self.sky_num = pic_data.sky_num();
 
-        self.map_data
-            .load(map_name, |name| pic_data.flat_num_for_name(name), wad_data);
+        self.map_data.load(
+            map_name,
+            |name| pic_data.flat_num_for_name(name),
+            wad_data,
+            Some(self.sky_num),
+        );
         self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;

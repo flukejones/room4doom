@@ -21,7 +21,7 @@ use crate::{DebugColourMode, Software3D, sky};
 ///   `sky_r >= sky_tex_height`     → downward extension row `(sky_r -
 /// sky_tex_height)`
 #[inline]
-fn sample_sky_pixel(
+pub(crate) fn sample_sky_pixel(
     sky_col: usize,
     sky_r: i32,
     sky_tex_height: usize,
@@ -92,9 +92,7 @@ enum TextureSampler<'a> {
         width: f32,
         height: f32,
     },
-    Sky {
-        texture: &'a WallPic,
-    },
+    Sky,
     Untextured,
 }
 
@@ -112,9 +110,7 @@ impl<'a> TextureSampler<'a> {
                 ..
             } => {
                 if *tex_id == sky_pic {
-                    TextureSampler::Sky {
-                        texture: pic_data.wall_pic(sky_pic),
-                    }
+                    TextureSampler::Sky
                 } else {
                     let texture = pic_data.wall_pic(*tex_id);
                     let width_f32 = texture.width as f32;
@@ -133,9 +129,7 @@ impl<'a> TextureSampler<'a> {
                 ..
             } => {
                 if *texture == sky_num {
-                    TextureSampler::Sky {
-                        texture: pic_data.wall_pic(sky_pic),
-                    }
+                    TextureSampler::Sky
                 } else {
                     let texture = pic_data.get_flat(*texture);
                     TextureSampler::Horizontal {
@@ -186,9 +180,7 @@ impl<'a> TextureSampler<'a> {
                     let lit_color_index = *colourmap.get_unchecked(color_index);
                     pic_data.palette().get_unchecked(lit_color_index)
                 }
-                TextureSampler::Sky {
-                    ..
-                } => &[32, 32, 32, 255],
+                TextureSampler::Sky => &[32, 32, 32, 255],
                 TextureSampler::Untextured => &[32, 32, 32, 255],
             }
         }
@@ -451,14 +443,7 @@ impl Software3D {
                 ..
             }
         );
-        let sky_texture = if let TextureSampler::Sky {
-            texture,
-        } = texture_sampler
-        {
-            Some(texture)
-        } else {
-            None
-        };
+        let is_sky = matches!(texture_sampler, TextureSampler::Sky);
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
         let width_f32 = self.width as f32;
@@ -536,33 +521,16 @@ impl Software3D {
                 (inv_w_at_x0, 0.0)
             };
 
-            if let Some(sky_tex) = sky_texture {
-                // Sky: screen-space UV — no perspective interpolation, unlit.
-                // Sky only checks the depth buffer, never writes to it, so that
-                // geometry drawn later (sprites, translucent walls) can still
-                // depth-test against the surfaces behind the sky.
-                let sky_w = sky_tex.width;
-                let sky_r = (y as f32 * self.sky.v_scale + self.sky.pitch_offset) as i32;
-                let sky_combined: &[[u8; 4]] = &self.sky.extended;
-                let sky_tex_height = self.sky.tex_height;
+            if is_sky {
+                // Sky polygon: depth-only pass. Write SKY_DEPTH to mark pixels
+                // for the full-screen sky fill pass. No pixel drawing here —
+                // sky is rendered once after all geometry.
                 let mut x = x_start;
                 while x <= x_end {
-                    // Draw sky only where no solid geometry has been written.
-                    // -1.0 is the depth sentinel for empty pixels. Sky never
-                    // writes to depth and never occludes anything.
-                    if self.depth_buffer.peek_depth_unchecked(x, y) < 0.0 {
-                        let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
-                            .rem_euclid(sky_w as f32)
-                            as usize;
-                        if let Some(color) =
-                            sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
-                        {
-                            buffer.set_pixel(x, y, &color);
-                        }
-                        did_draw = true;
-                    }
+                    self.depth_buffer.set_sky_depth_unchecked(x, y);
                     x += 1;
                 }
+                did_draw = true;
             } else {
                 let mut interp_state = interpolator.init_scanline(x_f, y_f);
                 let mut x = x_start;
@@ -689,14 +657,7 @@ impl Software3D {
                 ..
             }
         );
-        let sky_texture = if let TextureSampler::Sky {
-            texture,
-        } = texture_sampler
-        {
-            Some(texture)
-        } else {
-            None
-        };
+        let is_sky = matches!(texture_sampler, TextureSampler::Sky);
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
         let width_f32 = self.width as f32;
@@ -782,36 +743,15 @@ impl Software3D {
                 (inv_w_at_x0, 0.0)
             };
 
-            if let Some(sky_tex) = sky_texture {
-                // Sky: screen-space UV — no perspective interpolation, unlit.
-                // Sky only checks the depth buffer, never writes to it.
-                let sky_w = sky_tex.width;
-                let sky_r = (y as f32 * self.sky.v_scale + self.sky.pitch_offset) as i32;
-                let sky_combined: &[[u8; 4]] = &self.sky.extended;
-                let sky_tex_height = self.sky.tex_height;
+            if is_sky {
+                // Sky polygon: depth-only pass. Write SKY_DEPTH to mark pixels
+                // for the full-screen sky fill pass.
                 let mut x = x_start;
                 while x <= x_end {
-                    let pass_depth = no_depth || self.depth_buffer.peek_depth_unchecked(x, y) < 0.0;
-                    if pass_depth {
-                        let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
-                            .rem_euclid(sky_w as f32)
-                            as usize;
-                        if let Some(color) =
-                            sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
-                        {
-                            let final_color = self.apply_debug_colour(
-                                &color,
-                                edge_inv_w,
-                                colour_mode,
-                                debug_flat_colour.as_ref(),
-                            );
-                            write_pixel(buffer, x, y, &final_color, alpha);
-                        }
-                        did_draw = true;
-                    }
-                    edge_inv_w += edge_inv_w_dx;
+                    self.depth_buffer.set_sky_depth_unchecked(x, y);
                     x += 1;
                 }
+                did_draw = true;
             } else {
                 let mut interp_state = interpolator.init_scanline(x_f, y_f);
                 let mut x = x_start;

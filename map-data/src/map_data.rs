@@ -220,6 +220,7 @@ impl MapData {
         map_name: &str,
         flat_num_for_name: impl Fn(&str) -> Option<usize>,
         wad: &WadData,
+        sky_num: Option<usize>,
     ) {
         let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
         if wad.lump_exists("TEXTURE2") {
@@ -297,6 +298,7 @@ impl MapData {
             &self.sectors,
             &self.linedefs,
             &self.corrected_divlines,
+            sky_num,
         );
 
         if let Some(cached_pvs) = pvs_load_from_cache(
