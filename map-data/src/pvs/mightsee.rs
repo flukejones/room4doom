@@ -82,17 +82,38 @@ impl Mightsee {
         let portal_ids = portals.ids();
 
         // Pass 1: angular-span mightsee per subsector.
+        let progress = AtomicUsize::new(0);
         let source_raw: Vec<Vec<u32>> = (0..n)
             .into_par_iter()
-            .map(|s| angular_span_mightsee(s, portals_slice, portal_offsets, portal_ids, n))
+            .map(|s| {
+                let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
+                if done % 64 == 0 || done == n {
+                    eprint!(
+                        "\r  PVS2D angular:  {done}/{n} ({:.0}%)   ",
+                        done as f32 / n as f32 * 100.0
+                    );
+                    let _ = std::io::stderr().flush();
+                }
+                angular_span_mightsee(s, portals_slice, portal_offsets, portal_ids, n)
+            })
             .collect();
+        eprintln!();
 
         // Pass 1a: expand each source row by OR-ing direct neighbours' rows.
         // Reads source_raw (immutable) and writes into a new allocation so
         // parallel iteration is race-free.
+        let progress = AtomicUsize::new(0);
         let source: Vec<Vec<u32>> = (0..n)
             .into_par_iter()
             .map(|s| {
+                let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
+                if done % 64 == 0 || done == n {
+                    eprint!(
+                        "\r  PVS2D expand:   {done}/{n} ({:.0}%)   ",
+                        done as f32 / n as f32 * 100.0
+                    );
+                    let _ = std::io::stderr().flush();
+                }
                 let mut bits = source_raw[s].clone();
                 if portal_offsets.is_empty() {
                     return bits;
@@ -108,6 +129,7 @@ impl Mightsee {
                 bits
             })
             .collect();
+        eprintln!();
 
         // Pass 1b: directional per-portal mightsee (2 BFS per portal).
         //   portal_dir[pi * 2 + 0] = BFS from pi.subsector_b excluding pi

@@ -3,6 +3,7 @@
 //!
 //! Some of the state is mirrored from the overall game-exe state, or ref by
 //! pointer.
+#[cfg(test)]
 pub mod tests;
 
 use std::collections::VecDeque;

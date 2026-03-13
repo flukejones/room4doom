@@ -30,8 +30,7 @@ struct VertexCache {
     valid: bool,
 }
 
-const CLIP_VERTICES_LEN: usize = 3;
-const MAX_CLIPPED_VERTICES: usize = 16;
+const MAX_CLIPPED_VERTICES: usize = 64;
 
 /// Debug colouring mode for polygons.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -124,6 +123,9 @@ struct RenderStats {
     subsectors_pvs_passed: u32,
     /// BSP occlusion fallback events.
     bsp_fallback: u32,
+    /// Frames rendered since last stats print.
+    #[cfg(feature = "render_stats")]
+    frames_since_print: u32,
     /// Rate-limiter: only print stats once per second.
     #[cfg(feature = "render_stats")]
     last_print: std::time::Instant,
@@ -141,6 +143,8 @@ impl RenderStats {
             subsectors_total: 0,
             subsectors_pvs_passed: 0,
             bsp_fallback: 0,
+            #[cfg(feature = "render_stats")]
+            frames_since_print: 0,
             #[cfg(feature = "render_stats")]
             last_print: std::time::Instant::now(),
         }
@@ -283,7 +287,6 @@ pub struct Software3D {
     screen_vertices_len: usize,
     tex_coords_len: usize,
     inv_w_len: usize,
-    clip_vertices: [Vec4; CLIP_VERTICES_LEN],
     clipped_vertices_buffer: [Vec4; MAX_CLIPPED_VERTICES],
     clipped_tex_coords_buffer: [Vec3; MAX_CLIPPED_VERTICES],
     clipped_vertices_len: usize,
@@ -326,7 +329,6 @@ impl Software3D {
             screen_vertices_len: 0,
             tex_coords_len: 0,
             inv_w_len: 0,
-            clip_vertices: [Vec4::ZERO; 3],
             clipped_vertices_buffer: [Vec4::ZERO; MAX_CLIPPED_VERTICES],
             clipped_tex_coords_buffer: [Vec3::ZERO; MAX_CLIPPED_VERTICES],
             clipped_vertices_len: 0,
@@ -582,11 +584,17 @@ impl Software3D {
         let mut all_outside_near = true;
         let mut all_outside_far = true;
         let mut max_inv_w: f32 = 0.0;
+        let mut all_in_front = true;
 
-        for i in 0..CLIP_VERTICES_LEN {
-            let vidx = unsafe { *polygon.vertices.get_unchecked(i) };
+        let hw = self.width as f32 * 0.5;
+        let hh = self.height as f32 * 0.5;
+        let mut scr_min_x = f32::MAX;
+        let mut scr_min_y = f32::MAX;
+        let mut scr_max_x = f32::MIN;
+        let mut scr_max_y = f32::MIN;
+
+        for &vidx in &polygon.vertices {
             let (_, clip_pos) = self.get_transformed_vertex(vidx, bsp3d);
-            self.clip_vertices[i] = clip_pos;
 
             if clip_pos.x >= -clip_pos.w {
                 all_outside_left = false;
@@ -611,6 +619,14 @@ impl Software3D {
                 if inv_w > max_inv_w {
                     max_inv_w = inv_w;
                 }
+                let sx = (clip_pos.x / clip_pos.w) * hw + hw;
+                let sy = hh - (clip_pos.y / clip_pos.w) * hh;
+                scr_min_x = scr_min_x.min(sx);
+                scr_min_y = scr_min_y.min(sy);
+                scr_max_x = scr_max_x.max(sx);
+                scr_max_y = scr_max_y.max(sy);
+            } else {
+                all_in_front = false;
             }
         }
 
@@ -624,41 +640,12 @@ impl Software3D {
             return None;
         }
 
-        // Early sub-pixel rejection: if all vertices are in front of the camera,
-        // estimate projected screen area. Reject if < 1 pixel.
-        // This is conservative — polygons clipped by the near plane may be larger
-        // than estimated, so we only apply this when all w > 0.
-        let c0 = self.clip_vertices[0];
-        let c1 = self.clip_vertices[1];
-        let c2 = self.clip_vertices[2];
-        if c0.w > 0.0 && c1.w > 0.0 && c2.w > 0.0 {
-            let hw = self.width as f32 * 0.5;
-            let hh = self.height as f32 * 0.5;
-            let sx0 = (c0.x / c0.w) * hw;
-            let sy0 = (c0.y / c0.w) * hh;
-            let sx1 = (c1.x / c1.w) * hw;
-            let sy1 = (c1.y / c1.w) * hh;
-            let sx2 = (c2.x / c2.w) * hw;
-            let sy2 = (c2.y / c2.w) * hh;
-            // 2x triangle area via cross product
-            // let area = ((sx1 - sx0) * (sy2 - sy0) - (sx2 - sx0) * (sy1 - sy0)).abs();
-            // if area < 0.1 {
-            //     return None;
-            // }
-
-            // Hi-Z pre-check: reject if entirely behind existing geometry.
-            // Convert NDC-space coords to screen pixels (Y flipped), take vertex
-            // AABB (conservative overapproximation), then query the tiled depth buffer.
-            let sx0s = sx0 + hw;
-            let sy0s = hh - sy0;
-            let sx1s = sx1 + hw;
-            let sy1s = hh - sy1;
-            let sx2s = sx2 + hw;
-            let sy2s = hh - sy2;
-            let min_x = sx0s.min(sx1s).min(sx2s).max(0.0) as usize;
-            let min_y = sy0s.min(sy1s).min(sy2s).max(0.0) as usize;
-            let max_x = (sx0s.max(sx1s).max(sx2s) as usize).min(self.width as usize - 1);
-            let max_y = (sy0s.max(sy1s).max(sy2s) as usize).min(self.height as usize - 1);
+        // Hi-Z pre-check: if all vertices in front, use projected AABB.
+        if all_in_front {
+            let min_x = scr_min_x.max(0.0) as usize;
+            let min_y = scr_min_y.max(0.0) as usize;
+            let max_x = (scr_max_x as usize).min(self.width as usize - 1);
+            let max_y = (scr_max_y as usize).min(self.height as usize - 1);
             if self
                 .depth_buffer
                 .is_occluded_hiz(min_x, min_y, max_x, max_y, max_inv_w)
@@ -686,10 +673,12 @@ impl Software3D {
         self.clipped_vertices_len = 0;
 
         // Transform vertices to clip space and setup for clipping
-        let mut input_vertices = [Vec4::ZERO; 3];
-        let mut input_tex_coords = [Vec3::ZERO; 3];
+        let vert_count = polygon.vertices.len();
+        assert!(vert_count <= MAX_CLIPPED_VERTICES);
+        let mut input_vertices = [Vec4::ZERO; MAX_CLIPPED_VERTICES];
+        let mut input_tex_coords = [Vec3::ZERO; MAX_CLIPPED_VERTICES];
 
-        // Pre-compute wall z-range once — used by all 3 vertices in
+        // Pre-compute wall z-range once — used by all vertices in
         // calculate_tex_coords
         let wall_z_range = match &polygon.surface_kind {
             SurfaceKind::Vertical {
@@ -715,7 +704,7 @@ impl Software3D {
         }
 
         // Apply Sutherland-Hodgman clipping against all six frustum planes
-        self.clip_polygon_frustum(&input_vertices, &input_tex_coords, 3);
+        self.clip_polygon_frustum(&input_vertices, &input_tex_coords, vert_count);
 
         // Project clipped vertices to screen space, tracking AABB and max depth inline
         // to avoid rescanning the buffers later.
@@ -1214,20 +1203,27 @@ impl Software3D {
             self.draw_debug_line(pic_data, buffer);
 
             #[cfg(feature = "render_stats")]
-            if self.stats.last_print.elapsed().as_secs_f32() >= 1.0 {
-                println!(
-                    "polys: {} submitted, {} frustum-clipped, {} culled, {} early-depth, {} no-draw, {} rendered, {} fallback | subsectors: {} passed / {} total",
-                    self.stats.polygons_submitted,
-                    self.stats.polygons_frustum_clipped,
-                    self.stats.polygons_early_culled,
-                    self.stats.polygons_depth_rejected,
-                    self.stats.polygons_no_draw,
-                    self.stats.polygons_rendered,
-                    self.stats.bsp_fallback,
-                    self.stats.subsectors_pvs_passed,
-                    self.stats.subsectors_total,
-                );
-                self.stats.last_print = std::time::Instant::now();
+            {
+                self.stats.frames_since_print += 1;
+                let elapsed = self.stats.last_print.elapsed().as_secs_f32();
+                if elapsed >= 1.0 {
+                    let fps = self.stats.frames_since_print as f32 / elapsed;
+                    println!(
+                        "polys: {} submitted, {} frustum-clipped, {} culled, {} early-depth, {} no-draw, {} rendered, {} fallback | subsectors: {} passed / {} total | fps: {:.0}",
+                        self.stats.polygons_submitted,
+                        self.stats.polygons_frustum_clipped,
+                        self.stats.polygons_early_culled,
+                        self.stats.polygons_depth_rejected,
+                        self.stats.polygons_no_draw,
+                        self.stats.polygons_rendered,
+                        self.stats.bsp_fallback,
+                        self.stats.subsectors_pvs_passed,
+                        self.stats.subsectors_total,
+                        fps,
+                    );
+                    self.stats.frames_since_print = 0;
+                    self.stats.last_print = std::time::Instant::now();
+                }
             }
         }
     }

@@ -3,16 +3,16 @@ use std::f32::consts::FRAC_PI_2;
 use std::time::Instant;
 
 use crate::map_defs::{
-    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector
+    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector, is_subsector, mark_subsector, subsector_index
 };
 
 use crate::MapPtr;
 use crate::bsp3d::BSP3D;
-use crate::flags::LineDefFlags;
-use crate::pvs::{PvsData, RenderPvs, pvs_load_from_cache};
-use crate::triangulation::{
+use crate::bsp3d::carve::{
     DivLine, IntersectionCache, build_intersection_cache, snap_vertices_to_canonical
 };
+use crate::flags::LineDefFlags;
+use crate::pvs::{PvsData, RenderPvs, pvs_load_from_cache};
 use glam::Vec2;
 #[cfg(Debug)]
 use log::error;
@@ -23,25 +23,6 @@ use wad::extended::{ExtendedNodeType, NodeLumpType, WadExtendedMap};
 use wad::types::*;
 
 const IS_OLD_SSECTOR_MASK: u32 = 0x8000;
-pub const IS_SSECTOR_MASK: u32 = 0x8000_0000;
-
-/// Returns true if this node ID refers to a subsector leaf.
-#[inline]
-pub const fn is_subsector(node_id: u32) -> bool {
-    node_id & IS_SSECTOR_MASK != 0
-}
-
-/// Extracts the subsector index from a node ID (strips the flag bit).
-#[inline]
-pub const fn subsector_index(node_id: u32) -> usize {
-    (node_id & !IS_SSECTOR_MASK) as usize
-}
-
-/// Marks a node ID as a subsector leaf.
-#[inline]
-pub const fn mark_subsector(index: u32) -> u32 {
-    index | IS_SSECTOR_MASK
-}
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area

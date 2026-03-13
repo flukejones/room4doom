@@ -141,7 +141,6 @@ struct SectorOutput {
     light_level: usize,
     tag: i16,
     kind: i16,
-    is_mover: bool,
 }
 
 fn cmd_stats(args: &Args) {
@@ -264,8 +263,6 @@ fn cmd_sectors(args: &Args) {
             light_level: s.lightlevel,
             tag: s.tag,
             kind: s.special,
-            is_mover: map_data::bsp3d::is_sector_mover(s, &map_data.linedefs)
-                || (s.ceilingheight - s.floorheight).abs() < 0.5,
         })
         .collect();
     println!("{}", serde_json::to_string_pretty(&sectors).unwrap());
@@ -515,7 +512,6 @@ struct DumpSector {
     light_level: usize,
     tag: i16,
     special: i16,
-    is_mover: bool,
 }
 
 #[derive(Serialize)]
@@ -597,8 +593,6 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
                 light_level: s.lightlevel,
                 tag: s.tag,
                 special: s.special,
-                is_mover: map_data::bsp3d::is_sector_mover(s, &map_data.linedefs)
-                    || (s.ceilingheight - s.floorheight).abs() < 0.5,
             })
             .collect(),
         subsectors: map_data

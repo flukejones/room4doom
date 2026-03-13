@@ -407,4 +407,189 @@ mod tests {
             "Should find back subsector for sector 23"
         );
     }
+
+    /// Verify floor and ceiling polygon winding and normals for all E1M1
+    /// subsectors. Floor polygons must have upward normals, ceiling polygons
+    /// must have downward normals, and the cross-product of consecutive edges
+    /// must agree with the stored normal direction.
+    #[test]
+    /// Every non-sky subsector must have exactly 1 floor and 1 ceiling
+    /// polygon. Floor and ceiling share the same XY vertex positions but
+    /// with opposite winding (floor shoelace > 0, ceiling shoelace < 0).
+    fn test_e1m1_floor_ceiling_polygon_normals() {
+        use glam::Vec3;
+
+        let map = load_map(DOOM_WAD, "E1M1");
+        let bsp3d = &map.bsp_3d;
+        let verts = &bsp3d.vertices;
+
+        let mut failures = Vec::new();
+
+        for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
+            if leaf.polygons.is_empty() {
+                continue;
+            }
+
+            // Skip sky subsectors (may lack floor or ceiling).
+            let has_floor = !leaf.floor_polygons.is_empty();
+            let has_ceil = !leaf.ceiling_polygons.is_empty();
+            if !has_floor && !has_ceil {
+                continue;
+            }
+
+            // Non-sky subsectors: exactly 1 floor and 1 ceiling.
+            if leaf.floor_polygons.len() != 1 {
+                failures.push(format!(
+                    "ss={}: expected 1 floor polygon, got {}",
+                    ssid,
+                    leaf.floor_polygons.len()
+                ));
+                continue;
+            }
+            if leaf.ceiling_polygons.len() != 1 {
+                failures.push(format!(
+                    "ss={}: expected 1 ceiling polygon, got {}",
+                    ssid,
+                    leaf.ceiling_polygons.len()
+                ));
+                continue;
+            }
+
+            let floor_poly = &leaf.polygons[leaf.floor_polygons[0]];
+            let ceil_poly = &leaf.polygons[leaf.ceiling_polygons[0]];
+
+            // Normals.
+            assert_eq!(floor_poly.normal, Vec3::new(0.0, 0.0, 1.0), "ss={}", ssid);
+            assert_eq!(ceil_poly.normal, Vec3::new(0.0, 0.0, -1.0), "ss={}", ssid);
+
+            // Same vertex count.
+            if floor_poly.vertices.len() != ceil_poly.vertices.len() {
+                failures.push(format!(
+                    "ss={}: floor has {} verts, ceiling has {}",
+                    ssid,
+                    floor_poly.vertices.len(),
+                    ceil_poly.vertices.len()
+                ));
+                continue;
+            }
+
+            let n = floor_poly.vertices.len();
+            if n < 3 {
+                failures.push(format!("ss={}: polygon has {} verts (< 3)", ssid, n));
+                continue;
+            }
+
+            // Floor shoelace > 0, ceiling shoelace < 0.
+            let floor_area = shoelace(floor_poly, verts);
+            let ceil_area = shoelace(ceil_poly, verts);
+            if floor_area <= 0.0 {
+                failures.push(format!(
+                    "ss={}: floor shoelace={:.2} (expected > 0)",
+                    ssid, floor_area
+                ));
+            }
+            if ceil_area >= 0.0 {
+                failures.push(format!(
+                    "ss={}: ceiling shoelace={:.2} (expected < 0)",
+                    ssid, ceil_area
+                ));
+            }
+
+            // XY positions must match in reverse order (opposite winding).
+            // Mover sectors may have separated vertices with slightly
+            // different positions, so use epsilon comparison.
+            let floor_xy: Vec<(f32, f32)> = floor_poly
+                .vertices
+                .iter()
+                .map(|&vi| (verts[vi].x, verts[vi].y))
+                .collect();
+            let ceil_xy: Vec<(f32, f32)> = ceil_poly
+                .vertices
+                .iter()
+                .map(|&vi| (verts[vi].x, verts[vi].y))
+                .collect();
+            let ceil_xy_rev: Vec<(f32, f32)> = ceil_xy.iter().copied().rev().collect();
+            let xy_match = floor_xy
+                .iter()
+                .zip(ceil_xy_rev.iter())
+                .all(|(f, c)| (f.0 - c.0).abs() < 2.0 && (f.1 - c.1).abs() < 2.0);
+            if !xy_match {
+                failures.push(format!(
+                    "ss={}: floor/ceiling XY mismatch\n  floor={:?}\n  ceil_rev={:?}",
+                    ssid, floor_xy, ceil_xy_rev
+                ));
+            }
+        }
+
+        for f in &failures {
+            println!("{}", f);
+        }
+        assert!(failures.is_empty(), "{} failures", failures.len());
+    }
+
+    /// Every floor/ceiling polygon must have no duplicate vertex indices
+    /// and no zero-length edges.
+    #[test]
+    fn test_e1m1_no_degenerate_polygons() {
+        let map = load_map(DOOM_WAD, "E1M1");
+        let bsp3d = &map.bsp_3d;
+        let verts = &bsp3d.vertices;
+
+        let mut failures = Vec::new();
+
+        for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
+            for (label, indices) in [
+                ("floor", &leaf.floor_polygons),
+                ("ceil", &leaf.ceiling_polygons),
+            ] {
+                for &pi in indices {
+                    let poly = &leaf.polygons[pi];
+                    let n = poly.vertices.len();
+
+                    for i in 0..n {
+                        for j in (i + 1)..n {
+                            if poly.vertices[i] == poly.vertices[j] {
+                                failures.push(format!(
+                                    "ss={} {}: duplicate index {} at positions {} and {}",
+                                    ssid, label, poly.vertices[i], i, j
+                                ));
+                            }
+                        }
+                    }
+
+                    for i in 0..n {
+                        let a = verts[poly.vertices[i]];
+                        let b = verts[poly.vertices[(i + 1) % n]];
+                        let dist = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt();
+                        if dist < 0.01 {
+                            failures.push(format!(
+                                "ss={} {}: zero-length edge [{}<->{}] dist={:.6}",
+                                ssid,
+                                label,
+                                i,
+                                (i + 1) % n,
+                                dist
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        for f in &failures {
+            println!("{}", f);
+        }
+        assert!(failures.is_empty(), "{} failures", failures.len());
+    }
+
+    fn shoelace(poly: &crate::SurfacePolygon, verts: &[glam::Vec3]) -> f32 {
+        let n = poly.vertices.len();
+        (0..n)
+            .map(|i| {
+                let a = verts[poly.vertices[i]];
+                let b = verts[poly.vertices[(i + 1) % n]];
+                a.x * b.y - b.x * a.y
+            })
+            .sum()
+    }
 }

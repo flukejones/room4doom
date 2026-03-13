@@ -1,7 +1,8 @@
 use egui::{Color32, Mesh, Pos2, Stroke, Vec2 as EVec2};
 use glam::Vec2;
 use map_data::{
-    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, is_subsector, pvs_load_from_cache, subsector_index
+    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, is_subsector,
+    pvs_load_from_cache, subsector_index,
 };
 use std::any::Any;
 
@@ -79,7 +80,6 @@ struct ViewSector {
     light_level: usize,
     special: i16,
     tag: i16,
-    is_mover: bool,
 }
 
 struct ViewSubsector {
@@ -137,8 +137,6 @@ pub fn extract_viewer_data(
             light_level: s.lightlevel,
             special: s.special,
             tag: s.tag,
-            is_mover: map_data::bsp3d::is_sector_mover(s, &map_data.linedefs)
-                || (s.ceilingheight - s.floorheight).abs() < 0.5,
         })
         .collect();
 
@@ -359,8 +357,8 @@ impl MapViewerApp {
                 let s = &self.data.sectors[ss.sector_id];
                 let _ = writeln!(
                     buf,
-                    "ss={} sector={} floor={} ceil={} mover={}",
-                    ss.index, ss.sector_id, s.floor_height, s.ceiling_height, s.is_mover
+                    "ss={} sector={} floor={} ceil={}",
+                    ss.index, ss.sector_id, s.floor_height, s.ceiling_height,
                 );
             }
         }
@@ -433,12 +431,11 @@ impl MapViewerApp {
                 let s = &self.data.sectors[ss.sector_id];
                 let _ = writeln!(
                     buf,
-                    "ss={} sector={} floor={} ceil={} mover={} verts={}",
+                    "ss={} sector={} floor={} ceil={} verts={}",
                     ss.index,
                     ss.sector_id,
                     s.floor_height,
                     s.ceiling_height,
-                    s.is_mover,
                     ss.vertices.len()
                 );
             }
@@ -492,8 +489,8 @@ impl MapViewerApp {
             let s = &self.data.sectors[sid];
             let _ = writeln!(
                 buf,
-                "sector={} floor={} ceil={} light={} special={} tag={} mover={}",
-                sid, s.floor_height, s.ceiling_height, s.light_level, s.special, s.tag, s.is_mover
+                "sector={} floor={} ceil={} light={} special={} tag={}",
+                sid, s.floor_height, s.ceiling_height, s.light_level, s.special, s.tag,
             );
         }
 
@@ -510,14 +507,8 @@ impl MapViewerApp {
         let s = &self.data.sectors[sector_id];
         let _ = writeln!(
             buf,
-            "sector={} floor={} ceil={} light={} special={} tag={} mover={}",
-            sector_id,
-            s.floor_height,
-            s.ceiling_height,
-            s.light_level,
-            s.special,
-            s.tag,
-            s.is_mover
+            "sector={} floor={} ceil={} light={} special={} tag={}",
+            sector_id, s.floor_height, s.ceiling_height, s.light_level, s.special, s.tag,
         );
 
         // All subsectors belonging to this sector
@@ -1437,12 +1428,6 @@ impl MapViewerApp {
                 spans.push((lbl, " pvs:".into()));
                 spans.push((val, format!("{vis}/{ss_count}")));
             }
-            // MOVER tag pegged to end
-            if let Some(s) = data.sectors.get(sid) {
-                if s.is_mover {
-                    spans.push((Color32::from_rgb(255, 100, 100), " MOVER".into()));
-                }
-            }
         }
         spans
     }
@@ -1469,11 +1454,6 @@ impl MapViewerApp {
             if let Some(pvs) = &data.pvs {
                 let vis = pvs.get_visible_subsectors(ss_id).len();
                 ui.monospace(format!("{:<W$}{vis}/{ss_count}", "PVS:"));
-            }
-            if let Some(s) = data.sectors.get(sid) {
-                if s.is_mover {
-                    ui.monospace("MOVER");
-                }
             }
         }
     }

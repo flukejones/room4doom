@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::map_data::{is_subsector, subsector_index};
-use crate::map_defs::{LineDef, Node, Segment, SubSector};
+use crate::map_defs::{LineDef, Node, Segment, SubSector, is_subsector, subsector_index};
 use glam::Vec2;
 use log::{debug, info, warn};
 use wad::WadData;
@@ -34,7 +33,7 @@ const COLLINEAR_THRESHOLD: f64 = 0.1;
 const CANONICAL_SNAP_DIST: f64 = 1.0;
 
 /// Deduplication distance for canonical intersection points (map units).
-const CANONICAL_DEDUP_DIST: f64 = 0.5;
+const CANONICAL_DEDUP_DIST: f64 = 1.0;
 
 /// Spatial grid cell size for canonical intersection point lookup.
 const CANONICAL_CELL: f64 = 4.0;
@@ -394,11 +393,11 @@ fn collect_divline_intersections(
     divline_stack: &mut Vec<DivLine>,
     out: &mut Vec<(f64, f64)>,
 ) {
-    if node_id & 0x8000_0000 != 0 {
+    if is_subsector(node_id) {
         if node_id == u32::MAX {
             return;
         }
-        let ss_id = (node_id & !0x8000_0000) as usize;
+        let ss_id = subsector_index(node_id);
         if ss_id >= subsectors.len() {
             return;
         }
@@ -794,90 +793,6 @@ fn extract_sector_boundary_from_segments(segments: &[Segment]) -> Vec<(f64, f64)
     });
 
     all_vertices
-}
-
-/// Traverse the BSP tree and return the carved 2D convex polygon for each
-/// subsector. Produces f64 polygons indexed by subsector ID.
-pub fn carve_subsector_polygons_2d(
-    root_node: u32,
-    nodes: &[Node],
-    corrected_divlines: &[DivLine],
-    subsectors: &[SubSector],
-    segments: &[Segment],
-) -> Vec<Vec<(f64, f64)>> {
-    let mut result = vec![Vec::new(); subsectors.len()];
-    carve_2d_recursive(
-        root_node,
-        nodes,
-        corrected_divlines,
-        subsectors,
-        segments,
-        Vec::new(),
-        &mut result,
-    );
-    result
-}
-
-/// Recursive BSP traversal for 2D polygon carving.
-fn carve_2d_recursive(
-    node_id: u32,
-    nodes: &[Node],
-    corrected_divlines: &[DivLine],
-    subsectors: &[SubSector],
-    segments: &[Segment],
-    divlines: Vec<DivLine>,
-    result: &mut [Vec<(f64, f64)>],
-) {
-    if is_subsector(node_id) {
-        if node_id == u32::MAX {
-            return;
-        }
-        let subsector_id = subsector_index(node_id);
-        if subsector_id < subsectors.len() {
-            let ss = &subsectors[subsector_id];
-            let start = ss.start_seg as usize;
-            let end = start + ss.seg_count as usize;
-            if let Some(ss_segments) = segments.get(start..end) {
-                result[subsector_id] =
-                    carve_subsector_polygon(ss_segments, &divlines, subsector_id);
-            }
-        }
-    } else if let Some(node) = nodes.get(node_id as usize) {
-        let nid = node_id as usize;
-        let node_divline = if nid < corrected_divlines.len() {
-            corrected_divlines[nid]
-        } else {
-            DivLine::from_node(node)
-        };
-
-        let mut right_divlines = divlines.clone();
-        right_divlines.push(node_divline);
-        carve_2d_recursive(
-            node.children[0],
-            nodes,
-            corrected_divlines,
-            subsectors,
-            segments,
-            right_divlines,
-            result,
-        );
-
-        let mut left_divlines = divlines;
-        left_divlines.push(DivLine {
-            dx: -node_divline.dx,
-            dy: -node_divline.dy,
-            ..node_divline
-        });
-        carve_2d_recursive(
-            node.children[1],
-            nodes,
-            corrected_divlines,
-            subsectors,
-            segments,
-            left_divlines,
-            result,
-        );
-    }
 }
 
 #[cfg(test)]

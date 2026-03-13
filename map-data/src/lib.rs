@@ -1,4 +1,5 @@
-//! Map data structures, BSP construction, PVS computation, and triangulation.
+//! Map data structures, BSP construction, BSP polygon carving, and PVS
+//! computation.
 //!
 //! This crate contains all the level geometry data types and algorithms
 //! extracted from the gameplay crate for reuse by tools and renderers.
@@ -13,21 +14,22 @@ pub mod bsp3d;
 pub mod flags;
 pub mod map_data;
 pub mod map_defs;
-pub mod node;
 pub mod pvs;
-pub mod triangulation;
 
 // Re-exports for convenience
+pub use bsp3d::carve::DivLine;
+pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{
     AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon, WallTexPin, WallType
 };
 pub use flags::LineDefFlags;
-pub use map_data::{IS_SSECTOR_MASK, MapData, is_subsector, mark_subsector, subsector_index};
-pub use map_defs::{BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector};
+pub use map_data::MapData;
+pub use map_defs::{
+    BBox, Blockmap, IS_SSECTOR_MASK, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector, is_subsector, mark_subsector, subsector_index
+};
 pub use pvs::{
     MightSee, Mightsee, PVS2D, Portal, Portals, PvsCluster, PvsData, PvsFile, PvsFileError, PvsView2D, RenderPvs, pvs_load_from_cache
 };
-pub use triangulation::DivLine;
 
 /// This exists to allow breaking the rules of borrows and in some cases
 /// lifetimes.

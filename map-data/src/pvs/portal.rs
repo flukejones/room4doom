@@ -6,8 +6,7 @@
 //! overlapping intervals across the left/right subtrees.
 
 use crate::bsp3d::BSP3D;
-use crate::map_data::{is_subsector, subsector_index};
-use crate::map_defs::{Node, Segment, SubSector};
+use crate::map_defs::{Node, Segment, SubSector, is_subsector, subsector_index};
 use glam::Vec2;
 use std::collections::HashSet;
 

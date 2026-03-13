@@ -2,8 +2,8 @@
 mod map_data_tests {
     use crate::Node;
     use glam::Vec2;
-    use map_data::LineDefFlags;
-    use map_data::map_data::{BSPTrace, IS_SSECTOR_MASK, MapData};
+    use map_data::map_data::{BSPTrace, MapData};
+    use map_data::{IS_SSECTOR_MASK, LineDefFlags};
     use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
     use std::path::PathBuf;
