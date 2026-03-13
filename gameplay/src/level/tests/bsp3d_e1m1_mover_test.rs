@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use crate::{SurfaceKind, WallType};
 
-    use crate::{MapData, PicData, SurfaceKind, WallType};
-    use wad::WadData;
+    use super::super::{DOOM_WAD, load_map};
 
     /// Diagnose vertex sharing at linedef 373 boundary between sector 14
     /// (floor=32, mover) and sector 15 (floor=0). The lower wall top vertices
@@ -11,18 +10,13 @@ mod tests {
     /// move_surface moves the wall top when the floor moves.
     #[test]
     fn test_e1m1_linedef373_vertex_sharing() {
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map(DOOM_WAD, "E1M1");
 
         let bsp3d = &map.bsp_3d;
         let vertices = &bsp3d.vertices;
 
-        // ss=26 is sector 14, ss=37 is sector 15
         println!("=== Linedef 373 vertex sharing diagnostic ===");
 
-        // Find all wall polygons for linedef 373
         let mut wall_vertex_indices = Vec::new();
         for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
             for poly in &leaf.polygons {
@@ -46,7 +40,6 @@ mod tests {
             }
         }
 
-        // Find floor polygon vertices for sector 14 subsectors
         let sector_14_subsectors = &bsp3d.sector_subsectors[14];
         println!("\nSector 14 subsectors: {:?}", sector_14_subsectors);
 
@@ -66,11 +59,9 @@ mod tests {
             floor_vertex_indices
         );
 
-        // Check which wall vertices are shared with floor
         let mut unshared = Vec::new();
         for &wvi in &wall_vertex_indices {
             let pos = vertices[wvi];
-            // Wall top vertices are at sector 14's floor height (32)
             if (pos.z - 32.0).abs() < 1.0 {
                 let shared = floor_vertex_indices.contains(&wvi);
                 println!(
@@ -83,7 +74,6 @@ mod tests {
             }
         }
 
-        // Print subsector 26 segments to see what boundary info is available
         println!("\n--- Subsector 26 segments ---");
         let ss26 = &map.subsectors[26];
         let start = ss26.start_seg as usize;
@@ -101,7 +91,6 @@ mod tests {
             );
         }
 
-        // Print floor polygon 2D positions
         println!("\n--- Sector 14 floor polygon vertices (2D) ---");
         for &ssid in sector_14_subsectors {
             let leaf = &bsp3d.subsector_leaves[ssid];
@@ -122,11 +111,9 @@ mod tests {
             }
         }
 
-        // Print unshared vertex info
         println!("\n--- Unshared wall top vertices ---");
         for &wvi in &unshared {
             let wpos = vertices[wvi];
-            // Check if there's a floor vertex at the same x,y but different index
             let nearby_floor = floor_vertex_indices
                 .iter()
                 .filter(|&&fvi| {
@@ -162,17 +149,13 @@ mod tests {
     fn test_e1m1_all_mover_vertex_sharing() {
         use std::collections::HashSet;
 
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map(DOOM_WAD, "E1M1");
 
         let bsp3d = &map.bsp_3d;
         let verts = &bsp3d.vertices;
 
         // ---- Sector 14: floor mover ----
         {
-            // Floor polygon vertex indices for sector 14.
             let floor_verts: HashSet<usize> = bsp3d.sector_subsectors[14]
                 .iter()
                 .flat_map(|&ssid| {
@@ -184,12 +167,10 @@ mod tests {
                 })
                 .collect();
 
-            // Derive floor height from the polygon data.
             let ssid = bsp3d.sector_subsectors[14][0];
             let leaf = &bsp3d.subsector_leaves[ssid];
             let floor_h = verts[leaf.polygons[leaf.floor_polygons[0]].vertices[0]].z;
 
-            // Linedef IDs for all segments bordering sector 14.
             let border_lds: HashSet<usize> = map
                 .segments
                 .iter()
@@ -199,9 +180,6 @@ mod tests {
                 .map(|s| s.linedef.num as usize)
                 .collect();
 
-            // Non-zh lower wall vertices at floor_h must be in floor_verts.
-            // Zh lower walls (all verts at same z) are excluded — their top
-            // vertices correctly connect to the adjacent non-mover sector.
             let mut unshared = Vec::new();
             for leaf in &bsp3d.subsector_leaves {
                 for poly in &leaf.polygons {
@@ -263,9 +241,6 @@ mod tests {
                 .map(|s| s.linedef.num as usize)
                 .collect();
 
-            // Non-zh upper wall vertices at ceil_h must be in ceil_verts.
-            // Zh upper walls (all verts at same z) are excluded — their bottom
-            // vertices correctly connect to the adjacent non-mover sector.
             let mut unshared = Vec::new();
             for leaf in &bsp3d.subsector_leaves {
                 for poly in &leaf.polygons {

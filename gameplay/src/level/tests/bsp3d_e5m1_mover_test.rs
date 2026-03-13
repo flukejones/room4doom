@@ -1,17 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use crate::{SurfaceKind, WallType};
 
-    use crate::{MapData, PicData, SurfaceKind, WallType};
-    use wad::WadData;
+    use super::super::{DOOM_WAD, SIGIL_WAD, load_map_with_pwad};
 
     #[test]
     fn test_e5m1_sector24_has_lower_walls() {
-        let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map_with_pwad(DOOM_WAD, SIGIL_WAD, "E5M1");
 
         let bsp3d = &map.bsp_3d;
 
@@ -31,7 +26,6 @@ mod tests {
             }
         }
 
-        // Also check neighbour subsectors
         let boundary_linedefs = [207, 627, 208];
         for seg in map.segments.iter() {
             if !boundary_linedefs.contains(&(seg.linedef.num as usize)) {
@@ -68,11 +62,7 @@ mod tests {
     /// Only zero-height walls get moves=true for normal recomputation.
     #[test]
     fn test_e5m1_sector24_wall_properties() {
-        let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        wad.add_file("/Users/lukejones/DOOM/sigil.wad".into());
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E5M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map_with_pwad(DOOM_WAD, SIGIL_WAD, "E5M1");
 
         let bsp3d = &map.bsp_3d;
 

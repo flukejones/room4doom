@@ -1,32 +1,25 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::{MovementType, SurfaceKind};
+
+    use super::super::{DOOM_WAD, load_map};
 
     #[test]
     fn test_door_vertex_sharing() {
-        use crate::{MapData, PicData};
         use std::collections::HashMap;
-        use wad::WadData;
 
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let mut map = load_map(DOOM_WAD, "E1M1");
 
         let bsp3d = &mut map.bsp_3d;
 
         println!("=== DOOR VERTEX SHARING TEST - SECTORS 25 & 26 ===");
 
-        // Find subsectors for sectors 25 and 26
         let sector_25_subsectors = bsp3d.sector_subsectors.get(25).cloned().unwrap_or_default();
         let sector_26_subsectors = bsp3d.sector_subsectors.get(26).cloned().unwrap_or_default();
 
         println!("Sector 25 subsectors: {:?}", sector_25_subsectors);
         println!("Sector 26 subsectors: {:?}", sector_26_subsectors);
 
-        // Find linedef 148, 150, 151 segments
         let segments = &map.segments;
         let linedefs = &map.linedefs;
 
@@ -54,7 +47,6 @@ mod tests {
             }
         }
 
-        // Record initial vertex positions
         println!("\n=== RECORDING INITIAL POSITIONS ===");
 
         let mut initial_vertex_positions = HashMap::new();
@@ -62,7 +54,6 @@ mod tests {
             initial_vertex_positions.insert(vertex_idx, bsp3d.vertices[vertex_idx]);
         }
 
-        // Record floor polygon positions for sectors 25 and 26
         let mut floor_polygon_vertices = HashMap::new();
 
         for &subsector_id in &sector_25_subsectors {
@@ -109,13 +100,10 @@ mod tests {
             }
         }
 
-        // Record wall positions from linedefs 148 (should shrink), 150, 151 (should be
-        // stationary) and 152, 153 (should move with ceiling)
         let mut wall_polygon_vertices = HashMap::new();
         for (&linedef_id, segments) in &tracked_linedefs {
             if [148, 150, 151, 152, 153].contains(&linedef_id) {
                 for &(seg_idx, _) in segments {
-                    // Find subsector containing this segment
                     let subsectors = &map.subsectors;
                     for (subsector_id, subsector) in subsectors.iter().enumerate() {
                         let start_seg = subsector.start_seg as usize;
@@ -163,32 +151,11 @@ mod tests {
             }
         }
 
-        // Debug: Check marked vertices before movement
-        println!("\n=== MARKED VERTICES BEFORE MOVEMENT ===");
-        for &subsector_id in &[55, 56] {
-            println!("Subsector {} marked floor vertices:", subsector_id);
-            // for (key, vertex_idx) in &bsp3d.marked_floor_vertices[subsector_id] {
-            //     println!(
-            //         "  Key {:?} -> Vertex {}: {:?}",
-            //         key, vertex_idx, bsp3d.vertices[*vertex_idx]
-            //     );
-            // }
-            println!("Subsector {} marked ceiling vertices:", subsector_id);
-            // for (key, vertex_idx) in
-            // &bsp3d.marked_ceiling_vertices[subsector_id] {
-            //     println!(
-            //         "  Key {:?} -> Vertex {}: {:?}",
-            //         key, vertex_idx, bsp3d.vertices[*vertex_idx]
-            //     );
-            // }
-        }
-
         println!("\n=== MOVING SECTOR 26 CEILING FROM 0 TO 68 ===");
         bsp3d.move_surface(26, MovementType::Ceiling, 68.0, 0);
 
         println!("\n=== COMPREHENSIVE MOVEMENT ANALYSIS ===");
 
-        // Find ALL vertices that moved with sector 26 ceiling
         let mut moved_vertices = Vec::new();
         for vertex_idx in 0..bsp3d.vertices.len() {
             let original_pos = initial_vertex_positions[&vertex_idx];
@@ -203,10 +170,8 @@ mod tests {
             println!("  Vertex {}: {:?} -> {:?}", vertex_idx, orig, curr);
         }
 
-        // Categorize which polygons contain moved vertices
         println!("\n=== POLYGON ANALYSIS FOR MOVED VERTICES ===");
 
-        // Check sector 25 floor polygons
         for &subsector_id in &sector_25_subsectors {
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
                 for &floor_poly_idx in &leaf.floor_polygons {
@@ -220,7 +185,7 @@ mod tests {
                         }
                         if has_moved_vertex {
                             println!(
-                                "❌ SECTOR 25 FLOOR POLYGON {} CONTAINS MOVED VERTICES:",
+                                "SECTOR 25 FLOOR POLYGON {} CONTAINS MOVED VERTICES:",
                                 floor_poly_idx
                             );
                             for &vertex_idx in &polygon.vertices {
@@ -236,7 +201,6 @@ mod tests {
             }
         }
 
-        // Check sector 26 floor polygons
         for &subsector_id in &sector_26_subsectors {
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
                 for &floor_poly_idx in &leaf.floor_polygons {
@@ -250,7 +214,7 @@ mod tests {
                         }
                         if has_moved_vertex {
                             println!(
-                                "❌ SECTOR 26 FLOOR POLYGON {} CONTAINS MOVED VERTICES:",
+                                "SECTOR 26 FLOOR POLYGON {} CONTAINS MOVED VERTICES:",
                                 floor_poly_idx
                             );
                             for &vertex_idx in &polygon.vertices {
@@ -268,7 +232,6 @@ mod tests {
 
         println!("\n=== VALIDATING AFTER MOVEMENT ===");
 
-        // Check that floor vertices did NOT move
         println!("\nChecking floor stability:");
         for ((subsector_id, floor_poly_idx), _) in &floor_polygon_vertices {
             if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id) {
@@ -279,7 +242,7 @@ mod tests {
                         let current_pos = bsp3d.vertices[vertex_idx];
                         if (original_pos.z - current_pos.z).abs() > 0.001 {
                             println!(
-                                "  ❌ FLOOR MOVED: Subsector {} floor polygon {} vertex {} moved from {:?} to {:?}",
+                                "  FLOOR MOVED: Subsector {} floor polygon {} vertex {} moved from {:?} to {:?}",
                                 subsector_id, floor_poly_idx, vertex_idx, original_pos, current_pos
                             );
                             floor_moved = true;
@@ -287,7 +250,7 @@ mod tests {
                     }
                     if !floor_moved {
                         println!(
-                            "  ✅ Floor polygon {} in subsector {} remained stationary",
+                            "  Floor polygon {} in subsector {} remained stationary",
                             floor_poly_idx, subsector_id
                         );
                     }
@@ -295,8 +258,6 @@ mod tests {
             }
         }
 
-        // Check wall movement: 148 should shrink, 150,151 should stay, 152,153 should
-        // move
         println!(
             "\nChecking wall movement (148 should shrink, 150,151 should stay, 152,153 should move):"
         );
@@ -323,7 +284,7 @@ mod tests {
                             "moved"
                         };
                         println!(
-                            "  ✅ Linedef {} wall polygon {} {} correctly",
+                            "  Linedef {} wall polygon {} {} correctly",
                             linedef_id, poly_idx, action
                         );
                         for (vertex_idx, orig, curr) in moved_vertices {
@@ -339,12 +300,12 @@ mod tests {
                             "moved"
                         };
                         println!(
-                            "  ❌ WALL SHOULD MOVE: Linedef {} wall polygon {} should have {} but didn't",
+                            "  WALL SHOULD MOVE: Linedef {} wall polygon {} should have {} but didn't",
                             linedef_id, poly_idx, action
                         );
                     } else if !should_move && wall_moved {
                         println!(
-                            "  ❌ WALL MOVED: Linedef {} wall polygon {} should be stationary but moved",
+                            "  WALL MOVED: Linedef {} wall polygon {} should be stationary but moved",
                             linedef_id, poly_idx
                         );
                         for (vertex_idx, orig, curr) in moved_vertices {
@@ -355,7 +316,7 @@ mod tests {
                         }
                     } else {
                         println!(
-                            "  ✅ Linedef {} wall polygon {} remained stationary (correct)",
+                            "  Linedef {} wall polygon {} remained stationary (correct)",
                             linedef_id, poly_idx
                         );
                     }
@@ -363,7 +324,6 @@ mod tests {
             }
         }
 
-        // Check that sector 26 ceiling vertices DID move
         println!("\nChecking sector 26 ceiling movement:");
         for &subsector_id in &sector_26_subsectors {
             if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
@@ -376,12 +336,12 @@ mod tests {
                                 && (original_pos.z - 0.0).abs() < 0.001
                             {
                                 println!(
-                                    "  ✅ Sector 26 ceiling vertex {} moved from {} to {} (expected)",
+                                    "  Sector 26 ceiling vertex {} moved from {} to {} (expected)",
                                     vertex_idx, original_pos.z, current_pos.z
                                 );
                             } else {
                                 println!(
-                                    "  ❌ Sector 26 ceiling vertex {} unexpected position: {} -> {} (expected 68)",
+                                    "  Sector 26 ceiling vertex {} unexpected position: {} -> {} (expected 68)",
                                     vertex_idx, original_pos.z, current_pos.z
                                 );
                             }
@@ -396,18 +356,10 @@ mod tests {
 
     #[test]
     fn test_wall_marking() {
-        use crate::{MapData, PicData};
-        use wad::WadData;
+        let map = load_map(DOOM_WAD, "E1M1");
 
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M1", |name| pic_data.flat_num_for_name(name), &wad);
-
-        // Find linedef 484
         let _linedef_484 = &map.linedefs[484];
 
-        // Find segment that references linedef 484
         let mut segment_484 = None;
         for segment in &map.segments {
             if segment.linedef.num == 484 {
@@ -422,7 +374,6 @@ mod tests {
         );
         let segment = segment_484.unwrap();
 
-        // Verify front sector is 14, back sector is 23
         assert_eq!(segment.frontsector.num, 14, "Front sector should be 14");
         if let Some(back_sector) = &segment.backsector {
             assert_eq!(back_sector.num, 23, "Back sector should be 23");
@@ -430,7 +381,6 @@ mod tests {
             panic!("Linedef 484 should have a back sector");
         }
 
-        // Verify both sectors have floor height 32 (same height)
         assert_eq!(
             segment.frontsector.floorheight, 32.0,
             "Front floor should be 32"
@@ -439,13 +389,11 @@ mod tests {
             assert_eq!(back_sector.floorheight, 32.0, "Back floor should be 32");
         }
 
-        // Verify linedef has bottom texture
         assert!(
             segment.sidedef.bottomtexture.is_some(),
             "Should have bottom texture"
         );
 
-        // Find back subsector for sector 23
         let mut back_subsector_id = None;
         for (subsector_id, subsector_ids) in map.bsp_3d.sector_subsectors.iter().enumerate() {
             if subsector_id == 23 && !subsector_ids.is_empty() {

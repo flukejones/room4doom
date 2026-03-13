@@ -1,17 +1,14 @@
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::path::PathBuf;
 
-    use crate::{MapData, PicData, SurfaceKind, WallType};
-    use wad::WadData;
+    use crate::{SurfaceKind, WallType};
+
+    use super::super::{DOOM_WAD, load_map};
 
     #[test]
     fn test_e1m3_stair_sectors_have_moving_floors() {
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map(DOOM_WAD, "E1M3");
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -37,10 +34,7 @@ mod tests {
 
     #[test]
     fn test_e1m3_stair_sectors_have_lower_walls_between_steps() {
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map(DOOM_WAD, "E1M3");
 
         let bsp3d = &map.bsp_3d;
         let stair_sectors = [16, 17, 18, 19, 8, 9, 10, 11, 12, 13];
@@ -72,17 +66,9 @@ mod tests {
 
     #[test]
     fn test_e1m3_stair_wall_vertex_sharing() {
-        let wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E1M3", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map(DOOM_WAD, "E1M3");
 
         let bsp3d = &map.bsp_3d;
-
-        // Sector 16 -> 17 boundary: both at floor height 48 (zero-height wall).
-        // Lower wall top verts use LowerSeparated, bottom verts use Lower.
-        // Sector 16 and 17 floor polygons both use LowerSeparated (has_lower = true).
-        // So wall top verts should share indices with both floors' vertices.
 
         let sector_16_floor_verts: HashSet<usize> = bsp3d.sector_subsectors[16]
             .iter()
@@ -106,7 +92,6 @@ mod tests {
             })
             .collect();
 
-        // Find lower wall polygons in sector 16's subsectors
         let mut wall_top_shared_with_17 = 0;
         let mut wall_bottom_shared_with_16 = 0;
         let mut total_walls = 0;

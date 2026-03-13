@@ -766,7 +766,7 @@ mod tests {
     fn bad_stuff_thinking() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = MapData::default();
-        map.load("E1M1", |_| None, &wad);
+        map.load("E1M1", |_| None, &wad, None);
         let (tx, _rx) = channel();
 
         let mut l = unsafe {

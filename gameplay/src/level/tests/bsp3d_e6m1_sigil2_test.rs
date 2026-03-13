@@ -1,20 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use crate::{MapData, PicData};
-    use wad::WadData;
+    use super::super::{DOOM_WAD, SIGIL2_WAD, load_map_with_pwad};
 
     /// Diagnostic test for subsector 2587 in E6M1 (sigil2.wad).
     /// Subsector 2587 produces malformed floor/ceiling polygons.
     /// This test prints the polygon vertex data to identify the root cause.
     #[test]
     fn test_e6m1_subsector_2587_polygon() {
-        let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        wad.add_file("/Users/lukejones/DOOM/sigil2.wad".into());
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E6M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map_with_pwad(DOOM_WAD, SIGIL2_WAD, "E6M1");
 
         let bsp3d = &map.bsp_3d;
 
@@ -33,7 +26,6 @@ mod tests {
         println!("Floor polygon indices: {:?}", leaf.floor_polygons);
         println!("Ceiling polygon indices: {:?}", leaf.ceiling_polygons);
 
-        // Inspect floor polygons
         for &fp_idx in &leaf.floor_polygons {
             let poly = &leaf.polygons[fp_idx];
             println!("\n--- Floor polygon [{}] ---", fp_idx);
@@ -43,8 +35,6 @@ mod tests {
                 println!("  v[{}] = idx:{} pos:{:?}", i, vi, vertices[vi]);
             }
 
-            // Detect duplicate vertex indices within the polygon
-            let mut dup_found = false;
             for i in 0..poly.vertices.len() {
                 for j in (i + 1)..poly.vertices.len() {
                     if poly.vertices[i] == poly.vertices[j] {
@@ -52,12 +42,10 @@ mod tests {
                             "  DUPLICATE vertex index at positions {} and {}: idx={}",
                             i, j, poly.vertices[i]
                         );
-                        dup_found = true;
                     }
                 }
             }
 
-            // Fan triangulation: triangle (0, i, i+1) for i in 1..n-1
             println!("  Fan triangles:");
             let n = poly.vertices.len();
             let mut degenerate_count = 0;
@@ -85,12 +73,11 @@ mod tests {
                 );
             }
 
-            if !dup_found && degenerate_count == 0 {
+            if degenerate_count == 0 {
                 println!("  Floor polygon looks valid.");
             }
         }
 
-        // Inspect ceiling polygons
         for &cp_idx in &leaf.ceiling_polygons {
             let poly = &leaf.polygons[cp_idx];
             println!("\n--- Ceiling polygon [{}] ---", cp_idx);
@@ -100,7 +87,6 @@ mod tests {
                 println!("  v[{}] = idx:{} pos:{:?}", i, vi, vertices[vi]);
             }
 
-            let mut dup_found = false;
             for i in 0..poly.vertices.len() {
                 for j in (i + 1)..poly.vertices.len() {
                     if poly.vertices[i] == poly.vertices[j] {
@@ -108,7 +94,6 @@ mod tests {
                             "  DUPLICATE vertex index at positions {} and {}: idx={}",
                             i, j, poly.vertices[i]
                         );
-                        dup_found = true;
                     }
                 }
             }
@@ -139,13 +124,11 @@ mod tests {
                 );
             }
 
-            if !dup_found && degenerate_count == 0 {
+            if degenerate_count == 0 {
                 println!("  Ceiling polygon looks valid.");
             }
         }
 
-        // Also print the 2D polygon used for triangulation by checking what
-        // segments belong to this subsector
         println!("\n--- Segments for subsector 2587 ---");
         let all_subsectors = &map.subsectors;
         if let Some(subsector) = all_subsectors.get(2587) {
@@ -169,7 +152,6 @@ mod tests {
             }
         }
 
-        // Fail if any floor polygon has degenerate triangles
         let mut total_degenerate = 0;
         let vertices = &bsp3d.vertices;
         for &fp_idx in &leaf.floor_polygons {
@@ -205,11 +187,7 @@ mod tests {
     /// across the whole map.
     #[test]
     fn test_e6m1_no_degenerate_floor_triangles() {
-        let mut wad = WadData::new(&PathBuf::from("/Users/lukejones/DOOM/doom.wad"));
-        wad.add_file("/Users/lukejones/DOOM/sigil2.wad".into());
-        let pic_data = PicData::init(&wad);
-        let mut map = MapData::default();
-        map.load("E6M1", |name| pic_data.flat_num_for_name(name), &wad);
+        let map = load_map_with_pwad(DOOM_WAD, SIGIL2_WAD, "E6M1");
 
         let bsp3d = &map.bsp_3d;
         let vertices = &bsp3d.vertices;
