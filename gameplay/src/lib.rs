@@ -68,6 +68,32 @@ impl fmt::Display for DoomArgError {
     }
 }
 
+/// PVS preprocessing mode for `--preprocess-pvs`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreprocessPvsMode {
+    /// Full frustum-clip flood pass (most accurate).
+    Full,
+    /// Mightsee only — skip frustum pass (faster, more conservative).
+    Mightsee,
+    /// Cluster-based PVS.
+    Cluster,
+}
+
+impl FromStr for PreprocessPvsMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "full" => Ok(Self::Full),
+            "mightsee" => Ok(Self::Mightsee),
+            "cluster" => Ok(Self::Cluster),
+            other => Err(format!(
+                "unknown pvs mode '{other}'; expected full, mightsee, or cluster"
+            )),
+        }
+    }
+}
+
 /// Options specific to gameplay
 #[derive(Clone)]
 pub struct GameOptions {
@@ -88,7 +114,8 @@ pub struct GameOptions {
     pub autostart: bool,
     pub enable_demos: bool,
     pub netgame: bool,
-    pub preprocess_pvs: bool,
+    /// PVS preprocessing mode. `None` means no preprocessing.
+    pub preprocess_pvs: Option<PreprocessPvsMode>,
 }
 
 impl Default for GameOptions {
@@ -111,7 +138,7 @@ impl Default for GameOptions {
             verbose: log::LevelFilter::Info,
             enable_demos: false,
             netgame: false,
-            preprocess_pvs: false,
+            preprocess_pvs: None,
         }
     }
 }

@@ -95,17 +95,22 @@ struct ViewCmd {
     cluster: bool,
 }
 
-fn load_map(args: &Args) -> std::pin::Pin<Box<MapData>> {
-    let wad_path: PathBuf = args.iwad.clone().into();
-    let mut wad = WadData::new(&wad_path);
-    for pwad in &args.pwad {
-        wad.add_file(pwad.into());
-    }
+fn load_map(args: &Args, wad: &WadData) -> std::pin::Pin<Box<MapData>> {
+    let flat_lookup: std::collections::HashMap<String, usize> = wad
+        .flats_iter()
+        .enumerate()
+        .map(|(i, f)| (f.name.clone(), i))
+        .collect();
 
     let mut map_data = Box::pin(MapData::default());
     // Safety: load() populates internal MapPtr raw pointers that reference
     // MapData's own vecs. Pin ensures the heap allocation won't move.
-    unsafe { map_data.as_mut().get_unchecked_mut() }.load(&args.map, |_| Some(0), &wad, None);
+    unsafe { map_data.as_mut().get_unchecked_mut() }.load(
+        &args.map,
+        |name| flat_lookup.get(name).copied(),
+        wad,
+        None,
+    );
     map_data
 }
 
@@ -161,15 +166,7 @@ fn cmd_stats(args: &Args) {
         ..
     } = &mut map_data;
 
-    let pvs2d = PVS2D::build(
-        subsectors,
-        segments,
-        bsp_3d,
-        sectors,
-        linedefs,
-        nodes,
-        *start_node,
-    );
+    let pvs2d = PVS2D::build(subsectors, segments, bsp_3d, nodes, *start_node, false);
     let pvs = pvs2d.clone_render_pvs();
 
     let ss_count = subsectors.len();
@@ -205,22 +202,12 @@ fn cmd_portals(args: &Args) {
         subsectors,
         segments,
         bsp_3d,
-        sectors,
-        linedefs,
         nodes,
         start_node,
         ..
     } = &mut map_data;
 
-    let pvs2d = PVS2D::build(
-        subsectors,
-        segments,
-        bsp_3d,
-        sectors,
-        linedefs,
-        nodes,
-        *start_node,
-    );
+    let pvs2d = PVS2D::build(subsectors, segments, bsp_3d, nodes, *start_node, false);
     let portals = pvs2d.portals_2d();
 
     #[derive(Serialize)]
@@ -251,7 +238,8 @@ fn cmd_portals(args: &Args) {
 }
 
 fn cmd_sectors(args: &Args) {
-    let map_data = load_map(args);
+    let wad = load_wad(args);
+    let map_data = load_map(args, &wad);
     let sectors: Vec<SectorOutput> = map_data
         .sectors
         .iter()
@@ -279,22 +267,12 @@ fn cmd_build(args: &Args) {
         subsectors,
         segments,
         bsp_3d,
-        sectors,
-        linedefs,
         nodes,
         start_node,
         ..
     } = &mut map_data;
 
-    let pvs2d = PVS2D::build(
-        subsectors,
-        segments,
-        bsp_3d,
-        sectors,
-        linedefs,
-        nodes,
-        *start_node,
-    );
+    let pvs2d = PVS2D::build(subsectors, segments, bsp_3d, nodes, *start_node, false);
 
     match pvs2d.save_to_cache(&args.map, hash) {
         Ok(()) => match RenderPvs::cache_path(&args.map, hash) {
@@ -345,7 +323,8 @@ fn cmd_trace(args: &Args, cmd: &TraceCmd) {
 fn cmd_diag(args: &Args) {
     use glam::Vec2;
 
-    let map_data = load_map(args);
+    let wad = load_wad(args);
+    let map_data = load_map(args, &wad);
     let carved = &map_data.bsp_3d.carved_polygons;
 
     let extents = map_data.get_map_extents();
@@ -555,7 +534,8 @@ struct DumpNode {
 }
 
 fn cmd_dump(args: &Args, cmd: &DumpCmd) {
-    let map_data = load_map(args);
+    let wad = load_wad(args);
+    let map_data = load_map(args, &wad);
     let vert_base = map_data.vertexes.as_ptr();
 
     let portals: Vec<DumpPortal> = {
@@ -680,7 +660,7 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
 fn cmd_view(args: &Args, view_cmd: &ViewCmd) {
     let wad = load_wad(args);
     let map_hash = wad.map_bsp_hash(&args.map).unwrap_or_default();
-    let map_data = load_map(args);
+    let map_data = load_map(args, &wad);
 
     let pvs: Option<PvsInput> = if view_cmd.no_pvs {
         None
@@ -701,16 +681,16 @@ fn cmd_view(args: &Args, view_cmd: &ViewCmd) {
             &map_data.subsectors,
             &map_data.segments,
             &map_data.bsp_3d,
-            &map_data.sectors,
-            &map_data.linedefs,
             &map_data.nodes,
             map_data.start_node,
+            false,
         )))
     };
 
     let viewer_data = viewer::extract_viewer_data(
         &args.map,
         &map_data,
+        &wad,
         pvs,
         map_hash,
         args.iwad.clone(),

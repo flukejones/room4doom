@@ -1,12 +1,21 @@
 use egui::{Color32, Mesh, Pos2, Stroke, Vec2 as EVec2};
 use glam::Vec2;
 use map_data::{
-    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, is_subsector,
-    pvs_load_from_cache, subsector_index,
+    MapData, PVS2D, Portals, PvsCluster, PvsData, PvsFile, PvsView2D, RenderPvs, SurfaceKind, is_subsector, pvs_load_from_cache, subsector_index
 };
 use std::any::Any;
-
 use std::sync::Arc;
+use wad::WadData;
+
+/// Height range (map units) at which brightness spans the full
+/// [BRIGHTNESS_MIN, BRIGHTNESS_MAX] band. Smaller ranges produce a narrower
+/// band centered on BRIGHTNESS_CENTER.
+const BRIGHTNESS_REF_RANGE: f32 = 1024.0;
+
+/// Brightness band limits and center.
+const BRIGHTNESS_MIN: f32 = 0.2;
+const BRIGHTNESS_MAX: f32 = 1.0;
+const BRIGHTNESS_CENTER: f32 = 0.5;
 
 // ── PVS backend selection ──
 
@@ -57,6 +66,13 @@ pub struct ViewerData {
     ss_divline_path: Vec<Vec<usize>>,
     /// Which PVS backend is active (used by rebuild to repeat the same build).
     backend: Option<PvsBackendKind>,
+    /// Per-sector brightness value (0.0–1.0) derived from floor height rank.
+    /// Indexed by sector ID. Rank-based so every distinct height level gets a
+    /// distinct brightness step regardless of actual height spacing.
+    floor_height_value: Vec<f32>,
+    /// Per-sector average floor texture colour, computed from WAD flat data and
+    /// palette. Indexed by sector ID.
+    floor_texture_color: Vec<Color32>,
     /// Cache metadata for save/rebuild.
     map_hash: u64,
     iwad_path: String,
@@ -83,9 +99,20 @@ struct ViewSector {
 }
 
 struct ViewSubsector {
+    /// Subsector index (matches BSP leaf index).
     index: usize,
+    /// Owning sector, from `BSPLeaf3D.sector_id`.
     sector_id: usize,
+    /// 2D carved polygon from `BSP3D.carved_polygons`.
     vertices: Vec<Vec2>,
+    /// Precomputed 2D AABB min corner from `BSPLeaf3D.aabb`.
+    aabb_min: Vec2,
+    /// Precomputed 2D AABB max corner from `BSPLeaf3D.aabb`.
+    aabb_max: Vec2,
+    /// Unique linedef IDs from vertical surfaces in this leaf.
+    /// Reserved for future texture-based colouring.
+    #[allow(dead_code)]
+    wall_linedef_ids: Vec<usize>,
 }
 
 struct ViewDivline {
@@ -105,6 +132,7 @@ struct ViewVertex {
 pub fn extract_viewer_data(
     map_name: &str,
     map_data: &MapData,
+    wad: &WadData,
     pvs: Option<PvsInput>,
     map_hash: u64,
     iwad_path: String,
@@ -140,6 +168,59 @@ pub fn extract_viewer_data(
         })
         .collect();
 
+    // Brightness centered on BRIGHTNESS_CENTER. The band width scales with
+    // the map's actual height range relative to BRIGHTNESS_REF_RANGE.
+    // Small variation → narrow band (e.g. 0.4–0.6).
+    // Large variation → wide band (e.g. 0.2–0.8, clamped to [MIN, MAX]).
+    let floor_height_value: Vec<f32> = {
+        let min_h = sectors
+            .iter()
+            .map(|s| s.floor_height)
+            .fold(f32::MAX, f32::min);
+        let max_h = sectors
+            .iter()
+            .map(|s| s.floor_height)
+            .fold(f32::MIN, f32::max);
+        let range = max_h - min_h;
+        let half_band = (BRIGHTNESS_MAX - BRIGHTNESS_MIN) * 0.5 * (range / BRIGHTNESS_REF_RANGE);
+        sectors
+            .iter()
+            .map(|s| {
+                if range <= 0.0 {
+                    BRIGHTNESS_CENTER
+                } else {
+                    let t = (s.floor_height - min_h) / range; // 0..1
+                    (BRIGHTNESS_CENTER - half_band + t * 2.0 * half_band)
+                        .clamp(BRIGHTNESS_MIN, BRIGHTNESS_MAX)
+                }
+            })
+            .collect()
+    };
+
+    // Average floor texture colour per sector from WAD flat data + palette.
+    let floor_texture_color: Vec<Color32> = {
+        let palette = wad.playpal_iter().next().unwrap();
+        let flats: Vec<_> = wad.flats_iter().collect();
+        map_data
+            .sectors
+            .iter()
+            .map(|s| match flats.get(s.floorpic) {
+                Some(f) if !f.data.is_empty() => {
+                    let (mut r, mut g, mut b) = (0u64, 0u64, 0u64);
+                    let count = f.data.len() as u64;
+                    for &pi in &f.data {
+                        let c = palette.0[pi as usize];
+                        r += c[0] as u64;
+                        g += c[1] as u64;
+                        b += c[2] as u64;
+                    }
+                    Color32::from_rgb((r / count) as u8, (g / count) as u8, (b / count) as u8)
+                }
+                _ => Color32::from_rgb(128, 128, 128),
+            })
+            .collect()
+    };
+
     // Build vertex list with linedef associations (by position key).
     let pos_key = |v: Vec2| -> (u32, u32) { (v.x.to_bits(), v.y.to_bits()) };
     let pos_to_vidx: std::collections::HashMap<(u32, u32), usize> = map_data
@@ -171,21 +252,37 @@ pub fn extract_viewer_data(
         })
         .collect();
 
-    let carved = &map_data.bsp_3d.carved_polygons;
-    let subsectors: Vec<ViewSubsector> = map_data
-        .subsectors
+    let bsp = &map_data.bsp_3d;
+    let subsectors: Vec<ViewSubsector> = bsp
+        .carved_polygons
         .iter()
         .enumerate()
-        .zip(carved.iter())
-        .map(|((i, ss), verts)| {
-            let sector_id = ss.sector.num as usize;
+        .zip(bsp.subsector_leaves.iter())
+        .map(|((i, verts), leaf)| {
+            let sector_id = leaf.sector_id;
             if verts.len() >= 3 {
                 validate_polygon(i, sector_id, verts);
             }
+            let mut wall_linedef_ids: Vec<usize> = leaf
+                .polygons
+                .iter()
+                .filter_map(|p| match &p.surface_kind {
+                    SurfaceKind::Vertical {
+                        linedef_id,
+                        ..
+                    } => Some(*linedef_id),
+                    _ => None,
+                })
+                .collect();
+            wall_linedef_ids.sort_unstable();
+            wall_linedef_ids.dedup();
             ViewSubsector {
                 index: i,
                 sector_id,
                 vertices: verts.clone(),
+                aabb_min: leaf.aabb.min.truncate(),
+                aabb_max: leaf.aabb.max.truncate(),
+                wall_linedef_ids,
             }
         })
         .collect();
@@ -272,6 +369,8 @@ pub fn extract_viewer_data(
         map_hash,
         iwad_path,
         pwad_paths,
+        floor_height_value,
+        floor_texture_color,
     }
 }
 
@@ -674,10 +773,15 @@ impl MapViewerApp {
             wad.add_file(pwad.into());
         }
 
+        let flat_lookup: std::collections::HashMap<String, usize> = wad
+            .flats_iter()
+            .enumerate()
+            .map(|(i, f)| (f.name.clone(), i))
+            .collect();
         let mut map_data = Box::pin(MapData::default());
         unsafe { map_data.as_mut().get_unchecked_mut() }.load(
             &self.data.map_name,
-            |_| Some(0),
+            |name| flat_lookup.get(name).copied(),
             &wad,
             None,
         );
@@ -703,10 +807,9 @@ impl MapViewerApp {
                     &map_data.subsectors,
                     &map_data.segments,
                     &map_data.bsp_3d,
-                    &map_data.sectors,
-                    &map_data.linedefs,
                     &map_data.nodes,
                     map_data.start_node,
+                    false,
                 );
                 let portals = portals_to_view(built.portals_2d());
                 let render = built.clone_render_pvs();
@@ -916,7 +1019,15 @@ impl MapViewerApp {
                 if ss.vertices.len() < 3 {
                     continue;
                 }
-                let color = sector_color(ss.sector_id, 40);
+                let base = self.data.floor_texture_color[ss.sector_id];
+                let v = self.data.floor_height_value[ss.sector_id];
+                let peak = base.r().max(base.g()).max(base.b()).max(1) as f32;
+                let scale = v * 255.0 / peak;
+                let color = Color32::from_rgb(
+                    (base.r() as f32 * scale).min(255.0) as u8,
+                    (base.g() as f32 * scale).min(255.0) as u8,
+                    (base.b() as f32 * scale).min(255.0) as u8,
+                );
                 let points: Vec<Pos2> = ss
                     .vertices
                     .iter()
@@ -981,12 +1092,8 @@ impl MapViewerApp {
                     default_stroke
                 };
 
-                let mut mn = ss.vertices[0];
-                let mut mx = ss.vertices[0];
-                for &v in &ss.vertices[1..] {
-                    mn = Vec2::new(mn.x.min(v.x), mn.y.min(v.y));
-                    mx = Vec2::new(mx.x.max(v.x), mx.y.max(v.y));
-                }
+                let mn = ss.aabb_min;
+                let mx = ss.aabb_max;
                 let tl = self.map_to_screen(Vec2::new(mn.x, mx.y), vc);
                 let tr = self.map_to_screen(Vec2::new(mx.x, mx.y), vc);
                 let br = self.map_to_screen(Vec2::new(mx.x, mn.y), vc);
@@ -1241,7 +1348,7 @@ impl MapViewerApp {
 
         ui.heading("Layers");
         ui.checkbox(&mut self.state.show_linedefs, "Linedefs");
-        ui.checkbox(&mut self.state.show_sectors, "Sectors (filled)");
+        ui.checkbox(&mut self.state.show_sectors, "Sectors (textured)");
         ui.checkbox(&mut self.state.show_subsectors, "Subsector boundaries");
         ui.checkbox(&mut self.state.show_pvs, "PVS highlight");
         ui.checkbox(&mut self.state.show_mightsee, "MightSee overlay");
@@ -1507,35 +1614,6 @@ pub fn run(data: ViewerData) {
 }
 
 // ── Helpers ──
-
-/// Generate a color for a sector ID, avoiding the green hue range (80-160)
-/// which is reserved for PVS highlight overlays.
-fn sector_color(id: usize, alpha: u8) -> Color32 {
-    let raw = (id as f32 * 137.508) % 280.0;
-    let hue = if raw >= 80.0 { raw + 80.0 } else { raw };
-    let (r, g, b) = hsv_to_rgb(hue, 0.6, 0.8);
-    Color32::from_rgba_unmultiplied(
-        (r * 255.0) as u8,
-        (g * 255.0) as u8,
-        (b * 255.0) as u8,
-        alpha,
-    )
-}
-
-fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
-    let c = v * s;
-    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
-    let m = v - c;
-    let (r, g, b) = match (h / 60.0) as u32 {
-        0 => (c, x, 0.0),
-        1 => (x, c, 0.0),
-        2 => (0.0, c, x),
-        3 => (0.0, x, c),
-        4 => (x, 0.0, c),
-        _ => (c, 0.0, x),
-    };
-    (r + m, g + m, b + m)
-}
 
 /// Validate a subsector polygon at extraction time, logging detail for any
 /// issues.

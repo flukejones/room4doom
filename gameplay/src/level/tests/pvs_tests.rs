@@ -57,10 +57,9 @@ mod pvs_tests {
             &map_data.subsectors,
             &map_data.segments,
             &map_data.bsp_3d,
-            &map_data.sectors,
-            &map_data.linedefs,
             &map_data.nodes,
             map_data.start_node,
+            false,
         );
         let render = pvs2d.clone_render_pvs();
         (map_data, pvs2d, render)

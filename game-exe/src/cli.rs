@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use argh::FromArgs;
-use gameplay::{GameOptions, Skill, log};
+use gameplay::{GameOptions, PreprocessPvsMode, Skill, log};
 use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};
 
 use crate::config::{self, MusicType};
@@ -90,12 +92,10 @@ pub struct CLIOptions {
     /// enable demo playback (currently bad due to f32 used in movements)
     #[argh(switch, short = 'E')]
     pub enable_demos: bool,
-    /// preprocess PVS data for loaded WADs and exit
-    #[argh(switch)]
-    pub preprocess_pvs: bool,
-    /// use cluster-based PVS instead of loading from cache
-    #[argh(switch)]
-    pub pvs_cluster: bool,
+    /// preprocess PVS data for loaded WADs and exit; mode: full, mightsee,
+    /// cluster
+    #[argh(option)]
+    pub preprocess_pvs: Option<PreprocessPvsMode>,
     /// debug overlay mode (mutually exclusive): sector_id, depth, overdraw,
     /// wireframe
     #[argh(option)]

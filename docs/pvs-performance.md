@@ -23,9 +23,33 @@ Stages 5-6 run last to avoid disrupting RDP chain structure.
 | E5M1 (Sigil) | 9,038 | 4,014 | 56% |
 | E6M6 (Sigil 2) | 19,058 | 5,718 | 70% |
 
-### Runtime — pvsmightsee (no solidsegs, spawn point)
+### Runtime — n-poly, PVS comparison (no sky polys, no solidsegs, spawn point)
 
-BSP solidsegs occlusion disabled: it is a 2D occluder that produces visual errors with player view tilt. PvsCluster excluded from MAP20: visibility gaps on large open maps.
+Walls as quads, flats as n-gons, sky polygons skipped. MAP20 pvs2d and mightsee stats are distance-limited — level draw not complete at this view position.
+
+| Metric | MAP03 no PVS | MAP03 mightsee | MAP03 full PVS | MAP20 no PVS | MAP20 mightsee | MAP20 full PVS |
+|---|---|---|---|---|---|---|
+| Submitted | 6,534 | 3,782 | 1,235 | 27,666 | 18,825 | 6,289 |
+| Culled | 313 | 176 | 40 | 7,717 | 4,473 | 906 |
+| Early-depth | 5,704 | 3,089 | 680 | 17,924 | 12,328 | 4,060 |
+| No-draw | 210 | 210 | 208 | 1,807 | 1,806 | 1,145 |
+| Rendered | 307 | 307 | 307 | 218 | 218 | 178 |
+| Subsectors | 2,648/2,648 | 1,624/2,648 | 518/2,648 | 18,116/18,116 | 12,785/18,116 | 5,152/18,116 |
+| FPS | ~377 | ~670 | ~1,024 | ~96 | ~123 | ~265 |
+
+| Metric | E6M6 no PVS | E6M6 mightsee | E6M6 full PVS |
+|---|---|---|---|
+| Submitted | 2,432 | 2,182 | 1,694 |
+| Culled | 48 | 48 | 34 |
+| Early-depth | 582 | 560 | 471 |
+| No-draw | 373 | 368 | 365 |
+| Rendered | 578 | 578 | 578 |
+| Subsectors | 1,692/1,692 | 1,547/1,692 | 1,197/1,692 |
+| FPS | ~1,050 | ~953 | ~1,034 |
+
+### Runtime — pvsmightsee triangulated (no solidsegs, spawn point, historical)
+
+Triangle-fan tessellation with sky polys. BSP solidsegs disabled. PvsCluster excluded from MAP20: visibility gaps on large open maps.
 
 | Metric | MAP03 pvsmightsee | E6M6 pvsmightsee | E6M6 PvsCluster | MAP20 pvsmightsee |
 |---|---|---|---|---|
@@ -36,35 +60,6 @@ BSP solidsegs occlusion disabled: it is a 2D occluder that produces visual error
 | No-draw | 569 | 588 | 615 | 3,367 |
 | Rendered | 671 | 1,081 | 1,062 | 998 |
 | FPS | ~840–843 | ~776–786 | ~842 | ~120–121 |
-
-### Runtime — n-poly, no PVS (no sky polys, no solidsegs, spawn point)
-
-Walls as quads, flats as n-gons, sky polygons skipped. No PVS — raw render performance.
-
-| Metric | MAP03 | MAP20 |
-|---|---|---|
-| Submitted | 6,534 | 27,666 |
-| Frustum-clipped | 0 | 0 |
-| Culled | 313 | 7,717 |
-| Early-depth | 5,704 | 17,924 |
-| No-draw | 210 | 1,807 |
-| Rendered | 307 | 218 |
-| FPS | ~467 | ~96 |
-
-### Runtime — n-poly + pvs2d (no sky polys, no solidsegs, spawn point)
-
-| Metric | MAP20 |
-|---|---|
-| Submitted | 6,289 |
-| Frustum-clipped | 0 |
-| Culled | 906 |
-| Early-depth | 4,060 |
-| No-draw | 1,145 |
-| Rendered | 178 |
-| Subsectors passed | 5,152 / 18,116 |
-| FPS | ~265 |
-
-> Note: MAP20 pvs2d stat is distance-limited — level draw is not complete at this view position.
 
 ---
 

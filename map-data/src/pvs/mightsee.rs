@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 ///
 /// Applied via [`widen_arc`] before [`intersect_arcs`] to avoid discarding
 /// portals that are just barely on the edge of the current arc.
-const ARC_EPS: f32 = 0.0349 * 2.0;
+const ARC_EPS: f32 = 0.0349;
 
 // ============================================================================
 // MIGHTSEE

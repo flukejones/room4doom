@@ -9,7 +9,7 @@
 //!    symmetry pass.
 
 use crate::bsp3d::BSP3D;
-use crate::map_defs::{LineDef, Node, Sector, Segment, SubSector};
+use crate::map_defs::{Node, Segment, SubSector};
 use glam::Vec2;
 use log::info;
 use rayon::prelude::*;
@@ -48,18 +48,20 @@ impl Default for PVS2D {
 }
 
 impl PVS2D {
-    /// Build the full PVS for a map.
+    /// Build the PVS for a map.
     ///
-    /// Runs portal collection, mightsee precomputation, and the parallel
-    /// full frustum-clip flood. Progress is printed to stderr.
+    /// Runs portal collection and mightsee precomputation. When
+    /// `mightsee_only` is false (the default), also runs the parallel full
+    /// frustum-clip flood and symmetry pass. When true, the mightsee source
+    /// rows are used directly as the final visibility bitset — faster but
+    /// more conservative (more false positives).
     pub fn build(
         subsectors: &[SubSector],
         segments: &[Segment],
         bsp: &BSP3D,
-        _sectors: &[Sector],
-        _linedefs: &[LineDef],
         nodes: &[Node],
         start_node: u32,
+        mightsee_only: bool,
     ) -> Self {
         info!("PVS2D: building for {} subsectors", subsectors.len());
 
@@ -71,86 +73,96 @@ impl PVS2D {
         let n = subsectors.len();
         let row_words = (n + 31) / 32;
 
-        let portals_slice = portals.portals_slice();
-        let portal_offsets = portals.offsets();
-        let portal_ids = portals.ids();
+        let flat = if mightsee_only {
+            info!("PVS2D: using mightsee as final PVS (frustum pass skipped)");
+            (0..n)
+                .flat_map(|s| mightsee.source_bits(s).iter().copied())
+                .collect()
+        } else {
+            let portals_slice = portals.portals_slice();
+            let portal_offsets = portals.offsets();
+            let portal_ids = portals.ids();
 
-        let progress = AtomicUsize::new(0);
+            let progress = AtomicUsize::new(0);
 
-        let rows: Vec<Vec<u32>> = (0..n)
-            .into_par_iter()
-            .map(|source| {
-                let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
-                if done % 64 == 0 || done == n {
-                    eprint!(
-                        "\r  PVS2D flood:    {done}/{n} ({:.0}%)   ",
-                        done as f32 / n as f32 * 100.0
-                    );
-                    let _ = std::io::stderr().flush();
-                }
+            let rows: Vec<Vec<u32>> = (0..n)
+                .into_par_iter()
+                .map(|source| {
+                    let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
+                    if done % 64 == 0 || done == n {
+                        eprint!(
+                            "\r  PVS2D flood:    {done}/{n} ({:.0}%)   ",
+                            done as f32 / n as f32 * 100.0
+                        );
+                        let _ = std::io::stderr().flush();
+                    }
 
-                let mut pvs_row = vec![0u32; row_words];
-                pvs_row[source / 32] |= 1u32 << (source % 32);
+                    let mut pvs_row = vec![0u32; row_words];
+                    pvs_row[source / 32] |= 1u32 << (source % 32);
 
-                let mut on_path = vec![0u32; row_words];
-                on_path[source / 32] |= 1u32 << (source % 32);
+                    let mut on_path = vec![0u32; row_words];
+                    on_path[source / 32] |= 1u32 << (source % 32);
 
-                let src_mightsee = mightsee.source_bits(source);
+                    let src_mightsee = mightsee.source_bits(source);
 
-                let ref_point = source_ref_point(source, portals_slice, portal_offsets, portal_ids);
+                    let ref_point =
+                        source_ref_point(source, portals_slice, portal_offsets, portal_ids);
 
-                let src_start = portal_offsets[source] as usize;
-                let src_end = portal_offsets[source + 1] as usize;
-                for &pi in &portal_ids[src_start..src_end] {
-                    let pi = pi as usize;
-                    let far_sub = portals_slice[pi].other(source);
-                    pvs_row[far_sub / 32] |= 1u32 << (far_sub % 32);
-                    let seg = portals_slice[pi].segment();
-                    on_path[far_sub / 32] |= 1u32 << (far_sub % 32);
-                    // Independent explored_angles per initial portal: each
-                    // initial portal has its own frustum and angular budget.
-                    let mut explored_angles = AngularBuckets::new(n);
-                    full_clip_flood(
-                        seg,
-                        seg,
-                        far_sub,
-                        pi,
-                        portals_slice,
-                        portal_offsets,
-                        portal_ids,
-                        src_mightsee,
-                        &mightsee,
-                        &mut pvs_row,
-                        &mut on_path,
-                        src_mightsee,
-                        ref_point,
-                        &mut explored_angles,
-                        0,
-                    );
-                    on_path[far_sub / 32] &= !(1u32 << (far_sub % 32));
-                }
+                    let src_start = portal_offsets[source] as usize;
+                    let src_end = portal_offsets[source + 1] as usize;
+                    for &pi in &portal_ids[src_start..src_end] {
+                        let pi = pi as usize;
+                        let far_sub = portals_slice[pi].other(source);
+                        pvs_row[far_sub / 32] |= 1u32 << (far_sub % 32);
+                        let seg = portals_slice[pi].segment();
+                        on_path[far_sub / 32] |= 1u32 << (far_sub % 32);
+                        // Independent explored_angles per initial portal: each
+                        // initial portal has its own frustum and angular budget.
+                        let mut explored_angles = AngularBuckets::new(n);
+                        full_clip_flood(
+                            seg,
+                            seg,
+                            far_sub,
+                            pi,
+                            portals_slice,
+                            portal_offsets,
+                            portal_ids,
+                            src_mightsee,
+                            &mightsee,
+                            &mut pvs_row,
+                            &mut on_path,
+                            src_mightsee,
+                            ref_point,
+                            &mut explored_angles,
+                            0,
+                        );
+                        on_path[far_sub / 32] &= !(1u32 << (far_sub % 32));
+                    }
 
-                pvs_row
-            })
-            .collect();
-        eprintln!();
+                    pvs_row
+                })
+                .collect();
+            eprintln!();
 
-        let mut flat: Vec<u32> = rows.into_iter().flatten().collect();
+            let mut flat: Vec<u32> = rows.into_iter().flatten().collect();
 
-        for a in 0..n {
-            for b in (a + 1)..n {
-                let ab_w = a * row_words + b / 32;
-                let ab_b = 1u32 << (b % 32);
-                let ba_w = b * row_words + a / 32;
-                let ba_b = 1u32 << (a % 32);
-                let ab = flat[ab_w] & ab_b != 0;
-                let ba = flat[ba_w] & ba_b != 0;
-                if ab || ba {
-                    flat[ab_w] |= ab_b;
-                    flat[ba_w] |= ba_b;
+            for a in 0..n {
+                for b in (a + 1)..n {
+                    let ab_w = a * row_words + b / 32;
+                    let ab_b = 1u32 << (b % 32);
+                    let ba_w = b * row_words + a / 32;
+                    let ba_b = 1u32 << (a % 32);
+                    let ab = flat[ab_w] & ab_b != 0;
+                    let ba = flat[ba_w] & ba_b != 0;
+                    if ab || ba {
+                        flat[ab_w] |= ab_b;
+                        flat[ba_w] |= ba_b;
+                    }
                 }
             }
-        }
+
+            flat
+        };
 
         let visibility = RenderPvs {
             subsector_count: n,
