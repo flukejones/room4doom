@@ -419,7 +419,7 @@ impl SegRender {
             //  }
             self.rw_offset += sidedef.textureoffset + seg.offset;
             self.rw_centerangle = mobj.angle - self.rw_normalangle;
-            self.wall_lights = (sidedef.sector.lightlevel >> 4) + player.extralight;
+            self.wall_lights = ((sidedef.sector.lightlevel >> 4) + player.extralight).min(15);
             if (seg.angle.rad().abs() == std::f32::consts::PI || seg.angle.rad() == 0.0)
                 && self.wall_lights > 0
             {
@@ -541,7 +541,7 @@ impl SegRender {
         let size = rend.size().clone();
         let sidedef = seg.sidedef.clone();
 
-        let flats_total_light = (seg.frontsector.lightlevel >> 4) + player.extralight;
+        let flats_total_light = ((seg.frontsector.lightlevel >> 4) + player.extralight).min(15);
         let ceil_height = (seg.frontsector.ceilingheight - player.viewz).abs();
         let ceil_tex = pic_data.get_flat(seg.frontsector.ceilingpic);
         let floor_height = (seg.frontsector.floorheight - player.viewz).abs();

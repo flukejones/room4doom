@@ -100,7 +100,7 @@ impl Software25D {
             self.checked_idx += 1;
         }
 
-        let light_level = (sector.lightlevel >> 4) + player.extralight;
+        let light_level = ((sector.lightlevel >> 4) + player.extralight).min(15);
         sector.run_func_on_thinglist(|thing| {
             self.project_sprite(player, thing, light_level, screen_width, pic_data)
         });
@@ -231,7 +231,7 @@ impl Software25D {
         vis.patch = patch_index;
         if thing.frame & FF_FULLBRIGHT != 0 {
             // full bright
-            vis.light_level = 255;
+            vis.light_level = 15;
         } else {
             vis.light_level = light_level;
         }
@@ -457,7 +457,7 @@ impl Software25D {
             x2
         };
         vis.scale = pspritescale;
-        vis.light_level = light + 2;
+        vis.light_level = (light + 2).min(15);
 
         if flip != 0 {
             vis.x_iscale = -pspriteiscale;
@@ -520,7 +520,7 @@ impl Software25D {
             }
             let texnum = unsafe { seg.sidedef.midtexture.unwrap_unchecked() };
 
-            let wall_lights = (seg.sidedef.sector.lightlevel >> 4) + player.extralight;
+            let wall_lights = ((seg.sidedef.sector.lightlevel >> 4) + player.extralight).min(15);
 
             let rw_scalestep = ds.scalestep;
             // TODO: hmmmm 0.05
