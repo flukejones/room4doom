@@ -6,8 +6,7 @@ use glam::Vec2;
 use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 
 use crate::Software3D;
-use crate::depth_buffer::SKY_DEPTH;
-use crate::render::{TextureSampler, TriangleInterpolator};
+use crate::render::{TextureSampler, TriangleInterpolator, sample_sky_pixel};
 
 /// Minimum depth for real geometry. Must exceed `SKY_DEPTH` (f32::EPSILON)
 /// so that distant polygons clamped to this value still pass the depth test
@@ -175,12 +174,30 @@ impl Software3D {
             }
 
             if is_sky {
-                // Sky polygon: depth-only pass. Write SKY_DEPTH to mark pixels
-                // for the full-screen sky fill pass. No pixel drawing here —
-                // sky is rendered once after all geometry.
+                let sky_combined = &self.sky.extended;
+                let sky_tex_height = self.sky.tex_height;
+                let sky_w = self.sky.tex_width;
+                let sky_r = (y_f * self.sky.v_scale + self.sky.pitch_offset) as i32;
                 let mut x = x_start;
                 while x <= x_end {
-                    self.depth_buffer.set_sky_depth_unchecked(x, y);
+                    if self
+                        .depth_buffer
+                        .test_and_set_depth_unchecked(x, y, edge_inv_w)
+                    {
+                        let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
+                            .rem_euclid(sky_w as f32)
+                            as usize;
+                        if let Some(color) =
+                            sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
+                        {
+                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
+                            buf[px] = color[0];
+                            buf[px + 1] = color[1];
+                            buf[px + 2] = color[2];
+                            buf[px + 3] = color[3];
+                        }
+                    }
+                    edge_inv_w += edge_inv_w_dx;
                     x += 1;
                 }
                 did_draw = true;
@@ -194,7 +211,7 @@ impl Software3D {
                         // on thin scanlines with large inv_w_dx
                         let test_inv_w = edge_inv_w.max(MIN_GEOMETRY_DEPTH);
                         let peek = self.depth_buffer.peek_depth_unchecked(x, y);
-                        if test_inv_w > peek && peek != SKY_DEPTH {
+                        if test_inv_w > peek {
                             break;
                         }
                         interp_state.step_x();

@@ -996,8 +996,8 @@ impl BSP3D {
         let floor_h = subsector.sector.floorheight;
         let ceil_h = subsector.sector.ceilingheight;
 
-        let skip_floor = sky_num.is_some_and(|sky| subsector.sector.floorpic == sky);
-        let skip_ceil = sky_num.is_some_and(|sky| subsector.sector.ceilingpic == sky);
+        let skip_floor = false; // sky_num.is_some_and(|sky| subsector.sector.floorpic == sky);
+        let skip_ceil = false; // sky_num.is_some_and(|sky| subsector.sector.ceilingpic == sky);
 
         // Degenerate check via shoelace area.
         let shoelace: f32 = polygon
