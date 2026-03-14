@@ -3,7 +3,7 @@ use coarse_prof::profile;
 
 use gameplay::{FlatPic, PicData, SurfaceKind, SurfacePolygon, WallPic, WallType};
 use glam::Vec2;
-use render_trait::DrawBuffer;
+use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 
 use crate::depth_buffer::SKY_DEPTH;
 use crate::{DebugColourMode, Software3D, sky};
@@ -466,6 +466,8 @@ impl Software3D {
         let y_end = bounds.1.y.min(height_f32 - 1.0).floor() as u32 as usize;
 
         let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
+        let buf_pitch = buffer.pitch();
+        let buf = buffer.buf_mut();
         let mut did_draw = false;
         for y in y_start..=y_end {
             let y_f = y as f32;
@@ -603,7 +605,11 @@ impl Software3D {
                                 continue;
                             }
                             self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
-                            buffer.set_pixel(x, y, color);
+                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
+                            buf[px] = color[0];
+                            buf[px + 1] = color[1];
+                            buf[px + 2] = color[2];
+                            buf[px + 3] = color[3];
                         } else {
                             // Depth test before UV — avoids the perspective divide on misses
                             if !self
@@ -622,7 +628,11 @@ impl Software3D {
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
-                            buffer.set_pixel(x, y, color);
+                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
+                            buf[px] = color[0];
+                            buf[px + 1] = color[1];
+                            buf[px + 2] = color[2];
+                            buf[px + 3] = color[3];
                         }
                         did_draw = true;
 
