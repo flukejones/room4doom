@@ -1,7 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
+    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind,
+    SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use hud_util::{draw_text_line, hud_scale, measure_text_line};
@@ -9,11 +10,13 @@ use render_trait::DrawBuffer;
 
 use std::f32::consts::PI;
 
+mod debug;
 mod depth_buffer;
-mod edge_spans;
+mod poly_occluder;
 mod render;
 mod seg_occluder;
 mod sky;
+mod span_occluder;
 mod sprites;
 #[cfg(test)]
 mod tests;
@@ -297,7 +300,7 @@ pub struct Software3D {
     pub use_bsp_occlusion: bool,
     /// Edge-based span rasterisation (Quake-style).
     pub use_edge_spans: bool,
-    edge_state: edge_spans::EdgeSpanState,
+    edge_state: span_occluder::EdgeSpanState,
     // Per-frame traversal state — pre-allocated, reset each frame
     seen_sectors: Vec<bool>,
     visible_sectors: Vec<(usize, usize)>,
@@ -339,8 +342,8 @@ impl Software3D {
             current_frame_id: 0,
             seg_occluder: SegOccluder::new(fov, width, height),
             use_bsp_occlusion: false,
-            use_edge_spans: true,
-            edge_state: edge_spans::EdgeSpanState::new(width as u32, height as u32),
+            use_edge_spans: false,
+            edge_state: span_occluder::EdgeSpanState::new(width as u32, height as u32),
             seen_sectors: Vec::new(),
             visible_sectors: Vec::new(),
             visible_polygons: Vec::new(),
@@ -362,7 +365,7 @@ impl Software3D {
 
         self.set_fov(self.fov);
         self.depth_buffer.resize(width as usize, height as usize);
-        self.edge_state = edge_spans::EdgeSpanState::new(width as u32, height as u32);
+        self.edge_state = span_occluder::EdgeSpanState::new(width as u32, height as u32);
     }
 
     /// Sets the field of view and updates the projection matrix.

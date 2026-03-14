@@ -1,3 +1,7 @@
+//! This was more of a curiousity based on the 2D segment occluding
+//! standard Doom does. It does not translate well to 3D when the player
+//! view can tilt up or down. It was a fun experiment however.
+
 use gameplay::{Angle, OcclusionSeg, Sector};
 use glam::Vec2;
 use std::f32::consts::{FRAC_PI_2, PI};
