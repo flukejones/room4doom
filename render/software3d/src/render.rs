@@ -85,7 +85,7 @@ impl<'a> ScreenPoly<'a> {
 // TODO: completely change the Texture format to all be one
 /// Pre-computed texture sampling strategy to eliminate per-pixel match
 /// statements
-enum TextureSampler<'a> {
+pub(crate) enum TextureSampler<'a> {
     Vertical {
         texture: &'a WallPic,
         width: f32,
@@ -104,7 +104,7 @@ enum TextureSampler<'a> {
 
 impl<'a> TextureSampler<'a> {
     #[inline(always)]
-    fn new(
+    pub(crate) fn new(
         surface_kind: &SurfaceKind,
         pic_data: &'a PicData,
         sky_pic: usize,
@@ -153,7 +153,13 @@ impl<'a> TextureSampler<'a> {
     }
 
     #[inline(always)]
-    fn sample(&'a self, u: f32, v: f32, colourmap: &[usize], pic_data: &'a PicData) -> &'a [u8; 4] {
+    pub(crate) fn sample(
+        &'a self,
+        u: f32,
+        v: f32,
+        colourmap: &[usize],
+        pic_data: &'a PicData,
+    ) -> &'a [u8; 4] {
         unsafe {
             match self {
                 TextureSampler::Vertical {
@@ -194,7 +200,7 @@ impl<'a> TextureSampler<'a> {
 }
 
 #[derive(Debug, Clone)]
-struct InterpolationState {
+pub(crate) struct InterpolationState {
     current_tex: Vec2,
     current_inv_w: f32,
     tex_dx: Vec2,
@@ -205,7 +211,7 @@ struct InterpolationState {
 
 impl InterpolationState {
     #[inline(always)]
-    fn get_current_uv(&self) -> (f32, f32) {
+    pub(crate) fn get_current_uv(&self) -> (f32, f32) {
         // Clamp inv_w to the polygon's vertex range to prevent barycentric
         // extrapolation from producing incorrect depth values at screen edges
         let clamped_inv_w = self.current_inv_w.clamp(self.inv_w_min, self.inv_w_max);
@@ -219,7 +225,7 @@ impl InterpolationState {
     }
 
     #[inline(always)]
-    fn step_x(&mut self) {
+    pub(crate) fn step_x(&mut self) {
         self.current_tex += self.tex_dx;
         self.current_inv_w += self.inv_w_dx;
     }
@@ -228,7 +234,7 @@ impl InterpolationState {
 /// Pre-computed triangle interpolation data for efficient per-pixel texture
 /// coordinate calculation
 #[derive(Debug, Clone)]
-struct TriangleInterpolator {
+pub(crate) struct TriangleInterpolator {
     v0: Vec2,
     v1: Vec2,
     v2: Vec2,
@@ -249,7 +255,7 @@ struct TriangleInterpolator {
 
 impl TriangleInterpolator {
     #[inline(always)]
-    fn new(screen_verts: &[Vec2], tex_coords: &[Vec2], inv_w: &[f32]) -> Option<Self> {
+    pub(crate) fn new(screen_verts: &[Vec2], tex_coords: &[Vec2], inv_w: &[f32]) -> Option<Self> {
         // Compute min/max inv_w across all polygon vertices to clamp extrapolation
         let mut inv_w_min = f32::INFINITY;
         let mut inv_w_max = f32::NEG_INFINITY;
@@ -347,7 +353,7 @@ impl TriangleInterpolator {
 
     /// Initialize interpolation state for a scanline
     #[inline(always)]
-    fn init_scanline(&self, start_x: f32, y: f32) -> InterpolationState {
+    pub(crate) fn init_scanline(&self, start_x: f32, y: f32) -> InterpolationState {
         let p = Vec2::new(start_x, y);
 
         // Calculate initial barycentric coordinates
@@ -384,7 +390,7 @@ impl TriangleInterpolator {
 
 /// Write a pixel, alpha-blending against the existing buffer if alpha is set.
 #[inline(always)]
-fn write_pixel(
+pub(crate) fn write_pixel(
     buffer: &mut impl DrawBuffer,
     x: usize,
     y: usize,

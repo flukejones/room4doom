@@ -139,5 +139,31 @@ fn bench_render_frame(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_render_frame);
+fn bench_edge_spans(c: &mut Criterion) {
+    let BenchState {
+        mut renderer,
+        map_data,
+        mut pic_data,
+        pos,
+        angle_rad,
+        subsector_id,
+        mut buffer,
+    } = load_state();
+
+    c.bench_function("edge_spans_e1m6", |b| {
+        b.iter(|| {
+            renderer.draw_view_bench_edge_spans(
+                pos,
+                angle_rad,
+                0.0,
+                subsector_id,
+                &map_data,
+                &mut pic_data,
+                &mut buffer,
+            );
+        });
+    });
+}
+
+criterion_group!(benches, bench_render_frame, bench_edge_spans);
 criterion_main!(benches);
