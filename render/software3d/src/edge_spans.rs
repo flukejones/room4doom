@@ -342,26 +342,45 @@ impl EdgeSpanState {
             is_sky,
         });
 
-        // Compute screen-space 1/w plane equation from first 3 vertices.
+        // Compute screen-space 1/w plane equation. Pick the vertex triple
+        // with the largest screen-space cross product for numerical stability
+        // (avoids near-collinear first-3-vertex degeneracy in N-gons).
         let (inv_w_origin, inv_w_step_x, inv_w_step_y) = {
-            let p0 = screen_verts[0];
-            let p1 = screen_verts[1];
-            let p2 = screen_verts[2];
-            let d1x = p1.x - p0.x;
-            let d1y = p1.y - p0.y;
-            let d1w = inv_w[1] - inv_w[0];
-            let d2x = p2.x - p0.x;
-            let d2y = p2.y - p0.y;
-            let d2w = inv_w[2] - inv_w[0];
-            let denom = d1x * d2y - d2x * d1y;
-            if denom.abs() < 1e-12 {
-                // Degenerate — flat plane, use vertex 0's inv_w everywhere
+            let mut best_denom = 0.0f32;
+            let mut best_i = (0, 1, 2);
+            for i in 0..vert_count {
+                for j in (i + 1)..vert_count {
+                    for k in (j + 1)..vert_count {
+                        let d1x = screen_verts[j].x - screen_verts[i].x;
+                        let d1y = screen_verts[j].y - screen_verts[i].y;
+                        let d2x = screen_verts[k].x - screen_verts[i].x;
+                        let d2y = screen_verts[k].y - screen_verts[i].y;
+                        let d = (d1x * d2y - d2x * d1y).abs();
+                        if d > best_denom {
+                            best_denom = d;
+                            best_i = (i, j, k);
+                        }
+                    }
+                }
+            }
+            if best_denom < 1e-6 {
                 (inv_w[0], 0.0, 0.0)
             } else {
+                let (i0, i1, i2) = best_i;
+                let p0 = screen_verts[i0];
+                let p1 = screen_verts[i1];
+                let p2 = screen_verts[i2];
+                let d1x = p1.x - p0.x;
+                let d1y = p1.y - p0.y;
+                let d1w = inv_w[i1] - inv_w[i0];
+                let d2x = p2.x - p0.x;
+                let d2y = p2.y - p0.y;
+                let d2w = inv_w[i2] - inv_w[i0];
+                let denom = d1x * d2y - d2x * d1y;
                 let inv_denom = 1.0 / denom;
                 let sx = (d1w * d2y - d2w * d1y) * inv_denom;
                 let sy = (d2w * d1x - d1w * d2x) * inv_denom;
-                let o = inv_w[0] - sx * p0.x - sy * p0.y;
+                let o = inv_w[i0] - sx * p0.x - sy * p0.y;
                 (o, sx, sy)
             }
         };
