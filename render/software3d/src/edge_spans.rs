@@ -5,12 +5,14 @@ use glam::Vec2;
 use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 
 use std::alloc::{self, Layout};
+use std::ptr;
 
 use crate::render::{TextureSampler, TriangleInterpolator};
 
-const SURF_NONE: usize = usize::MAX;
-const SPAN_END: usize = usize::MAX;
-const EDGE_NONE: usize = usize::MAX;
+const LIGHT_MIN_Z: f32 = 0.001;
+const LIGHT_MAX_Z: f32 = 0.055;
+const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
+const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
 
 /// Fixed-capacity bump allocator for frame-scoped objects. Single contiguous
 /// allocation, no per-push capacity checks, no reallocation. Reset each frame
@@ -42,33 +44,16 @@ impl<T> BumpPool<T> {
         self.len = 0;
     }
 
-    /// Number of live elements.
+    /// Push an element, returning a raw pointer to it. No capacity check —
+    /// caller must ensure the pool was sized correctly.
     #[inline(always)]
-    fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Push an element, returning its index. No capacity check — caller must
-    /// ensure the pool was sized correctly.
-    #[inline(always)]
-    unsafe fn push_unchecked(&mut self, val: T) -> usize {
+    unsafe fn push_unchecked(&mut self, val: T) -> *mut T {
         let idx = self.len;
         debug_assert!(idx < self.capacity);
-        unsafe { self.ptr.add(idx).write(val) };
+        let p = unsafe { self.ptr.add(idx) };
+        unsafe { p.write(val) };
         self.len = idx + 1;
-        idx
-    }
-
-    /// Raw pointer to the backing buffer.
-    #[inline(always)]
-    fn as_ptr(&self) -> *const T {
-        self.ptr
-    }
-
-    /// Raw mutable pointer to the backing buffer.
-    #[inline(always)]
-    fn as_mut_ptr(&mut self) -> *mut T {
-        self.ptr
+        p
     }
 
     /// Iterate over live elements.
@@ -85,14 +70,6 @@ impl<T> Drop for BumpPool<T> {
         }
     }
 }
-const LIGHT_MIN_Z: f32 = 0.001;
-const LIGHT_MAX_Z: f32 = 0.055;
-const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
-const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
-/// Left sentinel edge index (always index 0 after reset).
-const AET_HEAD: usize = 0;
-/// Right sentinel edge index (always index 1 after reset).
-const AET_TAIL: usize = 1;
 
 /// An edge in screen space, tracking one side of a polygon across scanlines.
 /// Doubly-linked into the active edge table (AET) via `prev`/`next`.
@@ -101,21 +78,17 @@ struct Edge {
     x: f32,
     /// X increment per scanline.
     x_step: f32,
-    /// Surface indices: [0] = trailing (surface leaving), [1] = leading
-    /// (surface entering). `SURF_NONE` means no surface on that side.
-    surfs: [usize; 2],
-    /// 1/w at current scanline (for depth interpolation along the edge).
-    inv_w: f32,
-    /// 1/w increment per scanline.
-    inv_w_step: f32,
-    /// Previous edge in AET doubly-linked list (`EDGE_NONE` = not in AET).
-    prev: usize,
-    /// Next edge in AET doubly-linked list (`EDGE_NONE` = not in AET).
-    next: usize,
-    /// Next edge in the per-scanline new-edge chain (`EDGE_NONE` = end).
-    next_new: usize,
-    /// Next edge in the per-scanline removal chain (`EDGE_NONE` = end).
-    next_remove: usize,
+    /// Surface pointers: [0] = trailing (surface leaving), [1] = leading
+    /// (surface entering). Null means no surface on that side.
+    surfs: [*mut SpanSurface; 2],
+    /// Previous edge in AET doubly-linked list (null = not in AET).
+    prev: *mut Edge,
+    /// Next edge in AET doubly-linked list (null = not in AET).
+    next: *mut Edge,
+    /// Next edge in the per-scanline new-edge chain (null = end).
+    next_new: *mut Edge,
+    /// Next edge in the per-scanline removal chain (null = end).
+    next_remove: *mut Edge,
 }
 
 /// A surface registered from a visible polygon, participating in the surface
@@ -127,16 +100,21 @@ struct SpanSurface {
     polygon_idx: usize,
     /// Last x position where this surface was the frontmost.
     last_u: i32,
-    /// Head of the span linked list (index into `spans[]`).
-    span_head: usize,
+    /// Head of the span linked list.
+    span_head: *mut Span,
     /// Edge pair counter: 0 = not on stack, 1 = active.
     spanstate: i32,
-    /// 1/w at `last_u` (for depth interpolation across the span).
-    last_inv_w: f32,
-    /// Previous surface in the surface stack (`SURF_NONE` = head/not linked).
-    prev: usize,
-    /// Next surface in the surface stack (`SURF_NONE` = tail/not linked).
-    next: usize,
+    /// Screen-space 1/w plane equation: inv_w = origin + x * step_x + y *
+    /// step_y. Computed once per polygon from 3 screen-space vertices.
+    inv_w_origin: f32,
+    /// Per-pixel x step for 1/w.
+    inv_w_step_x: f32,
+    /// Per-scanline y step for 1/w.
+    inv_w_step_y: f32,
+    /// Previous surface in the surface stack (null = head/not linked).
+    prev: *mut SpanSurface,
+    /// Next surface in the surface stack (null = tail/not linked).
+    next: *mut SpanSurface,
 }
 
 /// A horizontal span of pixels belonging to one surface on one scanline.
@@ -147,12 +125,8 @@ pub struct Span {
     x_end: usize,
     /// Scanline y.
     y: usize,
-    /// 1/w at x_start.
-    inv_w_start: f32,
-    /// 1/w at x_end.
-    inv_w_end: f32,
     /// Next span for the same surface (linked list).
-    next: usize,
+    next: *mut Span,
 }
 
 /// Pre-computed per-polygon data needed for span drawing.
@@ -203,9 +177,9 @@ impl std::fmt::Display for EdgeSpanStats {
 /// Storage: 3 object pools (`edges`, `surfaces`, `spans`) + 1 polygon data
 /// pool + 2 per-scanline chain head arrays (`new_edges`, `remove_edges`).
 /// Active edges form an intrusive doubly-linked list through `Edge::prev`/
-/// `next`, bounded by sentinels at indices 0 (x=-1) and 1 (x=f32::MAX).
+/// `next`, bounded by sentinels pointed to by `aet_head`/`aet_tail`.
 pub struct EdgeSpanState {
-    /// Edge pool. Indices 0 and 1 are sentinels; real edges start at index 2.
+    /// Edge pool. First two pushes are sentinels; real edges follow.
     edges: BumpPool<Edge>,
     /// Surface pool.
     surfaces: BumpPool<SpanSurface>,
@@ -213,17 +187,21 @@ pub struct EdgeSpanState {
     spans: BumpPool<Span>,
     /// Per-polygon render data pool.
     pub polygon_data: Vec<PolygonRenderData>,
-    /// Per-scanline new-edge chain heads (index into `edges[]`). Each entry
-    /// is the head of a singly-linked list via `Edge::next_new`.
-    new_edges: Vec<usize>,
-    /// Per-scanline removal chain heads (index into `edges[]`). Each entry
-    /// is the head of a singly-linked list via `Edge::next_remove`.
-    remove_edges: Vec<usize>,
+    /// Per-scanline new-edge chain heads. Each entry is the head of a
+    /// singly-linked list via `Edge::next_new`.
+    new_edges: Vec<*mut Edge>,
+    /// Per-scanline removal chain heads. Each entry is the head of a
+    /// singly-linked list via `Edge::next_remove`.
+    remove_edges: Vec<*mut Edge>,
+    /// Left sentinel edge pointer.
+    aet_head: *mut Edge,
+    /// Right sentinel edge pointer.
+    aet_tail: *mut Edge,
     /// Current number of real (non-sentinel) edges in the AET.
     active_count: usize,
     /// Head of the intrusive surface stack (lowest key = closest).
-    /// `SURF_NONE` when empty.
-    surf_stack_head: usize,
+    /// Null when empty.
+    surf_stack_head: *mut SpanSurface,
     /// Current depth of the surface stack.
     stack_depth: usize,
     /// Monotonically increasing BSP traversal key.
@@ -252,10 +230,12 @@ impl EdgeSpanState {
             surfaces: BumpPool::new(4096),
             spans: BumpPool::new(16384),
             polygon_data: Vec::with_capacity(512),
-            new_edges: vec![EDGE_NONE; h],
-            remove_edges: vec![EDGE_NONE; h],
+            new_edges: vec![ptr::null_mut(); h],
+            remove_edges: vec![ptr::null_mut(); h],
+            aet_head: ptr::null_mut(),
+            aet_tail: ptr::null_mut(),
             active_count: 0,
-            surf_stack_head: SURF_NONE,
+            surf_stack_head: ptr::null_mut(),
             stack_depth: 0,
             next_key: 0,
             width: w,
@@ -266,7 +246,7 @@ impl EdgeSpanState {
     }
 
     /// Reset all per-frame state. Retains allocated memory. Pushes two sentinel
-    /// edges (indices 0 and 1) that bound the AET.
+    /// edges that bound the AET.
     pub fn reset(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_reset");
@@ -274,42 +254,41 @@ impl EdgeSpanState {
         self.surfaces.clear();
         self.spans.clear();
         self.polygon_data.clear();
-        self.new_edges.fill(EDGE_NONE);
-        self.remove_edges.fill(EDGE_NONE);
-        self.surf_stack_head = SURF_NONE;
+        self.new_edges.fill(ptr::null_mut());
+        self.remove_edges.fill(ptr::null_mut());
+        self.surf_stack_head = ptr::null_mut();
         self.stack_depth = 0;
         self.next_key = 0;
         self.active_count = 0;
         self.stats.reset();
 
         // Sentinel 0: left guard (x = -1)
-        unsafe {
+        let head = unsafe {
             self.edges.push_unchecked(Edge {
                 x: -1.0,
                 x_step: 0.0,
-                surfs: [SURF_NONE, SURF_NONE],
-                inv_w: 0.0,
-                inv_w_step: 0.0,
-                prev: EDGE_NONE,
-                next: AET_TAIL,
-                next_new: EDGE_NONE,
-                next_remove: EDGE_NONE,
-            });
-        }
-        // Sentinel 1: right guard (x = infinity, catches all edges)
-        unsafe {
+                surfs: [ptr::null_mut(), ptr::null_mut()],
+                prev: ptr::null_mut(),
+                next: ptr::null_mut(), // patched below
+                next_new: ptr::null_mut(),
+                next_remove: ptr::null_mut(),
+            })
+        };
+        // Sentinel 1: right guard (x = infinity)
+        let tail = unsafe {
             self.edges.push_unchecked(Edge {
                 x: f32::MAX,
                 x_step: 0.0,
-                surfs: [SURF_NONE, SURF_NONE],
-                inv_w: 0.0,
-                inv_w_step: 0.0,
-                prev: AET_HEAD,
-                next: EDGE_NONE,
-                next_new: EDGE_NONE,
-                next_remove: EDGE_NONE,
-            });
-        }
+                surfs: [ptr::null_mut(), ptr::null_mut()],
+                prev: head,
+                next: ptr::null_mut(),
+                next_new: ptr::null_mut(),
+                next_remove: ptr::null_mut(),
+            })
+        };
+        unsafe { (*head).next = tail };
+        self.aet_head = head;
+        self.aet_tail = tail;
     }
 
     /// Emit edges for a single visible polygon. Called during BSP traversal
@@ -330,7 +309,6 @@ impl EdgeSpanState {
             return;
         }
 
-        let surface_idx = self.surfaces.len();
         let polygon_idx = self.polygon_data.len();
 
         self.polygon_data.push(PolygonRenderData {
@@ -340,18 +318,44 @@ impl EdgeSpanState {
             is_sky,
         });
 
-        unsafe {
+        // Compute screen-space 1/w plane equation from first 3 vertices.
+        let (inv_w_origin, inv_w_step_x, inv_w_step_y) = {
+            let p0 = screen_verts[0];
+            let p1 = screen_verts[1];
+            let p2 = screen_verts[2];
+            let d1x = p1.x - p0.x;
+            let d1y = p1.y - p0.y;
+            let d1w = inv_w[1] - inv_w[0];
+            let d2x = p2.x - p0.x;
+            let d2y = p2.y - p0.y;
+            let d2w = inv_w[2] - inv_w[0];
+            let denom = d1x * d2y - d2x * d1y;
+            if denom.abs() < 1e-12 {
+                // Degenerate — flat plane, use vertex 0's inv_w everywhere
+                (inv_w[0], 0.0, 0.0)
+            } else {
+                let inv_denom = 1.0 / denom;
+                let sx = (d1w * d2y - d2w * d1y) * inv_denom;
+                let sy = (d2w * d1x - d1w * d2x) * inv_denom;
+                let o = inv_w[0] - sx * p0.x - sy * p0.y;
+                (o, sx, sy)
+            }
+        };
+
+        let surf_ptr = unsafe {
             self.surfaces.push_unchecked(SpanSurface {
                 key: self.next_key,
                 polygon_idx,
                 last_u: 0,
-                span_head: SPAN_END,
+                span_head: ptr::null_mut(),
                 spanstate: 0,
-                last_inv_w: 0.0,
-                prev: SURF_NONE,
-                next: SURF_NONE,
-            });
-        }
+                inv_w_origin,
+                inv_w_step_x,
+                inv_w_step_y,
+                prev: ptr::null_mut(),
+                next: ptr::null_mut(),
+            })
+        };
         self.next_key += 1;
         self.stats.surfaces_emitted += 1;
 
@@ -360,18 +364,16 @@ impl EdgeSpanState {
             let ni = (i + 1) % vert_count;
             let v0 = screen_verts[i];
             let v1 = screen_verts[ni];
-            let iw0 = inv_w[i];
-            let iw1 = inv_w[ni];
 
             let dy = v1.y - v0.y;
             if dy.abs() < 0.001 {
                 continue;
             }
 
-            let (top, bot, iw_top, iw_bot, is_leading) = if dy > 0.0 {
-                (v0, v1, iw0, iw1, true)
+            let (top, bot, is_leading) = if dy > 0.0 {
+                (v0, v1, true)
             } else {
-                (v1, v0, iw1, iw0, false)
+                (v1, v0, false)
             };
 
             let y_start = top.y.ceil().max(0.0) as usize;
@@ -382,58 +384,52 @@ impl EdgeSpanState {
 
             let edge_dy = bot.y - top.y;
             let x_step = (bot.x - top.x) / edge_dy;
-            let inv_w_step = (iw_bot - iw_top) / edge_dy;
             let prestep = y_start as f32 - top.y;
             let x = top.x + x_step * prestep;
-            let edge_inv_w = iw_top + inv_w_step * prestep;
 
             let surfs = if is_leading {
-                [SURF_NONE, surface_idx]
+                [ptr::null_mut(), surf_ptr]
             } else {
-                [surface_idx, SURF_NONE]
+                [surf_ptr, ptr::null_mut()]
             };
 
-            let edge_idx = unsafe {
+            let edge_ptr = unsafe {
                 self.edges.push_unchecked(Edge {
                     x,
                     x_step,
                     surfs,
-                    inv_w: edge_inv_w,
-                    inv_w_step,
-                    prev: EDGE_NONE,
-                    next: EDGE_NONE,
-                    next_new: EDGE_NONE,
-                    next_remove: EDGE_NONE,
+                    prev: ptr::null_mut(),
+                    next: ptr::null_mut(),
+                    next_new: ptr::null_mut(),
+                    next_remove: ptr::null_mut(),
                 })
             };
+
             // Insertion-sort into per-scanline new-edge chain by x.
-            // edges_ptr may be stale after grow but grow only happens once
-            // at the top before any pushes.
-            let edges_ptr = self.edges.as_mut_ptr();
             let mut cursor = self.new_edges[y_start];
-            let mut prev_cursor = EDGE_NONE;
-            while cursor != EDGE_NONE {
-                let cx = unsafe { (*edges_ptr.add(cursor)).x };
+            let mut prev_cursor: *mut Edge = ptr::null_mut();
+            while !cursor.is_null() {
+                let cx = unsafe { (*cursor).x };
                 if cx > x {
                     break;
                 }
                 prev_cursor = cursor;
-                cursor = unsafe { (*edges_ptr.add(cursor)).next_new };
+                cursor = unsafe { (*cursor).next_new };
             }
-            unsafe { (*edges_ptr.add(edge_idx)).next_new = cursor };
-            if prev_cursor != EDGE_NONE {
-                unsafe { (*edges_ptr.add(prev_cursor)).next_new = edge_idx };
+            unsafe { (*edge_ptr).next_new = cursor };
+            if !prev_cursor.is_null() {
+                unsafe { (*prev_cursor).next_new = edge_ptr };
             } else {
-                self.new_edges[y_start] = edge_idx;
+                self.new_edges[y_start] = edge_ptr;
             }
 
-            // Link into per-scanline removal chain
+            // Link into per-scanline removal chain.
             let remove_y = y_end - 1;
             if remove_y < self.height {
                 unsafe {
-                    (*edges_ptr.add(edge_idx)).next_remove = self.remove_edges[remove_y];
+                    (*edge_ptr).next_remove = self.remove_edges[remove_y];
                 }
-                self.remove_edges[remove_y] = edge_idx;
+                self.remove_edges[remove_y] = edge_ptr;
             }
 
             self.stats.edges_emitted += 1;
@@ -443,42 +439,40 @@ impl EdgeSpanState {
     /// Sorted merge: splice a pre-sorted new-edge chain into the AET.
     /// Both lists are sorted by x, so this is a single left-to-right pass.
     ///
-    /// SAFETY: all edge indices in the new-edge chain and the AET must be
-    /// valid indices into `self.edges`.
-    fn aet_merge_new_edges(&mut self, mut new_idx: usize) {
-        let edges = self.edges.as_mut_ptr();
-        let mut cursor = unsafe { (*edges.add(AET_HEAD)).next };
-        while new_idx != EDGE_NONE {
-            let ne = unsafe { &*edges.add(new_idx) };
-            let next_new = ne.next_new;
-            let new_x = ne.x;
+    /// SAFETY: all edge pointers in the new-edge chain and the AET must be
+    /// valid.
+    fn aet_merge_new_edges(&mut self, mut new_ptr: *mut Edge) {
+        let tail = self.aet_tail;
+        let mut cursor = unsafe { (*self.aet_head).next };
+        while !new_ptr.is_null() {
+            let next_new = unsafe { (*new_ptr).next_new };
+            let new_x = unsafe { (*new_ptr).x };
             // Advance AET cursor past edges with x <= new_x
-            while unsafe { (*edges.add(cursor)).x } <= new_x {
-                cursor = unsafe { (*edges.add(cursor)).next };
+            while cursor != tail && unsafe { (*cursor).x } <= new_x {
+                cursor = unsafe { (*cursor).next };
             }
-            let prev = unsafe { (*edges.add(cursor)).prev };
+            let prev = unsafe { (*cursor).prev };
             unsafe {
-                (*edges.add(new_idx)).prev = prev;
-                (*edges.add(new_idx)).next = cursor;
-                (*edges.add(prev)).next = new_idx;
-                (*edges.add(cursor)).prev = new_idx;
+                (*new_ptr).prev = prev;
+                (*new_ptr).next = cursor;
+                (*prev).next = new_ptr;
+                (*cursor).prev = new_ptr;
             }
             self.active_count += 1;
-            new_idx = next_new;
+            new_ptr = next_new;
         }
     }
 
     /// Remove an edge from the AET. O(1) unlink via prev/next.
     ///
-    /// SAFETY: `edge_idx` must be a valid index into `self.edges`.
+    /// SAFETY: `edge` must be a valid pointer to an edge in the AET.
     #[inline(always)]
-    unsafe fn aet_remove(&mut self, edge_idx: usize) {
+    unsafe fn aet_remove(&mut self, edge: *mut Edge) {
         unsafe {
-            let edges = self.edges.as_mut_ptr();
-            let prev = (*edges.add(edge_idx)).prev;
-            let next = (*edges.add(edge_idx)).next;
-            (*edges.add(prev)).next = next;
-            (*edges.add(next)).prev = prev;
+            let prev = (*edge).prev;
+            let next = (*edge).next;
+            (*prev).next = next;
+            (*next).prev = prev;
         }
         self.active_count -= 1;
     }
@@ -487,40 +481,38 @@ impl EdgeSpanState {
     /// Combined step + resort in one AET pass. Edges rarely cross between
     /// scanlines, so the backward scan is almost always 0–1 hops.
     ///
-    /// SAFETY: AET linked list must be well-formed with valid sentinel
-    /// indices 0 and 1.
+    /// SAFETY: AET linked list must be well-formed with valid sentinels.
     fn aet_step_and_resort(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_resort");
-        let edges = self.edges.as_mut_ptr();
-        let mut idx = unsafe { (*edges.add(AET_HEAD)).next };
-        while idx != AET_TAIL {
-            let e = unsafe { &mut *edges.add(idx) };
+        let tail = self.aet_tail;
+        let mut edge = unsafe { (*self.aet_head).next };
+        while edge != tail {
+            let e = unsafe { &mut *edge };
             e.x += e.x_step;
-            e.inv_w += e.inv_w_step;
             let next = e.next;
             let prev = e.prev;
             let new_x = e.x;
-            if unsafe { (*edges.add(prev)).x } > new_x {
+            if unsafe { (*prev).x } > new_x {
                 // Unlink
                 unsafe {
-                    (*edges.add(prev)).next = next;
-                    (*edges.add(next)).prev = prev;
+                    (*prev).next = next;
+                    (*next).prev = prev;
                 }
                 // Walk left; left sentinel (x=-1) guarantees termination
-                let mut ia = unsafe { (*edges.add(prev)).prev };
-                while unsafe { (*edges.add(ia)).x } > new_x {
-                    ia = unsafe { (*edges.add(ia)).prev };
+                let mut ia = unsafe { (*prev).prev };
+                while unsafe { (*ia).x } > new_x {
+                    ia = unsafe { (*ia).prev };
                 }
-                let ib = unsafe { (*edges.add(ia)).next };
+                let ib = unsafe { (*ia).next };
                 unsafe {
-                    (*edges.add(idx)).prev = ia;
-                    (*edges.add(idx)).next = ib;
-                    (*edges.add(ia)).next = idx;
-                    (*edges.add(ib)).prev = idx;
+                    (*edge).prev = ia;
+                    (*edge).next = ib;
+                    (*ia).next = edge;
+                    (*ib).prev = edge;
                 }
             }
-            idx = next;
+            edge = next;
         }
     }
 
@@ -531,7 +523,7 @@ impl EdgeSpanState {
         profile!("edge_spans_process");
         for y in 0..self.height {
             let new_head = unsafe { *self.new_edges.get_unchecked(y) };
-            if new_head != EDGE_NONE {
+            if !new_head.is_null() {
                 self.aet_merge_new_edges(new_head);
             }
 
@@ -541,11 +533,11 @@ impl EdgeSpanState {
 
             self.generate_spans(y);
 
-            let mut remove_idx = unsafe { *self.remove_edges.get_unchecked(y) };
-            while remove_idx != EDGE_NONE {
-                let next_remove = unsafe { (*self.edges.as_ptr().add(remove_idx)).next_remove };
-                unsafe { self.aet_remove(remove_idx) };
-                remove_idx = next_remove;
+            let mut remove_ptr = unsafe { *self.remove_edges.get_unchecked(y) };
+            while !remove_ptr.is_null() {
+                let next_remove = unsafe { (*remove_ptr).next_remove };
+                unsafe { self.aet_remove(remove_ptr) };
+                remove_ptr = next_remove;
             }
 
             self.aet_step_and_resort();
@@ -559,37 +551,35 @@ impl EdgeSpanState {
     fn generate_spans(&mut self, y: usize) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_gen");
-        let edges = self.edges.as_ptr();
+        let tail = self.aet_tail;
         let w_max = self.w_max;
-        let mut idx = unsafe { (*edges.add(AET_HEAD)).next };
-        while idx != AET_TAIL {
-            let edge = unsafe { &*edges.add(idx) };
-            let edge_inv_w = edge.inv_w;
-            let surfs = edge.surfs;
-            let next = edge.next;
+        let mut edge = unsafe { (*self.aet_head).next };
+        while edge != tail {
+            let e = unsafe { &*edge };
+            let surfs = e.surfs;
+            let next = e.next;
             // Clamp once, reuse for both leading and trailing
-            let ix = edge.x.max(0.0).min(w_max) as i32;
+            let ix = e.x.max(0.0).min(w_max) as i32;
 
-            if surfs[0] != SURF_NONE {
-                self.trailing_edge(surfs[0], ix, edge_inv_w, y);
+            if !surfs[0].is_null() {
+                self.trailing_edge(surfs[0], ix, y);
             }
 
-            if surfs[1] != SURF_NONE {
-                self.leading_edge(surfs[1], ix, edge_inv_w, y);
+            if !surfs[1].is_null() {
+                self.leading_edge(surfs[1], ix, y);
             }
 
-            idx = next;
+            edge = next;
         }
     }
 
     /// Handle a leading edge: surface is entering the active region.
     /// Inserts into intrusive surface stack sorted by key (ascending).
     ///
-    /// SAFETY: `surf_idx` must be a valid index into `self.surfaces`.
+    /// SAFETY: `surf` must be a valid pointer into `self.surfaces`.
     #[inline(always)]
-    fn leading_edge(&mut self, surf_idx: usize, ix: i32, edge_inv_w: f32, y: usize) {
-        let surfs = self.surfaces.as_mut_ptr();
-        let s = unsafe { &mut *surfs.add(surf_idx) };
+    fn leading_edge(&mut self, surf: *mut SpanSurface, ix: i32, y: usize) {
+        let s = unsafe { &mut *surf };
         s.spanstate += 1;
         if s.spanstate != 1 {
             return;
@@ -598,14 +588,13 @@ impl EdgeSpanState {
         let surf_key = s.key;
         let head = self.surf_stack_head;
 
-        if head == SURF_NONE {
+        if head.is_null() {
             // Empty stack — just insert
-            self.surf_stack_head = surf_idx;
+            self.surf_stack_head = surf;
             unsafe {
-                (*surfs.add(surf_idx)).prev = SURF_NONE;
-                (*surfs.add(surf_idx)).next = SURF_NONE;
-                (*surfs.add(surf_idx)).last_u = ix;
-                (*surfs.add(surf_idx)).last_inv_w = edge_inv_w;
+                (*surf).prev = ptr::null_mut();
+                (*surf).next = ptr::null_mut();
+                (*surf).last_u = ix;
             }
             self.stack_depth = 1;
             if self.stack_depth > self.stats.max_stack_depth {
@@ -614,46 +603,43 @@ impl EdgeSpanState {
             return;
         }
 
-        let head_key = unsafe { (*surfs.add(head)).key };
+        let head_key = unsafe { (*head).key };
 
         if surf_key < head_key {
             // New surface goes in front — emit span for old head
-            let old_last_u = unsafe { (*surfs.add(head)).last_u };
-            let old_inv_w = unsafe { (*surfs.add(head)).last_inv_w };
+            let old_last_u = unsafe { (*head).last_u };
             if ix > old_last_u {
-                self.emit_span(head, old_last_u, ix, old_inv_w, edge_inv_w, y);
+                self.emit_span(head, old_last_u, ix, y);
             }
             // Insert at head
             unsafe {
-                (*surfs.add(surf_idx)).prev = SURF_NONE;
-                (*surfs.add(surf_idx)).next = head;
-                (*surfs.add(head)).prev = surf_idx;
-                (*surfs.add(surf_idx)).last_u = ix;
-                (*surfs.add(surf_idx)).last_inv_w = edge_inv_w;
+                (*surf).prev = ptr::null_mut();
+                (*surf).next = head;
+                (*head).prev = surf;
+                (*surf).last_u = ix;
             }
-            self.surf_stack_head = surf_idx;
+            self.surf_stack_head = surf;
         } else {
             // Walk to find insertion point (common case: goes behind head)
             let mut prev_cursor = head;
-            let mut cursor = unsafe { (*surfs.add(head)).next };
-            while cursor != SURF_NONE {
-                let ck = unsafe { (*surfs.add(cursor)).key };
+            let mut cursor = unsafe { (*head).next };
+            while !cursor.is_null() {
+                let ck = unsafe { (*cursor).key };
                 if ck > surf_key {
                     break;
                 }
                 prev_cursor = cursor;
-                cursor = unsafe { (*surfs.add(cursor)).next };
+                cursor = unsafe { (*cursor).next };
             }
             // Insert after prev_cursor
             unsafe {
-                (*surfs.add(surf_idx)).prev = prev_cursor;
-                (*surfs.add(surf_idx)).next = cursor;
-                (*surfs.add(prev_cursor)).next = surf_idx;
-                (*surfs.add(surf_idx)).last_u = ix;
-                (*surfs.add(surf_idx)).last_inv_w = edge_inv_w;
+                (*surf).prev = prev_cursor;
+                (*surf).next = cursor;
+                (*prev_cursor).next = surf;
+                (*surf).last_u = ix;
             }
-            if cursor != SURF_NONE {
-                unsafe { (*surfs.add(cursor)).prev = surf_idx };
+            if !cursor.is_null() {
+                unsafe { (*cursor).prev = surf };
             }
         }
 
@@ -666,45 +652,42 @@ impl EdgeSpanState {
     /// Handle a trailing edge: surface is leaving the active region.
     /// Unlinks from intrusive surface stack via prev/next.
     ///
-    /// SAFETY: `surf_idx` must be a valid index into `self.surfaces`.
+    /// SAFETY: `surf` must be a valid pointer into `self.surfaces`.
     #[inline(always)]
-    fn trailing_edge(&mut self, surf_idx: usize, ix: i32, edge_inv_w: f32, y: usize) {
-        let surfs = self.surfaces.as_mut_ptr();
-        let s = unsafe { &mut *surfs.add(surf_idx) };
+    fn trailing_edge(&mut self, surf: *mut SpanSurface, ix: i32, y: usize) {
+        let s = unsafe { &mut *surf };
         s.spanstate -= 1;
         if s.spanstate != 0 {
             return;
         }
 
-        if self.surf_stack_head == surf_idx {
+        if self.surf_stack_head == surf {
             let last_u = s.last_u;
-            let last_inv_w = s.last_inv_w;
             if ix > last_u {
-                self.emit_span(surf_idx, last_u, ix, last_inv_w, edge_inv_w, y);
+                self.emit_span(surf, last_u, ix, y);
             }
             let new_head = s.next;
-            if new_head != SURF_NONE {
+            if !new_head.is_null() {
                 unsafe {
-                    (*surfs.add(new_head)).last_u = ix;
-                    (*surfs.add(new_head)).last_inv_w = edge_inv_w;
+                    (*new_head).last_u = ix;
                 }
             }
         }
 
         // Unlink
-        let prev = unsafe { (*surfs.add(surf_idx)).prev };
-        let next = unsafe { (*surfs.add(surf_idx)).next };
-        if prev != SURF_NONE {
-            unsafe { (*surfs.add(prev)).next = next };
+        let prev = unsafe { (*surf).prev };
+        let next = unsafe { (*surf).next };
+        if !prev.is_null() {
+            unsafe { (*prev).next = next };
         } else {
             self.surf_stack_head = next;
         }
-        if next != SURF_NONE {
-            unsafe { (*surfs.add(next)).prev = prev };
+        if !next.is_null() {
+            unsafe { (*next).prev = prev };
         }
         unsafe {
-            (*surfs.add(surf_idx)).prev = SURF_NONE;
-            (*surfs.add(surf_idx)).next = SURF_NONE;
+            (*surf).prev = ptr::null_mut();
+            (*surf).next = ptr::null_mut();
         }
         self.stack_depth -= 1;
     }
@@ -712,18 +695,10 @@ impl EdgeSpanState {
     /// Emit a span for a surface. Uses pre-reserved capacity to avoid
     /// per-push bounds checks.
     ///
-    /// SAFETY: `surf_idx` must be a valid index into `self.surfaces`.
+    /// SAFETY: `surf` must be a valid pointer into `self.surfaces`.
     /// Caller must ensure `self.spans` has spare capacity.
     #[inline(always)]
-    fn emit_span(
-        &mut self,
-        surf_idx: usize,
-        x_start: i32,
-        x_end: i32,
-        inv_w_start: f32,
-        inv_w_end: f32,
-        y: usize,
-    ) {
+    fn emit_span(&mut self, surf: *mut SpanSurface, x_start: i32, x_end: i32, y: usize) {
         if x_start >= x_end {
             return;
         }
@@ -734,25 +709,24 @@ impl EdgeSpanState {
             return;
         }
 
-        let old_head = unsafe { (*self.surfaces.as_ptr().add(surf_idx)).span_head };
+        let old_head = unsafe { (*surf).span_head };
 
-        let span_idx = unsafe {
+        let span_ptr = unsafe {
             self.spans.push_unchecked(Span {
                 x_start: xs,
                 x_end: xe,
                 y,
-                inv_w_start,
-                inv_w_end,
                 next: old_head,
             })
         };
 
-        unsafe { (*self.surfaces.as_mut_ptr().add(surf_idx)).span_head = span_idx };
+        unsafe { (*surf).span_head = span_ptr };
         self.stats.spans_generated += 1;
     }
 
     /// Draw all accumulated spans. For each surface, walks its span list and
-    /// paints pixels using the polygon's interpolation data.
+    /// paints pixels using the polygon's interpolation data. Depth (1/w) is
+    /// evaluated from the per-surface screen-space plane equation.
     pub fn draw_spans(&self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_draw");
@@ -761,9 +735,8 @@ impl EdgeSpanState {
         let pitch = buffer.pitch();
         let buf = buffer.buf_mut();
 
-        let spans_ptr = self.spans.as_ptr();
         for surf in self.surfaces.iter() {
-            if surf.span_head == SPAN_END {
+            if surf.span_head.is_null() {
                 continue;
             }
 
@@ -775,32 +748,31 @@ impl EdgeSpanState {
             let brightness = poly_data.brightness;
             let is_sky = poly_data.is_sky;
 
-            let mut span_idx = surf.span_head;
-            while span_idx != SPAN_END {
-                let span = unsafe { &*spans_ptr.add(span_idx) };
+            let inv_w_origin = surf.inv_w_origin;
+            let inv_w_step_x = surf.inv_w_step_x;
+            let inv_w_step_y = surf.inv_w_step_y;
+
+            let mut span_ptr = surf.span_head;
+            while !span_ptr.is_null() {
+                let span = unsafe { &*span_ptr };
                 let y = span.y;
                 let x_start = span.x_start;
                 let x_end = span.x_end;
                 let span_width = x_end - x_start;
 
                 if span_width == 0 || is_sky {
-                    span_idx = span.next;
+                    span_ptr = span.next;
                     continue;
                 }
 
-                let inv_w_dx = if span_width > 1 {
-                    (span.inv_w_end - span.inv_w_start) / span_width as f32
-                } else {
-                    0.0
-                };
-
                 let mut interp_state = interpolator.init_scanline(x_start as f32, y as f32);
-                let mut edge_inv_w = span.inv_w_start;
+                let y_contrib = inv_w_origin + inv_w_step_y * y as f32;
+                let mut inv_w = y_contrib + inv_w_step_x * x_start as f32;
                 let row_start = y * pitch;
 
                 for x in x_start..x_end {
                     let (u, v) = interp_state.get_current_uv();
-                    let colourmap = pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
+                    let colourmap = pic_data.base_colourmap(brightness, inv_w * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
                     let px = row_start + x * SOFT_PIXEL_CHANNELS;
@@ -810,10 +782,10 @@ impl EdgeSpanState {
                     buf[px + 3] = 255;
 
                     interp_state.step_x();
-                    edge_inv_w += inv_w_dx;
+                    inv_w += inv_w_step_x;
                 }
 
-                span_idx = span.next;
+                span_ptr = span.next;
             }
         }
     }
