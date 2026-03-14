@@ -1151,7 +1151,6 @@ impl Software3D {
                 let depth_ptr = self.depth_buffer.depths_raw_ptr();
                 let depth_stride = self.depth_buffer.width();
                 let tile_min_ptr = self.depth_buffer.tile_min_ptr();
-                let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
                 let tiles_x = self.depth_buffer.tiles_x();
                 self.edge_state.process_and_draw_spans(
                     pic_data,
@@ -1159,7 +1158,6 @@ impl Software3D {
                     depth_ptr,
                     depth_stride,
                     tile_min_ptr,
-                    tile_covered_ptr,
                     tiles_x,
                 );
                 // Masked walls in visible_polygons are rendered below via the
@@ -1438,7 +1436,6 @@ impl Software3D {
         let depth_ptr = self.depth_buffer.depths_raw_ptr();
         let depth_stride = self.depth_buffer.width();
         let tile_min_ptr = self.depth_buffer.tile_min_ptr();
-        let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
         let tiles_x = self.depth_buffer.tiles_x();
         self.edge_state.process_and_draw_spans(
             pic_data,
@@ -1446,7 +1443,6 @@ impl Software3D {
             depth_ptr,
             depth_stride,
             tile_min_ptr,
-            tile_covered_ptr,
             tiles_x,
         );
     }

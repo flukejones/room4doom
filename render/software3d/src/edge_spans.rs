@@ -14,10 +14,11 @@ const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
 const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
-/// Default span pool capacity.
-const SPAN_POOL_CAPACITY: usize = 3000;
-/// Flush spans when pool exceeds this fraction of capacity.
-const SPAN_FLUSH_MARGIN: usize = 480;
+/// Default span pool capacity. After a pre-scanline flush, a single
+/// scanline's spans (up to max_active_edges) must fit in the remaining space.
+const SPAN_POOL_CAPACITY: usize = 8192;
+/// Flush before a scanline if fewer than this many slots remain.
+const SPAN_FLUSH_MARGIN: usize = 4096;
 
 /// Fixed-capacity bump allocator for frame-scoped objects. Single contiguous
 /// allocation, no per-push capacity checks, no reallocation. Reset each frame
@@ -241,8 +242,8 @@ impl EdgeSpanState {
         let w = width as usize;
         let h = height as usize;
         Self {
-            edges: BumpPool::new(8192),
-            surfaces: BumpPool::new(4096),
+            edges: BumpPool::new(16384),
+            surfaces: BumpPool::new(8192),
             spans: BumpPool::new(SPAN_POOL_CAPACITY),
             span_flush_threshold: SPAN_POOL_CAPACITY - SPAN_FLUSH_MARGIN,
             polygon_data: Vec::with_capacity(512),
@@ -322,6 +323,13 @@ impl EdgeSpanState {
         profile!("edge_spans_emit");
         let vert_count = screen_verts.len();
         if vert_count < 3 {
+            return;
+        }
+
+        // Skip polygon if pools lack capacity (massive maps).
+        if self.surfaces.len >= self.surfaces.capacity
+            || self.edges.len + vert_count >= self.edges.capacity
+        {
             return;
         }
 
@@ -548,7 +556,6 @@ impl EdgeSpanState {
         depth_ptr: *mut f32,
         depth_stride: usize,
         tile_min_ptr: *mut f32,
-        tile_covered_ptr: *mut u16,
         tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
@@ -564,6 +571,19 @@ impl EdgeSpanState {
                 self.stats.max_active_edges = self.active_count;
             }
 
+            // Flush spans before generating new ones if pool is nearing capacity
+            if self.spans.len() >= flush_threshold {
+                self.draw_spans(
+                    pic_data,
+                    buffer,
+                    depth_ptr,
+                    depth_stride,
+                    tile_min_ptr,
+                    tiles_x,
+                );
+                self.flush_spans();
+            }
+
             self.generate_spans(y);
 
             let mut remove_ptr = unsafe { *self.remove_edges.get_unchecked(y) };
@@ -574,20 +594,6 @@ impl EdgeSpanState {
             }
 
             self.aet_step_and_resort();
-
-            // Flush spans mid-frame if pool is nearing capacity
-            if self.spans.len() >= flush_threshold {
-                self.draw_spans(
-                    pic_data,
-                    buffer,
-                    depth_ptr,
-                    depth_stride,
-                    tile_min_ptr,
-                    tile_covered_ptr,
-                    tiles_x,
-                );
-                self.flush_spans();
-            }
         }
 
         // Draw remaining spans
@@ -597,7 +603,6 @@ impl EdgeSpanState {
             depth_ptr,
             depth_stride,
             tile_min_ptr,
-            tile_covered_ptr,
             tiles_x,
         );
     }
@@ -808,7 +813,6 @@ impl EdgeSpanState {
         depth_ptr: *mut f32,
         depth_stride: usize,
         tile_min_ptr: *mut f32,
-        tile_covered_ptr: *mut u16,
         tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
@@ -867,15 +871,11 @@ impl EdgeSpanState {
 
                     unsafe {
                         let dp = depth_row.add(x);
-                        let old = *dp;
                         *dp = inv_w;
-                        if old == -1.0 {
-                            let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
-                            let tp = tile_min_ptr.add(ti);
-                            if inv_w < *tp {
-                                *tp = inv_w;
-                            }
-                            *tile_covered_ptr.add(ti) += 1;
+                        let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
+                        let tp = tile_min_ptr.add(ti);
+                        if inv_w < *tp {
+                            *tp = inv_w;
                         }
                     }
 
