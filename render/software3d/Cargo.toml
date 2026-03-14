@@ -8,6 +8,7 @@ build = "../../build.rs"
 
 [features]
 default = []
+hiz_prev_frame = []
 hprof = []
 render_stats = []
 bench = []

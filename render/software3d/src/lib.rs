@@ -442,7 +442,6 @@ impl Software3D {
     /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
     /// sampled at screen coordinates.
     fn draw_sky_fill(&self, _pic_data: &PicData, buffer: &mut impl DrawBuffer) {
-        return;
         use crate::depth_buffer::SKY_DEPTH;
         use crate::render::sample_sky_pixel;
 
@@ -1103,7 +1102,7 @@ impl Software3D {
         }
 
         self.stats.reset();
-        if self.use_edge_spans {
+        if cfg!(feature = "hiz_prev_frame") && self.use_edge_spans {
             self.depth_buffer.soft_reset();
         } else {
             self.depth_buffer.reset();
@@ -1151,6 +1150,7 @@ impl Software3D {
                 let depth_ptr = self.depth_buffer.depths_raw_ptr();
                 let depth_stride = self.depth_buffer.width();
                 let tile_min_ptr = self.depth_buffer.tile_min_ptr();
+                let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
                 let tiles_x = self.depth_buffer.tiles_x();
                 self.edge_state.process_and_draw_spans(
                     pic_data,
@@ -1158,6 +1158,7 @@ impl Software3D {
                     depth_ptr,
                     depth_stride,
                     tile_min_ptr,
+                    tile_covered_ptr,
                     tiles_x,
                 );
                 // Masked walls in visible_polygons are rendered below via the
@@ -1412,7 +1413,11 @@ impl Software3D {
         self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
 
         self.stats.reset();
-        self.depth_buffer.soft_reset();
+        if cfg!(feature = "hiz_prev_frame") {
+            self.depth_buffer.soft_reset();
+        } else {
+            self.depth_buffer.reset();
+        }
 
         self.seen_sectors.resize(sectors.len(), false);
         self.seen_sectors.fill(false);
@@ -1436,6 +1441,7 @@ impl Software3D {
         let depth_ptr = self.depth_buffer.depths_raw_ptr();
         let depth_stride = self.depth_buffer.width();
         let tile_min_ptr = self.depth_buffer.tile_min_ptr();
+        let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
         let tiles_x = self.depth_buffer.tiles_x();
         self.edge_state.process_and_draw_spans(
             pic_data,
@@ -1443,6 +1449,7 @@ impl Software3D {
             depth_ptr,
             depth_stride,
             tile_min_ptr,
+            tile_covered_ptr,
             tiles_x,
         );
     }

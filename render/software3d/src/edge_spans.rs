@@ -575,6 +575,7 @@ impl EdgeSpanState {
         depth_ptr: *mut f32,
         depth_stride: usize,
         tile_min_ptr: *mut f32,
+        tile_covered_ptr: *mut u16,
         tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
@@ -598,6 +599,7 @@ impl EdgeSpanState {
                     depth_ptr,
                     depth_stride,
                     tile_min_ptr,
+                    tile_covered_ptr,
                     tiles_x,
                 );
                 self.flush_spans();
@@ -622,6 +624,7 @@ impl EdgeSpanState {
             depth_ptr,
             depth_stride,
             tile_min_ptr,
+            tile_covered_ptr,
             tiles_x,
         );
     }
@@ -832,6 +835,7 @@ impl EdgeSpanState {
         depth_ptr: *mut f32,
         depth_stride: usize,
         tile_min_ptr: *mut f32,
+        tile_covered_ptr: *mut u16,
         tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
@@ -890,11 +894,15 @@ impl EdgeSpanState {
 
                     unsafe {
                         let dp = depth_row.add(x);
+                        let old = *dp;
                         *dp = inv_w;
-                        let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
-                        let tp = tile_min_ptr.add(ti);
-                        if inv_w < *tp {
-                            *tp = inv_w;
+                        if old == -1.0 {
+                            let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
+                            let tp = tile_min_ptr.add(ti);
+                            if inv_w < *tp {
+                                *tp = inv_w;
+                            }
+                            *tile_covered_ptr.add(ti) += 1;
                         }
                     }
 

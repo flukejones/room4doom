@@ -163,6 +163,12 @@ impl DepthBuffer {
         self.tile_min_depth.as_mut_ptr()
     }
 
+    /// Raw pointer to Hi-Z tile coverage count array.
+    #[inline]
+    pub fn tile_covered_ptr(&mut self) -> *mut u16 {
+        self.tile_covered.as_mut_ptr()
+    }
+
     /// Number of tiles per row.
     #[inline]
     pub fn tiles_x(&self) -> usize {
