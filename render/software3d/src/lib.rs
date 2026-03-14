@@ -442,6 +442,7 @@ impl Software3D {
     /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
     /// sampled at screen coordinates.
     fn draw_sky_fill(&self, _pic_data: &PicData, buffer: &mut impl DrawBuffer) {
+        return;
         use crate::depth_buffer::SKY_DEPTH;
         use crate::render::sample_sky_pixel;
 
@@ -1144,8 +1145,7 @@ impl Software3D {
                     pic_data,
                 );
                 self.edge_state.process_scanlines();
-                self.edge_state
-                    .draw_spans(pic_data, buffer, &mut self.depth_buffer);
+                self.edge_state.draw_spans(pic_data, buffer);
                 // Masked walls in visible_polygons are rendered below via the
                 // existing per-polygon rasteriser against the now-filled depth
                 // buffer.
@@ -1420,8 +1420,7 @@ impl Software3D {
             pic_data,
         );
         self.edge_state.process_scanlines();
-        self.edge_state
-            .draw_spans(pic_data, buffer, &mut self.depth_buffer);
+        self.edge_state.draw_spans(pic_data, buffer);
     }
 
     /// Find the subsector ID that matches the given player subsector
