@@ -533,7 +533,20 @@ impl EdgeSpanState {
 
     /// Process all scanlines and draw spans. Flushes the span pool mid-frame
     /// when it approaches capacity, drawing accumulated spans before clearing.
-    pub fn process_and_draw_spans(&mut self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
+    ///
+    /// `depth_ptr` and `depth_stride`: raw pointer to depth buffer and row
+    /// stride. Depth is written for every non-sky pixel so masked walls can
+    /// depth-test against span-rendered geometry.
+    ///
+    /// SAFETY: `depth_ptr` must be valid for `height * depth_stride` f32
+    /// writes.
+    pub fn process_and_draw_spans(
+        &mut self,
+        pic_data: &mut PicData,
+        buffer: &mut impl DrawBuffer,
+        depth_ptr: *mut f32,
+        depth_stride: usize,
+    ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_process");
         let flush_threshold = self.span_flush_threshold;
@@ -560,13 +573,13 @@ impl EdgeSpanState {
 
             // Flush spans mid-frame if pool is nearing capacity
             if self.spans.len() >= flush_threshold {
-                self.draw_spans(pic_data, buffer);
+                self.draw_spans(pic_data, buffer, depth_ptr, depth_stride);
                 self.flush_spans();
             }
         }
 
         // Draw remaining spans
-        self.draw_spans(pic_data, buffer);
+        self.draw_spans(pic_data, buffer, depth_ptr, depth_stride);
     }
 
     /// Clear span pool and reset all surface span_head pointers.
@@ -763,8 +776,18 @@ impl EdgeSpanState {
 
     /// Draw all accumulated spans. For each surface, walks its span list and
     /// paints pixels using the polygon's interpolation data. Depth (1/w) is
-    /// evaluated from the per-surface screen-space plane equation.
-    fn draw_spans(&self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
+    /// evaluated from the per-surface screen-space plane equation and written
+    /// to the depth buffer for subsequent masked wall depth testing.
+    ///
+    /// SAFETY: `depth_ptr` must be valid for writes at offsets up to
+    /// `(height-1) * depth_stride + (width-1)`.
+    fn draw_spans(
+        &self,
+        pic_data: &mut PicData,
+        buffer: &mut impl DrawBuffer,
+        depth_ptr: *mut f32,
+        depth_stride: usize,
+    ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_draw");
         let sky_pic = pic_data.sky_pic();
@@ -806,6 +829,7 @@ impl EdgeSpanState {
                 let y_contrib = inv_w_origin + inv_w_step_y * y as f32;
                 let mut inv_w = y_contrib + inv_w_step_x * x_start as f32;
                 let row_start = y * pitch;
+                let depth_row = unsafe { depth_ptr.add(y * depth_stride) };
 
                 for x in x_start..x_end {
                     let (u, v) = interp_state.get_current_uv();
@@ -817,6 +841,8 @@ impl EdgeSpanState {
                     buf[px + 1] = color[1];
                     buf[px + 2] = color[2];
                     buf[px + 3] = 255;
+
+                    unsafe { *depth_row.add(x) = inv_w };
 
                     interp_state.step_x();
                     inv_w += inv_w_step_x;

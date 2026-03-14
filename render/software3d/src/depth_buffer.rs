@@ -132,6 +132,20 @@ impl DepthBuffer {
         }
     }
 
+    /// Raw pointer to the depth buffer for bulk writes. Bypasses tile
+    /// tracking and coverage counting — use only for span-based rendering
+    /// where the depth values themselves are sufficient for per-pixel tests.
+    #[inline]
+    pub fn depths_raw_ptr(&mut self) -> *mut f32 {
+        self.depths.as_mut_ptr()
+    }
+
+    /// Width of the depth buffer (for stride calculations).
+    #[inline]
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
     /// Hi-Z occlusion test. Conservative: never produces false rejections.
     #[inline]
     pub fn is_occluded_hiz(
