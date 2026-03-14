@@ -13,6 +13,10 @@ const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
 const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
+/// Default span pool capacity.
+const SPAN_POOL_CAPACITY: usize = 3000;
+/// Flush spans when pool exceeds this fraction of capacity.
+const SPAN_FLUSH_MARGIN: usize = 480;
 
 /// Fixed-capacity bump allocator for frame-scoped objects. Single contiguous
 /// allocation, no per-push capacity checks, no reallocation. Reset each frame
@@ -42,6 +46,12 @@ impl<T> BumpPool<T> {
     #[inline(always)]
     fn clear(&mut self) {
         self.len = 0;
+    }
+
+    /// Number of live elements.
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.len
     }
 
     /// Push an element, returning a raw pointer to it. No capacity check —
@@ -149,6 +159,7 @@ pub struct EdgeSpanStats {
     pub spans_generated: usize,
     pub max_active_edges: usize,
     pub max_stack_depth: usize,
+    pub span_flushes: usize,
 }
 
 impl EdgeSpanStats {
@@ -161,12 +172,13 @@ impl std::fmt::Display for EdgeSpanStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "edges: {} | surfs: {} | spans: {} | max_active: {} | max_stack: {}",
+            "edges: {} | surfs: {} | spans: {} | max_active: {} | max_stack: {} | flushes: {}",
             self.edges_emitted,
             self.surfaces_emitted,
             self.spans_generated,
             self.max_active_edges,
             self.max_stack_depth,
+            self.span_flushes,
         )
     }
 }
@@ -183,8 +195,10 @@ pub struct EdgeSpanState {
     edges: BumpPool<Edge>,
     /// Surface pool.
     surfaces: BumpPool<SpanSurface>,
-    /// Span pool.
+    /// Span pool. Flushed mid-frame when nearing capacity.
     spans: BumpPool<Span>,
+    /// Span count at which a mid-frame flush is triggered.
+    span_flush_threshold: usize,
     /// Per-polygon render data pool.
     pub polygon_data: Vec<PolygonRenderData>,
     /// Per-scanline new-edge chain heads. Each entry is the head of a
@@ -228,7 +242,8 @@ impl EdgeSpanState {
         Self {
             edges: BumpPool::new(8192),
             surfaces: BumpPool::new(4096),
-            spans: BumpPool::new(16384),
+            spans: BumpPool::new(SPAN_POOL_CAPACITY),
+            span_flush_threshold: SPAN_POOL_CAPACITY - SPAN_FLUSH_MARGIN,
             polygon_data: Vec::with_capacity(512),
             new_edges: vec![ptr::null_mut(); h],
             remove_edges: vec![ptr::null_mut(); h],
@@ -516,11 +531,12 @@ impl EdgeSpanState {
         }
     }
 
-    /// Process all scanlines: insert new edges, generate spans, remove
-    /// expired edges, step and re-sort.
-    pub fn process_scanlines(&mut self) {
+    /// Process all scanlines and draw spans. Flushes the span pool mid-frame
+    /// when it approaches capacity, drawing accumulated spans before clearing.
+    pub fn process_and_draw_spans(&mut self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_process");
+        let flush_threshold = self.span_flush_threshold;
         for y in 0..self.height {
             let new_head = unsafe { *self.new_edges.get_unchecked(y) };
             if !new_head.is_null() {
@@ -541,7 +557,28 @@ impl EdgeSpanState {
             }
 
             self.aet_step_and_resort();
+
+            // Flush spans mid-frame if pool is nearing capacity
+            if self.spans.len() >= flush_threshold {
+                self.draw_spans(pic_data, buffer);
+                self.flush_spans();
+            }
         }
+
+        // Draw remaining spans
+        self.draw_spans(pic_data, buffer);
+    }
+
+    /// Clear span pool and reset all surface span_head pointers.
+    fn flush_spans(&mut self) {
+        self.spans.clear();
+        // Reset span_head on all live surfaces
+        let surfs_ptr = self.surfaces.ptr;
+        let surfs_len = self.surfaces.len;
+        for i in 0..surfs_len {
+            unsafe { (*surfs_ptr.add(i)).span_head = ptr::null_mut() };
+        }
+        self.stats.span_flushes += 1;
     }
 
     /// Walk the AET left-to-right via the intrusive linked list, using the
@@ -727,7 +764,7 @@ impl EdgeSpanState {
     /// Draw all accumulated spans. For each surface, walks its span list and
     /// paints pixels using the polygon's interpolation data. Depth (1/w) is
     /// evaluated from the per-surface screen-space plane equation.
-    pub fn draw_spans(&self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
+    fn draw_spans(&self, pic_data: &mut PicData, buffer: &mut impl DrawBuffer) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_draw");
         let sky_pic = pic_data.sky_pic();

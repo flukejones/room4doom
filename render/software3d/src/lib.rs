@@ -1144,8 +1144,7 @@ impl Software3D {
                     player_subsector_id,
                     pic_data,
                 );
-                self.edge_state.process_scanlines();
-                self.edge_state.draw_spans(pic_data, buffer);
+                self.edge_state.process_and_draw_spans(pic_data, buffer);
                 // Masked walls in visible_polygons are rendered below via the
                 // existing per-polygon rasteriser against the now-filled depth
                 // buffer.
@@ -1419,8 +1418,7 @@ impl Software3D {
             subsector_id,
             pic_data,
         );
-        self.edge_state.process_scanlines();
-        self.edge_state.draw_spans(pic_data, buffer);
+        self.edge_state.process_and_draw_spans(pic_data, buffer);
     }
 
     /// Find the subsector ID that matches the given player subsector
