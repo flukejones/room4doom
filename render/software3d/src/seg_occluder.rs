@@ -2,9 +2,11 @@
 //! standard Doom does. It does not translate well to 3D when the player
 //! view can tilt up or down. It was a fun experiment however.
 
-use gameplay::{Angle, OcclusionSeg, Sector};
-use glam::Vec2;
+use gameplay::{Angle, BSP3D, OcclusionSeg, Sector, is_subsector, subsector_index};
+use glam::{Vec2, Vec3};
 use std::f32::consts::{FRAC_PI_2, PI};
+
+use crate::Software3D;
 
 const MAX_SEGS: usize = 128;
 const MAX_FRAGMENTS: usize = 32;
@@ -631,5 +633,115 @@ fn angle_to_screen(
         let t = tan_angle * focal_len;
         let t = half_screen_width - t + 0.99998474;
         t.floor().clamp(-1.0, screen_width + 1.0)
+    }
+}
+
+impl Software3D {
+    /// Collect visible polygons using BSP front-to-back traversal with
+    /// screen-space segment occlusion (solidsegs). Walks the Node3D tree
+    /// and uses OcclusionSeg data stored on each BSPLeaf3D to determine
+    /// which subsectors have visible screen columns.
+    pub(crate) fn collect_bsp_clipped_polygons(
+        &mut self,
+        node_id: u32,
+        bsp3d: &BSP3D,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_angle: Angle,
+    ) {
+        if self.seg_occluder.all_solid() {
+            return;
+        }
+
+        if is_subsector(node_id) {
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                subsector_index(node_id)
+            };
+
+            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+                return;
+            };
+
+            if self.is_bbox_outside_fov(&leaf.aabb) {
+                return;
+            }
+
+            // Update the occlusion buffer with this leaf's segments.
+            let player_pos_2d = Vec2::new(player_pos.x, player_pos.y);
+            let view_z = player_pos.z;
+
+            let mut seg_visible = false;
+            for occ_seg in &leaf.occlusion_segs {
+                if self.seg_occluder.all_solid() {
+                    break;
+                }
+                if self.seg_occluder.process_seg(
+                    occ_seg,
+                    sectors,
+                    player_pos_2d,
+                    player_angle,
+                    view_z,
+                ) {
+                    seg_visible = true;
+                }
+            }
+
+            // Skip leaf if no seg fragment was visible — check 2D bbox, and
+            // when the occluder is saturated (very steep pitch), also accept
+            // via the 3D frustum test to avoid missing wing geometry.
+            if !seg_visible && !leaf.occlusion_segs.is_empty() {
+                let bb_min = Vec2::new(leaf.aabb.min.x, leaf.aabb.min.y);
+                let bb_max = Vec2::new(leaf.aabb.max.x, leaf.aabb.max.y);
+                if !self
+                    .seg_occluder
+                    .is_bbox_visible(bb_min, bb_max, player_pos_2d, player_angle)
+                {
+                    return;
+                }
+                self.stats.bsp_fallback += 1;
+            }
+
+            // Submit all polygons — leaf has visible seg fragments
+            for poly_surface in &leaf.polygons {
+                let sid = poly_surface.sector_id;
+                if !self.seen_sectors[sid] {
+                    self.seen_sectors[sid] = true;
+                    self.visible_sectors
+                        .push((sid, sectors[sid].lightlevel >> 4));
+                }
+                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                    if let Some(depth) = self.cull_polygon_bounds(poly_surface, bsp3d) {
+                        self.visible_polygons
+                            .push((poly_surface as *const _, depth));
+                    }
+                }
+            }
+            return;
+        }
+
+        // Internal node
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
+            return;
+        };
+
+        let (front, back) = node.front_back_children(Vec2::new(player_pos.x, player_pos.y));
+
+        // Front side first (closer to player) — None = leaf node, always enter.
+        if bsp3d
+            .get_node_aabb(front)
+            .map_or(true, |aabb| !self.is_bbox_outside_fov(aabb))
+        {
+            self.collect_bsp_clipped_polygons(front, bsp3d, sectors, player_pos, player_angle);
+        }
+
+        // Back side — skip if screen fully occluded or child bbox outside frustum
+        let back_visible = bsp3d
+            .get_node_aabb(back)
+            .map_or(false, |aabb| !self.is_bbox_outside_fov(aabb));
+        if !self.seg_occluder.all_solid() && back_visible {
+            self.collect_bsp_clipped_polygons(back, bsp3d, sectors, player_pos, player_angle);
+        }
     }
 }
