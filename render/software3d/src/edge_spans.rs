@@ -7,6 +7,7 @@ use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 use std::alloc::{self, Layout};
 use std::ptr;
 
+use crate::depth_buffer::SKY_DEPTH;
 use crate::render::{TextureSampler, TriangleInterpolator};
 
 const TILE_SIZE: usize = 8;
@@ -257,7 +258,7 @@ impl EdgeSpanState {
             next_key: 0,
             width: w,
             height: h,
-            w_max: (w - 1) as f32,
+            w_max: w as f32,
             stats: EdgeSpanStats::default(),
         }
     }
@@ -606,6 +607,7 @@ impl EdgeSpanState {
             }
 
             self.generate_spans(y);
+            self.cleanup_scanline(y);
 
             let mut remove_ptr = unsafe { *self.remove_edges.get_unchecked(y) };
             while !remove_ptr.is_null() {
@@ -667,6 +669,20 @@ impl EdgeSpanState {
             }
 
             edge = next;
+        }
+    }
+
+    /// Emit a final span for whatever surface is on top of the stack at the
+    /// right screen edge. Equivalent to Quake's R_CleanupSpan.
+    #[inline(always)]
+    fn cleanup_scanline(&mut self, y: usize) {
+        let head = self.surf_stack_head;
+        if !head.is_null() {
+            let last_u = unsafe { (*head).last_u };
+            let right = self.width as i32;
+            if right > last_u {
+                self.emit_span(head, last_u, right, y);
+            }
         }
     }
 
@@ -870,7 +886,21 @@ impl EdgeSpanState {
                 let x_end = span.x_end;
                 let span_width = x_end - x_start;
 
-                if span_width == 0 || is_sky {
+                if span_width == 0 {
+                    span_ptr = span.next;
+                    continue;
+                }
+
+                if is_sky {
+                    let depth_row = unsafe { depth_ptr.add(y * depth_stride) };
+                    for x in x_start..x_end {
+                        unsafe {
+                            let dp = depth_row.add(x);
+                            if *dp == -1.0 {
+                                *dp = SKY_DEPTH;
+                            }
+                        }
+                    }
                     span_ptr = span.next;
                     continue;
                 }
