@@ -1,8 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    BSP3D, PicData, PvsData, Sector, SurfaceKind, SurfacePolygon, WallType, is_subsector,
-    subsector_index,
+    BSP3D, PicData, PvsData, Sector, SurfaceKind, SurfacePolygon, WallType, is_subsector, subsector_index
 };
 use glam::{Vec2, Vec3, Vec4};
 use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
