@@ -5,7 +5,6 @@ use gameplay::{
     SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use hud_util::{draw_text_line, hud_scale, measure_text_line};
 use render_trait::DrawBuffer;
 
 use std::f32::consts::PI;
@@ -1276,25 +1275,6 @@ impl Software3D {
                 }
             }
         }
-    }
-
-    /// Draw the debug overlay text line in the upper-right corner, if set.
-    fn draw_debug_line(&mut self, pic_data: &PicData, pixels: &mut impl DrawBuffer) {
-        let text = self.debug.current_line().to_ascii_uppercase();
-        if text.is_empty() {
-            return;
-        }
-        let (sx, sy) = hud_scale(pixels);
-        let palette = pic_data.wad_palette();
-        let width = measure_text_line(&text, sx);
-        let x = pixels.size().width_f32() - width - 4.0 * sx;
-        draw_text_line(&text, x, 2.0, sx, sy, palette, pixels);
-    }
-
-    /// Set the upper-right debug text overlay line, resetting the 5-second
-    /// auto-clear timer.
-    pub fn set_debug_line(&mut self, s: String) {
-        self.debug.set_line(s);
     }
 
     /// Headless render entry point for benchmarks. Bypasses Player/Level in
