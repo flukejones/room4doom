@@ -41,7 +41,7 @@ pub use map_data::{
     AABB, BBox, BSP3D, BSPLeaf3D, DivLine, IS_SSECTOR_MASK, LineDefFlags, MapData, MapPtr, MightSee, Mightsee, MovementType, Node, Node3D, OcclusionSeg, PVS2D, Portal, Portals, PvsCluster, PvsData, PvsFile, PvsFileError, PvsView2D, RenderPvs, Sector, Segment, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, mark_subsector, pvs_load_from_cache, subsector_index
 };
 pub use math::{Angle, m_clear_random, m_random, p_random, point_to_angle_2};
-pub use pic::{FlatPic, MipLevel, PicAnimation, PicData, Switches, WallPic};
+pub use pic::{FlatPic, PicAnimation, PicData, Switches, WallPic};
 pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
 pub use player_sprite::PspDef;
 pub use sector_ext::SectorExt;

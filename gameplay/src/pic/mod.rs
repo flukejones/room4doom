@@ -43,20 +43,11 @@ pub struct FlatPic {
     pub data: [usize; 64 * 64],
     pub width: usize,
     pub height: usize,
-    pub mip_levels: Vec<MipLevel>,
 }
 
 #[derive(Debug)]
 pub struct WallPic {
     pub name: String,
-    pub data: Vec<usize>,
-    pub width: usize,
-    pub height: usize,
-    pub mip_levels: Vec<MipLevel>,
-}
-
-#[derive(Debug)]
-pub struct MipLevel {
     pub data: Vec<usize>,
     pub width: usize,
     pub height: usize,
@@ -204,125 +195,6 @@ impl PicData {
             sprite_defs,
             use_pallette: 0,
         }
-    }
-
-    fn generate_mip_levels(data: &[usize], width: usize, height: usize) -> Vec<MipLevel> {
-        let mut mips = Vec::new();
-
-        // Don't create mipmaps for textures smaller than 32x32
-        if width < 32 || height < 32 {
-            return mips;
-        }
-
-        // Don't create mipmaps for very narrow textures (common in Doom walls)
-        let aspect_ratio = width.max(height) as f32 / width.min(height) as f32;
-        if aspect_ratio > 8.0 {
-            return mips;
-        }
-
-        let mut current_width = width;
-        let mut current_height = height;
-        let mut current_data = data.to_vec();
-
-        // Generate mip levels, stopping at 4x4 minimum
-        while current_width > 4 && current_height > 4 {
-            current_width /= 2;
-            current_height /= 2;
-
-            let mut new_data = vec![0usize; current_width * current_height];
-
-            for y in 0..current_height {
-                for x in 0..current_width {
-                    let src_x = x * 2;
-                    let src_y = y * 2;
-                    let src_width = current_width * 2;
-
-                    // Sample 2x2 block
-                    let samples = [
-                        current_data[src_y * src_width + src_x],
-                        current_data[src_y * src_width + src_x.min(src_width - 1)],
-                        current_data[(src_y + 1).min(current_height * 2 - 1) * src_width + src_x],
-                        current_data[(src_y + 1).min(current_height * 2 - 1) * src_width
-                            + src_x.min(src_width - 1)],
-                    ];
-
-                    // Find most common non-transparent pixel
-                    let mut opaque_samples = Vec::new();
-                    let mut transparent_count = 0;
-
-                    for &sample in &samples {
-                        if sample == usize::MAX {
-                            transparent_count += 1;
-                        } else {
-                            opaque_samples.push(sample);
-                        }
-                    }
-
-                    // If majority is transparent, use transparency
-                    // Otherwise use first opaque sample
-                    new_data[y * current_width + x] = if transparent_count >= 2 {
-                        usize::MAX
-                    } else if !opaque_samples.is_empty() {
-                        opaque_samples[0]
-                    } else {
-                        usize::MAX
-                    };
-                }
-            }
-
-            mips.push(MipLevel {
-                data: new_data.clone(),
-                width: current_width,
-                height: current_height,
-            });
-
-            current_data = new_data;
-        }
-
-        mips
-    }
-
-    fn generate_flat_mip_levels(data: &[usize; 64 * 64]) -> Vec<MipLevel> {
-        let mut mips = Vec::new();
-        let mut current_width = 64;
-        let mut current_height = 64;
-        let mut current_data: Vec<usize> = data.to_vec();
-
-        // Generate mip levels for 64x64 flats: 32x32, 16x16, 8x8, 4x4
-        while current_width > 4 && current_height > 4 {
-            current_width /= 2;
-            current_height /= 2;
-
-            let mut new_data = vec![0usize; current_width * current_height];
-
-            for y in 0..current_height {
-                for x in 0..current_width {
-                    let src_x = x * 2;
-                    let src_y = y * 2;
-
-                    // Sample 2x2 block from 64x64 data
-                    let samples = [
-                        current_data[src_y * (current_width * 2) + src_x],
-                        current_data[src_y * (current_width * 2) + src_x + 1],
-                        current_data[(src_y + 1) * (current_width * 2) + src_x],
-                        current_data[(src_y + 1) * (current_width * 2) + src_x + 1],
-                    ];
-
-                    // For floors, just use first sample (floors are usually solid)
-                    new_data[y * current_width + x] = samples[0];
-                }
-            }
-
-            mips.push(MipLevel {
-                data: new_data.clone(),
-                width: current_width,
-                height: current_height,
-            });
-
-            current_data = new_data;
-        }
-
-        mips
     }
 
     fn init_palette(wad: &WadData) -> [WadPalette; PALLETE_LEN] {
@@ -474,7 +346,6 @@ impl PicData {
                 data: [0; 64 * 64],
                 width: 64,
                 height: 64,
-                mip_levels: Vec::new(),
             };
             let mut outofbounds = false;
             for (x, col) in wf.data.chunks(64).enumerate() {
@@ -503,8 +374,6 @@ impl PicData {
                 print!(".");
             }
 
-            // Generate mipmaps for the flat
-            flat.mip_levels = Self::generate_flat_mip_levels(&flat.data);
             flats.push(flat);
         }
 
@@ -549,14 +418,11 @@ impl PicData {
         }
 
         debug!("Built texture: {}", &texture.name);
-        let mip_levels =
-            Self::generate_mip_levels(&compose, texture.width as usize, texture.height as usize);
         WallPic {
             name: texture.name,
             width: texture.width as usize,
             height: texture.height as usize,
             data: compose,
-            mip_levels,
         }
     }
 
