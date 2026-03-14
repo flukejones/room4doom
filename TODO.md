@@ -6,17 +6,17 @@
 - [X] Masked textures with no upper
   - [ ] Do not repeat the textures up or down
   - [ ] Sunder map 20 does something weird.
-- [ ] Sky box
-- [ ] Update textures being used (switch changes, sector floor changes for movers)
-- [ ] Animated wall textures:
+- [X] Sky box
+- [X] Update textures being used (switch changes, sector floor changes for movers)
+- [X] Animated wall textures:
   - change_switch_texture changes the sidedef. Need to add a better method (like what's used for flats)
   - Level::line_special_list is used for scrolling walls
 - [X] Unpegged upper aren't being tagged?
-- [ ] Sprites and clipping
+- [X] Sprites and clipping
 - [X] Moving geometry
-  - [ ] Some glitches where some vertexes actually seem to do off??
-  - [ ] Vertex float precision?
-- [ ] Missing subsectors due to negative space left from clipping
+  - [X] Some glitches where some vertexes actually seem to do off??
+  - [X] Vertex float precision?
+- [X] Missing subsectors due to negative space left from clipping
 
 Refactor the rendering.
 1. Menus and HUD need a buffer to draw on to
