@@ -1,14 +1,17 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
-use gameplay::{PicData, SurfacePolygon};
-use glam::Vec2;
+use gameplay::{
+    BSP3D, PicData, PvsData, Sector, SurfaceKind, SurfacePolygon, WallType, is_subsector,
+    subsector_index,
+};
+use glam::{Vec2, Vec3, Vec4};
 use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 
 use std::alloc::{self, Layout};
 use std::ptr;
 
-use crate::SkyRend;
 use crate::render::{TextureSampler, TriangleInterpolator, sample_sky_pixel};
+use crate::{MAX_CLIPPED_VERTICES, SkyRend, Software3D};
 
 const TILE_SIZE: usize = 8;
 const LIGHT_MIN_Z: f32 = 0.001;
@@ -976,5 +979,351 @@ impl EdgeSpanState {
                 span_ptr = span.next;
             }
         }
+    }
+}
+
+impl Software3D {
+    /// Clip, project, and emit a polygon's edges into the edge-span system.
+    /// Returns true if the polygon was emitted (not masked).
+    fn prepare_and_emit_polygon(
+        &mut self,
+        polygon: &SurfacePolygon,
+        bsp3d: &BSP3D,
+        sectors: &[Sector],
+        pic_data: &PicData,
+        player_light: usize,
+    ) -> bool {
+        // Skip masked walls — they need the depth buffer and are drawn in a
+        // separate post-pass.
+        let is_masked = matches!(
+            &polygon.surface_kind,
+            SurfaceKind::Vertical {
+                two_sided: true,
+                wall_type: WallType::Middle,
+                ..
+            }
+        );
+        if is_masked {
+            return false;
+        }
+
+        // Same pipeline as render_surface_polygon up to edge emission
+        self.screen_vertices_len = 0;
+        self.tex_coords_len = 0;
+        self.inv_w_len = 0;
+        self.clipped_vertices_len = 0;
+
+        let vert_count = polygon.vertices.len();
+        if vert_count < 3 || vert_count > MAX_CLIPPED_VERTICES {
+            return false;
+        }
+        let mut input_vertices = [Vec4::ZERO; MAX_CLIPPED_VERTICES];
+        let mut input_tex_coords = [Vec3::ZERO; MAX_CLIPPED_VERTICES];
+
+        let wall_z_range = match &polygon.surface_kind {
+            SurfaceKind::Vertical {
+                texture: Some(_),
+                ..
+            } => polygon.vertices.iter().fold(
+                (f32::INFINITY, f32::NEG_INFINITY),
+                |(min_z, max_z), &v| {
+                    let z = bsp3d.vertex_get(v).z;
+                    (min_z.min(z), max_z.max(z))
+                },
+            ),
+            _ => (0.0, 0.0),
+        };
+
+        for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
+            let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
+            let vertex = bsp3d.vertex_get(vertex_idx);
+            let (u, v) = self.calculate_tex_coords(vertex, polygon, bsp3d, pic_data, wall_z_range);
+
+            input_vertices[i] = clip_pos;
+            input_tex_coords[i] = Vec3::new(u, v, clip_pos.w);
+        }
+
+        self.clip_polygon_frustum(&input_vertices, &input_tex_coords, vert_count);
+
+        // Project to screen space
+        let w_f32 = self.width as f32;
+        let h_f32 = self.height as f32;
+        let mut scr_min_x = f32::MAX;
+        let mut scr_min_y = f32::MAX;
+        let mut scr_max_x = f32::MIN;
+        let mut scr_max_y = f32::MIN;
+
+        for i in 0..self.clipped_vertices_len {
+            let clip_pos = self.clipped_vertices_buffer[i];
+            let tex_coord = self.clipped_tex_coords_buffer[i];
+
+            if clip_pos.w > 0.0 {
+                let inv_w = 1.0 / clip_pos.w;
+                let half_w = 0.5 * w_f32;
+                let half_h = 0.5 * h_f32;
+                let mut screen_x = (clip_pos.x + clip_pos.w) * half_w * inv_w;
+                let mut screen_y = (clip_pos.w - clip_pos.y) * half_h * inv_w;
+
+                const SNAP: f32 = 0.01;
+                if screen_x.abs() < SNAP {
+                    screen_x = 0.0;
+                } else if (screen_x - w_f32).abs() < SNAP {
+                    screen_x = w_f32;
+                }
+                if screen_y.abs() < SNAP {
+                    screen_y = 0.0;
+                } else if (screen_y - h_f32).abs() < SNAP {
+                    screen_y = h_f32;
+                }
+
+                if screen_x < scr_min_x {
+                    scr_min_x = screen_x;
+                }
+                if screen_x > scr_max_x {
+                    scr_max_x = screen_x;
+                }
+                if screen_y < scr_min_y {
+                    scr_min_y = screen_y;
+                }
+                if screen_y > scr_max_y {
+                    scr_max_y = screen_y;
+                }
+
+                self.screen_vertices_buffer[self.screen_vertices_len] =
+                    Vec2::new(screen_x, screen_y);
+                self.tex_coords_buffer[self.tex_coords_len] =
+                    Vec2::new(tex_coord.x * inv_w, tex_coord.y * inv_w);
+                self.inv_w_buffer[self.inv_w_len] = inv_w;
+
+                self.screen_vertices_len += 1;
+                self.tex_coords_len += 1;
+                self.inv_w_len += 1;
+            }
+        }
+
+        if self.screen_vertices_len < 3 {
+            return false;
+        }
+
+        // Sub-pixel cull
+        if (scr_max_x - scr_min_x) < 1.0 && (scr_max_y - scr_min_y) < 1.0 {
+            return false;
+        }
+
+        // Screen-space backface cull: reject polygons with zero or positive
+        // signed area (CW winding produces negative area in screen space).
+        // Catches edge-on slivers and polygons that flip after frustum clipping.
+        let mut signed_area = 0.0f32;
+        for i in 0..self.screen_vertices_len {
+            let j = (i + 1) % self.screen_vertices_len;
+            let vi = self.screen_vertices_buffer[i];
+            let vj = self.screen_vertices_buffer[j];
+            signed_area += vi.x * vj.y - vj.x * vi.y;
+        }
+        if signed_area >= 0.0 {
+            return false;
+        }
+
+        // Build the triangle interpolator
+        let screen_verts = &self.screen_vertices_buffer[..self.screen_vertices_len];
+        let tex_coords = &self.tex_coords_buffer[..self.tex_coords_len];
+        let inv_w_slice = &self.inv_w_buffer[..self.inv_w_len];
+
+        let interpolator = match TriangleInterpolator::new(screen_verts, tex_coords, inv_w_slice) {
+            Some(interp) => interp,
+            None => return false,
+        };
+
+        let is_sky = match &polygon.surface_kind {
+            SurfaceKind::Vertical {
+                texture: Some(tex_id),
+                ..
+            } => *tex_id == pic_data.sky_pic(),
+            SurfaceKind::Horizontal {
+                texture,
+                ..
+            } => *texture == pic_data.sky_num(),
+            _ => false,
+        };
+
+        let brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
+
+        self.edge_state.emit_polygon(
+            screen_verts,
+            inv_w_slice,
+            polygon as *const _,
+            interpolator,
+            brightness,
+            is_sky,
+        );
+
+        true
+    }
+
+    /// Front-to-back BSP traversal that emits edges into the edge-span system.
+    pub(crate) fn emit_edges_bsp(
+        &mut self,
+        node_id: u32,
+        bsp3d: &BSP3D,
+        pvs: &impl PvsData,
+        use_pvs: bool,
+        sectors: &[Sector],
+        player_pos: Vec3,
+        player_light: usize,
+        player_subsector_id: usize,
+        pic_data: &PicData,
+    ) {
+        if is_subsector(node_id) {
+            let subsector_id = if node_id == u32::MAX {
+                0
+            } else {
+                subsector_index(node_id)
+            };
+
+            self.stats.subsectors_total += 1;
+            if use_pvs && !pvs.is_visible(player_subsector_id, subsector_id) {
+                return;
+            }
+            self.stats.subsectors_pvs_passed += 1;
+
+            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+                return;
+            };
+            if self.is_bbox_outside_fov(&leaf.aabb) {
+                return;
+            }
+
+            for poly_surface in &leaf.polygons {
+                let sid = poly_surface.sector_id;
+                if !self.seen_sectors[sid] {
+                    self.seen_sectors[sid] = true;
+                    self.visible_sectors
+                        .push((sid, sectors[sid].lightlevel >> 4));
+                }
+                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
+                    if self.cull_polygon_bounds(poly_surface, bsp3d).is_some() {
+                        if !self.prepare_and_emit_polygon(
+                            poly_surface,
+                            bsp3d,
+                            sectors,
+                            pic_data,
+                            player_light,
+                        ) {
+                            // Masked wall — collect for post-pass
+                            if let Some(depth) = self.cull_polygon_bounds(poly_surface, bsp3d) {
+                                self.visible_polygons
+                                    .push((poly_surface as *const _, depth));
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        let Some(node) = bsp3d.nodes().get(node_id as usize) else {
+            return;
+        };
+        if self.is_bbox_outside_fov(&node.aabb) {
+            return;
+        }
+
+        let (front, back) = node.front_back_children(Vec2::new(player_pos.x, player_pos.y));
+        self.emit_edges_bsp(
+            front,
+            bsp3d,
+            pvs,
+            use_pvs,
+            sectors,
+            player_pos,
+            player_light,
+            player_subsector_id,
+            pic_data,
+        );
+        self.emit_edges_bsp(
+            back,
+            bsp3d,
+            pvs,
+            use_pvs,
+            sectors,
+            player_pos,
+            player_light,
+            player_subsector_id,
+            pic_data,
+        );
+    }
+
+    /// Headless edge-span render entry point for benchmarks. Runs the full
+    /// emit → process_scanlines → draw_spans pipeline without PVS.
+    #[cfg(feature = "bench")]
+    pub fn draw_view_bench_edge_spans(
+        &mut self,
+        pos: Vec3,
+        angle_rad: f32,
+        pitch_rad: f32,
+        subsector_id: usize,
+        map_data: &MapData,
+        pic_data: &mut PicData,
+        buffer: &mut impl DrawBuffer,
+    ) {
+        let MapData {
+            sectors,
+            bsp_3d,
+            pvs,
+            ..
+        } = map_data;
+
+        self.prepare_vertex_cache(bsp_3d);
+        self.current_frame_id = self.current_frame_id.wrapping_add(1);
+
+        let forward = Vec3::new(
+            angle_rad.cos() * pitch_rad.cos(),
+            angle_rad.sin() * pitch_rad.cos(),
+            pitch_rad.sin(),
+        );
+        self.camera_pos = pos;
+        self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
+
+        self.stats.reset();
+        if cfg!(feature = "hiz_prev_frame") {
+            self.depth_buffer.soft_reset();
+        } else {
+            self.depth_buffer.reset();
+        }
+
+        self.seen_sectors.resize(sectors.len(), false);
+        self.seen_sectors.fill(false);
+        self.visible_sectors.clear();
+        self.visible_polygons.clear();
+
+        self.update_sky_params(angle_rad, pitch_rad, pic_data);
+
+        self.edge_state.reset();
+        self.emit_edges_bsp(
+            bsp_3d.root_node(),
+            bsp_3d,
+            pvs,
+            false,
+            sectors,
+            pos,
+            0,
+            subsector_id,
+            pic_data,
+        );
+        let depth_ptr = self.depth_buffer.depths_raw_ptr();
+        let depth_stride = self.depth_buffer.width();
+        let tile_min_ptr = self.depth_buffer.tile_min_ptr();
+        let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
+        let tiles_x = self.depth_buffer.tiles_x();
+        self.edge_state.process_and_draw_spans(
+            pic_data,
+            buffer,
+            depth_ptr,
+            depth_stride,
+            tile_min_ptr,
+            tile_covered_ptr,
+            tiles_x,
+            &self.sky,
+        );
     }
 }
