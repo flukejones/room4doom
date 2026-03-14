@@ -7,8 +7,8 @@ use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
 use std::alloc::{self, Layout};
 use std::ptr;
 
-use crate::depth_buffer::SKY_DEPTH;
-use crate::render::{TextureSampler, TriangleInterpolator};
+use crate::SkyRend;
+use crate::render::{TextureSampler, TriangleInterpolator, sample_sky_pixel};
 
 const TILE_SIZE: usize = 8;
 const LIGHT_MIN_Z: f32 = 0.001;
@@ -578,6 +578,7 @@ impl EdgeSpanState {
         tile_min_ptr: *mut f32,
         tile_covered_ptr: *mut u16,
         tiles_x: usize,
+        sky: &SkyRend,
     ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_process");
@@ -602,6 +603,7 @@ impl EdgeSpanState {
                     tile_min_ptr,
                     tile_covered_ptr,
                     tiles_x,
+                    sky,
                 );
                 self.flush_spans();
             }
@@ -628,6 +630,7 @@ impl EdgeSpanState {
             tile_min_ptr,
             tile_covered_ptr,
             tiles_x,
+            sky,
         );
     }
 
@@ -853,6 +856,7 @@ impl EdgeSpanState {
         tile_min_ptr: *mut f32,
         tile_covered_ptr: *mut u16,
         tiles_x: usize,
+        sky: &SkyRend,
     ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_draw");
@@ -893,13 +897,42 @@ impl EdgeSpanState {
 
                 if is_sky {
                     let depth_row = unsafe { depth_ptr.add(y * depth_stride) };
+                    let sky_r = (y as f32 * sky.v_scale + sky.pitch_offset) as i32;
+                    let sky_combined = &sky.extended;
+                    let sky_tex_height = sky.tex_height;
+                    let sky_w = sky.tex_width;
+                    let y_contrib = inv_w_origin + inv_w_step_y * y as f32;
+                    let mut inv_w = y_contrib + inv_w_step_x * x_start as f32;
+                    let row_start = y * pitch;
                     for x in x_start..x_end {
                         unsafe {
                             let dp = depth_row.add(x);
-                            if *dp == -1.0 {
-                                *dp = SKY_DEPTH;
+                            let old = *dp;
+                            if inv_w > old {
+                                *dp = inv_w;
+                                let sky_col = (sky.x_offset + x as f32 * sky.x_step)
+                                    .rem_euclid(sky_w as f32)
+                                    as usize;
+                                if let Some(color) =
+                                    sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
+                                {
+                                    let px = row_start + x * SOFT_PIXEL_CHANNELS;
+                                    buf[px] = color[0];
+                                    buf[px + 1] = color[1];
+                                    buf[px + 2] = color[2];
+                                    buf[px + 3] = 255;
+                                }
+                                if old == -1.0 {
+                                    let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
+                                    let tp = tile_min_ptr.add(ti);
+                                    if inv_w < *tp {
+                                        *tp = inv_w;
+                                    }
+                                    *tile_covered_ptr.add(ti) += 1;
+                                }
                             }
                         }
+                        inv_w += inv_w_step_x;
                     }
                     span_ptr = span.next;
                     continue;

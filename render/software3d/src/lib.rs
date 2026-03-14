@@ -1163,6 +1163,7 @@ impl Software3D {
                     tile_min_ptr,
                     tile_covered_ptr,
                     tiles_x,
+                    &self.sky,
                 );
                 // Masked walls in visible_polygons are rendered below via the
                 // existing per-polygon rasteriser against the now-filled depth
@@ -1454,6 +1455,7 @@ impl Software3D {
             tile_min_ptr,
             tile_covered_ptr,
             tiles_x,
+            &self.sky,
         );
     }
 
