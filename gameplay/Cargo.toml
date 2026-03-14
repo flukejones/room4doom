@@ -14,8 +14,7 @@ hprof = []
 [dependencies]
 map-data.workspace = true
 math.workspace = true
-sound-traits.workspace = true
-sound-sdl2.workspace = true
+sound-common.workspace = true
 wad.workspace = true
 glam.workspace = true
 log.workspace = true

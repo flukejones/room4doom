@@ -11,7 +11,7 @@ build = "../../build.rs"
 [dependencies]
 sdl2.workspace = true
 wad.workspace = true
-sound-traits.workspace = true
+sound-common.workspace = true
 opl2_emulator.workspace = true
 log.workspace = true
 glam.workspace = true

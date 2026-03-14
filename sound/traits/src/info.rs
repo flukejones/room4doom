@@ -1,11 +1,11 @@
-/// Used to build `SfxInfo`
-pub(crate) struct SfxInfoBase {
+/// SFX lump name and playback priority
+pub struct SfxInfoBase {
     pub name: &'static str,
     pub priority: i32,
 }
 
 impl SfxInfoBase {
-    pub(crate) const fn new(name: &'static str, priority: i32) -> Self {
+    pub const fn new(name: &'static str, priority: i32) -> Self {
         Self {
             name,
             priority,
@@ -14,7 +14,7 @@ impl SfxInfoBase {
 }
 
 /// The ordering here should match the `SfxName` ordering
-pub(crate) const SFX_INFO_BASE: [SfxInfoBase; 109] = [
+pub const SFX_INFO_BASE: [SfxInfoBase; 109] = [
     SfxInfoBase::new("none", 0),
     SfxInfoBase::new("pistol", 64),
     SfxInfoBase::new("shotgn", 64),

@@ -10,5 +10,5 @@ build = "../../build.rs"
 
 [dependencies]
 wad.workspace = true
-sound-traits.workspace = true
+sound-common.workspace = true
 log.workspace = true

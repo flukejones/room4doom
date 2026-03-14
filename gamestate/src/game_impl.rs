@@ -1,7 +1,7 @@
 use crate::Game;
 use gameplay::{GameAction, GameMode, Skill, WorldEndPlayerInfo, save};
 use gamestate_traits::{GameState, GameTraits, PlayerStatus, WorldInfo};
-use sound_traits::{EPISODE4_MUS, MusTrack, SfxName, SoundAction};
+use sound_common::{EPISODE4_MUS, MusTrack, SfxName, SoundAction};
 use wad::WadData;
 
 impl GameTraits for Game {

@@ -17,6 +17,7 @@ members = [
     "sound/traits",
     "sound/sdl2",
     "sound/nosnd",
+    "sound/rodio",
     "sound/opl2_emulator",
     "map-data",
     "pvs-tool",
@@ -49,9 +50,10 @@ hud-doom = { path = "./hud-messages/doom" }
 finale-doom = { path = "./finale/doom" }
 statusbar-doom = { path = "./statusbar/doom" }
 
-sound-traits = { path = "./sound/traits" }
+sound-common = { path = "./sound/traits" }
 sound-sdl2 = { path = "./sound/sdl2" }
 sound-nosnd = { path = "./sound/nosnd" }
+sound-rodio = { path = "./sound/rodio" }
 opl2_emulator = { path = "./sound/opl2_emulator" }
 render-trait = { path = "./render/render-trait" }
 render-target = { path = "./render/render-target" }

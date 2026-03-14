@@ -5,7 +5,7 @@ use gameplay::{GameMission, GameMode, PlayerCheat, PowerType, Skill, WeaponType,
 use gamestate::Game;
 use gamestate_traits::GameTraits;
 use gamestate_traits::sdl2::keyboard::{Keycode, Scancode};
-use sound_traits::MusTrack;
+use sound_common::MusTrack;
 
 pub struct Cheats {
     /// `iddqd`: Invulnerable to all (except massive end-of-level damage)

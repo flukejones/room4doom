@@ -5,7 +5,20 @@ use gameplay::dirs::config_dir;
 use gameplay::log::{error, info, warn};
 use input::config::InputConfig;
 use nanoserde::{DeRon, SerRon};
-use sound_sdl2::timidity::GusMemSize;
+#[cfg(feature = "sound-sdl2")]
+pub use sound_sdl2::timidity::GusMemSize;
+
+/// GUS memory size for Timidity configuration (stub when SDL2 sound is absent).
+#[cfg(not(feature = "sound-sdl2"))]
+#[derive(Debug, Default, Copy, Clone, DeRon, SerRon)]
+pub enum GusMemSize {
+    M256Kb,
+    M512Kb,
+    M768Kb,
+    M1024Kb,
+    #[default]
+    Perfect,
+}
 use std::fs::{File, OpenOptions, create_dir};
 use std::io::{Read, Write};
 use std::path::PathBuf;

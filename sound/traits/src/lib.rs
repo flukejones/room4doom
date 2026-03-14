@@ -9,9 +9,20 @@ mod sounds;
 pub use sounds::*;
 mod music;
 pub use music::*;
+pub mod info;
+pub use info::{SFX_INFO_BASE, SfxInfoBase};
+pub mod mus2midi;
+pub use mus2midi::read_mus_to_midi;
+pub mod spatial;
+pub use spatial::*;
 
 /// `S` is SFX enum, `M` is Music enum, `E` is Errors
 pub type InitResult<S, M, E> = Result<Sender<SoundAction<S, M>>, E>;
+
+/// Concrete sender type used by all backends and gameplay code
+pub type SndServerTx = Sender<SoundAction<SfxName, usize>>;
+/// Concrete receiver type used by all backends
+pub type SndServerRx = Receiver<SoundAction<SfxName, usize>>;
 
 pub enum SoundAction<S: Debug + Copy, M: Debug> {
     StartSfx {

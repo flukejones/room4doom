@@ -7,29 +7,41 @@ mod d_main;
 mod timestep;
 
 use cli::*;
-use config::MusicType;
-use dirs::{cache_dir, data_dir};
+#[cfg(feature = "sound-sdl2")]
+use dirs::data_dir;
 use gamestate_traits::sdl2::{self};
 use mimalloc::MiMalloc;
 use simplelog::TermLogger;
-use std::env::set_var;
 use std::error::Error;
-use std::fs::File;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use d_main::d_doom_loop;
-use gamestate::Game;
+use gamestate::{Game, prepare_wad};
 
 use crate::config::UserConfig;
 use gameplay::{MapData, PVS2D, PicData, PreprocessPvsMode, PvsCluster, PvsFile, RenderPvs, log};
 use input::Input;
-use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
+use sound_common::{SndServerTx, SoundAction, SoundServer, SoundServerTic};
 
 use crate::log::{info, warn};
 use wad::WadData;
 
+#[cfg(feature = "sound-sdl2")]
+use config::MusicType;
+#[cfg(feature = "sound-sdl2")]
+use dirs::cache_dir;
+#[cfg(feature = "sound-sdl2")]
+use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
+#[cfg(feature = "sound-sdl2")]
+use std::env::set_var;
+#[cfg(feature = "sound-sdl2")]
+use std::fs::File;
+#[cfg(feature = "sound-sdl2")]
+use std::io::Write;
+
+#[cfg(feature = "sound-sdl2")]
 const SOUND_DIR: &str = "room4doom/sound/";
+#[cfg(feature = "sound-sdl2")]
 const TIMIDITY_CFG: &str = "timidity.cfg";
 
 #[global_allocator]
@@ -100,30 +112,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let sdl_ctx = sdl2::init()?;
     info!("Init SDL2 main");
-    let snd_ctx = sdl_ctx.audio()?;
-    info!("Init SDL2 sound");
     let video_ctx = sdl_ctx.video()?;
     info!("Init SDL2 video");
 
     let wad_path: PathBuf = options.iwad.clone().into();
     let wad = WadData::new(&wad_path);
-    setup_timidity(user_config.music_type, user_config.gus_mem_size, &wad);
+    let (game_options, wad) = prepare_wad(options.clone().into(), wad);
 
-    let music_type = match user_config.music_type {
-        config::MusicType::Timidity => sound_sdl2::MusicType::Timidity,
-        config::MusicType::FluidSynth => sound_sdl2::MusicType::FluidSynth,
-        config::MusicType::OPL2 => sound_sdl2::MusicType::OPL2,
-        config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
-    };
+    let (snd_tx, snd_thread) = init_sound(&sdl_ctx, &wad, &user_config);
 
-    let game = Game::new(
-        options.clone().into(),
-        wad,
-        snd_ctx,
-        user_config.sfx_vol,
-        user_config.mus_vol,
-        music_type,
-    );
+    let game = Game::new(game_options, wad, snd_tx, snd_thread);
 
     let num_disp = video_ctx.num_video_displays()?;
     for n in 0..num_disp {
@@ -252,6 +250,83 @@ fn process_map_pvs(
     Ok(())
 }
 
+/// Initialise the sound backend and spawn the sound thread.
+///
+/// Returns the command channel and thread handle for `Game::new`.
+#[cfg(feature = "sound-sdl2")]
+fn init_sound(
+    sdl_ctx: &sdl2::Sdl,
+    wad: &WadData,
+    config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    let snd_ctx = sdl_ctx.audio().expect("SDL2 audio init failed");
+    info!("Init SDL2 sound");
+
+    setup_timidity(config.music_type, config.gus_mem_size, wad);
+
+    let music_type = match config.music_type {
+        config::MusicType::Timidity => sound_sdl2::MusicType::Timidity,
+        config::MusicType::FluidSynth => sound_sdl2::MusicType::FluidSynth,
+        config::MusicType::OPL2 => sound_sdl2::MusicType::OPL2,
+        config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
+    };
+
+    match sound_sdl2::Snd::new(snd_ctx, wad, music_type) {
+        Ok(mut s) => {
+            let tx = s.init().unwrap();
+            let thread = std::thread::spawn(move || while s.tic() {});
+            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
+            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
+            (tx, thread)
+        }
+        Err(e) => {
+            warn!("Could not set up SDL2 sound server: {e}");
+            init_nosnd(wad)
+        }
+    }
+}
+
+/// Initialise the rodio sound backend and spawn the sound thread.
+#[cfg(all(feature = "sound-rodio", not(feature = "sound-sdl2")))]
+fn init_sound(
+    _sdl_ctx: &sdl2::Sdl,
+    wad: &WadData,
+    config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    match sound_rodio::Snd::new(wad) {
+        Ok(mut s) => {
+            let tx = s.init().unwrap();
+            let thread = std::thread::spawn(move || while s.tic() {});
+            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
+            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
+            (tx, thread)
+        }
+        Err(e) => {
+            warn!("Could not set up rodio sound server: {e}");
+            init_nosnd(wad)
+        }
+    }
+}
+
+/// No sound backend selected — use nosnd.
+#[cfg(not(any(feature = "sound-sdl2", feature = "sound-rodio")))]
+fn init_sound(
+    _sdl_ctx: &sdl2::Sdl,
+    wad: &WadData,
+    _config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    init_nosnd(wad)
+}
+
+/// Fallback: no-sound backend.
+fn init_nosnd(wad: &WadData) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    let mut s = sound_nosnd::Snd::new(wad).unwrap();
+    let tx = s.init().unwrap();
+    let thread = std::thread::spawn(move || while s.tic() {});
+    (tx, thread)
+}
+
+#[cfg(feature = "sound-sdl2")]
 fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
     if music_type == MusicType::FluidSynth {
         // TODO: Audit that the environment access only happens in single-threaded code.

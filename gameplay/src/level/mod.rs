@@ -10,8 +10,7 @@ use std::collections::VecDeque;
 use std::ptr;
 
 use map_data::{LineDef, MapData, MapPtr};
-use sound_sdl2::SndServerTx;
-use sound_traits::{SfxName, SoundAction};
+use sound_common::{SfxName, SndServerTx, SoundAction};
 use wad::WadData;
 use wad::types::WadThing;
 

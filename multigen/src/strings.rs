@@ -6,7 +6,7 @@ pub const FILE_HEADER_STR: &str = r#"//! THIS FILE IS GENERATED WITH MULTIGEN
 
 pub const MOBJ_INFO_HEADER_STR: &str = r#"
 use crate::thing::MapObjFlag;
-use sound_traits::SfxName;
+use sound_common::SfxName;
 "#;
 
 pub const CLIPPY_ALLOW: &str = "";

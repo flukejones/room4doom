@@ -36,7 +36,7 @@ use input::Input;
 use intermission_doom::Intermission;
 use menu_doom::MenuDoom;
 use render_target::RenderTarget;
-use sound_traits::SoundAction;
+use sound_common::SoundAction;
 use statusbar_doom::Statusbar;
 use wad::types::WadPatch;
 

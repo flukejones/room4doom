@@ -8,7 +8,7 @@ use gamestate_traits::{
     DrawBuffer, GameMode, GameState, GameTraits, Scancode, Skill, SubsystemTrait
 };
 use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
-use sound_traits::SfxName;
+use sound_common::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
 use wad::types::{WadPalette, WadPatch};

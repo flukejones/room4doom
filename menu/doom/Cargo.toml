@@ -7,6 +7,6 @@ license.workspace = true
 
 [dependencies]
 gamestate-traits.workspace = true
-sound-traits.workspace = true
+sound-common.workspace = true
 wad.workspace = true
 hud-util.workspace = true

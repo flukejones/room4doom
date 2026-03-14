@@ -10999,7 +10999,7 @@ pub static mut STATES: [State; NUM_STATES] = [
 ];
 
 use crate::thing::MapObjFlag;
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MapObjInfo {

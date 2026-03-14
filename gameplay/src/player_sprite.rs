@@ -2,7 +2,7 @@
 
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 use crate::doom_def::{MELEERANGE, MISSILERANGE, PowerType, WEAPON_INFO};
 use crate::info::{STATES, State, StateNum};

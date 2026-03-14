@@ -7,7 +7,7 @@ mod interact;
 pub use interact::*;
 mod movement;
 pub use movement::*;
-use sound_traits::SfxName;
+use sound_common::SfxName;
 pub(crate) mod enemy;
 mod shooting;
 

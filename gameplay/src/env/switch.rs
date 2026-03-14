@@ -1,8 +1,7 @@
 //! Doom source name `p_switch`
 
 use log::{debug, warn};
-use sound_sdl2::SndServerTx;
-use sound_traits::SfxName;
+use sound_common::{SfxName, SndServerTx};
 
 use crate::thing::MapObject;
 
@@ -59,7 +58,7 @@ pub fn start_button(
 /// Start a sound using the lines front sector sound origin
 pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx) {
     let sfx_origin = line.front_sidedef.sector.sound_origin;
-    snd.send(sound_traits::SoundAction::StartSfx {
+    snd.send(sound_common::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
         x: sfx_origin.x,

@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use glam::Vec2;
 use log::{debug, error, info};
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 use crate::doom_def::{
     ActFn, AmmoType, BFGCELLS, CLIP_AMMO, Card, MAX_AMMO, MAXHEALTH, MAXPLAYERS, PowerDuration, PowerType, VIEWHEIGHT, WEAPON_INFO, WeaponType

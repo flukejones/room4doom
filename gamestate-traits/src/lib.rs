@@ -11,7 +11,7 @@ pub use gameplay::{
 pub use render_trait::{DrawBuffer, GameRenderer, PlayRender};
 pub use sdl2::keyboard::Scancode;
 pub use sdl2::{self};
-pub use sound_traits::{MusTrack, SfxName};
+pub use sound_common::{MusTrack, SfxName};
 
 use wad::WadData;
 use wad::types::{WadPalette, WadPatch};

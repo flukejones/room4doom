@@ -12,10 +12,12 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut"]
+default = ["trig_lut", "sound-rodio"]
 hprof = ["render-target/hprof", "gameplay/hprof"]
 render_stats = ["render-target/render_stats"]
 trig_lut = ["render-target/trig_lut"]
+sound-sdl2 = ["dep:sound-sdl2"]
+sound-rodio = ["dep:sound-rodio"]
 
 [dependencies]
 mimalloc = "0.1.43"
@@ -33,8 +35,10 @@ finale-doom.workspace = true
 statusbar-doom.workspace = true
 hud-util.workspace = true
 
-sound-traits.workspace = true
-sound-sdl2.workspace = true
+sound-common.workspace = true
+sound-sdl2 = { workspace = true, optional = true }
+sound-rodio = { workspace = true, optional = true }
+sound-nosnd.workspace = true
 render-target.workspace = true
 software3d.workspace = true
 wad.workspace = true

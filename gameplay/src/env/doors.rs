@@ -3,7 +3,7 @@
 //! Doom source name `p_doors`
 
 use log::{debug, error, warn};
-use sound_traits::SfxName;
+use sound_common::SfxName;
 use std::fmt::{self, Formatter};
 use std::ptr::null_mut;
 

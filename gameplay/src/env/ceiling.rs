@@ -3,7 +3,7 @@
 //! Doom source name `p_ceiling`
 use std::ptr::null_mut;
 
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 use crate::SectorExt;
 use crate::level::Level;

@@ -9,5 +9,5 @@ license.workspace = true
 sdl2.workspace = true
 gameplay.workspace = true
 render-trait.workspace = true
-sound-traits.workspace = true
+sound-common.workspace = true
 wad.workspace = true

@@ -4,7 +4,7 @@ use std::ptr;
 
 use glam::Vec2;
 use log::{debug, error, info};
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 use crate::doom_def::{AmmoType, Card, PowerType, WeaponType};
 use crate::info::{MapObjKind, STATES, SpriteNum, StateNum};

@@ -3,7 +3,7 @@
 use coarse_prof::profile;
 use glam::Vec2;
 use math::{p_random, point_to_angle_2};
-use sound_traits::SfxName;
+use sound_common::SfxName;
 use std::f32::consts::FRAC_PI_2;
 
 use crate::doom_def::{MAXRADIUS, MELEERANGE};

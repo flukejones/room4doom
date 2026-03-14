@@ -29,15 +29,12 @@ use gameplay::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use gameplay::{
     GameAction, GameMission, GameMode, GameOptions, Level, MAXPLAYERS, MapObject, PicData, Player, PlayerState, STATES, Skill, StateNum, m_clear_random, respawn_specials, save, spawn_specials, update_specials
 };
-use gamestate_traits::sdl2::AudioSubsystem;
 use gamestate_traits::{GameState, GameTraits, SubsystemTrait, WorldInfo};
-use sound_nosnd::SndServerTx;
+use sound_common::{MusTrack, SndServerTx, SoundAction};
 use std::iter::Peekable;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::vec::IntoIter;
-// use sound_sdl2::SndServerTx;
-use sound_traits::{MusTrack, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 use wad::types::WadPatch;
 
@@ -195,137 +192,114 @@ impl Drop for Game {
     }
 }
 
-impl Game {
-    pub fn new(
-        mut options: GameOptions,
-        mut wad: WadData,
-        snd_ctx: AudioSubsystem,
-        sfx_vol: i32,
-        mus_vol: i32,
-        music_type: sound_sdl2::MusicType,
-    ) -> Game {
-        let wad_name = wad.wad_name().to_lowercase();
-        let game_type = GameType::identify_version(&wad);
+/// Validate and clamp options against the WAD, load PWADs.
+///
+/// Call before `Game::new` so that the WAD is fully prepared for both
+/// game logic and the sound backend.
+pub fn prepare_wad(mut options: GameOptions, mut wad: WadData) -> (GameOptions, WadData) {
+    if options.map == 0 {
+        options.map = 1;
+    }
+    if options.episode == 0 {
+        options.episode = 1;
+    }
 
-        // make sure map + episode aren't 0 from CLI option block
-        if options.map == 0 {
-            options.map = 1;
-        }
-        if options.episode == 0 {
-            options.episode = 1;
-        }
+    let game_type = GameType::identify_version(&wad);
+    debug!("Game: new mode = {:?}", game_type.mode);
 
-        debug!("Game: new mode = {:?}", game_type.mode);
-        if game_type.mode == GameMode::Retail {
-            if options.episode > 4 && options.pwad.is_empty() {
-                warn!(
-                    "Game: new: {:?} mode (no pwad) but episode {} is greater than 4",
-                    game_type.mode, options.episode
-                );
-                options.episode = 4;
-            }
-        } else if game_type.mode == GameMode::Shareware {
-            if options.episode > 1 {
-                warn!(
-                    "Game: new: {:?} mode but episode {} is greater than 1",
-                    game_type.mode, options.episode
-                );
-                options.episode = 1; // only start episode 1 on shareware
-            }
-            if options.map > 5 {
-                warn!(
-                    "Game: init_new: {:?} mode but map {} is greater than 5",
-                    game_type.mode, options.map
-                );
-                options.map = 5;
-            }
-        } else if options.episode > 3 {
+    if game_type.mode == GameMode::Retail {
+        if options.episode > 4 && options.pwad.is_empty() {
             warn!(
-                "Game: new: {:?} mode but episode {} is greater than 3",
+                "Game: new: {:?} mode (no pwad) but episode {} is greater than 4",
                 game_type.mode, options.episode
             );
-            options.episode = 3;
+            options.episode = 4;
         }
-
-        if options.map > 9 && game_type.mode != GameMode::Commercial {
+    } else if game_type.mode == GameMode::Shareware {
+        if options.episode > 1 {
             warn!(
-                "Game: init_new: {:?} mode but map {} is greater than 9",
+                "Game: new: {:?} mode but episode {} is greater than 1",
+                game_type.mode, options.episode
+            );
+            options.episode = 1;
+        }
+        if options.map > 5 {
+            warn!(
+                "Game: init_new: {:?} mode but map {} is greater than 5",
                 game_type.mode, options.map
             );
-            options.map = 9;
+            options.map = 5;
         }
-
-        if !options.pwad.is_empty() {
-            info!("Init PWADfiles");
-            for pwad in options.pwad.iter() {
-                wad.add_file(pwad.into());
-                info!("Added: {}", pwad);
-            }
-        }
-
-        // Mimic the OG output
-        println!(
-            "\nROOM-4-DOOM v{}. Playing {}",
-            env!("CARGO_PKG_VERSION"),
-            game_type.description,
+    } else if options.episode > 3 {
+        warn!(
+            "Game: new: {:?} mode but episode {} is greater than 3",
+            game_type.mode, options.episode
         );
+        options.episode = 3;
+    }
 
-        match game_type.mode {
-            GameMode::Shareware => {
-                println!(
-                    r#"
+    if options.map > 9 && game_type.mode != GameMode::Commercial {
+        warn!(
+            "Game: init_new: {:?} mode but map {} is greater than 9",
+            game_type.mode, options.map
+        );
+        options.map = 9;
+    }
+
+    if !options.pwad.is_empty() {
+        info!("Init PWADfiles");
+        for pwad in options.pwad.iter() {
+            wad.add_file(pwad.into());
+            info!("Added: {}", pwad);
+        }
+    }
+
+    println!(
+        "\nROOM-4-DOOM v{}. Playing {}",
+        env!("CARGO_PKG_VERSION"),
+        game_type.description,
+    );
+
+    match game_type.mode {
+        GameMode::Shareware => {
+            println!(
+                r#"
 ===========================================================================
                             Shareware WAD!
 ===========================================================================
 "#
-                );
-            }
-            _ => {
-                println!(
-                    r#"
+            );
+        }
+        _ => {
+            println!(
+                r#"
 ===========================================================================
                  Commercial WAD - do not distribute!
 ===========================================================================
 "#
-                );
-            }
+            );
         }
+    }
+
+    (options, wad)
+}
+
+impl Game {
+    /// Create a new game with a pre-constructed sound channel and thread.
+    ///
+    /// Use `prepare_wad()` first to validate options and load PWADs, then
+    /// set up the sound backend in `main()`, and pass the resulting channel
+    /// and thread handle here.
+    pub fn new(
+        options: GameOptions,
+        wad: WadData,
+        snd_tx: SndServerTx,
+        snd_thread: JoinHandle<()>,
+    ) -> Game {
+        let wad_name = wad.wad_name().to_lowercase();
+        let game_type = GameType::identify_version(&wad);
 
         info!("Init playloop state.");
-
-        let snd_thread;
-        let snd_tx = match sound_sdl2::Snd::new(snd_ctx, &wad, music_type) {
-            Ok(mut s) => {
-                let tx = s.init().unwrap();
-                snd_thread = std::thread::spawn(move || {
-                    loop {
-                        if !s.tic() {
-                            break;
-                        }
-                    }
-                });
-                tx.send(SoundAction::SfxVolume(sfx_vol)).unwrap();
-                tx.send(SoundAction::MusicVolume(mus_vol)).unwrap();
-                tx
-            }
-            Err(e) => {
-                warn!("Could not set up sound server: {e}");
-                let mut s = sound_nosnd::Snd::new(&wad).unwrap();
-                let tx = s.init().unwrap();
-                snd_thread = std::thread::spawn(move || {
-                    loop {
-                        if !s.tic() {
-                            break;
-                        }
-                    }
-                });
-                tx
-            }
-        };
-
-        // TODO: D_CheckNetGame ();
-        // TODO: HU_Init ();
-        // TODO: ST_Init ();
 
         let mut game_action = GameAction::None;
         if options.warp {

@@ -9,7 +9,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use log::trace;
-use sound_traits::SfxName;
+use sound_common::SfxName;
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 use std::ptr;
 

@@ -25,7 +25,7 @@ use map_data::MapPtr;
 use map_data::flags::LineDefFlags;
 use map_data::map_defs::{LineDef, Sector};
 use math::circle_line_collide;
-use sound_traits::SfxName;
+use sound_common::SfxName;
 use std::ptr;
 
 pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<MapPtr<Sector>> {

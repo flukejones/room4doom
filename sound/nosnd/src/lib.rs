@@ -4,11 +4,10 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 use log::info;
 
-use sound_traits::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic};
+use sound_common::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
-pub type SndServerRx = Receiver<SoundAction<SfxName, usize>>;
-pub type SndServerTx = Sender<SoundAction<SfxName, usize>>;
+pub use sound_common::{SndServerRx, SndServerTx};
 
 pub struct Snd {
     rx: SndServerRx,

@@ -4,6 +4,9 @@
 //! Public API: `init_tables()`, `Chip::new()`, `Chip::setup()`,
 //! `Chip::write_reg()`, `Chip::generate_block_2()`.
 
+pub mod player;
+pub use player::OplPlayerState;
+
 use std::f64::consts::PI;
 use std::sync::OnceLock;
 

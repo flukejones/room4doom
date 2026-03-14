@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use sound_traits::{SfxName, SoundAction, SoundServer, SoundServerTic};
+use sound_common::{SfxName, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
 use crate::{MusicType, Snd};

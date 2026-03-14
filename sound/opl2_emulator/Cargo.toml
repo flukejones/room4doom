@@ -7,5 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+wad.workspace = true
+log.workspace = true
 
 [dev-dependencies]

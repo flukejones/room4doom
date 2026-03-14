@@ -5,7 +5,7 @@
 
 use std::ptr::null_mut;
 
-use sound_traits::SfxName;
+use sound_common::SfxName;
 
 use crate::SectorExt;
 use crate::doom_def::TICRATE;

@@ -34,21 +34,21 @@
 //! - Automatic fallback to SDL_mixer if OPL2 initialization fails
 
 use std::error::Error;
-use std::f32::consts::TAU;
 use std::fmt::Debug;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::channel;
 
-use glam::Vec2;
 use log::{debug, info, warn};
 use sdl2::AudioSubsystem;
 use sdl2::audio::{AudioCVT, AudioFormat};
 use sdl2::mixer::{AUDIO_S16LSB, Chunk, DEFAULT_CHANNELS, InitFlag, Music, Sdl2MixerContext};
-use sound_traits::{InitResult, MUS_DATA, SfxName, SoundAction, SoundServer, SoundServerTic};
+use sound_common::{
+    InitResult, MAX_DIST, MID_ID, MIXER_CHANNELS, MUS_DATA, MUS_ID, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundObject, SoundServer, SoundServerTic, listener_to_source_angle_deg, read_mus_to_midi
+};
 use wad::WadData;
 
-use crate::info::SFX_INFO_BASE;
-use crate::mus2midi::read_mus_to_midi;
 use crate::opl2::OplPlayer;
+
+pub use sound_common::{dist_from_points, point_to_angle_2};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MusicType {
@@ -58,55 +58,12 @@ pub enum MusicType {
     OPL3,
 }
 
-mod info;
 pub mod mus2midi;
 pub mod opl2;
 pub mod timidity;
 
 #[cfg(test)]
 mod test_sdl2;
-
-const MAX_DIST: f32 = 1666.0;
-const MIXER_CHANNELS: i32 = 32;
-const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1A];
-const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
-
-pub type SndServerRx = Receiver<SoundAction<SfxName, usize>>;
-pub type SndServerTx = Sender<SoundAction<SfxName, usize>>;
-
-pub fn point_to_angle_2(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-    let x = x1 - x2;
-    let y = y1 - y2;
-    y.atan2(x)
-}
-
-pub fn angle_between(listener_angle: f32, other_x: f32, other_y: f32) -> f32 {
-    let (y, x) = listener_angle.sin_cos();
-    let v1 = Vec2::new(x, y);
-    let other = Vec2::new(other_x, other_y);
-    v1.angle_to(other)
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-struct SoundObject<S>
-where
-    S: Copy + Debug,
-{
-    /// Objects unique ID or hash. This should be used to track which
-    /// object owns which sounds so it can be stopped e.g, death, shoot..
-    uid: usize,
-    /// The Sound effect this object has
-    _sfx: S,
-    /// The world XY coords of this object
-    x: f32,
-    y: f32,
-    /// Get the angle of this object in radians
-    angle: f32,
-    /// Channel allocated to it (internal)
-    channel: i32,
-    /// Priority of sound
-    priority: i32,
-}
 
 struct SfxInfo {
     /// Up to 6-character name. In the Lump the names are typically prefixed by
@@ -247,7 +204,7 @@ impl<'a> Snd<'a> {
         // Initialize OPL2 player if requested
         let mut use_opl2 = false;
         let opl_player = if matches!(music_type, MusicType::OPL2 | MusicType::OPL3) {
-            match OplPlayer::new(&audio, false, wad) {
+            match OplPlayer::new(&audio, wad) {
                 Ok(player) => {
                     info!("{music_type:?} music player initialized");
                     use_opl2 = true;
@@ -282,18 +239,17 @@ impl<'a> Snd<'a> {
     }
 
     fn listener_to_source_angle(&self, sx: f32, sy: f32) -> f32 {
-        let (y, x) = point_to_angle_2(sx, sy, self.listener.x, self.listener.y).sin_cos();
-        let mut angle = angle_between(self.listener.angle, x, y);
-        if angle.is_sign_negative() {
-            angle += TAU;
-        }
-        360.0 - angle.to_degrees()
+        listener_to_source_angle_deg(
+            self.listener.x,
+            self.listener.y,
+            self.listener.angle,
+            sx,
+            sy,
+        )
     }
 
     fn dist_from_listener(&self, sx: f32, sy: f32) -> f32 {
-        let dx = self.listener.x - sx;
-        let dy = self.listener.y - sy;
-        (dx.powf(2.0) + dy.powf(2.0)).sqrt().abs()
+        dist_from_points(self.listener.x, self.listener.y, sx, sy)
     }
 
     fn dist_scale_sdl2(dist: f32) -> f32 {
@@ -329,7 +285,7 @@ impl<'a> SoundServer<SfxName, usize, sdl2::Error> for Snd<'a> {
         let chunk = &self.chunks[sfx as usize];
         let mut origin = SoundObject {
             uid,
-            _sfx: sfx,
+            sfx,
             x,
             y,
             angle,
@@ -529,7 +485,7 @@ impl<'a> SoundServerTic<SfxName, usize, sdl2::Error> for Snd<'a> {}
 mod tests {
     use crate::mus2midi::read_mus_to_midi;
     use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
-    use sound_traits::MUS_DATA;
+    use sound_common::MUS_DATA;
     use std::path::PathBuf;
     use std::time::Duration;
     use wad::WadData;
