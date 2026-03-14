@@ -58,6 +58,17 @@ impl DepthBuffer {
         self.tile_covered.fill(0);
     }
 
+    /// Preserve per-pixel depths and tile min-depths from the previous frame,
+    /// resetting only coverage counters. Previous-frame Hi-Z data provides
+    /// conservative occlusion for the current frame's polygon emission.
+    /// Preserve Hi-Z tile data from the previous frame for early polygon
+    /// rejection, but clear per-pixel depths. Tile min-depths and coverage
+    /// counts carry forward as a conservative approximation.
+    pub fn soft_reset(&mut self) {
+        self.depths.fill(-1.0);
+        self.covered_pixels = 0;
+    }
+
     pub fn resize(&mut self, width: usize, height: usize) {
         self.depths = vec![-1.0; width * height].into_boxed_slice();
         self.width = width;
@@ -144,6 +155,24 @@ impl DepthBuffer {
     #[inline]
     pub fn width(&self) -> usize {
         self.width
+    }
+
+    /// Raw pointer to Hi-Z tile minimum depth array.
+    #[inline]
+    pub fn tile_min_ptr(&mut self) -> *mut f32 {
+        self.tile_min_depth.as_mut_ptr()
+    }
+
+    /// Raw pointer to Hi-Z tile coverage count array.
+    #[inline]
+    pub fn tile_covered_ptr(&mut self) -> *mut u16 {
+        self.tile_covered.as_mut_ptr()
+    }
+
+    /// Number of tiles per row.
+    #[inline]
+    pub fn tiles_x(&self) -> usize {
+        self.tiles_x
     }
 
     /// Hi-Z occlusion test. Conservative: never produces false rejections.

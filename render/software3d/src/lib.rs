@@ -1,8 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind,
-    SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
+    AABB, Angle, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use hud_util::{draw_text_line, hud_scale, measure_text_line};
@@ -1104,7 +1103,11 @@ impl Software3D {
         }
 
         self.stats.reset();
-        self.depth_buffer.reset();
+        if self.use_edge_spans {
+            self.depth_buffer.soft_reset();
+        } else {
+            self.depth_buffer.reset();
+        }
         self.debug.polygon_outlines.clear();
         self.debug.normal_lines.clear();
 
@@ -1147,8 +1150,18 @@ impl Software3D {
                 );
                 let depth_ptr = self.depth_buffer.depths_raw_ptr();
                 let depth_stride = self.depth_buffer.width();
-                self.edge_state
-                    .process_and_draw_spans(pic_data, buffer, depth_ptr, depth_stride);
+                let tile_min_ptr = self.depth_buffer.tile_min_ptr();
+                let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
+                let tiles_x = self.depth_buffer.tiles_x();
+                self.edge_state.process_and_draw_spans(
+                    pic_data,
+                    buffer,
+                    depth_ptr,
+                    depth_stride,
+                    tile_min_ptr,
+                    tile_covered_ptr,
+                    tiles_x,
+                );
                 // Masked walls in visible_polygons are rendered below via the
                 // existing per-polygon rasteriser against the now-filled depth
                 // buffer.
@@ -1401,7 +1414,7 @@ impl Software3D {
         self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
 
         self.stats.reset();
-        self.depth_buffer.reset();
+        self.depth_buffer.soft_reset();
 
         self.seen_sectors.resize(sectors.len(), false);
         self.seen_sectors.fill(false);
@@ -1424,8 +1437,18 @@ impl Software3D {
         );
         let depth_ptr = self.depth_buffer.depths_raw_ptr();
         let depth_stride = self.depth_buffer.width();
-        self.edge_state
-            .process_and_draw_spans(pic_data, buffer, depth_ptr, depth_stride);
+        let tile_min_ptr = self.depth_buffer.tile_min_ptr();
+        let tile_covered_ptr = self.depth_buffer.tile_covered_ptr();
+        let tiles_x = self.depth_buffer.tiles_x();
+        self.edge_state.process_and_draw_spans(
+            pic_data,
+            buffer,
+            depth_ptr,
+            depth_stride,
+            tile_min_ptr,
+            tile_covered_ptr,
+            tiles_x,
+        );
     }
 
     /// Find the subsector ID that matches the given player subsector

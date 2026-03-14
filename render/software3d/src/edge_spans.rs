@@ -9,6 +9,7 @@ use std::ptr;
 
 use crate::render::{TextureSampler, TriangleInterpolator};
 
+const TILE_SIZE: usize = 8;
 const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
@@ -546,6 +547,9 @@ impl EdgeSpanState {
         buffer: &mut impl DrawBuffer,
         depth_ptr: *mut f32,
         depth_stride: usize,
+        tile_min_ptr: *mut f32,
+        tile_covered_ptr: *mut u16,
+        tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_process");
@@ -573,13 +577,29 @@ impl EdgeSpanState {
 
             // Flush spans mid-frame if pool is nearing capacity
             if self.spans.len() >= flush_threshold {
-                self.draw_spans(pic_data, buffer, depth_ptr, depth_stride);
+                self.draw_spans(
+                    pic_data,
+                    buffer,
+                    depth_ptr,
+                    depth_stride,
+                    tile_min_ptr,
+                    tile_covered_ptr,
+                    tiles_x,
+                );
                 self.flush_spans();
             }
         }
 
         // Draw remaining spans
-        self.draw_spans(pic_data, buffer, depth_ptr, depth_stride);
+        self.draw_spans(
+            pic_data,
+            buffer,
+            depth_ptr,
+            depth_stride,
+            tile_min_ptr,
+            tile_covered_ptr,
+            tiles_x,
+        );
     }
 
     /// Clear span pool and reset all surface span_head pointers.
@@ -787,6 +807,9 @@ impl EdgeSpanState {
         buffer: &mut impl DrawBuffer,
         depth_ptr: *mut f32,
         depth_stride: usize,
+        tile_min_ptr: *mut f32,
+        tile_covered_ptr: *mut u16,
+        tiles_x: usize,
     ) {
         #[cfg(feature = "hprof")]
         profile!("edge_spans_draw");
@@ -842,7 +865,19 @@ impl EdgeSpanState {
                     buf[px + 2] = color[2];
                     buf[px + 3] = 255;
 
-                    unsafe { *depth_row.add(x) = inv_w };
+                    unsafe {
+                        let dp = depth_row.add(x);
+                        let old = *dp;
+                        *dp = inv_w;
+                        if old == -1.0 {
+                            let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
+                            let tp = tile_min_ptr.add(ti);
+                            if inv_w < *tp {
+                                *tp = inv_w;
+                            }
+                            *tile_covered_ptr.add(ti) += 1;
+                        }
+                    }
 
                     interp_state.step_x();
                     inv_w += inv_w_step_x;
