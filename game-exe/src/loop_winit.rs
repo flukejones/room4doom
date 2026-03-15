@@ -1,6 +1,7 @@
 //! winit `ApplicationHandler`-based game loop.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use gameplay::log::{info, warn};
 use gamestate::Game;
@@ -15,7 +16,7 @@ use software3d::DebugDrawOptions;
 use statusbar_doom::Statusbar;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, ElementState, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
@@ -38,6 +39,10 @@ pub struct DoomApp {
     options: CLIOptions,
     debug_draw: DebugDrawOptions,
     window: Option<Arc<Window>>,
+    /// Frame interval for vsync pacing. `None` = uncapped.
+    frame_interval: Option<Duration>,
+    /// Target instant for the next frame when vsync is active.
+    next_frame: Instant,
 }
 
 impl DoomApp {
@@ -61,6 +66,8 @@ impl DoomApp {
             options,
             debug_draw,
             window: None,
+            frame_interval: None,
+            next_frame: Instant::now(),
         }
     }
 }
@@ -169,8 +176,26 @@ impl ApplicationHandler for DoomApp {
             .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Locked))
             .expect("failed to grab cursor");
 
-        if matches!(self.options.vsync, Some(false)) {
-            info!("vsync=off requested but softbuffer backend has no vsync control");
+        let vsync = self.options.vsync.unwrap_or(true);
+        if vsync {
+            let monitor = window
+                .current_monitor()
+                .or_else(|| event_loop.primary_monitor())
+                .or_else(|| event_loop.available_monitors().next());
+            let refresh_mhz = monitor
+                .and_then(|m| m.video_modes().map(|v| v.refresh_rate_millihertz()).max())
+                .unwrap_or(60_000);
+            let interval = Duration::from_nanos(1_000_000_000_000 / refresh_mhz as u64);
+            info!(
+                "vsync: frame interval {:.2}ms ({:.1}Hz)",
+                interval.as_secs_f64() * 1000.0,
+                refresh_mhz as f64 / 1000.0
+            );
+            self.frame_interval = Some(interval);
+            self.next_frame = Instant::now();
+        } else {
+            info!("vsync disabled, uncapped frame rate");
+            self.frame_interval = None;
         }
 
         let display = DisplayBackend::new_softbuffer(window.clone());
@@ -303,7 +328,15 @@ impl ApplicationHandler for DoomApp {
                     coarse_prof::write(&mut std::io::stdout()).unwrap();
                 }
 
-                if let Some(window) = &self.window {
+                if let Some(interval) = self.frame_interval {
+                    self.next_frame += interval;
+                    // Prevent spiral if we fell behind.
+                    let now = Instant::now();
+                    if self.next_frame < now {
+                        self.next_frame = now;
+                    }
+                    event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_frame));
+                } else if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
@@ -328,8 +361,27 @@ impl ApplicationHandler for DoomApp {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        if self.frame_interval.is_some() {
+            // Vsync: WaitUntil handles wakeup timing. request_redraw was
+            // already issued by the NewEvents/WaitCancelled path below.
+            return;
+        }
+        // Uncapped: redraw as fast as possible.
         if let Some(window) = &self.window {
             window.request_redraw();
+        }
+    }
+
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        if self.frame_interval.is_some() {
+            if matches!(
+                cause,
+                winit::event::StartCause::ResumeTimeReached { .. } | winit::event::StartCause::Init
+            ) {
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
         }
     }
 }
