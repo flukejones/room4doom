@@ -42,7 +42,7 @@ pub struct SegOccluder {
 impl SegOccluder {
     pub fn new(fov: f32, screen_width: f32, screen_height: f32) -> Self {
         // Match the 3D renderer's horizontal FOV:
-        // perspective uses vfov = fov * 0.75, then CRT stretch on Y (240/200)
+        // perspective uses vfov = fov * 0.75; CRT pixel aspect handled by blit.
         let aspect = screen_width / screen_height;
         let vfov_half = fov * 0.75 / 2.0;
         let vfov_half_tan = vfov_half.tan();

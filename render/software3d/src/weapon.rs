@@ -15,10 +15,6 @@ const ORIGINAL_WIDTH: f32 = 320.0;
 const ORIGINAL_HEIGHT: f32 = 200.0;
 const ORIGINAL_HALF_WIDTH: f32 = ORIGINAL_WIDTH / 2.0; // 160.0
 const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
-/// Doom rendered 320x200 but displayed on 4:3 CRT as 320x240,
-/// making each pixel 1.2x taller than wide.
-const CRT_STRETCH: f32 = 240.0 / 200.0;
-
 /// Convert a distance/offset from Doom's 320-wide coordinate space to screen
 /// pixels.
 #[inline(always)]
@@ -27,10 +23,10 @@ fn scale_x(original: f32, screen_width: f32) -> f32 {
 }
 
 /// Convert a distance/offset from Doom's 200-tall coordinate space to screen
-/// pixels, including the 1.2x CRT vertical stretch.
+/// pixels. CRT pixel aspect (1.2×) is handled by the blit layer.
 #[inline(always)]
 fn scale_y(original: f32, screen_height: f32) -> f32 {
-    original * (screen_height / ORIGINAL_HEIGHT) * CRT_STRETCH
+    original * (screen_height / ORIGINAL_HEIGHT)
 }
 
 impl Software3D {

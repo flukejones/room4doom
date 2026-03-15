@@ -133,14 +133,11 @@ impl Software25D {
     }
 
     pub fn new(fov: f32, width: f32, height: f32, double: bool, debug: bool) -> Software25D {
-        let screen_ratio = width / height;
-        let mut height = 200.0;
-
-        let mut width = (height * screen_ratio).ceil().max(320.0);
-        if double {
-            width *= 2.0;
-            height *= 2.0;
-        }
+        let (width, height) = if double {
+            (width * 2.0, height * 2.0)
+        } else {
+            (width, height)
+        };
         let fov = corrected_fov_for_height(fov, width, height);
         let projection = projection(fov, width / 2.0);
         let y_scale = y_scale(fov, width, height);

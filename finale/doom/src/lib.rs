@@ -55,8 +55,9 @@ impl Finale {
                 }
             }
         }
+        let x_ofs = (pixels.size().width_f32() - 320.0 * sx) / 2.0;
         self.text
-            .draw_pixels(6.0 * sx, 6.0 * sy, &self.palette, pixels);
+            .draw_pixels(x_ofs + 6.0 * sx, 6.0 * sy, &self.palette, pixels);
     }
 }
 

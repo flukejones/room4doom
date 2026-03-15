@@ -46,27 +46,19 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
     }
 }
 
-/// CRT stretch factor: 320x200 displayed as 320x240
-pub const CRT_STRETCH: f32 = 240.0 / 200.0;
-
 /// Returns (scale_x, scale_y) as floats.
-/// scale_x = screen_height / 200.0 (standard Doom pixel scaling)
-/// scale_y = scale_x * CRT_STRETCH (1.2x taller for CRT aspect)
+/// Buffer height is always 200 (or 400 hi-res), so s = 1.0 (or 2.0).
+/// CRT pixel aspect (1.2× taller than wide) is handled by the blit layer.
 pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    let sx = pixels.size().height_f32() / 200.0;
-    let sy = sx * CRT_STRETCH;
-    (sx, sy)
+    let s = pixels.size().height_f32() / 200.0;
+    (s, s)
 }
 
 /// Returns (scale_x, scale_y) for full-screen 320x200 patches.
-/// These must fit the buffer height while showing correct CRT aspect.
-/// Y fills the buffer: scale_y = screen_height / 200.0
-/// X is narrower to simulate CRT non-square pixels: scale_x = scale_y /
-/// CRT_STRETCH
+/// Buffer height is always 200 (or 400 hi-res), so s = 1.0 (or 2.0).
 pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    let sy = pixels.size().height_f32() / 200.0;
-    let sx = sy / CRT_STRETCH;
-    (sx, sy)
+    let s = pixels.size().height_f32() / 200.0;
+    (s, s)
 }
 
 /// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.

@@ -20,8 +20,11 @@ const FACE_Y_OFFSET: f32 = 2.0;
 const FACE_UPPER_Y: f32 = 1.0;
 
 pub struct Statusbar {
+    /// Right edge of the 320-wide game zone in buffer pixels (x_ofs + 320*s).
     screen_width: f32,
     screen_height: f32,
+    /// Left edge of the centered 320-wide game zone in buffer pixels.
+    x_ofs: f32,
     mode: GameMode,
     palette: WadPalette,
     patches: HashMap<&'static str, WadPatch>,
@@ -48,6 +51,7 @@ impl Statusbar {
         Self {
             screen_width: 0.0,
             screen_height: 0.0,
+            x_ofs: 0.0,
             mode,
             palette,
             patches,
@@ -99,7 +103,7 @@ impl Statusbar {
         }
         draw_num(
             h,
-            x,
+            self.x_ofs + x,
             self.screen_height - 2.0 - y,
             0,
             nums,
@@ -135,7 +139,7 @@ impl Statusbar {
         }
         draw_num(
             h,
-            x,
+            self.x_ofs + x,
             self.screen_height - 2.0 - y,
             0,
             nums,
@@ -263,14 +267,14 @@ impl Statusbar {
         if big && !upper {
             let patch = self.get_patch("STFB1");
             y = self.screen_height - patch.height as f32 * sy;
-            x = self.screen_width / 2.0 - patch.width as f32 * sx / 2.0;
+            x = self.x_ofs + 160.0 * sx - patch.width as f32 * sx / 2.0;
             draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
         };
 
         let patch = self.faces.get_face();
 
         if upper || big {
-            x = self.screen_width / 2.0 - patch.width as f32 * sx / 2.0;
+            x = self.x_ofs + 160.0 * sx - patch.width as f32 * sx / 2.0;
             y = if upper {
                 FACE_UPPER_Y * sy
             } else {
@@ -278,7 +282,7 @@ impl Statusbar {
             };
         } else {
             // Position in Doom's 320x200 space, scaled to screen
-            x = (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
+            x = self.x_ofs + (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
             y = self.screen_height - (patch.height as f32 + FACE_Y_OFFSET) * sy;
         };
         draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
@@ -303,7 +307,9 @@ impl SubsystemTrait for Statusbar {
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        self.screen_width = buffer.size().width_f32();
+        let (sx, _) = hud_scale(buffer);
+        self.x_ofs = (buffer.size().width_f32() - 320.0 * sx) / 2.0;
+        self.screen_width = self.x_ofs + 320.0 * sx;
         self.screen_height = buffer.size().height_f32();
 
         let face = true;

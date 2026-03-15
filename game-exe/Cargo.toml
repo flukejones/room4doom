@@ -12,7 +12,7 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut", "sound-rodio", "display-pixels"]
+default = ["trig_lut", "sound-rodio", "display-softbuffer"]
 hprof = ["render-target/hprof", "gameplay/hprof"]
 render_stats = ["render-target/render_stats"]
 trig_lut = ["render-target/trig_lut"]

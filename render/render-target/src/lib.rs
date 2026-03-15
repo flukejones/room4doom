@@ -105,9 +105,16 @@ impl RenderTarget {
         render_type: RenderType,
     ) -> RenderTarget {
         let size = display.window_size();
-        let aspect_ratio = size.0 as f32 / size.1 as f32;
-        let buf_height = if double { 400 } else { 200 };
-        let buf_width = (buf_height as f32 * aspect_ratio) as u32;
+        // Buffer height is fixed at 200 (or 400 hi-res). Buffer width is chosen
+        // so that when the blit scales buf_width→win_width and buf_height→win_height,
+        // pixels appear 1.2× taller than wide (CRT aspect):
+        //   (win_h / buf_h) / (win_w / buf_w) = 1.2
+        //   buf_w = win_w * buf_h * 1.2 / win_h
+        const CRT_STRETCH: f32 = 240.0 / 200.0;
+        let buf_height = if double { 400u32 } else { 200u32 };
+        let buf_width = ((size.0 as f32 * buf_height as f32 * CRT_STRETCH / size.1 as f32).round()
+            as u32)
+            .max(buf_height);
 
         Self {
             framebuffer: FrameBuffer {

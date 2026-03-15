@@ -487,11 +487,14 @@ impl MenuDoom {
                 (sx, sy)
             };
 
+            // Horizontal centering offset: menus are designed for 320-wide space.
+            let x_ofs = (pixels.size().width_f32() - 320.0 * draw_sx) / 2.0;
+
             // Titles
             for item in active.titles.iter() {
                 draw_patch(
                     self.get_patch(&item.patch),
-                    item.x as f32 * draw_sx,
+                    x_ofs + item.x as f32 * draw_sx,
                     item.y as f32 * draw_sy,
                     draw_sx,
                     draw_sy,
@@ -502,9 +505,9 @@ impl MenuDoom {
 
             // Sub-items
             let x = if is_fullscreen {
-                (pixels.size().width_f32() - 320.0 * draw_sx) / 2.0
+                x_ofs
             } else {
-                active.x as f32 * draw_sx
+                x_ofs + active.x as f32 * draw_sx
             };
             let mut y = active.y as f32 * draw_sy;
 

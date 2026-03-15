@@ -64,9 +64,10 @@ impl Messages {
     }
 
     pub fn draw_wrapped(&self, buffer: &mut impl DrawBuffer) {
-        let (_, sy) = hud_scale(buffer);
+        let (sx, sy) = hud_scale(buffer);
 
-        let x = 10.0;
+        let x_ofs = (buffer.size().width_f32() - 320.0 * sx) / 2.0;
+        let x = x_ofs + 10.0;
         let mut y = 2.0;
         let mut pos = self.start;
         loop {
