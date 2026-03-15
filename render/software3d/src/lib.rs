@@ -79,7 +79,7 @@ impl std::str::FromStr for DebugOverlay {
 pub struct DebugDrawOptions {
     pub outline: bool,
     pub normals: bool,
-    pub clear_colour: Option<[u8; 4]>,
+    pub clear_colour: Option<u32>,
     pub alpha: Option<u8>,
     pub no_depth: bool,
     pub colour_mode: DebugColourMode,
@@ -180,7 +180,7 @@ pub(crate) struct SkyRend {
     /// Horizontal FOV in radians, derived from the projection matrix.
     pub(crate) h_fov: f32,
     /// Combined RGBA sky buffer (column-major): original rows + extensions.
-    pub(crate) extended: Vec<[u8; 4]>,
+    pub(crate) extended: Vec<u32>,
     /// Height of the original sky texture.
     pub(crate) tex_height: usize,
     /// Generated rows above the original texture.
@@ -217,7 +217,7 @@ struct DebugDraw {
     /// calls).
     has_active: bool,
     /// Per-frame polygon outline scratch (vertices, depths, colour).
-    polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, [u8; 4])>,
+    polygon_outlines: Vec<(Vec<Vec2>, Vec<f32>, u32)>,
     /// Per-frame normal line scratch (screen_center, screen_tip, depth).
     normal_lines: Vec<(Vec2, Vec2, f32)>,
     /// Upper-right overlay text. Empty = hidden.
@@ -465,7 +465,7 @@ impl Software3D {
                     if let Some(color) =
                         sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
                     {
-                        buffer.set_pixel(x, y, &color);
+                        buffer.set_pixel(x, y, color);
                     }
                 }
             }
@@ -1091,15 +1091,12 @@ impl Software3D {
         self.update_view_matrix(player);
 
         let clear = if self.debug.options.wireframe && self.debug.options.clear_colour.is_none() {
-            Some([30, 30, 30, 255])
+            Some(0xFF1E1E1E)
         } else {
             self.debug.options.clear_colour
         };
         if let Some(colour) = clear {
-            let buf = buffer.buf_mut();
-            for pixel in buf.chunks_exact_mut(4) {
-                pixel.copy_from_slice(&colour);
-            }
+            buffer.buf_mut().fill(colour);
         }
 
         self.stats.reset();

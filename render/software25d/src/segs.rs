@@ -5,7 +5,7 @@ use gameplay::log::warn;
 use gameplay::tic_cmd::{LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{Angle, FlatPic, LineDefFlags, MapObject, PicData, Player, Segment};
 use glam::Vec2;
-use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
+use render_trait::DrawBuffer;
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::ptr::NonNull;
 
@@ -793,15 +793,12 @@ impl SegRender {
             }
             #[cfg(not(feature = "safety_check"))]
             unsafe {
-                let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-                pixels
-                    .buf_mut()
-                    .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
-                    .copy_from_slice(c);
+                let c = *pal.get_unchecked(*colourmap.get_unchecked(tc));
+                *pixels.buf_mut().get_unchecked_mut(pos) = c;
             }
             #[cfg(feature = "safety_check")]
             {
-                pixels.set_pixel(dc_x, i as u32 as usize, &pal[colourmap[tc]].0);
+                pixels.set_pixel(dc_x, i as u32 as usize, pal[colourmap[tc]]);
             }
             frac += self.dc_iscale;
             pos += pixels.pitch();
@@ -847,41 +844,38 @@ impl SegRender {
             #[cfg(not(feature = "safety_check"))]
             unsafe {
                 let tc = texture.data[x_step * texture.height + y_step];
-                let c = pal.get_unchecked(*colourmap.get_unchecked(tc));
-                pixels
-                    .buf_mut()
-                    .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
-                    .copy_from_slice(c);
+                let c = *pal.get_unchecked(*colourmap.get_unchecked(tc));
+                *pixels.buf_mut().get_unchecked_mut(pos) = c;
             }
             #[cfg(feature = "safety_check")]
             {
                 let px = colourmap[texture.data[x_step][y_pos]];
-                pixels.set_pixel(dc_x, y_pos, &pal[px].0);
+                pixels.set_pixel(dc_x, y_pos, pal[px]);
             }
             pos += pixels.pitch();
         }
     }
 
     #[cfg(feature = "debug_seg_clip")]
-    fn draw_debug_clipping(&self, rdata: &RenderData, pixels: &mut impl PixelBuffer) {
+    fn draw_debug_clipping(&self, rdata: &RenderData, pixels: &mut impl DrawBuffer) {
         // Draw ceiling clip line in red
         for x in 0..pixels.size().width_usize() {
             let ceiling_y = (rdata.portal_clip.ceilingclip[x] as u32 as usize);
             if ceiling_y < pixels.size().height_usize() {
-                pixels.set_pixel(x, ceiling_y, &[255, 0, 0, 255]); // Red
+                pixels.set_pixel(x, ceiling_y, 0xFFFF0000); // Red
                 // Draw a second pixel to make it more visible
                 if ceiling_y + 1 < pixels.size().height_usize() {
-                    pixels.set_pixel(x, ceiling_y + 1, &[255, 0, 0, 255]);
+                    pixels.set_pixel(x, ceiling_y + 1, 0xFFFF0000);
                 }
             }
 
             // Draw floor clip line in blue
             let floor_y = (rdata.portal_clip.floorclip[x] as u32 as usize);
             if floor_y < pixels.size().height_usize() {
-                pixels.set_pixel(x, floor_y, &[0, 0, 255, 255]); // Blue
+                pixels.set_pixel(x, floor_y, 0xFF0000FF); // Blue
                 // Draw a second pixel to make it more visible
                 if floor_y > 0 {
-                    pixels.set_pixel(x, floor_y - 1, &[0, 0, 255, 255]);
+                    pixels.set_pixel(x, floor_y - 1, 0xFF0000FF);
                 }
             }
         }
@@ -894,13 +888,13 @@ impl SegRender {
                 // Draw top of seg
                 let top_y = (self.topfrac as u32 as usize);
                 if top_y < pixels.size().height_usize() {
-                    pixels.set_pixel(x, top_y, &[0, 255, 0, 255]); // Green
+                    pixels.set_pixel(x, top_y, 0xFF00FF00); // Green
                 }
 
                 // Draw bottom of seg
                 let bottom_y = (self.bottomfrac as u32 as usize);
                 if bottom_y < pixels.size().height_usize() {
-                    pixels.set_pixel(x, bottom_y, &[0, 255, 0, 255]); // Green
+                    pixels.set_pixel(x, bottom_y, 0xFF00FF00); // Green
                 }
             }
         }
@@ -910,14 +904,14 @@ impl SegRender {
             if rdata.portal_clip.ceilingclip[x] >= rdata.portal_clip.floorclip[x] {
                 // This is an error condition - draw a yellow vertical line
                 for y in 0..pixels.size().height_usize() {
-                    pixels.set_pixel(x, y, &[255, 255, 0, 128]); // Semi-transparent yellow
+                    pixels.set_pixel(x, y, 0xFFFFFF00); // Semi-transparent yellow
                 }
             }
         }
     }
 
     #[cfg(feature = "debug_seg_invert")]
-    fn highlight_inverted_clips(&self, rdata: &RenderData, pixels: &mut impl PixelBuffer) {
+    fn highlight_inverted_clips(&self, rdata: &RenderData, pixels: &mut impl DrawBuffer) {
         let width = pixels.size().width_usize();
         let height = pixels.size().height_usize();
 
@@ -936,13 +930,15 @@ impl SegRender {
 
                 // Draw a vertical magenta line at each inverted column
                 for y in 0..height {
-                    let mut pixel = [255, 0, 255, 50]; // Magenta
                     let existing = pixels.read_pixel(x, y);
-                    pixel[0] = pixel[0] / 2 + existing[0] / 2;
-                    pixel[1] = pixel[1] / 2 + existing[1] / 2;
-                    pixel[2] = pixel[2] / 2 + existing[2] / 2;
-
-                    pixels.set_pixel(x, y, &pixel);
+                    let er = (existing >> 16) as u8;
+                    let eg = (existing >> 8) as u8;
+                    let eb = existing as u8;
+                    let r = 255u8 / 2 + er / 2;
+                    let g = eg / 2;
+                    let b = 255u8 / 2 + eb / 2;
+                    let pixel = (r as u32) << 16 | (g as u32) << 8 | b as u32;
+                    pixels.set_pixel(x, y, pixel);
                 }
             }
         }

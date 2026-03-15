@@ -5,16 +5,15 @@ pub mod wipe;
 
 use gameplay::{Level, PicData, Player};
 use render_trait::{BufferSize, GameRenderer};
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::rect::Rect;
-use sdl2::render::{Canvas, TextureCreator};
-use sdl2::video::{Window, WindowContext};
 use software3d::{DebugDrawOptions, Software3D};
 use software25d::Software25D;
 use wipe::Wipe;
 
-/// channels should match pixel format
-const SOFT_PIXEL_CHANNELS: usize = 4;
+#[cfg(feature = "display-sdl2")]
+mod sdl2_backend;
+
+#[cfg(feature = "display-softbuffer")]
+mod softbuffer_backend;
 
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
@@ -34,6 +33,48 @@ pub enum Renderer {
     Software3D(Software3D),
 }
 
+/// Backend-agnostic display presentation.
+pub enum DisplayBackend {
+    #[cfg(feature = "display-sdl2")]
+    Sdl2(sdl2_backend::Sdl2Display),
+    #[cfg(feature = "display-softbuffer")]
+    Softbuffer(softbuffer_backend::SoftbufferDisplay),
+}
+
+impl DisplayBackend {
+    /// Create an SDL2 display backend from a canvas.
+    #[cfg(feature = "display-sdl2")]
+    pub fn new_sdl2(canvas: sdl2::render::Canvas<sdl2::video::Window>) -> Self {
+        DisplayBackend::Sdl2(sdl2_backend::Sdl2Display::from_canvas(canvas))
+    }
+
+    /// Create a softbuffer display backend from a winit window.
+    #[cfg(feature = "display-softbuffer")]
+    pub fn new_softbuffer(window: std::sync::Arc<winit::window::Window>) -> Self {
+        DisplayBackend::Softbuffer(softbuffer_backend::SoftbufferDisplay::new(window))
+    }
+
+    /// Present the buffer to the screen.
+    fn blit(&mut self, buffer: &DrawBuffer) {
+        match self {
+            #[cfg(feature = "display-sdl2")]
+            DisplayBackend::Sdl2(d) => d.blit(buffer),
+            #[cfg(feature = "display-softbuffer")]
+            DisplayBackend::Softbuffer(d) => d.blit(buffer),
+        }
+    }
+
+    /// Query the window/drawable size for buffer sizing.
+    fn window_size(&self) -> (u32, u32) {
+        match self {
+            #[cfg(feature = "display-sdl2")]
+            DisplayBackend::Sdl2(d) => d.window_size(),
+            #[cfg(feature = "display-softbuffer")]
+            DisplayBackend::Softbuffer(d) => d.window_size(),
+        }
+    }
+}
+
 /// A structure holding display data
 pub struct RenderTarget {
     renderer: Renderer,
@@ -45,32 +86,19 @@ impl RenderTarget {
         double: bool,
         debug: bool,
         debug_draw: &DebugDrawOptions,
-        canvas: Canvas<Window>,
+        display: DisplayBackend,
         render_type: RenderType,
     ) -> RenderTarget {
-        let size = canvas.window().size();
+        let size = display.window_size();
         let aspect_ratio = size.0 as f32 / size.1 as f32;
         let buf_height = if double { 400 } else { 200 };
         let buf_width = (buf_height as f32 * aspect_ratio) as u32;
 
-        // let (buf_width, buf_height) = if double { (640, 400) } else { (320, 200) };
-
-        let wsize = canvas.window().drawable_size();
-        let texture_creator = canvas.texture_creator();
-        let texture = texture_creator
-            .create_texture_streaming(Some(PixelFormatEnum::RGBA32), buf_width, buf_height)
-            .unwrap();
-
         Self {
             framebuffer: FrameBuffer {
                 wipe: Wipe::new(buf_width as i32, buf_height as i32),
-                buffer1: DrawBuffer::new(buf_width as usize, buf_height as usize),
-                buffer2: DrawBuffer::new(buf_width as usize, buf_height as usize),
-                // crop_rect: Rect::new(xp as i32, 0, ratio as u32, wsize.1),
-                crop_rect: Rect::new(0, 0, wsize.0, wsize.1),
-                _tc: texture_creator,
-                texture,
-                canvas,
+                buffer: DrawBuffer::new(buf_width as usize, buf_height as usize),
+                display,
             },
             renderer: match render_type {
                 RenderType::Software => Renderer::Software(Software25D::new(
@@ -80,14 +108,12 @@ impl RenderTarget {
                     double,
                     debug,
                 )),
-                RenderType::Software3D => {
-                    Renderer::Software3D(Software3D::new(
-                        buf_width as f32,
-                        buf_height as f32,
-                        90.0_f32.to_radians(), // TODO: get from config
-                        debug_draw.clone(),
-                    ))
-                }
+                RenderType::Software3D => Renderer::Software3D(Software3D::new(
+                    buf_width as f32,
+                    buf_height as f32,
+                    90.0_f32.to_radians(),
+                    debug_draw.clone(),
+                )),
             },
         }
     }
@@ -99,6 +125,7 @@ impl RenderTarget {
         }
     }
 
+    /// Rebuild the render target, reusing the display backend.
     pub fn resize(
         self,
         double: bool,
@@ -106,8 +133,8 @@ impl RenderTarget {
         debug_draw: &DebugDrawOptions,
         render_type: RenderType,
     ) -> Self {
-        let canvas = self.framebuffer.canvas;
-        Self::new(double, debug, debug_draw, canvas, render_type)
+        let display = self.framebuffer.display;
+        Self::new(double, debug, debug_draw, display, render_type)
     }
 }
 
@@ -125,12 +152,20 @@ impl GameRenderer for RenderTarget {
     }
 
     fn flip_and_present(&mut self) {
-        self.framebuffer.flip();
+        #[cfg(feature = "hprof")]
+        profile!("flip_and_present");
         self.framebuffer.blit();
     }
 
-    fn flip(&mut self) {
-        self.framebuffer.flip();
+    fn start_wipe(&mut self) {
+        if self.framebuffer.wipe.is_active() {
+            return;
+        }
+        let pixel_count = self.framebuffer.buffer.size.width_usize()
+            * self.framebuffer.buffer.size.height_usize();
+        self.framebuffer
+            .wipe
+            .start(&self.framebuffer.buffer.buffer[..pixel_count]);
     }
 
     fn do_wipe(&mut self) -> bool {
@@ -138,23 +173,21 @@ impl GameRenderer for RenderTarget {
     }
 
     fn buffer_size(&self) -> &BufferSize {
-        &self.framebuffer.buffer2.size
+        &self.framebuffer.buffer.size
     }
 }
 
-struct DrawBuffer {
-    size: BufferSize,
-    /// Total length is width * height * CHANNELS, where CHANNELS is RGB bytes
-    buffer: Vec<u8>,
-    stride: usize,
+pub(crate) struct DrawBuffer {
+    pub(crate) size: BufferSize,
+    /// Pixel buffer in `0xFFRRGGBB` format (ARGB, fully opaque).
+    pub(crate) buffer: Vec<u32>,
 }
 
 impl DrawBuffer {
     fn new(width: usize, height: usize) -> Self {
         Self {
             size: BufferSize::new(width, height),
-            buffer: vec![0; (width * height) * SOFT_PIXEL_CHANNELS + SOFT_PIXEL_CHANNELS],
-            stride: width * SOFT_PIXEL_CHANNELS,
+            buffer: vec![0xFF_00_00_00; width * height + 1],
         }
     }
 }
@@ -162,78 +195,60 @@ impl DrawBuffer {
 impl DrawBuffer {
     /// Read the colour of a single pixel at X|Y
     #[inline(always)]
-    pub fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
-        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
-        let mut slice = [0u8; SOFT_PIXEL_CHANNELS];
-        let end = pos + SOFT_PIXEL_CHANNELS;
-        slice.copy_from_slice(&self.buffer[pos..end]);
-        slice
+    pub fn read_pixel(&self, x: usize, y: usize) -> u32 {
+        let pos = y * self.size.width_usize() + x;
+        self.buffer[pos]
     }
 
     #[inline(always)]
-    pub fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; SOFT_PIXEL_CHANNELS]) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
         #[cfg(feature = "hprof")]
         profile!("set_pixel");
-        // Shitty safeguard. Need to find actual cause of fail
         #[cfg(feature = "safety_check")]
         if x >= self.size.width_usize() || y >= self.size.height_usize() {
             dbg!(x, self.size.width_usize(), y, self.size.height_usize());
             panic!();
         }
 
-        let pos = y * self.stride + x * SOFT_PIXEL_CHANNELS;
+        let pos = y * self.size.width_usize() + x;
         #[cfg(not(feature = "safety_check"))]
         unsafe {
-            self.buffer
-                .get_unchecked_mut(pos..pos + SOFT_PIXEL_CHANNELS)
-                .copy_from_slice(colour);
+            *self.buffer.get_unchecked_mut(pos) = colour;
         }
         #[cfg(feature = "safety_check")]
-        self.buffer[pos..pos + SOFT_PIXEL_CHANNELS].copy_from_slice(colour);
+        {
+            self.buffer[pos] = colour;
+        }
     }
 
     #[inline(always)]
     pub fn pitch(&self) -> usize {
-        self.size.width_usize() * SOFT_PIXEL_CHANNELS
+        self.size.width_usize()
     }
 
     #[inline(always)]
     pub fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        y * self.size.width_usize() * SOFT_PIXEL_CHANNELS + x * SOFT_PIXEL_CHANNELS
+        y * self.size.width_usize() + x
     }
 }
 
 pub struct FrameBuffer {
     wipe: Wipe,
-    buffer1: DrawBuffer,
-    buffer2: DrawBuffer,
-    crop_rect: Rect,
-    _tc: TextureCreator<WindowContext>,
-    texture: sdl2::render::Texture,
-    canvas: Canvas<Window>,
+    buffer: DrawBuffer,
+    display: DisplayBackend,
 }
 
 impl FrameBuffer {
-    fn flip(&mut self) {
-        std::mem::swap(&mut self.buffer1, &mut self.buffer2);
-    }
-
-    /// Throw buffer1 at the screen
+    /// Present the buffer to the screen via the display backend.
     fn blit(&mut self) {
-        self.texture
-            .update(None, &self.buffer1.buffer, self.buffer1.stride)
-            .unwrap();
-        self.canvas
-            .copy(&self.texture, None, Some(self.crop_rect))
-            .unwrap();
-        self.canvas.present();
+        self.display.blit(&self.buffer);
     }
 
-    /// Must do a blit after to show the results
+    /// Overdraw old-frame columns on top of the current buffer, then present.
+    /// Returns true when the melt is complete.
     fn do_wipe(&mut self) -> bool {
-        let done = self
-            .wipe
-            .do_melt_pixels(&mut self.buffer1, &mut self.buffer2);
+        let pitch = self.buffer.pitch();
+        let done = self.wipe.do_melt_pixels(&mut self.buffer.buffer, pitch);
         if done {
             self.wipe.reset();
         }
@@ -242,40 +257,37 @@ impl FrameBuffer {
 }
 
 impl render_trait::DrawBuffer for FrameBuffer {
-    /// Really only used by seg drawing in plain renderer to draw chunks
     #[inline]
-    fn buf_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer2.buffer
+    fn buf_mut(&mut self) -> &mut [u32] {
+        &mut self.buffer.buffer
     }
 
     #[inline]
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        self.buffer2.get_buf_index(x, y)
+        self.buffer.get_buf_index(x, y)
     }
 
     #[inline]
     fn pitch(&self) -> usize {
-        self.buffer2.pitch()
+        self.buffer.pitch()
     }
 
     #[inline]
     fn size(&self) -> &BufferSize {
-        &self.buffer2.size
+        &self.buffer.size
     }
 
     #[inline]
-    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; 4]) {
-        self.buffer2.set_pixel(x, y, colour);
+    fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
+        self.buffer.set_pixel(x, y, colour);
     }
 
     #[inline]
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
-        self.buffer2.read_pixel(x, y)
+    fn read_pixel(&self, x: usize, y: usize) -> u32 {
+        self.buffer.read_pixel(x, y)
     }
 
     fn debug_flip_and_present(&mut self) {
-        self.flip();
         self.blit();
-        self.flip();
     }
 }

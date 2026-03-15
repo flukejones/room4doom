@@ -1,8 +1,5 @@
 use gameplay::{Level, PicData, Player};
 
-/// channels should match pixel format
-pub const SOFT_PIXEL_CHANNELS: usize = 4;
-
 pub trait PlayRender {
     // Core 3D rendering
     fn render_player_view(
@@ -15,17 +12,20 @@ pub trait PlayRender {
 }
 
 pub trait GameRenderer {
-    // Core 3D rendering
+    /// Core 3D rendering
     fn render_player_view(&mut self, player: &Player, level: &mut Level, pic_data: &mut PicData);
 
-    // Buffer management & presentation
+    /// Present the current buffer to screen.
     fn flip_and_present(&mut self);
-    fn flip(&mut self);
 
-    /// Get the framebuffer used for direct draw access
+    /// Get the framebuffer used for direct draw access.
     fn frame_buffer(&mut self) -> &mut impl DrawBuffer;
 
-    // Screen effects
+    /// Capture the current buffer as the wipe source (old frame).
+    fn start_wipe(&mut self);
+
+    /// Overdraw old-frame columns on the current buffer. Returns true when
+    /// the melt is complete.
     fn do_wipe(&mut self) -> bool;
 
     fn buffer_size(&self) -> &BufferSize;
@@ -34,11 +34,11 @@ pub trait GameRenderer {
 pub trait DrawBuffer {
     // Direct pixel access
     fn size(&self) -> &BufferSize;
-    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; 4]);
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS];
+    fn set_pixel(&mut self, x: usize, y: usize, colour: u32);
+    fn read_pixel(&self, x: usize, y: usize) -> u32;
     fn get_buf_index(&self, x: usize, y: usize) -> usize;
     fn pitch(&self) -> usize;
-    fn buf_mut(&mut self) -> &mut [u8]; // TODO: remove this
+    fn buf_mut(&mut self) -> &mut [u32];
     fn debug_flip_and_present(&mut self);
 }
 

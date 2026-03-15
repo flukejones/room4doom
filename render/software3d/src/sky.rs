@@ -73,23 +73,27 @@ fn resolve(
     row: usize,
     height: usize,
     colourmap: &[usize],
-    palette: &[[u8; 4]],
-) -> [u8; 4] {
+    palette: &[u32],
+) -> u32 {
     let idx = data[col * height + row];
     if idx == usize::MAX {
-        [0, 0, 0, 0]
+        0
     } else {
         palette[colourmap[idx]]
     }
 }
 
-fn lerp_color(a: [u8; 4], b: [u8; 4], t: f32) -> [u8; 4] {
-    [
-        (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t) as u8,
-        (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t) as u8,
-        (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t) as u8,
-        255,
-    ]
+fn lerp_color(a: u32, b: u32, t: f32) -> u32 {
+    let ar = (a >> 16) as u8;
+    let ag = (a >> 8) as u8;
+    let ab = a as u8;
+    let br = (b >> 16) as u8;
+    let bg = (b >> 8) as u8;
+    let bb = b as u8;
+    let r = (ar as f32 + (br as f32 - ar as f32) * t) as u8;
+    let g = (ag as f32 + (bg as f32 - ag as f32) * t) as u8;
+    let b = (ab as f32 + (bb as f32 - ab as f32) * t) as u8;
+    (r as u32) << 16 | (g as u32) << 8 | b as u32
 }
 
 /// Sample the top source strip at `row_idx` rows from the join, with drift.
@@ -102,8 +106,8 @@ fn jitter_sample_up(
     source_rows: usize,
     height: usize,
     colourmap: &[usize],
-    palette: &[[u8; 4]],
-) -> [u8; 4] {
+    palette: &[u32],
+) -> u32 {
     let walk = (row_idx as f32 / SKY_JITTER_WALK_RATE).min((source_rows - 1) as f32);
     let raw = (walk + drift).clamp(0.0, (source_rows - 1) as f32);
     let a = raw as usize;
@@ -126,8 +130,8 @@ fn jitter_sample_down(
     source_rows: usize,
     height: usize,
     colourmap: &[usize],
-    palette: &[[u8; 4]],
-) -> [u8; 4] {
+    palette: &[u32],
+) -> u32 {
     let base = height - source_rows;
     let walk = (row_idx as f32 / SKY_JITTER_WALK_RATE).min((source_rows - 1) as f32);
     // Reversed: at row_idx=0 we start at source_rows-1 (bottom row) and walk
@@ -150,30 +154,25 @@ fn avg_rows_color(
     count: usize,
     height: usize,
     colourmap: &[usize],
-    palette: &[[u8; 4]],
-) -> [u8; 4] {
+    palette: &[u32],
+) -> u32 {
     let mut sum = [0u32; 3];
     let mut n = 0u32;
     for col in 0..width {
         for row in row_start..row_start + count {
             let p = resolve(data, col, row, height, colourmap, palette);
-            if p[3] > 0 {
-                sum[0] += p[0] as u32;
-                sum[1] += p[1] as u32;
-                sum[2] += p[2] as u32;
+            if p != 0 {
+                sum[0] += (p >> 16) as u8 as u32;
+                sum[1] += (p >> 8) as u8 as u32;
+                sum[2] += p as u8 as u32;
                 n += 1;
             }
         }
     }
     if n > 0 {
-        [
-            (sum[0] / n) as u8,
-            (sum[1] / n) as u8,
-            (sum[2] / n) as u8,
-            255,
-        ]
+        ((sum[0] / n) << 16) | ((sum[1] / n) << 8) | (sum[2] / n)
     } else {
-        [0, 0, 0, 255]
+        0
     }
 }
 
@@ -202,8 +201,8 @@ pub(crate) fn build_sky_combined(
     width: usize,
     height: usize,
     colourmap: &[usize],
-    palette: &[[u8; 4]],
-) -> Vec<[u8; 4]> {
+    palette: &[u32],
+) -> Vec<u32> {
     let up_rows = SKY_EXTEND_ROWS;
     let dn_rows = SKY_DOWN_ROWS;
     let source_rows = SKY_SOURCE_ROWS.min(height / 2).max(2);
@@ -240,7 +239,7 @@ pub(crate) fn build_sky_combined(
     );
 
     // Upward extension
-    let mut ext_up = vec![[0u8; 4]; width * up_rows];
+    let mut ext_up = vec![0u32; width * up_rows];
     for col in 0..width {
         for r in 0..up_rows {
             let d = drift_up[col * up_rows + r];
@@ -257,7 +256,7 @@ pub(crate) fn build_sky_combined(
     }
 
     // Downward extension (mirrors upward, fade toward nadir)
-    let mut ext_dn = vec![[0u8; 4]; width * dn_rows];
+    let mut ext_dn = vec![0u32; width * dn_rows];
     for col in 0..width {
         for r in 0..dn_rows {
             let d = drift_dn[col * dn_rows + r];
@@ -276,7 +275,7 @@ pub(crate) fn build_sky_combined(
 
     // Assemble: texture | up ext | down ext
     let total = height + up_rows + dn_rows;
-    let mut combined = vec![[0u8; 4]; width * total];
+    let mut combined = vec![0u32; width * total];
     for col in 0..width {
         let base = col * total;
         for row in 0..height {

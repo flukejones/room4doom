@@ -210,9 +210,9 @@ pub fn extract_viewer_data(
                     let count = f.data.len() as u64;
                     for &pi in &f.data {
                         let c = palette.0[pi as usize];
-                        r += c[0] as u64;
-                        g += c[1] as u64;
-                        b += c[2] as u64;
+                        r += ((c >> 16) & 0xFF) as u64;
+                        g += ((c >> 8) & 0xFF) as u64;
+                        b += (c & 0xFF) as u64;
                     }
                     Color32::from_rgb((r / count) as u8, (g / count) as u8, (b / count) as u8)
                 }

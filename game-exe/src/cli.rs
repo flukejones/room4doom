@@ -4,7 +4,7 @@ use argh::FromArgs;
 use gameplay::{GameOptions, PreprocessPvsMode, Skill, log};
 use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};
 
-use crate::config::{self, MusicType};
+use crate::config::{self, MusicType, WindowMode};
 
 fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
     let mut opts = DebugDrawOptions::default();
@@ -25,15 +25,15 @@ fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
     opts
 }
 
-fn parse_hex_colour(hex: &str) -> Option<[u8; 4]> {
+fn parse_hex_colour(hex: &str) -> Option<u32> {
     let s = hex.strip_prefix('#').unwrap_or(hex);
     if s.len() != 6 {
         return None;
     }
-    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
-    Some([r, g, b, 255])
+    let r = u8::from_str_radix(&s[0..2], 16).ok()? as u32;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()? as u32;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()? as u32;
+    Some(0xFF_00_00_00 | (r << 16) | (g << 8) | b)
 }
 
 /// CLI options for the game-exe
@@ -54,9 +54,15 @@ pub struct CLIOptions {
     /// resolution height in pixels
     #[argh(option, default = "0", short = 'h')]
     pub height: u32,
-    /// fullscreen?
+    /// window mode: windowed, borderless, exclusive
     #[argh(option, short = 'f')]
-    pub fullscreen: Option<bool>,
+    pub window_mode: Option<WindowMode>,
+    /// enable vsync (true/false)
+    #[argh(option)]
+    pub vsync: Option<bool>,
+    /// refresh rate in Hz for exclusive fullscreen (e.g. 60, 144)
+    #[argh(option, default = "0")]
+    pub refresh_rate: u32,
     /// set hi-res mode for software rendering (true/false)
     #[argh(option, short = 'H')]
     pub hi_res: Option<bool>,

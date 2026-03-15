@@ -3,7 +3,7 @@ use coarse_prof::profile;
 
 use gameplay::{PicData, SurfaceKind, SurfacePolygon, WallType};
 use glam::Vec2;
-use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
+use render_trait::DrawBuffer;
 
 use crate::Software3D;
 use crate::render::{TextureSampler, TriangleInterpolator, sample_sky_pixel};
@@ -190,11 +190,7 @@ impl Software3D {
                         if let Some(color) =
                             sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
                         {
-                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
-                            buf[px] = color[0];
-                            buf[px + 1] = color[1];
-                            buf[px + 2] = color[2];
-                            buf[px + 3] = color[3];
+                            buf[y * buf_pitch + x] = color;
                         }
                     }
                     edge_inv_w += edge_inv_w_dx;
@@ -246,7 +242,7 @@ impl Software3D {
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                            if color[3] == 0 {
+                            if color == 0 {
                                 // Transparent pixel — don't write depth or color
                                 interp_state.step_x();
                                 edge_inv_w += edge_inv_w_dx;
@@ -254,11 +250,7 @@ impl Software3D {
                                 continue;
                             }
                             self.depth_buffer.set_depth_unchecked(x, y, edge_inv_w);
-                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
-                            buf[px] = color[0];
-                            buf[px + 1] = color[1];
-                            buf[px + 2] = color[2];
-                            buf[px + 3] = color[3];
+                            buf[y * buf_pitch + x] = color;
                         } else {
                             // Depth test before UV — avoids the perspective divide on misses
                             if !self
@@ -277,11 +269,7 @@ impl Software3D {
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
-                            let px = y * buf_pitch + x * SOFT_PIXEL_CHANNELS;
-                            buf[px] = color[0];
-                            buf[px + 1] = color[1];
-                            buf[px + 2] = color[2];
-                            buf[px + 3] = color[3];
+                            buf[y * buf_pitch + x] = color;
                         }
                         did_draw = true;
 
@@ -449,7 +437,8 @@ impl Software3D {
                 let color = pic_data
                     .palette()
                     .get(lit_index)
-                    .unwrap_or(&[255, 0, 255, 255]);
+                    .copied()
+                    .unwrap_or(0xFFFF00FF);
 
                 buffer.set_pixel(x, y, color);
                 // Write depth so the sky fill pass does not overwrite drawn sprite pixels

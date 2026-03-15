@@ -7,24 +7,29 @@ pub mod config;
 
 use std::collections::hash_set::HashSet;
 
-use config::InputConfigSdl;
+use config::InputConfigResolved;
 use gameplay::WeaponType;
 use gameplay::tic_cmd::*;
-use sdl2::EventPump;
-use sdl2::event::Event;
-use sdl2::keyboard::Scancode as Sc;
-use sdl2::mouse::MouseButton as Mb;
+use gamestate_traits::{KeyCode, MouseBtn};
+
+/// Backend-agnostic non-input events forwarded to the game loop.
+#[derive(Debug, Clone, Copy)]
+pub enum RawEvent {
+    /// Window was resized.
+    Resized,
+}
 
 #[derive(Default, Clone)]
 pub struct InputEvents {
-    key_state: HashSet<Sc>,
-    mouse_state: HashSet<Mb>,
+    key_state: HashSet<KeyCode>,
+    mouse_state: HashSet<MouseBtn>,
     mouse_delta: (i32, i32),
     mouse_sensitivity: (i32, i32),
     mouse_threshold: f32,
     mouse_acceleration: f32,
     turn_held: u32,
 }
+
 impl InputEvents {
     fn new(mouse_scale: (i32, i32)) -> Self {
         let mut i = Self::default();
@@ -34,31 +39,31 @@ impl InputEvents {
         i
     }
 
-    pub fn is_kb_pressed(&self, s: Sc) -> bool {
+    pub fn is_kb_pressed(&self, s: KeyCode) -> bool {
         self.key_state.contains(&s)
     }
 
-    pub fn keys_pressed(&self) -> &HashSet<Sc> {
+    pub fn keys_pressed(&self) -> &HashSet<KeyCode> {
         &self.key_state
     }
 
-    pub fn is_mb_pressed(&self, m: Mb) -> bool {
+    pub fn is_mb_pressed(&self, m: MouseBtn) -> bool {
         self.mouse_state.contains(&m)
     }
 
-    fn set_kb(&mut self, b: Sc) {
+    pub fn set_kb(&mut self, b: KeyCode) {
         self.key_state.insert(b);
     }
 
-    fn unset_kb(&mut self, b: Sc) {
+    pub fn unset_kb(&mut self, b: KeyCode) {
         self.key_state.remove(&b);
     }
 
-    fn set_mb(&mut self, b: Mb) {
+    pub fn set_mb(&mut self, b: MouseBtn) {
         self.mouse_state.insert(b);
     }
 
-    fn unset_mb(&mut self, b: Mb) {
+    pub fn unset_mb(&mut self, b: MouseBtn) {
         self.mouse_state.remove(&b);
     }
 
@@ -66,18 +71,18 @@ impl InputEvents {
         self.mouse_sensitivity = scale;
     }
 
-    fn reset_mouse_delta(&mut self) {
+    pub fn reset_mouse_delta(&mut self) {
         self.mouse_delta = (0, 0);
     }
 
-    fn apply_mouse_sensitivity(&mut self, state: (i32, i32)) {
+    pub fn apply_mouse_sensitivity(&mut self, state: (i32, i32)) {
         self.mouse_delta = (
             state.0 * (self.mouse_sensitivity.0 + 5),
             state.1 * (self.mouse_sensitivity.1),
         );
     }
 
-    const fn apply_mouse_accel(&self, val: f32) -> f32 {
+    pub const fn apply_mouse_accel(&self, val: f32) -> f32 {
         if val < 0.0 {
             return -self.apply_mouse_accel(-val);
         }
@@ -89,10 +94,8 @@ impl InputEvents {
         }
     }
 
-    pub fn build_tic_cmd(&mut self, cfg: &InputConfigSdl) -> TicCmd {
+    pub fn build_tic_cmd(&mut self, cfg: &InputConfigResolved) -> TicCmd {
         let mut cmd = TicCmd::default();
-
-        // cmd->consistancy = consistancy[consoleplayer][maketic % BACKUPTICS];
 
         let strafe = self.is_kb_pressed(cfg.key_strafe) || self.is_mb_pressed(cfg.mousebstrafe);
         let speed = if self.is_kb_pressed(cfg.key_speed) {
@@ -156,7 +159,7 @@ impl InputEvents {
         }
 
         for i in 0..WeaponType::NumWeapons as u8 {
-            if let Some(key) = Sc::from_i32(30 + i as i32) {
+            if let Some(key) = KeyCode::from_i32(30 + i as i32) {
                 if self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
                     if i == 8 {
@@ -196,114 +199,40 @@ impl InputEvents {
         cmd.forwardmove += forward as i8;
         cmd.sidemove += side as i8;
 
-        // TODO: special buttons
-        // if (sendpause)
-        // {
-        //     sendpause = false;
-        //     cmd->buttons = BT_SPECIAL | BTS_PAUSE;
-        // }
-
-        // if (sendsave)
-        // {
-        //     sendsave = false;
-        //     cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot <<
-        // BTS_SAVESHIFT); }
-
         cmd
     }
 }
 
-/// Fetch all input
-pub struct Input {
-    pump: EventPump,
+/// Backend-agnostic input state: events, config, and quit flag.
+pub struct InputState {
     pub events: InputEvents,
-    pub config: InputConfigSdl,
-    quit: bool,
+    pub config: InputConfigResolved,
+    pub quit: bool,
 }
 
-impl Input {
-    pub fn new(mut pump: EventPump, config: InputConfigSdl) -> Input {
-        pump.pump_events();
-        Input {
-            pump,
+impl InputState {
+    /// Create new input state with defaults.
+    pub fn new(config: InputConfigResolved) -> Self {
+        Self {
             events: InputEvents::new((5, 1)),
             config,
             quit: false,
         }
     }
-
-    /// The way this is set up to work is that for each `game tick`, a fresh set
-    /// of events is gathered and stored. This results in a constant stream
-    /// of events as long as an input is active/pressed. The event is
-    /// released only once the key is up.
-    ///
-    /// `key_once_callback` is a provision to allow for functions where you
-    /// don't want a continuous fast stream of "key pressed" by calling only
-    /// on key-down event via SDL. This callback can return a bool -
-    /// typically to signify that an event was taken.
-    ///
-    /// The results of the `update` are valid until the next `update` whereupon
-    /// they are refreshed.
-    ///
-    /// **rust-sdl2** provides an `event_iter()`, but this isn't very useful
-    /// unless we perform all the required actions in the same block that it
-    /// is called in. It has the potential to cause delays in proccessing
-    pub fn update(
-        &mut self,
-        mut input_callback: impl FnMut(Sc) -> bool,
-        mut events_callback: impl FnMut(Event),
-    ) {
-        while let Some(event) = self.pump.poll_event() {
-            match event {
-                Event::KeyDown {
-                    scancode: Some(sc),
-                    ..
-                } => {
-                    if input_callback(sc) {
-                        self.events.unset_kb(sc);
-                    } else {
-                        self.events.set_kb(sc);
-                    }
-                }
-                Event::KeyUp {
-                    scancode: Some(sc),
-                    ..
-                } => {
-                    self.events.unset_kb(sc);
-                }
-                Event::MouseButtonDown {
-                    mouse_btn,
-                    ..
-                } => {
-                    self.events.set_mb(mouse_btn);
-                }
-                Event::MouseButtonUp {
-                    mouse_btn,
-                    ..
-                } => {
-                    self.events.unset_mb(mouse_btn);
-                }
-
-                Event::MouseMotion {
-                    x: _,
-                    y: _,
-                    xrel,
-                    yrel,
-                    ..
-                } => {
-                    let xrel = self.events.apply_mouse_accel(xrel as f32) as i32;
-                    let yrel = self.events.apply_mouse_accel(yrel as f32) as i32;
-                    self.events.apply_mouse_sensitivity((xrel, yrel));
-                }
-
-                Event::Quit {
-                    ..
-                } => self.quit = true, // Early out if Quit
-                _ => events_callback(event),
-            }
-        }
-    }
-    pub fn get_quit(&self) -> bool {
-        self.quit
-    }
 }
+
+// ── SDL2 backend ──────────────────────────────────────────────────────
+
+#[cfg(feature = "input-sdl2")]
+mod sdl2_input;
+#[cfg(feature = "input-sdl2")]
+pub use sdl2_input::InputSdl2;
+
+// ── winit backend ─────────────────────────────────────────────────────
+
+#[cfg(feature = "input-winit")]
+mod winit_input;
+#[cfg(feature = "input-winit")]
+pub use winit_input::winit_keycode_to_keycode;
+#[cfg(feature = "input-winit")]
+pub use winit_input::winit_mousebutton_to_mousebtn;

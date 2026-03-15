@@ -4,16 +4,40 @@ use log::error;
 
 use crate::Lump;
 
-const SOFT_PIXEL_CHANNELS: usize = 4;
-
 pub struct WadFlat {
     pub name: String,
     pub data: Vec<u8>,
 }
 
-/// Used in a `WadPalette`. Each component byte is stored in the palette in
-/// sequence of Red-Green-Blue
-pub type WadColour = [u8; SOFT_PIXEL_CHANNELS];
+/// Packed pixel colour in `0xFFRRGGBB` format (ARGB, always fully opaque).
+pub type WadColour = u32;
+
+/// Fully opaque black.
+pub const BLACK: WadColour = 0xFF_00_00_00;
+
+/// Pack RGB bytes into a `WadColour` (`0xFFRRGGBB`, fully opaque).
+#[inline(always)]
+pub const fn rgb_u32(r: u8, g: u8, b: u8) -> WadColour {
+    0xFF_00_00_00 | (r as u32) << 16 | (g as u32) << 8 | b as u32
+}
+
+/// Extract the red channel from a `WadColour`.
+#[inline(always)]
+pub const fn colour_r(c: WadColour) -> u8 {
+    (c >> 16) as u8
+}
+
+/// Extract the green channel from a `WadColour`.
+#[inline(always)]
+pub const fn colour_g(c: WadColour) -> u8 {
+    (c >> 8) as u8
+}
+
+/// Extract the blue channel from a `WadColour`.
+#[inline(always)]
+pub const fn colour_b(c: WadColour) -> u8 {
+    c as u8
+}
 
 /// There are typically 14 palettes available during gameplay. These range from
 /// regular colours to increasing shades of red for player damage, some
@@ -23,7 +47,7 @@ pub struct WadPalette(pub [WadColour; 256]);
 
 impl WadPalette {
     pub fn new() -> Self {
-        Self([WadColour::default(); 256])
+        Self([BLACK; 256])
     }
 }
 

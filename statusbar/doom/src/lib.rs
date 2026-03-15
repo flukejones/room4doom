@@ -6,7 +6,7 @@
 use faces::DoomguyFace;
 use gamestate_traits::util::{get_num_sprites, get_st_key_sprites};
 use gamestate_traits::{
-    AmmoType, DrawBuffer, GameMode, GameTraits, PlayerStatus, Scancode, SubsystemTrait, WEAPON_INFO, WeaponType
+    AmmoType, DrawBuffer, GameMode, GameTraits, KeyCode, PlayerStatus, SubsystemTrait, WEAPON_INFO, WeaponType
 };
 use hud_util::{draw_num, draw_patch, hud_scale};
 use std::collections::HashMap;
@@ -288,7 +288,7 @@ impl Statusbar {
 impl SubsystemTrait for Statusbar {
     fn init(&mut self, _game: &impl GameTraits) {}
 
-    fn responder(&mut self, _sc: Scancode, _game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, _sc: KeyCode, _game: &mut impl GameTraits) -> bool {
         false
     }
 

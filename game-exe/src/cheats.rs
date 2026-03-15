@@ -3,8 +3,7 @@
 use gameplay::log::debug;
 use gameplay::{GameMission, GameMode, PlayerCheat, PowerType, Skill, WeaponType, english};
 use gamestate::Game;
-use gamestate_traits::GameTraits;
-use gamestate_traits::sdl2::keyboard::{Keycode, Scancode};
+use gamestate_traits::{GameTraits, KeyCode};
 use sound_common::MusTrack;
 
 pub struct Cheats {
@@ -60,9 +59,9 @@ impl Cheats {
     }
 
     /// Cheats skip the ticcmd system and directly affect a game-exe
-    pub fn check_input(&mut self, sc: Scancode, game: &mut Game) {
-        let key = if let Some(key) = Keycode::from_scancode(sc) {
-            key.into_i32() as u8 as char
+    pub fn check_input(&mut self, sc: KeyCode, game: &mut Game) {
+        let key = if let Some(c) = sc.to_char() {
+            c
         } else {
             return;
         };

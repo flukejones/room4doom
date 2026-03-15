@@ -5,13 +5,13 @@
 //! a different menu.
 
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameState, GameTraits, Scancode, Skill, SubsystemTrait
+    DrawBuffer, GameMode, GameState, GameTraits, KeyCode, Skill, SubsystemTrait
 };
 use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use sound_common::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
-use wad::types::{WadPalette, WadPatch};
+use wad::types::{BLACK, WadPalette, WadPatch};
 
 const SAVESTRINGSIZE: usize = 24;
 const LINEHEIGHT: i32 = 16;
@@ -481,7 +481,7 @@ impl MenuDoom {
 
             // Full-screen readthis/help pages: use CRT-correct aspect
             let (draw_sx, draw_sy) = if is_fullscreen {
-                pixels.buf_mut().fill(0);
+                pixels.buf_mut().fill(BLACK);
                 fullscreen_scale(pixels)
             } else {
                 (sx, sy)
@@ -645,25 +645,25 @@ impl SubsystemTrait for MenuDoom {
         }
     }
 
-    fn responder(&mut self, mut sc: Scancode, game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, mut sc: KeyCode, game: &mut impl GameTraits) -> bool {
         // Save description string editing intercepts all input
         if self.save_enter {
             match sc {
-                Scancode::Escape => {
+                KeyCode::Escape => {
                     // Cancel editing, restore old description
                     self.save_strings[self.save_slot] = self.save_old.clone();
                     self.save_enter = false;
                     game.start_sound(SfxName::Swtchx);
                     return true;
                 }
-                Scancode::Return => {
+                KeyCode::Return => {
                     // Commit save if description is non-empty
                     if !self.save_strings[self.save_slot].is_empty() {
                         self.do_save(self.save_slot, game);
                     }
                     return true;
                 }
-                Scancode::Backspace => {
+                KeyCode::Backspace => {
                     if self.save_char_idx > 0 {
                         self.save_strings[self.save_slot].pop();
                         self.save_char_idx -= 1;
@@ -688,7 +688,7 @@ impl SubsystemTrait for MenuDoom {
         if !self.active {
             // F-keys
             match sc {
-                Scancode::F1 => {
+                KeyCode::F1 => {
                     // HELP
                     self.in_help = !self.in_help;
                     if self.in_help {
@@ -700,7 +700,7 @@ impl SubsystemTrait for MenuDoom {
                     }
                     return true;
                 }
-                Scancode::F2 => {
+                KeyCode::F2 => {
                     // SAVE — open save menu directly
                     if game.game_state() != GameState::Level {
                         game.start_sound(SfxName::Oof);
@@ -711,14 +711,14 @@ impl SubsystemTrait for MenuDoom {
                     game.start_sound(SfxName::Swtchn);
                     return true;
                 }
-                Scancode::F3 => {
+                KeyCode::F3 => {
                     // LOAD — open load menu directly
                     self.active = true;
                     self.open_load_menu(game);
                     game.start_sound(SfxName::Swtchn);
                     return true;
                 }
-                Scancode::F6 => {
+                KeyCode::F6 => {
                     // Quicksave
                     if game.game_state() != GameState::Level {
                         game.start_sound(SfxName::Oof);
@@ -745,7 +745,7 @@ impl SubsystemTrait for MenuDoom {
                     }
                     return true;
                 }
-                Scancode::F9 => {
+                KeyCode::F9 => {
                     // Quickload
                     if self.quicksave_slot >= 0 {
                         let slot = self.quicksave_slot as usize;
@@ -756,11 +756,11 @@ impl SubsystemTrait for MenuDoom {
                     }
                     return true;
                 }
-                Scancode::Pause => {
+                KeyCode::Pause => {
                     game.toggle_pause_game();
                     return true;
                 }
-                Scancode::Escape => {
+                KeyCode::Escape => {
                     self.enter_menu(game);
                     return true;
                 }
@@ -773,17 +773,17 @@ impl SubsystemTrait for MenuDoom {
                 for (i, item) in self.get_current_menu().items.iter().enumerate() {
                     if item.hotkey == hk {
                         self.get_current_menu().last_on = i;
-                        sc = Scancode::Return;
+                        sc = KeyCode::Return;
                         break;
                     }
                 }
             }
             match sc {
-                Scancode::Escape => {
+                KeyCode::Escape => {
                     self.exit_menu(game);
                     return true;
                 }
-                Scancode::Down => {
+                KeyCode::Down => {
                     let active = self.get_current_menu();
                     active.last_on += 1;
                     if active.last_on > active.items.len() - 1 {
@@ -792,7 +792,7 @@ impl SubsystemTrait for MenuDoom {
                     game.start_sound(SfxName::Pstop);
                     return true;
                 }
-                Scancode::Up => {
+                KeyCode::Up => {
                     let active = self.get_current_menu();
                     if active.last_on == 0 {
                         active.last_on = active.items.len() - 1;
@@ -803,7 +803,7 @@ impl SubsystemTrait for MenuDoom {
                     return true;
                 }
 
-                Scancode::Return => {
+                KeyCode::Return => {
                     let mut idx = 0;
                     for (i, m) in self.menus.iter().enumerate() {
                         if m.this == self.current_menu {
@@ -822,7 +822,7 @@ impl SubsystemTrait for MenuDoom {
                     return true;
                 }
 
-                Scancode::Backspace => {
+                KeyCode::Backspace => {
                     let active = self.get_current_menu();
                     self.current_menu = active.prev;
                     game.start_sound(SfxName::Swtchn);

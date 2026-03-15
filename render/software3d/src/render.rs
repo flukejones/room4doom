@@ -3,8 +3,8 @@ use glam::Vec2;
 
 use crate::{Software3D, sky};
 
-/// Sample a single sky pixel from the combined RGBA buffer, returning the
-/// colour or `None` for transparent (alpha = 0).
+/// Sample a single sky pixel from the combined u32 XRGB buffer, returning the
+/// colour or `None` for transparent (value = 0).
 ///
 /// Buffer layout (column-major):
 ///   `0..sky_tex_height`                                — original texture
@@ -21,8 +21,8 @@ pub(crate) fn sample_sky_pixel(
     sky_col: usize,
     sky_r: i32,
     sky_tex_height: usize,
-    sky_combined: &[[u8; 4]],
-) -> Option<[u8; 4]> {
+    sky_combined: &[u32],
+) -> Option<u32> {
     const UP: usize = sky::SKY_EXTEND_ROWS;
     const DN: usize = sky::SKY_DOWN_ROWS;
     let total = sky_tex_height + UP + DN;
@@ -38,7 +38,7 @@ pub(crate) fn sample_sky_pixel(
         return None;
     };
     let c = sky_combined[sky_col * total + row];
-    if c[3] == 0 { None } else { Some(c) }
+    if c == 0 { None } else { Some(c) }
 }
 
 // TODO: completely change the Texture format to all be one
@@ -118,7 +118,7 @@ impl<'a> TextureSampler<'a> {
         v: f32,
         colourmap: &[usize],
         pic_data: &'a PicData,
-    ) -> &'a [u8; 4] {
+    ) -> u32 {
         unsafe {
             match self {
                 TextureSampler::Vertical {
@@ -135,10 +135,10 @@ impl<'a> TextureSampler<'a> {
 
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == usize::MAX {
-                        return &[0, 0, 0, 0];
+                        return 0;
                     }
                     let lit_color_index = *colourmap.get_unchecked(color_index);
-                    pic_data.palette().get_unchecked(lit_color_index)
+                    *pic_data.palette().get_unchecked(lit_color_index)
                 }
                 TextureSampler::Horizontal {
                     texture,
@@ -149,10 +149,10 @@ impl<'a> TextureSampler<'a> {
                     let tex_y = ((v.abs() * height) as usize) & 63;
                     let color_index = *texture.data.get_unchecked(tex_x * 64 + tex_y);
                     let lit_color_index = *colourmap.get_unchecked(color_index);
-                    pic_data.palette().get_unchecked(lit_color_index)
+                    *pic_data.palette().get_unchecked(lit_color_index)
                 }
-                TextureSampler::Sky => &[32, 32, 32, 255],
-                TextureSampler::Untextured => &[32, 32, 32, 255],
+                TextureSampler::Sky => 0xFF202020,
+                TextureSampler::Untextured => 0xFF202020,
             }
         }
     }
@@ -348,7 +348,7 @@ impl TriangleInterpolator {
 }
 
 impl Software3D {
-    pub(super) fn generate_pseudo_random_colour(id: u32, brightness: usize) -> [u8; 4] {
+    pub(super) fn generate_pseudo_random_colour(id: u32, brightness: usize) -> u32 {
         let mut hash = id.wrapping_mul(0x9E3779B9);
         hash ^= hash >> 15;
         hash = hash.wrapping_mul(0x85EBCA6B);
@@ -375,6 +375,6 @@ impl Software3D {
         let g = ((g1 + m) * 255.0).round().min(255.0) as u8;
         let b = ((b1 + m) * 255.0).round().min(255.0) as u8;
 
-        [r, g, b, 255]
+        (r as u32) << 16 | (g as u32) << 8 | b as u32
     }
 }

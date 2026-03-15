@@ -2,7 +2,7 @@ mod text;
 
 use crate::text::*;
 use gamestate_traits::{
-    DrawBuffer, GameMode, GameTraits, MusTrack, Scancode, SubsystemTrait, TICRATE
+    DrawBuffer, GameMode, GameTraits, KeyCode, MusTrack, SubsystemTrait, TICRATE
 };
 use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
 use wad::WadData;
@@ -49,8 +49,8 @@ impl Finale {
             for tile_y in (0..self.screen_height).step_by(64) {
                 for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
                     for (x, c) in col.iter().enumerate() {
-                        let c = &pal.0[*c as usize];
-                        pixels.set_pixel(tile_x as usize + x, tile_y as usize + y, &c);
+                        let c = pal.0[*c as usize];
+                        pixels.set_pixel(tile_x as usize + x, tile_y as usize + y, c);
                     }
                 }
             }
@@ -124,8 +124,8 @@ impl SubsystemTrait for Finale {
         };
     }
 
-    fn responder(&mut self, sc: Scancode, _game: &mut impl GameTraits) -> bool {
-        if sc == Scancode::Return || sc == Scancode::Space {
+    fn responder(&mut self, sc: KeyCode, _game: &mut impl GameTraits) -> bool {
+        if sc == KeyCode::Return || sc == KeyCode::Space {
             if !self.text.is_at_end() {
                 self.text.set_draw_all();
             } else {

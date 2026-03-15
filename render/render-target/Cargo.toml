@@ -7,6 +7,9 @@ license.workspace = true
 build = "../../build.rs"
 
 [features]
+default = []
+display-sdl2 = ["dep:sdl2"]
+display-softbuffer = ["dep:softbuffer", "dep:winit"]
 safety_check = []
 hprof = ["software25d/hprof", "software3d/hprof"]
 render_stats = ["software3d/render_stats"]
@@ -14,9 +17,11 @@ trig_lut = ["software25d/trig_lut"]
 
 [dependencies]
 gameplay.workspace = true
-sdl2.workspace = true
 nanoserde.workspace = true
 render-trait.workspace = true
 software25d.workspace = true
 software3d.workspace = true
 coarse-prof.workspace = true
+sdl2 = { workspace = true, optional = true }
+softbuffer = { workspace = true, optional = true }
+winit = { workspace = true, optional = true }

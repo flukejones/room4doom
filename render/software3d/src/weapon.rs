@@ -188,7 +188,7 @@ impl Software3D {
                 }
 
                 let lit_index = colourmap[color_index];
-                if let Some(color) = pic_data.palette().get(lit_index) {
+                if let Some(&color) = pic_data.palette().get(lit_index) {
                     buffer.set_pixel(x, y, color);
                 }
             }

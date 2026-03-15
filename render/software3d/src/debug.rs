@@ -13,20 +13,23 @@ pub(crate) fn write_pixel(
     buffer: &mut impl DrawBuffer,
     x: usize,
     y: usize,
-    color: &[u8; 4],
+    color: u32,
     alpha: Option<u8>,
 ) {
     if let Some(a) = alpha {
         let dst = buffer.read_pixel(x, y);
         let a = a as u16;
         let inv_a = 255 - a;
-        let blended = [
-            ((color[0] as u16 * a + dst[0] as u16 * inv_a) >> 8) as u8,
-            ((color[1] as u16 * a + dst[1] as u16 * inv_a) >> 8) as u8,
-            ((color[2] as u16 * a + dst[2] as u16 * inv_a) >> 8) as u8,
-            255,
-        ];
-        buffer.set_pixel(x, y, &blended);
+        let sr = (color >> 16) as u8;
+        let sg = (color >> 8) as u8;
+        let sb = color as u8;
+        let dr = (dst >> 16) as u8;
+        let dg = (dst >> 8) as u8;
+        let db = dst as u8;
+        let r = ((sr as u16 * a + dr as u16 * inv_a) >> 8) as u8;
+        let g = ((sg as u16 * a + dg as u16 * inv_a) >> 8) as u8;
+        let b = ((sb as u16 * a + db as u16 * inv_a) >> 8) as u8;
+        buffer.set_pixel(x, y, (r as u32) << 16 | (g as u32) << 8 | b as u32);
     } else {
         buffer.set_pixel(x, y, color);
     }
@@ -216,7 +219,7 @@ impl Software3D {
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                            if color[3] == 0 {
+                            if color == 0 {
                                 interp_state.step_x();
                                 edge_inv_w += edge_inv_w_dx;
                                 x += 1;
@@ -230,9 +233,9 @@ impl Software3D {
                                 color,
                                 edge_inv_w,
                                 colour_mode,
-                                debug_flat_colour.as_ref(),
+                                debug_flat_colour,
                             );
-                            write_pixel(buffer, x, y, &final_color, alpha);
+                            write_pixel(buffer, x, y, final_color, alpha);
                         } else {
                             if !no_depth
                                 && !self
@@ -253,9 +256,9 @@ impl Software3D {
                                 color,
                                 edge_inv_w,
                                 colour_mode,
-                                debug_flat_colour.as_ref(),
+                                debug_flat_colour,
                             );
-                            write_pixel(buffer, x, y, &final_color, alpha);
+                            write_pixel(buffer, x, y, final_color, alpha);
                         }
                         did_draw = true;
 
@@ -278,30 +281,27 @@ impl Software3D {
     #[inline(always)]
     fn apply_debug_colour(
         &self,
-        original: &[u8; 4],
+        original: u32,
         inv_w: f32,
         mode: &DebugColourMode,
-        flat_colour: Option<&[u8; 4]>,
-    ) -> [u8; 4] {
+        flat_colour: Option<u32>,
+    ) -> u32 {
         match mode {
-            DebugColourMode::None => *original,
-            DebugColourMode::SectorId => *flat_colour.unwrap_or(original),
+            DebugColourMode::None => original,
+            DebugColourMode::SectorId => flat_colour.unwrap_or(original),
             DebugColourMode::Depth => {
                 // Full projection range with sqrt curve
                 let inv_near = 1.0 / self.far_z;
                 let inv_far = 1.0 / self.near_z;
                 let t = ((inv_w - inv_near) / (inv_far - inv_near)).clamp(0.0, 1.0);
                 let v = (t.sqrt() * 255.0) as u8;
-                [v, v, v, 255]
+                (v as u32) << 16 | (v as u32) << 8 | v as u32
             }
             DebugColourMode::Overdraw => {
-                // Additive: read current pixel and brighten
-                [
-                    original[0].saturating_add(32),
-                    original[1].saturating_add(8),
-                    original[2].saturating_add(8),
-                    255,
-                ]
+                let r = ((original >> 16) as u8).saturating_add(32);
+                let g = ((original >> 8) as u8).saturating_add(8);
+                let b = (original as u8).saturating_add(8);
+                (r as u32) << 16 | (g as u32) << 8 | b as u32
             }
         }
     }
@@ -314,7 +314,7 @@ impl Software3D {
         end: Vec2,
         start_depth: f32,
         end_depth: f32,
-        color: &[u8; 4],
+        color: u32,
         rend: &mut impl DrawBuffer,
     ) {
         let dx = end.x - start.x;
@@ -359,7 +359,7 @@ impl Software3D {
             }
             for j in 0..verts.len() {
                 let k = (j + 1) % verts.len();
-                self.draw_line(verts[j], verts[k], depths[j], depths[k], color, buffer);
+                self.draw_line(verts[j], verts[k], depths[j], depths[k], *color, buffer);
             }
         }
     }
@@ -367,15 +367,15 @@ impl Software3D {
     /// Draw normal direction lines as a post-render overlay.
     pub(super) fn draw_debug_normal_lines(&mut self, buffer: &mut impl DrawBuffer) {
         let lines = std::mem::take(&mut self.debug.normal_lines);
-        let base = [200, 60, 10, 255]; // deep ember
-        let tip_color = [255, 220, 50, 255]; // bright flame tip
+        let base = 0xFFC83C0A; // deep ember
+        let tip_color = 0xFFFFDC32; // bright flame tip
         for (center, tip, depth) in &lines {
-            self.draw_line(*center, *tip, *depth, *depth, &base, buffer);
+            self.draw_line(*center, *tip, *depth, *depth, base, buffer);
             // Bright dot at the tip
             let tx = tip.x as u32 as usize;
             let ty = tip.y as u32 as usize;
             if tx < self.width as usize && ty < self.height as usize {
-                buffer.set_pixel(tx, ty, &tip_color);
+                buffer.set_pixel(tx, ty, tip_color);
             }
         }
     }

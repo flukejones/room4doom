@@ -2,15 +2,16 @@
 //! intermission screens to get certain information they require or cause a
 //! gamestate change.
 
+pub mod keys;
 pub mod util;
+
+pub use keys::{KeyCode, MouseBtn};
 
 use gameplay::MAXPLAYERS;
 pub use gameplay::{
     AmmoType, Card, GameMode, PlayerCheat, PlayerStatus, PowerType, Skill, TICRATE, WEAPON_INFO, WeaponType, WorldEndPlayerInfo, m_random
 };
 pub use render_trait::{DrawBuffer, GameRenderer, PlayRender};
-pub use sdl2::keyboard::Scancode;
-pub use sdl2::{self};
 pub use sound_common::{MusTrack, SfxName};
 
 use wad::WadData;
@@ -119,7 +120,7 @@ pub trait SubsystemTrait {
     fn init(&mut self, game: &impl GameTraits);
 
     /// Return true if the responder took the event
-    fn responder(&mut self, sc: Scancode, game: &mut impl GameTraits) -> bool;
+    fn responder(&mut self, sc: KeyCode, game: &mut impl GameTraits) -> bool;
 
     /// Responds to changes in the game or affects game.
     fn ticker(&mut self, game: &mut impl GameTraits) -> bool;
@@ -142,7 +143,7 @@ pub trait SubsystemTrait {
                     for _ in 0..f {
                         let x = (x + xtmp - n - patch.left_offset as i32).unsigned_abs() as usize;
                         let y = (y + ytmp + column.y_offset * f).unsigned_abs() as usize;
-                        pixels.set_pixel(x, y, &colour);
+                        pixels.set_pixel(x, y, colour);
                         ytmp += 1;
                     }
                 }

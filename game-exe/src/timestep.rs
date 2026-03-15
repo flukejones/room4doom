@@ -4,8 +4,6 @@
 use std::fmt;
 use std::time::Instant;
 
-use gamestate_traits::sdl2::sys::SDL_GetTicks;
-
 const MS_PER_UPDATE: f32 = 28.571428571;
 const TICRATE: u32 = 35;
 
@@ -20,7 +18,7 @@ pub struct TimeStep {
     delta_time: f32,
     real_lag: f32,
 
-    base_time: u32,
+    base_time: Instant,
     last_dt: u32,
     doom_style: bool,
 }
@@ -49,18 +47,17 @@ impl TimeStep {
             frame_time: 0.0,
             run_tics: 0,
             last_tics: 0,
-            base_time: unsafe { SDL_GetTicks() },
+            base_time: Instant::now(),
             last_dt: 0,
             real_lag: 0.0,
             doom_style,
         }
     }
 
-    // in millis since start
+    /// Elapsed time in tics since construction.
     fn get_time(&self) -> u32 {
-        let now = unsafe { SDL_GetTicks() };
-        let now = now - self.base_time;
-        now * TICRATE / 1000
+        let ms = self.base_time.elapsed().as_millis() as u32;
+        ms * TICRATE / 1000
     }
 
     fn run_this_doom(&mut self, mut run_this: impl FnMut(f32)) {

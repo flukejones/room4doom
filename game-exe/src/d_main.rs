@@ -18,33 +18,21 @@
 //! playback state, options used to setup the world, players and their stats,
 //! and the overall gamestate.
 
-use std::error::Error;
-
-use finale_doom::Finale;
 use gameplay::MapObject;
-use gameplay::log::{error, info};
+use gameplay::log::error;
 use gameplay::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
-use gamestate_traits::sdl2::event::{Event, WindowEvent};
-use gamestate_traits::sdl2::keyboard::Scancode;
-use gamestate_traits::sdl2::video::Window;
-use gamestate_traits::{DrawBuffer, GameRenderer, GameState, SubsystemTrait, sdl2};
-use hud_doom::Messages;
+use gamestate_traits::{DrawBuffer, GameRenderer, GameState, KeyCode, SubsystemTrait};
 use hud_util::{draw_patch, fullscreen_scale};
-use input::Input;
-use intermission_doom::Intermission;
-use menu_doom::MenuDoom;
-use render_target::RenderTarget;
+use input::InputState;
 use sound_common::SoundAction;
-use statusbar_doom::Statusbar;
-use wad::types::WadPatch;
+use wad::types::{BLACK, WadPatch};
 
 use crate::CLIOptions;
 use crate::cheats::Cheats;
-use crate::timestep::TimeStep;
 
-const fn set_lookdirs(options: &CLIOptions) {
+pub(crate) const fn set_lookdirs(options: &CLIOptions) {
     unsafe {
         LOOKDIRMIN = BASELOOKDIRMIN;
         LOOKDIRMAX = BASELOOKDIRMAX;
@@ -56,163 +44,104 @@ const fn set_lookdirs(options: &CLIOptions) {
     }
 }
 
-/// Never returns until `game.running` is set to false
-pub fn d_doom_loop(
-    mut game: Game,
-    mut input: Input,
-    window: Window,
-    options: CLIOptions,
-) -> Result<(), Box<dyn Error>> {
-    // TODO: implement an openGL or Vulkan renderer
-    // TODO: check res aspect and set widescreen or no
-    let mut timestep = TimeStep::new(true);
-    let mut cheats = Cheats::new();
-
-    let mut machines = GameSubsystem {
-        statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
-        intermission: Intermission::new(game.game_type.mode, &game.wad_data),
-        hud_msgs: Messages::new(&game.wad_data),
-        finale: Finale::new(&game.wad_data),
-    };
-    info!("Loaded subsystems");
-
-    let mut canvas = window
-        .into_canvas()
-        // .accelerated()
-        // .present_vsync()
-        .target_texture()
-        .build()?;
-    info!("Built display window");
-    canvas.window_mut().show();
-    let window = canvas.window();
-    let (win_w, win_h) = window.size();
-    let (draw_w, draw_h) = window.drawable_size();
-    info!(
-        "Window: {}x{}, drawable: {}x{}, fullscreen: {:?}",
-        win_w,
-        win_h,
-        draw_w,
-        draw_h,
-        window.fullscreen_state()
-    );
-
-    // Start demo playback and titlescreens +
-    if options.episode.is_none() && options.map.is_none() {
-        game.start_title();
+/// Handle key-down for menu/cheat consumption. Returns true if consumed.
+pub(crate) fn input_responder(
+    sc: KeyCode,
+    game: &mut Game,
+    menu: &mut impl SubsystemTrait,
+    machinations: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+    >,
+    cheats: &mut Cheats,
+) -> bool {
+    if game.level.is_some() {
+        cheats.check_input(sc, game);
     }
-    info!("Started title sequence");
 
-    // BEGIN SETUP
-    set_lookdirs(&options);
-    let debug_draw = options.debug_draw();
-    let mut render_target = RenderTarget::new(
-        options.hi_res.unwrap_or(true),
-        options.dev_parm,
-        &debug_draw,
-        canvas,
-        options.rendering.unwrap_or_default().into(),
-    );
-    let mut menu = MenuDoom::new(
-        game.game_type.mode,
-        &game.wad_data,
-        render_target.buffer_size().width(),
-    );
-    menu.init(&game);
-    // END
+    if menu.responder(sc, game) {
+        return true;
+    }
 
-    loop {
-        if !game.running() {
-            break;
-        }
-        // The game-exe is split in to two parts:
-        // - tickers, these update all states (game-exe, menu, hud, automap etc)
-        // - drawers, these take a state from above and display it to the user
+    if machinations.hud_msgs.responder(sc, game) {
+        return true;
+    }
 
-        // Update the game-exe state
-        if let Some(event) = try_run_tics(
-            &mut game,
-            &mut input,
-            &mut menu,
-            &mut machines,
-            &mut cheats,
-            &mut timestep,
-        ) {
-            match event {
-                Event::Window {
-                    timestamp: _,
-                    window_id: _,
-                    win_event,
-                } => match win_event {
-                    sdl2::event::WindowEvent::SizeChanged(..) => {
-                        // BEGIN SETUP
-                        set_lookdirs(&options);
-                        render_target = render_target.resize(
-                            options.hi_res.unwrap_or(true),
-                            options.dev_parm,
-                            &debug_draw,
-                            options.rendering.unwrap_or_default().into(),
-                        );
-                        menu = MenuDoom::new(
-                            game.game_type.mode,
-                            &game.wad_data,
-                            render_target.buffer_size().width(),
-                        );
-                        menu.init(&game);
-                        // END
-                        info!("Resized game window");
-                    }
-                    _ => {}
-                },
-                _ => {}
+    if game.level.is_none() {
+        match game.gamestate {
+            GameState::Intermission => {
+                if machinations.intermission.responder(sc, game) {
+                    return true;
+                }
             }
-        }
-
-        // Update the positional sounds
-        // Update the listener of the sound server. Will always be consoleplayer.
-        if let Some(mobj) = game.players[game.consoleplayer].mobj() {
-            let uid = mobj as *const MapObject as usize;
-            game.sound_cmd
-                .send(SoundAction::UpdateListener {
-                    uid,
-                    x: mobj.xy.x,
-                    y: mobj.xy.y,
-                    angle: mobj.angle.rad(),
-                })
-                .unwrap();
-        }
-
-        // Draw everything to the buffer
-        d_display(&mut render_target, &mut menu, &mut machines, &mut game);
-
-        // FPS rate updates every second
-        if let Some(fps) = timestep.frame_rate() {
-            render_target.set_debug_line(format!("FPS {}", fps.frames));
-            coarse_prof::write(&mut std::io::stdout()).unwrap();
+            GameState::Finale => {
+                if machinations.finale.responder(sc, game) {
+                    return true;
+                }
+            }
+            _ => {}
         }
     }
 
-    // Explicit drop to ensure shutdown happens
-    drop(game);
-    Ok(())
+    false
+}
+
+/// Advance game state by one tic: demo advance, menu tick, game tick,
+/// and build the tic command from current input.
+pub(crate) fn run_game_tic(
+    game: &mut Game,
+    input: &mut InputState,
+    menu: &mut impl SubsystemTrait,
+    machinations: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+    >,
+    tics: f32,
+) {
+    if game.demo.advance {
+        game.do_advance_demo();
+    }
+    if !menu.ticker(game) && game.wipe_game_state != GameState::ForceWipe {
+        game.ticker(machinations);
+    }
+    game.game_tic = tics as u32;
+
+    let console_player = game.consoleplayer;
+    if game.gamestate == game.wipe_game_state {
+        let cmd = input.events.build_tic_cmd(&input.config);
+        game.netcmds[console_player][0] = cmd;
+    }
+}
+
+/// Update the sound listener position from the console player.
+pub(crate) fn update_sound(game: &Game) {
+    if let Some(mobj) = game.players[game.consoleplayer].mobj() {
+        let uid = mobj as *const MapObject as usize;
+        game.sound_cmd
+            .send(SoundAction::UpdateListener {
+                uid,
+                x: mobj.xy.x,
+                y: mobj.xy.y,
+                angle: mobj.angle.rad(),
+            })
+            .unwrap();
+    }
 }
 
 fn page_drawer(game: &mut Game, draw_buf: &mut impl DrawBuffer) {
-    draw_buf.buf_mut().fill(0);
+    draw_buf.buf_mut().fill(BLACK);
     let (sx, sy) = fullscreen_scale(draw_buf);
     let x = (draw_buf.size().width_f32() - 320.0 * sx) / 2.0;
     let palette = game.pic_data.wad_palette();
     draw_patch(&game.page.cache, x, 0.0, sx, sy, palette, draw_buf);
 }
 
-/// Does a bunch of stuff in Doom...
-/// `pixels` is the buffer that is always drawn, so drawing in to `pixels2` then
-/// flipping ensures the buffer is drawn. But if we draw in to `pixels2` and
-/// don't flip, we can do the screen-melt by progressively drawing from
-/// `pixels2` to `pixels`.
-///
-/// D_Display
-#[allow(clippy::too_many_arguments)]
-fn d_display<R>(
+/// D_Display — draw the current frame.
+pub(crate) fn d_display<R>(
     render_target: &mut R,
     menu: &mut impl SubsystemTrait,
     machines: &mut GameSubsystem<
@@ -226,12 +155,12 @@ fn d_display<R>(
     R: GameRenderer,
 {
     let wipe = game.gamestate != game.wipe_game_state;
+    if wipe {
+        // Capture old frame on first wipe frame
+        render_target.start_wipe();
+    }
     let automap_active = false;
-    //if (gamestate == GS_LEVEL && !automapactive && gametic)
 
-    // Drawing order is different for RUST4DOOM as the screensize-statusbar is
-    // never taken in to account. A full Doom-style statusbar will never be added
-    // instead an "overlay" style bar will be done.
     if game.gamestate == GameState::Level && game.game_tic != 0 {
         if !automap_active {
             match game.level {
@@ -257,7 +186,6 @@ fn d_display<R>(
 
     match game.gamestate {
         GameState::Level => {
-            // TODO: Automap draw
             machines.statusbar.draw(render_target.frame_buffer());
             machines.hud_msgs.draw(render_target.frame_buffer());
         }
@@ -276,124 +204,13 @@ fn d_display<R>(
         _ => {}
     }
 
+    menu.draw(render_target.frame_buffer());
+
     if wipe {
+        // Overdraw old-frame columns on top of the new scene
         if render_target.do_wipe() {
             game.wipe_game_state = game.gamestate;
         }
-        // menu is drawn on top of wipes
-        render_target.flip();
-        menu.draw(render_target.frame_buffer());
-    } else {
-        menu.draw(render_target.frame_buffer());
     }
     render_target.flip_and_present();
-}
-
-fn try_run_tics(
-    game: &mut Game,
-    input: &mut Input,
-    menu: &mut impl SubsystemTrait,
-    machinations: &mut GameSubsystem<
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-    >,
-    cheats: &mut Cheats,
-    timestep: &mut TimeStep,
-) -> Option<Event> {
-    // TODO: net.c starts here
-    // Build tics here?
-    let mut event_return = None;
-    timestep.run_this(|tics| {
-        // D_ProcessEvents
-        if let Some(e) = process_events(game, input, menu, machinations, cheats) {
-            event_return.replace(e);
-        }
-
-        if game.demo.advance {
-            game.do_advance_demo();
-        }
-        // Did menu take control?
-        if !menu.ticker(game) && game.wipe_game_state != GameState::ForceWipe {
-            game.ticker(machinations); // G_Ticker
-        }
-        game.game_tic = tics as u32;
-    });
-    event_return
-}
-
-fn process_events(
-    game: &mut Game,
-    input: &mut Input,
-    menu: &mut impl SubsystemTrait,
-    machinations: &mut GameSubsystem<
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-        impl SubsystemTrait,
-    >,
-    cheats: &mut Cheats,
-) -> Option<Event> {
-    // required for cheats and menu so they don't receive multiple key-press fo same
-    // key
-    let input_callback = |sc: Scancode| {
-        if game.level.is_some() {
-            cheats.check_input(sc, game);
-        }
-
-        // Menu also has hotkeys like F1, so check at all times
-        if menu.responder(sc, game) {
-            return true; // Menu took event
-        }
-
-        if machinations.hud_msgs.responder(sc, game) {
-            return true; // Menu took event
-        }
-
-        // We want intermission to check checks only if the level isn't loaded
-        if game.level.is_none() {
-            match game.gamestate {
-                GameState::Intermission => {
-                    if machinations.intermission.responder(sc, game) {
-                        return true; // Menu took event
-                    }
-                }
-                GameState::Finale => {
-                    if machinations.finale.responder(sc, game) {
-                        return true; // Menu took event
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        false
-    };
-
-    let mut event_return = None;
-    let event_callback = |event: sdl2::event::Event| match event {
-        sdl2::event::Event::Window {
-            timestamp: _,
-            window_id: _,
-            win_event,
-        } => {
-            if matches!(win_event, WindowEvent::SizeChanged(_, _)) {
-                event_return = Some(event);
-            }
-        }
-        _ => {}
-    };
-
-    input.update(input_callback, event_callback);
-    let console_player = game.consoleplayer;
-    // net update does i/o and buildcmds...
-    // TODO: NetUpdate(); // send out any new accumulation
-    // TODO: Network code would update each player slot with incoming TicCmds...
-    if game.gamestate == game.wipe_game_state {
-        let cmd = input.events.build_tic_cmd(&input.config);
-        game.netcmds[console_player][0] = cmd;
-    }
-
-    event_return
 }

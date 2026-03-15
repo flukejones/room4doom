@@ -1,4 +1,4 @@
-use gamestate_traits::{DrawBuffer, GameTraits, Scancode, SubsystemTrait, TICRATE};
+use gamestate_traits::{DrawBuffer, GameTraits, KeyCode, SubsystemTrait, TICRATE};
 use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
 use wad::WadData;
 use wad::types::WadPalette;
@@ -99,7 +99,7 @@ impl SubsystemTrait for Messages {
         }
     }
 
-    fn responder(&mut self, _sc: Scancode, _game: &mut impl GameTraits) -> bool {
+    fn responder(&mut self, _sc: KeyCode, _game: &mut impl GameTraits) -> bool {
         false
     }
 

@@ -4,7 +4,7 @@ use gameplay::{
     BSP3D, PicData, PvsData, Sector, SurfaceKind, SurfacePolygon, WallType, is_subsector, subsector_index
 };
 use glam::{Vec2, Vec3, Vec4};
-use render_trait::{DrawBuffer, SOFT_PIXEL_CHANNELS};
+use render_trait::DrawBuffer;
 
 use std::alloc::{self, Layout};
 use std::ptr;
@@ -918,11 +918,7 @@ impl EdgeSpanState {
                                 if let Some(color) =
                                     sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
                                 {
-                                    let px = row_start + x * SOFT_PIXEL_CHANNELS;
-                                    buf[px] = color[0];
-                                    buf[px + 1] = color[1];
-                                    buf[px + 2] = color[2];
-                                    buf[px + 3] = 255;
+                                    buf[row_start + x] = color;
                                 }
                                 if old == -1.0 {
                                     let ti = (y / TILE_SIZE) * tiles_x + (x / TILE_SIZE);
@@ -951,11 +947,7 @@ impl EdgeSpanState {
                     let colourmap = pic_data.base_colourmap(brightness, inv_w * LIGHT_SCALE);
                     let color = texture_sampler.sample(u, v, colourmap, pic_data);
 
-                    let px = row_start + x * SOFT_PIXEL_CHANNELS;
-                    buf[px] = color[0];
-                    buf[px + 1] = color[1];
-                    buf[px + 2] = color[2];
-                    buf[px + 3] = 255;
+                    buf[row_start + x] = color;
 
                     unsafe {
                         let dp = depth_row.add(x);

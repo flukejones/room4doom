@@ -12,12 +12,14 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut", "sound-rodio"]
+default = ["trig_lut", "sound-rodio", "display-softbuffer"]
 hprof = ["render-target/hprof", "gameplay/hprof"]
 render_stats = ["render-target/render_stats"]
 trig_lut = ["render-target/trig_lut"]
-sound-sdl2 = ["dep:sound-sdl2"]
+sound-sdl2 = ["dep:sound-sdl2", "dep:sdl2"]
 sound-rodio = ["dep:sound-rodio"]
+display-sdl2 = ["render-target/display-sdl2", "input/input-sdl2", "dep:sdl2"]
+display-softbuffer = ["render-target/display-softbuffer", "input/input-winit", "dep:winit"]
 
 [dependencies]
 mimalloc = "0.1.43"
@@ -41,6 +43,8 @@ sound-rodio = { workspace = true, optional = true }
 sound-nosnd.workspace = true
 render-target.workspace = true
 software3d.workspace = true
+sdl2 = { workspace = true, optional = true }
+winit = { workspace = true, optional = true }
 wad.workspace = true
 
 # utility deps

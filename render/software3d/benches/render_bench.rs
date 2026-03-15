@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use glam::Vec3;
-use render_trait::{BufferSize, DrawBuffer, SOFT_PIXEL_CHANNELS};
+use render_trait::{BufferSize, DrawBuffer};
 use software3d::{DebugDrawOptions, Software3D};
 use wad::WadData;
 
@@ -15,14 +15,14 @@ const HEIGHT: usize = 480;
 
 struct HeadlessBuffer {
     size: BufferSize,
-    data: Vec<u8>,
+    data: Vec<u32>,
 }
 
 impl HeadlessBuffer {
     fn new(width: usize, height: usize) -> Self {
         Self {
             size: BufferSize::new(width, height),
-            data: vec![0u8; width * height * SOFT_PIXEL_CHANNELS],
+            data: vec![0u32; width * height],
         }
     }
 }
@@ -31,21 +31,19 @@ impl DrawBuffer for HeadlessBuffer {
     fn size(&self) -> &BufferSize {
         &self.size
     }
-    fn set_pixel(&mut self, x: usize, y: usize, colour: &[u8; 4]) {
-        let i = (y * WIDTH + x) * SOFT_PIXEL_CHANNELS;
-        self.data[i..i + 4].copy_from_slice(colour);
+    fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
+        self.data[y * WIDTH + x] = colour;
     }
-    fn read_pixel(&self, x: usize, y: usize) -> [u8; SOFT_PIXEL_CHANNELS] {
-        let i = (y * WIDTH + x) * SOFT_PIXEL_CHANNELS;
-        self.data[i..i + 4].try_into().unwrap()
+    fn read_pixel(&self, x: usize, y: usize) -> u32 {
+        self.data[y * WIDTH + x]
     }
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        (y * WIDTH + x) * SOFT_PIXEL_CHANNELS
+        y * WIDTH + x
     }
     fn pitch(&self) -> usize {
-        WIDTH * SOFT_PIXEL_CHANNELS
+        WIDTH
     }
-    fn buf_mut(&mut self) -> &mut [u8] {
+    fn buf_mut(&mut self) -> &mut [u32] {
         &mut self.data
     }
     fn debug_flip_and_present(&mut self) {}

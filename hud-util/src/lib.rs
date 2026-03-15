@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gamestate_traits::{DrawBuffer, SubsystemTrait};
+use gamestate_traits::DrawBuffer;
 use log::warn;
 use wad::WadData;
 use wad::types::{WAD_PATCH, WadPalette, WadPatch};
@@ -104,7 +104,7 @@ pub fn draw_patch(
                     if col < 0 || col >= buf_w {
                         continue;
                     }
-                    pixels.set_pixel(col as usize, row as usize, &colour);
+                    pixels.set_pixel(col as usize, row as usize, colour);
                 }
             }
         }

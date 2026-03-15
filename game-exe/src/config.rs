@@ -69,6 +69,33 @@ impl Into<render_target::RenderType> for RenderType {
     }
 }
 
+/// Window display mode.
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum WindowMode {
+    #[default]
+    Windowed,
+    /// Borderless desktop fullscreen.
+    Borderless,
+    /// Exclusive fullscreen with video mode switching.
+    Exclusive,
+}
+
+impl FromStr for WindowMode {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "windowed" => Ok(Self::Windowed),
+            "borderless" => Ok(Self::Borderless),
+            "exclusive" => Ok(Self::Exclusive),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Invalid window mode (windowed, borderless, exclusive)",
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum MusicType {
     FluidSynth,
@@ -100,7 +127,9 @@ pub struct UserConfig {
     pub iwad: String,
     pub width: u32,
     pub height: u32,
-    pub fullscreen: bool,
+    pub window_mode: WindowMode,
+    pub vsync: bool,
+    pub refresh_rate: u32,
     pub hi_res: bool,
     pub renderer: RenderType,
     pub sfx_vol: i32,
@@ -143,7 +172,8 @@ impl UserConfig {
             width: 640,
             height: 480,
             hi_res: true,
-            fullscreen: true,
+            window_mode: WindowMode::Exclusive,
+            vsync: true,
             sfx_vol: 80,
             mus_vol: 70,
             ..UserConfig::default()
@@ -203,12 +233,26 @@ impl UserConfig {
             cli.rendering = Some(self.renderer);
         }
 
-        if let Some(f) = cli.fullscreen {
-            if f != self.fullscreen {
-                self.fullscreen = f;
+        if let Some(wm) = cli.window_mode {
+            if wm != self.window_mode {
+                self.window_mode = wm;
             }
         } else {
-            cli.fullscreen = Some(self.fullscreen);
+            cli.window_mode = Some(self.window_mode);
+        }
+
+        if let Some(v) = cli.vsync {
+            if v != self.vsync {
+                self.vsync = v;
+            }
+        } else {
+            cli.vsync = Some(self.vsync);
+        }
+
+        if cli.refresh_rate != 0 && cli.refresh_rate != self.refresh_rate {
+            self.refresh_rate = cli.refresh_rate;
+        } else {
+            cli.refresh_rate = self.refresh_rate;
         }
 
         if let Some(f) = cli.music_type {

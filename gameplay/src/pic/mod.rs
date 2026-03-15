@@ -718,10 +718,10 @@ impl PicData {
                     let colourmap = self.vert_light_colourmap(light, scale);
                     // TODO: fix c being out of range of colourmap sometimes
                     if let Some(cm) = colourmap.get(*c as usize) {
-                        if let Some(color) = self.palette().get(*cm) {
-                            r_sum += color[0] as u32;
-                            g_sum += color[1] as u32;
-                            b_sum += color[2] as u32;
+                        if let Some(&color) = self.palette().get(*cm) {
+                            r_sum += (color >> 16) & 0xFF;
+                            g_sum += (color >> 8) & 0xFF;
+                            b_sum += color & 0xFF;
                         }
                     }
                 }
@@ -731,10 +731,10 @@ impl PicData {
                         if let Some(&c) = column.get(y) {
                             let colourmap = self.vert_light_colourmap(light, scale);
                             if let Some(&cm) = colourmap.get(c as usize) {
-                                if let Some(color) = self.palette().get(cm) {
-                                    r_sum += color[0] as u32;
-                                    g_sum += color[1] as u32;
-                                    b_sum += color[2] as u32;
+                                if let Some(&color) = self.palette().get(cm) {
+                                    r_sum += (color >> 16) & 0xFF;
+                                    g_sum += (color >> 8) & 0xFF;
+                                    b_sum += color & 0xFF;
                                 }
                             }
                         }
@@ -745,16 +745,11 @@ impl PicData {
         }
 
         if sample_count == 0 {
-            return [0, 0, 0, 0];
+            return 0;
         }
 
         // Calculate average
-        [
-            (r_sum / sample_count) as u8,
-            (g_sum / sample_count) as u8,
-            (b_sum / sample_count) as u8,
-            255,
-        ]
+        ((r_sum / sample_count) << 16) | ((g_sum / sample_count) << 8) | (b_sum / sample_count)
     }
 
     /// Get an average color sample from a flat using the colourmap.
@@ -778,10 +773,10 @@ impl PicData {
                 unsafe {
                     let c = flat.data.get_unchecked(y * 64 + x);
                     let cm = self.flat_light_colourmap(light, scale).get_unchecked(*c);
-                    let color = self.palette().get_unchecked(*cm);
-                    r_sum += color[0] as u32;
-                    g_sum += color[1] as u32;
-                    b_sum += color[2] as u32;
+                    let color = *self.palette().get_unchecked(*cm);
+                    r_sum += (color >> 16) & 0xFF;
+                    g_sum += (color >> 8) & 0xFF;
+                    b_sum += color & 0xFF;
                 }
                 #[cfg(feature = "safety_check")]
                 {
@@ -789,10 +784,10 @@ impl PicData {
                         if let Some(&c) = row.get(x) {
                             if let Some(colourmap_row) = self.colourmap.get(1) {
                                 if let Some(&cm) = colourmap_row.get(c) {
-                                    if let Some(color) = self.palette().get(cm) {
-                                        r_sum += color[0] as u32;
-                                        g_sum += color[1] as u32;
-                                        b_sum += color[2] as u32;
+                                    if let Some(&color) = self.palette().get(cm) {
+                                        r_sum += (color >> 16) & 0xFF;
+                                        g_sum += (color >> 8) & 0xFF;
+                                        b_sum += color & 0xFF;
                                     }
                                 }
                             }
@@ -804,15 +799,10 @@ impl PicData {
         }
 
         if sample_count == 0 {
-            return [0, 0, 0, 0];
+            return 0;
         }
 
         // Calculate average
-        [
-            (r_sum / sample_count) as u8,
-            (g_sum / sample_count) as u8,
-            (b_sum / sample_count) as u8,
-            255,
-        ]
+        ((r_sum / sample_count) << 16) | ((g_sum / sample_count) << 8) | (b_sum / sample_count)
     }
 }

@@ -4,23 +4,24 @@ mod cheats;
 mod cli;
 mod config;
 mod d_main;
+#[cfg(feature = "display-sdl2")]
+mod loop_sdl2;
+#[cfg(feature = "display-softbuffer")]
+mod loop_winit;
 mod timestep;
 
 use cli::*;
 #[cfg(feature = "sound-sdl2")]
 use dirs::data_dir;
-use gamestate_traits::sdl2::{self};
 use mimalloc::MiMalloc;
 use simplelog::TermLogger;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use d_main::d_doom_loop;
 use gamestate::{Game, prepare_wad};
 
 use crate::config::UserConfig;
 use gameplay::{MapData, PVS2D, PicData, PreprocessPvsMode, PvsCluster, PvsFile, RenderPvs, log};
-use input::Input;
 use sound_common::{SndServerTx, SoundAction, SoundServer, SoundServerTic};
 
 use crate::log::{info, warn};
@@ -28,6 +29,8 @@ use wad::WadData;
 
 #[cfg(feature = "sound-sdl2")]
 use config::MusicType;
+#[cfg(feature = "display-sdl2")]
+use config::WindowMode;
 #[cfg(feature = "sound-sdl2")]
 use dirs::cache_dir;
 #[cfg(feature = "sound-sdl2")]
@@ -110,16 +113,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     user_config.sync_cli(&mut options);
     user_config.write();
 
+    let wad_path: PathBuf = options.iwad.clone().into();
+    let wad = WadData::new(&wad_path);
+    let (game_options, wad) = prepare_wad(options.clone().into(), wad);
+
+    #[cfg(feature = "display-sdl2")]
+    {
+        run_sdl2(game_options, wad, &user_config, options)?;
+    }
+
+    #[cfg(all(feature = "display-softbuffer", not(feature = "display-sdl2")))]
+    {
+        run_winit(game_options, wad, &user_config, options)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "display-sdl2")]
+fn run_sdl2(
+    game_options: gameplay::GameOptions,
+    wad: WadData,
+    user_config: &UserConfig,
+    options: CLIOptions,
+) -> Result<(), Box<dyn Error>> {
+    use loop_sdl2::d_doom_loop_sdl2;
+    use render_target::DisplayBackend;
+
     let sdl_ctx = sdl2::init()?;
     info!("Init SDL2 main");
     let video_ctx = sdl_ctx.video()?;
     info!("Init SDL2 video");
 
-    let wad_path: PathBuf = options.iwad.clone().into();
-    let wad = WadData::new(&wad_path);
-    let (game_options, wad) = prepare_wad(options.clone().into(), wad);
-
-    let (snd_tx, snd_thread) = init_sound(&sdl_ctx, &wad, &user_config);
+    let (snd_tx, snd_thread) = init_sound(&sdl_ctx, &wad, user_config);
 
     let game = Game::new(game_options, wad, snd_tx, snd_thread);
 
@@ -128,23 +154,74 @@ fn main() -> Result<(), Box<dyn Error>> {
         info!("Found display {:?}", video_ctx.display_name(n)?);
     }
 
-    let mut window = video_ctx.window("ROOM4DOOM", 0, 0).hidden().build()?;
+    let mut window = video_ctx
+        .window("ROOM4DOOM", options.width, options.height)
+        .hidden()
+        .position_centered()
+        .build()?;
 
-    if let Some(fullscreen) = options.fullscreen {
-        if fullscreen {
-            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
-        } else {
+    match options.window_mode.unwrap_or(WindowMode::Windowed) {
+        WindowMode::Windowed => {
             window.set_fullscreen(sdl2::video::FullscreenType::Off)?;
+        }
+        WindowMode::Borderless => {
+            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
+        }
+        WindowMode::Exclusive => {
+            window.set_fullscreen(sdl2::video::FullscreenType::True)?;
         }
     }
 
-    let input = Input::new(sdl_ctx.event_pump()?, (&user_config.input).into());
+    let input = input::InputSdl2::new(sdl_ctx.event_pump()?, (&user_config.input).into());
 
     sdl_ctx.mouse().show_cursor(false);
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    d_doom_loop(game, input, window, options)?;
+    let mut canvas_builder = window.into_canvas().target_texture();
+    if matches!(options.vsync, Some(true)) {
+        canvas_builder = canvas_builder.present_vsync();
+    }
+    let mut canvas = canvas_builder.build()?;
+    info!("Built display window");
+    canvas.window_mut().show();
+    {
+        let w = canvas.window();
+        let (win_w, win_h) = w.size();
+        let (draw_w, draw_h) = w.drawable_size();
+        info!(
+            "Window: {}x{}, drawable: {}x{}, fullscreen: {:?}",
+            win_w,
+            win_h,
+            draw_w,
+            draw_h,
+            w.fullscreen_state()
+        );
+    }
+
+    let display = DisplayBackend::new_sdl2(canvas);
+    d_doom_loop_sdl2(game, input, display, options)?;
+    Ok(())
+}
+
+#[cfg(all(feature = "display-softbuffer", not(feature = "display-sdl2")))]
+fn run_winit(
+    game_options: gameplay::GameOptions,
+    wad: WadData,
+    user_config: &UserConfig,
+    options: CLIOptions,
+) -> Result<(), Box<dyn Error>> {
+    use loop_winit::DoomApp;
+    use winit::event_loop::EventLoop;
+
+    let (snd_tx, snd_thread) = init_sound_no_sdl(&wad, user_config);
+
+    let game = Game::new(game_options, wad, snd_tx, snd_thread);
+    let input_state = input::InputState::new((&user_config.input).into());
+
+    let event_loop = EventLoop::new().expect("failed to create winit event loop");
+    let mut app = DoomApp::new(game, input_state, options);
+    event_loop.run_app(&mut app)?;
     Ok(())
 }
 
@@ -250,10 +327,10 @@ fn process_map_pvs(
     Ok(())
 }
 
-/// Initialise the sound backend and spawn the sound thread.
-///
-/// Returns the command channel and thread handle for `Game::new`.
-#[cfg(feature = "sound-sdl2")]
+// ── Sound init (SDL2 path) ────────────────────────────────────────────
+
+/// Initialise the SDL2 sound backend.
+#[cfg(all(feature = "sound-sdl2", feature = "display-sdl2"))]
 fn init_sound(
     sdl_ctx: &sdl2::Sdl,
     wad: &WadData,
@@ -286,10 +363,61 @@ fn init_sound(
     }
 }
 
-/// Initialise the rodio sound backend and spawn the sound thread.
-#[cfg(all(feature = "sound-rodio", not(feature = "sound-sdl2")))]
+/// Initialise the rodio sound backend (SDL2 display path).
+#[cfg(all(
+    feature = "sound-rodio",
+    not(feature = "sound-sdl2"),
+    feature = "display-sdl2"
+))]
 fn init_sound(
     _sdl_ctx: &sdl2::Sdl,
+    wad: &WadData,
+    config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    init_sound_rodio(wad, config)
+}
+
+/// No sound backend selected (SDL2 display path).
+#[cfg(all(
+    not(any(feature = "sound-sdl2", feature = "sound-rodio")),
+    feature = "display-sdl2"
+))]
+fn init_sound(
+    _sdl_ctx: &sdl2::Sdl,
+    wad: &WadData,
+    _config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    init_nosnd(wad)
+}
+
+// ── Sound init (no-SDL2 path) ─────────────────────────────────────────
+
+/// Initialise sound without SDL2 context (winit path).
+#[cfg(all(feature = "sound-rodio", feature = "display-softbuffer"))]
+fn init_sound_no_sdl(
+    wad: &WadData,
+    config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    init_sound_rodio(wad, config)
+}
+
+#[cfg(all(
+    not(feature = "sound-rodio"),
+    feature = "display-softbuffer",
+    not(feature = "display-sdl2")
+))]
+fn init_sound_no_sdl(
+    wad: &WadData,
+    _config: &UserConfig,
+) -> (SndServerTx, std::thread::JoinHandle<()>) {
+    init_nosnd(wad)
+}
+
+// ── Shared sound helpers ──────────────────────────────────────────────
+
+/// Initialise the rodio sound backend.
+#[cfg(feature = "sound-rodio")]
+fn init_sound_rodio(
     wad: &WadData,
     config: &UserConfig,
 ) -> (SndServerTx, std::thread::JoinHandle<()>) {
@@ -306,16 +434,6 @@ fn init_sound(
             init_nosnd(wad)
         }
     }
-}
-
-/// No sound backend selected — use nosnd.
-#[cfg(not(any(feature = "sound-sdl2", feature = "sound-rodio")))]
-fn init_sound(
-    _sdl_ctx: &sdl2::Sdl,
-    wad: &WadData,
-    _config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    init_nosnd(wad)
 }
 
 /// Fallback: no-sound backend.
