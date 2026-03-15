@@ -577,13 +577,7 @@ mod tests {
 
     use crate::types::*;
     use crate::wad::WadData;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
+    use test_utils::doom1_wad_path;
 
     #[test]
     fn things_iter() {

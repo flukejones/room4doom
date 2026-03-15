@@ -723,14 +723,8 @@ impl ThinkerData {
 
 #[cfg(test)]
 mod tests {
+    use test_utils::doom1_wad_path;
     use wad::WadData;
-
-    fn doom1_wad_path() -> std::path::PathBuf {
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
 
     use crate::doom_def::GameMode;
     use crate::level::Level;

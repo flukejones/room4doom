@@ -10,3 +10,6 @@ wad.workspace = true
 gamestate-traits.workspace = true
 hud-util.workspace = true
 log.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

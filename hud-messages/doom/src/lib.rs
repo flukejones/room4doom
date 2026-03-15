@@ -137,19 +137,9 @@ impl SubsystemTrait for Messages {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::Messages;
+    use test_utils::doom1_wad_path;
     use wad::WadData;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
 
     #[test]
     fn check_cycle_through_max() {

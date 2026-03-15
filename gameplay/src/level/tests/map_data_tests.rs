@@ -7,16 +7,10 @@ mod map_data_tests {
     use math::Angle;
     use std::f32::consts::{FRAC_PI_2, PI};
     use std::path::PathBuf;
+    use test_utils::doom1_wad_path;
     use wad::WadData;
     use wad::extended::WadExtendedMap;
     use wad::types::{WadLineDef, WadSideDef};
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
 
     #[ignore = "sunder.wad can't be included in git"]
     #[test]

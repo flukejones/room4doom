@@ -1,18 +1,8 @@
-use std::path::PathBuf;
-
 use sound_common::{SfxName, SoundAction, SoundServer, SoundServerTic};
+use test_utils::doom1_wad_path;
 use wad::WadData;
 
 use crate::{MusicType, Snd};
-
-fn doom1_wad_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("doom1.wad")
-}
 
 #[test]
 #[ignore = "SDL2 can only initialise once (and CI doesn't have sound)"]

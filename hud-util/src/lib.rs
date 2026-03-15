@@ -332,17 +332,9 @@ impl HUDString {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::{get_patch_for_char, load_char_patches};
+    use test_utils::doom1_wad_path;
     use wad::WadData;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
 
     #[test]
     fn load_and_check_chars() {

@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use crate::{MapData, PicData};
 use wad::WadData;
 
-pub const DOOM_WAD: &str = "/Users/lukejones/DOOM/doom.wad";
-pub const SIGIL_WAD: &str = "/Users/lukejones/DOOM/sigil.wad";
-pub const SIGIL2_WAD: &str = "/Users/lukejones/DOOM/sigil2.wad";
+pub use test_utils::{DOOM_WAD, SIGIL_WAD, SIGIL2_WAD};
 
 /// Load a map from a single WAD file with all fixups applied.
 /// Returns canonical post-fixup `MapData`.

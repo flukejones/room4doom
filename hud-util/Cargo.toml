@@ -9,3 +9,6 @@ license.workspace = true
 wad.workspace = true
 gamestate-traits.workspace = true
 log.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

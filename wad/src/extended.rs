@@ -234,13 +234,7 @@ mod tests {
     use crate::types::{WadLineDef, WadNode, WadSector, WadSideDef, WadVertex};
 
     use super::WadExtendedMap;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
+    use test_utils::doom1_wad_path;
 
     #[ignore = "sunder.wad can't be included in git"]
     #[test]

@@ -1617,6 +1617,7 @@ dependencies = [
  "rayon",
  "serde",
  "sound-common",
+ "test-utils",
  "wad",
 ]
 
@@ -1968,6 +1969,7 @@ dependencies = [
  "gamestate-traits",
  "hud-util",
  "log",
+ "test-utils",
  "wad",
 ]
 
@@ -1977,6 +1979,7 @@ version = "0.16.1"
 dependencies = [
  "gamestate-traits",
  "log",
+ "test-utils",
  "wad",
 ]
 
@@ -4071,6 +4074,7 @@ dependencies = [
  "opl2_emulator",
  "sdl2",
  "sound-common",
+ "test-utils",
  "wad",
 ]
 
@@ -4185,6 +4189,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "test-utils"
+version = "0.16.1"
+dependencies = [
+ "wad",
 ]
 
 [[package]]
@@ -4494,6 +4505,7 @@ name = "wad"
 version = "0.16.1"
 dependencies = [
  "log",
+ "test-utils",
 ]
 
 [[package]]

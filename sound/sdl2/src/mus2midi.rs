@@ -9,22 +9,13 @@ mod tests {
     use std::env::set_var;
     use std::fs::File;
     use std::io::Write;
-    use std::path::PathBuf;
     use std::time::Duration;
 
     use sdl2::mixer::{AUDIO_S16LSB, DEFAULT_CHANNELS, InitFlag};
+    use test_utils::doom1_wad_path;
     use wad::WadData;
 
     use super::read_mus_to_midi;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
 
     #[test]
     #[ignore = "CI doesn't have a sound device"]

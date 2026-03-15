@@ -721,13 +721,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::WadData;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
+    use test_utils::doom1_wad_path;
 
     #[test]
     fn texture1_header_0() {

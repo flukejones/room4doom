@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "test-utils",
     "wad",
     "game-exe",
     "gameplay",
@@ -37,6 +38,7 @@ rust-version = "1.85"
 license = "MIT"
 
 [workspace.dependencies]
+test-utils = { path = "./test-utils" }
 wad = { path = "./wad" }
 input = { path = "./input" }
 math = { path = "./math" }

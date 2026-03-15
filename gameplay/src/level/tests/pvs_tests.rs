@@ -3,33 +3,7 @@ mod pvs_tests {
     use crate::{PVS2D, PicData};
     use map_data::{MapData, PvsData, PvsView2D, RenderPvs};
     use std::path::PathBuf;
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
-    }
-
-    fn doom_wad_path() -> PathBuf {
-        PathBuf::from("/Users/lukejones/DOOM/doom.wad")
-    }
-
-    fn sigil_wad_path() -> PathBuf {
-        PathBuf::from("/Users/lukejones/DOOM/sigil.wad")
-    }
-
-    fn sigil2_wad_path() -> PathBuf {
-        PathBuf::from("/Users/lukejones/DOOM/sigil2.wad")
-    }
-
-    fn doom2_wad_path() -> PathBuf {
-        PathBuf::from("/Users/lukejones/DOOM/doom2.wad")
-    }
-
-    fn sunder_wad_path() -> PathBuf {
-        PathBuf::from("/Users/lukejones/DOOM/sunder.wad")
-    }
+    use test_utils::{DOOM_WAD, DOOM2_WAD, SIGIL_WAD, SIGIL2_WAD, SUNDER_WAD, doom1_wad_path};
 
     /// Load a map with PWADs and build full PVS (subsector-level) from scratch.
     ///
@@ -371,9 +345,9 @@ mod pvs_tests {
     #[test]
     #[ignore = "Requires registered DOOM"]
     fn test_e5m1_subsector_visibility() {
-        let sigil = sigil_wad_path();
+        let sigil = PathBuf::from(SIGIL_WAD);
 
-        let (map_data, _pvs2d, pvs) = build_full_pvs(&doom_wad_path(), &[sigil], "E5M1");
+        let (map_data, _pvs2d, pvs) = build_full_pvs(&PathBuf::from(DOOM_WAD), &[sigil], "E5M1");
         let bsp = &map_data.bsp_3d;
 
         // Subsector-level: s23 -> s35
@@ -422,8 +396,8 @@ mod pvs_tests {
     #[test]
     #[ignore = "Requires registered DOOM and Sigil 2"]
     fn test_e6m1_pvs_portal_invariants() {
-        let sigil2 = sigil2_wad_path();
-        let (_map_data, _pvs2d, pvs) = build_full_pvs(&doom_wad_path(), &[sigil2], "E6M1");
+        let sigil2 = PathBuf::from(SIGIL2_WAD);
+        let (_map_data, _pvs2d, pvs) = build_full_pvs(&PathBuf::from(DOOM_WAD), &[sigil2], "E6M1");
 
         let n = pvs.subsector_count();
         assert!(n > 0, "E6M1 must have subsectors");
@@ -464,7 +438,7 @@ mod pvs_tests {
     #[test]
     #[ignore = "Requires registered DOOM and Sunder"]
     fn test_map03_sunder_pvs_portal_invariants() {
-        let sunder = sunder_wad_path();
+        let sunder = PathBuf::from(SUNDER_WAD);
 
         // Pairs from pvs-tool rect_select over the open arena.
         // sector=0: outer open space (ceil=425)
@@ -480,7 +454,7 @@ mod pvs_tests {
             (1307, 1312, "sector=268 → sector=16 cross-sector"),
         ];
 
-        let (_, _, pvs2d) = build_full_pvs(&doom2_wad_path(), &[sunder], "MAP03");
+        let (_, _, pvs2d) = build_full_pvs(&PathBuf::from(DOOM2_WAD), &[sunder], "MAP03");
         let mut failures = 0;
         for &(a, b, label) in can_see_both {
             let ab = pvs2d.is_visible(a, b);
@@ -501,7 +475,7 @@ mod pvs_tests {
     #[test]
     #[ignore = "Requires registered DOOM and Sigil"]
     fn test_e5m1_sigil_pvs_portal_invariants() {
-        let sigil = sigil_wad_path();
+        let sigil = PathBuf::from(SIGIL_WAD);
 
         // Pairs from pvs-tool rect_select over the concentric ring arena.
         // sector=0: outer floor, sector=1: outermost ring, sector=2–4:
@@ -567,7 +541,7 @@ mod pvs_tests {
             (1161, 1368, "ss1161 ↔ ss1368"),
         ];
 
-        let (_, _, pvs2d) = build_full_pvs(&doom_wad_path(), &[sigil], "E5M1");
+        let (_, _, pvs2d) = build_full_pvs(&PathBuf::from(DOOM_WAD), &[sigil], "E5M1");
         let mut failures = 0;
         for &(a, b, label) in can_see {
             let ab = pvs2d.is_visible(a, b);

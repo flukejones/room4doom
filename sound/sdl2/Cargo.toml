@@ -16,3 +16,6 @@ opl2_emulator.workspace = true
 log.workspace = true
 glam.workspace = true
 nanoserde.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

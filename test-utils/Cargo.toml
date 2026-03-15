@@ -1,12 +1,10 @@
 [package]
-name = "wad"
+name = "test-utils"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
-log.workspace = true
-
-[dev-dependencies]
-test-utils.workspace = true
+wad = { path = "../wad" }

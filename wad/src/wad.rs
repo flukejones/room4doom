@@ -393,6 +393,7 @@ mod tests {
     use crate::MapLump;
     use crate::types::WadPatch;
     use crate::wad::WadData;
+    use test_utils::doom1_wad_path;
 
     fn read_file(file_path: PathBuf) -> Vec<u8> {
         let mut file =
@@ -409,13 +410,6 @@ mod tests {
             panic!("Did not read complete WAD")
         }
         file_data
-    }
-
-    fn doom1_wad_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("doom1.wad")
     }
 
     #[test]
