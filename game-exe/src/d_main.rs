@@ -161,31 +161,30 @@ pub(crate) fn d_display<R>(
     }
     let automap_active = false;
 
-    if game.gamestate == GameState::Level && game.game_tic != 0 {
-        if !automap_active {
-            match game.level {
-                Some(ref mut level) => {
-                    if !game.players_in_game[game.consoleplayer] {
-                        return;
-                    }
-                    if game.players[0].mobj().is_none() {
-                        error!("Active console player has no MapObject, can't render player view");
-                        dbg!(game.players[0].mobj());
-                        dbg!(game.players[1].mobj());
-                        dbg!(game.players[2].mobj());
-                        dbg!(game.players[3].mobj());
-                    } else {
-                        let player = &game.players[game.consoleplayer];
-                        render_target.render_player_view(player, level, &mut game.pic_data);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
     match game.gamestate {
         GameState::Level => {
+            if !automap_active {
+                match game.level {
+                    Some(ref mut level) => {
+                        if !game.players_in_game[game.consoleplayer] {
+                            return;
+                        }
+                        if game.players[0].mobj().is_none() {
+                            error!(
+                                "Active console player has no MapObject, can't render player view"
+                            );
+                            dbg!(game.players[0].mobj());
+                            dbg!(game.players[1].mobj());
+                            dbg!(game.players[2].mobj());
+                            dbg!(game.players[3].mobj());
+                        } else {
+                            let player = &game.players[game.consoleplayer];
+                            render_target.render_player_view(player, level, &mut game.pic_data);
+                        }
+                    }
+                    _ => {}
+                }
+            }
             machines.statusbar.draw(render_target.frame_buffer());
             machines.hud_msgs.draw(render_target.frame_buffer());
         }
@@ -204,13 +203,15 @@ pub(crate) fn d_display<R>(
         _ => {}
     }
 
-    menu.draw(render_target.frame_buffer());
-
     if wipe {
         // Overdraw old-frame columns on top of the new scene
         if render_target.do_wipe() {
             game.wipe_game_state = game.gamestate;
+        } else {
         }
+        menu.draw(render_target.frame_buffer());
+    } else {
+        menu.draw(render_target.frame_buffer());
     }
     render_target.flip_and_present();
 }

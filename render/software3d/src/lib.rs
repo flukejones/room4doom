@@ -1,7 +1,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use gameplay::{
-    AABB, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
+    AABB, BSP3D, Level, MapData, PicData, Player, PvsData, Sector, SubSector, SurfaceKind,
+    SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index,
 };
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use render_trait::DrawBuffer;
@@ -1090,12 +1091,7 @@ impl Software3D {
 
         self.update_view_matrix(player);
 
-        let clear = if self.debug.options.wireframe && self.debug.options.clear_colour.is_none() {
-            Some(0xFF1E1E1E)
-        } else {
-            self.debug.options.clear_colour
-        };
-        if let Some(colour) = clear {
+        if let Some(colour) = self.debug.options.clear_colour {
             buffer.buf_mut().fill(colour);
         }
 

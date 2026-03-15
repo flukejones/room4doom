@@ -716,9 +716,6 @@ impl WadBlockMap {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct WadRejectTable(Vec<u8>);
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::fmt::Display;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::channel;
 
 use log::info;
 
-use sound_common::{InitResult, SfxName, SoundAction, SoundServer, SoundServerTic};
+use sound_common::{InitResult, SfxName, SoundServer, SoundServerTic};
 use wad::WadData;
 
 pub use sound_common::{SndServerRx, SndServerTx};

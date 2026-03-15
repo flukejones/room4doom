@@ -375,6 +375,6 @@ impl Software3D {
         let g = ((g1 + m) * 255.0).round().min(255.0) as u8;
         let b = ((b1 + m) * 255.0).round().min(255.0) as u8;
 
-        (r as u32) << 16 | (g as u32) << 8 | b as u32
+        0xFF_00_00_00 | (r as u32) << 16 | (g as u32) << 8 | b as u32
     }
 }

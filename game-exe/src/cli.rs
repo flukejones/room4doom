@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use argh::FromArgs;
 use gameplay::{GameOptions, PreprocessPvsMode, Skill, log};
 use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};

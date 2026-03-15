@@ -102,7 +102,7 @@ where
 }
 
 impl WadData {
-    pub fn patches_iter(&self) -> LumpIter<WadPatch, impl Fn(&Lump) -> WadPatch + '_> {
+    pub fn patches_iter(&'_ self) -> LumpIter<'_, WadPatch, impl Fn(&Lump) -> WadPatch + '_> {
         let mut starts = Vec::new();
         let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate() {
@@ -135,7 +135,7 @@ impl WadData {
         }
     }
 
-    pub fn flats_iter(&self) -> LumpIter<WadFlat, impl Fn(&Lump) -> WadFlat + '_> {
+    pub fn flats_iter(&'_ self) -> LumpIter<'_, WadFlat, impl Fn(&Lump) -> WadFlat> {
         let mut starts = Vec::new();
         let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate().rev() {
@@ -174,7 +174,7 @@ impl WadData {
         }
     }
 
-    pub fn sprites_iter(&self) -> LumpIter<WadPatch, impl Fn(&Lump) -> WadPatch + '_> {
+    pub fn sprites_iter(&'_ self) -> LumpIter<'_, WadPatch, impl Fn(&Lump) -> WadPatch> {
         let mut starts = Vec::new();
         for (i, info) in self.lumps.iter().enumerate().rev() {
             if info.name == "S_START" {
