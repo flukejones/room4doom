@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use log::{debug, info, warn};
 use opl2_emulator::OplPlayerState;
-use rodio::{OutputStream, OutputStreamHandle, Source};
+use rodio::{DeviceSinkBuilder, MixerDeviceSink, Source};
 use sound_common::{
     InitResult, MAX_DIST, MID_ID, MIXER_CHANNELS, MUS_DATA, MUS_ID, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundObject, SoundServer, SoundServerTic, dist_from_points, listener_to_source_angle_deg, read_mus_to_midi
 };
@@ -35,8 +35,7 @@ struct SfxChunk {
 /// Deferred stream initialization data returned by `Snd::new`, created on the
 /// sound thread via `init_stream`.
 struct StreamState {
-    _stream: OutputStream,
-    _handle: OutputStreamHandle,
+    _sink: MixerDeviceSink,
 }
 
 /// Pure-Rust sound server using rodio
@@ -180,26 +179,21 @@ impl Snd {
     }
 
     /// Create the audio output stream. Must be called on the sound thread
-    /// because `OutputStream` is `!Send`.
+    /// because the sink is `!Send`.
     fn init_stream(&mut self) -> Result<(), SndError> {
-        let (stream, handle) =
-            OutputStream::try_default().map_err(|e| SndError::Init(e.to_string()))?;
+        let sink =
+            DeviceSinkBuilder::open_default_sink().map_err(|e| SndError::Init(e.to_string()))?;
 
         let mixer_source = SharedMixerSource {
             mixer: Arc::clone(&self.mixer),
         };
-        handle
-            .play_raw(mixer_source)
-            .map_err(|e| SndError::Init(e.to_string()))?;
+        sink.mixer().add(mixer_source);
 
         let opl_source = OplSource::new(Arc::clone(&self.opl_state));
-        handle
-            .play_raw(opl_source)
-            .map_err(|e| SndError::Init(e.to_string()))?;
+        sink.mixer().add(opl_source);
 
         self.stream = Some(StreamState {
-            _stream: stream,
-            _handle: handle,
+            _sink: sink,
         });
         info!("Audio output stream initialised (rodio/cpal)");
         Ok(())
@@ -235,16 +229,16 @@ impl Iterator for SharedMixerSource {
 }
 
 impl Source for SharedMixerSource {
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
-    fn channels(&self) -> u16 {
-        2
+    fn channels(&self) -> rodio::ChannelCount {
+        rodio::ChannelCount::new(2).unwrap()
     }
 
-    fn sample_rate(&self) -> u32 {
-        SAMPLE_RATE
+    fn sample_rate(&self) -> rodio::SampleRate {
+        rodio::SampleRate::new(SAMPLE_RATE).unwrap()
     }
 
     fn total_duration(&self) -> Option<std::time::Duration> {

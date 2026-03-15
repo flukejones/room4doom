@@ -11,4 +11,4 @@ sound-common.workspace = true
 wad.workspace = true
 log.workspace = true
 opl2_emulator.workspace = true
-rodio = { version = "0.20", default-features = false }
+rodio = { version = "0.22", default-features = false, features = ["playback"] }

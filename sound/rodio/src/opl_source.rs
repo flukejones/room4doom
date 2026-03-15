@@ -60,16 +60,16 @@ impl Iterator for OplSource {
 }
 
 impl Source for OplSource {
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
-    fn channels(&self) -> u16 {
-        2
+    fn channels(&self) -> rodio::ChannelCount {
+        rodio::ChannelCount::new(2).unwrap()
     }
 
-    fn sample_rate(&self) -> u32 {
-        SAMPLE_RATE
+    fn sample_rate(&self) -> rodio::SampleRate {
+        rodio::SampleRate::new(SAMPLE_RATE).unwrap()
     }
 
     fn total_duration(&self) -> Option<Duration> {
