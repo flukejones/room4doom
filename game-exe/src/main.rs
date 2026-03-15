@@ -6,7 +6,7 @@ mod config;
 mod d_main;
 #[cfg(feature = "display-sdl2")]
 mod loop_sdl2;
-#[cfg(feature = "display-softbuffer")]
+#[cfg(any(feature = "display-softbuffer", feature = "display-pixels"))]
 mod loop_winit;
 mod timestep;
 
@@ -122,7 +122,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         run_sdl2(game_options, wad, &user_config, options)?;
     }
 
-    #[cfg(all(feature = "display-softbuffer", not(feature = "display-sdl2")))]
+    #[cfg(all(
+        any(feature = "display-softbuffer", feature = "display-pixels"),
+        not(feature = "display-sdl2")
+    ))]
     {
         run_winit(game_options, wad, &user_config, options)?;
     }
@@ -204,7 +207,10 @@ fn run_sdl2(
     Ok(())
 }
 
-#[cfg(all(feature = "display-softbuffer", not(feature = "display-sdl2")))]
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-pixels"),
+    not(feature = "display-sdl2")
+))]
 fn run_winit(
     game_options: gameplay::GameOptions,
     wad: WadData,
@@ -393,7 +399,10 @@ fn init_sound(
 // ── Sound init (no-SDL2 path) ─────────────────────────────────────────
 
 /// Initialise sound without SDL2 context (winit path).
-#[cfg(all(feature = "sound-rodio", feature = "display-softbuffer"))]
+#[cfg(all(
+    feature = "sound-rodio",
+    any(feature = "display-softbuffer", feature = "display-pixels")
+))]
 fn init_sound_no_sdl(
     wad: &WadData,
     config: &UserConfig,
@@ -403,7 +412,7 @@ fn init_sound_no_sdl(
 
 #[cfg(all(
     not(feature = "sound-rodio"),
-    feature = "display-softbuffer",
+    any(feature = "display-softbuffer", feature = "display-pixels"),
     not(feature = "display-sdl2")
 ))]
 fn init_sound_no_sdl(

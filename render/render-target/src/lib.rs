@@ -15,6 +15,9 @@ mod sdl2_backend;
 #[cfg(feature = "display-softbuffer")]
 mod softbuffer_backend;
 
+#[cfg(feature = "display-pixels")]
+mod pixels_backend;
+
 #[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
     /// Purely software. Typically used with blitting a framebuffer maintained
@@ -39,6 +42,8 @@ pub enum DisplayBackend {
     Sdl2(sdl2_backend::Sdl2Display),
     #[cfg(feature = "display-softbuffer")]
     Softbuffer(softbuffer_backend::SoftbufferDisplay),
+    #[cfg(feature = "display-pixels")]
+    Pixels(pixels_backend::PixelsDisplay),
 }
 
 impl DisplayBackend {
@@ -54,6 +59,12 @@ impl DisplayBackend {
         DisplayBackend::Softbuffer(softbuffer_backend::SoftbufferDisplay::new(window))
     }
 
+    /// Create a pixels (wgpu) display backend from a winit window.
+    #[cfg(feature = "display-pixels")]
+    pub fn new_pixels(window: std::sync::Arc<winit::window::Window>, vsync: bool) -> Self {
+        DisplayBackend::Pixels(pixels_backend::PixelsDisplay::new(window, vsync))
+    }
+
     /// Present the buffer to the screen.
     fn blit(&mut self, buffer: &DrawBuffer) {
         match self {
@@ -61,6 +72,8 @@ impl DisplayBackend {
             DisplayBackend::Sdl2(d) => d.blit(buffer),
             #[cfg(feature = "display-softbuffer")]
             DisplayBackend::Softbuffer(d) => d.blit(buffer),
+            #[cfg(feature = "display-pixels")]
+            DisplayBackend::Pixels(d) => d.blit(buffer),
         }
     }
 
@@ -71,6 +84,8 @@ impl DisplayBackend {
             DisplayBackend::Sdl2(d) => d.window_size(),
             #[cfg(feature = "display-softbuffer")]
             DisplayBackend::Softbuffer(d) => d.window_size(),
+            #[cfg(feature = "display-pixels")]
+            DisplayBackend::Pixels(d) => d.window_size(),
         }
     }
 }

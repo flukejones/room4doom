@@ -62,6 +62,7 @@ software25d = { path = "./render/software25d" }
 map-data = { path = "./map-data" }
 
 winit = "0.30"
+pixels = "0.15"
 softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "madsmtm/iosurface" }
 coarse-prof = "0.2"
 glam = "*"

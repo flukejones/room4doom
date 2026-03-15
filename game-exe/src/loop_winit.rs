@@ -27,6 +27,17 @@ use crate::timestep::TimeStep;
 
 use finale_doom::Finale;
 
+/// Create the appropriate display backend for the active feature.
+#[cfg(feature = "display-pixels")]
+fn new_display_backend(window: Arc<Window>, vsync: bool) -> DisplayBackend {
+    DisplayBackend::new_pixels(window, vsync)
+}
+
+#[cfg(all(feature = "display-softbuffer", not(feature = "display-pixels")))]
+fn new_display_backend(window: Arc<Window>, _vsync: bool) -> DisplayBackend {
+    DisplayBackend::new_softbuffer(window)
+}
+
 /// All game state owned by the winit event loop.
 pub struct DoomApp {
     game: Game,
@@ -177,7 +188,11 @@ impl ApplicationHandler for DoomApp {
             .expect("failed to grab cursor");
 
         let vsync = self.options.vsync.unwrap_or(true);
-        if vsync {
+        // With the pixels (wgpu) backend, vsync is handled by the GPU present
+        // mode — wgpu blocks in render() until vblank. Adding a winit-level
+        // frame interval on top double-throttles and can cause white frames.
+        let use_winit_interval = vsync && !cfg!(feature = "display-pixels");
+        if use_winit_interval {
             let monitor = window
                 .current_monitor()
                 .or_else(|| event_loop.primary_monitor())
@@ -193,12 +208,15 @@ impl ApplicationHandler for DoomApp {
             );
             self.frame_interval = Some(interval);
             self.next_frame = Instant::now();
+        } else if vsync {
+            info!("vsync: GPU present mode (pixels/wgpu)");
+            self.frame_interval = None;
         } else {
             info!("vsync disabled, uncapped frame rate");
             self.frame_interval = None;
         }
 
-        let display = DisplayBackend::new_softbuffer(window.clone());
+        let display = new_display_backend(window.clone(), self.options.vsync.unwrap_or(true));
 
         set_lookdirs(&self.options);
         let render_target = RenderTarget::new(
@@ -279,7 +297,8 @@ impl ApplicationHandler for DoomApp {
             }
             WindowEvent::Resized(_) => {
                 if let Some(window) = &self.window {
-                    let display = DisplayBackend::new_softbuffer(window.clone());
+                    let display =
+                        new_display_backend(window.clone(), self.options.vsync.unwrap_or(true));
                     set_lookdirs(&self.options);
                     let rt = RenderTarget::new(
                         self.options.hi_res.unwrap_or(true),
