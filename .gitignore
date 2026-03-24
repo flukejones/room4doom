@@ -1,0 +1,75 @@
+# ==========================================
+# Comprehensive Gitignore (MacOS, Rust, Android, Swift, AI)
+# ==========================================
+
+build
+.flatpak-builder
+SDL2.dll
+cargo-sources.json
+sound/sdl2/tmp.mid
+**/xcuserdata/`
+game-exe/room4doom.xcodeproj/xcuserdata/
+rs_game_framework.iml
+rs_game_framework.iws
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Swift / iOS / macOS App
+.build/
+.swiftpm/
+xcuserdata/
+*.xcworkspace
+*.xcscmblueprint
+!default.xcscmblueprint
+
+# Android / Kotlin / Java
+*.apk
+*.aab
+*.aar
+*.jar
+*.ap_
+*.dex
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+
+# IDEs & Tools
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# AI Agents & Local AI Tools (Claude Code, ChatGPT/Cursor, Cline)
+.claude/
+.cline/
+.cursor/
+/chats/
+*.session
+*.log
+
+# Environment & Keys
+.env
+.env.local
+.env.*.local
+secrets.json
+
+# Dependencies
+node_modules/
+/vendor/

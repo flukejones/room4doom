@@ -1,0 +1,15 @@
+[package]
+name = "wad-tool"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "wad-tool"
+path = "src/main.rs"
+
+[dependencies]
+wad.workspace = true
+argh.workspace = true
+serde_json.workspace = true

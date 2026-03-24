@@ -1,0 +1,15 @@
+[package]
+name = "sound-rodio"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../../build.rs"
+
+[dependencies]
+sound-common.workspace = true
+wad.workspace = true
+log.workspace = true
+opl2_emulator.workspace = true
+rodio = { version = "0.22", default-features = false, features = ["playback"] }
+rustysynth = "1.3"

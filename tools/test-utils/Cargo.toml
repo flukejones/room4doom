@@ -1,0 +1,12 @@
+[package]
+name = "test-utils"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+dirs.workspace = true
+level.workspace = true
+wad.workspace = true
