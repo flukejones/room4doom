@@ -1,0 +1,49 @@
+image: rustlang/rust:nightly
+
+.rust_cache: &rust_cache
+  cache:
+    paths:
+      - .cargo/
+      - target/
+
+before_script:
+  - apt-get update -qq && apt install -y libsdl2-dev libsdl2-gfx-dev libsdl2-mixer-dev cmake
+
+stages:
+  - check
+  - test
+  - deploy
+
+test:
+  <<: *rust_cache
+  script:
+    - cargo test --verbose --all
+
+check:
+  <<: *rust_cache
+  script:
+    - rustup component add clippy
+    - rustup component add rustfmt
+    - cargo fmt --all -- --check
+    - cargo check --verbose --all
+
+#clippy:
+#  <<: *rust_cache
+#  script:
+#    - rustup component add clippy
+#    - cargo clippy --all
+
+pages:
+  image: rust:latest
+  stage: deploy
+  only:
+    - main
+  script:
+    - cargo doc --document-private-items --no-deps --workspace
+    - rm -rf public
+    - mkdir public
+    - cp -R target/doc/* public
+    - cp misc/index.html public
+  artifacts:
+    paths:
+      - public

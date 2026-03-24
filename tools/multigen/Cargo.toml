@@ -1,0 +1,12 @@
+[package]
+name = "multigen"
+version = "0.0.1"
+authors = ["Luke Jones <luke@ljones.dev>"]
+edition = "2024"
+
+[[bin]]
+name = "multigen"
+path = "src/main.rs"
+
+[dependencies]
+argh.workspace = true

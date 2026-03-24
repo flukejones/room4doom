@@ -1,0 +1,118 @@
+[workspace]
+members = [
+    "tools/test-utils",
+    "wad",
+    "game-exe",
+    "gameplay",
+    "gamestate",
+    "gamestate-traits",
+    "ui",
+    "input",
+    "math",
+    "render/backend",
+    "render/common",
+    "render/software25d",
+    "render/software3d",
+    "tools/voxel-viewer",
+    "sound/traits",
+    "sound/sdl2",
+    "sound/nosnd",
+    "sound/rodio",
+    "sound/opl2_emulator",
+    "level",
+    "tools/bsp-viewer",
+    "tools/wad-tool",
+    "tools/multigen",
+    "tools/rbsp",
+    "ui-util",
+    "game-config",
+    "pic-data",
+]
+default-members = ["game-exe"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Luke Jones <luke@ljones.dev>"]
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.94"
+license = "MIT"
+
+[workspace.dependencies]
+test-utils = { path = "./tools/test-utils" }
+wad = { path = "./wad" }
+input = { path = "./input" }
+math = { path = "./math" }
+game-config = { path = "./game-config" }
+gameplay = { path = "./gameplay" }
+pic-data = { path = "./pic-data" }
+gamestate = { path = "./gamestate" }
+gamestate-traits = { path = "./gamestate-traits" }
+doom-ui = { path = "./ui" }
+hud-util = { path = "./ui-util" }
+
+sound-common = { path = "./sound/traits" }
+sound-sdl2 = { path = "./sound/sdl2" }
+sound-nosnd = { path = "./sound/nosnd" }
+sound-rodio = { path = "./sound/rodio" }
+opl2_emulator = { path = "./sound/opl2_emulator" }
+render-common = { path = "./render/common" }
+render-backend = { path = "./render/backend" }
+software3d = { path = "./render/software3d" }
+software25d = { path = "./render/software25d" }
+level = { path = "./level" }
+rbsp = { path = "./tools/rbsp" }
+
+winit = "0.30"
+pixels = "0.15"
+softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "madsmtm/iosurface" }
+coarse-prof = "0.2"
+glam = "*"
+sdl2 = { version = "0.38", features = [
+    "use_mac_framework",
+    "unsafe_textures",
+] }
+
+argh = "0.1.12"
+eframe = "0.31"
+egui = "0.31"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+bincode = "1.0"
+crc32fast = "1.3"
+bitflags = "2"
+
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+log = { version = "*" }
+simplelog = { version = "*" }
+criterion = { version = "0.5", features = ["html_reports"] }
+dirs = "~5.0"
+nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
+    "ron",
+] }
+
+#[workspace.dependencies.cargo-husky]
+#version = "1"
+#default-features = false
+#features = ["user-hooks"]
+
+[profile.release]
+lto = true
+debug = false
+opt-level = 3
+panic = "abort"
+strip = true
+codegen-units = 1
+
+[profile.dev]
+debug = true
+opt-level = 2
+codegen-units = 1
+
+[profile.bench]
+lto = true
+debug = true
+opt-level = 3
+codegen-units = 1

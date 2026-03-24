@@ -1,0 +1,166 @@
+use argh::FromArgs;
+use game_config::{GameOptions, Skill};
+use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};
+
+use crate::config::{self, MusicType, WindowMode};
+
+fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
+    let mut opts = DebugDrawOptions::default();
+    for token in input.split(',') {
+        let token = token.trim();
+        if token == "outline" {
+            opts.outline = true;
+        } else if token == "normals" {
+            opts.normals = true;
+        } else if token == "no_depth" {
+            opts.no_depth = true;
+        } else if let Some(hex) = token.strip_prefix("clear_") {
+            opts.clear_colour = parse_hex_colour(hex);
+        } else if let Some(val) = token.strip_prefix("alpha_") {
+            opts.alpha = val.parse().ok();
+        }
+    }
+    opts
+}
+
+fn parse_hex_colour(hex: &str) -> Option<u32> {
+    let s = hex.strip_prefix('#').unwrap_or(hex);
+    if s.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&s[0..2], 16).ok()? as u32;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()? as u32;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()? as u32;
+    Some(0xFF_00_00_00 | (r << 16) | (g << 8) | b)
+}
+
+/// CLI options for the game-exe
+#[derive(Debug, Clone, FromArgs)]
+pub struct CLIOptions {
+    /// verbose level: off, error, warn, info, debug
+    #[argh(option, short = 'v')]
+    pub verbose: Option<log::LevelFilter>,
+    /// path to game-exe WAD
+    #[argh(option, default = "Default::default()", short = 'i')]
+    pub iwad: String,
+    /// path to patch WAD
+    #[argh(option, short = 'p')]
+    pub pwad: Vec<String>,
+    /// resolution width in pixels
+    #[argh(option, default = "0", short = 'w')]
+    pub width: u32,
+    /// resolution height in pixels
+    #[argh(option, default = "0", short = 'h')]
+    pub height: u32,
+    /// window mode: windowed, borderless, exclusive
+    #[argh(option, short = 'f')]
+    pub window_mode: Option<WindowMode>,
+    /// enable vsync (true/false)
+    #[argh(option)]
+    pub vsync: Option<bool>,
+    /// refresh rate in Hz for exclusive fullscreen (e.g. 60, 144)
+    #[argh(option, default = "0")]
+    pub refresh_rate: u32,
+    /// set hi-res mode for software rendering (true/false)
+    #[argh(option, short = 'H')]
+    pub hi_res: Option<bool>,
+    /// disable monsters
+    #[argh(switch, short = 'n')]
+    pub no_monsters: bool,
+    // /// Monsters respawn after being killed
+    // pub respawn_parm: bool,
+    // /// Monsters move faster
+    // pub fast_parm: bool,
+    /// developer mode. Screen is cleared with green colour for seg/flat drawing
+    /// leak checks
+    #[argh(switch)]
+    pub dev_parm: bool,
+    //     help = "Start a deathmatch game-exe: 1 = classic, 2 = Start a deathmatch 2.0 game-exe.
+    // Weapons do not stay in place and all items respawn after 30 seconds" pub deathmatch: u8,
+    // pub autostart: bool,
+    /// set the game-exe skill, 0-4 (0: easiest, 4: hardest)
+    #[argh(option, short = 's')]
+    pub skill: Option<Skill>,
+    /// select episode
+    #[argh(option, short = 'e')]
+    pub episode: Option<usize>,
+    /// select level in episode. If Doom II the episode is ignored
+    #[argh(option, short = 'm')]
+    pub map: Option<usize>,
+    /// rendering type <software, software3d, softopengl>
+    #[argh(option, short = 'r')]
+    pub rendering: Option<config::RenderType>,
+    /// music type <fluidsynth, timidity, opl2(default)>
+    #[argh(option, short = 'M')]
+    pub music_type: Option<MusicType>,
+    /// play this demo lump name immediately and exit when done (e.g. demo1,
+    /// demo2)
+    #[argh(option)]
+    pub demo: Option<String>,
+    /// enable frame interpolation for smooth rendering between tics
+    /// (true/false)
+    #[argh(option)]
+    pub frame_interpolation: Option<bool>,
+    /// debug overlay mode (mutually exclusive): sector_id, depth, overdraw,
+    /// wireframe
+    #[argh(option)]
+    pub dbg_draw_overlay: Option<DebugOverlay>,
+    /// debug draw modifiers (comma-separated): outline, normals, clear_<hex>,
+    /// alpha_<0-255>, no_depth
+    #[argh(option)]
+    pub dbg_draw_mod: Option<String>,
+    /// path to voxel directory or PK3 archive containing KVX files
+    #[argh(option)]
+    pub voxels: Option<String>,
+    /// enable CRT phosphor gamma correction (true/false)
+    #[argh(option)]
+    pub crt_gamma: Option<bool>,
+}
+
+impl CLIOptions {
+    pub fn debug_draw(&self) -> DebugDrawOptions {
+        let mut opts = self
+            .dbg_draw_mod
+            .as_deref()
+            .map(parse_debug_draw_mod)
+            .unwrap_or_default();
+
+        match self
+            .dbg_draw_overlay
+            .as_ref()
+            .unwrap_or(&DebugOverlay::None)
+        {
+            DebugOverlay::None => {}
+            DebugOverlay::SectorId => opts.colour_mode = DebugColourMode::SectorId,
+            DebugOverlay::Depth => opts.colour_mode = DebugColourMode::Depth,
+            DebugOverlay::Overdraw => opts.colour_mode = DebugColourMode::Overdraw,
+            DebugOverlay::Wireframe => opts.wireframe = true,
+        }
+
+        opts
+    }
+}
+
+impl From<CLIOptions> for GameOptions {
+    fn from(g: CLIOptions) -> Self {
+        GameOptions {
+            iwad: g.iwad,
+            pwad: g.pwad,
+            no_monsters: g.no_monsters,
+            dev_parm: g.dev_parm,
+            skill: g.skill.unwrap_or_default(),
+            episode: g.episode.unwrap_or_default(),
+            map: g.map.unwrap_or_default(),
+            warp: g.map.is_some() || g.episode.is_some(),
+            hi_res: g.hi_res.unwrap_or(true),
+            verbose: g.verbose.unwrap_or(log::LevelFilter::Warn),
+            respawn_parm: false,
+            respawn_monsters: false,
+            fast_parm: false,
+            deathmatch: 0,
+            autostart: false,
+            demo: g.demo,
+            netgame: false,
+        }
+    }
+}

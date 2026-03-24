@@ -1,0 +1,18 @@
+[package]
+name = "pic-data"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+safety_check = []
+
+[dependencies]
+game-config.workspace = true
+log.workspace = true
+wad.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

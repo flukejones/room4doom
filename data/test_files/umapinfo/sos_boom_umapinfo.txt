@@ -1,0 +1,266 @@
+// UMAPINFO for TH1RT3EN
+
+map MAP01
+{
+	LevelName = "Funeralopolis"
+	levelpic = "CWILV00"
+}
+
+map MAP02
+{
+	LevelName = "Script of Decay"
+	levelpic = "CWILV01"
+}
+
+map MAP03
+{
+	LevelName = "The More You Know"
+	levelpic = "CWILV02"
+}
+
+map MAP04
+{
+	LevelName = "Meltdown Madness"
+	levelpic = "CWILV03"
+	skytexture = "04sky"
+}
+
+map MAP05
+{
+	LevelName = "Premonition of Hostility"
+	levelpic = "CWILV04"
+}
+
+map MAP06
+{
+	LevelName = "Take a Plunge"
+	levelpic = "CWILV05"
+}
+
+map MAP07
+{
+	LevelName = "Cenotaph"
+	levelpic = "CWILV06"
+}
+
+map MAP08
+{
+	LevelName = "The Ultra Sector"
+	levelpic = "CWILV07"
+}
+
+map MAP09
+{
+	LevelName = "Morumotto"
+	levelpic = "CWILV08"
+}
+
+map MAP10
+{
+	LevelName = "Slaywatch"
+	levelpic = "CWILV09"
+}
+
+map MAP11
+{
+	LevelName = "The End is Purple"
+	levelpic = "CWILV10"
+	InterText = "You've won, it's over. You've stopped the invasion, and the",
+				"end was purple. Time to go home and wash the sand out of your",
+				"pants.",
+				"",
+				"But... not really though. You should've known better.",
+				"Through demonic means the hordes of hell have extended summer.",
+				"indefinitely. The tides are rising, and the air smells like gas!",
+				"",
+				"Wait. No, actually, those aren't demons. That's an oil rig. My bad.",
+				"",
+				"Y'know, spending all this time at the beach, I've been wondering...",
+				"Do demons invade the ocean too? What business would they have with",
+				"fishes? Is that where the invasion began? Have there always been",
+				"sea demons lurking about at the bottom of the unexplorable",
+				"depths of aquatic doom? Where the FUCK is my tanning lotion?!?",
+				"",
+				"Find out all that, and MORE! In episode two of the",
+				"Summer of Slaughter: THE SHORES...!"
+	InterBackdrop = "OSANDA01"
+}
+
+map MAP12
+{
+	LevelName = "Lightning over the Beyond"
+	levelpic = "CWILV11"
+}
+
+map MAP13
+{
+	LevelName = "Broodgate"
+	levelpic = "CWILV12"
+}
+
+map MAP14
+{
+	LevelName = "The Forgotten Offering"
+	levelpic = "CWILV13"
+}
+
+map MAP15
+{
+	LevelName = "Crimson Affinity"
+	NextSecret = "Map43"
+	levelpic = "CWILV14"
+}
+
+map MAP16
+{
+	LevelName = "Thou Art in Heaven"
+	levelpic = "CWILV15"
+}
+
+map MAP17
+{
+	LevelName = "Caco Machine"
+	levelpic = "CWILV16"
+}
+
+map MAP18
+{
+	LevelName = "Divine Escalation"
+	levelpic = "CWILV17"
+}
+
+map MAP19
+{
+	LevelName = "Monodie"
+	levelpic = "CWILV18"
+}
+
+map MAP20
+{
+	LevelName = "Colors of NRG"
+	levelpic = "CWILV19"
+}
+
+map MAP21
+{
+	LevelName = "From the Canyons to the Stars"
+	InterText = "I don't like staying at the beach for extended periods",
+	"of time. I usually get nightmares that a gargatuan tidal",
+	"wave that makes mountains look like ants will come rushing",
+	"in on me while I'm trying to enjoy the sand.",
+	"",
+	"Sand is the best part of the beach, really. I tend to enjoy",
+	"my beach time splatting about in the wet sand plumping it",
+	"onto my body like I'm some poor shapeshifter with a bad case",
+	"of 'the chunks...'",
+	"",
+	"Some things are best left to the imagination.",
+	"Like shit hitting the fan.",
+	"",
+	"Speaking of, shit is about to hit the fan!",
+	"",
+	"Welcome to episode three!",
+	"Thy Tan... RESUMED!!!"
+	InterBackdrop = "OBLODA01"
+	levelpic = "CWILV20"
+}
+
+map MAP22
+{
+	LevelName = "Chaos Lab II"
+	levelpic = "CWILV21"
+}
+
+map MAP23
+{
+	LevelName = "death.digital"
+	levelpic = "CWILV22"
+}
+
+map MAP24
+{
+	LevelName = "Joy of the Blood of the Stars"
+	levelpic = "CWILV23"
+}
+
+map MAP25
+{
+	LevelName = "The Chaosphere"
+	levelpic = "CWILV24"
+}
+map MAP26
+{
+	LevelName = "Slaughter Incorpserated"
+	levelpic = "CWILV25"
+}
+
+map MAP27
+{
+	LevelName = "Summer of Resistance"
+	NextSecret = "Map45"
+	levelpic = "CWILV26"
+}
+
+map MAP28
+{
+	LevelName = "Cosmo-Carousel"
+	levelpic = "CWILV27"
+}
+map MAP29
+{
+	LevelName = "Library of Babel"
+	levelpic = "CWILV28"
+}
+
+map MAP30
+{
+	LevelName = "Boom Telefrag Beach"
+	next = "Map31"
+	levelpic = "CWILV29"
+}
+
+map MAP31
+{
+	LevelName = "Godhood Cathedral"
+	next = "Map32"
+	levelpic = "CWILV29"
+}
+
+map MAP32
+{
+	LevelName = "No Living Land"
+	levelpic = "CWILV30"
+	next = "Map33"
+}
+
+map MAP33
+{
+	LevelName = "LOWTIDE"
+	levelpic = "CWILV31"
+}
+
+map MAP43
+{
+	LevelName = "Basement"
+	next = "Map16"
+	music = "43MUS"
+	levelpic = "CWILV42"
+}
+
+map MAP45
+{
+	LevelName = "Godfall"
+	next = "Map28"
+	NextSecret = "Map46"
+	music = "45MUS"
+	levelpic = "CWILV44"
+}
+
+map MAP46
+{
+	LevelName = "Clandestine Sandcastle Smashing"
+	next = "Map28"
+	music = "46MUS"
+	levelpic = "CWILV45"
+	skytexture = "46sky"
+}

@@ -1,0 +1,135 @@
+
+From B. (Bernd.Kreimeier@nero.uni-bonn.de), 1995
+
+The following savegame info applies to DOOM 1.2. Perhaps only the
+new shotgun data had been added in the weapons section. Dunno how
+MAPxx vs. ExMx is handled.
+
+
+In 1994, I had a quick check on the offsets in doomsged.pas, which was 
+written by Nelson Fernandez Jr. (nelson@netcom.com). I found
+two minor errors, but the offsets he is using are mostly correct:
+
+Each player is described by a record of 276 bytes. Thus DSG
+header size is (4*276) bytes for 4 player netgame. Some header
+information is included only in the first record:
+
+0x00 the savegame name, string (filled with zero if less then 24 byte)
+0x18  version, as "version 102" (missing some upgrades...)
+
+0x28 byte, 0-4, skill
+0x29 byte, 1-3, episode
+0x2a byte, 1-9, level
+
+0x2b	// byte, should be flag for player0, always 1 ?
+0x2c	// byte, player1 flag, 0 or 1
+0x2d	// byte, player2 flag, 0 or 1 
+0x2e	// byte, player3 flag, 0 or 1
+
+
+For each player, the following offsets to the base player_num*276
+(player_num = 0,1,2 or 3) I've checked:
+
+0x52  current health, dword, 1-199
+0x56  current armor,  dword, 
+
+0x5e  remaining time for PINV, dword
+0x62   dito, PSTR, dword
+0x66  PINS
+0x6a  SUIT
+
+0x6e  PMAP (computer map) dword, 0-1 flag
+
+0x72  PVIS, remaining time again; dword
+0x76  BKEY, dword, 0 or 1
+0x7a  YKEY
+0x7e  RKEY  (haven't checked each key)
+0x82  BSKU
+0x86  YSKU
+0x8a  RSKU
+
+0xae  pistol availability flag, dword, 0 or 1
+0xb2  shotgun
+0xb6  chaingun
+0xba  rocket launcher
+0xbe  plasma rifle
+0xc2  BFG9000
+0xc6  Chainsaw   (all those weren't completely right in doomsged.pas)
+
+??? new shotgun somewhere here ???
+
+0xca current amount of bullets, dword, 0-0xFFFFFFFF
+0xce shells
+0xd2 rockets
+0xd6 cells
+
+0xda current maximum amount of bullets the player may carry
+0xde shells
+0xe2 rockets
+0xe6 cells  (all these are used instead of a backpack flag...)
+
+0xf2 cheat modes, dword, several bits
+		NOCLIP_FLAG = 0x01;	// idspispopd
+		GOD_FLAG    = 0x02;	// iddqd
+		SLOW_FLAG   = 0x04;	// crawl mode, not tested yet
+
+0x10e colorshift, dword, 0-0xFFFFFFFF, known as "Acid" or "Freak" Mode,
+		have seen it (as well as the crawl Mode) with other
+		Savegame edits.  The DOOMSGED author states:
+		
+  >>There used to be an AcidWarp function that would let you play while the
+  game cycled colors. I think this may have been a function to be used
+  originally by 24-bit true color cards. I named it AcidWarp because it 
+  was phsychedelic!<<
+
+Remarks: automap state (map on/off, follow on/off, grid on/off, as
+well as iddt, iddtiddt) aren't in the DSG.
+
+It seems at offset 0x30/0060  there's a timer. Might be
+"Time sucks" counter.  Haven't looked at the time scale,
+which should be identical to power-up expiration.
+DOOMSGED is based on the assumption that  90 minutes
+are equivalent to 0xFFFFFFFF  *or* 0xFFFFFF (dunno which,
+haven't bothered to examine the source that close). I'm not
+convinced.
+
+Offset 0x32 seems to be different for the same map,
+dependend on skill & nomonster == number of things?
+Based on the DSF file size for same map, different skills,
+Matt Fell concluded DOOM uses 151 bytes/thing. Thus there is
+obviously more information here than in the THINGS resource.
+
+Note that angle and position of player aren't within the
+276 bytes record. He's probably treated as any other
+thing in that aspect. Haven't seen current weapon either,
+should be within the first 276 bytes as well.
+
+Offset 0340, perhaps a counter?
+
+
+Not found:
+
+ - doors, switches, elevators, stairs, crushers, light levels
+ - item picked/available
+ - projectiles/teleport fog/respawn fog
+ - current state of thing (animation/damage)
+ - lindefs seen on automap
+ - items/kills gained counter (if any)
+  
+
+Failsafe procedure to get rid of the "savegame buffer overflow":
+
+a)  S = Savegame buffer size = 64 KB (?).
+b)    minus NH = 4*267 bytes for 4 player netgame header.
+c)    minus ES = DSG size using an emtpy THING resource
+       (includes required player starts only)
+      plus 276 (single player header)
+d)  (S - NH - ES + 276)/ 151 == NoOf_Things still available.
+e)  Now add at max NoOf_Things things to your map.
+
+Remember the number of things might increase (projectiles, MAP30).
+
+Beware: haven't checked this since 1.2, no warranty :-).
+
+
+

@@ -1,0 +1,103 @@
+// UMAPINFO for SIGIL
+
+map E5M1
+{
+	LevelName = "Baphomet's Demesne"
+	LevelPic = "WILV40"
+	Next = "E5M2"
+	Music = "D_E5M1"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+	Episode = "M_EPI5", "SIGIL", "S"
+}
+
+map E5M2
+{
+	LevelName = "Sheol"
+	LevelPic = "WILV41"
+	Next = "E5M3"
+	Music = "D_E5M2"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M3
+{
+	LevelName = "Cages of the Damned"
+	LevelPic = "WILV42"
+	Next = "E5M4"
+	Music = "D_E5M3"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M4
+{
+	LevelName = "Paths of Wretchedness"
+	LevelPic = "WILV43"
+	Next = "E5M5"
+	Music = "D_E5M4"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M5
+{
+	LevelName = "Abaddon's Void"
+	LevelPic = "WILV44"
+	Next = "E5M6"
+	Music = "D_E5M5"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M6
+{
+	LevelName = "Unspeakable Persecution"
+	LevelPic = "WILV45"
+	Next = "E5M7"
+	NextSecret = "E5M9"
+	Music = "D_E5M6"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M7
+{
+	LevelName = "Nightmare Underworld"
+	LevelPic = "WILV46"
+	Next = "E5M8"
+	Music = "D_E5M7"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M8
+{
+	LevelName = "Halls of Perdition"
+	LevelPic = "WILV47"
+	EndPic = "CREDIT"
+	InterText = "Baphomet was only doing Satan's bidding",
+				"by bringing you back to Hell. Somehow they",
+				"didn't understand that you're the reason",
+				"they failed in the first place.",
+				"",
+				"After mopping up the place with your",
+				"arsenal, you're ready to face the more",
+				"advanced demons that were sent to Earth.",
+				"",
+				"Lock and load. Rip and tear."
+	Music = "D_E5M8"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}
+
+map E5M9
+{
+	LevelName = "Realm of Iblis"
+	LevelPic = "WILV48"
+	Next = "E5M7"
+	Music = "D_E5M9"
+	SkyTexture = "SKY5"
+	ExitPic = "SIGILINT"
+}

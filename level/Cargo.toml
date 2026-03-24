@@ -1,0 +1,24 @@
+[package]
+name = "level"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../build.rs"
+
+[features]
+null_check = []
+hprof = []
+
+[dependencies]
+coarse-prof.workspace = true
+game-config.workspace = true
+math.workspace = true
+wad.workspace = true
+rbsp.workspace = true
+glam.workspace = true
+log.workspace = true
+bitflags.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

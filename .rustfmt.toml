@@ -1,0 +1,18 @@
+max_width = 100
+wrap_comments = true
+imports_granularity = "Module"
+reorder_imports = true
+reorder_modules = true
+use_field_init_shorthand = true
+remove_nested_parens = true
+edition = "2024"
+format_code_in_doc_comments = true
+condense_wildcard_suffixes=true
+#fn_params_layout="Vertical"
+hex_literal_case="Upper"
+struct_lit_width = 0
+ignore = [
+    "gameplay/src/info.rs",
+]
+imports_layout="Horizontal"
+indent_style="Block"

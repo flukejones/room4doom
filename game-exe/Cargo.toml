@@ -1,0 +1,67 @@
+[package]
+name = "room4doom"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../build.rs"
+default-run = "room4doom"
+
+[[bin]]
+name = "room4doom"
+path = "src/main.rs"
+
+[features]
+default = ["trig_lut", "sound-rodio", "display-pixels"]
+
+hprof = ["render-backend/hprof", "gameplay/hprof"]
+render_stats = ["render-backend/render_stats"]
+
+fixed64 = ["math/fixed64", "gameplay/fixed64"]
+fixed64hd = ["math/fixed64hd", "gameplay/fixed64hd"]
+trig_lut = ["render-backend/trig_lut", "math/trig_lut"]
+
+sound-sdl2 = ["dep:sound-sdl2", "dep:sdl2"]
+sound-rodio = ["dep:sound-rodio"]
+
+display-sdl2 = ["render-backend/display-sdl2", "input/input-sdl2", "dep:sdl2"]
+display-softbuffer = ["render-backend/display-softbuffer", "input/input-winit", "dep:winit"]
+display-pixels = ["render-backend/display-pixels", "input/input-winit", "dep:winit", "dep:pixels"]
+
+[dependencies]
+mimalloc = "0.1.43"
+
+argh.workspace = true
+game-config.workspace = true
+input.workspace = true
+doom-ui.workspace = true
+gameplay.workspace = true
+level.workspace = true
+pic-data.workspace = true
+gamestate.workspace = true
+math.workspace = true
+gamestate-traits.workspace = true
+log.workspace = true
+glam.workspace = true
+
+hud-util.workspace = true
+
+sound-common.workspace = true
+sound-sdl2 = { workspace = true, optional = true }
+sound-rodio = { workspace = true, optional = true }
+sound-nosnd.workspace = true
+render-common.workspace = true
+render-backend.workspace = true
+software3d.workspace = true
+sdl2 = { workspace = true, optional = true }
+winit = { workspace = true, optional = true }
+pixels = { workspace = true, optional = true }
+wad.workspace = true
+# utility deps
+simplelog.workspace = true
+dirs.workspace = true
+nanoserde.workspace = true
+coarse-prof.workspace = true
+
+#[dev-dependencies]
+#cargo-husky.workspace = true

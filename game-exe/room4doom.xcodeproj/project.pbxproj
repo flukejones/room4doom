@@ -1,0 +1,213 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 53;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CA006C30D304C90DC7A18746 /* Cargo.toml in Sources */ = {isa = PBXBuildFile; fileRef = CAF90A1CAC283EF4668187A5 /* Cargo.toml */; settings = {COMPILER_FLAGS = "--bin 'room4doom'"; }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		CAF40A1CAC28AC6C1400ACA8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			dependencyFile = "$(DERIVED_FILE_DIR)/$(ARCHS)-$(EXECUTABLE_NAME).d";
+			filePatterns = "*/Cargo.toml";
+			fileType = pattern.proxy;
+			inputFiles = (
+				"$(SRCROOT)/../Cargo.lock",
+				"$(SRCROOT)/src",
+			);
+			isEditable = 0;
+			name = "Cargo project build";
+			outputFiles = (
+				"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)",
+			);
+			runOncePerArchitecture = 0;
+			script = "# generated with cargo-xcode 1.11.0\nset -euo pipefail;\nexport PATH=\"$HOME/.cargo/bin:$PATH:/usr/local/bin:/opt/homebrew/bin\";\n# don't use ios/watchos linker for build scripts and proc macros\nexport CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/ld\nexport CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=/usr/bin/ld\nexport NO_COLOR=1\nexport TERM=dumb\n\n# in your build env or Xcode script\nexport CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang\nexport CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=/usr/bin/clang\n\ncase \"$PLATFORM_NAME\" in\n \"macosx\")\n  CARGO_XCODE_TARGET_OS=darwin\n  if [ \"${IS_MACCATALYST-NO}\" = YES ]; then\n   CARGO_XCODE_TARGET_OS=ios-macabi\n  fi\n  ;;\n \"iphoneos\") CARGO_XCODE_TARGET_OS=ios ;;\n \"iphonesimulator\") CARGO_XCODE_TARGET_OS=ios-sim ;;\n \"appletvos\" | \"appletvsimulator\") CARGO_XCODE_TARGET_OS=tvos ;;\n \"watchos\") CARGO_XCODE_TARGET_OS=watchos ;;\n \"watchsimulator\") CARGO_XCODE_TARGET_OS=watchos-sim ;;\n \"xros\") CARGO_XCODE_TARGET_OS=visionos ;;\n \"xrsimulator\") CARGO_XCODE_TARGET_OS=visionos-sim ;;\n *)\n  CARGO_XCODE_TARGET_OS=\"$PLATFORM_NAME\"\n  echo >&2 \"warning: cargo-xcode needs to be updated to handle $PLATFORM_NAME\"\n  ;;\nesac\n\nCARGO_XCODE_TARGET_TRIPLES=\"\"\nCARGO_XCODE_TARGET_FLAGS=\"\"\nLIPO_ARGS=\"\"\nfor arch in $ARCHS; do\n if [[ \"$arch\" == \"arm64\" ]]; then arch=aarch64; fi\n if [[ \"$arch\" == \"i386\" && \"$CARGO_XCODE_TARGET_OS\" != \"ios\" ]]; then arch=i686; fi\n triple=\"${arch}-apple-$CARGO_XCODE_TARGET_OS\"\n CARGO_XCODE_TARGET_TRIPLES+=\" $triple\"\n CARGO_XCODE_TARGET_FLAGS+=\" --target=$triple\"\n LIPO_ARGS+=\"$CARGO_TARGET_DIR/$triple/$CARGO_XCODE_BUILD_PROFILE/$CARGO_XCODE_CARGO_FILE_NAME\n\"\ndone\n\necho >&2 \"Cargo $CARGO_XCODE_BUILD_PROFILE $ACTION for $PLATFORM_NAME $ARCHS =$CARGO_XCODE_TARGET_TRIPLES; using ${SDK_NAMES:-}. \\$PATH is:\"\ntr >&2 : '\\n' <<<\"$PATH\"\n\nif [ \"$CARGO_XCODE_BUILD_PROFILE\" != debug ]; then\n OTHER_INPUT_FILE_FLAGS=\"$OTHER_INPUT_FILE_FLAGS --profile=$CARGO_XCODE_BUILD_PROFILE\"\nfi\n\nif [ \"$ACTION\" = clean ]; then\n cargo clean --manifest-path=\"$SCRIPT_INPUT_FILE\" $CARGO_XCODE_TARGET_FLAGS $OTHER_INPUT_FILE_FLAGS;\n rm -f \"$SCRIPT_OUTPUT_FILE_0\"\n exit 0\nfi\n\nif command -v rustup &> /dev/null; then\n INSTALLED_RUSTUP_TARGETS=$(rustup target list --installed)\n for triple in $CARGO_XCODE_TARGET_TRIPLES; do\n  if ! grep -Eq \"^$triple$\" <<<\"$INSTALLED_RUSTUP_TARGETS\"; then\n   echo >&2 \"warning: this build requires rustup toolchain for $triple, but it isn't installed (will try rustup next)\"\n   rustup target add \"$triple\" || {\n    echo >&2 \"warning: can't install $triple, will try nightly -Zbuild-std\";\n    OTHER_INPUT_FILE_FLAGS+=\" -Zbuild-std\";\n    if [ -z \"${RUSTUP_TOOLCHAIN:-}\" ]; then\n     export RUSTUP_TOOLCHAIN=nightly\n    fi\n    break;\n   }\n  fi\n done\nfi\n\n{ cargo build --manifest-path=\"$SCRIPT_INPUT_FILE\" --verbose --features=\"${CARGO_XCODE_FEATURES:-}\" $CARGO_XCODE_TARGET_FLAGS $OTHER_INPUT_FILE_FLAGS --message-format=short 2>&1 | sed -E 's/^([^ :]+:[0-9]+:[0-9]+: error)/\\1: /' >&2; } || {\n echo >&2 \"$SCRIPT_INPUT_FILE: error: cargo-xcode project build for $CARGO_XCODE_TARGET_TRIPLES has failed\"; exit 1; }\n\ntr '\\n' '\\0' <<<\"$LIPO_ARGS\" | xargs -0 lipo -create -output \"$SCRIPT_OUTPUT_FILE_0\"\n\nif [ ${LD_DYLIB_INSTALL_NAME:+1} ]; then\n install_name_tool -id \"$LD_DYLIB_INSTALL_NAME\" \"$SCRIPT_OUTPUT_FILE_0\"\nfi\n\nDEP_FILE_DST=\"$DERIVED_FILE_DIR/${ARCHS}-${EXECUTABLE_NAME}.d\"\necho \"\" > \"$DEP_FILE_DST\"\nfor triple in $CARGO_XCODE_TARGET_TRIPLES; do\n BUILT_SRC=\"$CARGO_TARGET_DIR/$triple/$CARGO_XCODE_BUILD_PROFILE/$CARGO_XCODE_CARGO_FILE_NAME\"\n\n # cargo generates a dep file, but for its own path, so append our rename to it\n DEP_FILE_SRC=\"$CARGO_TARGET_DIR/$triple/$CARGO_XCODE_BUILD_PROFILE/$CARGO_XCODE_CARGO_DEP_FILE_NAME\"\n if [ -f \"$DEP_FILE_SRC\" ]; then\n  cat \"$DEP_FILE_SRC\" >> \"$DEP_FILE_DST\"\n fi\n printf >> \"$DEP_FILE_DST\" '%q: %q\\n' \"$SCRIPT_OUTPUT_FILE_0\" \"$BUILT_SRC\"\ndone\ncat \"$DEP_FILE_DST\"\n\necho \"success: $ACTION of $SCRIPT_OUTPUT_FILE_0 for $CARGO_XCODE_TARGET_TRIPLES\"\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXFileReference section */
+		CA00A84BD2057F5B5F5AC289 /* room4doom */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = room4doom; sourceTree = BUILT_PRODUCTS_DIR; };
+		CAF90A1CAC283EF4668187A5 /* Cargo.toml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Cargo.toml; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		CAF00A1CAC28D65BC3C892A8 = {
+			isa = PBXGroup;
+			children = (
+				CAF90A1CAC283EF4668187A5 /* Cargo.toml */,
+				CAF10A1CAC2822869D176AE5 /* Products */,
+				CAF20A1CAC2898AF0B5890DB /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		CAF10A1CAC2822869D176AE5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA00A84BD2057F5B5F5AC289 /* room4doom */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CAF20A1CAC2898AF0B5890DB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA00A84BD205C90DC7A18746 /* room4doom (standalone executable) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA00241494BEC90DC7A18746 /* Build configuration list for PBXNativeTarget "room4doom (standalone executable)" */;
+			buildPhases = (
+				CA0077B18498C90DC7A18746 /* Sources */,
+			);
+			buildRules = (
+				CAF40A1CAC28AC6C1400ACA8 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = "room4doom (standalone executable)";
+			productName = room4doom;
+			productReference = CA00A84BD2057F5B5F5AC289 /* room4doom */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CAF30A1CAC28E04653AD465F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1510;
+				TargetAttributes = {
+					CA00A84BD205C90DC7A18746 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = CAF60A1CAC2880E02D6C7F57 /* Build configuration list for PBXProject "room4doom" */;
+			compatibilityVersion = "Xcode 11.4";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CAF00A1CAC28D65BC3C892A8;
+			productRefGroup = CAF10A1CAC2822869D176AE5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CA00A84BD205C90DC7A18746 /* room4doom (standalone executable) */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CA0077B18498C90DC7A18746 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA006C30D304C90DC7A18746 /* Cargo.toml in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CA00331BEA4AC90DC7A18746 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CARGO_XCODE_CARGO_DEP_FILE_NAME = room4doom.d;
+				CARGO_XCODE_CARGO_FILE_NAME = room4doom;
+				DEVELOPMENT_TEAM = PQT6XW4FFN;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = ljones.xyz.room4doom;
+				PRODUCT_NAME = room4doom;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Release;
+		};
+		CA009AC08D47C90DC7A18746 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CARGO_XCODE_CARGO_DEP_FILE_NAME = room4doom.d;
+				CARGO_XCODE_CARGO_FILE_NAME = room4doom;
+				DEVELOPMENT_TEAM = PQT6XW4FFN;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = ljones.xyz.room4doom;
+				PRODUCT_NAME = room4doom;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Debug;
+		};
+		CAF78392B85B3CC16B37690B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CARGO_BUILD_BUILD_DIR = "$(CARGO_TARGET_DIR)";
+				CARGO_TARGET_DIR = "$(PROJECT_TEMP_DIR)/cargo_target";
+				CARGO_XCODE_BUILD_PROFILE = release;
+				CARGO_XCODE_FEATURES = "";
+				CURRENT_PROJECT_VERSION = 0.16;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				MARKETING_VERSION = 0.16.1;
+				PRODUCT_NAME = room4doom;
+				RUSTUP_TOOLCHAIN = "";
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = YES;
+			};
+			name = Release;
+		};
+		CAF88392B85B228BE02872F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CARGO_BUILD_BUILD_DIR = "$(CARGO_TARGET_DIR)";
+				CARGO_TARGET_DIR = "$(PROJECT_TEMP_DIR)/cargo_target";
+				CARGO_XCODE_BUILD_PROFILE = debug;
+				CARGO_XCODE_FEATURES = "";
+				CURRENT_PROJECT_VERSION = 0.16;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				MARKETING_VERSION = 0.16.1;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = room4doom;
+				RUSTUP_TOOLCHAIN = "";
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = YES;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CA00241494BEC90DC7A18746 /* Build configuration list for PBXNativeTarget "room4doom (standalone executable)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA00331BEA4AC90DC7A18746 /* Release */,
+				CA009AC08D47C90DC7A18746 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CAF60A1CAC2880E02D6C7F57 /* Build configuration list for PBXProject "room4doom" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CAF78392B85B3CC16B37690B /* Release */,
+				CAF88392B85B228BE02872F8 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CAF30A1CAC28E04653AD465F /* Project object */;
+}

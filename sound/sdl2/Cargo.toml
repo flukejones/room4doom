@@ -1,0 +1,22 @@
+[package]
+name = "sound-sdl2"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../../build.rs"
+
+[features]
+
+[dependencies]
+wad.workspace = true
+sound-common.workspace = true
+opl2_emulator.workspace = true
+log.workspace = true
+nanoserde.workspace = true
+sdl2 = { version = "0.38", features = [
+    "mixer",
+] }
+
+[dev-dependencies]
+test-utils.workspace = true

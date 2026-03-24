@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 230" width="440" height="230" font-family="monospace" font-size="10">
+  <!-- Screen plane full width -->
+  <rect x="40" y="20" width="360" height="16" rx="2" fill="#e8e8e8" stroke="#666" stroke-width="1.5"/>
+  <text x="220" y="14" text-anchor="middle" font-size="9" fill="#888">Screen plane</text>
+
+  <!-- Center mark on screen -->
+  <line x1="220" y1="20" x2="220" y2="36" stroke="#999" stroke-width="1"/>
+  <text x="224" y="50" font-size="9" font-weight="bold" fill="#333">C</text>
+
+  <!-- Center line down to eye (dashed) -->
+  <line x1="220" y1="36" x2="220" y2="175" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Eye point -->
+  <circle cx="220" cy="175" r="5" fill="#333"/>
+  <text x="232" y="179" font-size="10" font-weight="bold" fill="#333">Eye</text>
+
+  <!-- Pixel offset bracket along screen plane -->
+  <line x1="222" y1="44" x2="338" y2="44" stroke="#0066cc" stroke-width="1.5"/>
+  <circle cx="222" cy="44" r="2" fill="#0066cc"/>
+  <circle cx="338" cy="44" r="2" fill="#0066cc"/>
+  <text x="280" y="58" text-anchor="middle" font-size="9" fill="#0066cc">pixel offset</text>
+  <text x="280" y="69" text-anchor="middle" font-size="9" fill="#0066cc">= focal * tan(angle)</text>
+
+  <!-- World point projected on the blue line -->
+  <circle cx="338" cy="44" r="4" fill="#cc0000"/>
+  <text x="348" y="50" font-size="9" fill="#cc0000">World point</text>
+  <text x="348" y="61" font-size="9" fill="#cc0000">(projected)</text>
+
+  <!-- Hypotenuse: Eye to world point (ends on blue line) -->
+  <line x1="220" y1="175" x2="338" y2="44" stroke="#cc0000" stroke-width="1.5"/>
+
+  <!-- Focal length label along the vertical -->
+  <text x="185" y="110" font-size="9" fill="#cc6600" text-anchor="end">focal_length</text>
+  <line x1="190" y1="105" x2="215" y2="105" stroke="#cc6600" stroke-width="1" marker-end="url(#arrowOrange)"/>
+
+  <!-- Angle arc at eye -->
+  <path d="M 220,145 Q 232,138 238,128" fill="none" stroke="#cc0000" stroke-width="1.5"/>
+  <text x="242" y="140" font-size="9" fill="#cc0000">angle</text>
+
+  <!-- Formulas at bottom -->
+  <text x="220" y="205" text-anchor="middle" font-size="10" fill="#333">tan(angle) = pixel_offset / focal_length</text>
+  <text x="220" y="220" text-anchor="middle" font-size="10" fill="#333">angle = atan(pixel_offset / focal_length)</text>
+
+  <defs>
+    <marker id="arrowOrange" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+      <path d="M0,0 L6,2 L0,4" fill="#cc6600" stroke="none"/>
+    </marker>
+  </defs>
+</svg>

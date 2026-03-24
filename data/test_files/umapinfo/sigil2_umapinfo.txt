@@ -1,0 +1,111 @@
+// UMAPINFO for SIGIL II
+
+map E6M1
+{
+	LevelName = "Cursed Darkness"
+	LevelPic = "WILV50"
+	Next = "E6M2"
+	Music = "D_E6M1"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	Episode = "M_EPI6", "SIGIL II", "S"
+	partime = 480
+}
+
+map E6M2
+{
+	LevelName = "Violent Hatred"
+	LevelPic = "WILV51"
+	Next = "E6M3"
+	Music = "D_E6M2"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 300
+}
+
+map E6M3
+{
+	LevelName = "Twilight Desolation"
+	LevelPic = "WILV52"
+	Next = "E6M4"
+	NextSecret = "E6M9"
+	Music = "D_E6M3"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 240
+}
+
+map E6M4
+{
+	LevelName = "Fragments of Sanity"
+	LevelPic = "WILV53"
+	Next = "E6M5"
+	Music = "D_E6M4"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 420
+}
+
+map E6M5
+{
+	LevelName = "Wrathful Reckoning"
+	LevelPic = "WILV54"
+	Next = "E6M6"
+	Music = "D_E6M5"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 510
+}
+
+map E6M6
+{
+	LevelName = "Vengeance Unleashed"
+	LevelPic = "WILV55"
+	Next = "E6M7"
+	Music = "D_E6M6"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 840
+}
+
+map E6M7
+{
+	LevelName = "Descent Into Terror"
+	LevelPic = "WILV56"
+	Next = "E6M8"
+	Music = "D_E6M7"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 960
+}
+
+map E6M8
+{
+	LevelName = "Abyss of Despair"
+	LevelPic = "WILV57"
+	EndPic = "CREDIT"
+	InterText = "Satan erred in casting you to Hell's",
+				"darker depths. His plan failed. He has",
+				"tried for so long to destroy you, and he",
+				"has lost every single time. His only",
+				"option is to flood Earth with demons",
+				"and hope you go down fighting.",
+				"",
+				"Prepare for HELLION!"
+	Music = "D_E6M8"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	BossAction = clear
+	partime = 390
+}
+
+map E6M9
+{
+	LevelName = "Shattered Homecoming"
+	LevelPic = "WILV58"
+	Next = "E6M4"
+	Music = "D_E6M9"
+	SkyTexture = "SKY6"
+	ExitPic = "SIGILIN2"
+	partime = 450
+}

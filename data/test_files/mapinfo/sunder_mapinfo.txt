@@ -1,0 +1,196 @@
+//************************************//
+//Sunder MAPINFO - template yoinked   //
+//    from 1024CLAU                   //
+//                                    //
+//                                    //
+//************************************//
+
+
+defaultmap
+nocrouch
+nojump
+
+map MAP01 "Python"
+titlepatch CWILV00
+next MAP02
+secretnext MAP02
+sky1 RSKY1 0
+cluster 5
+music D_RUNNIN
+
+map MAP02 "The Burrow"
+titlepatch CWILV01
+next MAP03
+secretnext MAP03
+sky1 RSKY1 0
+cluster 5
+music D_STALKS
+
+map MAP03 "The Dreaming Garden"
+titlepatch CWILV02
+next MAP04
+secretnext MAP04
+sky1 RSKY1 0
+cluster 5
+music D_COUNTD
+
+map MAP04 "Metal Descendants"
+titlepatch CWILV03
+next MAP05
+secretnext MAP05
+sky1 RSKY1 0
+cluster 5
+music D_BETWEE
+
+map MAP05 "Precarious"
+titlepatch CWILV04
+next MAP06
+secretnext MAP06
+sky1 RSKY1 0
+cluster 5
+music D_DOOM
+
+map MAP06 "Grinder"
+titlepatch CWILV05
+next MAP07
+secretnext MAP07
+sky1 RSKY1 0
+cluster 5
+music D_THE_DA
+
+map MAP07 "Hollow Icon"
+titlepatch CWILV06
+next MAP08
+secretnext MAP08
+sky1 RSKY1 0
+cluster 6
+map07special
+music D_SHAWN
+
+map MAP08 "Pale Monument"
+titlepatch CWILV07
+next MAP09
+secretnext MAP09
+sky1 RSKY1 0
+cluster 6
+music D_DDTBLU
+
+map MAP09 "The Cage"
+titlepatch CWILV08
+next MAP10
+secretnext MAP10
+sky1 RSKY1 0
+cluster 6
+music D_IN_CIT
+
+map MAP10 "The Hag's Finger"
+titlepatch CWILV09
+next MAP11
+secretnext MAP11
+sky1 RSKY1 0
+cluster 6
+music D_DEAD
+
+map MAP11 "The Furnace"
+titlepatch CWILV10
+next MAP12
+secretnext MAP12
+sky1 RSKY2 0
+cluster 6
+music D_STLKS2
+
+map MAP12 "The Zealous Machine"
+titlepatch CWILV11
+next MAP13
+secretnext MAP13
+sky1 RSKY2 0
+cluster 6
+music D_THEDA2
+
+map MAP13 "Obsidian Nightmare"
+titlepatch CWILV12
+next MAP14
+secretnext MAP14
+sky1 RSKY2 0
+cluster 6
+music D_DOOM2
+
+map MAP14 "Hive Mother"
+titlepatch CWILV13
+next MAP15
+secretnext MAP15
+sky1 RSKY2 0
+cluster 6
+music D_DDTBL2
+
+map MAP15 "Babylon's Chimera"
+titlepatch CWILV14
+next MAP16
+secretnext MAP31
+sky1 RSKY2 0
+cluster 6
+music D_RUNNI2
+
+map MAP16 "Whispers of the Gnarled King"
+titlepatch CWILV15
+next MAP17
+secretnext MAP17
+sky1 SKY2 0
+cluster 2
+music D_DEAD2
+
+map MAP17 "Archives of the Technomancer"
+titlepatch CWILV16
+next MAP18
+secretnext MAP18
+sky1 SKY2 0
+cluster 2
+music D_STLKS3
+
+map MAP18 "The Singing Void"
+titlepatch CWILV17
+next MAP19
+secretnext MAP19
+sky1 SPACESK2 0
+cluster 2
+music D_ROMERO
+
+map MAP19 "City at the Mouth of Ire"
+titlepatch CWILV18
+next MAP20
+secretnext MAP20
+sky1 SKY2 0
+cluster 2
+music D_SHAWN2
+
+map MAP20 "Beneath the Waves of Styx"
+titlepatch CWILV19
+next MAP21
+secretnext MAP21
+sky1 SKY2 0
+cluster 2
+music D_MESSAG
+
+map MAP21 "The Leviathan's Arteries"
+titlepatch CWILV20
+next MAP22
+secretnext MAP22
+sky1 SKY2 0
+cluster 2
+music D_COUNT2
+
+map MAP31 "House of Corrosion"
+titlepatch CWILV31
+next MAP16
+secretnext MAP32
+sky1 GRSKY1 0
+cluster 6
+music D_EVIL
+
+map MAP32 "The Harlot's Garden"
+titlepatch CWILV32
+next MAP16
+secretnext MAP32
+sky1 RSKY3 0
+cluster 6
+music D_ULTIMA

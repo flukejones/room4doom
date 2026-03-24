@@ -1,0 +1,26 @@
+[package]
+name = "rbsp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "High-precision BSP node builder for Doom maps"
+
+[features]
+default = ["wad-types"]
+wad-types = ["dep:wad"]
+f32 = []
+
+[dependencies]
+argh.workspace = true
+log.workspace = true
+simplelog.workspace = true
+wad = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+wad.workspace = true
+
+[[bench]]
+name = "build_bsp"
+harness = false
