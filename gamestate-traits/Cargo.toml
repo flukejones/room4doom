@@ -1,0 +1,13 @@
+[package]
+name = "gamestate-traits"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+game-config.workspace = true
+gameplay.workspace = true
+render-common.workspace = true
+sound-common.workspace = true
+wad.workspace = true

@@ -1,0 +1,775 @@
+defaultmap {
+	//NoFreelook
+	NoJump
+	NoCrouch
+	compat_corpsegibs = 0
+	compat_noblockfriends = 1
+	compat_limitpain = 0
+	compat_mbfmonstermove = 1
+	compat_crossdropoff = 0
+	compat_dropoff = 0
+	compat_invisibility = 0
+	compat_minotaur = 0
+	compat_notossdrops = 0
+	compat_dehhealth = 0
+	compat_mushroom = 1
+	compat_useblocking = 0
+	compat_anybossdeath = 0
+	compat_nodoorlight = 0
+	compat_light = 0
+	compat_shorttex = 0
+	compat_stairs = 0
+	compat_floormove = 0
+	//compat_pointonline = 0 ZANDROLOL DOESNT UNDERRSTAND ME :(
+	//compat_multiexit = 0 ZANDROLOL DOESNT UNDERRSTAND ME :(
+	//compat_nopassover = 1
+	compat_boomscroll = 1
+	compat_badangles = 0
+	compat_ravenscroll = 0
+	compat_trace = 1
+	compat_missileclip = 1
+	compat_polyobj = 0
+	compat_maskedmidtex = 1
+	compat_spritesort = 0
+	compat_silent_instant_floors = 0
+	compat_sectorsounds = 0
+	//compat_soundcutoff = 0 ZANDROLOL DOESNT UNDERRSTAND ME :(
+	compat_soundtarget = 1
+}
+
+/* ------------------------- */
+
+gameinfo {
+	AddEventHandlers = "JOM5_FXHandler" // Thanks Gutawer! <3	
+}
+clearepisodes
+
+	episode Map01
+	{
+	   name = "Chapter I: Archaic"
+		 picname = "M_EPI1"
+	}
+
+	episode Map06
+	{
+	   name = "Chapter II: Automation"
+		 picname = "M_EPI2"
+	}
+
+	episode Map11
+	{
+	   name = "Chapter III: Crystalline"
+		 picname = "M_EPI3"
+	}
+
+	episode Map16
+	{
+	   name = "Chapter IV: Brutality"
+		 picname = "M_EPI4"
+	}
+
+	episode Map21
+	{
+	   name = "Chapter V: Descension"
+		 picname = "M_EPI5"
+	}
+
+	episode Map26
+	{
+	   name = "Chapter VI: Hallowed"
+		 picname = "M_EPI6"
+	}
+
+/* ------------------------- */
+
+map MAP01 "inauguration" {
+	levelnum = 1
+	titlepatch = CWILV00
+	next = MAP02
+	secretnext = MAP02
+	sky1 = "OSKY28"
+	cluster = 5
+	par = 35
+	music = D_RUNNIN
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP02 "subterranean" {
+	levelnum = 2
+	titlepatch = CWILV01
+	next = MAP03
+	secretnext = MAP03
+	sky1 = "OSKY28"
+	cluster = 5
+	par = 80
+	music = D_STALKS
+}
+
+/* ------------------------- */
+
+map MAP03 "drain" {
+	levelnum = 3
+	titlepatch = CWILV02
+	next = MAP04
+	secretnext = MAP04
+	sky1 = "OSKY28"
+	cluster = 5
+	par = 60
+	music = D_COUNTD
+}
+
+/* ------------------------- */
+
+map MAP04 "regicide" {
+	levelnum = 4
+	titlepatch = CWILV03
+	next = MAP05
+	secretnext = MAP05
+	sky1 = "OSKY28"
+	cluster = 5
+	par = 330
+	music = D_BETWEE
+}
+
+/* ------------------------- */
+
+map MAP05 "demon" {
+	levelnum = 5
+	titlepatch = CWILV04
+	next = MAP06
+	secretnext = MAP06
+	sky1 = "OSKY28"
+	cluster = 5
+	par = 100
+	music = D_DOOM
+}
+
+/* ------------------------- */
+
+map MAP06 "reconnect" {
+	levelnum = 6
+	titlepatch = CWILV05
+	next = MAP07
+	secretnext = MAP07
+	sky1 = "OSKY03"
+	cluster = 5
+	par = 180
+	music = D_THE_DA
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP07 "facilitate" {
+	levelnum = 7
+	titlepatch = CWILV06
+	next = MAP08
+	secretnext = MAP08
+	sky1 = "OSKY03"
+	cluster = 6
+	par = 85
+	map07special
+	music = D_SHAWN
+}
+
+/* ------------------------- */
+
+map MAP08 "stench" {
+	levelnum = 8
+	titlepatch = CWILV07
+	next = MAP09
+	secretnext = MAP09
+	sky1 = "OSKY03"
+	cluster = 6
+	par = 140
+	music = D_DDTBLU
+}
+
+/* ------------------------- */
+
+map MAP09 "decrepitude" {
+	levelnum = 9
+	titlepatch = CWILV08
+	next = MAP10
+	secretnext = MAP10
+	sky1 = "OSKY03"
+	cluster = 6
+	par = 105
+	music = D_IN_CIT
+}
+
+/* ------------------------- */
+
+map MAP10 "creation" {
+	levelnum = 10
+	titlepatch = CWILV09
+	next = MAP11
+	secretnext = MAP11
+	sky1 = "OSKY03"
+	cluster = 6
+	par = 210
+	music = D_DEAD
+}
+
+/* ------------------------- */
+
+map MAP11 "wanderer" {
+	levelnum = 11
+	titlepatch = CWILV10
+	next = MAP12
+	secretnext = MAP12
+	sky1 = "OSKY43"
+	cluster = 6
+	par = 180
+	music = D_STLKS2
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP12 "brisk" {
+	levelnum = 12
+	titlepatch = CWILV11
+	next = MAP13
+	secretnext = MAP13
+	sky1 = "OSKY43"
+	cluster = 7
+	par = 240
+	music = D_THEDA2
+}
+
+/* ------------------------- */
+
+map MAP13 "pathfinder" {
+	levelnum = 13
+	titlepatch = CWILV12
+	next = MAP14
+	secretnext = MAP14
+	sky1 = "OSKY43"
+	cluster = 7
+	par = 330
+	music = D_DOOM2
+}
+
+/* ------------------------- */
+
+map MAP14 "frimaire" {
+	levelnum = 14
+	titlepatch = CWILV13
+	next = MAP15
+	secretnext = MAP15
+	sky1 = "OSKY43"
+	cluster = 7
+	par = 270
+	music = D_DDTBL2
+}
+
+/* ------------------------- */
+
+map MAP15 "cryonology" {
+	levelnum = 15
+	titlepatch = CWILV14
+	next = MAP16
+	secretnext = MAP31
+	sky1 = "ODFSKY45"
+	cluster = 7
+	par = 660
+	music = D_RUNNI2
+	translator = "XLT_EV15" // [XA] enable special map15->map16 exit logic
+}
+
+/* ------------------------- */
+
+map MAP16 "neutralize" {
+	levelnum = 16
+	titlepatch = CWILV15
+	next = MAP17
+	secretnext = MAP17
+	sky1 = "OSKY01"
+	cluster = 7
+	par = 195
+	music = D_DEAD2
+// [XA] removing these since we want inventory to be
+// preserved when going from MAP32 to MAP16, as a reward.
+//	ResetInventory
+//	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP17 "segregation" {
+	levelnum = 17
+	titlepatch = CWILV16
+	next = MAP18
+	secretnext = MAP18
+	sky1 = "OSKY01"
+	cluster = 7
+	par = 270
+	music = D_STLKS3
+}
+
+/* ------------------------- */
+
+map MAP18 "subterfuge" {
+	levelnum = 18
+	titlepatch = CWILV17
+	next = MAP19
+	secretnext = MAP19
+	sky1 = "OSKY01"
+	cluster = 7
+	par = 180
+	music = D_ROMERO
+}
+
+/* ------------------------- */
+
+map MAP19 "dehydration" {
+	levelnum = 19
+	titlepatch = CWILV18
+	next = MAP20
+	secretnext = MAP20
+	sky1 = "OSKY01"
+	cluster = 7
+	par = 2340
+	music = D_SHAWN2
+}
+
+/* ------------------------- */
+
+map MAP20 "convolute" {
+	levelnum = 20
+	titlepatch = CWILV19
+	next = MAP21
+	secretnext = MAP21
+	sky1 = "OSKY01"
+	cluster = 7
+	par = 405
+	music = D_MESSAG
+}
+
+/* ------------------------- */
+
+map MAP21 "imperishable" {
+	levelnum = 21
+	titlepatch = CWILV20
+	next = MAP22
+	secretnext = MAP22
+	sky1 = "OSKY25"
+	cluster = 8
+	par = 90
+	music = D_COUNT2
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP22 "viscera" {
+	levelnum = 22
+	titlepatch = CWILV21
+	next = MAP23
+	secretnext = MAP23
+	sky1 = "OSKY25"
+	cluster = 8
+	par = 240
+	music = D_DDTBL3
+}
+
+/* ------------------------- */
+
+map MAP23 "tribulation" {
+	levelnum = 23
+	titlepatch = CWILV22
+	next = MAP24
+	secretnext = MAP24
+	sky1 = "OSKY25"
+	cluster = 8
+	par = 210
+	music = D_AMPIE
+}
+
+/* ------------------------- */
+
+map MAP24 "gossamer" {
+	levelnum = 24
+	titlepatch = CWILV23
+	next = MAP25
+	secretnext = MAP25
+	sky1 = "OSKY25"
+	cluster = 8
+	par = 540
+	music = D_THEDA3
+}
+
+/* ------------------------- */
+
+map MAP25 "slave" {
+	levelnum = 25
+	titlepatch = CWILV24
+	next = MAP26
+	secretnext = MAP26
+	sky1 = "OSKY25"
+	cluster = 8
+	par = 165
+	music = D_ADRIAN
+}
+
+/* ------------------------- */
+
+map MAP26 "transcendence" {
+	levelnum = 26
+	titlepatch = CWILV25
+	next = MAP27
+	secretnext = MAP27
+	sky1 = "OSKY42"
+	cluster = 8
+	par = 150
+	music = D_MESSG2
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP27 "heliopolis" {
+	levelnum = 27
+	titlepatch = CWILV26
+	next = MAP28
+	secretnext = MAP28
+	sky1 = "OSKY47"
+	cluster = 8
+	par = 240
+	music = D_ROMER2
+}
+
+/* ------------------------- */
+
+map MAP28 "judgement" {
+	levelnum = 28
+	titlepatch = CWILV27
+	next = MAP29
+	secretnext = MAP29
+	sky1 = "OSKY47"
+	cluster = 8
+	par = 225
+	music = D_TENSE
+}
+
+/* ------------------------- */
+
+map MAP29 "elysium" {
+	levelnum = 29
+	titlepatch = CWILV28
+	next = MAP30
+	secretnext = MAP30
+	sky1 = "OSKY47"
+	cluster = 8
+	par = 330
+	music = D_SHAWN3
+}
+
+/* ------------------------- */
+
+map MAP30 "eternity" {
+	levelnum = 30
+	titlepatch = CWILV29
+	sky1 = "OSKY38"
+	cluster = 8
+	par = 180
+	allowmonstertelefrags
+	music = D_OPENIN
+}
+
+/* ------------------------- */
+
+map MAP31 "imperator" {
+	levelnum = 31
+	titlepatch = CWILV30
+	next = MAP32
+	secretnext = MAP32
+	sky1 = "OSKY01"
+	cluster = 9
+	par = 900
+	music = D_EVIL
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+map MAP32 "anagnorisis" {
+	levelnum = 32
+	titlepatch = CWILV31
+	next = MAP16
+	secretnext = MAP16
+	sky1 = "OSKY37"
+	cluster = 10
+	par = 1800
+	music = D_ULTIMA
+	ResetInventory
+	ResetHealth
+}
+
+/* ------------------------- */
+
+// LEVEL 06 -> 07
+cluster 5 {
+	flat = OGRATB02
+	music = D_READ_M
+	exittext = 
+	"In the farthest reaches, a Light",
+	"awoke, and cast his luminous rays",
+	"on all around him.",
+	" ",
+	"He fashioned a world unto his image,",
+	"created beasts of his will, and declared",
+	"himself eternal, ruler of his domain.",
+	" ",
+	"But his hubris cast a sickness, and",
+	"from distant worlds called forth ",
+	"the agent of retribution, drawn ",
+	"through the cosmos by his pride.  ",
+	" ",
+	"It cast down his beasts, it rejected ",
+	"his rule, and through lands eternal ",
+	"it brought forth his doom."
+}
+// LEVEL 10 -> 11
+cluster 6 {
+	flat = OATRICEA
+	music = D_READ_M
+	exittext = 
+	"The shadow of destiny casts deep.",
+	"But betrayed by his immodesty, the",
+	"Light ignored his fate, and with",
+	"insolence burned bright across his",
+	"domain.",
+	" ",
+	"It was to be his undoing, as with",
+	"undying vengeance, his boastful pride",
+	"drew ever closer the jaws of his",
+	"unmaking."
+}
+// LEVEL 20 -> 21
+cluster 7 {
+	flat = OMRBLD91
+	music = D_READ_M
+	exittext = 
+	"Rejecting his fate, the Light fled,",
+	"retreating ever deeper into his pride.",
+	"But unwilling to repent, his retribution",
+	"followed swiftly behind.",
+	" ",
+	"Through frozen wilderness, distant stars",
+	"and blasted heat it strode, casting aside",
+	"all who stood before it.  Unstoppable, ",
+	"unbendable, it pursued the Light, marching",
+	"ever forward with the unbreakable will",
+	"of inevitability."
+}
+// LEVEL 30 -> END
+cluster 8 {
+	flat = OMRBLL01
+	music = D_READ_M
+	exittext = 
+	"Undone by his conceit, retribution",
+	"came swift and absolute. The Light ",
+	"was extinguished, and his pride ",
+	"vanquished to the abominable void.",
+	" ",
+	"Amid the smoking ruins of his vanity,",
+	"the agent of Retribution stood unbowed",
+	"and unyielding.",
+	" ",
+	"Towards the churning horizon its gaze",
+	"fell, and onwards it marched, forever",
+	"vigilant on its eternal pilgrimage."
+}
+// LEVEL 15 -> 31
+cluster 9 {
+	flat = OMRBLJ91
+	music = D_READ_M
+	entertext = 
+	"The sands of the cosmos shift, and a",
+	"new path reveals.",
+	" ",
+	"What dwells in such brooding corners?",
+	" ",
+	"Go forth, for there are other worlds",
+	"than these."
+}
+// LEVEL 31 -> 32
+cluster 10 {
+	flat = ONMLMD05
+	music = D_READ_M
+	entertext = 
+	"A vast edifice, shrouded by ",
+	"indecision, looms ahead. It",
+	"beckons, daunts and entices.",
+	" ",
+	"Through fire above and fire",
+	"below, toward a startling discovery.",
+	" ",
+	"The path lies unkempt."
+}
+
+Intermission Doom2Cast
+{
+	Cast
+	{
+		CastClass = "NightmareDemon"
+		CastName = "Nightmare Demon"
+		AttackSound = "Melee", 1, "dog/attack"
+	}
+	
+	Cast
+	{
+		CastClass = "FormerCaptain"
+		CastName = "Former Captain"
+		AttackSound = "Missile", 1, "misc/unused"
+		AttackSound = "Missile", 2, "misc/unused"
+		AttackSound = "Missile", 3, "misc/unused"
+		AttackSound = "Missile", 4, "misc/unused"
+		AttackSound = "Missile", 5, "misc/unused"
+	}
+
+	Cast
+	{
+		CastClass = "AstralCaco"
+		CastName = "Astral Cacodemon"
+		AttackSound = "Missile", 1, "baby/active"
+	}
+	
+	Cast
+	{
+		CastClass = "Annihilator"
+		CastName = "Annihilator"
+		AttackSound = "Missile", 1, "weapons/rocklf"
+	}
+
+	
+	Cast
+	{
+		CastClass = "ArchangelusB"
+		CastName = "Archangelus, The Light Eternal"
+		AttackSound = "Missile", 1, "brain/pain"
+	}
+
+	Cast
+	{
+		CastClass = "Zombieman"
+		CastName = "$CC_ZOMBIE"
+		AttackSound = "Missile", 1, "grunt/attack"
+	}
+	Cast
+	{
+		CastClass = "ShotgunGuy"
+		CastName = "$CC_SHOTGUN"
+		AttackSound = "Missile", 1, "shotguy/attack"
+	}
+	Cast
+	{
+		CastClass = "ChaingunGuy"
+		CastName = "$CC_HEAVY"
+		AttackSound = "Missile", 1, "chainguy/attack"
+		AttackSound = "Missile", 2, "chainguy/attack"
+		AttackSound = "Missile", 3, "chainguy/attack"
+	}
+	Cast
+	{
+		CastClass = "DoomImp"
+		CastName = "$CC_IMP"
+		AttackSound = "Missile", 2, "imp/attack"
+	}
+	Cast
+	{
+		CastClass = "Demon"
+		CastName = "$CC_DEMON"
+		AttackSound = "Melee", 1, "demon/melee"
+	}
+	Cast
+	{
+		CastClass = "LostSoul"
+		CastName = "$CC_LOST"
+		AttackSound = "Missile", 1, "skull/melee"
+	}
+	Cast
+	{
+		CastClass = "Cacodemon"
+		CastName = "$CC_CACO"
+		AttackSound = "Missile", 1, "caco/attack"
+	}
+	Cast
+	{
+		CastClass = "HellKnight"
+		CastName = "$CC_HELL"
+		AttackSound = "Missile", 1, "baron/attack"
+	}
+	Cast
+	{
+		CastClass = "BaronOfHell"
+		CastName = "$CC_BARON"
+		AttackSound = "Missile", 1, "baron/attack"
+	}
+	Cast
+	{
+		CastClass = "Arachnotron"
+		CastName = "$CC_ARACH"
+		AttackSound = "Missile", 1, "baby/attack"
+	}
+	Cast
+	{
+		CastClass = "PainElemental"
+		CastName = "$CC_PAIN"
+		AttackSound = "Missile", 2, "skull/melee"
+	}
+	Cast
+	{
+		CastClass = "Revenant"
+		CastName = "$CC_REVEN"
+		AttackSound = "Missile", 1, "skeleton/attack"
+		AttackSound = "Melee", 1, "skeleton/swing"
+		AttackSound = "Melee", 3, "skeleton/melee"
+	}
+	Cast
+	{
+		CastClass = "Fatso"
+		CastName = "$CC_MANCU"
+		AttackSound = "Missile", 1, "fatso/attack"
+		AttackSound = "Missile", 4, "fatso/attack"
+		AttackSound = "Missile", 7, "fatso/attack"
+	}
+	Cast
+	{
+		CastClass = "Archvile"
+		CastName = "$CC_ARCH"
+		AttackSound = "Missile", 1, "vile/start"
+	}
+	Cast
+	{
+		CastClass = "SpiderMastermind"
+		CastName = "$CC_SPIDER"
+		AttackSound = "Missile", 1, "spider/attack"
+		AttackSound = "Missile", 2, "spider/attack"
+	}
+	Cast
+	{
+		CastClass = "Cyberdemon"
+		CastName = "$CC_CYBER"
+		AttackSound = "Missile", 1, "weapons/rocklf"
+		AttackSound = "Missile", 3, "weapons/rocklf"
+		AttackSound = "Missile", 5, "weapons/rocklf"
+	}
+	Cast
+	{
+		CastClass = "DoomPlayer"
+		CastName = "$CC_HERO"
+		AttackSound = "Missile", 0, "weapons/sshotf"
+	}
+	Link = Doom2Cast	// restart cast call
+}

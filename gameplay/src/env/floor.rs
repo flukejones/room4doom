@@ -1,0 +1,485 @@
+//! Floor movement thinker: raise, lower, crusher
+//!
+//! Doom source name `p_floor`
+use std::ptr::{self, null_mut};
+
+use sound_common::SfxName;
+
+use crate::SectorExt;
+use crate::env::specials::{
+    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
+};
+use crate::env::switch::start_sector_sound;
+use crate::level::LevelState;
+use crate::thing::MapObject;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use level::MapPtr;
+use level::flags::LineDefFlags;
+use level::map_defs::{LineDef, Sector, SectorHeight};
+
+const FLOORSPEED: SectorHeight = SectorHeight::ONE;
+
+#[derive(Debug, Clone, Copy)]
+pub enum FloorKind {
+    /// lower floor to highest surrounding floor
+    LowerFloor,
+    /// lower floor to lowest surrounding floor
+    LowerFloorToLowest,
+    /// lower floor to highest surrounding floor VERY FAST
+    TurboLower,
+    /// raise floor to lowest surrounding CEILING
+    RaiseFloor,
+    /// raise floor to next highest surrounding floor
+    RaiseFloorToNearest,
+    /// raise floor to shortest height with same texture around it
+    RaiseToTexture,
+    /// lower floor to lowest surrounding floor and change floorpic
+    LowerAndChange,
+    /// Raise floor 24 units from start
+    RaiseFloor24,
+    /// Raise floor 24 units from start and change texture
+    RaiseFloor24andChange,
+    /// Raise floor and crush all entities on it
+    RaiseFloorCrush,
+    /// raise to next highest floor, turbo-speed
+    RaiseFloorTurbo,
+    /// Do donuts
+    DonutRaise,
+    /// Raise floor 512 units from start
+    RaiseFloor512,
+}
+
+/// Very special kind of thinker used specifically for building a set of stairs
+/// that raises one-by-one.
+#[derive(Debug, Clone, Copy)]
+pub enum StairKind {
+    /// slowly build by 8
+    Build8,
+    /// quickly build by 16
+    Turbo16,
+}
+
+pub struct FloorMove {
+    pub thinker: *mut Thinker,
+    pub sector: MapPtr<Sector>,
+    pub kind: FloorKind,
+    pub speed: SectorHeight,
+    pub crush: bool,
+    pub direction: i32,
+    pub newspecial: i16,
+    pub texture: usize,
+    pub destheight: SectorHeight,
+}
+
+/// EV_DoFloor
+pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelState) -> bool {
+    let mut ret = false;
+
+    for sector in level
+        .level_data
+        .sectors_mut()
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+
+        // Because we need to break lifetimes...
+        let mut sec = MapPtr::new(sector);
+
+        let mut floor = FloorMove {
+            thinker: null_mut(),
+            sector: MapPtr::new(sector),
+            kind,
+            speed: FLOORSPEED,
+            crush: false,
+            direction: 0,
+            newspecial: 0,
+            texture: 0,
+            destheight: SectorHeight::ZERO,
+        };
+
+        match kind {
+            FloorKind::LowerFloor => {
+                floor.direction = -1;
+                floor.destheight = find_highest_floor_surrounding(sec.clone());
+            }
+            FloorKind::LowerFloorToLowest => {
+                floor.direction = -1;
+                floor.destheight = find_lowest_floor_surrounding(sec.clone());
+            }
+            FloorKind::TurboLower => {
+                floor.direction = -1;
+                floor.speed = floor.speed * 4;
+                floor.destheight = find_highest_floor_surrounding(sec.clone());
+                // TODO: if (gameversion <= exe_doom_1_2 ||
+                //  floor->floordestheight != sec->floorheight)
+                //  floor->floordestheight += 8 * FRACUNIT;
+                if floor.destheight != sec.floorheight {
+                    floor.destheight += 8;
+                }
+            }
+            FloorKind::RaiseFloor => {
+                floor.direction = 1;
+                floor.destheight = find_lowest_ceiling_surrounding(sec.clone());
+                if floor.destheight > sec.ceilingheight {
+                    floor.destheight = sec.ceilingheight;
+                }
+            }
+            FloorKind::RaiseFloorToNearest => {
+                floor.direction = 1;
+                // TODO: should use find_next_highest_floor once fixed
+                floor.destheight = find_highest_floor_surrounding(sec.clone());
+            }
+            FloorKind::RaiseToTexture => {
+                // TODO: int minsize = INT_MAX;
+                let mut min = sec.floorheight;
+                floor.direction = 1;
+                for line in sec.lines.iter() {
+                    if line.flags.contains(LineDefFlags::TwoSided) {
+                        if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
+                            let tmp = SectorHeight::from(
+                                level.animations[bottomtexture].num_pics() as i32,
+                            );
+                            if tmp < min {
+                                min = tmp;
+                            }
+                        }
+                        if let Some(side) = line.back_sidedef.as_ref() {
+                            if let Some(bottomtexture) = side.bottomtexture {
+                                let tmp = SectorHeight::from(
+                                    level.animations[bottomtexture].num_pics() as i32,
+                                );
+                                if tmp < min {
+                                    min = tmp;
+                                }
+                            }
+                        }
+                    }
+                }
+                floor.destheight = sec.floorheight + min;
+            }
+            FloorKind::LowerAndChange => {
+                floor.direction = -1;
+                floor.destheight = find_lowest_floor_surrounding(sec.clone());
+                floor.texture = sector.floorpic;
+
+                for line in sector.lines.iter() {
+                    if line.flags.contains(LineDefFlags::TwoSided) {
+                        if line.front_sidedef.sector == sec {
+                            sec = line.back_sidedef.as_ref().unwrap().sector.clone();
+                            if sec.floorheight == floor.destheight {
+                                floor.texture = sec.floorpic;
+                                floor.newspecial = sec.special;
+                                break;
+                            }
+                        } else {
+                            sec = line.front_sidedef.sector.clone();
+                            if sec.floorheight == floor.destheight {
+                                floor.texture = sec.floorpic;
+                                floor.newspecial = sec.special;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            FloorKind::RaiseFloor24 => {
+                floor.direction = 1;
+                floor.destheight = sec.floorheight + 24;
+            }
+            FloorKind::RaiseFloor24andChange => {
+                floor.direction = 1;
+                floor.destheight = sec.floorheight + 24;
+                sec.floorpic = line.frontsector.floorpic;
+                sec.special = line.frontsector.special;
+            }
+            FloorKind::RaiseFloorCrush => {
+                floor.direction = 1;
+                floor.crush = true;
+                floor.destheight = find_lowest_ceiling_surrounding(sec.clone());
+                if floor.destheight > sec.ceilingheight {
+                    floor.destheight = sec.ceilingheight;
+                }
+                floor.destheight -= 8;
+            }
+            FloorKind::RaiseFloorTurbo => {
+                floor.direction = 1;
+                floor.speed = floor.speed * 4;
+                floor.destheight = find_next_highest_floor(sec.clone(), sec.floorheight);
+            }
+            FloorKind::DonutRaise => todo!(),
+            FloorKind::RaiseFloor512 => {
+                floor.direction = 1;
+                floor.destheight = sec.floorheight + 512;
+            }
+        }
+
+        ret = true;
+
+        let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+        if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+            ptr.set_obj_thinker_ptr();
+            sec.set_sector_mover(ptr);
+        }
+    }
+
+    ret
+}
+
+impl Think for FloorMove {
+    fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
+        let floor = object.floor_mut();
+        #[cfg(feature = "null_check")]
+        if floor.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
+        let line = floor.sector.lines[0].as_ref();
+
+        let res = move_plane(
+            floor.sector.clone(),
+            floor.speed,
+            floor.destheight,
+            floor.crush,
+            0,
+            floor.direction,
+            level,
+        );
+
+        if level.level_time & 7 == 0 {
+            // TODO: if (!(leveltime & 7))
+            start_sector_sound(line, SfxName::Stnmov, &level.snd_command);
+        }
+
+        if matches!(res, PlaneResult::PastDest) {
+            if floor.direction == 1 && matches!(floor.kind, FloorKind::DonutRaise)
+                || floor.direction == -1 && matches!(floor.kind, FloorKind::LowerAndChange)
+            {
+                floor.sector.special = floor.newspecial;
+                floor.sector.floorpic = floor.texture;
+                level
+                    .level_data
+                    .bsp_3d
+                    .update_floor_texture(floor.sector.num as usize, floor.texture);
+            }
+
+            floor.sector.specialdata = None;
+            <FloorMove as Think>::thinker_mut(floor).mark_remove();
+        }
+
+        true
+    }
+
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
+        self.thinker = ptr;
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(feature = "null_check")]
+        if self.thinker.is_null() {
+            std::panic!("NULL");
+        }
+        unsafe { Thinker::from_erased(self.thinker) }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        #[cfg(feature = "null_check")]
+        if self.thinker.is_null() {
+            std::panic!("NULL");
+        }
+        unsafe { Thinker::from_erased_ref(self.thinker) }
+    }
+}
+
+pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut LevelState) -> bool {
+    let mut ret = false;
+    let mut speed;
+    let mut height;
+    let mut stair_size;
+
+    for sector in level
+        .level_data
+        .sectors
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+        ret = true;
+
+        let mut floor = FloorMove {
+            thinker: null_mut(),
+            sector: MapPtr::new(sector),
+            kind: FloorKind::LowerFloor,
+            speed: FLOORSPEED,
+            crush: false,
+            direction: 1,
+            newspecial: 0,
+            texture: sector.floorpic,
+            destheight: SectorHeight::ZERO,
+        };
+
+        match kind {
+            StairKind::Build8 => {
+                speed = FLOORSPEED / 4;
+                stair_size = SectorHeight::from(8);
+            }
+            StairKind::Turbo16 => {
+                speed = FLOORSPEED * 4;
+                stair_size = SectorHeight::from(16);
+            }
+        }
+        floor.speed = speed;
+        height = sector.floorheight + stair_size;
+        floor.destheight = height;
+
+        // Because we need to break lifetimes...
+        let mut sec = MapPtr::new(sector);
+
+        let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+        if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+            ptr.set_obj_thinker_ptr();
+            sec.set_sector_mover(ptr);
+        }
+
+        let texture = sec.floorpic;
+
+        loop {
+            let mut ok = false;
+
+            for line in level
+                .level_data
+                .linedefs
+                .iter()
+                .filter(|s| s.flags.contains(LineDefFlags::TwoSided))
+            {
+                // Lines need to be in the same sector, can check this with the pointer
+                let mut tsec = line.frontsector.clone();
+
+                if tsec != sec {
+                    continue;
+                }
+                tsec = line.backsector.as_ref().unwrap().clone();
+
+                if tsec.floorpic != texture {
+                    continue;
+                }
+
+                height += stair_size;
+                if tsec.specialdata.is_some() {
+                    continue;
+                }
+                sec = tsec;
+
+                // New thinker
+                let floor = FloorMove {
+                    thinker: null_mut(),
+                    sector: sec.clone(),
+                    kind: FloorKind::RaiseFloor,
+                    speed,
+                    crush: false,
+                    direction: 1,
+                    newspecial: 0,
+                    texture: sector.floorpic,
+                    destheight: height,
+                };
+
+                let thinker =
+                    MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+                if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                    ptr.set_obj_thinker_ptr();
+                    sec.set_sector_mover(ptr);
+                }
+
+                ok = true;
+                break;
+            }
+
+            if !ok {
+                break;
+            }
+        }
+    }
+
+    ret
+}
+
+pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
+    let mut ret = false;
+
+    for sector in level
+        .level_data
+        .sectors_mut()
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+        ret = true;
+
+        if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), MapPtr::new(sector)) {
+            for line in s2.lines.iter_mut() {
+                if !line.flags.contains(LineDefFlags::TwoSided) {
+                    continue;
+                }
+                if let Some(s3) = line.backsector.clone() {
+                    if ptr::eq(s3.as_ref(), sector) {
+                        continue;
+                    }
+                    //
+
+                    // Spawn rising slime thinker
+                    let floor = FloorMove {
+                        thinker: null_mut(),
+                        sector: s2.clone(),
+                        kind: FloorKind::DonutRaise,
+                        speed: FLOORSPEED / 2,
+                        crush: false,
+                        direction: 1,
+                        newspecial: 0,
+                        texture: s3.floorpic,
+                        destheight: s3.floorheight,
+                    };
+
+                    let thinker =
+                        MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+                    if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                        ptr.set_obj_thinker_ptr();
+                        s2.set_sector_mover(ptr);
+                    }
+
+                    // spwan donut hole lowering
+                    let floor = FloorMove {
+                        thinker: null_mut(),
+                        sector: MapPtr::new(sector),
+                        kind: FloorKind::LowerFloor,
+                        speed: FLOORSPEED / 2,
+                        crush: false,
+                        direction: -1,
+                        newspecial: 0,
+                        texture: s3.floorpic,
+                        destheight: s3.floorheight,
+                    };
+
+                    let thinker =
+                        MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+                    if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                        ptr.set_obj_thinker_ptr();
+                        s2.set_sector_mover(ptr);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    ret
+}

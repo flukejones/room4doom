@@ -1,0 +1,22 @@
+[package]
+name = "voxel-viewer"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "voxel-viewer"
+path = "src/main.rs"
+
+[features]
+hprof = ["dep:coarse-prof", "software3d/hprof"]
+render_stats = ["software3d/render_stats"]
+
+[dependencies]
+pic-data.workspace = true
+software3d = { path = "../../render/software3d" }
+glam.workspace = true
+winit.workspace = true
+pixels.workspace = true
+coarse-prof = { workspace = true, optional = true }

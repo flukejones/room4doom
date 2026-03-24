@@ -1,0 +1,406 @@
+Patch File for DeHackEd v3.0
+# Created with WhackEd4 1.2.0 BETA
+# Note: Use the pound sign ('#') to start comment lines.
+
+Doom version = 21
+Patch format = 6
+
+[STRINGS]
+HUSTR_1 = MAP01: Python
+HUSTR_2 = MAP02: The Burrow
+HUSTR_3 = MAP03: The Dreaming Garden
+HUSTR_4 = MAP04: Metal Descendants
+HUSTR_5 = MAP05: Precarious
+HUSTR_6 = MAP06: Grinder
+HUSTR_7 = MAP07: Hollow Icon
+HUSTR_8 = MAP08: Pale Monument
+HUSTR_9 = MAP09: The Cage
+HUSTR_10 = MAP10: The Hag's Finger
+HUSTR_11 = MAP11: The Furnace
+HUSTR_12 = MAP12: The Zealous Machine
+HUSTR_13 = MAP13: Obsidian Nightmare
+HUSTR_14 = MAP14: Hive Mother
+HUSTR_15 = MAP15: Babylon's Chimera
+HUSTR_16 = MAP16: Whispers of the Gnarled King
+HUSTR_17 = MAP17: Archives of the Technomancer
+HUSTR_18 = MAP18: The Singing Void
+HUSTR_19 = MAP19: City at the Mouth of Ire
+HUSTR_20 = MAP20: Beneath the Waves of Styx
+HUSTR_21 = MAP21: The Leviathan's Arteries
+HUSTR_31 = MAP31: House of Corrosion
+HUSTR_32 = MAP32: The Harlot's Garden
+
+// Hive Mother
+
+Thing 24 (NULL)
+Action sound = 0
+Death sound = 0
+Death frame = 0
+Exploding frame = 0
+Pain sound = 0
+Initial frame = 0
+Far attack frame = 0
+First moving frame = 0
+Alert sound = 0
+Respawn frame = 0
+Injury frame = 0
+
+Thing 25 (_Hive Mother)
+Action sound = 102
+Width = 3932160
+Death frame = 757
+Far attack frame = 730
+Bits = SOLID+SHOOTABLE+COUNTKILL
+Height = 7208960
+Initial frame = 45
+Hit points = 2000
+Injury frame = 742
+First moving frame = 142
+Alert sound = 101
+Speed = 18
+Mass = 5000
+Pain chance = 10
+
+Thing 41 (Item respawn fog)
+Initial frame = 144
+
+Frame 45
+Duration = 10
+Sprite number = 52
+Sprite subnumber = 0
+
+Frame 46
+Duration = 10
+Next frame = 45
+Sprite number = 52
+Sprite subnumber = 1
+
+Frame 142
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 0
+
+Frame 143
+Duration = 3
+Next frame = 726
+Sprite number = 52
+Sprite subnumber = 1
+
+Frame 726
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 2
+
+Frame 727
+Duration = 3
+Next frame = 728
+Sprite number = 52
+Sprite subnumber = 3
+
+Frame 728
+Sprite number = 52
+Sprite subnumber = 4
+
+Frame 729
+Next frame = 142
+Sprite number = 52
+Sprite subnumber = 5
+
+Frame 730
+Duration = 4
+Sprite number = 52
+Sprite subnumber = 6
+
+Frame 731
+Duration = 4
+Sprite number = 52
+Sprite subnumber = 7
+
+Frame 732
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32776
+
+Frame 733
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32777
+
+Frame 734
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32776
+
+Frame 735
+Duration = 1
+Next frame = 736
+Sprite number = 52
+Sprite subnumber = 32777
+
+Frame 736
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32776
+
+Frame 737
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32777
+
+Frame 738
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 32776
+
+Frame 739
+Duration = 4
+Sprite number = 52
+Sprite subnumber = 10
+
+Frame 740
+Sprite number = 52
+Sprite subnumber = 11
+
+Frame 741
+Duration = 4
+Next frame = 142
+Sprite number = 52
+Sprite subnumber = 12
+
+Frame 742
+Sprite number = 52
+Sprite subnumber = 13
+
+Frame 743
+Next frame = 744
+Sprite number = 52
+Sprite subnumber = 14
+
+Frame 744
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 15
+
+Frame 745
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 16
+
+Frame 746
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32785
+
+Frame 747
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 32786
+
+Frame 748
+Duration = 1
+Next frame = 749
+Sprite number = 52
+Sprite subnumber = 32785
+
+Frame 749
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 32786
+
+Frame 750
+Duration = 1
+Sprite number = 52
+Sprite subnumber = 32785
+
+Frame 751
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 32786
+
+Frame 752
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 19
+
+Frame 753
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 20
+
+Frame 754
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 21
+
+Frame 755
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 22
+
+Frame 756
+Duration = 3
+Next frame = 768
+Sprite number = 52
+Sprite subnumber = 23
+
+Frame 757
+Duration = 10
+Next frame = 758
+Sprite number = 95
+Sprite subnumber = 0
+
+Frame 758
+Sprite number = 95
+Sprite subnumber = 1
+
+Frame 759
+Sprite number = 95
+Sprite subnumber = 2
+
+Frame 760
+Sprite number = 95
+Sprite subnumber = 3
+
+Frame 761
+Sprite number = 95
+Sprite subnumber = 4
+
+Frame 762
+Next frame = 763
+Sprite number = 95
+Sprite subnumber = 5
+
+Frame 763
+Duration = 5
+Next frame = 764
+Sprite number = 95
+Sprite subnumber = 6
+
+Frame 764
+Duration = 5
+Sprite number = 95
+Sprite subnumber = 7
+
+Frame 765
+Duration = 5
+Sprite number = 95
+Sprite subnumber = 8
+
+Frame 766
+Duration = 5
+Sprite number = 95
+Sprite subnumber = 9
+
+Frame 767
+Duration = -1
+Next frame = 0
+Sprite number = 95
+Sprite subnumber = 10
+
+Frame 768
+Duration = 1
+Sprite subnumber = 0
+
+Frame 769
+Duration = 1
+Sprite subnumber = 1
+
+Frame 770
+Duration = 1
+Sprite subnumber = 2
+
+Frame 771
+Duration = 1
+Sprite subnumber = 3
+
+Frame 772
+Duration = 1
+Sprite subnumber = 4
+
+Frame 773
+Duration = 1
+Sprite subnumber = 5
+Next frame = 768
+
+Frame 774
+Duration = 1
+Sprite subnumber = 0
+
+Frame 775
+Duration = 1
+Sprite subnumber = 1
+Next frame = 776
+
+Frame 776
+Duration = 1
+Sprite subnumber = 2
+
+Frame 777
+Duration = 1
+Sprite subnumber = 3
+Next frame = 887
+
+Frame 887
+Duration = 1
+Next frame = 892
+Sprite number = 52
+Sprite subnumber = 4
+
+Frame 892
+Duration = 1
+Next frame = 142
+Sprite number = 52
+Sprite subnumber = 5
+
+Frame 893
+Duration = 3
+Sprite number = 52
+Sprite subnumber = 0
+
+[CODEPTR]
+FRAME 768 = Chase
+FRAME 769 = Chase
+FRAME 770 = Chase
+FRAME 771 = Chase
+FRAME 772 = Chase
+FRAME 773 = Chase
+FRAME 774 = Chase
+FRAME 775 = Chase
+FRAME 776 = Chase
+FRAME 777 = Chase
+FRAME 142 = Chase
+FRAME 143 = Chase
+FRAME 45 = Look
+FRAME 46 = Look
+FRAME 726 = Chase
+FRAME 727 = Chase
+FRAME 730 = FaceTarget
+FRAME 731 = FaceTarget
+FRAME 732 = FatAttack1
+FRAME 733 = FatAttack2
+FRAME 734 = FatAttack3
+FRAME 735 = FatAttack1
+FRAME 736 = FatAttack2
+FRAME 737 = FatAttack3
+FRAME 738 = FatAttack1
+FRAME 740 = FaceTarget
+FRAME 741 = FaceTarget
+FRAME 742 = FaceTarget
+FRAME 744 = FaceTarget
+FRAME 745 = FaceTarget
+FRAME 746 = CyberAttack
+FRAME 747 = FaceTarget
+FRAME 748 = CyberAttack
+FRAME 749 = FaceTarget
+FRAME 750 = CyberAttack
+FRAME 751 = FaceTarget
+FRAME 752 = FaceTarget
+FRAME 753 = FaceTarget
+FRAME 754 = FaceTarget
+FRAME 755 = FaceTarget
+FRAME 756 = FaceTarget
+FRAME 758 = Scream
+FRAME 887 = Chase
+FRAME 760 = Fall
+FRAME 892 = Chase
+FRAME 766 = NULL

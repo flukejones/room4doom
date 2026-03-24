@@ -1,0 +1,20 @@
+[package]
+name = "doom-ui"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wad.workspace = true
+gamestate-traits.workspace = true
+game-config.workspace = true
+gameplay.workspace = true
+render-common.workspace = true
+sound-common.workspace = true
+math.workspace = true
+hud-util.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

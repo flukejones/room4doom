@@ -1,0 +1,586 @@
+//! Environment and object interactions
+
+use std::ptr;
+
+use log::{debug, error, info};
+use sound_common::SfxName;
+
+use crate::MapObject;
+use crate::doom_def::{AmmoType, Card, PowerType};
+use crate::info::{MapObjKind, STATES, SpriteNum, StateNum};
+use crate::lang::english::*;
+use crate::player::{PlayerCheat, PlayerState};
+use crate::thing::MapObjFlag;
+use game_config::{Skill, WeaponType};
+use math::{ANG180, FixedT, p_random, r_point_to_angle};
+
+pub const BONUSADD: i32 = 6;
+
+impl MapObject {
+    /// Doom function name `P_DamageMobj`
+    ///
+    /// - Inflictor is the thing that caused the damage (creature or missle).
+    ///   Can be `None` for slime, goo etc.
+    /// - Source is the thing to target after taking damage. Should be None for
+    ///   things that can't be targetted (environmental).
+    /// - Source and inflictor are the same for melee attacks, if this is the
+    ///   case then only `source` should be set, and `source_is_inflictor` set
+    ///   to true.
+    ///
+    /// Relative to the original source, `target` is `self`.
+    ///
+    /// Self is always the target of the damage to be dealt. So for example if a
+    /// Mancubus sends a missile in to a Sargent then:
+    ///
+    /// - `self` is the Sargent
+    /// - `inflictor` is the missile that the Mancubus fired
+    /// - `source` is the Mancubus
+    /// - The Sargent has it's `target` set to `source`
+    ///
+    /// If Sargent was a Player then the player has `attacker` set to `source`
+    /// `inflictor` is `Some((x, y, z))` of the damage source if positional push
+    /// applies.
+    /// OG `P_DamageMobj(target, inflictor, source, damage)`.
+    /// `inflictor` is the position of the thing that caused direct damage.
+    /// `source` is the ultimate originator (e.g. the player who fired the
+    /// rocket).
+    pub(crate) fn p_take_damage(
+        &mut self,
+        inflictor: Option<(FixedT, FixedT, FixedT)>,
+        mut source: Option<&mut MapObject>,
+        mut damage: i32,
+    ) {
+        if !self.flags.contains(MapObjFlag::Shootable) {
+            return;
+        }
+
+        if self.health <= 0 {
+            return;
+        }
+
+        if self.flags.contains(MapObjFlag::Skullfly) {
+            self.momx = FixedT::ZERO;
+            self.momy = FixedT::ZERO;
+            self.momz = FixedT::ZERO;
+        }
+
+        unsafe {
+            if self.player.is_some() && (*self.level).options.skill == Skill::Baby {
+                damage >>= 1; // take half damage in trainer mode
+            }
+        }
+
+        // Some close combat weapons should not
+        // inflict thrust and push the victim out of reach,
+        // thus kick away unless using the chainsaw.
+        if let Some((inflict_x, inflict_y, inflict_z)) = inflictor {
+            let no_chainsaw = source.as_ref().map_or(true, |src| {
+                src.player.is_none()
+                    || unsafe { (*src.player.unwrap()).status.readyweapon != WeaponType::Chainsaw }
+            });
+            if !self.flags.contains(MapObjFlag::Noclip) && no_chainsaw {
+                let dx = self.x - inflict_x;
+                let dy = self.y - inflict_y;
+                let mut ang = r_point_to_angle(dx, dy);
+                // OG: thrust = damage * (FRACUNIT >> 3) * 100 / target->info->mass
+                let mut thrust =
+                    FixedT::from_fixed(damage * (0x10000_i32 >> 3) * 100 / self.info.mass);
+                // make fall forwards sometimes
+                if damage < 40
+                    && damage > self.health
+                    && (self.z - inflict_z) > 64
+                    && p_random() & 1 != 0
+                {
+                    ang = ang.wrapping_add(ANG180);
+                    thrust = thrust * 4;
+                }
+
+                self.momx += thrust.fixed_mul(FixedT::cos_bam(ang));
+                self.momy += thrust.fixed_mul(FixedT::sin_bam(ang));
+            }
+        }
+
+        let special = self.subsector.sector.special;
+        let mobj_health = self.health;
+        let self_x = self.x;
+        let self_y = self.y;
+        let self_ang = self.angle;
+        if let Some(player) = self.player_mut() {
+            // end of game-exe hell hack
+            if special == 11 && damage >= mobj_health {
+                damage = mobj_health - 1;
+            }
+            // Below certain threshold, ignore damage in GOD mode, or with INVUL power.
+            if damage < 1000
+                && (player.status.cheats.contains(PlayerCheat::Godmode)
+                    || player.status.powers[PowerType::Invulnerability as usize] != 0)
+            {
+                return;
+            }
+
+            if player.status.armortype != 0 {
+                let mut saved = if player.status.armortype == 1 {
+                    damage / 3
+                } else {
+                    damage / 2
+                };
+
+                if player.status.armorpoints <= saved {
+                    // armour is used up
+                    saved = player.status.armorpoints;
+                    player.status.armortype = 0;
+                }
+                player.status.armorpoints -= saved;
+                damage -= saved;
+            }
+
+            player.status.health -= damage;
+            if player.status.health < 0 {
+                player.status.health = 0;
+            }
+
+            if let Some(source) = source.as_mut() {
+                // OG: R_PointToAngle2(player->mo->x, y, source->x, y)
+                let dx = source.x - self_x;
+                let dy = source.y - self_y;
+                player.status.attacked_from = math::Angle::from_bam(r_point_to_angle(dx, dy));
+                player.status.own_angle = self_ang.convert();
+                player.status.attacked_angle_count = 6;
+                player.attacker = Some(*source);
+            }
+
+            player.status.damagecount += damage;
+            if player.status.damagecount > 100 {
+                player.status.damagecount = 100; // teleport stomp does 10k
+                // points...
+            }
+            // Tactile feedback thing removed here
+        }
+
+        debug!("Applying {damage} damage");
+        self.health -= damage;
+        if self.health <= 0 {
+            self.kill(source);
+            return;
+        }
+
+        if p_random() < self.info.painchance && !self.flags.contains(MapObjFlag::Skullfly) {
+            self.flags.insert(MapObjFlag::Justhit); // FIGHT!!!
+            self.set_state(self.info.painstate);
+        }
+
+        self.reactiontime = 0; // AWAKE AND READY!
+
+        if self.threshold == 0 || self.kind == MapObjKind::MT_VILE {
+            if let Some(source) = source {
+                // TODO: gameversion <= exe_doom_1_2
+                if !ptr::eq(self, source) && source.kind != MapObjKind::MT_VILE {
+                    self.target = Some(source.thinker);
+                    self.threshold = BASETHRESHOLD;
+
+                    if ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
+                        && self.info.seestate != StateNum::None
+                    {
+                        self.set_state(self.info.seestate);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Doom function name `P_KillMobj`
+    fn kill(&mut self, mut source: Option<&mut MapObject>) {
+        self.flags
+            .remove(MapObjFlag::Shootable | MapObjFlag::Float | MapObjFlag::Skullfly);
+
+        if self.kind != MapObjKind::MT_SKULL {
+            self.flags.remove(MapObjFlag::Nogravity);
+        }
+
+        self.flags.insert(MapObjFlag::Corpse | MapObjFlag::Dropoff);
+        self.height = self.height / 4;
+
+        if let Some(source) = source.as_mut() {
+            if let Some(player) = source.player_mut() {
+                if self.flags.contains(MapObjFlag::Countkill) {
+                    player.total_kills += 1;
+                }
+
+                if self.player.is_some() {
+                    // TODO: set correct player for frags
+                    player.frags[0] += 1;
+                }
+            }
+        } else {
+            // TODO: Need to increment killcount for first player
+            if let Some(player) = self.player_mut() {
+                // TODO: players[0].killcount++; ??
+                player.total_kills += 1;
+            }
+        }
+
+        if let Some(player) = self.player_mut() {
+            info!("Killing player");
+            // Environment kills count against you
+            if source.is_none() {
+                // TODO: set correct player for frags
+                player.frags[0] += 1;
+            }
+
+            player.player_state = PlayerState::Dead;
+            player.drop_weapon();
+            // TODO: stop automap
+        }
+
+        if self.player().is_some() {
+            self.flags.remove(MapObjFlag::Solid);
+        }
+
+        if self.health < -self.info.spawnhealth && self.info.xdeathstate != StateNum::None {
+            self.set_state(self.info.xdeathstate);
+        } else {
+            self.set_state(self.info.deathstate);
+        }
+
+        self.tics -= p_random() & 3;
+        if self.tics < 1 {
+            self.tics = 1;
+        }
+
+        let item = match self.kind {
+            MapObjKind::MT_WOLFSS | MapObjKind::MT_POSSESSED => MapObjKind::MT_CLIP,
+            MapObjKind::MT_SHOTGUY => MapObjKind::MT_SHOTGUN,
+            MapObjKind::MT_CHAINGUY => MapObjKind::MT_CHAINGUN,
+            _ => return,
+        };
+
+        unsafe {
+            let mobj =
+                MapObject::spawn_map_object(self.x, self.y, self.floorz, item, &mut *self.level);
+            (*mobj).flags.insert(MapObjFlag::Dropped);
+        }
+    }
+
+    /// Interact with special pickups
+    ///
+    /// Doom function name `P_TouchSpecialThing`
+    pub(crate) fn touch_special(&mut self, special: &mut MapObject) {
+        let delta = special.z - self.z;
+
+        if delta > self.height || delta < -8 {
+            // Can't reach it. Because map is essentially 2D we need to check Z
+            return;
+        }
+
+        let mut sound = SfxName::Itemup;
+
+        if let Some(player) = self.player {
+            let player = unsafe { &mut *player };
+
+            if self.health <= 0 {
+                // dead thing, like a gib or corpse
+                return;
+            }
+
+            let skill = unsafe { (*self.level).options.skill };
+            match special.sprite {
+                SpriteNum::ARM1 => {
+                    if !player.give_armour(1) {
+                        return;
+                    }
+                    player.message = Some(GOTARMOR);
+                }
+                SpriteNum::ARM2 => {
+                    if !player.give_armour(2) {
+                        return;
+                    }
+                    player.message = Some(GOTMEGA);
+                }
+                SpriteNum::BON1 => {
+                    player.status.health += 1; // Go over 100%
+                    if player.status.health > 200 {
+                        player.status.health = 200;
+                    }
+                    player.message = Some(GOTHTHBONUS);
+                }
+                SpriteNum::BON2 => {
+                    player.status.armorpoints += 1; // Go over 100%
+                    if player.status.armorpoints > 200 {
+                        player.status.armorpoints = 200;
+                    }
+                    if player.status.armortype == 0 {
+                        player.status.armortype = 1;
+                    }
+                    player.message = Some(GOTARMBONUS);
+                }
+                SpriteNum::SOUL => {
+                    player.status.health += 100;
+                    if player.status.health > 200 {
+                        player.status.health = 200;
+                    }
+                    player.message = Some(GOTSUPER);
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::MEGA => {
+                    // TODO: if (gamemode != commercial) return;
+                    player.status.health = 200;
+                    player.give_armour(2);
+                    player.message = Some(GOTMSPHERE);
+                    sound = SfxName::Getpow;
+                }
+
+                // Keycards
+                SpriteNum::BKEY => {
+                    if !player.status.cards[Card::Bluecard as usize] {
+                        player.message = Some(GOTBLUECARD);
+                    }
+                    player.give_key(Card::Bluecard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::YKEY => {
+                    if !player.status.cards[Card::Yellowcard as usize] {
+                        player.message = Some(GOTYELWCARD);
+                    }
+                    player.give_key(Card::Yellowcard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::RKEY => {
+                    if !player.status.cards[Card::Redcard as usize] {
+                        player.message = Some(GOTREDCARD);
+                    }
+                    player.give_key(Card::Redcard);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::BSKU => {
+                    if !player.status.cards[Card::Blueskull as usize] {
+                        player.message = Some(GOTBLUESKUL);
+                    }
+                    player.give_key(Card::Blueskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::YSKU => {
+                    if !player.status.cards[Card::Yellowskull as usize] {
+                        player.message = Some(GOTYELWSKUL);
+                    }
+                    player.give_key(Card::Yellowskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::RSKU => {
+                    if !player.status.cards[Card::Redskull as usize] {
+                        player.message = Some(GOTREDSKULL);
+                    }
+                    player.give_key(Card::Redskull);
+                    // TODO: if (netgame) return;
+                }
+                SpriteNum::STIM => {
+                    if !player.give_body(10) {
+                        return;
+                    }
+                    player.message = Some(GOTSTIM);
+                }
+                SpriteNum::MEDI => {
+                    if !player.give_body(25) {
+                        return;
+                    }
+                    if player.status.health < 25 {
+                        player.message = Some(GOTMEDINEED);
+                    } else {
+                        player.message = Some(GOTMEDIKIT);
+                    }
+                }
+
+                // Powerups
+                SpriteNum::PINV => {
+                    if !player.give_power(PowerType::Invulnerability) {
+                        return;
+                    }
+                    player.message = Some(GOTINVUL);
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::PSTR => {
+                    if !player.give_power(PowerType::Strength) {
+                        return;
+                    }
+                    player.message = Some(GOTBERSERK);
+                    if !(player.status.readyweapon == WeaponType::Fist) {
+                        player.pendingweapon = WeaponType::Fist;
+                    }
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::PINS => {
+                    if !player.give_power(PowerType::Invisibility) {
+                        return;
+                    }
+                    self.flags.insert(MapObjFlag::Shadow);
+                    player.message = Some(GOTINVIS);
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::SUIT => {
+                    if !player.give_power(PowerType::IronFeet) {
+                        return;
+                    }
+                    player.message = Some(GOTSUIT);
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::PMAP => {
+                    if !player.give_power(PowerType::Allmap) {
+                        return;
+                    }
+                    player.message = Some(GOTMAP);
+                    sound = SfxName::Getpow;
+                }
+                SpriteNum::PVIS => {
+                    if !player.give_power(PowerType::Infrared) {
+                        return;
+                    }
+                    player.message = Some(GOTVISOR);
+                    sound = SfxName::Getpow;
+                }
+
+                // Ammo
+                SpriteNum::CLIP => {
+                    if (special.flags.contains(MapObjFlag::Dropped)
+                        && !player.give_ammo(AmmoType::Clip, 0, skill))
+                        || !player.give_ammo(AmmoType::Clip, 1, skill)
+                    {
+                        return;
+                    }
+                    player.message = Some(GOTCLIP);
+                }
+                SpriteNum::AMMO => {
+                    if !player.give_ammo(AmmoType::Clip, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCLIPBOX);
+                }
+                SpriteNum::ROCK => {
+                    if !player.give_ammo(AmmoType::Missile, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTROCKET);
+                }
+                SpriteNum::BROK => {
+                    if !player.give_ammo(AmmoType::Missile, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTROCKBOX);
+                }
+                SpriteNum::CELL => {
+                    if !player.give_ammo(AmmoType::Cell, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCELL);
+                }
+                SpriteNum::CELP => {
+                    if !player.give_ammo(AmmoType::Cell, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCELLBOX);
+                }
+                SpriteNum::SHEL => {
+                    if !player.give_ammo(AmmoType::Shell, 1, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTSHELLS);
+                }
+                SpriteNum::SBOX => {
+                    if !player.give_ammo(AmmoType::Shell, 5, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTSHELLBOX);
+                }
+                SpriteNum::BPAK => {
+                    if !player.status.backpack {
+                        for i in 0..AmmoType::NumAmmo as usize {
+                            player.status.maxammo[i] *= 2;
+                        }
+                        player.status.backpack = true;
+                    }
+                    for i in 0..AmmoType::NumAmmo as usize {
+                        player.give_ammo(AmmoType::from(i), 1, skill);
+                    }
+                    player.message = Some(GOTBACKPACK);
+                }
+
+                // Weapons
+                SpriteNum::BFUG => {
+                    if !player.give_weapon(WeaponType::BFG, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTBFG9000);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::MGUN => {
+                    if !player.give_weapon(
+                        WeaponType::Chaingun,
+                        special.flags.contains(MapObjFlag::Dropped),
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTCHAINGUN);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::CSAW => {
+                    if !player.give_weapon(WeaponType::Chainsaw, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTCHAINSAW);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::LAUN => {
+                    if !player.give_weapon(WeaponType::Missile, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTLAUNCHER);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::PLAS => {
+                    if !player.give_weapon(WeaponType::Plasma, false, skill) {
+                        return;
+                    }
+                    player.message = Some(GOTPLASMA);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::SHOT => {
+                    if !player.give_weapon(
+                        WeaponType::Shotgun,
+                        special.flags.contains(MapObjFlag::Dropped),
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTSHOTGUN);
+                    sound = SfxName::Wpnup;
+                }
+                SpriteNum::SGN2 => {
+                    if !player.give_weapon(
+                        WeaponType::SuperShotgun,
+                        special.flags.contains(MapObjFlag::Dropped),
+                        skill,
+                    ) {
+                        return;
+                    }
+                    player.message = Some(GOTSHOTGUN2);
+                    sound = SfxName::Wpnup;
+                }
+
+                _ => error!("Unknown gettable: {:?}", special.sprite),
+            }
+
+            // Ensure thing health is synced
+            self.health = player.status.health;
+
+            if special.flags.contains(MapObjFlag::Countitem) {
+                player.items_collected += 1;
+            }
+            special.remove();
+            player.status.bonuscount += BONUSADD;
+
+            // TODO: if (player == &players[consoleplayer])
+            self.start_sound(sound);
+        }
+    }
+}
+
+const BASETHRESHOLD: i32 = 100;

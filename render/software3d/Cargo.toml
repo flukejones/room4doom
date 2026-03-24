@@ -1,0 +1,32 @@
+[package]
+name = "software3d"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "../../build.rs"
+
+[features]
+default = []
+hprof = []
+render_stats = []
+bench = []
+
+[dependencies]
+glam.workspace = true
+math.workspace = true
+gameplay.workspace = true
+level.workspace = true
+pic-data.workspace = true
+render-common.workspace = true
+coarse-prof.workspace = true
+
+[dev-dependencies]
+wad.workspace = true
+test-utils.workspace = true
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "render_bench"
+harness = false
+required-features = ["bench"]

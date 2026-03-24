@@ -1,0 +1,426 @@
+//! Door movement thinker, controls open/close, locked.
+//!
+//! Doom source name `p_doors`
+
+use log::{debug, error, warn};
+use sound_common::SfxName;
+use std::fmt::{self, Formatter};
+use std::ptr::null_mut;
+
+use crate::SectorExt;
+use crate::doom_def::{Card, TICRATE};
+use crate::env::specials::{PlaneResult, find_lowest_ceiling_surrounding, move_plane};
+use crate::env::switch::start_sector_sound;
+use crate::lang::english::{PD_BLUEK, PD_REDK, PD_YELLOWK};
+use crate::level::LevelState;
+use crate::thing::MapObject;
+use crate::thinker::{Think, Thinker, ThinkerData};
+use level::map_defs::{LineDef, Sector, SectorHeight};
+use level::{LineDefFlags, MapPtr};
+use math::FixedT;
+
+const VDOOR: SectorHeight = FixedT::from_fixed(2 << 16);
+const VDOORWAIT: i32 = 150;
+const VDOORSPEED: SectorHeight = FixedT::from_fixed(2 << 16);
+
+#[derive(Debug, Clone, Copy)]
+pub enum DoorKind {
+    Normal,
+    Close30ThenOpen,
+    Close,
+    Open,
+    RaiseIn5Mins,
+    BlazeRaise,
+    BlazeOpen,
+    BlazeClose,
+}
+
+pub struct VerticalDoor {
+    pub thinker: *mut Thinker,
+    pub sector: MapPtr<Sector>,
+    pub kind: DoorKind,
+    pub topheight: SectorHeight,
+    pub speed: SectorHeight,
+    // 1 = up, 0 = waiting, -1 = down
+    pub direction: i32,
+    // tics to wait at the top
+    pub topwait: i32,
+    // (keep in case a door going down is reset)
+    // when it reaches 0, start going down
+    pub topcountdown: i32,
+}
+
+impl fmt::Debug for VerticalDoor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("VerticalDoor")
+            .field("kind", &self.kind)
+            .field("topheight", &self.topheight)
+            .field("speed", &self.speed)
+            .field("direction", &self.direction)
+            .field("topwait", &self.topwait)
+            .field("topcountdown", &self.topcountdown)
+            .finish()
+    }
+}
+
+impl Think for VerticalDoor {
+    fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
+        let door = object.vdoor_mut();
+        #[cfg(feature = "null_check")]
+        if door.thinker.is_null() {
+            std::panic!("NULL");
+        }
+        let line = door.sector.lines[0].as_ref();
+
+        match door.direction {
+            0 => {
+                door.topcountdown -= 1;
+                if door.topcountdown == 0 {
+                    debug!("Door for sector {:?} should go down", door.sector.as_ref());
+                    match door.kind {
+                        DoorKind::BlazeRaise => {
+                            door.direction = -1;
+                            start_sector_sound(line, SfxName::Bdcls, &level.snd_command);
+                        }
+                        DoorKind::Normal => {
+                            door.direction = -1;
+                            start_sector_sound(line, SfxName::Dorcls, &level.snd_command);
+                        }
+                        DoorKind::Close30ThenOpen => {
+                            door.direction = 1;
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
+                        }
+                        _ => {
+                            warn!("Invalid door kind: {:?}", door.kind);
+                        }
+                    }
+                }
+            }
+            2 => {
+                // INITIAL WAIT
+                door.topcountdown -= 1;
+                if door.topcountdown == 0 {
+                    debug!("Door for sector {:?} should go up", door.sector.as_ref());
+                    match door.kind {
+                        DoorKind::RaiseIn5Mins => {
+                            door.direction = 1;
+                            door.kind = DoorKind::Normal;
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
+                        }
+                        _ => {
+                            warn!("Invalid door kind: {:?}", door.kind);
+                        }
+                    }
+                }
+            }
+            -1 => {
+                debug!("Lower door for sector {:?}", door.sector.as_ref());
+                let res = move_plane(
+                    door.sector.clone(),
+                    door.speed,
+                    door.sector.floorheight,
+                    false,
+                    1,
+                    door.direction,
+                    level,
+                );
+
+                if matches!(res, PlaneResult::PastDest) {
+                    match door.kind {
+                        DoorKind::BlazeRaise | DoorKind::BlazeClose => {
+                            start_sector_sound(line, SfxName::Bdcls, &level.snd_command);
+                            unsafe {
+                                door.sector.specialdata = None;
+                                Thinker::from_erased(door.thinker).mark_remove();
+                            }
+                        }
+                        DoorKind::Normal | DoorKind::Close => unsafe {
+                            door.sector.specialdata = None;
+                            Thinker::from_erased(door.thinker).mark_remove();
+                        },
+                        DoorKind::Close30ThenOpen => {
+                            door.direction = 0;
+                            door.topcountdown = TICRATE * 30;
+                        }
+                        _ => {}
+                    }
+                } else if matches!(res, PlaneResult::Crushed) {
+                    match door.kind {
+                        DoorKind::BlazeClose | DoorKind::Close => {}
+                        _ => {
+                            door.direction = 1;
+                            start_sector_sound(line, SfxName::Doropn, &level.snd_command);
+                        }
+                    }
+                }
+            }
+            1 => {
+                debug!("Raise door for sector {:?}", door.sector.as_ref());
+                let res = move_plane(
+                    door.sector.clone(),
+                    door.speed,
+                    door.topheight,
+                    false,
+                    1,
+                    door.direction,
+                    level,
+                );
+
+                if matches!(res, PlaneResult::PastDest) {
+                    match door.kind {
+                        DoorKind::BlazeRaise | DoorKind::Normal => {
+                            door.direction = 0; // wait at top
+                            door.topcountdown = door.topwait;
+                        }
+                        DoorKind::Close30ThenOpen | DoorKind::BlazeOpen | DoorKind::Open => unsafe {
+                            door.sector.specialdata = None;
+                            Thinker::from_erased(door.thinker).mark_remove();
+                        },
+                        _ => {}
+                    }
+                }
+            }
+            _ => warn!("Invalid door direction of {}", door.direction),
+        };
+
+        true
+    }
+
+    fn set_thinker_ptr(&mut self, ptr: *mut Thinker) {
+        self.thinker = ptr;
+    }
+
+    fn thinker_mut(&mut self) -> &mut Thinker {
+        #[cfg(feature = "null_check")]
+        if self.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
+        unsafe { Thinker::from_erased(self.thinker) }
+    }
+
+    fn thinker(&self) -> &Thinker {
+        #[cfg(feature = "null_check")]
+        if self.thinker.is_null() {
+            std::panic!("vdoor thinker was null");
+        }
+        unsafe { Thinker::from_erased_ref(self.thinker) }
+    }
+}
+
+/// EV_DoDoor
+/// Can affect multiple sectors via the sector tag
+pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut LevelState) -> bool {
+    let mut ret = false;
+    for sector in level
+        .level_data
+        .sectors_mut()
+        .iter_mut()
+        .filter(|s| s.tag == line.tag)
+    {
+        if sector.specialdata.is_some() {
+            continue;
+        }
+        // Because we need to break lifetimes...
+        let mut sec = MapPtr::new(sector);
+
+        ret = true;
+        let mut door = VerticalDoor {
+            thinker: null_mut(),
+            sector: MapPtr::new(sector),
+            kind,
+            topheight: SectorHeight::ZERO,
+            speed: VDOORSPEED,
+            direction: 1,
+            topwait: VDOORWAIT,
+            topcountdown: 0,
+        };
+
+        let top = find_lowest_ceiling_surrounding(sec.clone());
+        match kind {
+            DoorKind::Normal | DoorKind::Open => {
+                door.topheight = top;
+                door.topheight -= 4;
+                door.direction = 1;
+                if door.topheight != sec.ceilingheight {
+                    start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
+                }
+            }
+            DoorKind::BlazeRaise | DoorKind::BlazeOpen => {
+                door.topheight = top;
+                door.topheight -= 4;
+                door.direction = 1;
+                door.speed = door.speed * 4;
+                if door.topheight != sec.ceilingheight {
+                    start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
+                }
+            }
+            DoorKind::BlazeClose => {
+                door.topheight = top;
+                door.topheight -= 4;
+                door.direction = -1;
+                door.speed = door.speed * 4;
+                start_sector_sound(&line, SfxName::Bdcls, &level.snd_command);
+            }
+            DoorKind::Close30ThenOpen => {
+                door.topheight = sec.ceilingheight;
+                door.direction = -1;
+                start_sector_sound(&line, SfxName::Dorcls, &level.snd_command);
+            }
+            DoorKind::Close => {
+                door.topheight = top;
+                door.topheight -= 4;
+                door.direction = -1;
+                start_sector_sound(&line, SfxName::Dorcls, &level.snd_command);
+            }
+            _ => {}
+        }
+
+        let thinker =
+            MapObject::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
+
+        if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
+            ptr.set_obj_thinker_ptr();
+            sec.set_sector_mover(ptr);
+        }
+    }
+
+    ret
+}
+
+pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level: &mut LevelState) {
+    match line.special {
+        26 | 32 => {
+            let player = match thing.player_mut() {
+                Some(p) => p,
+                None => return, // monsters can't open locked doors
+            };
+            if !player.status.cards[Card::Bluecard as usize]
+                && !player.status.cards[Card::Blueskull as usize]
+            {
+                player.message = Some(PD_BLUEK);
+                start_sector_sound(&line, SfxName::Oof, &level.snd_command);
+                return;
+            }
+        }
+        27 | 34 => {
+            let player = match thing.player_mut() {
+                Some(p) => p,
+                None => return,
+            };
+            if !player.status.cards[Card::Yellowcard as usize]
+                && !player.status.cards[Card::Yellowskull as usize]
+            {
+                player.message = Some(PD_YELLOWK);
+                start_sector_sound(&line, SfxName::Oof, &level.snd_command);
+                return;
+            }
+        }
+        28 | 33 => {
+            let player = match thing.player_mut() {
+                Some(p) => p,
+                None => return,
+            };
+            if !player.status.cards[Card::Redcard as usize]
+                && !player.status.cards[Card::Redskull as usize]
+            {
+                player.message = Some(PD_REDK);
+                start_sector_sound(&line, SfxName::Oof, &level.snd_command);
+                return;
+            }
+        }
+        _ => {}
+    }
+
+    if !line.flags.contains(LineDefFlags::TwoSided) {
+        error!("ev_vertical_door: tried to operate on a line that is not two-sided");
+        return;
+    }
+
+    // new door thinker
+    // sec = sides[line->sidenum[side ^ 1]].sector;
+    let mut sec = line.backsector.clone().unwrap();
+
+    // if the sector has an active thinker, use it
+    if let Some(data) = sec.specialdata {
+        // TODO:
+        let door = unsafe { &mut *(data as *mut Thinker) }.vdoor_mut();
+        match line.special {
+            1 | 26 | 27 | 28 | 117 => {
+                if door.direction == -1 {
+                    door.direction = 1; // go back up
+                } else {
+                    if thing.player().is_none() {
+                        return; // bad guys never close doors
+                    }
+
+                    if matches!(
+                        <VerticalDoor as Think>::thinker(door).data(),
+                        ThinkerData::VerticalDoor(_)
+                    ) {
+                        door.direction = -1;
+                    } else if matches!(
+                        <VerticalDoor as Think>::thinker(door).data(),
+                        ThinkerData::VerticalDoor(_)
+                    ) { // TODO: PLATFORM
+                    } else {
+                        error!(
+                            "ev_vertical_door: tried to close something that is not a door or platform"
+                        );
+                        door.direction = -1;
+                    }
+                }
+                return;
+                // dfsdf
+            }
+            _ => {}
+        }
+    }
+
+    let mut door = VerticalDoor {
+        thinker: null_mut(),
+        sector: sec.clone(),
+        kind: DoorKind::Normal,
+        topheight: SectorHeight::ZERO,
+        speed: VDOORSPEED,
+        direction: 1,
+        topwait: VDOORWAIT,
+        topcountdown: 0,
+    };
+
+    match line.special {
+        1 | 26 | 27 | 28 => {
+            door.kind = DoorKind::Normal;
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
+        }
+        31..=34 => {
+            door.kind = DoorKind::Open;
+            line.special = 0;
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
+        }
+        117 => {
+            door.kind = DoorKind::BlazeRaise;
+            door.speed = VDOOR * 4;
+            start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
+        }
+        118 => {
+            door.kind = DoorKind::BlazeOpen;
+            line.special = 0;
+            door.speed = VDOOR * 4;
+            start_sector_sound(&line, SfxName::Bdopn, &level.snd_command);
+        }
+        _ => {
+            start_sector_sound(&line, SfxName::Doropn, &level.snd_command);
+        }
+    }
+
+    door.topheight = find_lowest_ceiling_surrounding(sec.clone());
+    door.topheight -= 4;
+
+    debug!("Activated door: {door:?}");
+    let thinker = MapObject::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
+
+    if let Some(ptr) = level.thinkers.push::<VerticalDoor>(thinker) {
+        ptr.set_obj_thinker_ptr();
+        sec.set_sector_mover(ptr);
+    }
+}

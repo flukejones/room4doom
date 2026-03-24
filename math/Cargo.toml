@@ -1,0 +1,15 @@
+[package]
+name = "math"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+glam.workspace = true
+
+[features]
+trig_lut = []
+fixed64 = []
+fixed64hd = []
