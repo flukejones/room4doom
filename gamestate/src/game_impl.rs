@@ -80,14 +80,16 @@ impl GameTraits for Game {
     fn change_music(&self, mus: MusTrack) {
         let track = if mus == MusTrack::None {
             if self.game_type.mode == GameMode::Commercial {
-                MusTrack::from((MusTrack::Runnin as u8) + (self.options.map as u8) - 1)
+                MusTrack::try_from((MusTrack::Runnin as u8) + (self.options.map as u8) - 1)
+                    .unwrap_or(MusTrack::None)
             } else if self.options.episode < 4 {
-                MusTrack::from(
+                MusTrack::try_from(
                     (MusTrack::E1M1 as u8)
                         + ((self.options.episode as u8 - 1) * 9)
                         + (self.options.map as u8)
                         - 1,
                 )
+                .unwrap_or(MusTrack::None)
             } else {
                 EPISODE4_MUS[self.options.map - 1]
             }
