@@ -130,6 +130,63 @@ fn lump_sfx_to_f32(raw_lump: &[u8]) -> Option<Vec<f32>> {
     Some(resampled)
 }
 
+/// Load all sfx lumps from the WAD into in-memory `SfxChunk`s, parallel
+/// to the order of `SFX_INFO_BASE`. Missing or malformed lumps degrade
+/// to empty samples (logged but never fatal); index-stability with
+/// `SfxName as usize` is preserved.
+fn load_sfx_chunks(wad: &WadData) -> Vec<SfxChunk> {
+    let chunks: Vec<SfxChunk> = SFX_INFO_BASE
+        .iter()
+        .map(|s| {
+            let name = format!("DS{}", s.name.to_ascii_uppercase());
+            let samples = if let Some(lump) = wad.get_lump(&name) {
+                lump_sfx_to_f32(&lump.data).unwrap_or_else(|| {
+                    warn!("{name} failed to parse");
+                    Vec::new()
+                })
+            } else {
+                debug!("{name} is missing");
+                Vec::new()
+            };
+            SfxChunk {
+                samples,
+                priority: s.priority,
+            }
+        })
+        .collect();
+    info!("Initialised {} sfx (rodio)", chunks.len());
+    chunks
+}
+
+/// Load the GUS SoundFont if a path was supplied. Logs at info on
+/// success, warn on parse failure, and returns `None` for either
+/// "no path provided" or "load failed" — the caller falls back to
+/// OPL music in either case.
+fn load_gus_state(sf2_path: Option<&std::path::Path>) -> Option<Arc<Mutex<GusPlayerState>>> {
+    let path = sf2_path?;
+    match GusPlayerState::new(path) {
+        Ok(state) => {
+            info!("GUS SF2 loaded: {}", path.display());
+            Some(Arc::new(Mutex::new(state)))
+        }
+        Err(e) => {
+            warn!("Failed to load GUS SF2: {e}");
+            None
+        }
+    }
+}
+
+/// Choose the active music type given the user-requested type and
+/// whether the GUS SoundFont was actually loaded. GUS without an SF2
+/// has no synthesizer to drive, so silently fall back to OPL2.
+fn resolve_music_type(requested: MusicType, gus_loaded: bool) -> MusicType {
+    if requested == MusicType::GUS && !gus_loaded {
+        MusicType::OPL2
+    } else {
+        requested
+    }
+}
+
 impl Snd {
     /// Construct the rodio sound server. Infallible — sfx and SF2 load
     /// failures are logged and degrade to silent assets. The audio
@@ -140,49 +197,11 @@ impl Snd {
         music_type: MusicType,
         sf2_path: Option<&std::path::Path>,
     ) -> Self {
-        let chunks: Vec<SfxChunk> = SFX_INFO_BASE
-            .iter()
-            .map(|s| {
-                let name = format!("DS{}", s.name.to_ascii_uppercase());
-                let samples = if let Some(lump) = wad.get_lump(&name) {
-                    lump_sfx_to_f32(&lump.data).unwrap_or_else(|| {
-                        warn!("{name} failed to parse");
-                        Vec::new()
-                    })
-                } else {
-                    debug!("{name} is missing");
-                    Vec::new()
-                };
-                SfxChunk {
-                    samples,
-                    priority: s.priority,
-                }
-            })
-            .collect();
-        info!("Initialised {} sfx (rodio)", chunks.len());
-
+        let chunks = load_sfx_chunks(wad);
         let opl_state = Arc::new(Mutex::new(OplPlayerState::new(SAMPLE_RATE, wad)));
-
         // Always try to load the SF2 so GUS is available for runtime switching
-        let gus_state = if let Some(path) = sf2_path {
-            match GusPlayerState::new(path) {
-                Ok(state) => {
-                    info!("GUS SF2 loaded: {}", path.display());
-                    Some(Arc::new(Mutex::new(state)))
-                }
-                Err(e) => {
-                    warn!("Failed to load GUS SF2: {e}");
-                    None
-                }
-            }
-        } else {
-            None
-        };
-        let active_type = if music_type == MusicType::GUS && gus_state.is_none() {
-            MusicType::OPL2
-        } else {
-            music_type
-        };
+        let gus_state = load_gus_state(sf2_path);
+        let active_type = resolve_music_type(music_type, gus_state.is_some());
 
         let (tx, rx) = channel();
         let mixer = Arc::new(Mutex::new(DoomMixer::new()));
@@ -600,5 +619,31 @@ impl Snd {
         self.stop_sound_all();
         self.stop_music();
         self.stream.take();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_music_type_gus_without_sf2_falls_back_to_opl2() {
+        assert_eq!(
+            resolve_music_type(MusicType::GUS, false),
+            MusicType::OPL2
+        );
+    }
+
+    #[test]
+    fn resolve_music_type_gus_with_sf2_stays_gus() {
+        assert_eq!(resolve_music_type(MusicType::GUS, true), MusicType::GUS);
+    }
+
+    #[test]
+    fn resolve_music_type_opl_passes_through() {
+        assert_eq!(resolve_music_type(MusicType::OPL2, false), MusicType::OPL2);
+        assert_eq!(resolve_music_type(MusicType::OPL2, true), MusicType::OPL2);
+        assert_eq!(resolve_music_type(MusicType::OPL3, false), MusicType::OPL3);
+        assert_eq!(resolve_music_type(MusicType::OPL3, true), MusicType::OPL3);
     }
 }

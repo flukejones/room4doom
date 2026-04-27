@@ -81,3 +81,11 @@
 
 - [ ] OpenGL renderer
 - [ ] Vulkan renderer
+
+
+#3 — Drop `unsafe impl Send for Snd` by constructing `Snd` on the sound thread
+#4 — `DoomMixer` left/right phase toggle desync hazard
+
+sound Try-reconnect should really be event driven. Such as system event detects sound device change.
+
+What would this require?
