@@ -1,3 +1,5 @@
+use std::mem;
+
 use glam::Vec2;
 use level::{SurfaceKind, SurfacePolygon, WallType};
 use pic_data::PicData;
@@ -31,7 +33,7 @@ pub(crate) fn write_pixel(
         let r = ((sr as u16 * a + dr as u16 * inv_a) >> 8) as u8;
         let g = ((sg as u16 * a + dg as u16 * inv_a) >> 8) as u8;
         let b = ((sb as u16 * a + db as u16 * inv_a) >> 8) as u8;
-        buffer.set_pixel(x, y, (r as u32) << 16 | (g as u32) << 8 | b as u32);
+        buffer.set_pixel(x, y, 0xFF000000 | (r as u32) << 16 | (g as u32) << 8 | b as u32);
     } else {
         buffer.set_pixel(x, y, color);
     }
@@ -167,8 +169,8 @@ impl Software3D {
                 }
             }
             if x0 > x1 {
-                std::mem::swap(&mut x0, &mut x1);
-                std::mem::swap(&mut inv_w_at_x0, &mut inv_w_at_x1);
+                mem::swap(&mut x0, &mut x1);
+                mem::swap(&mut inv_w_at_x0, &mut inv_w_at_x1);
             }
 
             let x_f = x0.max(0.0).ceil();
@@ -387,7 +389,7 @@ impl Software3D {
     /// Called once per frame after all geometry, sprites, and weapons are
     /// drawn.
     pub(crate) fn draw_debug_polygon_outlines(&mut self, buffer: &mut impl DrawBuffer) {
-        let outlines = std::mem::take(&mut self.debug.polygon_outlines);
+        let outlines = mem::take(&mut self.debug.polygon_outlines);
         for (verts, depths, color) in &outlines {
             if verts.len() < 3 {
                 continue;
@@ -401,7 +403,7 @@ impl Software3D {
 
     /// Draw normal direction lines as a post-render overlay.
     pub(crate) fn draw_debug_normal_lines(&mut self, buffer: &mut impl DrawBuffer) {
-        let lines = std::mem::take(&mut self.debug.normal_lines);
+        let lines = mem::take(&mut self.debug.normal_lines);
         let base = 0xFFC83C0A; // deep ember
         let tip_color = 0xFFFFDC32; // bright flame tip
         for (center, tip, depth) in &lines {

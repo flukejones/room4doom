@@ -20,6 +20,8 @@ const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 const VOXEL_BOB_RANGE: f32 = 6.0;
 const VOXEL_MAX_DIST: f32 = 666.0;
 const VOXEL_MAX_DIST_SQ: f32 = VOXEL_MAX_DIST * VOXEL_MAX_DIST;
+/// Tolerance for snapping projected screen coords to exact viewport edges.
+const SCREEN_EDGE_SNAP: f32 = 0.01;
 
 pub(crate) struct SpriteQuad {
     world_verts: [Vec3; 4],
@@ -262,11 +264,7 @@ impl Software3D {
         if sprite_width < 1.0 {
             return None;
         }
-        let sprite_height = if patch.data.is_empty() {
-            return None;
-        } else {
-            patch.data[0].len() as f32
-        };
+        let sprite_height = patch.data[0].len() as f32;
 
         // Build billboard quad in world space
         // The quad faces the camera (billboarded around Z axis)
@@ -403,15 +401,14 @@ impl Software3D {
                     let half_h = 0.5 * h_f32;
                     let mut screen_x = (clip_pos.x + clip_pos.w) * half_w * inv_w;
                     let mut screen_y = (clip_pos.w - clip_pos.y) * half_h * inv_w;
-                    const SNAP: f32 = 0.01;
-                    if screen_x.abs() < SNAP {
+                    if screen_x.abs() < SCREEN_EDGE_SNAP {
                         screen_x = 0.0;
-                    } else if (screen_x - w_f32).abs() < SNAP {
+                    } else if (screen_x - w_f32).abs() < SCREEN_EDGE_SNAP {
                         screen_x = w_f32;
                     }
-                    if screen_y.abs() < SNAP {
+                    if screen_y.abs() < SCREEN_EDGE_SNAP {
                         screen_y = 0.0;
-                    } else if (screen_y - h_f32).abs() < SNAP {
+                    } else if (screen_y - h_f32).abs() < SCREEN_EDGE_SNAP {
                         screen_y = h_f32;
                     }
 

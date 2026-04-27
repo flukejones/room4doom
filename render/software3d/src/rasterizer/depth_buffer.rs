@@ -58,15 +58,16 @@ impl DepthBuffer {
         self.tile_covered.fill(0);
     }
 
-    /// Preserve per-pixel depths and tile min-depths from the previous frame,
-    /// resetting only coverage counters. Previous-frame Hi-Z data provides
-    /// conservative occlusion for the current frame's polygon emission.
-    /// Preserve Hi-Z tile data from the previous frame for early polygon
-    /// rejection, but clear per-pixel depths. Tile min-depths and coverage
-    /// counts carry forward as a conservative approximation.
+    /// Clear per-pixel depths and coverage counters but preserve
+    /// `tile_min_depth` from the previous frame. Carrying the min-depth
+    /// forward gives the current frame a conservative Hi-Z hint for early
+    /// polygon rejection. `tile_covered` MUST be reset because every new
+    /// pixel write counts as a fresh `old == -1.0` increment; leaving it
+    /// stale eventually overflows the u16 counter.
     pub fn soft_reset(&mut self) {
         self.depths.fill(-1.0);
         self.covered_pixels = 0;
+        self.tile_covered.fill(0);
     }
 
     pub fn resize(&mut self, width: usize, height: usize) {

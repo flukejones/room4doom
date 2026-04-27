@@ -38,6 +38,11 @@ const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
 pub const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
 
+/// Tolerance for snapping projected screen coords to exact viewport edges.
+/// The perspective divide reintroduces sub-pixel drift that the scanline
+/// fill rule rejects, leaving 1px gaps at screen edges.
+const SCREEN_EDGE_SNAP: f32 = 0.01;
+
 pub struct Rasterizer {
     pub(crate) screen_vertices_buffer: [Vec2; MAX_CLIPPED_VERTICES],
     pub(crate) tex_coords_buffer: [Vec2; MAX_CLIPPED_VERTICES],
@@ -103,7 +108,6 @@ impl Rasterizer {
         let vh_f32 = self.view_height as f32;
         let half_w = 0.5 * w_f32;
         let half_h = 0.5 * vh_f32;
-        const SNAP: f32 = 0.01;
 
         for i in 0..self.clipped_vertices_len {
             let clip_pos = self.clipped_vertices_buffer[i];
@@ -113,14 +117,14 @@ impl Rasterizer {
                 let inv_w = 1.0 / clip_pos.w;
                 let mut screen_x = (clip_pos.x + clip_pos.w) * half_w * inv_w;
                 let mut screen_y = (clip_pos.w - clip_pos.y) * half_h * inv_w;
-                if screen_x.abs() < SNAP {
+                if screen_x.abs() < SCREEN_EDGE_SNAP {
                     screen_x = 0.0;
-                } else if (screen_x - w_f32).abs() < SNAP {
+                } else if (screen_x - w_f32).abs() < SCREEN_EDGE_SNAP {
                     screen_x = w_f32;
                 }
-                if screen_y.abs() < SNAP {
+                if screen_y.abs() < SCREEN_EDGE_SNAP {
                     screen_y = 0.0;
-                } else if (screen_y - vh_f32).abs() < SNAP {
+                } else if (screen_y - vh_f32).abs() < SCREEN_EDGE_SNAP {
                     screen_y = vh_f32;
                 }
 

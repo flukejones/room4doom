@@ -18,7 +18,20 @@ pub(crate) mod scene;
 mod tests;
 pub mod voxel;
 
+use rasterizer::depth_buffer::SKY_DEPTH;
+use rasterizer::sampling::sample_sky_pixel;
 use rasterizer::{MAX_CLIPPED_VERTICES, Rasterizer};
+
+const NEAR_Z: f32 = 4.0;
+const FAR_Z: f32 = 10000.0;
+/// Maximum view pitch (radians). Prevents the look-direction from going fully
+/// vertical, which would degenerate the right-handed view basis.
+const MAX_PITCH: f32 = 89.0 * PI / 180.0;
+/// Tolerance for snapping projected screen coords to exact viewport edges.
+/// Frustum clipping puts vertices on boundary planes, but the perspective
+/// divide reintroduces sub-pixel drift; without snapping the scanline fill
+/// rule misses the boundary row/column and produces 1px gaps at screen edges.
+const SCREEN_EDGE_SNAP: f32 = 0.01;
 
 enum BBoxCull {
     Outside,
@@ -334,9 +347,6 @@ pub struct Software3D {
 
 impl Software3D {
     pub fn new(width: f32, height: f32, fov: f32, debug_draw: DebugDrawOptions) -> Self {
-        let near = 4.0;
-        let far = 10000.0;
-
         let mut s = Self {
             width: width as u32,
             height: height as u32,
@@ -348,8 +358,8 @@ impl Software3D {
             camera_pos: Vec3::ZERO,
             projection_matrix: Mat4::IDENTITY,
             rasterizer: Rasterizer::new(width as u32, height as u32),
-            near_z: near,
-            far_z: far,
+            near_z: NEAR_Z,
+            far_z: FAR_Z,
             vertex_cache: Vec::new(),
             current_frame_id: 0,
             seen_sectors: Vec::new(),
@@ -466,9 +476,6 @@ impl Software3D {
     /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
     /// sampled at screen coordinates.
     fn draw_sky_fill(&self, _pic_data: &PicData, buffer: &mut impl DrawBuffer) {
-        use crate::rasterizer::depth_buffer::SKY_DEPTH;
-        use crate::rasterizer::sampling::sample_sky_pixel;
-
         if self.sky.extended.is_empty() {
             return;
         }
@@ -498,7 +505,6 @@ impl Software3D {
     fn update_view_matrix(&mut self, view: &RenderView) {
         let pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
         let angle = view.angle.rad();
-        const MAX_PITCH: f32 = 89.0 * PI / 180.0;
         let pitch = view.lookdir.clamp(-MAX_PITCH, MAX_PITCH);
 
         let forward = Vec3::new(
@@ -558,44 +564,6 @@ impl Software3D {
 
             (cache_entry.view_pos, cache_entry.clip_pos)
         }
-    }
-
-    /// Check if 3D bounding box is fully outside the view frustum.
-    fn is_bbox_outside_fov(&self, bbox: &AABB) -> bool {
-        // Generate all 8 corners of the 3D bbox (camera-relative)
-        let view_projection = self.projection_matrix * self.view_matrix;
-        let cp = self.camera_pos;
-        let clip_corners = [
-            view_projection
-                * Vec4::new(bbox.min.x - cp.x, bbox.min.y - cp.y, bbox.min.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.max.x - cp.x, bbox.min.y - cp.y, bbox.min.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.max.x - cp.x, bbox.max.y - cp.y, bbox.min.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.min.x - cp.x, bbox.max.y - cp.y, bbox.min.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.min.x - cp.x, bbox.min.y - cp.y, bbox.max.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.max.x - cp.x, bbox.min.y - cp.y, bbox.max.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.max.x - cp.x, bbox.max.y - cp.y, bbox.max.z - cp.z, 1.0),
-            view_projection
-                * Vec4::new(bbox.min.x - cp.x, bbox.max.y - cp.y, bbox.max.z - cp.z, 1.0),
-        ];
-
-        // If bounding box is fully outside any frustum plane, cull immediately
-        if clip_corners.iter().all(|c| c.x < -c.w)
-            || clip_corners.iter().all(|c| c.x > c.w)
-            || clip_corners.iter().all(|c| c.y < -c.w)
-            || clip_corners.iter().all(|c| c.y > c.w)
-            || clip_corners.iter().all(|c| c.z < -c.w)
-            || clip_corners.iter().all(|c| c.z > c.w)
-        {
-            return true;
-        }
-
-        false
     }
 
     /// Frustum + Hi-Z AABB occlusion test for BSP node bounding boxes.
@@ -846,18 +814,15 @@ impl Software3D {
                 // Snap screen coordinates that are very close to screen boundaries
                 // to exact boundary values. Frustum clipping guarantees vertices lie
                 // on boundary planes, but the division by w during projection can
-                // reintroduce tiny FP drift (e.g. 0.0001). Without snapping, the
-                // scanline rasteriser's fill rule and ceil() rounding skip the
-                // boundary row/column, producing a 1px gap at screen edges.
-                const SNAP: f32 = 0.01;
-                if screen_x.abs() < SNAP {
+                // reintroduce tiny FP drift. See SCREEN_EDGE_SNAP doc.
+                if screen_x.abs() < SCREEN_EDGE_SNAP {
                     screen_x = 0.0;
-                } else if (screen_x - w_f32).abs() < SNAP {
+                } else if (screen_x - w_f32).abs() < SCREEN_EDGE_SNAP {
                     screen_x = w_f32;
                 }
-                if screen_y.abs() < SNAP {
+                if screen_y.abs() < SCREEN_EDGE_SNAP {
                     screen_y = 0.0;
-                } else if (screen_y - vh_f32).abs() < SNAP {
+                } else if (screen_y - vh_f32).abs() < SCREEN_EDGE_SNAP {
                     screen_y = vh_f32;
                 }
 
@@ -1282,8 +1247,13 @@ impl Software3D {
             let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
                 return;
             };
-            if self.is_bbox_outside_fov(&leaf.aabb) {
-                return;
+            match self.cull_bbox(&leaf.aabb) {
+                BBoxCull::Outside => return,
+                BBoxCull::Occluded => {
+                    self.stats.nodes_hiz_culled += 1;
+                    return;
+                }
+                BBoxCull::Visible => {}
             }
 
             // Mark all sectors in this leaf as visible for sprite/voxel

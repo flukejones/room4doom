@@ -15,6 +15,9 @@ const ORIGINAL_WIDTH: f32 = 320.0;
 const ORIGINAL_HEIGHT: f32 = 200.0;
 const ORIGINAL_HALF_WIDTH: f32 = ORIGINAL_WIDTH / 2.0; // 160.0
 const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
+/// Boost applied to weapon-light colourmap index over the proportional value
+/// so the held weapon stays slightly brighter than the surrounding sector.
+const WEAPON_LIGHT_BOOST: f32 = 3.0;
 /// Convert a distance/offset from Doom's 320-wide coordinate space to screen
 /// pixels. Uses height-based scaling (same as menu/title screens) so that the
 /// blit's CRT stretch produces correct proportions.
@@ -135,8 +138,7 @@ impl Software3D {
         // Scale weapon light with sector brightness, then add a couple of
         // steps so it's always slightly brighter than the proportional value.
         // brightness 0..15, colourmap index 0..47.
-        const EXTRA: f32 = 3.0;
-        let weapon_light_scale = ((brightness as f32 / 15.0) * 44.0 + EXTRA).min(47.0);
+        let weapon_light_scale = ((brightness as f32 / 15.0) * 44.0 + WEAPON_LIGHT_BOOST).min(47.0);
         let colourmap = if !is_shadow {
             Some(pic_data.base_colourmap(brightness, weapon_light_scale))
         } else {

@@ -1,5 +1,6 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
+use std::mem;
 
 use glam::Vec2;
 use level::{SurfaceKind, SurfacePolygon, WallType};
@@ -527,8 +528,8 @@ impl Software3D {
             return None;
         }
         if x0 > x1 {
-            std::mem::swap(&mut x0, &mut x1);
-            std::mem::swap(&mut inv_w_at_x0, &mut inv_w_at_x1);
+            mem::swap(&mut x0, &mut x1);
+            mem::swap(&mut inv_w_at_x0, &mut inv_w_at_x1);
         }
 
         let x_f = x0.max(0.0).ceil();

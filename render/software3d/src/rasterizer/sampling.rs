@@ -4,6 +4,11 @@ use pic_data::{FlatPic, PicData, WallPic};
 use crate::Software3D;
 use crate::scene::sky;
 
+/// Doom flat textures are always 64×64 (engine format invariant).
+const FLAT_DIM: usize = 64;
+const FLAT_MASK: usize = FLAT_DIM - 1;
+const FLAT_DIM_F32: f32 = FLAT_DIM as f32;
+
 /// Sample a single sky pixel from the combined u32 XRGB buffer, returning the
 /// colour or `None` for transparent (value = 0).
 ///
@@ -55,8 +60,6 @@ pub(crate) enum TextureSampler<'a> {
     },
     Horizontal {
         texture: &'a FlatPic,
-        width: f32,
-        height: f32,
     },
     Sky,
     Untextured,
@@ -98,11 +101,7 @@ impl<'a> TextureSampler<'a> {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.get_flat(*texture);
-                    TextureSampler::Horizontal {
-                        texture,
-                        width: texture.width as f32,
-                        height: texture.height as f32,
-                    }
+                    TextureSampler::Horizontal { texture }
                 }
             }
             SurfaceKind::Vertical {
@@ -141,14 +140,10 @@ impl<'a> TextureSampler<'a> {
                     let lit_color_index = *colourmap.get_unchecked(color_index);
                     *pic_data.palette().get_unchecked(lit_color_index)
                 }
-                TextureSampler::Horizontal {
-                    texture,
-                    width,
-                    height,
-                } => {
-                    let tex_x = ((u.abs() * width) as usize) & 63;
-                    let tex_y = ((v.abs() * height) as usize) & 63;
-                    let color_index = *texture.data.get_unchecked(tex_x * 64 + tex_y);
+                TextureSampler::Horizontal { texture } => {
+                    let tex_x = ((u.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
+                    let tex_y = ((v.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
+                    let color_index = *texture.data.get_unchecked(tex_x * FLAT_DIM + tex_y);
                     let lit_color_index = *colourmap.get_unchecked(color_index);
                     *pic_data.palette().get_unchecked(lit_color_index)
                 }
