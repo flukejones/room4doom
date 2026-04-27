@@ -3731,7 +3731,6 @@ dependencies = [
  "simplelog",
  "software3d",
  "sound-common",
- "sound-nosnd",
  "sound-rodio",
  "wad",
  "winit",
@@ -4142,15 +4141,6 @@ version = "1.0.0"
 dependencies = [
  "glam",
  "log",
-]
-
-[[package]]
-name = "sound-nosnd"
-version = "1.0.0"
-dependencies = [
- "log",
- "sound-common",
- "wad",
 ]
 
 [[package]]

@@ -178,8 +178,8 @@ fn run_winit(
     Ok(())
 }
 
-/// Initialise the rodio sound backend (SDL2 display path).
-#[cfg(all(feature = "sound-rodio", feature = "display-sdl2"))]
+/// Initialise the sound server (SDL2 display path).
+#[cfg(feature = "display-sdl2")]
 fn init_sound(
     _sdl_ctx: &sdl2::Sdl,
     wad: &WadData,
@@ -188,21 +188,8 @@ fn init_sound(
     init_sound_rodio(wad, config)
 }
 
-/// No sound backend selected (SDL2 display path).
-#[cfg(all(not(feature = "sound-rodio"), feature = "display-sdl2"))]
-fn init_sound(
-    _sdl_ctx: &sdl2::Sdl,
-    wad: &WadData,
-    _config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    init_nosnd()
-}
-
-/// Initialise sound without SDL2 context (winit path).
-#[cfg(all(
-    feature = "sound-rodio",
-    any(feature = "display-softbuffer", feature = "display-pixels")
-))]
+/// Initialise the sound server (winit display path).
+#[cfg(any(feature = "display-softbuffer", feature = "display-pixels"))]
 fn init_sound_no_sdl(
     wad: &WadData,
     config: &UserConfig,
@@ -210,20 +197,8 @@ fn init_sound_no_sdl(
     init_sound_rodio(wad, config)
 }
 
-#[cfg(all(
-    not(feature = "sound-rodio"),
-    any(feature = "display-softbuffer", feature = "display-pixels"),
-    not(feature = "display-sdl2")
-))]
-fn init_sound_no_sdl(
-    wad: &WadData,
-    _config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    init_nosnd()
-}
-
-/// Initialise the rodio sound backend.
-#[cfg(feature = "sound-rodio")]
+/// Spawn the rodio sound server thread. The server runs silently if no
+/// audio output device is available, so this never falls back to a stub.
 fn init_sound_rodio(
     wad: &WadData,
     config: &UserConfig,
@@ -243,26 +218,18 @@ fn init_sound_rodio(
             Some(gameplay::dirs::config_dir().join(&config.sf2_path))
         }
     };
-    match sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref()) {
-        Ok(mut s) => {
-            let tx = s.init().unwrap();
-            let thread = std::thread::spawn(move || while s.tic() {});
-            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
-            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
-            (tx, thread)
-        }
-        Err(e) => {
-            warn!("Could not set up rodio sound server: {e}");
-            init_nosnd()
-        }
-    }
-}
-
-/// Fallback: no-sound backend.
-fn init_nosnd() -> (SndServerTx, std::thread::JoinHandle<()>) {
-    let mut s = sound_nosnd::Snd::new().unwrap();
-    let tx = s.init().unwrap();
+    let mut s = sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref())
+        .expect("rodio sound server construction is infallible at runtime");
+    let tx = s
+        .init()
+        .expect("rodio init is infallible (silent fallback on missing device)");
     let thread = std::thread::spawn(move || while s.tic() {});
+    if let Err(e) = tx.send(SoundAction::SfxVolume(config.sfx_vol)) {
+        warn!("Failed to send initial sfx volume: {e}");
+    }
+    if let Err(e) = tx.send(SoundAction::MusicVolume(config.mus_vol)) {
+        warn!("Failed to send initial music volume: {e}");
+    }
     (tx, thread)
 }
 

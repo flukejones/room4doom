@@ -15,7 +15,6 @@ members = [
     "render/software3d",
     "tools/voxel-viewer",
     "sound/traits",
-    "sound/nosnd",
     "sound/rodio",
     "sound/opl2_emulator",
     "level",
@@ -51,7 +50,6 @@ doom-ui = { path = "./ui" }
 hud-util = { path = "./ui-util" }
 
 sound-common = { path = "./sound/traits" }
-sound-nosnd = { path = "./sound/nosnd" }
 sound-rodio = { path = "./sound/rodio" }
 opl2_emulator = { path = "./sound/opl2_emulator" }
 render-common = { path = "./render/common" }

@@ -190,11 +190,21 @@ impl Snd {
         })
     }
 
-    /// Create the audio output stream. Must be called on the sound thread
-    /// because the sink is `!Send`.
-    fn init_stream(&mut self) -> Result<(), SndError> {
-        let sink =
-            DeviceSinkBuilder::open_default_sink().map_err(|e| SndError::Init(e.to_string()))?;
+    /// Open the default audio output device and wire the mixer + music
+    /// sources into it. Must be called on the sound thread because the
+    /// sink is `!Send`. Failure (no device, busy device, unsupported
+    /// format) is logged and leaves `self.stream = None`; the server then
+    /// runs in silent mode — `tic` still drains the action channel and
+    /// internal state still tracks volume/listener/sources, so reconnect
+    /// or hot-swap could be added later without redesign.
+    fn init_stream(&mut self) {
+        let sink = match DeviceSinkBuilder::open_default_sink() {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("No audio output device available: {e}. Running silent.");
+                return;
+            }
+        };
 
         let mixer_source = SharedMixerSource {
             mixer: Arc::clone(&self.mixer),
@@ -217,7 +227,6 @@ impl Snd {
             "Audio output stream initialised (rodio/cpal, music: {:?})",
             self.music_type
         );
-        Ok(())
     }
 
     fn dist_scale(dist: f32) -> f32 {
@@ -269,7 +278,7 @@ impl Source for SharedMixerSource {
 
 impl SoundServer<SfxName, SndError> for Snd {
     fn init(&mut self) -> InitResult<SfxName, SndError> {
-        self.init_stream()?;
+        self.init_stream();
         Ok(self.tx.clone())
     }
 

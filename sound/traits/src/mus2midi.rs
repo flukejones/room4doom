@@ -498,9 +498,6 @@ mod tests {
 
     fn test_data_path(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("nosnd")
             .join("data")
             .join(name)
     }
