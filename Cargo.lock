@@ -3733,7 +3733,6 @@ dependencies = [
  "sound-common",
  "sound-nosnd",
  "sound-rodio",
- "sound-sdl2",
  "wad",
  "winit",
 ]
@@ -4163,19 +4162,6 @@ dependencies = [
  "rodio",
  "rustysynth",
  "sound-common",
- "wad",
-]
-
-[[package]]
-name = "sound-sdl2"
-version = "1.0.0"
-dependencies = [
- "log",
- "nanoserde",
- "opl2_emulator",
- "sdl2",
- "sound-common",
- "test-utils",
  "wad",
 ]
 

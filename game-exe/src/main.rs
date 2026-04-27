@@ -11,8 +11,6 @@ mod loop_winit;
 mod timestep;
 
 use cli::*;
-#[cfg(feature = "sound-sdl2")]
-use dirs::data_dir;
 use mimalloc::MiMalloc;
 use simplelog::TermLogger;
 use std::error::Error;
@@ -21,29 +19,14 @@ use std::path::{Path, PathBuf};
 use gamestate::{Game, prepare_wad};
 
 use crate::config::UserConfig;
+#[cfg(feature = "display-sdl2")]
+use log::info;
 use log::warn;
 use sound_common::{SndServerTx, SoundAction, SoundServer, SoundServerTic};
 use wad::WadData;
 
-#[cfg(feature = "sound-sdl2")]
-use config::MusicType;
 #[cfg(feature = "display-sdl2")]
 use config::WindowMode;
-#[cfg(feature = "sound-sdl2")]
-use dirs::cache_dir;
-#[cfg(feature = "sound-sdl2")]
-use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
-#[cfg(feature = "sound-sdl2")]
-use std::env::set_var;
-#[cfg(feature = "sound-sdl2")]
-use std::fs::File;
-#[cfg(feature = "sound-sdl2")]
-use std::io::Write;
-
-#[cfg(feature = "sound-sdl2")]
-const SOUND_DIR: &str = "room4doom/sound/";
-#[cfg(feature = "sound-sdl2")]
-const TIMIDITY_CFG: &str = "timidity.cfg";
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -195,44 +178,8 @@ fn run_winit(
     Ok(())
 }
 
-/// Initialise the SDL2 sound backend.
-#[cfg(all(feature = "sound-sdl2", feature = "display-sdl2"))]
-fn init_sound(
-    sdl_ctx: &sdl2::Sdl,
-    wad: &WadData,
-    config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    let snd_ctx = sdl_ctx.audio().expect("SDL2 audio init failed");
-    info!("Init SDL2 sound");
-
-    setup_timidity(config.music_type, config.gus_mem_size, wad);
-
-    let music_type = match config.music_type {
-        config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
-        config::MusicType::OPL2 | config::MusicType::GUS => sound_sdl2::MusicType::OPL2,
-    };
-
-    match sound_sdl2::Snd::new(snd_ctx, wad, music_type) {
-        Ok(mut s) => {
-            let tx = s.init().unwrap();
-            let thread = std::thread::spawn(move || while s.tic() {});
-            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
-            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
-            (tx, thread)
-        }
-        Err(e) => {
-            warn!("Could not set up SDL2 sound server: {e}");
-            init_nosnd()
-        }
-    }
-}
-
 /// Initialise the rodio sound backend (SDL2 display path).
-#[cfg(all(
-    feature = "sound-rodio",
-    not(feature = "sound-sdl2"),
-    feature = "display-sdl2"
-))]
+#[cfg(all(feature = "sound-rodio", feature = "display-sdl2"))]
 fn init_sound(
     _sdl_ctx: &sdl2::Sdl,
     wad: &WadData,
@@ -242,10 +189,7 @@ fn init_sound(
 }
 
 /// No sound backend selected (SDL2 display path).
-#[cfg(all(
-    not(any(feature = "sound-sdl2", feature = "sound-rodio")),
-    feature = "display-sdl2"
-))]
+#[cfg(all(not(feature = "sound-rodio"), feature = "display-sdl2"))]
 fn init_sound(
     _sdl_ctx: &sdl2::Sdl,
     wad: &WadData,
@@ -322,33 +266,3 @@ fn init_nosnd() -> (SndServerTx, std::thread::JoinHandle<()>) {
     (tx, thread)
 }
 
-#[cfg(feature = "sound-sdl2")]
-fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
-    if music_type == MusicType::FluidSynth {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "0") };
-        info!("Using fluidsynth for sound");
-        return;
-    }
-    if let Some(mut path) = data_dir() {
-        path.push(SOUND_DIR);
-        if path.exists() {
-            let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-            cache_dir.push(TIMIDITY_CFG);
-            if let Some(cfg) = make_timidity_cfg(wad, path, gus_mem) {
-                let mut file = File::create(cache_dir.as_path()).unwrap();
-                file.write_all(&cfg).unwrap();
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1") };
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { set_var("TIMIDITY_CFG", cache_dir.as_path()) };
-                info!("Using timidity for sound");
-            } else {
-                warn!("Sound fonts were missing, using fluidsynth instead");
-            }
-        } else {
-            info!("No sound fonts installed to {:?}", path);
-            info!("Using fluidsynth for sound");
-        }
-    }
-}
