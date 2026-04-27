@@ -427,11 +427,15 @@ impl ApplicationHandler for DoomApp {
                     if old.music_type != self.user_config.music_type {
                         let type_val = self.game.config_values
                             [gamestate_traits::ConfigKey::MusicType as usize];
-                        let _ = self
-                            .game
-                            .sound_cmd
-                            .send(sound_common::SoundAction::SetMusicType(type_val));
-                        self.game.replay_current_music();
+                        if let Ok(music_type) = sound_common::MusicType::try_from(type_val) {
+                            let _ = self
+                                .game
+                                .sound_cmd
+                                .send(sound_common::SoundAction::SetMusicType(music_type));
+                            self.game.replay_current_music();
+                        } else {
+                            log::warn!("Invalid MusicType config value: {type_val}");
+                        }
                     }
 
                     if old.mouse_sensitivity != self.user_config.mouse_sensitivity {

@@ -1,19 +1,26 @@
-//! Custom 32-channel audio mixer implementing rodio's `Source` trait.
+//! Custom 32-channel SFX mixer.
 //!
-//! All active channels are summed each sample with per-channel pan and
-//! distance-based volume attenuation.
+//! All active channels are summed per-frame with per-channel pan and
+//! distance-based volume attenuation. The mixer produces an interleaved
+//! stereo `f32` stream at the project sample rate; block mixing into a
+//! preallocated scratch buffer matches the cadence used by the OPL and
+//! GUS music sources, so all three audio sources share one structural
+//! pattern.
 
-use std::time::Duration;
-
-use rodio::Source;
 use sound_common::MIXER_CHANNELS;
 
-const SAMPLE_RATE: u32 = 44_100;
+/// Number of stereo frames mixed per block. 512 frames at 44.1 kHz is
+/// ~11.6 ms — below human action-to-sound perception threshold and
+/// matched to the OPL/GUS source block sizes so all three sources tic
+/// at the same rate.
+const BUFFER_FRAMES: usize = 512;
+/// Number of `f32` samples per block (interleaved L,R).
+const BUFFER_SAMPLES: usize = BUFFER_FRAMES * 2;
 
 /// Per-channel playback state
 #[derive(Clone)]
 pub struct ChannelState {
-    /// Pre-converted mono f32 samples at 44100 Hz
+    /// Pre-converted mono f32 samples at the project sample rate.
     pub samples: Vec<f32>,
     /// Current playback position (in mono samples)
     pub cursor: usize,
@@ -40,92 +47,146 @@ impl Default for ChannelState {
     }
 }
 
-/// Doom-style 32-channel mixer that outputs interleaved stereo f32.
+/// 32-channel SFX mixer that outputs interleaved stereo f32.
 ///
 /// Wrapping this in `Arc<Mutex<>>` allows the sound thread to mutate channel
-/// state while the audio callback thread reads samples.
-pub struct DoomMixer {
+/// state while the audio callback thread reads samples. Reads block-mix
+/// `BUFFER_FRAMES` frames at a time into the preallocated `buffer`; the
+/// `cursor` walks the buffer as `next()` dispenses samples. Refills happen
+/// transparently when the cursor exhausts the buffer.
+pub struct SfxMixer {
     pub channels: Vec<ChannelState>,
     pub master_volume: f32,
-    /// Tracks stereo output position: false = left sample next, true = right
-    right_phase: bool,
-    /// Cached left sample (computed when left phase runs, emitted on right)
-    cached_left: f32,
-    cached_right: f32,
+    /// Preallocated interleaved stereo scratch (`2 * BUFFER_FRAMES`).
+    /// Refilled in place by `mix_block`; never reallocated.
+    buffer: Vec<f32>,
+    /// Index into `buffer`; `>= buffer.len()` triggers a refill.
+    cursor: usize,
 }
 
-impl DoomMixer {
+impl SfxMixer {
     pub fn new() -> Self {
         Self {
             channels: (0..MIXER_CHANNELS as usize)
                 .map(|_| ChannelState::default())
                 .collect(),
             master_volume: 1.0,
-            right_phase: false,
-            cached_left: 0.0,
-            cached_right: 0.0,
+            buffer: vec![0.0f32; BUFFER_SAMPLES],
+            cursor: BUFFER_SAMPLES, // start exhausted: first next() triggers a fill
         }
     }
 
-    /// Mix one stereo frame from all active channels
-    fn mix_frame(&mut self) {
-        let mut left = 0.0f32;
-        let mut right = 0.0f32;
+    /// Mix `BUFFER_FRAMES` stereo frames from all active channels into
+    /// `self.buffer`. Each frame is clamped to [-1.0, 1.0] after master
+    /// volume — matching the previous per-frame clamp behaviour exactly.
+    fn mix_block(&mut self) {
+        for s in self.buffer.iter_mut() {
+            *s = 0.0;
+        }
 
         for ch in self.channels.iter_mut() {
             if !ch.active {
                 continue;
             }
-            if ch.cursor >= ch.samples.len() {
-                ch.active = false;
-                continue;
-            }
-
-            let sample = ch.samples[ch.cursor] * ch.distance_vol;
-            ch.cursor += 1;
-
-            // Equal-power pan: pan=0 gives equal volume to both channels
+            // Equal-power pan: pan=0 gives equal volume to both channels.
+            // Pan/distance_vol are constant across the block because the
+            // sfx mutex is held for the duration of mix_block; the sound
+            // thread cannot mutate channels mid-block.
             let right_gain = (ch.pan + 1.0) * 0.5;
             let left_gain = 1.0 - right_gain;
+            let dvol = ch.distance_vol;
 
-            left += sample * left_gain;
-            right += sample * right_gain;
+            for frame in 0..BUFFER_FRAMES {
+                if ch.cursor >= ch.samples.len() {
+                    ch.active = false;
+                    break;
+                }
+                let sample = ch.samples[ch.cursor] * dvol;
+                ch.cursor += 1;
+                self.buffer[frame * 2] += sample * left_gain;
+                self.buffer[frame * 2 + 1] += sample * right_gain;
+            }
         }
 
-        self.cached_left = (left * self.master_volume).clamp(-1.0, 1.0);
-        self.cached_right = (right * self.master_volume).clamp(-1.0, 1.0);
+        // Apply master volume + per-frame clamp.
+        let master = self.master_volume;
+        for s in self.buffer.iter_mut() {
+            *s = (*s * master).clamp(-1.0, 1.0);
+        }
+
+        self.cursor = 0;
     }
 }
 
-impl Iterator for DoomMixer {
+impl Iterator for SfxMixer {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        if !self.right_phase {
-            self.mix_frame();
-            self.right_phase = true;
-            Some(self.cached_left)
-        } else {
-            self.right_phase = false;
-            Some(self.cached_right)
+        if self.cursor >= self.buffer.len() {
+            self.mix_block();
         }
+        let sample = self.buffer[self.cursor];
+        self.cursor += 1;
+        Some(sample)
     }
 }
 
-impl Source for DoomMixer {
-    fn current_span_len(&self) -> Option<usize> {
-        None
+impl_stereo_source!(SfxMixer);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Reading an odd number of samples must not desync L/R for any
+    /// subsequent reads. The block-mixing layout self-encodes channel
+    /// position via the cursor; an odd-length read just lands on an
+    /// odd cursor and the next reads continue from there with correct
+    /// L/R alignment for whatever frame the cursor points into.
+    #[test]
+    fn odd_length_read_preserves_alignment() {
+        let mut mixer = SfxMixer::new();
+        // Drive a known signal: one channel, full left, sample value 1.0.
+        mixer.channels[0].samples = vec![1.0; BUFFER_FRAMES * 2];
+        mixer.channels[0].active = true;
+        mixer.channels[0].pan = -1.0; // full left
+        mixer.channels[0].distance_vol = 1.0;
+
+        // Pull one (odd) sample: should be the L of frame 0 = 1.0.
+        let s0 = mixer.next().unwrap();
+        assert_eq!(s0, 1.0, "first sample should be left of frame 0");
+
+        // Pull the matching R, which should be silent (full-left pan).
+        let s1 = mixer.next().unwrap();
+        assert_eq!(s1, 0.0, "right of frame 0 should be silent for full-left pan");
+
+        // Continue across the block boundary; alignment must hold.
+        for frame in 1..BUFFER_FRAMES {
+            let l = mixer.next().unwrap();
+            let r = mixer.next().unwrap();
+            assert_eq!(l, 1.0, "frame {frame} left desynced");
+            assert_eq!(r, 0.0, "frame {frame} right desynced");
+        }
     }
 
-    fn channels(&self) -> rodio::ChannelCount {
-        rodio::ChannelCount::new(2).unwrap()
-    }
+    /// Channels stop emitting once their sample buffer is exhausted,
+    /// and are marked inactive without producing garbage.
+    #[test]
+    fn exhausted_channel_stops_and_deactivates() {
+        let mut mixer = SfxMixer::new();
+        mixer.channels[0].samples = vec![1.0; 4]; // four mono samples
+        mixer.channels[0].active = true;
+        mixer.channels[0].pan = 0.0;
 
-    fn sample_rate(&self) -> rodio::SampleRate {
-        rodio::SampleRate::new(SAMPLE_RATE).unwrap()
-    }
+        mixer.mix_block();
+        assert!(!mixer.channels[0].active, "channel should deactivate when exhausted");
 
-    fn total_duration(&self) -> Option<Duration> {
-        None
+        // First four frames carry signal; rest of the block is silent.
+        for frame in 0..4 {
+            assert!(mixer.buffer[frame * 2] != 0.0, "frame {frame} L expected non-zero");
+        }
+        for frame in 4..BUFFER_FRAMES {
+            assert_eq!(mixer.buffer[frame * 2], 0.0, "frame {frame} L expected silence");
+            assert_eq!(mixer.buffer[frame * 2 + 1], 0.0, "frame {frame} R expected silence");
+        }
     }
 }

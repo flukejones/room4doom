@@ -12,7 +12,7 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut", "sound-rodio", "display-pixels"]
+default = ["trig_lut", "display-pixels"]
 
 hprof = ["render-backend/hprof", "gameplay/hprof"]
 render_stats = ["render-backend/render_stats"]
@@ -20,9 +20,6 @@ render_stats = ["render-backend/render_stats"]
 fixed64 = ["math/fixed64", "gameplay/fixed64"]
 fixed64hd = ["math/fixed64hd", "gameplay/fixed64hd"]
 trig_lut = ["render-backend/trig_lut", "math/trig_lut"]
-
-sound-sdl2 = ["dep:sound-sdl2", "dep:sdl2"]
-sound-rodio = ["dep:sound-rodio"]
 
 display-sdl2 = ["render-backend/display-sdl2", "input/input-sdl2", "dep:sdl2"]
 display-softbuffer = ["render-backend/display-softbuffer", "input/input-winit", "dep:winit"]
@@ -47,9 +44,7 @@ glam.workspace = true
 hud-util.workspace = true
 
 sound-common.workspace = true
-sound-sdl2 = { workspace = true, optional = true }
-sound-rodio = { workspace = true, optional = true }
-sound-nosnd.workspace = true
+sound-rodio.workspace = true
 render-common.workspace = true
 render-backend.workspace = true
 software3d.workspace = true
