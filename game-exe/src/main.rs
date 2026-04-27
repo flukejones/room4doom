@@ -204,9 +204,9 @@ fn init_sound_rodio(
     config: &UserConfig,
 ) -> (SndServerTx, std::thread::JoinHandle<()>) {
     let music_type = match config.music_type {
-        config::MusicType::GUS => sound_rodio::MusicType::GUS,
-        config::MusicType::OPL3 => sound_rodio::MusicType::OPL3,
-        _ => sound_rodio::MusicType::OPL2,
+        config::MusicType::GUS => sound_common::MusicType::GUS,
+        config::MusicType::OPL3 => sound_common::MusicType::OPL3,
+        config::MusicType::OPL2 => sound_common::MusicType::OPL2,
     };
     let sf2_path = if config.sf2_path.is_empty() {
         None

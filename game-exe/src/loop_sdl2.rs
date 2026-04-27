@@ -171,10 +171,14 @@ pub fn d_doom_loop_sdl2(
 
             if old.music_type != user_config.music_type {
                 let type_val = game.config_values[gamestate_traits::ConfigKey::MusicType as usize];
-                let _ = game
-                    .sound_cmd
-                    .send(sound_common::SoundAction::SetMusicType(type_val));
-                game.replay_current_music();
+                if let Ok(music_type) = sound_common::MusicType::try_from(type_val) {
+                    let _ = game
+                        .sound_cmd
+                        .send(sound_common::SoundAction::SetMusicType(music_type));
+                    game.replay_current_music();
+                } else {
+                    log::warn!("Invalid MusicType config value: {type_val}");
+                }
             }
 
             if old.mouse_sensitivity != user_config.mouse_sensitivity {

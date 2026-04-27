@@ -3,12 +3,7 @@
 //! All active channels are summed each sample with per-channel pan and
 //! distance-based volume attenuation.
 
-use std::time::Duration;
-
-use rodio::Source;
 use sound_common::MIXER_CHANNELS;
-
-const SAMPLE_RATE: u32 = 44_100;
 
 /// Per-channel playback state
 #[derive(Clone)]
@@ -112,20 +107,4 @@ impl Iterator for DoomMixer {
     }
 }
 
-impl Source for DoomMixer {
-    fn current_span_len(&self) -> Option<usize> {
-        None
-    }
-
-    fn channels(&self) -> rodio::ChannelCount {
-        rodio::ChannelCount::new(2).unwrap()
-    }
-
-    fn sample_rate(&self) -> rodio::SampleRate {
-        rodio::SampleRate::new(SAMPLE_RATE).unwrap()
-    }
-
-    fn total_duration(&self) -> Option<Duration> {
-        None
-    }
-}
+impl_stereo_source!(DoomMixer);
