@@ -6,7 +6,7 @@
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use log::{debug, info, warn};
 use opl2_emulator::OplPlayerState;
@@ -19,11 +19,6 @@ use wad::WadData;
 /// Channel poll timeout per `tic`. Short enough that shutdown latency is
 /// human-imperceptible, long enough that the sound thread doesn't busy-spin.
 const TIC_POLL_TIMEOUT: Duration = Duration::from_micros(500);
-/// How often `tic` re-tries opening an audio device while in silent mode.
-/// Sink construction is heavyweight (allocates audio buffers, talks to OS),
-/// so a coarse retry interval keeps overhead negligible while still
-/// reacting within human-perceptible latency to a hot-plugged device.
-const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 
 #[macro_use]
 mod source_format;
@@ -106,10 +101,6 @@ pub(crate) struct Snd {
     gus_state: Option<Arc<Mutex<GusPlayerState>>>,
     music_type: MusicType,
     stream: Option<StreamState>,
-    /// Last time `tic` attempted to (re)open the audio device while running
-    /// silent. `None` until the first attempt; throttles retries to
-    /// `RECONNECT_INTERVAL`.
-    last_reconnect_attempt: Option<Instant>,
     chunks: Vec<SfxChunk>,
     listener: SoundObject<SfxName>,
     sources: [SoundObject<SfxName>; MIXER_CHANNELS as usize],
@@ -267,37 +258,31 @@ impl Snd {
             gus_state: config.gus_state,
             music_type: config.music_type,
             stream: None,
-            last_reconnect_attempt: None,
             chunks: config.chunks,
             listener: SoundObject::default(),
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
             sfx_vol: 64,
             mus_vol: 64,
         };
-        snd.init_stream(true);
+        snd.init_stream();
         snd
     }
 
     /// Open the default audio output device and wire the mixer + music
-    /// sources into it. Called by `start` on construction, and again
-    /// periodically by `try_reconnect_silent` while running silent.
+    /// sources into it. Called once by `start` on construction.
     ///
     /// On failure (no device, busy device, unsupported format)
-    /// `self.stream` stays `None` and the server runs in silent mode —
-    /// `tic` still drains the action channel and internal state still
-    /// tracks volume/listener/sources.
-    ///
-    /// `is_initial` controls log noise: the first attempt warns loudly
-    /// on failure; retries log at debug level to avoid spamming.
-    fn init_stream(&mut self, is_initial: bool) {
+    /// `self.stream` stays `None` and the server runs in silent mode for
+    /// the lifetime of this run — `tic` still drains the action channel
+    /// and internal state still tracks volume/listener/sources, so a
+    /// future event-driven reconnect (see TODO.md "Sound") can resume
+    /// playback without restart. The user must restart the engine to
+    /// pick up a new audio device until that lands.
+    fn init_stream(&mut self) {
         let sink = match DeviceSinkBuilder::open_default_sink() {
             Ok(s) => s,
             Err(e) => {
-                if is_initial {
-                    warn!("No audio output device available: {e}. Running silent.");
-                } else {
-                    debug!("Audio device still unavailable: {e}");
-                }
+                warn!("No audio output device available: {e}. Running silent.");
                 return;
             }
         };
@@ -319,31 +304,10 @@ impl Snd {
         self.stream = Some(StreamState {
             _sink: sink,
         });
-        if is_initial {
-            info!(
-                "Audio output stream initialised (rodio/cpal, music: {:?})",
-                self.music_type
-            );
-        } else {
-            info!("Audio output device became available — resuming sound");
-        }
-    }
-
-    /// If the server is in silent mode, try once to (re)open the audio
-    /// device — but no more often than `RECONNECT_INTERVAL`. Cheap when
-    /// the throttle hasn't elapsed (just an `Instant` compare).
-    fn try_reconnect_silent(&mut self) {
-        if self.stream.is_some() {
-            return;
-        }
-        let now = Instant::now();
-        if let Some(last) = self.last_reconnect_attempt {
-            if now.duration_since(last) < RECONNECT_INTERVAL {
-                return;
-            }
-        }
-        self.last_reconnect_attempt = Some(now);
-        self.init_stream(false);
+        info!(
+            "Audio output stream initialised (rodio/cpal, music: {:?})",
+            self.music_type
+        );
     }
 
     fn dist_scale(dist: f32) -> f32 {
@@ -384,12 +348,7 @@ impl Snd {
     /// Drain at most one queued `SoundAction` from the producer channel
     /// and dispatch it. Returns `false` only on `Shutdown`, signalling
     /// the sound thread loop to exit.
-    ///
-    /// Each tic also invokes `try_reconnect_silent`; this is a no-op
-    /// unless the server is currently silent and the retry throttle has
-    /// elapsed, so the cost is negligible in the common case.
     fn tic(&mut self) -> bool {
-        self.try_reconnect_silent();
         let Ok(sound) = self.rx.recv_timeout(TIC_POLL_TIMEOUT) else {
             return true;
         };

@@ -77,15 +77,17 @@
 - [ ] TRANMAP test file — need a BOOM WAD with translucency map lump
 - [ ] UDMF test file — need a TEXTMAP lump for parser development
 
+## Sound
+
+- [ ] Event-driven device reconnect (replace `try_reconnect_silent` polling).
+      Requires upstream PRs: cpal to expose its existing macOS
+      `AudioObjectAddPropertyListener` (already private in
+      `host/coreaudio/macos/property_listener.rs`) and add an
+      `IMMNotificationClient` impl on Windows; rodio to surface the
+      cpal API. Then sound-rodio can wait on the event channel
+      instead of timer-polling.
+
 ## Graphics
 
 - [ ] OpenGL renderer
 - [ ] Vulkan renderer
-
-
-#3 — Drop `unsafe impl Send for Snd` by constructing `Snd` on the sound thread
-#4 — `DoomMixer` left/right phase toggle desync hazard
-
-sound Try-reconnect should really be event driven. Such as system event detects sound device change.
-
-What would this require?
