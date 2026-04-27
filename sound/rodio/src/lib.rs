@@ -5,6 +5,7 @@
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use log::{debug, info, warn};
@@ -44,16 +45,62 @@ struct SfxChunk {
     priority: i32,
 }
 
-/// Deferred stream initialization data returned by `Snd::new`, created on the
-/// sound thread via `init_stream`.
+/// Holds the live cpal output handle for the duration of the server's
+/// run. Dropping `StreamState` closes the audio stream. `MixerDeviceSink`
+/// is `!Send`, which is what makes `Snd` itself `!Send`.
 struct StreamState {
     _sink: MixerDeviceSink,
 }
 
-/// Pure-Rust sound server using rodio
-pub struct Snd {
+/// `Send`-able sound server configuration. Carries everything needed to
+/// build a [`Snd`] *except* the audio output sink, which is opened later
+/// on the sound thread itself (the sink is `!Send`).
+///
+/// All sfx and music asset loading happens here on the caller's thread,
+/// so the audio thread never blocks on file I/O during startup.
+pub struct SndConfig {
+    chunks: Vec<SfxChunk>,
+    opl_state: Arc<Mutex<OplPlayerState>>,
+    gus_state: Option<Arc<Mutex<GusPlayerState>>>,
+    music_type: MusicType,
+}
+
+impl SndConfig {
+    /// Build the configuration from a WAD and user-supplied options.
+    /// Loads all sfx lumps, constructs the OPL synthesizer state, and
+    /// (optionally) loads the GUS SoundFont. All failures degrade
+    /// gracefully — a missing/malformed sfx becomes silent, a failed
+    /// SF2 falls back to OPL music.
+    pub fn from_wad(
+        wad: &WadData,
+        music_type: MusicType,
+        sf2_path: Option<&std::path::Path>,
+    ) -> Self {
+        let chunks = load_sfx_chunks(wad);
+        let opl_state = Arc::new(Mutex::new(OplPlayerState::new(SAMPLE_RATE, wad)));
+        // Always try to load the SF2 so GUS is available for runtime switching.
+        let gus_state = load_gus_state(sf2_path);
+        let active_type = resolve_music_type(music_type, gus_state.is_some());
+        Self {
+            chunks,
+            opl_state,
+            gus_state,
+            music_type: active_type,
+        }
+    }
+}
+
+/// Pure-Rust sound server using rodio.
+///
+/// `Snd` is `!Send` because `StreamState` holds a `MixerDeviceSink` that
+/// owns a cpal device handle; cpal's portability story does not promise
+/// device handles can cross threads on every platform. The server is
+/// constructed and consumed entirely on the sound thread via [`spawn`]
+/// — see that function for the construction flow. The type is
+/// `pub(crate)` because the only external-facing entry points are
+/// [`SndConfig::from_wad`] and [`spawn`].
+pub(crate) struct Snd {
     rx: SndServerRx,
-    tx: SndServerTx,
     mixer: Arc<Mutex<SfxMixer>>,
     opl_state: Arc<Mutex<OplPlayerState>>,
     gus_state: Option<Arc<Mutex<GusPlayerState>>>,
@@ -69,8 +116,6 @@ pub struct Snd {
     sfx_vol: i32,
     mus_vol: i32,
 }
-
-unsafe impl Send for Snd {}
 
 /// Acquire `mutex`, run `f` on its guard, and log a warning if the lock
 /// is poisoned. Returns `f`'s result on success, `None` on poison.
@@ -187,49 +232,60 @@ fn resolve_music_type(requested: MusicType, gus_loaded: bool) -> MusicType {
     }
 }
 
+/// Spawn the rodio sound server on a dedicated thread.
+///
+/// Returns the `Sender` end of the action channel (for the caller to
+/// push `SoundAction`s) and a `JoinHandle` for the spawned thread. The
+/// server runs until it receives `SoundAction::Shutdown` or the
+/// `Sender` is dropped (channel closes).
+///
+/// Construction of `Snd` itself — including opening the cpal audio
+/// device and wiring the music sources into the rodio sink — happens
+/// entirely on the spawned thread. This keeps the `!Send`
+/// `MixerDeviceSink` from ever crossing a thread boundary, eliminating
+/// the previous `unsafe impl Send for Snd` overpromise.
+pub fn spawn(config: SndConfig) -> (SndServerTx, JoinHandle<()>) {
+    let (tx, rx) = channel();
+    let handle = thread::spawn(move || {
+        let mut snd = Snd::start(config, rx);
+        while snd.tic() {}
+    });
+    (tx, handle)
+}
+
 impl Snd {
-    /// Construct the rodio sound server. Infallible — sfx and SF2 load
-    /// failures are logged and degrade to silent assets. The audio
-    /// output device is opened later in `init()` and may also fall back
-    /// to silent mode without erroring.
-    pub fn new(
-        wad: &WadData,
-        music_type: MusicType,
-        sf2_path: Option<&std::path::Path>,
-    ) -> Self {
-        let chunks = load_sfx_chunks(wad);
-        let opl_state = Arc::new(Mutex::new(OplPlayerState::new(SAMPLE_RATE, wad)));
-        // Always try to load the SF2 so GUS is available for runtime switching
-        let gus_state = load_gus_state(sf2_path);
-        let active_type = resolve_music_type(music_type, gus_state.is_some());
-
-        let (tx, rx) = channel();
+    /// Construct the server on the sound thread and open the audio
+    /// output stream. Private — the only call site is `spawn`. Building
+    /// `Snd` directly is not exposed because the sink is `!Send` and we
+    /// want to enforce thread-locality at the API boundary.
+    fn start(config: SndConfig, rx: SndServerRx) -> Self {
         let mixer = Arc::new(Mutex::new(SfxMixer::new()));
-
-        Self {
+        let mut snd = Self {
             rx,
-            tx,
             mixer,
-            opl_state,
-            gus_state,
-            music_type: active_type,
+            opl_state: config.opl_state,
+            gus_state: config.gus_state,
+            music_type: config.music_type,
             stream: None,
             last_reconnect_attempt: None,
-            chunks,
+            chunks: config.chunks,
             listener: SoundObject::default(),
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
             sfx_vol: 64,
             mus_vol: 64,
-        }
+        };
+        snd.init_stream(true);
+        snd
     }
 
     /// Open the default audio output device and wire the mixer + music
-    /// sources into it. Must be called on the sound thread because the
-    /// sink is `!Send`. On failure (no device, busy device, unsupported
-    /// format) `self.stream` stays `None`; the server then runs in
-    /// silent mode — `tic` still drains the action channel and internal
-    /// state still tracks volume/listener/sources, and `tic` periodically
-    /// retries via `try_reconnect_silent`.
+    /// sources into it. Called by `start` on construction, and again
+    /// periodically by `try_reconnect_silent` while running silent.
+    ///
+    /// On failure (no device, busy device, unsupported format)
+    /// `self.stream` stays `None` and the server runs in silent mode —
+    /// `tic` still drains the action channel and internal state still
+    /// tracks volume/listener/sources.
     ///
     /// `is_initial` controls log noise: the first attempt warns loudly
     /// on failure; retries log at debug level to avoid spamming.
@@ -325,14 +381,6 @@ impl Iterator for SfxMixerSource {
 impl_stereo_source!(SfxMixerSource);
 
 impl Snd {
-    /// Initialise the audio output stream and return the sender side of
-    /// the action channel. Infallible — falls back to silent mode
-    /// internally if no audio device is available.
-    pub fn init(&mut self) -> SndServerTx {
-        self.init_stream(true);
-        self.tx.clone()
-    }
-
     /// Drain at most one queued `SoundAction` from the producer channel
     /// and dispatch it. Returns `false` only on `Shutdown`, signalling
     /// the sound thread loop to exit.
@@ -340,7 +388,7 @@ impl Snd {
     /// Each tic also invokes `try_reconnect_silent`; this is a no-op
     /// unless the server is currently silent and the retry throttle has
     /// elapsed, so the cost is negligible in the common case.
-    pub fn tic(&mut self) -> bool {
+    fn tic(&mut self) -> bool {
         self.try_reconnect_silent();
         let Ok(sound) = self.rx.recv_timeout(TIC_POLL_TIMEOUT) else {
             return true;

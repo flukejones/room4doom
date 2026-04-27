@@ -197,7 +197,11 @@ fn init_sound_no_sdl(
     init_sound_rodio(wad, config)
 }
 
-/// Spawn the rodio sound server thread. The server runs silently if no
+/// Spawn the rodio sound server thread. Asset loading happens here on
+/// the calling thread (so the spawned thread doesn't block on file I/O),
+/// then `sound_rodio::spawn` constructs the server and audio sink
+/// entirely on the new thread — keeping the `!Send` cpal handle from
+/// ever crossing a thread boundary. The server runs silently if no
 /// audio output device is available, so this never falls back to a stub.
 fn init_sound_rodio(
     wad: &WadData,
@@ -218,9 +222,8 @@ fn init_sound_rodio(
             Some(gameplay::dirs::config_dir().join(&config.sf2_path))
         }
     };
-    let mut s = sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref());
-    let tx = s.init();
-    let thread = std::thread::spawn(move || while s.tic() {});
+    let snd_config = sound_rodio::SndConfig::from_wad(wad, music_type, sf2_path.as_deref());
+    let (tx, thread) = sound_rodio::spawn(snd_config);
     if let Err(e) = tx.send(SoundAction::SfxVolume(config.sfx_vol)) {
         warn!("Failed to send initial sfx volume: {e}");
     }
