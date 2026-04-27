@@ -3,8 +3,6 @@
 //! Replaces SDL2_mixer for SFX playback. Music support (OPL/rustysynth)
 //! is handled by separate source modules added to the same output stream.
 
-use std::error::Error;
-use std::fmt::{self, Display};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -13,7 +11,7 @@ use log::{debug, info, warn};
 use opl2_emulator::OplPlayerState;
 use rodio::{DeviceSinkBuilder, MixerDeviceSink, Source};
 use sound_common::{
-    InitResult, MAX_DIST, MIXER_CHANNELS, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundAction, SoundObject, dist_from_points, listener_to_source_angle_deg
+    MAX_DIST, MIXER_CHANNELS, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundAction, SoundObject, dist_from_points, listener_to_source_angle_deg
 };
 use wad::WadData;
 
@@ -71,21 +69,6 @@ pub struct Snd {
 
 unsafe impl Send for Snd {}
 
-#[derive(Debug)]
-pub enum SndError {
-    Init(String),
-}
-
-impl Display for SndError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SndError::Init(msg) => write!(f, "Sound init error: {msg}"),
-        }
-    }
-}
-
-impl Error for SndError {}
-
 /// Convert a WAD SFX lump (8-bit unsigned PCM) to f32 mono at 44100 Hz
 fn lump_sfx_to_f32(raw_lump: &[u8]) -> Option<Vec<f32>> {
     if raw_lump.len() < 8 {
@@ -127,11 +110,15 @@ fn lump_sfx_to_f32(raw_lump: &[u8]) -> Option<Vec<f32>> {
 }
 
 impl Snd {
+    /// Construct the rodio sound server. Infallible — sfx and SF2 load
+    /// failures are logged and degrade to silent assets. The audio
+    /// output device is opened later in `init()` and may also fall back
+    /// to silent mode without erroring.
     pub fn new(
         wad: &WadData,
         music_type: MusicType,
         sf2_path: Option<&std::path::Path>,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Self {
         let chunks: Vec<SfxChunk> = SFX_INFO_BASE
             .iter()
             .map(|s| {
@@ -179,7 +166,7 @@ impl Snd {
         let (tx, rx) = channel();
         let mixer = Arc::new(Mutex::new(DoomMixer::new()));
 
-        Ok(Self {
+        Self {
             rx,
             tx,
             mixer,
@@ -192,7 +179,7 @@ impl Snd {
             sources: [SoundObject::default(); MIXER_CHANNELS as usize],
             sfx_vol: 64,
             mus_vol: 64,
-        })
+        }
     }
 
     /// Open the default audio output device and wire the mixer + music
@@ -283,12 +270,11 @@ impl Source for SharedMixerSource {
 
 impl Snd {
     /// Initialise the audio output stream and return the sender side of
-    /// the action channel. Infallible at runtime — the rodio backend
-    /// always succeeds, falling back to silent mode internally if no
-    /// audio device is available.
-    pub fn init(&mut self) -> InitResult<SfxName, SndError> {
+    /// the action channel. Infallible — falls back to silent mode
+    /// internally if no audio device is available.
+    pub fn init(&mut self) -> SndServerTx {
         self.init_stream();
-        Ok(self.tx.clone())
+        self.tx.clone()
     }
 
     /// Drain at most one queued `SoundAction` from the producer channel

@@ -218,11 +218,8 @@ fn init_sound_rodio(
             Some(gameplay::dirs::config_dir().join(&config.sf2_path))
         }
     };
-    let mut s = sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref())
-        .expect("rodio sound server construction is infallible at runtime");
-    let tx = s
-        .init()
-        .expect("rodio init is infallible (silent fallback on missing device)");
+    let mut s = sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref());
+    let tx = s.init();
     let thread = std::thread::spawn(move || while s.tic() {});
     if let Err(e) = tx.send(SoundAction::SfxVolume(config.sfx_vol)) {
         warn!("Failed to send initial sfx volume: {e}");

@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::sync::mpsc::{Receiver, Sender};
 
 mod sounds;
@@ -12,20 +11,15 @@ pub use mus2midi::read_mus_to_midi;
 pub mod spatial;
 pub use spatial::*;
 
-/// Result returned by a sound backend's `init()`. The `Ok` arm carries
-/// the sender side of the action channel; the caller broadcasts
-/// `SoundAction` messages through it from gameplay/gamestate threads.
-pub type InitResult<S, E> = Result<Sender<SoundAction<S>>, E>;
-
-pub type SndServerTx = Sender<SoundAction<SfxName>>;
-pub type SndServerRx = Receiver<SoundAction<SfxName>>;
+pub type SndServerTx = Sender<SoundAction>;
+pub type SndServerRx = Receiver<SoundAction>;
 
 /// Cross-thread message protocol between gameplay/gamestate (producers)
 /// and the sound backend's tic loop (consumer).
-pub enum SoundAction<S: Debug + Copy> {
+pub enum SoundAction {
     StartSfx {
         uid: usize,
-        sfx: S,
+        sfx: SfxName,
         x: f32,
         y: f32,
     },
