@@ -28,7 +28,7 @@ const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 mod source_format;
 
 mod mixer;
-use mixer::{ChannelState, DoomMixer};
+use mixer::{ChannelState, SfxMixer};
 
 mod opl_source;
 use opl_source::OplSource;
@@ -54,7 +54,7 @@ struct StreamState {
 pub struct Snd {
     rx: SndServerRx,
     tx: SndServerTx,
-    mixer: Arc<Mutex<DoomMixer>>,
+    mixer: Arc<Mutex<SfxMixer>>,
     opl_state: Arc<Mutex<OplPlayerState>>,
     gus_state: Option<Arc<Mutex<GusPlayerState>>>,
     music_type: MusicType,
@@ -204,7 +204,7 @@ impl Snd {
         let active_type = resolve_music_type(music_type, gus_state.is_some());
 
         let (tx, rx) = channel();
-        let mixer = Arc::new(Mutex::new(DoomMixer::new()));
+        let mixer = Arc::new(Mutex::new(SfxMixer::new()));
 
         Self {
             rx,
@@ -246,7 +246,7 @@ impl Snd {
             }
         };
 
-        let mixer_source = SharedMixerSource {
+        let mixer_source = SfxMixerSource {
             mixer: Arc::clone(&self.mixer),
         };
         sink.mixer().add(mixer_source);
@@ -302,12 +302,17 @@ impl Snd {
     }
 }
 
-/// Wrapper that reads from the shared mixer behind an `Arc<Mutex<>>`
-struct SharedMixerSource {
-    mixer: Arc<Mutex<DoomMixer>>,
+/// rodio `Source` adapter that pulls from the shared `SfxMixer`.
+///
+/// The mixer lives behind `Arc<Mutex<>>` because the audio callback
+/// thread (this `next()`) and the sound thread (sound-action handlers)
+/// both need access; this struct exists so rodio's `Source` trait sees
+/// a `!Mutex` type while internally we synchronise on each pull.
+struct SfxMixerSource {
+    mixer: Arc<Mutex<SfxMixer>>,
 }
 
-impl Iterator for SharedMixerSource {
+impl Iterator for SfxMixerSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
@@ -317,7 +322,7 @@ impl Iterator for SharedMixerSource {
     }
 }
 
-impl_stereo_source!(SharedMixerSource);
+impl_stereo_source!(SfxMixerSource);
 
 impl Snd {
     /// Initialise the audio output stream and return the sender side of
