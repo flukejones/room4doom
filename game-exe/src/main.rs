@@ -22,7 +22,7 @@ use crate::config::UserConfig;
 #[cfg(feature = "display-sdl2")]
 use log::info;
 use log::warn;
-use sound_common::{SndServerTx, SoundAction, SoundServer, SoundServerTic};
+use sound_common::{SndServerTx, SoundAction};
 use wad::WadData;
 
 #[cfg(feature = "display-sdl2")]

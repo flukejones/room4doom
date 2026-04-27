@@ -7,14 +7,19 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use log::{debug, info, warn};
 use opl2_emulator::OplPlayerState;
 use rodio::{DeviceSinkBuilder, MixerDeviceSink, Source};
 use sound_common::{
-    InitResult, MAX_DIST, MIXER_CHANNELS, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundObject, SoundServer, SoundServerTic, dist_from_points, listener_to_source_angle_deg
+    InitResult, MAX_DIST, MIXER_CHANNELS, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundAction, SoundObject, dist_from_points, listener_to_source_angle_deg
 };
 use wad::WadData;
+
+/// Channel poll timeout per `tic`. Short enough that shutdown latency is
+/// human-imperceptible, long enough that the sound thread doesn't busy-spin.
+const TIC_POLL_TIMEOUT: Duration = Duration::from_micros(500);
 
 mod mixer;
 use mixer::{ChannelState, DoomMixer};
@@ -276,10 +281,54 @@ impl Source for SharedMixerSource {
     }
 }
 
-impl SoundServer<SfxName, SndError> for Snd {
-    fn init(&mut self) -> InitResult<SfxName, SndError> {
+impl Snd {
+    /// Initialise the audio output stream and return the sender side of
+    /// the action channel. Infallible at runtime — the rodio backend
+    /// always succeeds, falling back to silent mode internally if no
+    /// audio device is available.
+    pub fn init(&mut self) -> InitResult<SfxName, SndError> {
         self.init_stream();
         Ok(self.tx.clone())
+    }
+
+    /// Drain at most one queued `SoundAction` from the producer channel
+    /// and dispatch it. Returns `false` only on `Shutdown`, signalling
+    /// the sound thread loop to exit.
+    pub fn tic(&mut self) -> bool {
+        let Ok(sound) = self.rx.recv_timeout(TIC_POLL_TIMEOUT) else {
+            return true;
+        };
+        match sound {
+            SoundAction::StartSfx {
+                uid,
+                sfx,
+                x,
+                y,
+            } => self.start_sound(uid, sfx, x, y),
+            SoundAction::UpdateListener {
+                uid,
+                x,
+                y,
+                angle,
+            } => self.update_listener(uid, x, y, angle),
+            SoundAction::StopSfx {
+                uid,
+            } => self.stop_sound(uid),
+            SoundAction::StopSfxAll => self.stop_sound_all(),
+            SoundAction::StartMusic(data, looping) => self.start_music(data, looping),
+            SoundAction::PauseMusic => self.pause_music(),
+            SoundAction::ResumeMusic => self.resume_music(),
+            SoundAction::ChangeMusic(data, looping) => self.change_music(data, looping),
+            SoundAction::StopMusic => self.stop_music(),
+            SoundAction::SetMusicType(t) => self.set_music_type(t),
+            SoundAction::SfxVolume(v) => self.set_sfx_volume(v),
+            SoundAction::MusicVolume(v) => self.set_mus_volume(v),
+            SoundAction::Shutdown => {
+                self.shutdown_sound();
+                return false;
+            }
+        }
+        true
     }
 
     fn start_sound(&mut self, uid: usize, sfx: SfxName, mut x: f32, mut y: f32) {
@@ -428,10 +477,6 @@ impl SoundServer<SfxName, SndError> for Snd {
         }
     }
 
-    fn get_sfx_volume(&mut self) -> i32 {
-        self.sfx_vol
-    }
-
     fn start_music(&mut self, data: Vec<u8>, looping: bool) {
         if data.is_empty() {
             return;
@@ -539,16 +584,6 @@ impl SoundServer<SfxName, SndError> for Snd {
         };
     }
 
-    fn get_mus_volume(&mut self) -> i32 {
-        self.mus_vol
-    }
-
-    fn update_self(&mut self) {}
-
-    fn get_rx(&mut self) -> &mut SndServerRx {
-        &mut self.rx
-    }
-
     fn shutdown_sound(&mut self) {
         info!("Shutdown sound server (rodio)");
         self.stop_sound_all();
@@ -556,5 +591,3 @@ impl SoundServer<SfxName, SndError> for Snd {
         self.stream.take();
     }
 }
-
-impl SoundServerTic<SfxName, SndError> for Snd {}
